@@ -2188,7 +2188,7 @@ mod tests {
     }
 
     #[test]
-    fn run_entry_can_reach_codec_decode_function() {
+    fn run_entry_keeps_schema_decode_expression_in_entry_function() {
         let project = Project {
             root: ".".into(),
             files: vec![SourceFile::new(
@@ -2199,16 +2199,8 @@ mod tests {
                     "  length: UInt8\n",
                     "end\n",
                     "\n",
-                    "codec PacketCodec for PacketWire decode\n",
-                    "  decode with decode_packet\n",
-                    "end\n",
-                    "\n",
-                    "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-                    "  NeedMore(NeedEnd)\n",
-                    "end\n",
-                    "\n",
                     "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-                    "  PacketCodec(view, base)\n",
+                    "  decode PacketWire from view at base\n",
                     "end\n",
                 ),
             )],
@@ -2232,15 +2224,12 @@ mod tests {
 
         assert_eq!(
             functions,
-            vec![
-                (Some("main"), FunctionKind::Function, Some("decode_packet")),
-                (Some("main"), FunctionKind::Function, Some("main")),
-            ]
+            vec![(Some("main"), FunctionKind::Function, Some("main"))]
         );
     }
 
     #[test]
-    fn run_entry_can_reach_codec_encode_function() {
+    fn run_entry_keeps_schema_encode_expression_in_entry_function() {
         let project = Project {
             root: ".".into(),
             files: vec![SourceFile::new(
@@ -2251,16 +2240,8 @@ mod tests {
                     "  length: UInt8\n",
                     "end\n",
                     "\n",
-                    "codec PacketCodec for PacketWire encode\n",
-                    "  encode with encode_packet\n",
-                    "end\n",
-                    "\n",
-                    "fn encode_packet(packet: {length: Int}) -> EncodeStep<String>\n",
-                    "  Encoded(list_nil())\n",
-                    "end\n",
-                    "\n",
-                    "pub fn main(packet: {length: Int}) -> EncodeStep<String>\n",
-                    "  PacketCodec(packet)\n",
+                    "pub fn main(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+                    "  encode PacketWire from packet\n",
                     "end\n",
                 ),
             )],
@@ -2284,10 +2265,7 @@ mod tests {
 
         assert_eq!(
             functions,
-            vec![
-                (Some("main"), FunctionKind::Function, Some("encode_packet")),
-                (Some("main"), FunctionKind::Function, Some("main")),
-            ]
+            vec![(Some("main"), FunctionKind::Function, Some("main"))]
         );
     }
 

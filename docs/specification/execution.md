@@ -63,7 +63,7 @@ enough.
   their declared values and are omitted from the input record like compatible
   `ReservedBits(width, value)` fields.
 - Projection between a schema-local record and a domain value is ordinary Veln
-  source at the caller or codec boundary. The checked schema-local projection
+  source at the caller or schema-operation boundary. The checked schema-local projection
   case is
   `examples/specification/run/binary-schema-local-projection-boundary/`.
 - Schema-level `map to` clauses are rejected by the parser before execution.
@@ -72,14 +72,11 @@ enough.
 
 ## Codecs
 
-- `derive decode` and `derive encode` use the generated schema helpers over
-  the schema-local visible record shape.
-- Hand-written codec clauses call ordinary source functions. When a public
-  domain type differs from the schema-local record, the projection belongs in
-  those ordinary functions.
-- Codec declarations still check schema references, direction declarations,
-  helper availability, function signatures, import visibility, and command JSON
-  output using the existing codec diagnostics.
+- Source-level `codec` and `pub codec` declarations are rejected before
+  execution. Executable decode and encode entry points are ordinary functions
+  or explicit schema operation expressions.
+- Compatibility-only runtime diagnostic ids under `codec.*` remain part of
+  runtime diagnostic vocabulary where existing runtime values use them.
 
 ## Runtime Output
 

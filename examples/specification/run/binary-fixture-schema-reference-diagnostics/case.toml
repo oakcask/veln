@@ -2,7 +2,7 @@ command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
 exit = 0
 
 [manifest_error]
-contains = ["unresolved binary_fixture 0 schema reference `MissingPacket`", "binary_fixture 1 schema reference `wire::PrivatePacket` is private", "binary_fixture 2 schema reference `wire::make_packet` is a function, not a schema", "binary_fixture 3 schema reference `wire::PacketShape` is a type, not a schema", "binary_fixture 4 schema reference `wire::PacketCodec` is a codec, not a schema", "unresolved binary_fixture 5 schema reference `wire::byte_decode_public_packet`", "unresolved binary_fixture 6 schema reference `other::PublicPacket`", "binary_fixture 7 `field_path` first segment must name schema `PublicPacket`"]
+contains = ["unresolved binary_fixture 0 schema reference `MissingPacket`", "binary_fixture 1 schema reference `wire::PrivatePacket` is private", "binary_fixture 2 schema reference `wire::make_packet` is a function, not a schema", "binary_fixture 3 schema reference `wire::PacketShape` is a type, not a schema", "unresolved binary_fixture 4 schema reference `wire::PacketCodec`", "unresolved binary_fixture 5 schema reference `wire::byte_decode_public_packet`", "unresolved binary_fixture 6 schema reference `other::PublicPacket`", "binary_fixture 7 `field_path` first segment must name schema `PublicPacket`"]
 
 [[binary_fixture]]
 name = "missing-schema"

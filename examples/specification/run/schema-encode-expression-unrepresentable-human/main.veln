@@ -1,0 +1,9 @@
+schema SubByteWrite
+	format binary
+
+	control: UInt3
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	encode SubByteWrite from {control: 8}
+end

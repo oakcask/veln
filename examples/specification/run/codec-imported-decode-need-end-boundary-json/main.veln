@@ -1,8 +1,8 @@
-# Imported hand-written codec NeedEnd readiness populates JSON diagnostics.
+# Imported ordinary decode function NeedEnd readiness populates JSON diagnostics.
 use wire
 
 pub fn main() -> DecodeStep<{marker: Int}>
 	let bytes: ByteChunk = byte_chunk_from_hex("")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(0)?)?
-	wire::ManualNeedEndCodec(view, byte_offset(17)?)
+	wire::decode_waiting_for_end(view, byte_offset(17)?)
 end

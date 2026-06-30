@@ -1,4 +1,4 @@
-# Derived codec calls preserve generated flag-bitset helper behavior.
+# Explicit schema operations preserve generated flag-bitset helper behavior.
 use stdio
 
 schema FlagControlPacket
@@ -8,10 +8,6 @@ schema FlagControlPacket
 	window: Flag16le
 end
 
-codec FlagControlCodec for FlagControlPacket decode encode
-	derive decode
-	derive encode
-end
 
 fn flag8_bits(flags: Flag8) -> Int
 	match flags
@@ -125,23 +121,30 @@ fn error_reason(step: EncodeStep<()>) -> String
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("283412")?
 	let full_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
-	let decoded: DecodeStep<{marker: Flag8, window: Flag16le}> = FlagControlCodec(full_view, byte_offset(12)?)
+	let decoded: DecodeStep<{marker: Flag8, window: Flag16le}> = decode FlagControlPacket from full_view at byte_offset(12)?
 	stdio::println(decode_step_kind(decoded))
 	stdio::println(int_to_string(marker_bits(decoded)))
 	stdio::println(int_to_string(window_bits(decoded)))
 	stdio::println(int_to_string(consumed_count(decoded)))
 
 	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
-	let waiting: DecodeStep<{marker: Flag8, window: Flag16le}> = FlagControlCodec(short_view, byte_offset(12)?)
+	let waiting: DecodeStep<{marker: Flag8, window: Flag16le}> = decode FlagControlPacket from short_view at byte_offset(12)?
 	stdio::println(decode_step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let encoded: EncodeStep<()> = FlagControlCodec({marker: Flag8(40), window: Flag16le(4660)})
+	let encoded: EncodeStep<()> = encode_result_step(encode FlagControlPacket from {marker: Flag8(40), window: Flag16le(4660)})
 	stdio::println(encode_step_kind(encoded))
 	let encoded_output: () = match encoded
 		Encoded(Cons(chunk, Nil)) => emit_one_chunk("derived-codec-flag", chunk, "283412")
@@ -150,7 +153,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 		Invalid(_) => stdio::println("unexpected encode failure")
 	end
 
-	let invalid: EncodeStep<()> = FlagControlCodec({marker: Flag8(40), window: Flag16le(65536)})
+	let invalid: EncodeStep<()> = encode_result_step(encode FlagControlPacket from {marker: Flag8(40), window: Flag16le(65536)})
 	stdio::println(encode_step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

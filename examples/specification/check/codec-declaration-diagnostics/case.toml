@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"parse.codec_empty_directions\"", "\"id\":\"parse.codec_duplicate_direction\"", "\"id\":\"parse.codec_unknown_direction\"", "\"id\":\"parse.codec_missing_implementation\"", "\"id\":\"parse.codec_unlisted_implementation\"", "\"id\":\"parse.codec_duplicate_implementation\""]
+contains = ["\"id\":\"parse.codec_declaration_removed\"", "codec declarations are no longer accepted", "\"parser_context\":\"codec_declaration\""]
 
 [stderr]
 format = "empty"
@@ -11,3 +11,11 @@ format = "empty"
 [[json_assert]]
 path = "status"
 equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.codec_declaration_removed"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "codec declarations are no longer accepted; use ordinary functions plus explicit schema decode and encode expressions"

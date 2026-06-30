@@ -111,10 +111,10 @@ requiring the full command reference on the first read.
   also include local byte offset, expected and available byte counts, and a
   bounded nearby-byte preview when available; `run --json` carries the same
   context as `details.byte_diagnostic.local_byte_offset`, `expected_count`,
-  `available_count`, and `byte_preview`. The same projection applies when a
-  hand-written `decode with` codec boundary returns a codec-owned
-  `Invalid(DecodeError(...))` or `Invalid(DecodeErrorWithReason(...))`
-  result. Plain source-visible reasons preserve the codec-owned id and reason
+  `available_count`, and `byte_preview`. The same projection applies when an
+  ordinary decode function returns a codec-owned `Invalid(DecodeError(...))`
+  or `Invalid(DecodeErrorWithReason(...))` result. Plain source-visible
+  reasons preserve the codec-owned id and reason
   without helper-only related notes unless registered byte-helper context is
   present; direct `Result<_, DecodeError>` failures preserve codec-owned ids
   such as `codec.packet_kind_invalid` through the same focused human

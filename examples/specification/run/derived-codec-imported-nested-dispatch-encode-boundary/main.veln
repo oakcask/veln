@@ -1,4 +1,4 @@
-# Derived codec encode calls can use imported nested dispatch helpers.
+# Explicit schema encode expressions can use imported nested dispatch helpers.
 use stdio
 use wire
 
@@ -9,9 +9,6 @@ schema ImportedClosedNestedPacket
 	payload: Dispatch(kind, 1 => wire::SettingsPayload)
 end
 
-codec ImportedClosedNestedCodec for ImportedClosedNestedPacket encode
-	derive encode
-end
 
 fn chunk_count(chunks: List<ByteChunk>) -> Int
 	match chunks
@@ -76,12 +73,19 @@ fn emit_encoded(name: String, step: EncodeStep<()>, expected_hex: String) -> () 
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> () effects [stdio]
-	let encoded: EncodeStep<()> = ImportedClosedNestedCodec({kind: 1, payload: {code: 7, value: 4660}})
+	let encoded: EncodeStep<()> = encode_result_step(encode ImportedClosedNestedPacket from {kind: 1, payload: {code: 7, value: 4660}})
 	stdio::println(step_kind(encoded))
 	emit_encoded("derived-imported-closed-nested", encoded, "01071234")
 
-	let invalid: EncodeStep<()> = ImportedClosedNestedCodec({kind: 2, payload: {code: 7, value: 4660}})
+	let invalid: EncodeStep<()> = encode_result_step(encode ImportedClosedNestedPacket from {kind: 2, payload: {code: 7, value: 4660}})
 	stdio::println(step_kind(invalid))
 	stdio::println(error_id(invalid))
 	stdio::println(error_path(invalid))

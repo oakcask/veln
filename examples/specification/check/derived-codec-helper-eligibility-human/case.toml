@@ -1,9 +1,0 @@
-command = ["check", "main.veln"]
-exit = 1
-
-[stdout]
-format = "text"
-contains = ["error[codec.derive_helper_unsupported]: derived decode is not available for this schema", "note: main.veln:1:1: Schema `UnsupportedRecordHeader` is declared here and is outside the generated decode helper slice.", "note: `derive decode` requires the named schema to expose the generated `byte_decode_step_unsupported_record_header` helper."]
-
-[stderr]
-format = "empty"

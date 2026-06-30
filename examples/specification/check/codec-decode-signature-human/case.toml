@@ -1,9 +1,0 @@
-command = ["check", "main.veln"]
-exit = 1
-
-[stdout]
-format = "text"
-contains = ["error[codec.decode_signature]: decode function must return `DecodeStep<T>`", "note: main.veln:11:1: Referenced function `wrong_return` is declared here."]
-
-[stderr]
-format = "empty"

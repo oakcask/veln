@@ -1,13 +1,13 @@
-command = ["fmt", "main.veln"]
-repeat = 2
-exit = 0
+command = ["check", "--json", "main.veln"]
+exit = 1
 
 [stdout]
-format = "empty"
+format = "json"
+contains = ["\"id\":\"parse.codec_declaration_removed\"", "codec declarations are no longer accepted"]
 
 [stderr]
 format = "empty"
 
-[[file_assert]]
-path = "main.veln"
-equals = "pub codec HeaderRoundTrip for Header decode encode\n\tdecode with decode_header\n\tderive encode\nend\n"
+[[json_assert]]
+path = "status"
+equals = "error"

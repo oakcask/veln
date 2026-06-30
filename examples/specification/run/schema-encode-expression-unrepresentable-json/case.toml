@@ -33,3 +33,7 @@ equals = "SubByteWrite.control"
 [[json_assert]]
 path = "error.details.value_diagnostic.reason"
 equals = "value must be between 0 and 7"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "EncodeError(codec.encode_value_unrepresentable, SubByteWrite.control, value must be between 0 and 7)"

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["unresolved call_target `wire::PacketCodec`"]
+contains = ["schema decode expression schema `wire::PacketWire` is private"]
 
 [stderr]
 format = "empty"

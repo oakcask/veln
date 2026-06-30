@@ -1,4 +1,4 @@
-# Derived codec decode boundaries support middle reserved binary layouts.
+# Explicit schema decode expressions support middle reserved binary layouts.
 use stdio
 
 schema MiddleReservedHeader
@@ -9,9 +9,6 @@ schema MiddleReservedHeader
 	low: UInt3
 end
 
-codec MiddleReservedCodec for MiddleReservedHeader decode
-	derive decode
-end
 
 fn step_kind(step: DecodeStep<{high: Int, low: Int}>) -> String
 	match step
@@ -93,7 +90,7 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let complete_bytes: ByteChunk = byte_chunk_from_hex("00ae")?
 	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(1)?, byte_count(1)?)?
-	let complete: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(complete_view, byte_offset(32)?)
+	let complete: DecodeStep<{high: Int, low: Int}> = decode MiddleReservedHeader from complete_view at byte_offset(32)?
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_high(complete)))
 	stdio::println(int_to_string(decoded_low(complete)))
@@ -101,7 +98,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let short_bytes: ByteChunk = byte_chunk_from_hex("ff")?
 	let short_view: ByteView = byte_view(short_bytes, byte_offset(1)?, byte_count(0)?)?
-	let waiting: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(short_view, byte_offset(64)?)
+	let waiting: DecodeStep<{high: Int, low: Int}> = decode MiddleReservedHeader from short_view at byte_offset(64)?
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
@@ -109,7 +106,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let invalid_bytes: ByteChunk = byte_chunk_from_hex("00be")?
 	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(1)?, byte_count(1)?)?
-	let invalid: DecodeStep<{high: Int, low: Int}> = MiddleReservedCodec(invalid_view, byte_offset(96)?)
+	let invalid: DecodeStep<{high: Int, low: Int}> = decode MiddleReservedHeader from invalid_view at byte_offset(96)?
 	stdio::println(step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
 	stdio::println(error_id(invalid))

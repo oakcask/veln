@@ -442,8 +442,8 @@ When a `veln run` entry returns a source-visible
 - `byte_preview`: a structured bounded byte preview object for helper context
   carried by the reason when present
 
-This shape also covers codec-owned invalid-input facts returned by a
-hand-written `decode with` codec boundary, such as `codec.invalid_input` and
+This shape also covers codec-owned invalid-input facts returned by an
+ordinary decode function, such as `codec.invalid_input` and
 `codec.packet_kind_invalid`, and direct `Result<_, DecodeError>` failures
 that carry those codec-owned ids. A plain `DecodeErrorWithReason` reason is
 kept only as `reason`; helper-only fields are omitted unless the reason
@@ -493,9 +493,9 @@ direct result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-tag-mismatch-direct-json/` and
 `examples/specification/run/codec-tag-mismatch-step-json/`.
 
-The checked `codec.consumed_count_invalid` command-facing slice comes from a
-hand-written `decode with` codec boundary whose returned `Decoded` consumed
-count is outside the supplied `ByteView`. It uses the same
+The checked `codec.consumed_count_invalid` command-facing slice comes from an
+ordinary decode function whose returned `Decoded` consumed count is outside
+the supplied `ByteView`. It uses the same
 `DecodeStep::Invalid(DecodeError(...))` JSON shape and does not set
 `readiness`, because the supplied bytes already prove the consumed-count fact
 false.

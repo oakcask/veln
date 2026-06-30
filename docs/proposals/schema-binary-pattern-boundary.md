@@ -223,17 +223,20 @@ specified under `../specification/source-surface.md`, with executable coverage
 under `../../examples/specification/run/schema-decode-expression/` and
 `../../examples/specification/run/schema-encode-expression/`. Direct
 decode-step executable examples now apply schemas through explicit decode
-expressions. Remaining migration work is:
+expressions. The source-level `codec` declaration removal slice is
+implemented and archived under
+`../reference/implemented-proposals/remove-source-codec-declarations.md`.
+Current parser and source-surface fixtures reject `codec` and `pub codec`
+declarations with a migration diagnostic that points to ordinary functions
+plus explicit schema decode and encode expressions. Former codec examples
+that describe current source behavior now use ordinary functions or explicit
+schema operations. Remaining migration work is:
 
-1. Rewrite encode examples to use ordinary projection functions plus explicit
-   schema encode expressions.
-2. Remove source-visible generated helper names from documentation and public
+1. Remove source-visible generated helper names from documentation and public
    examples, leaving only compatibility and diagnostic coverage while accepted.
-3. Remove parser, formatter, AST, lowering, semantic, editor-token, and
-   documentation support for top-level `codec` declarations.
-4. Reclassify representation-local `codec.*` diagnostics as schema-owned
+2. Reclassify representation-local `codec.*` diagnostics as schema-owned
    diagnostics.
-5. Archive implemented codec proposal records as historical implementation
+3. Archive implemented codec proposal records as historical implementation
    records, not current design direction.
 
 During migration, compatibility shims may remain inside the compiler or
@@ -269,6 +272,4 @@ runtime, but source examples should stop teaching generated helper names and
   not source-visible generated helper names.
 - HTTP/2 Sans-I/O examples decode frame headers and payloads by applying
   schema patterns inside ordinary state-transition functions.
-- Parser and semantic diagnostics reject `codec` declarations with a focused
-  migration message.
 - Representation-local failures use schema-owned diagnostic ids.

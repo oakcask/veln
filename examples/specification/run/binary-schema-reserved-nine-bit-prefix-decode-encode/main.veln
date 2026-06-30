@@ -7,10 +7,6 @@ schema ReservedNineBitPrefixHeader
 	control: UInt8
 end
 
-codec ReservedNineBitPrefixCodec for ReservedNineBitPrefixHeader decode encode
-	derive decode
-	derive encode
-end
 
 fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
@@ -162,6 +158,13 @@ fn emit_derived_encoded(name: String, step: EncodeStep<()>, expected_hex: String
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("002a")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
@@ -171,13 +174,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_reserved_nine_bit_prefix_header({control: 171})
 	let ignored: () = emit_direct_encoded(direct_encoded)?
 
-	let derived_decoded: DecodeStep<{control: Int}> = ReservedNineBitPrefixCodec(view, byte_offset(32)?)
+	let derived_decoded: DecodeStep<{control: Int}> = decode ReservedNineBitPrefixHeader from view at byte_offset(32)?
 	stdio::println(decode_step_kind(derived_decoded))
 	stdio::println(int_to_string(decoded_control(derived_decoded)))
 	stdio::println(int_to_string(consumed_count(derived_decoded)))
 
 	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
-	let waiting: DecodeStep<{control: Int}> = ReservedNineBitPrefixCodec(short_view, byte_offset(36)?)
+	let waiting: DecodeStep<{control: Int}> = decode ReservedNineBitPrefixHeader from short_view at byte_offset(36)?
 	stdio::println(decode_step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
@@ -185,18 +188,18 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let invalid_bytes: ByteChunk = byte_chunk_from_hex("012a")?
 	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(2)?)?
-	let invalid: DecodeStep<{control: Int}> = ReservedNineBitPrefixCodec(invalid_view, byte_offset(40)?)
+	let invalid: DecodeStep<{control: Int}> = decode ReservedNineBitPrefixHeader from invalid_view at byte_offset(40)?
 	stdio::println(decode_step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
 	stdio::println(decode_error_id(invalid))
 	stdio::println(int_to_string(decode_error_offset(invalid)))
 	stdio::println(decode_error_path(invalid))
 
-	let derived_encoded: EncodeStep<()> = ReservedNineBitPrefixCodec({control: 171})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode ReservedNineBitPrefixHeader from {control: 171})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("reserved-nine-bit-prefix", derived_encoded, "00ab")
 
-	let rejected: EncodeStep<()> = ReservedNineBitPrefixCodec({control: 256})
+	let rejected: EncodeStep<()> = encode_result_step(encode ReservedNineBitPrefixHeader from {control: 256})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))

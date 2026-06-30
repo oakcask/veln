@@ -24,13 +24,7 @@ schema ExtensionSubtractivePacket
 	payload: ExtensionDispatch(kind, length, 1 => SubtractivePayload)
 end
 
-codec ClosedSubtractiveCodec for ClosedSubtractivePacket decode
-	derive decode
-end
 
-codec ExtensionSubtractiveCodec for ExtensionSubtractivePacket decode
-	derive decode
-end
 
 fn emit_payload(prefix: String, payload: {left_length: Int, right_length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
 	stdio::print(prefix)
@@ -105,13 +99,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(closed_consumed_count(stepped)))
 
-	let closed_codec: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}> = ClosedSubtractiveCodec(closed_view, byte_offset(17)?)
+	let closed_codec: DecodeStep<{kind: Int, payload: {left_length: Int, right_length: Int, payload: ByteView}}> = decode ClosedSubtractivePacket from closed_view at byte_offset(17)?
 	stdio::print("codec-closed ")
 	stdio::print(closed_step_kind(closed_codec))
 	stdio::print(" ")
 	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
 
-	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}> = ExtensionSubtractiveCodec(extension_view, byte_offset(23)?)
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{left_length: Int, right_length: Int, payload: ByteView}>}> = decode ExtensionSubtractivePacket from extension_view at byte_offset(23)?
 	stdio::print("codec-extension ")
 	stdio::print(extension_step_kind(extension_codec))
 	stdio::print(" ")

@@ -14,13 +14,7 @@ schema PackedVisibleSixByteHeader
 	route: UInt7
 end
 
-codec PackedVisibleSixByteDecodeCodec for PackedVisibleSixByteHeader decode
-	derive decode
-end
 
-codec PackedVisibleSixByteEncodeCodec for PackedVisibleSixByteHeader encode
-	derive encode
-end
 
 fn step_kind(step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}>) -> String
 	match step
@@ -144,6 +138,13 @@ fn emit_derived_encoded(step: EncodeStep<()>) -> () effects [stdio]
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("abcdef123456")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
@@ -169,7 +170,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_route(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}> = PackedVisibleSixByteDecodeCodec(view, byte_offset(25)?)
+	let codec_step: DecodeStep<{high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int}> = decode PackedVisibleSixByteHeader from view at byte_offset(25)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_high(codec_step)))
 	stdio::println(int_to_string(decoded_upper(codec_step)))
@@ -184,7 +185,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_six_byte_header({high: 2, upper: 87, middle: 9, lower: 94, tail: 120, flag: 72, code: 104, route: 86})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = PackedVisibleSixByteEncodeCodec({high: 2, upper: 87, middle: 9, lower: 94, tail: 120, flag: 72, code: 104, route: 86})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleSixByteHeader from {high: 2, upper: 87, middle: 9, lower: 94, tail: 120, flag: 72, code: 104, route: 86})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

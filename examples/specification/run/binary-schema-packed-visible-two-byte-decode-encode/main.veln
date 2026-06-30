@@ -10,13 +10,7 @@ schema PackedVisibleTwoByteHeader
 	tail: UInt4
 end
 
-codec PackedVisibleTwoByteDecodeCodec for PackedVisibleTwoByteHeader decode
-	derive decode
-end
 
-codec PackedVisibleTwoByteEncodeCodec for PackedVisibleTwoByteHeader encode
-	derive encode
-end
 
 fn step_kind(step: DecodeStep<{high: Int, middle: Int, low: Int, tail: Int}>) -> String
 	match step
@@ -108,6 +102,13 @@ fn emit_derived_encoded(step: EncodeStep<()>) -> () effects [stdio]
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("abcd")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
@@ -125,7 +126,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_tail(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let codec_step: DecodeStep<{high: Int, middle: Int, low: Int, tail: Int}> = PackedVisibleTwoByteDecodeCodec(view, byte_offset(24)?)
+	let codec_step: DecodeStep<{high: Int, middle: Int, low: Int, tail: Int}> = decode PackedVisibleTwoByteHeader from view at byte_offset(24)?
 	stdio::println(step_kind(codec_step))
 	stdio::println(int_to_string(decoded_high(codec_step)))
 	stdio::println(int_to_string(decoded_middle(codec_step)))
@@ -136,7 +137,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_two_byte_header({high: 10, middle: 23, low: 4, tail: 13})
 	emit_direct_encoded(direct_encoded)
 
-	let derived_encoded: EncodeStep<()> = PackedVisibleTwoByteEncodeCodec({high: 10, middle: 23, low: 4, tail: 13})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode PackedVisibleTwoByteHeader from {high: 10, middle: 23, low: 4, tail: 13})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded(derived_encoded)
 	Ok(())

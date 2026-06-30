@@ -16,6 +16,11 @@ ordinary source code outside the schema body.
 Schema-level mapping clauses are rejected by the parser and are not part of
 the implemented grammar.
 
+Top-level `codec` and `pub codec` declarations are rejected by the parser and
+are not part of the implemented grammar. Source code uses ordinary functions
+plus explicit schema `decode` and `encode` expressions for executable decode
+and encode entry points.
+
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 and `flag...` primitive spelling in the same positions as compatible
 upper-case exact-width primitive payload spelling. They also accept
@@ -34,7 +39,6 @@ ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
 IntLiteral    ::= ASCII decimal digit+
 Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
-                  | CodecDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
@@ -53,12 +57,6 @@ CountExpr ::= Name | Name ("-" | "+" | "*" | "/") Name
 SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
 ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
 SchemaValidation ::= "validate" ContractPredicate NL
-CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
-                  CodecImplementation* "end" NL?
-CodecDirections ::= CodecDirection+
-CodecDirection ::= "decode" | "encode"
-CodecImplementation ::= "derive" CodecDirection NL
-                  | CodecDirection "with" Name NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
@@ -80,8 +78,7 @@ ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode
-                  | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr

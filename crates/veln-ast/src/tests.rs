@@ -299,41 +299,33 @@ fn lowers_schema_declarations_as_distinct_module_items() {
 }
 
 #[test]
-fn lowers_codec_declarations_as_distinct_module_items() {
+fn lowers_schema_operations_without_codec_items() {
     let module = lower_source(concat!(
-        "pub codec Http2FrameHeaderCodec for Http2FrameHeader decode encode\n",
-        "  derive decode\n",
-        "  encode with encode_header\n",
+        "schema Http2FrameHeader\n",
+        "  format binary\n",
+        "  length: UInt8\n",
+        "end\n",
+        "\n",
+        "pub fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+        "  decode Http2FrameHeader from view at base\n",
+        "end\n",
+        "\n",
+        "pub fn encode_header(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+        "  encode Http2FrameHeader from packet\n",
         "end\n",
     ));
 
-    assert!(module.functions.is_empty());
     assert!(module.types.is_empty());
-    assert!(module.schemas.is_empty());
-    assert_eq!(module.codecs.len(), 1);
-    let codec = &module.codecs[0];
-    assert_eq!(codec.node_id.display("codec"), "codec-1");
-    assert_eq!(codec.visibility, Visibility::Public);
-    assert_eq!(codec.name.as_deref(), Some("Http2FrameHeaderCodec"));
-    assert_eq!(codec.schema.as_deref(), Some("Http2FrameHeader"));
-    assert_eq!(
-        codec.directions,
-        vec![CodecDirection::Decode, CodecDirection::Encode]
-    );
-    assert_eq!(codec.implementations.len(), 2);
-    assert_eq!(
-        codec.implementations[0].node_id.display("codec_impl"),
-        "codec_impl-2"
-    );
-    assert_eq!(codec.implementations[0].direction, CodecDirection::Decode);
+    assert_eq!(module.schemas.len(), 1);
+    assert_eq!(module.functions.len(), 2);
+    assert!(module.codecs.is_empty());
     assert!(matches!(
-        codec.implementations[0].kind,
-        CodecImplementationKind::Derive
+        &expr_line(&module.functions[0], 0).kind,
+        ExprKind::SchemaDecode { schema, .. } if schema == &vec!["Http2FrameHeader".to_string()]
     ));
-    assert_eq!(codec.implementations[1].direction, CodecDirection::Encode);
     assert!(matches!(
-        &codec.implementations[1].kind,
-        CodecImplementationKind::With { function: Some(function) } if function == "encode_header"
+        &expr_line(&module.functions[1], 0).kind,
+        ExprKind::SchemaEncode { schema, .. } if schema == &vec!["Http2FrameHeader".to_string()]
     ));
 }
 

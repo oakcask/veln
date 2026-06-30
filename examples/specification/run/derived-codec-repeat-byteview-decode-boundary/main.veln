@@ -1,4 +1,4 @@
-# Derived codec decode boundaries include Repeat-backed ByteView schema helpers.
+# Explicit schema decode expressions include Repeat-backed ByteView schema helpers.
 use stdio
 
 schema CountedViews
@@ -9,9 +9,6 @@ schema CountedViews
 	items: Repeat(count, ByteView(item_length))
 end
 
-codec CountedViewsCodec for CountedViews decode
-	derive decode
-end
 
 fn list_count(items: List<ByteView>) -> Int
 	match items
@@ -107,7 +104,7 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let complete_bytes: ByteChunk = byte_chunk_from_hex("0203aabbccddeeff")?
 	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(8)?)?
-	let complete: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = CountedViewsCodec(complete_view, byte_offset(31)?)
+	let complete: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = decode CountedViews from complete_view at byte_offset(31)?
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_item_count(complete)))
 	stdio::println(int_to_string(decoded_total_count(complete)))
@@ -115,7 +112,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let prefix_short_bytes: ByteChunk = byte_chunk_from_hex("02")?
 	let prefix_short_view: ByteView = byte_view(prefix_short_bytes, byte_offset(0)?, byte_count(1)?)?
-	let waiting: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = CountedViewsCodec(prefix_short_view, byte_offset(37)?)
+	let waiting: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = decode CountedViews from prefix_short_view at byte_offset(37)?
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
@@ -123,7 +120,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let short_bytes: ByteChunk = byte_chunk_from_hex("0203aabbccdd")?
 	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(6)?)?
-	let invalid: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = CountedViewsCodec(short_view, byte_offset(41)?)
+	let invalid: DecodeStep<{count: Int, item_length: Int, items: List<ByteView>}> = decode CountedViews from short_view at byte_offset(41)?
 	stdio::println(step_kind(invalid))
 	stdio::println(readiness_kind(invalid))
 	stdio::println(int_to_string(readiness_count(invalid)))

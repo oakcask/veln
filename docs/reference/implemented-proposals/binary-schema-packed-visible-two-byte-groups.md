@@ -15,7 +15,7 @@ Generated binary schema decode and encode helpers accept consecutive visible
 two-byte big-endian storage unit. The fields are packed in declaration order
 from high bits to low bits, and every visible field remains an ordinary `Int`
 in decoded records, encoder inputs, structural mappings, generated decode-step
-helpers, and derived codecs.
+helpers, and explicit schema decode and encode expressions.
 
 Truncation reports `schema.truncated_field` at the first field in the packed
 group with a two-byte expected count. Encode range failures keep the existing
@@ -26,15 +26,13 @@ path.
 
 - `../../../examples/specification/run/binary-schema-packed-visible-two-byte-decode-encode/`
   checks direct helper decode and encode, generated decode-step helper
-  eligibility, derived codec decode and encode, and lowercase hex output.
+  eligibility, explicit schema decode and encode expressions, and lowercase
+  hex output.
 - `../../../examples/specification/run/binary-schema-packed-visible-two-byte-truncated-json/`
   checks JSON truncation details for a short two-byte packed visible group.
 - `../../../examples/specification/run/binary-schema-packed-visible-two-byte-encode-out-of-range/`
   checks visible field encode range failure projection on the schema-local
   field path.
-- `../../../examples/specification/run/derived-codec-packed-visible-two-byte-boundary/`
-  checks derived codec decode readiness, budgeted encode resume, and
-  helper-projected encode failure boundaries for the same packed group.
 
 ## Remaining Work
 

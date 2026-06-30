@@ -12,10 +12,6 @@ schema GeneralReservedBitfieldHeader
 	low: UInt4
 end
 
-codec GeneralReservedBitfieldCodec for GeneralReservedBitfieldHeader decode encode
-	derive decode
-	derive encode
-end
 
 fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
@@ -151,6 +147,13 @@ fn emit_direct_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), St
 	end
 end
 
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("b4da")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
@@ -162,18 +165,18 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let direct_encoded: Result<ByteChunk, EncodeError> = byte_encode_general_reserved_bitfield_header({high: 5, mode: 9, low: 10})
 	let ignored: () = emit_direct_encoded(direct_encoded)?
 
-	let stepped: DecodeStep<{high: Int, mode: Int, low: Int}> = GeneralReservedBitfieldCodec(view, byte_offset(40)?)
+	let stepped: DecodeStep<{high: Int, mode: Int, low: Int}> = decode GeneralReservedBitfieldHeader from view at byte_offset(40)?
 	stdio::println(decode_step_kind(stepped))
 	stdio::println(int_to_string(decoded_high(stepped)))
 	stdio::println(int_to_string(decoded_mode(stepped)))
 	stdio::println(int_to_string(decoded_low(stepped)))
 	stdio::println(int_to_string(consumed_count(stepped)))
 
-	let derived_encoded: EncodeStep<()> = GeneralReservedBitfieldCodec({high: 5, mode: 9, low: 10})
+	let derived_encoded: EncodeStep<()> = encode_result_step(encode GeneralReservedBitfieldHeader from {high: 5, mode: 9, low: 10})
 	stdio::println(encode_step_kind(derived_encoded))
 	emit_derived_encoded("general-reserved-bitfield", derived_encoded, "b4da")
 
-	let rejected: EncodeStep<()> = GeneralReservedBitfieldCodec({high: 5, mode: 16, low: 10})
+	let rejected: EncodeStep<()> = encode_result_step(encode GeneralReservedBitfieldHeader from {high: 5, mode: 16, low: 10})
 	stdio::println(encode_step_kind(rejected))
 	stdio::println(encode_error_id(rejected))
 	stdio::println(encode_error_path(rejected))
