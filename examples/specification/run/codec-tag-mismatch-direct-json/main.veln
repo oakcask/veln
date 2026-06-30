@@ -1,0 +1,16 @@
+# Direct tag mismatch decode failures populate stable byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	kind: UInt8
+	payload: ByteView(0)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.tag_mismatch", offset(14), "ManualPacketWire.kind", "expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload"))
+end

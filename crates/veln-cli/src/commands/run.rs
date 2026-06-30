@@ -553,6 +553,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.tag_mismatch" {
+        return tag_mismatch_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -720,6 +729,54 @@ fn sequence_mismatch_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Sequence mismatch reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn tag_mismatch_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("tag mismatch at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(expected_tag), Some(actual_tag)) = (
+        json_string(byte_entries, "expected_tag"),
+        json_string(byte_entries, "actual_tag"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected tag `{expected_tag}`; actual tag was `{actual_tag}`."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Tag mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2430,6 +2487,69 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.sequence_mismatch, ByteOffset(13), ManualPacketWire.sequence, expected_sequence=client_preface,settings; actual_sequence=settings; reason=frame sequence violated protocol state).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_tag_mismatch_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.tag_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(14)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("kind")),
+                    ]),
+                ]),
+            ),
+            ("expected_tag", JsonValue::string("DATA")),
+            ("actual_tag", JsonValue::string("HEADERS")),
+            (
+                "reason",
+                JsonValue::string("dispatch tag did not match selected payload"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.kind"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.tag_mismatch");
+        assert_eq!(diagnostic.message, "tag mismatch at byte offset 14");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Expected tag `DATA`; actual tag was `HEADERS`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Tag mismatch reason: dispatch tag did not match selected payload.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload).\"}"
         );
     }
 

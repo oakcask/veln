@@ -204,6 +204,8 @@ behavior.
   [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
 - Codec sequence mismatch diagnostics:
   [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
+- Codec tag mismatch diagnostics:
+  [codec-tag-mismatch-diagnostics.md](codec-tag-mismatch-diagnostics.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
 - Network stream close boundary:

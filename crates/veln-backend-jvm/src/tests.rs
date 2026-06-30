@@ -144,6 +144,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(sequenceMismatch));
 
+        Object tagMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.tag_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(14) }),
+                "Packet.kind",
+                "expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(tagMismatch));
+
+        Object plainTagMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.tag_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(15) }),
+                "Packet.kind",
+                "plain tag mismatch"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainTagMismatch));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -1650,6 +1672,32 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         trace.contains("\treason\tstring\t6672616d652073657175656e63652076696f6c617465642070726f746f636f6c207374617465"),
         "{trace}"
     );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.tag_mismatch\t14\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\texpected_tag\tstring\t44415441"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tactual_tag\tstring\t48454144455253"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t64697370617463682074616720646964206e6f74206d617463682073656c6563746564207061796c6f6164"),
+        "{trace}"
+    );
+    let plain_tag_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.tag_mismatch\t15\t"))
+        .expect("plain tag mismatch should be recorded");
+    assert!(
+        plain_tag_line.contains("\treason\tstring\t706c61696e20746167206d69736d61746368"),
+        "{plain_tag_line}"
+    );
+    assert!(!plain_tag_line.contains("\texpected_tag\t"));
+    assert!(!plain_tag_line.contains("\tactual_tag\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"
