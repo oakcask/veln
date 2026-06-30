@@ -415,23 +415,6 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
-        "schema.mapping_division_by_zero" => {
-            let target_field = json_string(byte_entries, "target_field")?;
-            let operator = json_string(byte_entries, "operator")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("schema mapping division by zero at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Mapping target field `{target_field}` evaluated `{operator}` with divisor 0."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
         "schema.length_division_by_zero" => {
             let length_expression = json_string(byte_entries, "length_expression")?;
             let divisor_operand = json_string(byte_entries, "divisor_operand")?;
@@ -1686,9 +1669,6 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
         "codec.encode_value_unrepresentable" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
-        "codec.encode_mapping_mismatch" => {
-            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
-        }
         "codec.dispatch_unknown_tag" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
@@ -1794,7 +1774,6 @@ fn encode_result_failure_diagnostic(
 fn encode_diagnostic_message(id: &str) -> String {
     match id {
         "codec.encode_value_unrepresentable" => "encode value is unrepresentable",
-        "codec.encode_mapping_mismatch" => "encode mapping does not match value",
         "codec.dispatch_unknown_tag" => "unknown dispatch tag in encode value",
         "codec.dispatch_length_mismatch" => "dispatch payload length mismatch",
         "codec.dispatch_mismatch" => "dispatch tag and payload mismatch",
@@ -3241,68 +3220,6 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("schema `SchemaLevelValidationSample`")
-        );
-    }
-
-    #[test]
-    fn byte_result_failure_diagnostic_projects_mapping_division_by_zero_context() {
-        let byte_diagnostic = JsonValue::object([
-            ("kind", JsonValue::string("byte_diagnostic")),
-            ("id", JsonValue::string("schema.mapping_division_by_zero")),
-            (
-                "byte_offset",
-                JsonValue::object([
-                    ("kind", JsonValue::string("ByteOffset")),
-                    ("value", JsonValue::Number(2)),
-                ]),
-            ),
-            (
-                "field_path",
-                JsonValue::array([
-                    JsonValue::object([
-                        ("kind", JsonValue::string("schema")),
-                        ("name", JsonValue::string("PacketWire")),
-                    ]),
-                    JsonValue::object([
-                        ("kind", JsonValue::string("field")),
-                        ("name", JsonValue::string("quotient")),
-                    ]),
-                ]),
-            ),
-            ("target_field", JsonValue::string("quotient")),
-            ("operator", JsonValue::string("/")),
-            ("byte_preview", byte_preview("0c00")),
-        ]);
-        let failure = TestFailure::result_with_details(
-            "schema mapping division by zero at byte offset 2".to_string(),
-            None,
-            Some(byte_diagnostic),
-            None,
-        );
-
-        let diagnostic =
-            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
-
-        assert_eq!(diagnostic.id, "schema.mapping_division_by_zero");
-        assert_eq!(
-            diagnostic.message,
-            "schema mapping division by zero at byte offset 2"
-        );
-        assert_eq!(diagnostic.related.len(), 3);
-        assert!(
-            diagnostic.related[0]
-                .to_json()
-                .contains("target field `quotient`")
-        );
-        assert!(
-            diagnostic.related[1]
-                .to_json()
-                .contains("0c 00 (showing 2 of 2 byte(s), complete)")
-        );
-        assert!(
-            diagnostic.related[2]
-                .to_json()
-                .contains("schema `PacketWire` / field `quotient`")
         );
     }
 

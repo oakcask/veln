@@ -92,7 +92,7 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? SchemaMapping* \"end\" NL?").
+grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
 grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | ReservedBitsPrimitive | RepeatPrimitive").
@@ -103,9 +103,6 @@ grammar_line(106, "CountExpr ::= Name | Name (\"-\" | \"+\") Name").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" (ContractPredicate | ByteViewMultiplePredicate)").
 grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" \"of\" (Name | IntLiteral)").
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
-grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+").
-grammar_line(107, "SchemaMappingSelector ::= \"when\" Expr").
-grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Expr NL").
 grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
 grammar_line(107, "CodecDirections ::= CodecDirection+").
@@ -360,7 +357,6 @@ schema_decl -->
     nls,
     schema_validation_opt,
     nls,
-    schema_mappings,
     tok(end),
     newline_opt.
 
@@ -397,40 +393,6 @@ schema_validation_opt -->
     nl,
     !.
 schema_validation_opt --> [].
-
-schema_mappings --> schema_mapping, !, nls, schema_mappings.
-schema_mappings --> [].
-
-schema_mapping -->
-    ident_text("map"),
-    ident_text("to"),
-    member_path,
-    schema_mapping_selector_opt,
-    nl,
-    schema_mapping_assignments.
-
-schema_mapping_selector_opt -->
-    ident_text("when"),
-    expr,
-    !.
-schema_mapping_selector_opt --> [].
-
-schema_mapping_assignments --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
-schema_mapping_assignments_tail --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
-schema_mapping_assignments_tail --> [].
-
-schema_mapping_assignment -->
-    ident,
-    tok(equal),
-    expr,
-    schema_mapping_inverse_opt,
-    nl.
-
-schema_mapping_inverse_opt -->
-    ident_text("inverse"),
-    member_path,
-    !.
-schema_mapping_inverse_opt --> [].
 
 codec_decl -->
     visibility,

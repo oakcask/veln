@@ -32,18 +32,10 @@ layout families, or add arbitrary mapping functions or new mapping syntax.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-byte-aligned-reserved-mapping-decode-encode/`
-  checks byte-aligned reserved-field mapping on decode and mapped-record encode,
-  including `codec.encode_mapping_mismatch` when the mapped target value differs
-  from the declared reserved pattern.
-- `../../../examples/specification/run/binary-schema-packed-reserved-mapping-decode-encode/`
-  checks the same opt-in mapping behavior for a packed reserved-prefix layout.
-- `crates/veln-sema/src/schema/mapping.rs` admits supported reserved fields as
-  `Int` mapping sources only for mapping clauses that explicitly name them.
-- `crates/veln-sema/src/types.rs` and
-  `crates/veln-backend-jvm/src/runtime/collections.java.inc` keep mapped encode
-  projection eligible for supported reserved fields and check the declared
-  reserved value before emitting bytes.
+This historical slice was retired with schema-level mapping support.
+Earlier implementation paths kept mapped encode projection eligible for
+supported reserved fields and checked the declared reserved value before
+emitting bytes.
 
 ## Remaining Work
 

@@ -174,14 +174,10 @@ focused human diagnostics checked by
 Successful `Decoded(...)` entry values remain ordinary values. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
-behavior is specified under `../specification/execution.md` and checked by
-`../../examples/specification/run/codec-decode-boundary/`. The command-facing
+behavior is specified under `../specification/execution.md`. The command-facing
 projection for that codec-owned consumed-count failure is specified under
 `../specification/run-json.md`, `../specification/commands.md`, and
-`../specification/execution.md` and checked by
-`../../examples/specification/run/codec-decode-consumed-count-invalid-json/`
-and
-`../../examples/specification/run/codec-decode-consumed-count-invalid-human/`.
+`../specification/execution.md`.
 Generated
 exact-width binary schema decode helpers report
 `schema.integer_out_of_range` when a structurally decoded integer exceeds the
@@ -312,11 +308,10 @@ output keeps both the structured `field_path` and, when useful for logs, a
 `field_path_display` string. Source module qualification is reported separately
 when relevant; it is not folded into schema-local field paths.
 
-Field paths name representation locations, not mapped Veln value fields. A
-schema mapping may rename or omit representation fields, but diagnostics for
-decode, validation, reserved bits, dispatch, and incomplete input continue to
-point at the schema-local representation path that owned the failed byte or
-predicate.
+Field paths name representation locations, not projected domain value fields.
+Schema-level mapping is removed, and diagnostics for decode, validation,
+reserved bits, dispatch, and incomplete input continue to point at the
+schema-local representation path that owned the failed byte or predicate.
 
 ## Discussion Result: Byte Offset Reporting
 

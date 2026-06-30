@@ -37,16 +37,11 @@ whose selected mappings do not cover every dispatch case.
 - `../../../examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`
   pins stable JSON fields for a resolved nested payload schema whose layout
   prevents generated decode and encode helper exposure.
-- `../../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
-  pins stable JSON fields for a resolved mapped payload schema whose generated
-  encode helper boundary is unavailable.
 - `../../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-diagnostics/`
   checks the broader helper eligibility diagnostic set, including related
   helper-boundary context.
 - `../../../examples/specification/check/binary-schema-dispatch-payload-helper-eligibility-human/`
   checks the human diagnostic route for the same helper eligibility boundary.
-- `../../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
-  pins focused recursive dispatch payload helper-fact diagnostics.
 
 ## Remaining Work
 

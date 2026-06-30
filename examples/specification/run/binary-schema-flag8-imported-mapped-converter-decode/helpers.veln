@@ -1,5 +1,0 @@
-pub fn flag_bits(flags: Flag8) -> Int
-	match flags
-		Flag8(bits) => bits
-	end
-end

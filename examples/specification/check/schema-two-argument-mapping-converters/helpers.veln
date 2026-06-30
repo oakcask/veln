@@ -1,3 +1,0 @@
-pub fn merge(kind: Int, length: Int) -> Int
-	length - kind
-end

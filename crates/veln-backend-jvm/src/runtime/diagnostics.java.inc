@@ -1562,32 +1562,6 @@
         );
     }
 
-    private static Object schemaMappingDivisionByZeroDiagnostic(
-        String message,
-        long byteOffset,
-        String schemaName,
-        String targetField,
-        String nearbyContext
-    ) {
-        java.util.ArrayList<DiagnosticDetail> details =
-            new java.util.ArrayList<DiagnosticDetail>();
-        details.add(DiagnosticDetail.string("target_field", targetField));
-        details.add(DiagnosticDetail.string("operator", "/"));
-        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
-        return diagnosticErr(
-            message,
-            new ByteDiagnostic(
-                "schema.mapping_division_by_zero",
-                byteOffset,
-                java.util.Arrays.asList(
-                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
-                    new ByteDiagnosticFieldPathSegment("field", targetField)
-                ),
-                details
-            )
-        );
-    }
-
     private static Object schemaLengthDivisionByZeroDiagnostic(
         String message,
         long byteOffset,
@@ -1744,7 +1718,6 @@
 
     private static boolean isCommandEncodeDiagnosticId(String id) {
         return id.equals("codec.encode_value_unrepresentable")
-            || id.equals("codec.encode_mapping_mismatch")
             || id.equals("codec.dispatch_unknown_tag")
             || id.equals("codec.dispatch_length_mismatch")
             || id.equals("codec.dispatch_mismatch");

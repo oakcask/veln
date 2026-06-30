@@ -16,8 +16,7 @@ use crate::{
     CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment, SchemaMappingClause,
-    SchemaMappingInverseConverter, SchemaValidationClause, SurfaceModule, TypeDecl,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
     TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
 };
 
@@ -275,40 +274,6 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     predicate: validation.predicate.clone(),
                     span: validation.span.clone(),
-                })
-                .collect(),
-            mappings: schema
-                .mappings
-                .iter()
-                .map(|mapping| SchemaMappingClause {
-                    node_id: self.alloc(),
-                    target: mapping.target.clone(),
-                    selector: mapping.selector.as_ref().map(|selector| {
-                        crate::SchemaMappingSelector {
-                            node_id: self.alloc(),
-                            text: selector.text.clone(),
-                            expr: self.lower_expr(&selector.expr),
-                            span: selector.span.clone(),
-                        }
-                    }),
-                    assignments: mapping
-                        .assignments
-                        .iter()
-                        .map(|assignment| SchemaMappingAssignment {
-                            node_id: self.alloc(),
-                            target: assignment.target.clone(),
-                            source: assignment.source.clone(),
-                            expr: self.lower_expr(&assignment.expr),
-                            inverse_converter: assignment.inverse_converter.as_ref().map(
-                                |inverse| SchemaMappingInverseConverter {
-                                    name: inverse.name.clone(),
-                                    span: inverse.span.clone(),
-                                },
-                            ),
-                            span: assignment.span.clone(),
-                        })
-                        .collect(),
-                    span: mapping.span.clone(),
                 })
                 .collect(),
             span: schema.span.clone(),

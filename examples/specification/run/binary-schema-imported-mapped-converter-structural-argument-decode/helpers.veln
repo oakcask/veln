@@ -1,3 +1,0 @@
-pub fn summary_value(input: {kind: Int, length: Int}) -> Int
-	input.length + input.kind
-end

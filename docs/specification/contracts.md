@@ -34,5 +34,5 @@ including equality aliases, or literal-equality contradiction checks.
 
 - Skip [contracts-full.md](contracts-full.md) unless you need exact rules or
   examples.
-- Use [source-surface.md](source-surface.md#contract-predicates) for the source
+- Use [source-surface.md](source-surface.md) for the source
   grammar surface before reading older decision records.

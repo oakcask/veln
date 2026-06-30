@@ -296,11 +296,6 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  payload: ByteView(length - padding_length)\n",
             "  aligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "  validate padding_length <= length\n",
-            "\n",
-            "  map to FrameHeader\n",
-            "    length = length\n",
-            "    kind = kind\n",
-            "    stream_id = stream_id\n",
             "end\n",
         ),
     );
@@ -351,13 +346,6 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
     );
     assert_eq!(schema.validations.len(), 1);
     assert_eq!(schema.validations[0].predicate, "padding_length <= length");
-    assert_eq!(schema.mappings.len(), 1);
-    assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
-    assert_eq!(schema.mappings[0].assignments.len(), 3);
-    assert_eq!(schema.mappings[0].assignments[0].target, "length");
-    assert_eq!(schema.mappings[0].assignments[0].source, "length");
-    assert_eq!(schema.mappings[0].assignments[1].target, "kind");
-    assert_eq!(schema.mappings[0].assignments[1].source, "kind");
     assert!(schema.end_present);
     assert_eq!(
         format_tree(&output.tree),
@@ -375,11 +363,6 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\taligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "\n",
             "\tvalidate padding_length <= length\n",
-            "\n",
-            "\tmap to FrameHeader\n",
-            "\t\tlength = length\n",
-            "\t\tkind = kind\n",
-            "\t\tstream_id = stream_id\n",
             "end\n",
         )
     );
@@ -462,7 +445,7 @@ fn reports_schema_declaration_syntax_diagnostics() {
             "  _reserved: UInt8\n",
             "  broken: UInt8 where\n",
             "  map to EmptyHeader\n",
-            "  map Header\n",
+            "  map to OtherHeader when length == 1\n",
             "    length = length\n",
             "    length = kind\n",
             "    = stream_id\n",
@@ -509,46 +492,16 @@ fn reports_schema_declaration_syntax_diagnostics() {
         output
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.id == "parse.schema_mapping"),
-        "{:#?}",
-        output.diagnostics
-    );
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_assignment"),
-        "{:#?}",
-        output.diagnostics
-    );
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_duplicate_assignment"),
-        "{:#?}",
-        output.diagnostics
-    );
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_assignment_target"),
-        "{:#?}",
-        output.diagnostics
-    );
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_implicit_assignment"),
+            .filter(|diagnostic| diagnostic.id == "parse.schema_mapping_removed")
+            .count()
+            == 2,
         "{:#?}",
         output.diagnostics
     );
 }
 
 #[test]
-fn parses_schema_mapping_expression_values() {
+fn rejects_schema_mapping_clauses() {
     let source = SourceFile::new(
         "mapping.veln",
         concat!(
@@ -558,154 +511,15 @@ fn parses_schema_mapping_expression_values() {
             "\tkind: UInt8\n",
             "\n",
             "\tmap to Header\n",
-            "\t\tlength = {value: length}\n",
-            "\t\tkind = Wrap(kind)\n",
-            "\t\tcode = {value: kind}.value\n",
-            "\t\tbody_length = (length-padding)+checksum\n",
-            "\t\tconverted = next_kind(kind) inverse previous_kind\n",
+            "\t\tlength = length\n",
             "end\n",
         ),
     );
 
     let output = parse(&source);
 
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
-        panic!("expected schema declaration");
-    };
-    assert_eq!(
-        schema.mappings[0].assignments[0].source,
-        "{ value: length }"
-    );
-    assert!(matches!(
-        schema.mappings[0].assignments[0].expr.kind,
-        ExprKind::Record(_)
-    ));
-    assert_eq!(schema.mappings[0].assignments[1].source, "Wrap(kind)");
-    assert!(matches!(
-        schema.mappings[0].assignments[1].expr.kind,
-        ExprKind::Call { .. }
-    ));
-    assert_eq!(
-        schema.mappings[0].assignments[2].source,
-        "{ value: kind }.value"
-    );
-    assert!(matches!(
-        schema.mappings[0].assignments[2].expr.kind,
-        ExprKind::FieldAccess { .. }
-    ));
-    assert_eq!(
-        schema.mappings[0].assignments[3].source,
-        "(length - padding) + checksum"
-    );
-    assert!(matches!(
-        schema.mappings[0].assignments[3].expr.kind,
-        ExprKind::Binary { .. }
-    ));
-    assert_eq!(schema.mappings[0].assignments[4].source, "next_kind(kind)");
-    assert_eq!(
-        schema.mappings[0].assignments[4]
-            .inverse_converter
-            .as_ref()
-            .map(|inverse| inverse.name.as_str()),
-        Some("previous_kind")
-    );
-}
-
-#[test]
-fn parses_and_formats_schema_mapping_inequality_selector() {
-    let source = SourceFile::new(
-        "mapping.veln",
-        concat!(
-            "schema PacketWire\n",
-            "\tformat binary\n",
-            "\n",
-            "\tkind: UInt8\n",
-            "\tvalue: UInt8\n",
-            "\n",
-            "\tmap to Packet when kind!=1\n",
-            "\t\tkind = kind\n",
-            "\t\tvalue = value\n",
-            "end\n",
-        ),
-    );
-
-    let output = parse(&source);
-
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
-        panic!("expected schema declaration");
-    };
-    let selector = schema.mappings[0]
-        .selector
-        .as_ref()
-        .expect("selector should parse");
-    assert_eq!(selector.text, "kind != 1");
-    assert!(matches!(selector.expr.kind, ExprKind::Binary { .. }));
-    assert_eq!(
-        format_tree(&output.tree),
-        concat!(
-            "schema PacketWire\n",
-            "\tformat binary\n",
-            "\n",
-            "\tkind: UInt8\n",
-            "\tvalue: UInt8\n",
-            "\n",
-            "\tmap to Packet when kind != 1\n",
-            "\t\tkind = kind\n",
-            "\t\tvalue = value\n",
-            "end\n",
-        )
-    );
-}
-
-#[test]
-fn parses_and_formats_schema_mapping_boolean_selector() {
-    let source = SourceFile::new(
-        "mapping.veln",
-        concat!(
-            "schema PacketWire\n",
-            "\tformat binary\n",
-            "\n",
-            "\tkind: UInt8\n",
-            "\tflags: UInt8\n",
-            "\tvalue: UInt8\n",
-            "\n",
-            "\tmap to Packet when kind==1 and not flags==0\n",
-            "\t\tkind = kind\n",
-            "\t\tvalue = value\n",
-            "end\n",
-        ),
-    );
-
-    let output = parse(&source);
-
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
-        panic!("expected schema declaration");
-    };
-    let selector = schema.mappings[0]
-        .selector
-        .as_ref()
-        .expect("selector should parse");
-    assert_eq!(selector.text, "kind == 1 and not flags == 0");
-    assert!(matches!(selector.expr.kind, ExprKind::Binary { .. }));
-    assert_eq!(
-        format_tree(&output.tree),
-        concat!(
-            "schema PacketWire\n",
-            "\tformat binary\n",
-            "\n",
-            "\tkind: UInt8\n",
-            "\tflags: UInt8\n",
-            "\tvalue: UInt8\n",
-            "\n",
-            "\tmap to Packet when kind == 1 and not flags == 0\n",
-            "\t\tkind = kind\n",
-            "\t\tvalue = value\n",
-            "end\n",
-        )
-    );
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.schema_mapping_removed");
 }
 
 #[test]

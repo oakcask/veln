@@ -20,14 +20,15 @@ patterns plus explicit schema operations.
 The current schema and codec design has grown into several overlapping
 surfaces:
 
-- `schema` declarations define binary field layout, validation, mapping,
-  dispatch, and generated helper eligibility.
+- `schema` declarations define binary field layout, validation, dispatch, and
+  generated helper eligibility; the older schema mapping surface has been
+  removed.
 - Generated helpers expose derived names such as `byte_decode_<schema>`,
   `byte_decode_step_<schema>`, and `byte_encode_<schema>`.
 - `codec` declarations add another named top-level item with direction lists,
   `derive` clauses, `with` clauses, import visibility, and call behavior.
-- Schema mapping can change the helper return shape and can affect whether
-  encode is available.
+- The removed schema mapping surface could change the helper return shape and
+  affect whether encode was available.
 - Diagnostics use both schema-owned and codec-owned ids for closely related
   representation failures.
 
@@ -111,7 +112,9 @@ fn header_from_wire(wire: {length: Int, kind: Int, flags: Int, stream_id: Int}) 
 end
 ```
 
-This aligns with [Remove Schema Map To](remove-schema-map-to.md): schema
+This aligns with
+[Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md):
+schema
 syntax describes representation, while ordinary functions describe domain
 meaning.
 

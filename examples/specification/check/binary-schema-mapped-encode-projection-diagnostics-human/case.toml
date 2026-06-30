@@ -1,9 +1,0 @@
-command = ["check", "main.veln"]
-exit = 1
-
-[stdout]
-format = "text"
-contains = ["main.veln:13:3: error[schema.mapping_encode_projection]: schema mapping assignment `code * 2` cannot be projected for generated encode", "note: main.veln:7:1: Schema `UnsupportedMappedPayload` is declared here and does not expose the generated `byte_encode_unsupported_mapped_payload` helper required for schema encoding.", "note: main.veln:17:2: `derive encode` requires schema `UnsupportedMappedPayload` to expose the generated `byte_encode_unsupported_mapped_payload` helper.", "note: Generated binary schema encode requires `byte_encode_unsupported_mapped_payload` to recover every visible encode field from the mapped value."]
-
-[stderr]
-format = "empty"

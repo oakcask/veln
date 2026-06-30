@@ -11,18 +11,15 @@ checked examples under `../../examples/specification/`.
 
 Current source syntax has a first top-level `schema` declaration slice with a
 single `format binary` clause, field declarations, field-local `where`
-predicate syntax, structural `map to Target` mapping clauses, and a narrow
-executable field-local validation and mapped-record helper slice. It does not
-yet have runtime mapping beyond the implemented structural expression slices,
-complete binary primitive semantics, or executable codec bindings outside the
-implemented helper boundaries.
+predicate syntax, and a narrow executable field-local validation helper slice.
+It does not yet have complete binary primitive semantics or executable codec
+bindings outside the implemented helper boundaries.
 
 The HTTP/2 design driver needs a declaration that can say:
 
 - a field is read from bytes rather than from an internal Veln value
 - a field has a fixed external width
 - a field is validated at the schema boundary
-- a field may map into an independently declared Veln type
 - a schema reports structural failures with field paths and byte positions
 
 Without a schema declaration, binary protocol examples must encode external
@@ -52,9 +49,6 @@ The implemented first slice covers:
 - top-level public schema member aliases that re-export existing public
   schemas through the declaring module's public path and resolve through
   schema-aware lookup
-- structural schema value mapping clauses with explicit `map to Target`
-  headers and `target_field = schema_field` assignments preserved by the
-  parser, formatter, lowered AST, and editor token metadata
 - executable field-local validation helper slices that decode binary schema
   fields in declaration order and evaluate supported `where` predicates after
   the owning field is decoded
@@ -69,50 +63,11 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads, or the implemented dispatch payload slices
-- generated runtime mapping for one structural `map to Target` clause, or
-  multiple clauses selected by `when field == literal`, `when field !=
-  literal`, or narrow boolean selector expressions over decoded schema-local
-  `Int` fields, when each assignment expression uses the implemented
-  structural expression slice and type checks against the target record field
-- generated `byte_encode_<schema>` helper and `derive encode` support for one
-  structural `map to Target` clause whose assignments project the visible
-  encode fields through direct field references, record-shaped direct field
-  projections, field selection from those record-shaped projections, the
-  implemented direct ADT constructor wrapper forms, plus multiple selected
-  structural mapping clauses selected by equality, inequality, or ordered
-  field-literal comparisons when all selected mappings resolve to one target
-  record shape and every schema-local encode field projects back from that
-  selected target record through direct source-field assignments
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
   fields after primitive, fixed-field, length, repeat, and dispatch
   representability checks have succeeded
-- codec decode boundaries over schemas with multiple decoded-field selected
-  mappings when all selected mappings resolve to one record shape already
-  accepted by the generated decode-step helper
-- semantic rejection for ambiguous or unsupported mapping selection, including
-  missing selectors, duplicate or overlapping selector clauses, unknown or
-  non-`Int` selector fields, and selected target shape mismatches
-- schema mapping expressions that reference schema-local fields, construct
-  records, construct ADT payloads through ordinary source module constructor
-  resolution, call one pure same-module representation converter, or call one
-  imported public pure converter through a written `use` path or alias,
-  unqualified public import, or public function alias with one or more
-  schema-local field or structural mapping expression
-  arguments including pure converter calls, or
-  select a visible field from a record-shaped structural mapping expression,
-  plus `+`, `-`, `*`, and `/` integer arithmetic over decoded schema-local
-  `Int` fields, integer literals, `Int`-returning converter calls, and
-  nested supported mapping arithmetic expressions into an `Int` target field,
-  and `==`, `!=`, `<`, `<=`, `>`, or `>=` comparisons over supported `Int`
-  mapping operands, composed with `and`, `or`, and `not`, into a `Bool`
-  target field
-- schema mapping selectors that call one pure same-module `Bool` converter
-  function or one imported public pure `Bool` converter function through a
-  written `use` path or alias, unqualified public import, or public function
-  alias, using the same converter argument rules as schema mapping converter
-  assignments during generated decode mapping selection
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface. The completed documentation-comment schema
   reference slice is archived under
@@ -124,15 +79,10 @@ The completed visible flag bitset decode binding slice is archived under
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
 
-The completed narrow arithmetic mapped encode slice is archived under
-[Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
-
-The completed generated decode mapping converter varargs slice is archived
-under
-[Binary Schema Mapping Converter Varargs](../reference/implemented-proposals/binary-schema-mapping-converter-varargs.md).
-The completed imported converter bare-name inverse encode slice is archived
-under
-[Binary Schema Imported Converter Bare Inverse Encode](../reference/implemented-proposals/binary-schema-imported-converter-bare-inverse-encode.md).
+Historical mapping slices that predate the source-surface removal remain
+archived under implemented proposal records. Current behavior removes
+schema-level `map to` clauses as recorded in
+[Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
 
 This proposal remains open for:
 
@@ -140,15 +90,6 @@ This proposal remains open for:
   implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices
-- runtime mapping beyond the implemented schema-local field reference, record
-  construction, ADT constructor construction including nested constructor
-  payload expressions, pure same-module or imported public representation
-  conversion hooks that take one or more supported arguments whose
-  supported structural arguments may include pure converter calls, field
-  selection from record-shaped structural mapping expressions, supported
-  integer mapping arithmetic, supported ordered and equality integer mapping
-  comparisons, boolean mapping assignment composition, narrow decoded-field
-  integer boolean mapping selection, and pure `Bool` converter selector calls
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments, and
   binary fixture metadata
@@ -186,88 +127,13 @@ The older source-level rule pointed from a codec declaration to the schema it
 implemented. Treat that rule as compatibility history for implemented slices,
 not as the future schema composition model.
 
-## Discussion Result: Schema Value Mapping
+## Discussion Result: Removed Schema Value Mapping
 
-The structural mapping clause syntax is implemented as current behavior under
-`../specification/source-surface.md`. The generated runtime mapping slices are
-implemented under `../specification/execution.md`: an eligible binary schema
-may use one `map to Target` clause, or multiple clauses selected by
-`when field == literal`, `when field != literal`, or narrow boolean selector
-expressions built from decoded schema-local `Int` fields, integer literals,
-`==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by direct
-selector calls to one pure same-module `Bool` converter function or one
-imported public pure `Bool` converter function through a written `use` path,
-unqualified public import, or alias, to construct an
-ordinary mapped record after field-local validation succeeds when each
-assignment expression type checks against the target field. Selected mappings
-whose truth can be decided from decoded `Int` field comparisons must use
-non-overlapping selector clauses, and all selected mappings must resolve to
-one decoded record shape. The
-implemented expression slice supports schema-local field references, record
-construction, ADT constructor construction resolved through ordinary source
-module rules, including nested constructor payload expressions whose leaves
-stay inside the implemented schema-local expression vocabulary, one pure
-same-module converter function call, and one imported public pure converter
-function call through a written `use` path or alias, unqualified public
-import, or public function alias with one or more
-schema-local field or structural mapping expression arguments including pure
-converter calls, and
-field selection from record-shaped structural mapping expressions. An `Int`
-target field may also use `+`, `-`, `*`, and `/` over decoded schema-local
-`Int` fields, integer literals, `Int`-returning converter calls, and nested
-supported mapping arithmetic expressions. A `Bool` target field may use `==`,
-`!=`, `<`, `<=`, `>`, and `>=` over supported `Int` mapping operands, and may
-compose those supported comparisons with `and`, `or`, and `not`.
-
-The implemented runtime mapping slice maps schema field values through
-schema-local field references, record construction, ADT constructor
-construction including nested constructor payload expressions, a single
-same-module pure converter call, and a single imported public pure converter
-call through a written `use` path or alias, unqualified public import, or
-public function alias, and field selection from record-shaped structural
-mapping expressions, plus decoded-field,
-integer-literal, and `Int` converter-call mapping arithmetic for `Int` target
-fields, plus equality, inequality, and ordered mapping comparisons over
-supported `Int` mapping operands composed with `and`, `or`, and `not` for
-`Bool` target fields. Converter
-calls may take one or more arguments. Arguments may be schema-local field
-references or structural mapping expressions made from schema-local fields,
-records, ADT constructors, pure converter calls, and nested combinations of
-those forms, including supported integer arithmetic mapping expressions.
-Direct converter selector calls reuse those converter argument and import
-rules and must return `Bool`. A schema
-does not implicitly publish a record type just
-because it names fields, and importing a schema does not make its schema-local
-field names available as ordinary source bindings.
-
-The runtime checker should resolve the target value shape and assign
-schema-local fields to the target's record fields or ADT constructor payload
-fields. Fields marked representation-only by the selected schema vocabulary are
-omitted from the produced value unless the mapping explicitly includes them.
-This keeps reserved bits and other representation-only facts available for
-validation and diagnostics without turning them into protocol-domain data by
-accident.
-
-Mapping is checked after schema field validation and before the decoded value
-is returned by a schema operation or compatibility helper. The checker should
-resolve target record fields and ADT
-constructors through the normal source module rules, reject missing or
-duplicate assignments, and require each assigned schema value to type check
-against the target field. Schema primitive values may use the primitive's
-declared ordinary value type, such as `Int` for exact-width unsigned fields, or
-a field-local representation conversion when the schema vocabulary defines one.
-
-Mapping expressions stay structural in the first surface: field selection,
-record construction, ADT construction, one pure same-module converter call,
-and one imported public pure converter call through a written `use` path or
-alias with one or more supported arguments, plus decoded-field
-integer `+`, `-`, `*`, and `/` mapping arithmetic, and equality, inequality,
-and ordered comparisons over supported `Int` mapping operands composed with
-`and`, `or`, and `not` for `Bool` target fields, are
-implemented along with direct pure `Bool` converter selector calls. Arbitrary
-function calls, ambiguous bare imported converter names, private imported
-converters, runtime settings, stream state, and recovery behavior belong in
-ordinary projection or protocol functions rather than in schema mapping.
+Schema-level value mapping is not current proposal work. The source surface
+rejects `map to` in schema bodies, and the implemented removal is recorded in
+[Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
+Projection between schema-local visible records and domain values belongs in
+ordinary source functions or explicit codec implementations.
 
 ## Discussion Result: Top-Level Schema Declarations
 
@@ -276,11 +142,11 @@ ordinary projection or protocol functions rather than in schema mapping.
 specialized `codec schema` form.
 
 The declaration name owns an external representation boundary. Its body owns
-schema-local fields, validation clauses, mapping clauses, and the
-format-specific vocabulary selected by its `format` clause. It does not create
-an ordinary Veln value type by itself, and it does not imply executable decode
-or encode APIs. New work should cite schemas from explicit schema operations
-inside ordinary functions when a module wants to expose execution.
+schema-local fields, validation clauses, and the format-specific vocabulary
+selected by its `format` clause. It does not create an ordinary Veln value
+type by itself, and it does not imply executable decode or encode APIs. New
+work should cite schemas from explicit schema operations inside ordinary
+functions when a module wants to expose execution.
 
 This keeps the parser, formatter, editor support, documentation, and module
 item model direct: a source file contains a schema item with a stable name and
@@ -427,9 +293,9 @@ wrong-kind schema diagnostics, not ordinary unresolved value names.
 
 Future formats can add new `format <name>` clauses with their own field
 vocabularies. A single schema uses one format in the first surface. Shared
-ordinary Veln types, records, ADTs, and mapping targets are still referenced
-through normal module imports, while representation primitives remain owned by
-the selected schema format.
+ordinary Veln types, records, ADTs, and domain projection targets are still
+referenced through normal module imports, while representation primitives
+remain owned by the selected schema format.
 
 ## Non-Goals
 
@@ -476,42 +342,6 @@ Implemented:
   unsigned primitives, visible flag bitset fields, or bounded repeat fields
   over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads expose generated `byte_decode_<schema>` helper bindings.
-- Structural schema value mapping clauses are accepted, formatted, lowered, and
-  exposed to editor token metadata, including schema-local field reference,
-  record construction, ADT constructor construction, pure same-module and
-  imported public representation converter calls that take one or more
-  supported arguments through a written `use` path or alias, unqualified public
-  import, or public function alias, including pure converter calls as
-  supported structural arguments, field
-  selection from record-shaped structural mapping expressions, and
-  decoded-field, integer-literal, and `Int` converter-call `+`, `-`, `*`,
-  and `/` mapping arithmetic, plus equality, inequality, and ordered
-  comparisons over supported `Int` mapping operands composed with `and`,
-  `or`, and `not` for `Bool` target fields. Converter calls may take one or
-  more supported structural arguments when ordinary function-call type checking
-  accepts the call.
-  Arguments may be schema-local field references or structural mapping
-  expressions. Generated decode mapping accepts nested ADT constructor payload
-  expressions when every leaf argument remains in that implemented
-  schema-local expression vocabulary.
-- The generated helper slice resolves one structural `map to Target` clause,
-  or multiple clauses selected by `when field == literal`, `when field !=
-  literal`, ordered field-literal comparisons, or narrow decoded-field boolean
-  selector expressions, or by direct pure `Bool` converter selector calls
-  through same-module functions, written imports, unqualified public imports,
-  or aliases,
-  when assignment expressions type check against target
-  record fields, rejects
-  invalid mapping assignments before execution, and returns the selected mapped
-  record shape after field-local validation passes.
-- Binary schemas that declare ambiguous or unsupported mapping selection report
-  focused `schema.mapping_selection_*` diagnostics.
-- Eligible generated `byte_encode_<schema>` helpers and `derive encode`
-  codec boundaries accept one structural mapping target record when every
-  visible encode field is projected through direct schema-local field
-  references, record-shaped direct field projections, field selection from
-  those record-shaped projections, the implemented direct ADT constructor
-  wrapper forms.
 - Eligible generated `byte_encode_<schema>` helpers evaluate supported
   field-local `where` predicates over schema-local visible `Int` values during
   encode and report `schema.validation_failed` with field path, predicate
@@ -520,15 +350,6 @@ Implemented:
 
 Remaining:
 
-- Runtime schema value mapping beyond the implemented schema-local field
-  reference, record construction, nested ADT constructor construction, one pure
-  same-module or imported public converter call whose arguments may be
-  schema-local fields or structural mapping expressions
-  including pure converter calls, field
-  selection from record-shaped structural mapping expressions, decoded-field and
-  converter-call integer arithmetic, supported integer comparison mapping
-  assignment composition, and narrow decoded-field integer boolean selection
-  slices.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension

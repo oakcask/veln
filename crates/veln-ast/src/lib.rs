@@ -10,10 +10,8 @@ pub use model::{
     CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, IfBranch, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SchemaMappingInverseConverter, SchemaMappingSelector,
-    SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
-    Visibility,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
+    SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
 };
 
 #[cfg(test)]

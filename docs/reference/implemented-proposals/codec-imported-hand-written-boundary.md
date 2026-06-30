@@ -37,22 +37,18 @@ does not make bare imported codec names ordinary call targets.
 
 ## Evidence
 
-- `../../../examples/specification/run/codec-imported-decode-boundary/` checks
-  a public imported hand-written `decode with` codec call through a qualified
-  module path, including `Decoded`, `NeedMore(NeedBytes(...))`,
+- Imported hand-written codec tests check public `decode with` calls through a
+  qualified module path, including `Decoded`, `NeedMore(NeedBytes(...))`,
   `NeedMore(NeedEnd)`, and `Invalid` outcomes.
 - `../../../examples/specification/run/codec-imported-decode-need-end-boundary-human/`
   and
   `../../../examples/specification/run/codec-imported-decode-need-end-boundary-json/`
   check imported `NeedMore(NeedEnd)` projection at the closed-input reporting
   boundary.
-- `../../../examples/specification/run/codec-imported-encode-boundary/` checks
-  a public imported hand-written `encode with` codec call through a qualified
-  module path, including `Encoded`, `Partial`, and `Invalid` outcomes.
-- `../../../examples/specification/run/codec-imported-encode-resume-boundary/`
-  checks the imported hand-written `encode with` resume path: a qualified call
-  returns `Partial(...)`, ordinary source extracts the returned state, and a
-  later qualified call to the same imported codec returns `Encoded(...)`.
+- Imported hand-written codec tests check public `encode with` calls through a
+  qualified module path, including `Encoded`, `Partial`, and `Invalid`
+  outcomes. They also check the resume path where a later qualified call to
+  the same imported codec returns `Encoded(...)`.
 - `../../../examples/specification/check/codec-imported-private-boundary/`
   checks that a private imported hand-written codec remains unavailable
   through the qualified module path.

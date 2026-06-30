@@ -1,3 +1,0 @@
-pub fn summarize(kind: Int, length: Int, bonus: Int, final: Int, tag: Int, half: Int) -> Int
-	length - kind + bonus + final + tag + half
-end

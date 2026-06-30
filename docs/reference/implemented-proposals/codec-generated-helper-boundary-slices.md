@@ -113,12 +113,6 @@ produced count, and a resumable state record carrying `encoded_offset`.
   checks visible-only packed seven-byte helper decode and encode behavior
   through the derived codec item, including short-input readiness, budgeted
   partial/resume behavior, and helper encode failure projection.
-- `../../../examples/specification/run/derived-codec-five-argument-mapped-converter-decode-boundary/`
-  checks generated helper decode behavior for a schema mapping converter call
-  through the derived codec item, including successful decode, consumed count,
-  short-input readiness, and helper decode failure projection. The companion
-  human and JSON cases check the command-facing diagnostics for that
-  helper-projected `Invalid(DecodeError)` value.
 - `../../../examples/specification/run/derived-codec-wide-reserved-prefix-boundary/`
   checks seven-byte and eight-byte reserved prefix group decode through the
   derived codec item, non-consuming reserved-bit mismatch `Invalid` values,

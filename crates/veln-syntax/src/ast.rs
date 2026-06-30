@@ -100,7 +100,6 @@ pub struct SchemaDecl {
     pub format: Option<SchemaFormatClause>,
     pub fields: Vec<SchemaField>,
     pub validations: Vec<SchemaValidationClause>,
-    pub mappings: Vec<SchemaMappingClause>,
     pub span: SourceSpan,
     pub end_present: bool,
 }
@@ -128,36 +127,6 @@ pub struct SchemaFieldWhereClause {
 #[derive(Clone, Debug)]
 pub struct SchemaValidationClause {
     pub predicate: String,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub struct SchemaMappingClause {
-    pub target: Option<String>,
-    pub selector: Option<SchemaMappingSelector>,
-    pub assignments: Vec<SchemaMappingAssignment>,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub struct SchemaMappingSelector {
-    pub text: String,
-    pub expr: Expr,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub struct SchemaMappingAssignment {
-    pub target: String,
-    pub source: String,
-    pub expr: Expr,
-    pub inverse_converter: Option<SchemaMappingInverseConverter>,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub struct SchemaMappingInverseConverter {
-    pub name: String,
     pub span: SourceSpan,
 }
 

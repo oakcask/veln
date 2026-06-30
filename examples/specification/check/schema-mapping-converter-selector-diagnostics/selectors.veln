@@ -1,7 +1,0 @@
-pub fn public_selector(kind: Int) -> Bool
-	kind == 1
-end
-
-fn private_selector(kind: Int) -> Bool
-	kind == 1
-end

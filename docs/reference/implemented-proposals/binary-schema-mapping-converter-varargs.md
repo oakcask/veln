@@ -26,16 +26,7 @@ schema mapping expressions outside the current structural vocabulary.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-five-argument-mapped-converter-decode/`
-  and
-  `../../../examples/specification/run/binary-schema-imported-five-argument-mapped-converter-decode/`
-  keep the previous five-argument generated decode mapping cases passing.
-- `../../../examples/specification/run/binary-schema-mapped-converter-many-argument-decode/`
-  checks a same-module pure converter call with more than five supported
-  structural arguments.
-- `../../../examples/specification/run/binary-schema-imported-mapped-converter-many-argument-decode/`
-  checks an imported public pure converter call with more than five supported
-  structural arguments.
+This historical slice was retired with schema-level mapping support.
 
 ## Remaining Work
 

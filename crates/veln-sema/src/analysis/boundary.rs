@@ -1,14 +1,5 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use crate::schema::diagnostics::{
-    schema_mapping_expr_diagnostic, schema_mapping_selector_expr_diagnostic,
-};
-use crate::schema::mapping::{
-    SchemaMappingSelectorComparison, SchemaMappingSelectorPredicate, SchemaMappingTyper,
-    schema_mapping_assignment_expr_typed, schema_mapping_expr_typed,
-    schema_mapping_selector_predicate, schema_mapping_selectors_overlap,
-    schema_mapping_source_field_types, schema_mapping_target_record_fields,
-};
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
     SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
@@ -18,20 +9,17 @@ use crate::types::{
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive,
-    schema_decode_only_recursive_dispatch_payload_type, schema_decode_record_type,
-    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
-    schema_encode_function_name, schema_encode_projection_failure, schema_encode_value_type,
-    schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
-    schema_length_expression_references, schema_payload_name_last_segment,
-    schema_payload_name_path, schema_recursive_dispatch_payload_type,
-    selected_mappings_cover_closed_dispatch, selected_mappings_cover_dispatch_cases,
-    supported_encode_reserved_bits,
+    schema_decode_only_recursive_dispatch_payload_type, schema_decode_step_function_name,
+    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
+    schema_encode_value_type, schema_has_eligible_recursive_dispatch_payload,
+    schema_has_recursive_dispatch_payload, schema_length_expression_references,
+    schema_payload_name_last_segment, schema_payload_name_path,
+    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
-    SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, SchemaValidationClause,
-    UseDecl,
+    SchemaDecl, SchemaField, SchemaValidationClause, UseDecl,
 };
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
@@ -650,7 +638,7 @@ fn codec_same_module_function<'a>(
 }
 
 fn codec_decode_signature_diagnostics(
-    module: &SurfaceModule,
+    _module: &SurfaceModule,
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
     function: &Function,
@@ -718,19 +706,6 @@ fn codec_decode_signature_diagnostics(
             "decode function must return `DecodeStep<T>`",
             return_type.render(),
         ));
-    } else if let Some(expected_value_type) = codec_mapping_value_type(module, codec) {
-        let actual_value_type = decode_step_value_type(&return_type)
-            .expect("DecodeStep return value type is available after shape check");
-        if !types_match(&expected_value_type, actual_value_type) {
-            diagnostics.push(codec_decode_value_type_diagnostic(
-                codec,
-                implementation,
-                function,
-                function_name,
-                &expected_value_type,
-                actual_value_type,
-            ));
-        }
     }
 
     diagnostics
@@ -747,55 +722,21 @@ fn decode_step_value_type(ty: &Type) -> Option<&Type> {
     }
 }
 
+fn is_encode_step_return(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args } if name == "EncodeStep" && args.len() == 1
+    )
+}
+
 fn codec_encode_signature_diagnostics(
-    module: &SurfaceModule,
+    _module: &SurfaceModule,
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
     function: &Function,
     function_name: &str,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-
-    if let Some(expected_value_type) = codec_mapping_value_type(module, codec) {
-        match function.params.first() {
-            Some(param) => {
-                let actual_value_type = param
-                    .ty
-                    .as_deref()
-                    .and_then(|annotation| parse_type_annotation(annotation).ok())
-                    .unwrap_or(Type::Unknown);
-                if !types_match(&expected_value_type, &actual_value_type) {
-                    diagnostics.push(codec_encode_value_type_diagnostic(
-                        codec,
-                        implementation,
-                        function,
-                        function_name,
-                        &expected_value_type,
-                        EncodeValueTypeMismatch {
-                            reason: "value_parameter_type",
-                            message:
-                                "encode function value parameter must match schema mapping value type",
-                            actual_value_type: &actual_value_type,
-                        },
-                    ));
-                }
-            }
-            None => {
-                diagnostics.push(codec_encode_value_type_diagnostic(
-                    codec,
-                    implementation,
-                    function,
-                    function_name,
-                    &expected_value_type,
-                    EncodeValueTypeMismatch {
-                        reason: "missing_value_parameter",
-                        message: "encode function must take a schema mapping value parameter",
-                        actual_value_type: &Type::Unknown,
-                    },
-                ));
-            }
-        }
-    }
 
     let return_type = function
         .return_type
@@ -834,19 +775,8 @@ fn codec_derive_decode_value_type_diagnostics(
             CodecDirection::Decode,
         )];
     };
-    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
-        return Vec::new();
-    };
-    if types_match(&expected_value_type, &actual_value_type) {
-        return Vec::new();
-    }
-
-    vec![codec_derive_decode_value_type_diagnostic(
-        codec,
-        implementation,
-        &expected_value_type,
-        &actual_value_type,
-    )]
+    let _ = actual_value_type;
+    Vec::new()
 }
 
 fn codec_derive_encode_value_type_diagnostics(
@@ -863,11 +793,6 @@ fn codec_derive_encode_value_type_diagnostics(
         if !dispatch_payload_diagnostics.is_empty() {
             return dispatch_payload_diagnostics;
         }
-        if let Some(diagnostic) =
-            schema_encode_mapping_projection_diagnostic(module, schema, Some(implementation))
-        {
-            return vec![diagnostic];
-        }
         return vec![codec_derive_helper_unsupported_diagnostic(
             codec,
             implementation,
@@ -875,202 +800,8 @@ fn codec_derive_encode_value_type_diagnostics(
             CodecDirection::Encode,
         )];
     };
-    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
-        return Vec::new();
-    };
-    if types_match(&expected_value_type, &actual_value_type) {
-        return Vec::new();
-    }
-
-    vec![codec_derive_encode_value_type_diagnostic(
-        codec,
-        implementation,
-        &expected_value_type,
-        &actual_value_type,
-    )]
-}
-
-fn is_encode_step_return(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args } if name == "EncodeStep" && args.len() == 1
-    )
-}
-
-fn codec_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option<Type> {
-    let parts = codec_single_mapping_value_type_parts(
-        module,
-        codec,
-        MappingValueTypeEligibility::ImplementedRuntimeSlice,
-    )?;
-    if !mapping_is_implemented_value_slice(
-        module,
-        parts.schema,
-        &parts.schema_fields,
-        parts.mapping,
-        &parts.target_fields,
-    ) {
-        return None;
-    }
-    Some(Type::Record(parts.target_fields))
-}
-
-fn codec_declared_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option<Type> {
-    let parts = codec_single_mapping_value_type_parts(
-        module,
-        codec,
-        MappingValueTypeEligibility::Declared,
-    )?;
-    Some(Type::Record(parts.target_fields))
-}
-
-struct CodecMappingValueTypeParts<'a> {
-    schema_fields: BTreeMap<String, Type>,
-    target_fields: Vec<(String, Type)>,
-    schema: &'a SchemaDecl,
-    mapping: &'a SchemaMappingClause,
-}
-
-fn codec_single_mapping_value_type_parts<'a>(
-    module: &'a SurfaceModule,
-    codec: &CodecDecl,
-    eligibility: MappingValueTypeEligibility,
-) -> Option<CodecMappingValueTypeParts<'a>> {
-    let schema = codec_referenced_schema(module, codec)?;
-    let [mapping, rest @ ..] = schema.mappings.as_slice() else {
-        return None;
-    };
-    let schema_fields = generated_schema_field_types(module, schema)?;
-    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    for candidate in rest {
-        candidate.selector.as_ref()?;
-        let candidate_target_fields =
-            schema_mapping_target_record_fields(module, schema, candidate)?;
-        if candidate_target_fields != target_fields {
-            return None;
-        }
-        let candidate_matches = match eligibility {
-            MappingValueTypeEligibility::Declared => mapping_matches_declared_value_type(
-                module,
-                schema,
-                &schema_fields,
-                candidate,
-                &candidate_target_fields,
-            ),
-            MappingValueTypeEligibility::ImplementedRuntimeSlice => {
-                mapping_is_implemented_value_slice(
-                    module,
-                    schema,
-                    &schema_fields,
-                    candidate,
-                    &candidate_target_fields,
-                )
-            }
-        };
-        if !candidate_matches {
-            return None;
-        }
-    }
-    if eligibility == MappingValueTypeEligibility::Declared
-        && !mapping_matches_declared_value_type(
-            module,
-            schema,
-            &schema_fields,
-            mapping,
-            &target_fields,
-        )
-    {
-        return None;
-    }
-    Some(CodecMappingValueTypeParts {
-        schema_fields,
-        target_fields,
-        schema,
-        mapping,
-    })
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MappingValueTypeEligibility {
-    Declared,
-    ImplementedRuntimeSlice,
-}
-
-fn mapping_matches_declared_value_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &BTreeMap<String, Type>,
-    mapping: &SchemaMappingClause,
-    target_fields: &[(String, Type)],
-) -> bool {
-    let Some(schema_fields) =
-        schema_mapping_source_field_types(module, schema, schema_fields, mapping)
-    else {
-        return false;
-    };
-    let target_field_types = target_fields
-        .iter()
-        .cloned()
-        .collect::<BTreeMap<String, Type>>();
-    let mut seen_targets = BTreeMap::<&str, ()>::new();
-    for assignment in &mapping.assignments {
-        let Some(target_ty) = target_field_types.get(&assignment.target) else {
-            return false;
-        };
-        if schema_mapping_expr_typed(module, schema, &schema_fields, &assignment.expr, target_ty)
-            .is_err()
-        {
-            return false;
-        }
-        if seen_targets
-            .insert(assignment.target.as_str(), ())
-            .is_some()
-        {
-            return false;
-        }
-    }
-
-    target_fields
-        .iter()
-        .all(|(target_field, _)| seen_targets.contains_key(target_field.as_str()))
-}
-
-fn mapping_is_implemented_value_slice(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &BTreeMap<String, Type>,
-    mapping: &SchemaMappingClause,
-    target_fields: &[(String, Type)],
-) -> bool {
-    let Some(schema_fields) =
-        schema_mapping_source_field_types(module, schema, schema_fields, mapping)
-    else {
-        return false;
-    };
-    let mut seen_targets = BTreeMap::<&str, ()>::new();
-    for assignment in &mapping.assignments {
-        let Some((_, target_ty)) = target_fields
-            .iter()
-            .find(|(target_field, _)| target_field == &assignment.target)
-        else {
-            return false;
-        };
-        if schema_mapping_expr_typed(module, schema, &schema_fields, &assignment.expr, target_ty)
-            .is_err()
-        {
-            return false;
-        }
-        if seen_targets
-            .insert(assignment.target.as_str(), ())
-            .is_some()
-        {
-            return false;
-        }
-    }
-
-    target_fields
-        .iter()
-        .all(|(target_field, _)| seen_targets.contains_key(target_field.as_str()))
+    let _ = actual_value_type;
+    Vec::new()
 }
 
 fn codec_referenced_schema<'a>(
@@ -1084,10 +815,6 @@ fn codec_referenced_schema<'a>(
         | SchemaResolution::WrongKind(_)
         | SchemaResolution::Unresolved => None,
     }
-}
-
-fn types_match(expected: &Type, actual: &Type) -> bool {
-    actual != &Type::Unknown && is_assignable(expected, actual) && is_assignable(actual, expected)
 }
 
 fn parameter_types_text(function: &Function) -> String {
@@ -1277,122 +1004,6 @@ fn codec_encode_signature_diagnostic(
     diagnostic
 }
 
-fn codec_decode_value_type_diagnostic(
-    codec: &CodecDecl,
-    implementation: &CodecImplementationClause,
-    function: &Function,
-    function_name: &str,
-    expected_value_type: &Type,
-    actual_value_type: &Type,
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
-        "codec.decode_value_type",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "decode function value type is `{}`, but schema mapping value type is `{}`",
-            actual_value_type.render(),
-            expected_value_type.render()
-        ),
-        Some(implementation.span.clone()),
-        codec_mapping_value_details(
-            implementation,
-            codec,
-            "decode",
-            function_name,
-            "return_value_type",
-            expected_value_type,
-            actual_value_type,
-        ),
-    );
-    diagnostic
-        .related
-        .push(codec_function_related(function, function_name));
-    diagnostic
-}
-
-fn codec_encode_value_type_diagnostic(
-    codec: &CodecDecl,
-    implementation: &CodecImplementationClause,
-    function: &Function,
-    function_name: &str,
-    expected_value_type: &Type,
-    mismatch: EncodeValueTypeMismatch<'_>,
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
-        "codec.encode_value_type",
-        Severity::Error,
-        DiagnosticKind::Type,
-        mismatch.message,
-        Some(implementation.span.clone()),
-        codec_mapping_value_details(
-            implementation,
-            codec,
-            "encode",
-            function_name,
-            mismatch.reason,
-            expected_value_type,
-            mismatch.actual_value_type,
-        ),
-    );
-    diagnostic
-        .related
-        .push(codec_function_related(function, function_name));
-    diagnostic
-}
-
-fn codec_derive_decode_value_type_diagnostic(
-    codec: &CodecDecl,
-    implementation: &CodecImplementationClause,
-    expected_value_type: &Type,
-    actual_value_type: &Type,
-) -> Diagnostic {
-    Diagnostic::new(
-        "codec.decode_value_type",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "derived decode value type is `{}`, but schema mapping value type is `{}`",
-            actual_value_type.render(),
-            expected_value_type.render()
-        ),
-        Some(implementation.span.clone()),
-        codec_mapping_value_details(
-            implementation,
-            codec,
-            "decode",
-            "<derived>",
-            "generated_decode_value_type",
-            expected_value_type,
-            actual_value_type,
-        ),
-    )
-}
-
-fn codec_derive_encode_value_type_diagnostic(
-    codec: &CodecDecl,
-    implementation: &CodecImplementationClause,
-    expected_value_type: &Type,
-    actual_value_type: &Type,
-) -> Diagnostic {
-    Diagnostic::new(
-        "codec.encode_value_type",
-        Severity::Error,
-        DiagnosticKind::Type,
-        "derived encode value parameter must match schema mapping value type",
-        Some(implementation.span.clone()),
-        codec_mapping_value_details(
-            implementation,
-            codec,
-            "encode",
-            "<derived>",
-            "generated_encode_value_type",
-            expected_value_type,
-            actual_value_type,
-        ),
-    )
-}
-
 fn codec_derive_helper_unsupported_diagnostic(
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
@@ -1456,62 +1067,6 @@ fn codec_derive_helper_unsupported_diagnostic(
         ),
     ]));
     diagnostic
-}
-
-struct EncodeValueTypeMismatch<'a> {
-    reason: &'static str,
-    message: &'static str,
-    actual_value_type: &'a Type,
-}
-
-fn codec_mapping_value_details(
-    implementation: &CodecImplementationClause,
-    codec: &CodecDecl,
-    direction: &'static str,
-    function_name: &str,
-    reason: &'static str,
-    expected_value_type: &Type,
-    actual_value_type: &Type,
-) -> JsonValue {
-    JsonValue::object([
-        ("phase", JsonValue::string("codec")),
-        (
-            "node_id",
-            JsonValue::string(implementation.node_id.display("codec-impl")),
-        ),
-        (
-            "codec",
-            JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
-        ),
-        ("direction", JsonValue::string(direction)),
-        ("function", JsonValue::string(function_name.to_string())),
-        ("reason", JsonValue::string(reason)),
-        (
-            "schema",
-            JsonValue::string(codec.schema.as_deref().unwrap_or("<missing>")),
-        ),
-        (
-            "expected_value_type",
-            JsonValue::string(expected_value_type.render()),
-        ),
-        (
-            "actual_value_type",
-            JsonValue::string(actual_value_type.render()),
-        ),
-    ])
-}
-
-fn codec_function_related(function: &Function, function_name: &str) -> JsonValue {
-    JsonValue::object([
-        ("kind", JsonValue::string("function_signature")),
-        (
-            "message",
-            JsonValue::string(format!(
-                "Referenced function `{function_name}` is declared here."
-            )),
-        ),
-        ("span", span_json(&function.span)),
-    ])
 }
 
 pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -1792,24 +1347,6 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
                     &mut diagnostics,
                 );
             }
-        }
-    }
-
-    for schema in &module.schemas {
-        let current_module = schema.module_name.as_deref();
-        for mapping in &schema.mappings {
-            let Some(target) = &mapping.target else {
-                continue;
-            };
-            push_schema_type_reference_diagnostics(
-                module,
-                current_module,
-                target,
-                mapping.node_id.display("schema-mapping"),
-                mapping.span.clone(),
-                "schema_mapping_target",
-                &mut diagnostics,
-            );
         }
     }
 
@@ -2899,9 +2436,7 @@ fn check_schema_dispatch_field(
                     )
         )
     });
-    if mixed_payload_type
-        && (selected_mappings_cover_closed_dispatch(schema, dispatch) || recursive_dispatch_payload)
-    {
+    if mixed_payload_type && recursive_dispatch_payload {
         valid = !payload_resolution_failed;
     } else if mixed_payload_type && payload_resolution_failed {
         valid = false;
@@ -2945,9 +2480,7 @@ fn check_schema_dispatch_field(
     if !valid {
         return None;
     }
-    let payload_ty = if recursive_dispatch_payload
-        && !selected_mappings_cover_dispatch_cases(schema, dispatch)
-    {
+    let payload_ty = if recursive_dispatch_payload {
         schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)?
     } else {
         expected_payload_type?
@@ -2966,7 +2499,7 @@ struct RecursiveDispatchPayloadBlocker {
 }
 
 fn recursive_dispatch_payload_blocker(
-    parent_schema: &SchemaDecl,
+    _parent_schema: &SchemaDecl,
     field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
     schema_name: &str,
@@ -2991,27 +2524,16 @@ fn recursive_dispatch_payload_blocker(
             ),
         };
     }
-    if parent_schema.mappings.is_empty()
-        && !dispatch
-            .cases
-            .iter()
-            .any(|case| matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
+    if !dispatch
+        .cases
+        .iter()
+        .any(|case| matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
     {
         return RecursiveDispatchPayloadBlocker {
             reason: "recursive_payload_missing_primitive_base_case",
-            fact: "unmapped recursive dispatch parents require a non-recursive primitive base case",
+            fact: "recursive dispatch parents require a non-recursive primitive base case",
             message: format!(
-                "dispatch payload schema `{schema_name}` requires unmapped parent dispatch field `{}` to include a non-recursive primitive case",
-                field.name
-            ),
-        };
-    }
-    if !selected_mappings_cover_dispatch_cases(parent_schema, dispatch) {
-        return RecursiveDispatchPayloadBlocker {
-            reason: "recursive_payload_missing_selected_mapping_coverage",
-            fact: "recursive dispatch payload encode support requires selected mappings to cover every dispatch case",
-            message: format!(
-                "dispatch payload schema `{schema_name}` requires selected mappings to cover every case of parent dispatch field `{}`",
+                "dispatch payload schema `{schema_name}` requires parent dispatch field `{}` to include a non-recursive primitive case",
                 field.name
             ),
         };
@@ -3534,14 +3056,13 @@ fn schema_encode_dispatch_payload_diagnostics(
                 continue;
             };
             if schema_has_recursive_dispatch_payload(payload_schema)
-                && (!selected_mappings_cover_dispatch_cases(schema, &dispatch)
-                    || !recursive_dispatch_payload_case_is_eligible(
-                        module,
-                        schema,
-                        field,
-                        &dispatch,
-                        schema_name,
-                    ))
+                && !recursive_dispatch_payload_case_is_eligible(
+                    module,
+                    schema,
+                    field,
+                    &dispatch,
+                    schema_name,
+                )
             {
                 let blocker = recursive_dispatch_payload_blocker(
                     schema,
@@ -3633,31 +3154,17 @@ struct UnsupportedDispatchPayloadHelperField<'a> {
     reason: &'static str,
 }
 
-struct UnsupportedDispatchPayloadMappingProjection<'a> {
-    schema_name: String,
-    assignment: &'a SchemaMappingAssignment,
-    layout_fact: String,
-    reason: &'static str,
-}
-
 enum UnsupportedDispatchPayloadHelperBlocker<'a> {
     Field(UnsupportedDispatchPayloadHelperField<'a>),
-    MappingProjection(UnsupportedDispatchPayloadMappingProjection<'a>),
 }
 
 fn unsupported_dispatch_payload_helper_blocker<'a>(
-    module: &'a SurfaceModule,
+    _module: &'a SurfaceModule,
     schema: &'a SchemaDecl,
-    helper_availability: SchemaHelperAvailability,
+    _helper_availability: SchemaHelperAvailability,
 ) -> Option<UnsupportedDispatchPayloadHelperBlocker<'a>> {
     unsupported_dispatch_payload_helper_field(schema)
         .map(UnsupportedDispatchPayloadHelperBlocker::Field)
-        .or_else(|| {
-            (!helper_availability.encode && helper_availability.decode)
-                .then(|| unsupported_dispatch_payload_mapping_projection(module, schema))
-                .flatten()
-                .map(UnsupportedDispatchPayloadHelperBlocker::MappingProjection)
-        })
 }
 
 fn unsupported_dispatch_payload_helper_field(
@@ -3724,129 +3231,6 @@ fn unsupported_dispatch_payload_helper_field(
     None
 }
 
-fn unsupported_dispatch_payload_mapping_projection<'a>(
-    module: &'a SurfaceModule,
-    schema: &'a SchemaDecl,
-) -> Option<UnsupportedDispatchPayloadMappingProjection<'a>> {
-    let failure = schema_encode_projection_failure(module, schema)?;
-    let assignment = schema
-        .mappings
-        .iter()
-        .flat_map(|mapping| mapping.assignments.iter())
-        .find(|assignment| assignment.node_id == failure.assignment_node_id)?;
-    Some(UnsupportedDispatchPayloadMappingProjection {
-        schema_name: failure.schema_name,
-        assignment,
-        layout_fact: format!(
-            "mapping assignment `{}` cannot be projected back to schema-local fields for generated encode",
-            failure.assignment_source
-        ),
-        reason: "ineligible_mapping_projection",
-    })
-}
-
-fn schema_encode_mapping_projection_diagnostic(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    implementation: Option<&CodecImplementationClause>,
-) -> Option<Diagnostic> {
-    schema_decode_value_type(module, schema)?;
-    let unsupported = unsupported_dispatch_payload_mapping_projection(module, schema)?;
-    let encode_helper = schema_encode_function_name(&unsupported.schema_name);
-    let mut diagnostic = Diagnostic::new(
-        "schema.mapping_encode_projection",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "schema mapping assignment `{}` cannot be projected for generated encode",
-            unsupported.assignment.source
-        ),
-        Some(unsupported.assignment.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("schema")),
-            (
-                "node_id",
-                JsonValue::string(
-                    unsupported
-                        .assignment
-                        .node_id
-                        .display("schema-mapping-assignment"),
-                ),
-            ),
-            ("schema", JsonValue::string(unsupported.schema_name.clone())),
-            (
-                "mapping_target",
-                JsonValue::string(unsupported.assignment.target.clone()),
-            ),
-            (
-                "mapping_target_path",
-                schema_mapping_projection_target_path(&unsupported),
-            ),
-            (
-                "target_value_path",
-                JsonValue::array([JsonValue::object([
-                    ("kind", JsonValue::string("record_field")),
-                    (
-                        "name",
-                        JsonValue::string(unsupported.assignment.target.clone()),
-                    ),
-                ])]),
-            ),
-            ("reason", JsonValue::string(unsupported.reason)),
-            (
-                "expected_encode_helper",
-                JsonValue::string(encode_helper.clone()),
-            ),
-            (
-                "encode_helper_boundary",
-                JsonValue::string("generated_binary_schema_encode"),
-            ),
-            (
-                "unavailable_helper_directions",
-                JsonValue::array([JsonValue::string("encode")]),
-            ),
-            (
-                "layout_fact",
-                JsonValue::string(unsupported.layout_fact.clone()),
-            ),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("schema_declaration")),
-        ("span", span_json(&schema.span)),
-        (
-            "message",
-            JsonValue::string(format!(
-                "Schema `{}` is declared here and does not expose the generated `{encode_helper}` helper required for schema encoding.",
-                unsupported.schema_name
-            )),
-        ),
-    ]));
-    if let Some(implementation) = implementation {
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("derive_encode_request")),
-            ("span", span_json(&implementation.span)),
-            (
-                "message",
-                JsonValue::string(format!(
-                    "`derive encode` requires schema `{}` to expose the generated `{encode_helper}` helper.",
-                    unsupported.schema_name
-                )),
-            ),
-        ]));
-    }
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("helper_boundary")),
-        (
-            "message",
-            JsonValue::string(format!(
-                "Generated binary schema encode requires `{encode_helper}` to recover every visible encode field from the mapped value."
-            )),
-        ),
-    ]));
-    Some(diagnostic)
-}
-
 fn byte_view_ineligible_length_fact(
     schema: &SchemaDecl,
     field: &SchemaField,
@@ -3905,9 +3289,6 @@ fn add_dispatch_payload_unsupported_blocker_details(
         UnsupportedDispatchPayloadHelperBlocker::Field(field) => {
             add_dispatch_payload_unsupported_field_details(details, field)
         }
-        UnsupportedDispatchPayloadHelperBlocker::MappingProjection(mapping) => {
-            add_dispatch_payload_unsupported_mapping_projection_details(details, mapping)
-        }
     }
 }
 
@@ -3941,63 +3322,12 @@ fn add_dispatch_payload_unsupported_field_details(
     JsonValue::Object(fields)
 }
 
-fn add_dispatch_payload_unsupported_mapping_projection_details(
-    details: JsonValue,
-    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
-) -> JsonValue {
-    let JsonValue::Object(mut fields) = details else {
-        return details;
-    };
-    fields.push((
-        "unsupported_nested_schema".to_string(),
-        JsonValue::string(unsupported.schema_name.clone()),
-    ));
-    fields.push((
-        "unsupported_nested_mapping_target".to_string(),
-        JsonValue::string(unsupported.assignment.target.clone()),
-    ));
-    fields.push((
-        "unsupported_nested_mapping_target_path".to_string(),
-        schema_mapping_projection_target_path(unsupported),
-    ));
-    fields.push((
-        "unsupported_nested_layout_reason".to_string(),
-        JsonValue::string(unsupported.reason),
-    ));
-    fields.push((
-        "unsupported_nested_layout_fact".to_string(),
-        JsonValue::string(unsupported.layout_fact.clone()),
-    ));
-    JsonValue::Object(fields)
-}
-
-fn schema_mapping_projection_target_path(
-    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
-) -> JsonValue {
-    JsonValue::array([
-        JsonValue::object([
-            ("kind", JsonValue::string("schema")),
-            ("name", JsonValue::string(unsupported.schema_name.clone())),
-        ]),
-        JsonValue::object([
-            ("kind", JsonValue::string("mapping_target")),
-            (
-                "name",
-                JsonValue::string(unsupported.assignment.target.clone()),
-            ),
-        ]),
-    ])
-}
-
 fn dispatch_payload_unsupported_blocker_related(
     unsupported: &UnsupportedDispatchPayloadHelperBlocker<'_>,
 ) -> JsonValue {
     match unsupported {
         UnsupportedDispatchPayloadHelperBlocker::Field(field) => {
             dispatch_payload_unsupported_field_related(field)
-        }
-        UnsupportedDispatchPayloadHelperBlocker::MappingProjection(mapping) => {
-            dispatch_payload_unsupported_mapping_projection_related(mapping)
         }
     }
 }
@@ -4018,27 +3348,6 @@ fn dispatch_payload_unsupported_field_related(
             JsonValue::string(format!(
                 "Nested dispatch payload field `{}` prevents generated decode and encode helpers: {}.",
                 unsupported.field_path_display, layout_fact
-            )),
-        ),
-    ])
-}
-
-fn dispatch_payload_unsupported_mapping_projection_related(
-    unsupported: &UnsupportedDispatchPayloadMappingProjection<'_>,
-) -> JsonValue {
-    let layout_fact = unsupported.layout_fact.trim_end_matches('.');
-    JsonValue::object([
-        ("kind", JsonValue::string("unsupported_nested_mapping")),
-        ("span", span_json(&unsupported.assignment.span)),
-        (
-            "mapping_target",
-            JsonValue::string(unsupported.assignment.target.clone()),
-        ),
-        (
-            "message",
-            JsonValue::string(format!(
-                "Nested dispatch payload mapping `{}.{}` prevents generated encode helpers: {}.",
-                unsupported.schema_name, unsupported.assignment.target, layout_fact
             )),
         ),
     ])
@@ -4094,527 +3403,6 @@ fn schema_dispatch_field_path(schema: &SchemaDecl, field: &SchemaField) -> JsonV
             ("name", JsonValue::string(field.name.clone())),
         ]),
     ])
-}
-
-pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for schema in &module.schemas {
-        let Some(schema_fields) = generated_schema_field_types(module, schema) else {
-            continue;
-        };
-        let selection_diagnostics =
-            schema_mapping_selection_diagnostics(module, schema, &schema_fields);
-        let has_selection_errors = !selection_diagnostics.is_empty();
-        diagnostics.extend(selection_diagnostics);
-        if has_selection_errors {
-            continue;
-        }
-        for mapping in &schema.mappings {
-            let Some(target) = &mapping.target else {
-                continue;
-            };
-            let target_fields = schema_mapping_target_record_fields(module, schema, mapping);
-            let Some(target_fields) = target_fields else {
-                diagnostics.push(schema_mapping_target_diagnostic(schema, mapping, target));
-                continue;
-            };
-            let target_field_types = target_fields.into_iter().collect::<BTreeMap<_, _>>();
-            let mapping_schema_fields =
-                schema_mapping_source_field_types(module, schema, &schema_fields, mapping)
-                    .unwrap_or_else(|| schema_fields.clone());
-            let mut assigned_targets = BTreeMap::<String, SourceSpan>::new();
-            for assignment in &mapping.assignments {
-                let Some(target_ty) = target_field_types.get(&assignment.target) else {
-                    diagnostics.push(schema_mapping_target_field_diagnostic(
-                        schema, mapping, assignment,
-                    ));
-                    continue;
-                };
-                if let Err(error) = schema_mapping_assignment_expr_typed(
-                    module,
-                    schema,
-                    &mapping_schema_fields,
-                    assignment,
-                    target_ty,
-                ) {
-                    diagnostics.push(schema_mapping_expr_diagnostic(
-                        schema, mapping, assignment, *error,
-                    ));
-                }
-                if let Some(first_span) =
-                    assigned_targets.insert(assignment.target.clone(), assignment.span.clone())
-                {
-                    diagnostics.push(schema_mapping_duplicate_target_diagnostic(
-                        schema,
-                        mapping,
-                        assignment,
-                        &first_span,
-                    ));
-                }
-            }
-            for target_field in target_field_types.keys() {
-                if !assigned_targets.contains_key(target_field) {
-                    diagnostics.push(schema_mapping_missing_target_diagnostic(
-                        schema,
-                        mapping,
-                        target_field,
-                    ));
-                }
-            }
-        }
-    }
-
-    diagnostics
-}
-
-fn schema_mapping_selection_diagnostics(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &BTreeMap<String, Type>,
-) -> Vec<Diagnostic> {
-    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
-        return Vec::new();
-    }
-    if schema.mappings.len() <= 1 {
-        return Vec::new();
-    }
-
-    let mut diagnostics = Vec::new();
-    let typer = SchemaMappingTyper::new(module, schema);
-    let mut seen_selectors = Vec::<(
-        &veln_ast::SchemaMappingSelector,
-        SchemaMappingSelectorPredicate,
-        SourceSpan,
-    )>::new();
-    let mut target_fields = None::<Vec<(String, Type)>>;
-    for mapping in &schema.mappings {
-        let Some(selector) = &mapping.selector else {
-            diagnostics.push(schema_mapping_selection_required_diagnostic(
-                schema, mapping,
-            ));
-            continue;
-        };
-        if let Ok(predicate) = schema_mapping_selector_predicate(selector) {
-            let mut selector_fields = BTreeSet::<String>::new();
-            predicate.collect_fields(&mut selector_fields);
-            let mut selector_valid = true;
-            for selector_field in selector_fields {
-                if !schema
-                    .fields
-                    .iter()
-                    .any(|field| field.name == selector_field)
-                {
-                    selector_valid = false;
-                    diagnostics.push(schema_mapping_selection_unknown_field_diagnostic(
-                        schema,
-                        mapping,
-                        selector,
-                        &selector_field,
-                    ));
-                } else if schema_fields.get(&selector_field) != Some(&Type::int()) {
-                    selector_valid = false;
-                    diagnostics.push(schema_mapping_selection_field_diagnostic(
-                        schema,
-                        mapping,
-                        selector,
-                        &selector_field,
-                    ));
-                }
-            }
-            if !selector_valid {
-                continue;
-            }
-            if let Some((previous, previous_predicate, first_span)) =
-                seen_selectors.iter().find(|(_, previous_predicate, _)| {
-                    schema_mapping_selectors_overlap(previous_predicate, &predicate)
-                })
-            {
-                diagnostics.push(schema_mapping_selection_ambiguous_diagnostic(
-                    schema,
-                    mapping,
-                    selector,
-                    &predicate,
-                    previous,
-                    previous_predicate,
-                    first_span,
-                ));
-            }
-            seen_selectors.push((selector, predicate, selector.span.clone()));
-        } else if let Err(error) =
-            typer.converter_selector_expr_typed(schema_fields, &selector.expr)
-        {
-            diagnostics.push(schema_mapping_selector_expr_diagnostic(
-                schema, mapping, selector, *error,
-            ));
-            continue;
-        }
-        if let Some(fields) = schema_mapping_target_record_fields(module, schema, mapping) {
-            if let Some(first_fields) = &target_fields {
-                if first_fields != &fields {
-                    diagnostics.push(schema_mapping_selection_target_diagnostic(schema, mapping));
-                }
-            } else {
-                target_fields = Some(fields);
-            }
-        }
-    }
-    diagnostics
-}
-
-fn schema_mapping_selection_required_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_selection_required",
-        Severity::Error,
-        DiagnosticKind::Type,
-        "schema mapping clause needs a selector",
-        Some(mapping.span.clone()),
-        schema_mapping_details(
-            mapping.node_id.display("schema-mapping"),
-            schema,
-            mapping,
-            [("reason", JsonValue::string("missing_mapping_selector"))],
-        ),
-    )
-}
-
-fn schema_mapping_selection_field_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    selector: &veln_ast::SchemaMappingSelector,
-    selector_field: &str,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_selection",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "schema mapping selector field `{}` is not a decoded Int field",
-            selector_field
-        ),
-        Some(selector.span.clone()),
-        schema_mapping_details(
-            selector.node_id.display("schema-mapping-selector"),
-            schema,
-            mapping,
-            [
-                ("reason", JsonValue::string("selector_field")),
-                (
-                    "selector_field",
-                    JsonValue::string(selector_field.to_string()),
-                ),
-                (
-                    "selector_expression",
-                    JsonValue::string(selector.text.clone()),
-                ),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_selection_unknown_field_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    selector: &veln_ast::SchemaMappingSelector,
-    selector_field: &str,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_selection",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!("schema mapping selector field `{selector_field}` is not declared"),
-        Some(selector.span.clone()),
-        schema_mapping_details(
-            selector.node_id.display("schema-mapping-selector"),
-            schema,
-            mapping,
-            [
-                ("reason", JsonValue::string("unknown_selector_field")),
-                (
-                    "selector_field",
-                    JsonValue::string(selector_field.to_string()),
-                ),
-                (
-                    "selector_expression",
-                    JsonValue::string(selector.text.clone()),
-                ),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_selection_ambiguous_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    selector: &veln_ast::SchemaMappingSelector,
-    predicate: &SchemaMappingSelectorPredicate,
-    previous: &veln_ast::SchemaMappingSelector,
-    previous_predicate: &SchemaMappingSelectorPredicate,
-    first_span: &SourceSpan,
-) -> Diagnostic {
-    let duplicate = selector.text == previous.text;
-    let message = if duplicate {
-        format!("schema mapping selector `{}` is duplicated", selector.text)
-    } else {
-        format!(
-            "schema mapping selector `{}` overlaps `{}`",
-            selector.text, previous.text
-        )
-    };
-    let mut details = vec![
-        (
-            "reason",
-            JsonValue::string(if duplicate {
-                "duplicate_selector"
-            } else {
-                "overlapping_selector"
-            }),
-        ),
-        (
-            "selector_expression",
-            JsonValue::string(selector.text.clone()),
-        ),
-    ];
-    if let Some((field, op, value)) = predicate.as_simple_comparison() {
-        details.push(("selector_field", JsonValue::string(field.to_string())));
-        details.push((
-            "selector_operator",
-            JsonValue::string(schema_mapping_selector_op_text(op)),
-        ));
-        details.push(("selector_value", JsonValue::Number(value)));
-    }
-    if let Some((field, op, value)) = previous_predicate.as_simple_comparison() {
-        details.push((
-            "previous_selector_field",
-            JsonValue::string(field.to_string()),
-        ));
-        details.push((
-            "previous_selector_operator",
-            JsonValue::string(schema_mapping_selector_op_text(op)),
-        ));
-        details.push(("previous_selector_value", JsonValue::Number(value)));
-    }
-    let mut diagnostic = Diagnostic::new(
-        "schema.mapping_selection_ambiguous",
-        Severity::Error,
-        DiagnosticKind::Type,
-        message,
-        Some(selector.span.clone()),
-        schema_mapping_details(
-            selector.node_id.display("schema-mapping-selector"),
-            schema,
-            mapping,
-            details,
-        ),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("span", span_json(first_span)),
-        (
-            "message",
-            JsonValue::string("Previous overlapping selector is here."),
-        ),
-    ]));
-    diagnostic
-}
-
-fn schema_mapping_selector_op_text(op: SchemaMappingSelectorComparison) -> &'static str {
-    match op {
-        SchemaMappingSelectorComparison::Equal => "==",
-        SchemaMappingSelectorComparison::NotEqual => "!=",
-        SchemaMappingSelectorComparison::Less => "<",
-        SchemaMappingSelectorComparison::LessEqual => "<=",
-        SchemaMappingSelectorComparison::Greater => ">",
-        SchemaMappingSelectorComparison::GreaterEqual => ">=",
-    }
-}
-
-fn schema_mapping_selection_target_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_selection_unsupported",
-        Severity::Error,
-        DiagnosticKind::Type,
-        "schema mapping selection targets must decode to the same record shape",
-        Some(mapping.span.clone()),
-        schema_mapping_details(
-            mapping.node_id.display("schema-mapping"),
-            schema,
-            mapping,
-            [("reason", JsonValue::string("target_shape_mismatch"))],
-        ),
-    )
-}
-
-fn generated_schema_field_types(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-) -> Option<BTreeMap<String, Type>> {
-    let Type::Record(fields) = schema_decode_record_type(module, schema)? else {
-        return None;
-    };
-    Some(fields.into_iter().collect())
-}
-
-fn schema_mapping_target_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    target: &str,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_target",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!("schema mapping target `{target}` is not a supported record target"),
-        Some(mapping.span.clone()),
-        schema_mapping_details(
-            mapping.node_id.display("schema-mapping"),
-            schema,
-            mapping,
-            [
-                ("reason", JsonValue::string("unsupported_target")),
-                ("target", JsonValue::string(target.to_string())),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_target_field_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    assignment: &SchemaMappingAssignment,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_target_field",
-        Severity::Error,
-        DiagnosticKind::Name,
-        format!(
-            "schema mapping target field `{}` is not declared",
-            assignment.target
-        ),
-        Some(assignment.span.clone()),
-        schema_mapping_assignment_details(
-            assignment.node_id.display("schema-mapping-assignment"),
-            schema,
-            assignment,
-            [
-                ("reason", JsonValue::string("unknown_target_field")),
-                (
-                    "mapping_target",
-                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
-                ),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_duplicate_target_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    assignment: &SchemaMappingAssignment,
-    first_span: &SourceSpan,
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
-        "schema.mapping_duplicate_target_field",
-        Severity::Error,
-        DiagnosticKind::Name,
-        format!(
-            "schema mapping assigns target field `{}` more than once",
-            assignment.target
-        ),
-        Some(assignment.span.clone()),
-        schema_mapping_assignment_details(
-            assignment.node_id.display("schema-mapping-assignment"),
-            schema,
-            assignment,
-            [
-                ("reason", JsonValue::string("duplicate_target_field")),
-                (
-                    "mapping_target",
-                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
-                ),
-            ],
-        ),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("span", span_json(first_span)),
-        (
-            "message",
-            JsonValue::string(format!(
-                "First assignment to `{}` is here.",
-                assignment.target
-            )),
-        ),
-    ]));
-    diagnostic
-}
-
-fn schema_mapping_missing_target_diagnostic(
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    target_field: &str,
-) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_missing_target_field",
-        Severity::Error,
-        DiagnosticKind::Name,
-        format!("schema mapping does not assign target field `{target_field}`"),
-        Some(mapping.span.clone()),
-        schema_mapping_details(
-            mapping.node_id.display("schema-mapping"),
-            schema,
-            mapping,
-            [
-                ("reason", JsonValue::string("missing_target_field")),
-                ("target_field", JsonValue::string(target_field.to_string())),
-            ],
-        ),
-    )
-}
-
-fn schema_mapping_details(
-    node_id: String,
-    schema: &SchemaDecl,
-    mapping: &SchemaMappingClause,
-    extra: impl IntoIterator<Item = (&'static str, JsonValue)>,
-) -> JsonValue {
-    let mut fields = vec![
-        ("phase", JsonValue::string("schema")),
-        ("node_id", JsonValue::string(node_id)),
-        (
-            "schema",
-            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
-        ),
-    ];
-    if let Some(target) = &mapping.target {
-        fields.push(("mapping_target", JsonValue::string(target.clone())));
-    }
-    fields.extend(extra);
-    JsonValue::object(fields)
-}
-
-fn schema_mapping_assignment_details<const N: usize>(
-    node_id: String,
-    schema: &SchemaDecl,
-    assignment: &SchemaMappingAssignment,
-    extra: [(&'static str, JsonValue); N],
-) -> JsonValue {
-    let mut fields = vec![
-        ("phase", JsonValue::string("schema")),
-        ("node_id", JsonValue::string(node_id)),
-        (
-            "schema",
-            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
-        ),
-        ("target_field", JsonValue::string(assignment.target.clone())),
-        ("source_field", JsonValue::string(assignment.source.clone())),
-    ];
-    fields.extend(extra);
-    JsonValue::object(fields)
 }
 
 fn push_schema_type_reference_diagnostics(

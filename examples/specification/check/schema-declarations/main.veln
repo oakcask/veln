@@ -14,14 +14,6 @@ schema Http2FrameHeader
   little_stream_id: UInt31le
   checksum: UInt32be
   payload: ByteView(length - padding_length)
-
-  map to FrameHeader
-    priority = priority
-    length = length
-    kind = kind
-    stream_id = stream_id
-    checksum = checksum
-    payload = payload
 end
 
 pub schema PublicFrameHeader
@@ -36,12 +28,4 @@ pub schema PublicFrameHeader
   little_stream_id: UInt31le
   checksum: UInt32be
   payload: ByteView(length - padding_length)
-
-  map to FrameHeader
-    priority = priority
-    length = length
-    kind = kind
-    stream_id = stream_id
-    checksum = checksum
-    payload = payload
 end

@@ -1,0 +1,55 @@
+# Binary schema helpers can stay schema-local while ordinary functions project values.
+use stdio
+
+schema FrameHeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+end
+
+fn header_from_wire(wire: {wire_length: Int, wire_kind: Int}) -> {length: Int, kind: Int}
+	{length: wire.wire_length, kind: wire.wire_kind}
+end
+
+fn header_to_wire(header: {length: Int, kind: Int}) -> {wire_length: Int, wire_kind: Int}
+	{wire_length: header.length, wire_kind: header.kind}
+end
+
+fn emit_header(header: {length: Int, kind: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.length))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.kind))
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	stdio::println("output_chunk_list schema-local-projection count 1")
+	emit_output_chunk("schema-local-projection", 0, bytes, "123405")
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("123405")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let wire: {wire_length: Int, wire_kind: Int} = byte_decode_frame_header_wire(view)?
+	let header: {length: Int, kind: Int} = header_from_wire(wire)
+	emit_header(header)
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_frame_header_wire(header_to_wire(header))
+	let emitted: () = match encoded
+		Ok(encoded_bytes) => emit_encoded(encoded_bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+
+	Ok(())
+end

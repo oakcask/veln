@@ -25,11 +25,10 @@ be called again with that state, and ordinary source can observe the later
 
 ## Evidence
 
-- `../../../examples/specification/run/codec-encode-boundary/` checks a
-  same-module hand-written `encode with` codec call that observes `Encoded`,
-  `Partial`, and `Invalid` outcomes. The partial path reads the committed
-  chunks, produced count, and returned state, then passes that state to a later
-  call to the same codec item and observes `Encoded` output.
+- Hand-written codec tests check same-module `encode with` calls that observe
+  `Encoded`, `Partial`, and `Invalid` outcomes. The partial path reads the
+  committed chunks, produced count, and returned state, then passes that state
+  to a later call to the same codec item and observes `Encoded` output.
 - `../../../examples/specification/run/codec-encode-invalid-step-human/` and
   `../../../examples/specification/run/codec-encode-invalid-step-json/` check
   the command-facing projection when the hand-written codec returns

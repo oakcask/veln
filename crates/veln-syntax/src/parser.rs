@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
@@ -9,10 +9,8 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
     PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
     SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaMappingAssignment, SchemaMappingClause, SchemaMappingInverseConverter,
-    SchemaMappingSelector, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
-    Visibility, lex,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -357,7 +355,6 @@ impl<'a> Parser<'a> {
         let mut format = None;
         let mut fields = Vec::new();
         let mut validations = Vec::new();
-        let mut mappings = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
@@ -390,7 +387,7 @@ impl<'a> Parser<'a> {
             } else if self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon) {
                 validations.push(self.parse_schema_validation_clause(format.is_some()));
             } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
-                mappings.push(self.parse_schema_mapping_clause(format.is_some()));
+                self.parse_removed_schema_mapping_clause();
             } else {
                 fields.push(self.parse_schema_field());
             }
@@ -414,7 +411,6 @@ impl<'a> Parser<'a> {
             format,
             fields,
             validations,
-            mappings,
             span: self.source.span(start.cover(end)),
             end_present,
         }
@@ -584,234 +580,48 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_schema_mapping_clause(&mut self, has_format: bool) -> SchemaMappingClause {
-        let start = self.expect_ident_text("map", "schema_mapping", "map").range;
-        if !has_format {
-            self.error_current(
-                "parse.schema_mapping_before_format",
-                "schema mapping appears before a format clause",
-                "schema_mapping",
-                vec!["format"],
-                RecoveryStrategy::InsertToken,
-                Some("format"),
-            );
+    fn parse_removed_schema_mapping_clause(&mut self) {
+        let start = self.cursor;
+        let token = self.current().clone();
+        self.error_at_token(
+            &token,
+            DiagnosticRequest {
+                id: "parse.schema_mapping_removed",
+                message: "schema mapping clauses are no longer accepted".to_string(),
+                parser_context: "schema_declaration",
+                expected: vec!["field", "validate", "end"],
+                strategy: RecoveryStrategy::SynchronizeToAnchor,
+                anchor: Some("newline"),
+                repair_candidates: Vec::new(),
+            },
+        );
+        self.skip_to_next_line();
+        while self.schema_mapping_assignment_line() {
+            self.skip_to_next_line();
         }
-        if self.eat_ident_text("to", "schema_mapping", "to").is_none() {
-            self.error_current(
-                "parse.schema_mapping",
-                "schema mapping must start with `map to Target`",
-                "schema_mapping",
-                vec!["to"],
-                RecoveryStrategy::InsertToken,
-                Some("target"),
-            );
-        }
-        let target = self.expect_name_path("schema_mapping", "mapping target");
-        let selector = self.parse_schema_mapping_selector();
-        let mut end = if selector.is_some() {
-            self.previous().map_or(start, |token| token.range)
-        } else {
-            self.expect_newline("schema_mapping").range
-        };
-
-        let mut assignments = Vec::new();
-        let mut assigned_targets = BTreeSet::new();
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if matches!(self.current().kind, TokenKind::End | TokenKind::Format)
-                || (self.at_ident_text("map") && !self.peek_at(TokenKind::Colon))
-                || (self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon))
-            {
-                break;
-            }
-            let assignment = self.parse_schema_mapping_assignment(&mut assigned_targets);
-            end = self.previous().map_or(start, |token| token.range);
-            assignments.push(assignment);
-        }
-        if assignments.is_empty() {
-            self.error_current(
-                "parse.schema_mapping_assignment",
-                "schema mapping requires at least one assignment",
-                "schema_mapping",
-                vec!["assignment"],
-                RecoveryStrategy::InsertToken,
-                Some("assignment"),
-            );
-        }
-
-        SchemaMappingClause {
-            target,
-            selector,
-            assignments,
-            span: self.source.span(start.cover(end)),
+        if let Some(last) = self.diagnostics.last_mut() {
+            last.recovery.dropped_token_count = self.cursor.saturating_sub(start);
         }
     }
 
-    fn parse_schema_mapping_selector(&mut self) -> Option<SchemaMappingSelector> {
-        if !self.at_ident_text("when") {
-            return None;
+    fn schema_mapping_assignment_line(&self) -> bool {
+        if self.at(TokenKind::Eof)
+            || self.at(TokenKind::End)
+            || self.at(TokenKind::Format)
+            || (self.at_ident_text("map") && !self.peek_at(TokenKind::Colon))
+            || (self.at_ident_text("validate") && !self.peek_at(TokenKind::Colon))
+        {
+            return false;
         }
-        let start = self.bump().range;
-        if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
-            self.error_current(
-                "parse.schema_mapping_selector",
-                "expected schema mapping selector expression",
-                "schema_mapping",
-                vec!["selector expression"],
-                RecoveryStrategy::InsertToken,
-                Some("newline"),
-            );
-        }
-        let (expr, _) = self.parse_expr_until_newline("schema_mapping_selector");
-        let text = schema_mapping_expr_source_text(self.source, &expr);
-        let end = TextRange::new(expr.span.start.offset, expr.span.end.offset);
-        Some(SchemaMappingSelector {
-            text,
-            expr,
-            span: self.source.span(start.cover(end)),
-        })
-    }
-
-    fn parse_schema_mapping_assignment(
-        &mut self,
-        assigned_targets: &mut BTreeSet<String>,
-    ) -> SchemaMappingAssignment {
-        let start = self.current().range;
-        let target = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Equal) {
-            self.bump().text
-        } else {
-            if self.at(TokenKind::Ident) {
-                self.error_current(
-                    "parse.schema_mapping_implicit_assignment",
-                    "schema mapping assignments must name a target with `target = field`",
-                    "schema_mapping",
-                    vec!["="],
-                    RecoveryStrategy::InsertToken,
-                    Some("newline"),
-                );
-            } else {
-                self.error_current(
-                    "parse.schema_mapping_assignment_target",
-                    "expected schema mapping assignment target",
-                    "schema_mapping",
-                    vec!["assignment target"],
-                    RecoveryStrategy::InsertToken,
-                    Some("="),
-                );
-            }
-            "<missing>".to_string()
-        };
-        if !assigned_targets.insert(target.clone()) && target != "<missing>" {
-            self.error_current(
-                "parse.schema_mapping_duplicate_assignment",
-                format!("schema mapping assigns target `{target}` more than once"),
-                "schema_mapping",
-                vec!["unique assignment target"],
-                RecoveryStrategy::SkipToken,
-                Some("newline"),
-            );
-        }
-        self.expect(TokenKind::Equal, "schema_mapping", vec!["="]);
-        let (expr, expr_end) = if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
-            self.error_current(
-                "parse.schema_mapping_expression",
-                "schema mapping assignment value is missing",
-                "schema_mapping",
-                vec!["schema mapping expression"],
-                RecoveryStrategy::InsertToken,
-                Some("newline"),
-            );
-            let token = self.current().clone();
-            if self.at(TokenKind::Newline) {
-                self.bump();
-            }
-            (
-                Expr {
-                    kind: ExprKind::Missing,
-                    span: self.source.span(token.range),
-                },
-                token.range,
-            )
-        } else {
-            self.parse_schema_mapping_assignment_expr()
-        };
-        let source = schema_mapping_expr_source_text(self.source, &expr);
-        let mut end = expr_end;
-        let inverse_converter = if self.at_ident_text("inverse") {
-            let inverse_start = self.bump().range;
-            let name = self.expect_name_path("schema_mapping", "inverse converter");
-            let inverse_end = self.previous().map_or(inverse_start, |token| token.range);
-            Some(SchemaMappingInverseConverter {
-                name: name.unwrap_or_default(),
-                span: self.source.span(inverse_start.cover(inverse_end)),
-            })
-        } else {
-            None
-        };
-        if self.at(TokenKind::Newline) {
-            end = self.bump().range;
-        }
-        SchemaMappingAssignment {
-            target,
-            source,
-            expr,
-            inverse_converter,
-            span: self.source.span(start.cover(end)),
-        }
-    }
-
-    fn parse_schema_mapping_assignment_expr(&mut self) -> (Expr, TextRange) {
-        let start = self.current().range;
-        let mut end = start;
-        let mut tokens = Vec::new();
-        let mut depth = 0usize;
-        let mut match_depth = 0usize;
-        while !self.at(TokenKind::Eof) {
-            if depth == 0
-                && match_depth == 0
-                && (self.at(TokenKind::Newline)
-                    || (self.at_ident_text("inverse") && !tokens.is_empty()))
-            {
-                break;
-            }
-            let token = self.bump();
-            end = token.range;
-            match token.kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
-                    depth = depth.saturating_sub(1);
-                }
-                TokenKind::Match => match_depth += 1,
-                TokenKind::End if match_depth > 0 => {
-                    match_depth = match_depth.saturating_sub(1);
-                }
-                _ => {}
-            }
-            if token.kind == TokenKind::Invalid {
-                self.diagnostics.push(ParseDiagnostic {
-                    id: "parse.invalid_token",
-                    message: "invalid token in expression".to_string(),
-                    span: Some(self.source.span(token.range)),
-                    parser_context: "schema_mapping",
-                    unexpected: UnexpectedToken {
-                        kind: token.kind.label().to_string(),
-                        text: token.text.clone(),
-                    },
-                    expected: vec!["expression"],
-                    recovery: Recovery {
-                        strategy: RecoveryStrategy::SkipToken,
-                        anchor: Some("newline".to_string()),
-                        dropped_token_count: 1,
-                    },
-                    repair_candidates: Vec::new(),
-                });
-            } else {
-                tokens.push(token);
+        let mut offset = 0usize;
+        while let Some(kind) = self.peek_kind(offset) {
+            match kind {
+                TokenKind::Equal => return true,
+                TokenKind::Colon | TokenKind::Newline | TokenKind::Eof => return false,
+                _ => offset += 1,
             }
         }
-        let (expr, diagnostics) = ExprParser::new(self.source, "schema_mapping", &tokens).parse();
-        self.diagnostics.extend(diagnostics);
-        (expr, start.cover(end))
+        false
     }
 
     fn parse_codec_decl(&mut self) -> CodecDecl {
@@ -1806,27 +1616,6 @@ impl<'a> Parser<'a> {
                 None,
             );
             self.current().clone()
-        }
-    }
-
-    fn eat_ident_text(
-        &mut self,
-        text: &str,
-        context: &'static str,
-        expected: &'static str,
-    ) -> Option<String> {
-        if self.at(TokenKind::Ident) && self.current().text == text {
-            Some(self.bump().text)
-        } else {
-            self.error_current(
-                "parse.expected_identifier",
-                format!("expected {expected}"),
-                context,
-                vec![expected],
-                RecoveryStrategy::InsertToken,
-                None,
-            );
-            None
         }
     }
 
@@ -3593,198 +3382,6 @@ fn lhs_range(expr: &Expr) -> TextRange {
 
 fn pattern_range(pattern: &Pattern) -> TextRange {
     TextRange::new(pattern.span.start.offset, pattern.span.end.offset)
-}
-
-fn schema_mapping_expr_text(expr: &Expr) -> String {
-    match &expr.kind {
-        ExprKind::Missing => "<missing>".to_string(),
-        ExprKind::NamePath(segments) => segments.join("::"),
-        ExprKind::StringLiteral(value)
-        | ExprKind::IntLiteral(value)
-        | ExprKind::FloatLiteral(value) => value.clone(),
-        ExprKind::BoolLiteral(true) => "true".to_string(),
-        ExprKind::BoolLiteral(false) => "false".to_string(),
-        ExprKind::Unit => "()".to_string(),
-        ExprKind::Call { callee, args } => {
-            let args = args
-                .iter()
-                .map(schema_mapping_expr_text)
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{}({args})", schema_mapping_expr_text(callee))
-        }
-        ExprKind::Record(fields) => {
-            let fields = fields
-                .iter()
-                .map(|field| format!("{}: {}", field.name, schema_mapping_expr_text(&field.expr)))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{ {fields} }}")
-        }
-        ExprKind::FieldAccess { base, field, .. } => {
-            format!("{}.{field}", schema_mapping_expr_text(base))
-        }
-        ExprKind::Try(inner) => format!("{}?", schema_mapping_expr_text(inner)),
-        ExprKind::List(items) => {
-            let items = items
-                .iter()
-                .map(schema_mapping_expr_text)
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("[{items}]")
-        }
-        ExprKind::Dict(entries) => {
-            let entries = entries
-                .iter()
-                .map(|entry| {
-                    format!(
-                        "{}: {}",
-                        schema_mapping_expr_text(&entry.key),
-                        schema_mapping_expr_text(&entry.value)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{ {entries} }}")
-        }
-        ExprKind::Match { .. } => "match".to_string(),
-        ExprKind::If { .. } => "if".to_string(),
-        ExprKind::TypeApply { callee, type_args } => {
-            format!(
-                "{}<{}>",
-                schema_mapping_expr_text(callee),
-                type_args.join(", ")
-            )
-        }
-        ExprKind::Prefix { op, expr } => match op {
-            PrefixOp::Not => format!("not {}", schema_mapping_expr_text(expr)),
-            PrefixOp::Negate => format!("-{}", schema_mapping_expr_text(expr)),
-        },
-        ExprKind::Binary { op, left, right } => {
-            format!(
-                "{} {} {}",
-                schema_mapping_expr_text(left),
-                binary_op_text(*op),
-                schema_mapping_expr_text(right)
-            )
-        }
-        ExprKind::Hole { name, .. } => format!("_{}", name.as_deref().unwrap_or("")),
-    }
-}
-
-fn schema_mapping_expr_source_text(source: &SourceFile, expr: &Expr) -> String {
-    if matches!(expr.kind, ExprKind::Missing) {
-        return schema_mapping_expr_text(expr);
-    }
-    source
-        .text()
-        .get(expr.span.start.offset..expr.span.end.offset)
-        .map(canonical_schema_mapping_expr_text)
-        .filter(|text| !text.is_empty())
-        .unwrap_or_else(|| schema_mapping_expr_text(expr))
-}
-
-fn canonical_schema_mapping_expr_text(text: &str) -> String {
-    let source = SourceFile::new("<schema-mapping-expression>", text);
-    let tokens = lex(&source)
-        .tokens
-        .into_iter()
-        .filter(|token| {
-            !matches!(
-                token.kind,
-                TokenKind::Whitespace | TokenKind::Newline | TokenKind::Eof
-            )
-        })
-        .collect::<Vec<_>>();
-    let mut out = String::new();
-    for (index, token) in tokens.iter().enumerate() {
-        if schema_mapping_space_before(&tokens, index, &out) {
-            out.push(' ');
-        }
-        out.push_str(&token.text);
-    }
-    out
-}
-
-fn schema_mapping_space_before(tokens: &[Token], index: usize, out: &str) -> bool {
-    if out.is_empty() || index == 0 {
-        return false;
-    }
-    let prev = tokens[index - 1].kind;
-    let current = tokens[index].kind;
-    if matches!(
-        current,
-        TokenKind::RParen
-            | TokenKind::RBracket
-            | TokenKind::Comma
-            | TokenKind::Colon
-            | TokenKind::Dot
-            | TokenKind::DoubleColon
-            | TokenKind::Question
-    ) || matches!(
-        prev,
-        TokenKind::LParen | TokenKind::LBracket | TokenKind::Dot | TokenKind::DoubleColon
-    ) {
-        return false;
-    }
-    if current == TokenKind::RBrace {
-        return prev != TokenKind::LBrace;
-    }
-    if matches!(
-        prev,
-        TokenKind::Comma | TokenKind::Colon | TokenKind::LBrace
-    ) {
-        return true;
-    }
-    if current == TokenKind::LParen {
-        return !matches!(
-            prev,
-            TokenKind::Ident
-                | TokenKind::Hole
-                | TokenKind::RParen
-                | TokenKind::RBracket
-                | TokenKind::RBrace
-        );
-    }
-    if current == TokenKind::LBracket {
-        return !matches!(
-            prev,
-            TokenKind::Ident
-                | TokenKind::Hole
-                | TokenKind::RParen
-                | TokenKind::RBracket
-                | TokenKind::RBrace
-        );
-    }
-    if current == TokenKind::LBrace {
-        return !matches!(
-            prev,
-            TokenKind::LParen
-                | TokenKind::LBracket
-                | TokenKind::Comma
-                | TokenKind::Colon
-                | TokenKind::Equal
-        );
-    }
-    true
-}
-
-fn binary_op_text(op: BinaryOp) -> &'static str {
-    match op {
-        BinaryOp::PipeGreater => "|>",
-        BinaryOp::Or => "or",
-        BinaryOp::And => "and",
-        BinaryOp::Equal => "==",
-        BinaryOp::NotEqual => "!=",
-        BinaryOp::Less => "<",
-        BinaryOp::LessEqual => "<=",
-        BinaryOp::Greater => ">",
-        BinaryOp::GreaterEqual => ">=",
-        BinaryOp::Add => "+",
-        BinaryOp::Subtract => "-",
-        BinaryOp::Multiply => "*",
-        BinaryOp::Divide => "/",
-    }
 }
 
 fn return_type_can_take_effects(ty: &str) -> bool {

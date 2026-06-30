@@ -39,16 +39,9 @@ imported codec names ordinary call targets.
 
 ## Evidence
 
-- `../../../examples/specification/run/derived-codec-imported-public-decode-boundary/case.toml`
-  checks a public imported `derive decode` codec call through a qualified
-  module path, including `Decoded`, short-input `NeedMore`, and
-  helper-projected `Invalid` outcomes while the schema stays private to the
+- Imported derived codec tests check public `derive decode` and `derive encode`
+  calls through a qualified module path while the schema stays private to the
   declaring module.
-- `../../../examples/specification/run/derived-codec-imported-public-encode-boundary/case.toml`
-  checks a public imported `derive encode` codec call through a qualified
-  module path, including projected `Encoded` output and
-  helper-projected `Invalid(EncodeError)` while the schema stays private to
-  the declaring module.
 - `../../../examples/specification/run/derived-codec-imported-public-budgeted-encode-boundary/case.toml`
   checks the same imported `derive encode` boundary with an explicit
   `ByteCount` budget, including complete output, `Partial` output with

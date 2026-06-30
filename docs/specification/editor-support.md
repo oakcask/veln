@@ -47,8 +47,6 @@ The implemented semantic token types are standard LSP token types:
 | type name | `type` | none |
 | effect label | `enumMember` | none |
 | schema format name | `enumMember` | none |
-| schema mapping target | `type` | none |
-| schema mapping assignment target | `property` | none |
 | record or field-access field | `property` | none |
 | unnamed or named hole | `variable` | `hole` |
 | prelude function | `function` | `defaultLibrary` |

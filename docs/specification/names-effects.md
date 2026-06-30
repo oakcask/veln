@@ -202,11 +202,9 @@ compiler-known calls.
   `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
   `Flag24le`, `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`,
   `Flag48le`, `Flag56be`, `Flag56le`, `Flag64be`, or `Flag64le` bitset
-  fields, unless the eligible
-  structural `map to Target` slice, including decoded-field selected mappings
-  that resolve to one record shape, resolves a mapped record shape; generated
-  decode-step helpers expose the same value shape through `DecodeStep<T>` for
-  open input. Pure source-backed prelude helpers `flag8_is_set`, `flag8_set`,
+  fields; generated decode-step helpers expose the same value shape through
+  `DecodeStep<T>` for open input. Pure source-backed prelude helpers
+  `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
   `flag16be_bits`, `flag16be_from_bits`, `flag16le_is_set`,
   `flag16le_set`, `flag16le_bits`, `flag16le_from_bits`,
@@ -242,12 +240,8 @@ compiler-known calls.
   `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
   supported reserved-bit slice omits `ReservedBits(2, 0)` or
   `ReservedBits(9, 0)` immediately before `UInt8` from the encode value
-  record while exposing the visible byte field. One
-  unselected structural mapping can instead accept a mapped record shape for
-  direct field projections or a direct ADT constructor whose payloads are
-  schema-local visible fields already supported by the generated encode
-  helper, or whose single payload is a record expression over those fields.
-  Generated encode helpers return `Result<ByteChunk, EncodeError>`.
+  record while exposing the visible byte field. Generated encode helpers
+  return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`,
   `UInt56le`, and `UInt64le` fields use little-endian byte order in generated
   decode and encode helpers.

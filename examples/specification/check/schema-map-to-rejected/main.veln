@@ -1,0 +1,10 @@
+schema HeaderWire
+  format binary
+
+  length: UInt16be
+  kind: UInt8
+
+  map to Header
+    length = length
+    kind = kind
+end

@@ -1,8 +1,8 @@
 use crate::{
     BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
-    FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaMappingClause,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantFieldDelimiter, Visibility,
+    FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaValidationClause,
+    SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter,
+    Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -73,12 +73,7 @@ fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) 
                 expr_has_commented_match_rewrite(expr, comments)
             }
         }),
-        SyntaxItem::Schema(schema) => schema.mappings.iter().any(|mapping| {
-            mapping
-                .selector
-                .as_ref()
-                .is_some_and(|selector| expr_has_commented_match_rewrite(&selector.expr, comments))
-        }),
+        SyntaxItem::Schema(_) => false,
         SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
     })
 }
@@ -231,14 +226,6 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         format_schema_validation(out, comments, validation);
     }
 
-    if !schema.mappings.is_empty() && (!schema.fields.is_empty() || !schema.validations.is_empty())
-    {
-        out.push('\n');
-    }
-    for mapping in &schema.mappings {
-        format_schema_mapping(out, comments, mapping);
-    }
-
     push_source_line(
         out,
         comments,
@@ -263,39 +250,6 @@ fn format_schema_validation(
             canonical_predicate_text(&validation.predicate)
         ),
     );
-}
-
-fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &SchemaMappingClause) {
-    let selector = mapping
-        .selector
-        .as_ref()
-        .map(|selector| format!(" when {}", format_expr_at_indent(&selector.expr, 1)))
-        .unwrap_or_default();
-    push_source_line(
-        out,
-        comments,
-        mapping.span.start.line,
-        1,
-        format!(
-            "map to {}{}",
-            mapping.target.as_deref().unwrap_or("<missing>"),
-            selector
-        ),
-    );
-    for assignment in &mapping.assignments {
-        let inverse = assignment
-            .inverse_converter
-            .as_ref()
-            .map(|inverse| format!(" inverse {}", inverse.name))
-            .unwrap_or_default();
-        push_source_line(
-            out,
-            comments,
-            assignment.span.start.line,
-            2,
-            format!("{} = {}{}", assignment.target, assignment.source, inverse),
-        );
-    }
 }
 
 fn format_alias(alias: &crate::PublicAliasDecl) -> String {
@@ -406,11 +360,6 @@ fn schema_body_end_line(schema: &SchemaDecl) -> usize {
         .last()
         .map(|field| field.span.end.line)
         .unwrap_or(schema.span.start.line);
-    let mapping_end = schema
-        .mappings
-        .last()
-        .map(|mapping| mapping.span.end.line)
-        .unwrap_or(schema.span.start.line);
     let validation_end = schema
         .validations
         .last()
@@ -421,10 +370,7 @@ fn schema_body_end_line(schema: &SchemaDecl) -> usize {
         .as_ref()
         .map(|format| format.span.end.line)
         .unwrap_or(schema.span.start.line);
-    field_end
-        .max(mapping_end)
-        .max(validation_end)
-        .max(format_end)
+    field_end.max(validation_end).max(format_end)
 }
 
 fn codec_end_line(codec: &CodecDecl) -> usize {
