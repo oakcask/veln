@@ -253,6 +253,15 @@ uses a focused sequence-mismatch diagnostic, and `run --json` attaches
 `details.byte_diagnostic` with the codec-owned id, byte offset, field path,
 expected sequence, actual sequence, and reason.
 The executable specification cases
+`../../examples/specification/run/codec-version-mismatch-direct-human/`,
+`../../examples/specification/run/codec-version-mismatch-direct-json/`,
+`../../examples/specification/run/codec-version-mismatch-step-human/`, and
+`../../examples/specification/run/codec-version-mismatch-step-json/` cover the
+same command-facing projection for `codec.version_mismatch`: human output
+uses a focused version-mismatch diagnostic, and `run --json` attaches
+`details.byte_diagnostic` with the codec-owned id, byte offset, field path,
+expected version, actual version, and reason.
+The executable specification cases
 `../../examples/specification/run/codec-decode-need-more-human/` and
 `../../examples/specification/run/codec-decode-need-more-json/` cover
 command-facing projection when a `veln run` entry returns

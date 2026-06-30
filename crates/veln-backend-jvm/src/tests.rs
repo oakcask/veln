@@ -144,6 +144,17 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(sequenceMismatch));
 
+        Object versionMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.version_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(3) }),
+                "Packet.version",
+                "expected_version=2; actual_version=1; reason=codec version is not supported"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(versionMismatch));
+
         Object tagMismatch = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
             new Object[] {
@@ -1670,6 +1681,18 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(
         trace.contains("\treason\tstring\t6672616d652073657175656e63652076696f6c617465642070726f746f636f6c207374617465"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.version_mismatch\t3\t"),
+        "{trace}"
+    );
+    assert!(trace.contains("\texpected_version\tstring\t32"), "{trace}");
+    assert!(trace.contains("\tactual_version\tstring\t31"), "{trace}");
+    assert!(
+        trace.contains(
+            "\treason\tstring\t636f6465632076657273696f6e206973206e6f7420737570706f72746564"
+        ),
         "{trace}"
     );
     assert!(

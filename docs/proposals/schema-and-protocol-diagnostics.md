@@ -134,6 +134,16 @@ mismatch at the byte offset, and is checked by
 `../../examples/specification/run/codec-sequence-mismatch-direct-human/`,
 `../../examples/specification/run/codec-sequence-mismatch-step-json/`, and
 `../../examples/specification/run/codec-sequence-mismatch-step-human/`.
+The codec-owned version mismatch diagnostic slice is implemented for
+`codec.version_mismatch` direct `DecodeErrorWithReason(...)` failures and
+`DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries field
+path, expected version, actual version, and failure reason in
+`details.byte_diagnostic`, keeps the human primary focused on the version
+mismatch at the byte offset, and is checked by
+`../../examples/specification/run/codec-version-mismatch-direct-json/`,
+`../../examples/specification/run/codec-version-mismatch-direct-human/`,
+`../../examples/specification/run/codec-version-mismatch-step-json/`, and
+`../../examples/specification/run/codec-version-mismatch-step-human/`.
 The codec-owned tag mismatch diagnostic slice is implemented for
 `codec.tag_mismatch` direct `DecodeErrorWithReason(...)` failures and
 `DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries field
@@ -148,6 +158,8 @@ The completed codec-owned decode invalid id slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
 The completed codec-owned sequence mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
+The completed codec-owned version mismatch slice is archived under the
+[implemented proposal record](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
 The completed codec-owned tag mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-tag-mismatch-diagnostics.md).
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
@@ -496,4 +508,5 @@ The proposal remains open for broader schema and codec diagnostics that are not
 specified as current behavior under `../specification/`, including additional
 codec diagnostic ids outside the implemented `EncodeError`,
 `codec.invalid_input`, `codec.packet_kind_invalid`, and
-`codec.consumed_count_invalid` command-facing slices.
+`codec.consumed_count_invalid` command-facing slices and the implemented
+checksum, length, sequence, version, and tag mismatch slices.

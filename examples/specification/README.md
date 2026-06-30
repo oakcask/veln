@@ -2232,6 +2232,16 @@ against the built `veln` binary.
   and `run --json` `details.byte_diagnostic` fields for the codec-owned id,
   byte offset, field path, expected sequence, actual sequence, and failure
   reason.
+- `run/codec-version-mismatch-direct-human/`,
+  `run/codec-version-mismatch-direct-json/`,
+  `run/codec-version-mismatch-step-human/`, and
+  `run/codec-version-mismatch-step-json/`: direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results with
+  `codec.version_mismatch` use focused version-mismatch human diagnostics
+  and `run --json` `details.byte_diagnostic` fields for the codec-owned id,
+  byte offset, field path, expected version, actual version, and failure
+  reason.
 - `run/codec-tag-mismatch-direct-human/`,
   `run/codec-tag-mismatch-direct-json/`,
   `run/codec-tag-mismatch-step-human/`, and

@@ -146,6 +146,15 @@ requiring the full command reference on the first read.
   the checked direct result and `DecodeStep::Invalid(...)` examples are
   `examples/specification/run/codec-sequence-mismatch-direct-human/` and
   `examples/specification/run/codec-sequence-mismatch-step-human/`.
+  Codec-owned version mismatch failures with id `codec.version_mismatch`
+  use `version mismatch at byte offset ...` as the primary human message and
+  put field path, expected version, actual version, failure reason, and the
+  source-visible `DecodeError` value in related notes when the source-visible
+  reason uses the narrow
+  `expected_version=<value>; actual_version=<value>; reason=<text>` form;
+  the checked direct result and `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-version-mismatch-direct-human/` and
+  `examples/specification/run/codec-version-mismatch-step-human/`.
   Codec-owned tag mismatch failures with id `codec.tag_mismatch` use
   `tag mismatch at byte offset ...` as the primary human message and put
   field path, expected tag, actual tag, failure reason, and the

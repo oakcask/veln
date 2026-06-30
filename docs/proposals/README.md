@@ -418,8 +418,10 @@ compare it with `../specification/` before changing behavior.
   reason details, codec-owned length mismatch projection with expected
   length, actual length, and failure reason details, codec-owned sequence
   mismatch projection with expected sequence, actual sequence, and failure
-  reason details, codec-owned tag mismatch projection with expected tag,
-  actual tag, and failure reason details, generated binary schema decode
+  reason details, codec-owned version mismatch projection with expected
+  version, actual version, and failure reason details, codec-owned tag
+  mismatch projection with expected tag, actual tag, and failure reason
+  details, generated binary schema decode
   integer range failures,
   generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
@@ -429,6 +431,8 @@ compare it with `../specification/` before changing behavior.
   [Codec Owned Decode Invalid Id Diagnostics](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
   The completed codec-owned sequence mismatch slice is archived under
   [Codec Sequence Mismatch Diagnostics](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
+  The completed codec-owned version mismatch slice is archived under
+  [Codec Version Mismatch Diagnostics](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
   The completed codec-owned tag mismatch slice is archived under
   [Codec Tag Mismatch Diagnostics](../reference/implemented-proposals/codec-tag-mismatch-diagnostics.md).
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the

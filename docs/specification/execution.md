@@ -1946,6 +1946,19 @@ execution reference.
   `examples/specification/run/codec-sequence-mismatch-direct-human/`,
   `examples/specification/run/codec-sequence-mismatch-step-json/`, and
   `examples/specification/run/codec-sequence-mismatch-step-human/`.
+  For `codec.version_mismatch`, direct
+  `DecodeErrorWithReason(...)` results and
+  `DecodeStep::Invalid(DecodeErrorWithReason(...))` results use a focused
+  version-mismatch human diagnostic and structured JSON fields for the
+  expected version, actual version, and failure reason when the
+  source-visible reason uses
+  `expected_version=<value>; actual_version=<value>; reason=<text>`. Plain
+  reason strings keep the codec-owned id and reason without version facts.
+  The checked examples are
+  `examples/specification/run/codec-version-mismatch-direct-json/`,
+  `examples/specification/run/codec-version-mismatch-direct-human/`,
+  `examples/specification/run/codec-version-mismatch-step-json/`, and
+  `examples/specification/run/codec-version-mismatch-step-human/`.
   For `codec.tag_mismatch`, direct `DecodeErrorWithReason(...)` results and
   `DecodeStep::Invalid(DecodeErrorWithReason(...))` results use a focused
   tag-mismatch human diagnostic and structured JSON fields for the expected
