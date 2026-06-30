@@ -115,11 +115,13 @@ use indentation level 1.
 For formatted `match` expressions, the `match` line uses the parent expression
 indentation level, each arm is one indentation level deeper than that `match`
 line, and the `match` closing `end` aligns with the `match` line.
-When a parse-clean boolean `match` compares the same scrutinee to string,
-integer, float, or unit literals through a `true` arm and a `false` continuation
-chain, `fmt` canonicalizes it to a direct literal `match` with a wildcard
-fallback. Boolean literal comparisons and commented chains are left in their
-lossless source form.
+When a parse-clean `match` has exactly one `true` arm and one `false` arm,
+`fmt` canonicalizes it to `if` / `else`; false-arm continuations that are also
+ordinary `true` / `false` matches become `else if`. When a parse-clean boolean
+`match` compares the same scrutinee to string, integer, float, or unit literals
+through a `true` arm and a `false` continuation chain, `fmt` instead
+canonicalizes it to a direct literal `match` with a wildcard fallback.
+Commented rewritable matches are left in their lossless source form.
 
 Formatting accepts multiple parse-clean input files in one invocation and
 writes each selected file only after all selected files have parsed without
