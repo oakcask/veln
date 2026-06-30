@@ -847,30 +847,24 @@ fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChu
 end
 
 fn hpack_raw_string_unsupported_preview(value: String) -> ByteChunk
-	match value == "bad"
-		true => match byte_chunk_from_hex("626164")
+	match value
+		"bad" => match byte_chunk_from_hex("626164")
 			Ok(preview) => preview
 			Err(_) => byte_chunk([])
 		end
-		false => match value == "\n"
-			true => match byte_chunk_from_hex("0a")
-				Ok(preview) => preview
-				Err(_) => byte_chunk([])
-			end
-			false => match value == "\n\n"
-				true => match byte_chunk_from_hex("0a0a")
-					Ok(preview) => preview
-					Err(_) => byte_chunk([])
-				end
-				false => match value == "hpack-byte-00"
-					true => match byte_chunk_from_hex("00")
-						Ok(preview) => preview
-						Err(_) => byte_chunk([])
-					end
-					false => byte_chunk([])
-				end
-			end
+		"\n" => match byte_chunk_from_hex("0a")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
 		end
+		"\n\n" => match byte_chunk_from_hex("0a0a")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		"hpack-byte-00" => match byte_chunk_from_hex("00")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		_ => byte_chunk([])
 	end
 end
 
@@ -942,12 +936,12 @@ pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result
 end
 
 fn hpack_fixture_huffman_string_value_bytes(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == "\n"
-		true => match byte_chunk_from_hex("0a")
+	match value
+		"\n" => match byte_chunk_from_hex("0a")
 			Ok(bytes) => Ok(bytes)
 			Err(_) => unsupported_raw_string_encoding(value, offset)
 		end
-		false => match hpack_huffman_label_value_bytes(value)
+		_ => match hpack_huffman_label_value_bytes(value)
 			Some(bytes) => Ok(bytes)
 			None => match byte_chunk_from_visible_ascii_string(value)
 				Ok(bytes) => Ok(bytes)
@@ -1286,12 +1280,12 @@ fn hpack_huffman_append_bit(encoding: HpackHuffmanEncoding, bit: Int, value: Str
 end
 
 fn hpack_huffman_append_bit_fields(encoded: ByteChunk, next_byte: Int, next_bit_count: Int, value: String, offset: Int) -> Result<HpackHuffmanEncoding, HpackFixtureFailure>
-	match next_bit_count == 8
-		true => match byte_write_u8_be(next_byte)
+	match next_bit_count
+		8 => match byte_write_u8_be(next_byte)
 			Ok(completed_byte) => Ok(HpackHuffmanEncoding(byte_append(encoded, completed_byte), 0, 0))
 			Err(_) => unsupported_huffman_encoding(value, offset)
 		end
-		false => Ok(HpackHuffmanEncoding(encoded, next_byte, next_bit_count))
+		_ => Ok(HpackHuffmanEncoding(encoded, next_byte, next_bit_count))
 	end
 end
 
@@ -1320,9 +1314,9 @@ fn hpack_huffman_code_bit(code: HpackHuffmanCode, bit_index: Int) -> Int
 end
 
 fn hpack_pow2(value: Int) -> Int
-	match value == 0
-		true => 1
-		false => 2 * hpack_pow2(value - 1)
+	match value
+		0 => 1
+		_ => 2 * hpack_pow2(value - 1)
 	end
 end
 
@@ -1615,169 +1609,67 @@ fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_siz
 end
 
 fn encode_static_status_header(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == "200"
-		true => encoded_hex_or_failure("88", headers, offset)
-		false => match value == "204"
-			true => encoded_hex_or_failure("89", headers, offset)
-			false => match value == "206"
-				true => encoded_hex_or_failure("8a", headers, offset)
-				false => match value == "304"
-					true => encoded_hex_or_failure("8b", headers, offset)
-					false => match value == "400"
-						true => encoded_hex_or_failure("8c", headers, offset)
-						false => match value == "404"
-							true => encoded_hex_or_failure("8d", headers, offset)
-							false => match value == "500"
-								true => encoded_hex_or_failure("8e", headers, offset)
-								false => unsupported_header_list_encoding(headers, offset)
-							end
-						end
-					end
-				end
-			end
-		end
+	match value
+		"200" => encoded_hex_or_failure("88", headers, offset)
+		"204" => encoded_hex_or_failure("89", headers, offset)
+		"206" => encoded_hex_or_failure("8a", headers, offset)
+		"304" => encoded_hex_or_failure("8b", headers, offset)
+		"400" => encoded_hex_or_failure("8c", headers, offset)
+		"404" => encoded_hex_or_failure("8d", headers, offset)
+		"500" => encoded_hex_or_failure("8e", headers, offset)
+		_ => unsupported_header_list_encoding(headers, offset)
 	end
 end
 
 fn encode_static_empty_header(name: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match name == "accept-charset"
-		true => encoded_hex_or_failure("8f", headers, offset)
-		false => match name == "accept-language"
-			true => encoded_hex_or_failure("91", headers, offset)
-			false => match name == "accept-ranges"
-				true => encoded_hex_or_failure("92", headers, offset)
-				false => match name == "accept"
-					true => encoded_hex_or_failure("93", headers, offset)
-					false => match name == "access-control-allow-origin"
-						true => encoded_hex_or_failure("94", headers, offset)
-						false => match name == "age"
-							true => encoded_hex_or_failure("95", headers, offset)
-							false => match name == "allow"
-								true => encoded_hex_or_failure("96", headers, offset)
-								false => match name == "authorization"
-									true => encoded_hex_or_failure("97", headers, offset)
-									false => match name == "cache-control"
-										true => encoded_hex_or_failure("98", headers, offset)
-										false => match name == "content-disposition"
-											true => encoded_hex_or_failure("99", headers, offset)
-											false => match name == "content-encoding"
-												true => encoded_hex_or_failure("9a", headers, offset)
-												false => match name == "content-language"
-													true => encoded_hex_or_failure("9b", headers, offset)
-													false => match name == "content-length"
-														true => encoded_hex_or_failure("9c", headers, offset)
-														false => match name == "content-location"
-															true => encoded_hex_or_failure("9d", headers, offset)
-															false => match name == "content-range"
-																true => encoded_hex_or_failure("9e", headers, offset)
-																false => match name == "content-type"
-																	true => encoded_hex_or_failure("9f", headers, offset)
-																	false => match name == "cookie"
-																		true => encoded_hex_or_failure("a0", headers, offset)
-																		false => match name == "date"
-																			true => encoded_hex_or_failure("a1", headers, offset)
-																			false => match name == "etag"
-																				true => encoded_hex_or_failure("a2", headers, offset)
-																				false => match name == "expect"
-																					true => encoded_hex_or_failure("a3", headers, offset)
-																					false => match name == "expires"
-																						true => encoded_hex_or_failure("a4", headers, offset)
-																						false => match name == "from"
-																							true => encoded_hex_or_failure("a5", headers, offset)
-																							false => match name == "host"
-																								true => encoded_hex_or_failure("a6", headers, offset)
-																								false => match name == "if-match"
-																									true => encoded_hex_or_failure("a7", headers, offset)
-																									false => match name == "if-modified-since"
-																										true => encoded_hex_or_failure("a8", headers, offset)
-																										false => match name == "if-none-match"
-																											true => encoded_hex_or_failure("a9", headers, offset)
-																											false => match name == "if-range"
-																												true => encoded_hex_or_failure("aa", headers, offset)
-																												false => match name == "if-unmodified-since"
-																													true => encoded_hex_or_failure("ab", headers, offset)
-																													false => match name == "last-modified"
-																														true => encoded_hex_or_failure("ac", headers, offset)
-																														false => match name == "link"
-																															true => encoded_hex_or_failure("ad", headers, offset)
-																															false => match name == "location"
-																																true => encoded_hex_or_failure("ae", headers, offset)
-																																false => match name == "max-forwards"
-																																	true => encoded_hex_or_failure("af", headers, offset)
-																																	false => match name == "proxy-authenticate"
-																																		true => encoded_hex_or_failure("b0", headers, offset)
-																																		false => match name == "proxy-authorization"
-																																			true => encoded_hex_or_failure("b1", headers, offset)
-																																			false => match name == "range"
-																																				true => encoded_hex_or_failure("b2", headers, offset)
-																																				false => match name == "referer"
-																																					true => encoded_hex_or_failure("b3", headers, offset)
-																																					false => match name == "refresh"
-																																						true => encoded_hex_or_failure("b4", headers, offset)
-																																						false => match name == "retry-after"
-																																							true => encoded_hex_or_failure("b5", headers, offset)
-																																							false => match name == "server"
-																																								true => encoded_hex_or_failure("b6", headers, offset)
-																																								false => match name == "set-cookie"
-																																									true => encoded_hex_or_failure("b7", headers, offset)
-																																									false => match name == "strict-transport-security"
-																																										true => encoded_hex_or_failure("b8", headers, offset)
-																																										false => match name == "transfer-encoding"
-																																											true => encoded_hex_or_failure("b9", headers, offset)
-																																											false => match name == "user-agent"
-																																												true => encoded_hex_or_failure("ba", headers, offset)
-																																												false => match name == "vary"
-																																													true => encoded_hex_or_failure("bb", headers, offset)
-																																													false => match name == "via"
-																																														true => encoded_hex_or_failure("bc", headers, offset)
-																																														false => match name == "www-authenticate"
-																																															true => encoded_hex_or_failure("bd", headers, offset)
-																																															false => unsupported_header_list_encoding(headers, offset)
-																																														end
-																																													end
-																																												end
-																																											end
-																																										end
-																																									end
-																																								end
-																																							end
-																																						end
-																																					end
-																																				end
-																																			end
-																																		end
-																																	end
-																																end
-																															end
-																														end
-																													end
-																												end
-																											end
-																										end
-																									end
-																								end
-																							end
-																						end
-																					end
-																				end
-																			end
-																		end
-																	end
-																end
-															end
-														end
-													end
-												end
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match name
+		"accept-charset" => encoded_hex_or_failure("8f", headers, offset)
+		"accept-language" => encoded_hex_or_failure("91", headers, offset)
+		"accept-ranges" => encoded_hex_or_failure("92", headers, offset)
+		"accept" => encoded_hex_or_failure("93", headers, offset)
+		"access-control-allow-origin" => encoded_hex_or_failure("94", headers, offset)
+		"age" => encoded_hex_or_failure("95", headers, offset)
+		"allow" => encoded_hex_or_failure("96", headers, offset)
+		"authorization" => encoded_hex_or_failure("97", headers, offset)
+		"cache-control" => encoded_hex_or_failure("98", headers, offset)
+		"content-disposition" => encoded_hex_or_failure("99", headers, offset)
+		"content-encoding" => encoded_hex_or_failure("9a", headers, offset)
+		"content-language" => encoded_hex_or_failure("9b", headers, offset)
+		"content-length" => encoded_hex_or_failure("9c", headers, offset)
+		"content-location" => encoded_hex_or_failure("9d", headers, offset)
+		"content-range" => encoded_hex_or_failure("9e", headers, offset)
+		"content-type" => encoded_hex_or_failure("9f", headers, offset)
+		"cookie" => encoded_hex_or_failure("a0", headers, offset)
+		"date" => encoded_hex_or_failure("a1", headers, offset)
+		"etag" => encoded_hex_or_failure("a2", headers, offset)
+		"expect" => encoded_hex_or_failure("a3", headers, offset)
+		"expires" => encoded_hex_or_failure("a4", headers, offset)
+		"from" => encoded_hex_or_failure("a5", headers, offset)
+		"host" => encoded_hex_or_failure("a6", headers, offset)
+		"if-match" => encoded_hex_or_failure("a7", headers, offset)
+		"if-modified-since" => encoded_hex_or_failure("a8", headers, offset)
+		"if-none-match" => encoded_hex_or_failure("a9", headers, offset)
+		"if-range" => encoded_hex_or_failure("aa", headers, offset)
+		"if-unmodified-since" => encoded_hex_or_failure("ab", headers, offset)
+		"last-modified" => encoded_hex_or_failure("ac", headers, offset)
+		"link" => encoded_hex_or_failure("ad", headers, offset)
+		"location" => encoded_hex_or_failure("ae", headers, offset)
+		"max-forwards" => encoded_hex_or_failure("af", headers, offset)
+		"proxy-authenticate" => encoded_hex_or_failure("b0", headers, offset)
+		"proxy-authorization" => encoded_hex_or_failure("b1", headers, offset)
+		"range" => encoded_hex_or_failure("b2", headers, offset)
+		"referer" => encoded_hex_or_failure("b3", headers, offset)
+		"refresh" => encoded_hex_or_failure("b4", headers, offset)
+		"retry-after" => encoded_hex_or_failure("b5", headers, offset)
+		"server" => encoded_hex_or_failure("b6", headers, offset)
+		"set-cookie" => encoded_hex_or_failure("b7", headers, offset)
+		"strict-transport-security" => encoded_hex_or_failure("b8", headers, offset)
+		"transfer-encoding" => encoded_hex_or_failure("b9", headers, offset)
+		"user-agent" => encoded_hex_or_failure("ba", headers, offset)
+		"vary" => encoded_hex_or_failure("bb", headers, offset)
+		"via" => encoded_hex_or_failure("bc", headers, offset)
+		"www-authenticate" => encoded_hex_or_failure("bd", headers, offset)
+		_ => unsupported_header_list_encoding(headers, offset)
 	end
 end
 
@@ -1816,21 +1708,13 @@ fn encode_static_indexed_header(name: String, value: String, headers: HpackHeade
 end
 
 fn literal_static_name_index(name: String) -> Int
-	match name == ":authority"
-		true => 1
-		false => match name == ":method"
-			true => 2
-			false => match name == ":path"
-				true => 4
-				false => match name == ":scheme"
-					true => 6
-					false => match name == ":status"
-						true => 8
-						false => -1
-					end
-				end
-			end
-		end
+	match name
+		":authority" => 1
+		":method" => 2
+		":path" => 4
+		":scheme" => 6
+		":status" => 8
+		_ => -1
 	end
 end
 
@@ -1867,18 +1751,13 @@ fn ordinary_header_name_token_bytes(bytes: ByteChunk, index: Int, count: Int) ->
 end
 
 fn ordinary_header_name_is_connection_specific(name: String) -> Bool
-	match name == "connection"
-		true => true
-		false => match name == "keep-alive"
-			true => true
-			false => match name == "proxy-connection"
-				true => true
-				false => match name == "transfer-encoding"
-					true => true
-					false => name == "upgrade"
-				end
-			end
-		end
+	match name
+		"connection" => true
+		"keep-alive" => true
+		"proxy-connection" => true
+		"transfer-encoding" => true
+		"upgrade" => true
+		_ => false
 	end
 end
 
@@ -1946,42 +1825,30 @@ fn encode_request_headers(value: String, headers: HpackHeaderList, offset: Int) 
 	match headers
 		HpackHeaderList(HpackHeader(":scheme", "http"), HpackHeader(":request", "method,path"), _) => encoded_hex_or_failure("5b5c5d5e", headers, offset)
 		HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":request", "method,path"), _) => encoded_hex_or_failure("5c5d5e5f", headers, offset)
-		_ => match value == "scheme,path"
-			true => encoded_hex_or_failure("303132", headers, offset)
-			false => match value == "method,scheme,path"
-				true => encoded_hex_or_failure("32333435", headers, offset)
-				false => match value == "scheme,path,content-length:5"
-					true => encoded_hex_or_failure("4f505152", headers, offset)
-					false => unsupported_header_list_encoding(headers, offset)
-				end
-			end
+		_ => match value
+			"scheme,path" => encoded_hex_or_failure("303132", headers, offset)
+			"method,scheme,path" => encoded_hex_or_failure("32333435", headers, offset)
+			"scheme,path,content-length:5" => encoded_hex_or_failure("4f505152", headers, offset)
+			_ => unsupported_header_list_encoding(headers, offset)
 		end
 	end
 end
 
 fn encode_response_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == "ok"
-		true => encoded_hex_or_failure("353637", headers, offset)
-		false => match value == "ok,server"
-			true => encoded_hex_or_failure("40414243", headers, offset)
-			false => match value == "status"
-				true => encoded_hex_or_failure("38393a3b", headers, offset)
-				false => match value == "ok,content-length:5"
-					true => encoded_hex_or_failure("5758595a", headers, offset)
-					false => unsupported_header_list_encoding(headers, offset)
-				end
-			end
-		end
+	match value
+		"ok" => encoded_hex_or_failure("353637", headers, offset)
+		"ok,server" => encoded_hex_or_failure("40414243", headers, offset)
+		"status" => encoded_hex_or_failure("38393a3b", headers, offset)
+		"ok,content-length:5" => encoded_hex_or_failure("5758595a", headers, offset)
+		_ => unsupported_header_list_encoding(headers, offset)
 	end
 end
 
 fn encode_response_error_headers(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value == "ok,Server"
-		true => encoded_hex_or_failure("45464748", headers, offset)
-		false => match value == "ok,bad header"
-			true => encoded_hex_or_failure("4748494a", headers, offset)
-			false => unsupported_header_list_encoding(headers, offset)
-		end
+	match value
+		"ok,Server" => encoded_hex_or_failure("45464748", headers, offset)
+		"ok,bad header" => encoded_hex_or_failure("4748494a", headers, offset)
+		_ => unsupported_header_list_encoding(headers, offset)
 	end
 end
 
@@ -2467,19 +2334,17 @@ fn hpack_huffman_padding_valid(code: Int, length: Int) -> Bool
 end
 
 fn hpack_huffman_decoded_wire_size(value: String, decoded_size: Int) -> Int
-	match value == ""
-		true => 2
-		false => match value == "www.example.com"
-			true => 13
-			false => decoded_size
-		end
+	match value
+		"" => 2
+		"www.example.com" => 13
+		_ => decoded_size
 	end
 end
 
 fn append_hpack_huffman_symbol(decoded: ByteChunk, symbol: Int, block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match symbol == 256
-		true => huffman_eos_symbol(block, offset)
-		false => match byte_write_u8_be(symbol)
+	match symbol
+		256 => huffman_eos_symbol(block, offset)
+		_ => match byte_write_u8_be(symbol)
 			Ok(symbol_chunk) => Ok(byte_append(decoded, symbol_chunk))
 			Err(_) => unsupported_byte_chunk(block, offset)
 		end
@@ -3105,77 +2970,77 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 	match observed_size > 1
 		true => match table_size_update_value_at(block, observed_size, 1, offset)
 			Ok(_) => table_size_update_not_at_start(block, observed_size, 1, offset)
-			Err(_) => match observed_size == 2
-				true => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
-				false => unsupported(block, offset)
+			Err(_) => match observed_size
+				2 => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
+				_ => unsupported(block, offset)
 			end
 		end
-		false => match observed_size == 1
-			false => unsupported(block, offset)
-			true => match first_byte
-			129 => decoded_static_indexed_authority(state)
-			130 => decoded_static_indexed_method_get(state)
-			131 => decoded_static_indexed_method_post(state)
-			132 => decoded_static_indexed_path_root(state)
-			133 => decoded_static_indexed_path_index(state)
-			134 => decoded_static_indexed_scheme_http(state)
-			135 => decoded_static_indexed_scheme_https(state)
-			136 => decoded_static_indexed_status("200", state)
-			137 => decoded_static_indexed_status("204", state)
-			138 => decoded_static_indexed_status("206", state)
-			139 => decoded_static_indexed_status("304", state)
-			140 => decoded_static_indexed_status("400", state)
-			141 => decoded_static_indexed_status("404", state)
-			142 => decoded_static_indexed_status("500", state)
-			143 => decoded_static_indexed_header("accept-charset", "", state)
-			144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
-			145 => decoded_static_indexed_header("accept-language", "", state)
-			146 => decoded_static_indexed_header("accept-ranges", "", state)
-			147 => decoded_static_indexed_header("accept", "", state)
-			148 => decoded_static_indexed_header("access-control-allow-origin", "", state)
-			149 => decoded_static_indexed_header("age", "", state)
-			150 => decoded_static_indexed_header("allow", "", state)
-			151 => decoded_static_indexed_header("authorization", "", state)
-			152 => decoded_static_indexed_header("cache-control", "", state)
-			153 => decoded_static_indexed_header("content-disposition", "", state)
-			154 => decoded_static_indexed_header("content-encoding", "", state)
-			155 => decoded_static_indexed_header("content-language", "", state)
-			156 => decoded_static_indexed_header("content-length", "", state)
-			157 => decoded_static_indexed_header("content-location", "", state)
-			158 => decoded_static_indexed_header("content-range", "", state)
-			159 => decoded_static_indexed_header("content-type", "", state)
-			160 => decoded_static_indexed_header("cookie", "", state)
-			161 => decoded_static_indexed_header("date", "", state)
-			162 => decoded_static_indexed_header("etag", "", state)
-			163 => decoded_static_indexed_header("expect", "", state)
-			164 => decoded_static_indexed_header("expires", "", state)
-			165 => decoded_static_indexed_header("from", "", state)
-			166 => decoded_static_indexed_header("host", "", state)
-			167 => decoded_static_indexed_header("if-match", "", state)
-			168 => decoded_static_indexed_header("if-modified-since", "", state)
-			169 => decoded_static_indexed_header("if-none-match", "", state)
-			170 => decoded_static_indexed_header("if-range", "", state)
-			171 => decoded_static_indexed_header("if-unmodified-since", "", state)
-			172 => decoded_static_indexed_header("last-modified", "", state)
-			173 => decoded_static_indexed_header("link", "", state)
-			174 => decoded_static_indexed_header("location", "", state)
-			175 => decoded_static_indexed_header("max-forwards", "", state)
-			176 => decoded_static_indexed_header("proxy-authenticate", "", state)
-			177 => decoded_static_indexed_header("proxy-authorization", "", state)
-			178 => decoded_static_indexed_header("range", "", state)
-			179 => decoded_static_indexed_header("referer", "", state)
-			180 => decoded_static_indexed_header("refresh", "", state)
-			181 => decoded_static_indexed_header("retry-after", "", state)
-			182 => decoded_static_indexed_header("server", "", state)
-			183 => decoded_static_indexed_header("set-cookie", "", state)
-			184 => decoded_static_indexed_header("strict-transport-security", "", state)
-			185 => decoded_static_indexed_header("transfer-encoding", "", state)
-			186 => decoded_static_indexed_header("user-agent", "", state)
-			187 => decoded_static_indexed_header("vary", "", state)
-			188 => decoded_static_indexed_header("via", "", state)
-			189 => decoded_static_indexed_header("www-authenticate", "", state)
-			_ => unsupported_static_index(block, offset)
+		false => match observed_size
+			1 => match first_byte
+				129 => decoded_static_indexed_authority(state)
+				130 => decoded_static_indexed_method_get(state)
+				131 => decoded_static_indexed_method_post(state)
+				132 => decoded_static_indexed_path_root(state)
+				133 => decoded_static_indexed_path_index(state)
+				134 => decoded_static_indexed_scheme_http(state)
+				135 => decoded_static_indexed_scheme_https(state)
+				136 => decoded_static_indexed_status("200", state)
+				137 => decoded_static_indexed_status("204", state)
+				138 => decoded_static_indexed_status("206", state)
+				139 => decoded_static_indexed_status("304", state)
+				140 => decoded_static_indexed_status("400", state)
+				141 => decoded_static_indexed_status("404", state)
+				142 => decoded_static_indexed_status("500", state)
+				143 => decoded_static_indexed_header("accept-charset", "", state)
+				144 => decoded_static_indexed_header("accept-encoding", "gzip, deflate", state)
+				145 => decoded_static_indexed_header("accept-language", "", state)
+				146 => decoded_static_indexed_header("accept-ranges", "", state)
+				147 => decoded_static_indexed_header("accept", "", state)
+				148 => decoded_static_indexed_header("access-control-allow-origin", "", state)
+				149 => decoded_static_indexed_header("age", "", state)
+				150 => decoded_static_indexed_header("allow", "", state)
+				151 => decoded_static_indexed_header("authorization", "", state)
+				152 => decoded_static_indexed_header("cache-control", "", state)
+				153 => decoded_static_indexed_header("content-disposition", "", state)
+				154 => decoded_static_indexed_header("content-encoding", "", state)
+				155 => decoded_static_indexed_header("content-language", "", state)
+				156 => decoded_static_indexed_header("content-length", "", state)
+				157 => decoded_static_indexed_header("content-location", "", state)
+				158 => decoded_static_indexed_header("content-range", "", state)
+				159 => decoded_static_indexed_header("content-type", "", state)
+				160 => decoded_static_indexed_header("cookie", "", state)
+				161 => decoded_static_indexed_header("date", "", state)
+				162 => decoded_static_indexed_header("etag", "", state)
+				163 => decoded_static_indexed_header("expect", "", state)
+				164 => decoded_static_indexed_header("expires", "", state)
+				165 => decoded_static_indexed_header("from", "", state)
+				166 => decoded_static_indexed_header("host", "", state)
+				167 => decoded_static_indexed_header("if-match", "", state)
+				168 => decoded_static_indexed_header("if-modified-since", "", state)
+				169 => decoded_static_indexed_header("if-none-match", "", state)
+				170 => decoded_static_indexed_header("if-range", "", state)
+				171 => decoded_static_indexed_header("if-unmodified-since", "", state)
+				172 => decoded_static_indexed_header("last-modified", "", state)
+				173 => decoded_static_indexed_header("link", "", state)
+				174 => decoded_static_indexed_header("location", "", state)
+				175 => decoded_static_indexed_header("max-forwards", "", state)
+				176 => decoded_static_indexed_header("proxy-authenticate", "", state)
+				177 => decoded_static_indexed_header("proxy-authorization", "", state)
+				178 => decoded_static_indexed_header("range", "", state)
+				179 => decoded_static_indexed_header("referer", "", state)
+				180 => decoded_static_indexed_header("refresh", "", state)
+				181 => decoded_static_indexed_header("retry-after", "", state)
+				182 => decoded_static_indexed_header("server", "", state)
+				183 => decoded_static_indexed_header("set-cookie", "", state)
+				184 => decoded_static_indexed_header("strict-transport-security", "", state)
+				185 => decoded_static_indexed_header("transfer-encoding", "", state)
+				186 => decoded_static_indexed_header("user-agent", "", state)
+				187 => decoded_static_indexed_header("vary", "", state)
+				188 => decoded_static_indexed_header("via", "", state)
+				189 => decoded_static_indexed_header("www-authenticate", "", state)
+				_ => unsupported_static_index(block, offset)
 			end
+			_ => unsupported(block, offset)
 		end
 	end
 end
@@ -3183,9 +3048,9 @@ end
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = byte_at_or_missing(block, 0)
-	match observed_size == 0
-		true => decoded("empty", 0, state)
-		false => match first_byte
+	match observed_size
+		0 => decoded("empty", 0, state)
+		_ => match first_byte
 			62 => match observed_size == 1
 				true => decoded_table_size_update(state, 30)
 				false => unsupported(block, offset)
@@ -3536,52 +3401,30 @@ pub fn header_list_is_table_size_update(headers: HpackHeaderList) -> Bool
 end
 
 fn request_content_length_label(value: String) -> Bool
-	match value == "scheme,path,content-length:5"
-		true => true
-		false => match value == "scheme,path,content-length:5,content-length:5"
-			true => true
-			false => match value == "scheme,path,content-length:5,content-length:7"
-				true => true
-				false => match value == "scheme,path,content-length:"
-					true => true
-					false => match value == "scheme,path,content-length:abc"
-						true => true
-						false => match value == "scheme,path,content-length:+5"
-							true => true
-							false => match value == "scheme,path,content-length: 5"
-								true => true
-								false => value == "scheme,path,content-length:-5"
-							end
-						end
-					end
-				end
-			end
-		end
+	match value
+		"scheme,path,content-length:5" => true
+		"scheme,path,content-length:5,content-length:5" => true
+		"scheme,path,content-length:5,content-length:7" => true
+		"scheme,path,content-length:" => true
+		"scheme,path,content-length:abc" => true
+		"scheme,path,content-length:+5" => true
+		"scheme,path,content-length: 5" => true
+		"scheme,path,content-length:-5" => true
+		_ => false
 	end
 end
 
 fn response_content_length_label(value: String) -> Bool
-	match value == "ok,content-length:5"
-		true => true
-		false => match value == "ok,content-length:5,content-length:5"
-			true => true
-			false => match value == "ok,content-length:5,content-length:7"
-				true => true
-				false => match value == "ok,content-length:"
-					true => true
-					false => match value == "ok,content-length:abc"
-						true => true
-						false => match value == "ok,content-length:+5"
-							true => true
-							false => match value == "ok,content-length: 5"
-								true => true
-								false => value == "ok,content-length:-5"
-							end
-						end
-					end
-				end
-			end
-		end
+	match value
+		"ok,content-length:5" => true
+		"ok,content-length:5,content-length:5" => true
+		"ok,content-length:5,content-length:7" => true
+		"ok,content-length:" => true
+		"ok,content-length:abc" => true
+		"ok,content-length:+5" => true
+		"ok,content-length: 5" => true
+		"ok,content-length:-5" => true
+		_ => false
 	end
 end
 

@@ -10,6 +10,9 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     if comments.requires_lossless_preservation {
         return lossless_text(tree);
     }
+    if tree_has_commented_literal_match_rewrite(tree, &comments) {
+        return lossless_text(tree);
+    }
 
     let mut out = String::new();
     if let Some(module) = &tree.module {
@@ -61,6 +64,89 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn tree_has_commented_literal_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
+    tree.items.iter().any(|item| match item {
+        SyntaxItem::Function(function) => function.body.iter().any(|line| match line {
+            BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => {
+                expr_has_commented_literal_match_rewrite(expr, comments)
+            }
+        }),
+        SyntaxItem::Schema(schema) => schema.mappings.iter().any(|mapping| {
+            mapping.selector.as_ref().is_some_and(|selector| {
+                expr_has_commented_literal_match_rewrite(&selector.expr, comments)
+            })
+        }),
+        SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
+    })
+}
+
+fn expr_has_commented_literal_match_rewrite(expr: &Expr, comments: &LineComments) -> bool {
+    if let ExprKind::Match { scrutinee, arms } = &expr.kind
+        && literal_match_rewrite(scrutinee, arms).is_some()
+        && comments.has_comment_in_span(&expr.span)
+    {
+        return true;
+    }
+
+    match &expr.kind {
+        ExprKind::TypeApply { callee, .. } => {
+            expr_has_commented_literal_match_rewrite(callee, comments)
+        }
+        ExprKind::Call { callee, args } => {
+            expr_has_commented_literal_match_rewrite(callee, comments)
+                || args
+                    .iter()
+                    .any(|arg| expr_has_commented_literal_match_rewrite(arg, comments))
+        }
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
+            expr_has_commented_literal_match_rewrite(base, comments)
+        }
+        ExprKind::Record(fields) => fields
+            .iter()
+            .any(|field| expr_has_commented_literal_match_rewrite(&field.expr, comments)),
+        ExprKind::Dict(entries) => entries.iter().any(|entry| {
+            expr_has_commented_literal_match_rewrite(&entry.key, comments)
+                || expr_has_commented_literal_match_rewrite(&entry.value, comments)
+        }),
+        ExprKind::List(items) => items
+            .iter()
+            .any(|item| expr_has_commented_literal_match_rewrite(item, comments)),
+        ExprKind::Match { scrutinee, arms } => {
+            expr_has_commented_literal_match_rewrite(scrutinee, comments)
+                || arms
+                    .iter()
+                    .any(|arm| expr_has_commented_literal_match_rewrite(&arm.expr, comments))
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            expr_has_commented_literal_match_rewrite(condition, comments)
+                || expr_has_commented_literal_match_rewrite(then_branch, comments)
+                || else_if_branches.iter().any(|branch| {
+                    expr_has_commented_literal_match_rewrite(&branch.condition, comments)
+                        || expr_has_commented_literal_match_rewrite(&branch.expr, comments)
+                })
+                || expr_has_commented_literal_match_rewrite(else_branch, comments)
+        }
+        ExprKind::Prefix { expr, .. } => expr_has_commented_literal_match_rewrite(expr, comments),
+        ExprKind::Binary { left, right, .. } => {
+            expr_has_commented_literal_match_rewrite(left, comments)
+                || expr_has_commented_literal_match_rewrite(right, comments)
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => false,
+    }
 }
 
 fn format_codec_decl(out: &mut String, comments: &LineComments, codec: &CodecDecl) {
@@ -588,6 +674,20 @@ impl LineComments {
         }
     }
 
+    fn has_comment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
+        let start = span.start.line;
+        let end = if span.end.column == 1 {
+            span.end.line.saturating_sub(1)
+        } else {
+            span.end.line
+        };
+        self.before
+            .borrow()
+            .keys()
+            .chain(self.after.borrow().keys())
+            .any(|line| *line >= start && *line <= end)
+    }
+
     fn all_emitted(&self) -> bool {
         self.before.borrow().is_empty() && self.after.borrow().is_empty()
     }
@@ -895,6 +995,10 @@ fn format_list_expr(items: &[Expr], indent: usize) -> String {
 }
 
 fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) -> String {
+    if let Some(rewrite) = literal_match_rewrite(scrutinee, arms) {
+        return format_literal_match_rewrite(&rewrite, indent);
+    }
+
     let mut text = format!("match {}\n", format_expr_at_indent(scrutinee, indent));
     for arm in arms {
         push_indent(&mut text, indent + 1);
@@ -903,6 +1007,160 @@ fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) 
         text.push_str(&format_expr_at_indent(&arm.expr, indent + 1));
         text.push('\n');
     }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
+struct LiteralMatchRewrite<'a> {
+    scrutinee: &'a Expr,
+    arms: Vec<(String, &'a Expr)>,
+    fallback: &'a Expr,
+}
+
+fn literal_match_rewrite<'a>(
+    scrutinee: &'a Expr,
+    arms: &'a [crate::MatchArm],
+) -> Option<LiteralMatchRewrite<'a>> {
+    let mut literal_arms = Vec::new();
+    let (rewritten_scrutinee, fallback) =
+        collect_literal_match_chain(scrutinee, arms, None, &mut literal_arms)?;
+    let mut seen = std::collections::BTreeSet::new();
+    if literal_arms
+        .iter()
+        .any(|(literal, _)| !seen.insert(literal.clone()))
+    {
+        return None;
+    }
+
+    Some(LiteralMatchRewrite {
+        scrutinee: rewritten_scrutinee,
+        arms: literal_arms,
+        fallback,
+    })
+}
+
+fn collect_literal_match_chain<'a>(
+    condition: &'a Expr,
+    arms: &'a [crate::MatchArm],
+    expected_scrutinee: Option<&'a Expr>,
+    literal_arms: &mut Vec<(String, &'a Expr)>,
+) -> Option<(&'a Expr, &'a Expr)> {
+    let (true_arm, false_arm) = bool_match_arms(arms)?;
+    let condition_literals = literal_match_conditions(condition)?;
+    let active_scrutinee = condition_literals.first()?.0;
+
+    if let Some(expected) = expected_scrutinee
+        && !exprs_equivalent(expected, active_scrutinee)
+    {
+        return None;
+    }
+    if condition_literals
+        .iter()
+        .any(|(scrutinee, _)| !exprs_equivalent(active_scrutinee, scrutinee))
+    {
+        return None;
+    }
+
+    for (_, literal) in condition_literals {
+        literal_arms.push((literal, &true_arm.expr));
+    }
+
+    if let ExprKind::Match {
+        scrutinee: next_condition,
+        arms: next_arms,
+    } = &false_arm.expr.kind
+    {
+        let mut nested_arms = Vec::new();
+        if let Some((_, fallback)) = collect_literal_match_chain(
+            next_condition,
+            next_arms,
+            Some(active_scrutinee),
+            &mut nested_arms,
+        ) {
+            literal_arms.extend(nested_arms);
+            return Some((active_scrutinee, fallback));
+        }
+    }
+
+    Some((active_scrutinee, &false_arm.expr))
+}
+
+fn bool_match_arms(arms: &[crate::MatchArm]) -> Option<(&crate::MatchArm, &crate::MatchArm)> {
+    if arms.len() != 2 {
+        return None;
+    }
+
+    let mut true_arm = None;
+    let mut false_arm = None;
+    for arm in arms {
+        match arm.pattern.kind {
+            PatternKind::BoolLiteral(true) if true_arm.is_none() => true_arm = Some(arm),
+            PatternKind::BoolLiteral(false) if false_arm.is_none() => false_arm = Some(arm),
+            _ => return None,
+        }
+    }
+
+    Some((true_arm?, false_arm?))
+}
+
+fn literal_match_conditions(condition: &Expr) -> Option<Vec<(&Expr, String)>> {
+    match &condition.kind {
+        ExprKind::Binary {
+            op: BinaryOp::Or,
+            left,
+            right,
+        } => {
+            let mut conditions = literal_match_conditions(left)?;
+            conditions.extend(literal_match_conditions(right)?);
+            Some(conditions)
+        }
+        ExprKind::Binary {
+            op: BinaryOp::Equal,
+            left,
+            right,
+        } => literal_equality_condition(left, right).map(|condition| vec![condition]),
+        _ => None,
+    }
+}
+
+fn literal_equality_condition<'a>(left: &'a Expr, right: &'a Expr) -> Option<(&'a Expr, String)> {
+    if let Some(literal) = literal_pattern_text(right) {
+        return Some((left, literal));
+    }
+    literal_pattern_text(left).map(|literal| (right, literal))
+}
+
+fn literal_pattern_text(expr: &Expr) -> Option<String> {
+    match &expr.kind {
+        ExprKind::StringLiteral(value)
+        | ExprKind::IntLiteral(value)
+        | ExprKind::FloatLiteral(value) => Some(value.clone()),
+        ExprKind::Unit => Some("()".to_string()),
+        _ => None,
+    }
+}
+
+fn exprs_equivalent(left: &Expr, right: &Expr) -> bool {
+    format_expr_at_indent(left, 0) == format_expr_at_indent(right, 0)
+}
+
+fn format_literal_match_rewrite(rewrite: &LiteralMatchRewrite<'_>, indent: usize) -> String {
+    let mut text = format!(
+        "match {}\n",
+        format_expr_at_indent(rewrite.scrutinee, indent)
+    );
+    for (literal, expr) in &rewrite.arms {
+        push_indent(&mut text, indent + 1);
+        text.push_str(literal);
+        text.push_str(" => ");
+        text.push_str(&format_expr_at_indent(expr, indent + 1));
+        text.push('\n');
+    }
+    push_indent(&mut text, indent + 1);
+    text.push_str("_ => ");
+    text.push_str(&format_expr_at_indent(rewrite.fallback, indent + 1));
+    text.push('\n');
     push_indent(&mut text, indent);
     text.push_str("end");
     text

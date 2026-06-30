@@ -41,19 +41,19 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 end
 
 fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
-	match kind == 1
-		true => match stream_id_is_client_initiated(stream_id)
+	match kind
+		1 => match stream_id_is_client_initiated(stream_id)
 			true => Ok(FrameOk(kind))
 			false => Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", preview)))
 		end
-		false => Ok(FrameOk(kind))
+		_ => Ok(FrameOk(kind))
 	end
 end
 
 fn stream_id_is_client_initiated(stream_id: Int) -> Bool
-	match stream_id == 0
-		true => false
-		false => (stream_id / 2) * 2 != stream_id
+	match stream_id
+		0 => false
+		_ => (stream_id / 2) * 2 != stream_id
 	end
 end
 

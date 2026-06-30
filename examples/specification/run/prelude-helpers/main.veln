@@ -4,9 +4,9 @@ fn attach(context: String, value: Int) -> Result<{ prefix : String, value : Int 
 end
 
 fn stop_at_two(context: String, value: Int) -> Result<{ prefix : String, value : Int }, String>
-	match value == 2
-		true => Err(context)
-		false => Ok({ prefix: context, value: value })
+	match value
+		2 => Err(context)
+		_ => Ok({ prefix: context, value: value })
 	end
 end
 

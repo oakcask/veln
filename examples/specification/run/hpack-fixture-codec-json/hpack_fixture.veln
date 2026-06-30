@@ -88,8 +88,8 @@ fn decode_static_indexed_header(index: Int, state: HpackFixtureState) -> Option<
 end
 
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match byte_count_to_int(byte_chunk_count(block)) == 1
-		true => match byte_at(block, 0)
+	match byte_count_to_int(byte_chunk_count(block))
+		1 => match byte_at(block, 0)
 			Ok(first_byte) => match first_byte >= 128 and first_byte < 192
 				true => match decode_static_indexed_header(first_byte - 128, state)
 					Some(transition) => Ok(transition)
@@ -99,7 +99,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 			end
 			Err(_) => unsupported(block, offset)
 		end
-		false => unsupported(block, offset)
+		_ => unsupported(block, offset)
 	end
 end
 

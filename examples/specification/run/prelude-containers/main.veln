@@ -24,9 +24,9 @@ fn add_one(value: Int) -> Result<Int, String>
 end
 
 fn fallible_double(value: Int) -> Result<Int, String>
-	match value == 2
-		true => Err("stop")
-		false => Ok(value * 2)
+	match value
+		2 => Err("stop")
+		_ => Ok(value * 2)
 	end
 end
 

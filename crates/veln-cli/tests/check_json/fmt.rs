@@ -221,6 +221,79 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
 }
 
 #[test]
+fn fmt_rewrites_literal_equality_match_chains() {
+    let project = TestProject::new("fmt-literal-match-chain");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn display(value: String) -> String\n",
+            " match value == \"\\n\"\n",
+            " true => \"<lf>\"\n",
+            " false => match value == \"hpack-byte-00\"\n",
+            " true => \"<nul>\"\n",
+            " false => value\n",
+            " end\n",
+            " end\n",
+            "end\n",
+            "fn provenance(fact: String) -> String\n",
+            " match fact == \"content_length_invalid\" or fact == \"content_length_mismatch\"\n",
+            " true => \"rfc9113_content_length\"\n",
+            " false => \"rfc9113_request_pseudo_headers\"\n",
+            " end\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.fmt(&["main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn display(value: String) -> String\n",
+            "\tmatch value\n",
+            "\t\t\"\\n\" => \"<lf>\"\n",
+            "\t\t\"hpack-byte-00\" => \"<nul>\"\n",
+            "\t\t_ => value\n",
+            "\tend\n",
+            "end\n",
+            "\n",
+            "fn provenance(fact: String) -> String\n",
+            "\tmatch fact\n",
+            "\t\t\"content_length_invalid\" => \"rfc9113_content_length\"\n",
+            "\t\t\"content_length_mismatch\" => \"rfc9113_content_length\"\n",
+            "\t\t_ => \"rfc9113_request_pseudo_headers\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+
+    let second_output = project.fmt(&["main.veln"]);
+
+    assert!(second_output.status.success(), "{}", stderr(&second_output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn display(value: String) -> String\n",
+            "\tmatch value\n",
+            "\t\t\"\\n\" => \"<lf>\"\n",
+            "\t\t\"hpack-byte-00\" => \"<nul>\"\n",
+            "\t\t_ => value\n",
+            "\tend\n",
+            "end\n",
+            "\n",
+            "fn provenance(fact: String) -> String\n",
+            "\tmatch fact\n",
+            "\t\t\"content_length_invalid\" => \"rfc9113_content_length\"\n",
+            "\t\t\"content_length_mismatch\" => \"rfc9113_content_length\"\n",
+            "\t\t_ => \"rfc9113_request_pseudo_headers\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn fmt_rejects_unknown_flags_before_writing_files() {
     let project = TestProject::new("fmt-unknown-flag");
     let text = "fn   ok ( ) -> ()\n()\nend\n";

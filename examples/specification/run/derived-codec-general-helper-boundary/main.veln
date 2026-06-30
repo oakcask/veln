@@ -124,9 +124,9 @@ fn expected_packet_byte(index: Int) -> Int
 end
 
 fn packet_bytes_match(chunk: ByteChunk, index: Int) -> Result<Bool, String>
-	match index == 15
-		true => Ok(true)
-		false => match chunk_byte(chunk, index)? == expected_packet_byte(index)
+	match index
+		15 => Ok(true)
+		_ => match chunk_byte(chunk, index)? == expected_packet_byte(index)
 			true => packet_bytes_match(chunk, index + 1)
 			false => Ok(false)
 		end
@@ -134,9 +134,9 @@ fn packet_bytes_match(chunk: ByteChunk, index: Int) -> Result<Bool, String>
 end
 
 fn matches_expected_packet(chunk: ByteChunk) -> Result<Bool, String>
-	match byte_count_to_int(byte_chunk_count(chunk)) == 15
-		true => packet_bytes_match(chunk, 0)
-		false => Ok(false)
+	match byte_count_to_int(byte_chunk_count(chunk))
+		15 => packet_bytes_match(chunk, 0)
+		_ => Ok(false)
 	end
 end
 
