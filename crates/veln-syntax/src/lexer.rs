@@ -168,6 +168,7 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
         "mod" => TokenKind::Mod,
         "use" => TokenKind::Use,
         "from" => TokenKind::From,
+        "at" => TokenKind::At,
         "match" => TokenKind::Match,
         "if" => TokenKind::If,
         "else" => TokenKind::Else,

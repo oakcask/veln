@@ -55,10 +55,17 @@ schema vocabulary, including direct fields, supported reserved fields,
 repeated fields, and dispatch payload field text.
 
 Schema declarations return and accept schema-local visible record shapes
-through generated helpers. Projection into domain records is ordinary source
-code at the helper-call or codec boundary. Schema-level `map to` clauses,
-selected schema mappings, mapping assignments, and `inverse` projection
-annotations are not accepted source syntax.
+through generated helpers and explicit decode expressions. The expression
+`decode SchemaName from view at base_offset` accepts the same eligible binary
+schemas, `ByteView`, and `ByteOffset` operands as the generated decode-step
+helper and returns the same `DecodeStep<T>` shape. Qualified public schema
+paths are accepted when the imported schema is visible. The executable
+coverage is
+`examples/specification/run/schema-decode-expression/`. Projection into
+domain records is ordinary source code at the helper-call, decode-expression,
+or codec boundary. Schema-level `map to` clauses, selected schema mappings,
+mapping assignments, and `inverse` projection annotations are not accepted
+source syntax.
 
 ## Codecs
 
@@ -75,7 +82,8 @@ The parser rejects schema-level `map to` with
 runtime diagnostics are not current behavior. Current schema diagnostics cover
 format placement, field references, primitive kind checks, field-local and
 schema-level validation predicates, dispatch payload eligibility, codec schema
-references, and helper availability.
+references, explicit schema decode expression schema-path resolution, and
+helper availability.
 
 ## Read When
 

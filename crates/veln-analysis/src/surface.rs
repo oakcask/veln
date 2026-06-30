@@ -1439,6 +1439,24 @@ fn collect_function_callees(
                 );
             }
         }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_function_callees(
+                input,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
+            collect_function_callees(
+                base,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
+        }
         ExprKind::FieldAccess { base, .. } => {
             collect_function_callees(
                 base,

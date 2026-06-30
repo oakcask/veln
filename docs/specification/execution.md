@@ -32,6 +32,11 @@ enough.
 
 - Generated binary schema decode helpers read fields in declaration order and
   return the schema-local visible record shape.
+- Explicit schema decode expressions lower to the generated decode-step
+  boundary for the referenced eligible binary schema. They use the supplied
+  `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count
+  and diagnostic offset accounting, returning the same `DecodeStep<T>` value
+  shape as `byte_decode_step_<schema>`.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

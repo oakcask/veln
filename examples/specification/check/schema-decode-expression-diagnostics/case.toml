@@ -1,0 +1,43 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.decode_expression\"", "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema", "schema decode expression schema `wire::PrivatePacket` is private", "schema decode expression target `wire::make_packet` is a function, not a schema", "schema decode expression target `wire::PacketShape` is a type, not a schema", "schema decode expression target `wire::PacketCodec` is a codec, not a schema", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\"", "\"resolved_kind\":\"codec\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "schema.decode_expression"
+severity = "error"
+kind = "type"
+message = "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema"
+
+[[diagnostics]]
+id = "schema.decode_expression"
+severity = "error"
+kind = "type"
+message = "schema decode expression schema `wire::PrivatePacket` is private"
+
+[[diagnostics]]
+id = "schema.decode_expression"
+severity = "error"
+kind = "type"
+message = "schema decode expression target `wire::make_packet` is a function, not a schema"
+
+[[diagnostics]]
+id = "schema.decode_expression"
+severity = "error"
+kind = "type"
+message = "schema decode expression target `wire::PacketShape` is a type, not a schema"
+
+[[diagnostics]]
+id = "schema.decode_expression"
+severity = "error"
+kind = "type"
+message = "schema decode expression target `wire::PacketCodec` is a codec, not a schema"

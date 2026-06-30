@@ -6,7 +6,7 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::standard_symbols::qualified_symbol;
-use crate::types::lowercase_schema_primitive;
+use crate::types::{SchemaReferenceErrorKind, lowercase_schema_primitive};
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -1259,6 +1259,11 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Unit => Type::unit(),
             ExprKind::TypeApply { .. } => Type::Unknown,
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
+            ExprKind::SchemaDecode {
+                schema,
+                input,
+                base,
+            } => self.infer_schema_decode(expr, schema, input, base),
             ExprKind::FieldAccess {
                 base,
                 field,
@@ -1287,6 +1292,102 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }
+    }
+
+    fn infer_schema_decode(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        input: &Expr,
+        base: &Expr,
+    ) -> Type {
+        let input_expected = ExpectedType {
+            ty: Type::named("ByteView", Vec::new()),
+            source: ExpectedTypeSource::DeclaredParameter,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Schema decode input must be a ByteView.",
+        };
+        let input_actual = self.infer_expr(input, Some(&input_expected));
+        self.check_assignable(
+            input,
+            &input_expected.ty,
+            &input_actual,
+            &input_expected,
+            "schema_decode_input",
+        );
+
+        let base_expected = ExpectedType {
+            ty: Type::named("ByteOffset", Vec::new()),
+            source: ExpectedTypeSource::DeclaredParameter,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Schema decode base offset must be a ByteOffset.",
+        };
+        let base_actual = self.infer_expr(base, Some(&base_expected));
+        self.check_assignable(
+            base,
+            &base_expected.ty,
+            &base_actual,
+            &base_expected,
+            "schema_decode_base_offset",
+        );
+
+        let Some(signature) = self
+            .environment
+            .schema_decode_step_signature(schema, self.function.module_name.as_deref())
+        else {
+            self.push_schema_decode_expression_diagnostic(expr, schema);
+            return Type::Unknown;
+        };
+        signature.return_type.clone()
+    }
+
+    fn push_schema_decode_expression_diagnostic(&mut self, expr: &Expr, schema: &[String]) {
+        let symbol = if schema.is_empty() {
+            "<missing>".to_string()
+        } else {
+            schema.join("::")
+        };
+        let error = self
+            .environment
+            .schema_reference_error(schema, self.function.module_name.as_deref());
+        let reason = match error.kind {
+            SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
+            SchemaReferenceErrorKind::Private => "private_schema",
+            SchemaReferenceErrorKind::WrongKind => "wrong_kind",
+        };
+        let message = match (error.kind, error.resolved_kind) {
+            (SchemaReferenceErrorKind::Private, _) => {
+                format!("schema decode expression schema `{symbol}` is private")
+            }
+            (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
+                format!("schema decode expression target `{symbol}` is a {kind}, not a schema")
+            }
+            _ => {
+                format!(
+                    "schema decode expression cannot resolve `{symbol}` as an eligible binary schema"
+                )
+            }
+        };
+        let mut details = vec![
+            ("phase", JsonValue::string("body_analysis")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("schema_path", JsonValue::string(symbol)),
+            ("operation", JsonValue::string("decode_step")),
+            ("reason", JsonValue::string(reason)),
+        ];
+        if let Some(kind) = error.resolved_kind {
+            details.push(("resolved_kind", JsonValue::string(kind)));
+        }
+        self.diagnostics.push(Diagnostic::new(
+            "schema.decode_expression",
+            Severity::Error,
+            DiagnosticKind::Type,
+            message,
+            Some(expr.span.clone()),
+            JsonValue::object(details),
+        ));
     }
 
     pub(super) fn infer_name_path(

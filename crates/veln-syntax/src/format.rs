@@ -94,6 +94,10 @@ fn expr_has_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> boo
                     .iter()
                     .any(|arg| expr_has_commented_match_rewrite(arg, comments))
         }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            expr_has_commented_match_rewrite(input, comments)
+                || expr_has_commented_match_rewrite(base, comments)
+        }
         ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
             expr_has_commented_match_rewrite(base, comments)
         }
@@ -1048,6 +1052,16 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             format!("{}<{}>", format_expr_at_indent(callee, indent), type_args)
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
+        ExprKind::SchemaDecode {
+            schema,
+            input,
+            base,
+        } => format!(
+            "decode {} from {} at {}",
+            schema.join("::"),
+            format_expr_at_indent(input, indent),
+            format_expr_at_indent(base, indent)
+        ),
         ExprKind::FieldAccess { base, field, .. } => {
             format!(
                 "{}.{field}",
@@ -1444,7 +1458,10 @@ fn expr_prec(expr: &Expr) -> u8 {
             BinaryOp::Multiply | BinaryOp::Divide => 13,
         },
         ExprKind::Prefix { .. } => 15,
-        ExprKind::Call { .. } | ExprKind::FieldAccess { .. } | ExprKind::Try(_) => 17,
+        ExprKind::Call { .. }
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try(_) => 17,
         ExprKind::Match { .. } | ExprKind::If { .. } => 19,
         _ => 19,
     }

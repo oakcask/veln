@@ -203,7 +203,10 @@ compiler-known calls.
   `Flag24le`, `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`,
   `Flag48le`, `Flag56be`, `Flag56le`, `Flag64be`, or `Flag64le` bitset
   fields; generated decode-step helpers expose the same value shape through
-  `DecodeStep<T>` for open input. Pure source-backed prelude helpers
+  `DecodeStep<T>` for open input. Explicit `decode Schema from view at base`
+  expressions expose that decode-step shape without naming the generated helper
+  in source; imported public schemas may be cited through qualified paths.
+  Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
   `flag16be_bits`, `flag16be_from_bits`, `flag16le_is_set`,

@@ -1,0 +1,21 @@
+use wire
+
+fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode MissingPacket from view at base
+end
+
+fn private_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode wire::PrivatePacket from view at base
+end
+
+fn wrong_function(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode wire::make_packet from view at base
+end
+
+fn wrong_type(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode wire::PacketShape from view at base
+end
+
+fn wrong_codec(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode wire::PacketCodec from view at base
+end

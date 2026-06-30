@@ -85,6 +85,262 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn explicit_schema_decode_expression_resolves_as_schema_decode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode PacketWire from view at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+}
+
+#[test]
+fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
+            "  decode wire::PacketWire from view at base\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
+fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_schema_paths() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode MissingPacket from view at base\n",
+            "end\n",
+            "\n",
+            "fn private_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PrivatePacket from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_type(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PacketShape from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_function(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::make_packet from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_codec(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PacketCodec from view at base\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub schema PublicPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema PrivatePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn make_packet() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type PacketShape\n",
+            "  Box\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PublicPacket decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let messages = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.decode_expression")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        messages.contains(
+            &"schema decode expression cannot resolve `MissingPacket` as an eligible binary schema",
+        ),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.contains(&"schema decode expression schema `wire::PrivatePacket` is private"),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.contains(
+            &"schema decode expression target `wire::PacketShape` is a type, not a schema"
+        ),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.contains(
+            &"schema decode expression target `wire::make_packet` is a function, not a schema",
+        ),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.contains(
+            &"schema decode expression target `wire::PacketCodec` is a codec, not a schema",
+        ),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    for (schema_path, reason) in [
+        ("MissingPacket", "unresolved_schema"),
+        ("wire::PrivatePacket", "private_schema"),
+        ("wire::PacketShape", "wrong_kind"),
+        ("wire::make_packet", "wrong_kind"),
+        ("wire::PacketCodec", "wrong_kind"),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.decode_expression"
+                    && matches!(
+                        &diagnostic.details,
+                        veln_diagnostics::JsonValue::Object(entries)
+                            if entries.iter().any(|(key, value)| {
+                                key == "schema_path"
+                                    && value
+                                        == &veln_diagnostics::JsonValue::string(schema_path)
+                            }) && entries.iter().any(|(key, value)| {
+                                key == "reason"
+                                    && value == &veln_diagnostics::JsonValue::string(reason)
+                            })
+                    )
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_schema_level_validation() {
     let source = SourceFile::new(
         "main.veln",

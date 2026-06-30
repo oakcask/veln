@@ -185,6 +185,74 @@ fn parses_explicit_test_declaration() {
 }
 
 #[test]
+fn parses_and_formats_schema_decode_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PacketWire from view at base\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaDecode {
+        schema,
+        input,
+        base,
+    } = &expr.kind
+    else {
+        panic!("expected schema decode expression");
+    };
+    assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
+    assert!(
+        matches!(input.kind, ExprKind::NamePath(ref segments) if segments == &vec!["view".to_string()])
+    );
+    assert!(
+        matches!(base.kind, ExprKind::NamePath(ref segments) if segments == &vec!["base".to_string()])
+    );
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{ length : Int }>\n",
+            "\tdecode wire::PacketWire from view at base\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn rejects_schema_decode_expression_missing_at() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode PacketWire from view base\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.schema_decode_expression")
+        .expect("expected schema decode expression diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "schema decode expression is missing `at`"
+    );
+    assert_eq!(diagnostic.expected, vec!["at"]);
+}
+
+#[test]
 fn parses_minimal_list_type_declaration() {
     let source = SourceFile::new(
         "main.veln",
@@ -1269,7 +1337,7 @@ fn reports_extra_tokens_after_let_pattern() {
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",
-        r#"1 1.5 1.foo "a\"b" @ test where if else _ _name
+        r#"1 1.5 1.foo "a\"b" @ test where if else at _ _name
 "#,
     );
 
@@ -1295,6 +1363,7 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
             (TokenKind::Where, "where".to_string()),
             (TokenKind::If, "if".to_string()),
             (TokenKind::Else, "else".to_string()),
+            (TokenKind::At, "at".to_string()),
             (TokenKind::Underscore, "_".to_string()),
             (TokenKind::Hole, "_name".to_string()),
             (TokenKind::Newline, "\n".to_string()),
@@ -1332,6 +1401,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Mod, "mod"),
         (TokenKind::Use, "use"),
         (TokenKind::From, "from"),
+        (TokenKind::At, "at"),
         (TokenKind::Match, "match"),
         (TokenKind::If, "if"),
         (TokenKind::Else, "else"),

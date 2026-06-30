@@ -547,6 +547,7 @@ impl<'a> Classifier<'a> {
             | TokenKind::Mod
             | TokenKind::Use
             | TokenKind::From
+            | TokenKind::At
             | TokenKind::Match
             | TokenKind::If
             | TokenKind::Else
@@ -1048,6 +1049,56 @@ mod tests {
                 SemanticTokenType::Type,
                 SemanticTokenModifiers::empty()
                     .with(SemanticTokenModifier::Declaration)
+                    .bits()
+            ))
+        );
+    }
+
+    #[test]
+    fn collector_classifies_schema_decode_expression_tokens() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+                "  decode wire::PacketWire from view at base\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        for keyword in ["decode", "from", "at"] {
+            assert!(tokens.contains(&(
+                keyword.to_string(),
+                SemanticTokenType::Keyword,
+                SemanticTokenModifiers::empty().bits()
+            )));
+        }
+        assert!(tokens.contains(&(
+            "wire".to_string(),
+            SemanticTokenType::Variable,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "PacketWire".to_string(),
+            SemanticTokenType::Type,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "view".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(
+            tokens.contains(&(
+                "base".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
                     .bits()
             ))
         );

@@ -34,3 +34,7 @@ schema Metadata
 	version: Int
 	title: String
 end
+
+fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<Int>
+	decode Http2FrameHeader from view at base
+end

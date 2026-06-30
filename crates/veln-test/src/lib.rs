@@ -302,6 +302,10 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
             }
         }
         ExprKind::TypeApply { callee, .. } => collect_stdio_call_spans(callee, spans),
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_stdio_call_spans(input, spans);
+            collect_stdio_call_spans(base, spans);
+        }
         ExprKind::FieldAccess { base, .. } => collect_stdio_call_spans(base, spans),
         ExprKind::Try(inner) => collect_stdio_call_spans(inner, spans),
         ExprKind::Record(fields) => {

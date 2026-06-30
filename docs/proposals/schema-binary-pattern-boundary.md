@@ -218,27 +218,28 @@ second name for calls that ordinary functions can already own.
 
 ## Migration
 
-Implementation can be staged:
+The explicit schema decode expression slice is implemented and specified under
+`../specification/source-surface.md`, with executable coverage under
+`../../examples/specification/run/schema-decode-expression/`. Remaining
+migration work is:
 
-1. Add explicit schema decode expressions that call the same internal logic as
-   the generated decode-step helper.
-2. Rewrite executable examples to call schemas through explicit decode
+1. Rewrite executable examples to call schemas through explicit decode
    expressions instead of `byte_decode_step_<schema>` helper names.
-3. Add explicit schema encode expressions for schema-local visible records.
-4. Rewrite encode examples to use ordinary projection functions plus explicit
+2. Add explicit schema encode expressions for schema-local visible records.
+3. Rewrite encode examples to use ordinary projection functions plus explicit
    schema encode expressions.
-5. Remove source-visible generated helper names from documentation and public
+4. Remove source-visible generated helper names from documentation and public
    examples.
-6. Remove parser, formatter, AST, lowering, semantic, editor-token, and
+5. Remove parser, formatter, AST, lowering, semantic, editor-token, and
    documentation support for top-level `codec` declarations.
-7. Reclassify representation-local `codec.*` diagnostics as schema-owned
+6. Reclassify representation-local `codec.*` diagnostics as schema-owned
    diagnostics.
-8. Archive implemented codec proposal records as historical implementation
+7. Archive implemented codec proposal records as historical implementation
    records, not current design direction.
 
 During migration, compatibility shims may remain inside the compiler or
 runtime, but source examples should stop teaching generated helper names and
-`codec` declarations once the explicit schema operation exists.
+`codec` declarations as the remaining rewrite and removal slices land.
 
 ## Non-Goals
 
@@ -253,9 +254,6 @@ runtime, but source examples should stop teaching generated helper names and
 
 ## Open Questions
 
-- Should the explicit decode operation be a new expression form, a qualified
-  prelude function taking a schema witness, or a schema-specific match arm
-  form?
 - Should closed-input decoding return `Result<T, DecodeError>` directly or
   remain syntax sugar over `DecodeStep<T>` plus end-of-input projection?
 - Should direct schema encode return `Result<ByteChunk, EncodeError>` or
