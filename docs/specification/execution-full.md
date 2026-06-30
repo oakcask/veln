@@ -218,6 +218,11 @@ Generated binary schema decode helpers also support standalone visible
 declared low bits as an ordinary `Int`, advances by one byte, preserves
 structural `map to` runtime mappings, and uses the same truncation diagnostic
 shape as other exact-width primitives.
+The lower-case direct field spellings `uint<width><endian?>` and
+`flag<width><endian?>` normalize to the same generated decode helper behavior
+as the corresponding `UInt...` and `Flag...` compatibility spellings. The
+checked direct-field example is
+`../../examples/specification/run/binary-schema-lowercase-primitives-decode/`.
 Generated binary schema decode helpers also support bounded
 `Repeat(count_field, Payload)` fields when `count_field` is an earlier
 visible exact-width unsigned field decoded as `Int` and `Payload` is either

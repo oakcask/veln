@@ -1,0 +1,117 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"missing_endian\"", "\"reason\":\"redundant_endian\"", "\"reason\":\"unsupported_width\"", "\"reason\":\"unknown_endian\"", "\"reason\":\"missing_width\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"reason\":\"parameter_type\"", "\"reason\":\"return_type\"", "\"reason\":\"value_position\"", "\"primitive\":\"uint24\"", "\"primitive\":\"flag32\"", "\"primitive\":\"uint8be\"", "\"primitive\":\"flag8le\"", "\"primitive\":\"uint9\"", "\"primitive\":\"flag31be\"", "\"primitive\":\"uint16ne\"", "\"primitive\":\"uint\"", "\"primitive\":\"flagbe\"", "\"primitive\":\"uint16be\"", "\"primitive\":\"flag16le\"", "\"primitive\":\"uint24be\"", "\"primitive\":\"flag24be\"", "\"primitive\":\"flag16be\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 16
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 16
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint24` requires byte order suffix `be` or `le`"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag32` requires byte order suffix `be` or `le`"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint8be` must not specify byte order"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag8le` must not specify byte order"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint9` uses an unsupported width"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag31be` uses an unsupported width"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16ne` must end with `be` or `le` when it specifies byte order"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint` must specify a width"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flagbe` must specify a width"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be` is not yet supported in `Repeat` payload positions"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be` is not yet supported in dispatch payload positions"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag16le` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint24be` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag24be` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag16be` can only be used in a `format binary` schema field"

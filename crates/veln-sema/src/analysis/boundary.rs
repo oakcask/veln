@@ -10,10 +10,11 @@ use crate::schema::mapping::{
     schema_mapping_source_field_types, schema_mapping_target_record_fields,
 };
 use crate::types::{
-    ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    byte_view_multiple_constraint, byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    exact_width_schema_primitive, exact_width_schema_primitive_bit_width,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
+    ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
+    SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
+    flag_schema_primitive, lowercase_schema_primitive, lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive,
@@ -1822,6 +1823,52 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         let mut decoded_fields = BTreeMap::<String, Type>::new();
         for field in &schema.fields {
+            if let Some(primitive) = lowercase_schema_primitive(&field.ty) {
+                match (format_name, primitive) {
+                    (Some("binary"), Ok(primitive)) => {
+                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
+                        if primitive.family == "flag" {
+                            decoded_fields.insert(
+                                field.name.clone(),
+                                Type::named(primitive.canonical_name(), Vec::new()),
+                            );
+                        } else {
+                            decoded_fields.insert(field.name.clone(), Type::int());
+                        }
+                    }
+                    (Some("binary"), Err(reason)) => {
+                        diagnostics.push(lowercase_schema_primitive_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            reason,
+                        ));
+                    }
+                    (_, Ok(_)) => {
+                        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            "non_binary_format",
+                        ));
+                    }
+                    (_, Err(reason)) => {
+                        diagnostics.push(lowercase_schema_primitive_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            reason,
+                        ));
+                    }
+                }
+                continue;
+            }
             if let Some(flag_type) = flag_schema_primitive(&field.ty) {
                 if format_name == Some("binary") {
                     check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
@@ -1851,6 +1898,20 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 } else {
                     check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                     decoded_fields.insert(field.name.clone(), Type::int());
+                }
+                continue;
+            }
+            let lowercase_nested_payloads = lowercase_schema_primitive_nested_payloads(&field.ty);
+            if format_name == Some("binary") && !lowercase_nested_payloads.is_empty() {
+                for (primitive, reason) in lowercase_nested_payloads {
+                    diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+                        primitive,
+                        Some(schema),
+                        Some(field),
+                        field.node_id.display("schema-field"),
+                        field.span.clone(),
+                        reason,
+                    ));
                 }
                 continue;
             }
@@ -4590,6 +4651,18 @@ fn push_schema_type_reference_diagnostics(
             use_kind,
         ));
     }
+    let mut lowercase_primitives = Vec::new();
+    collect_lowercase_schema_primitive_references(&ty, &mut lowercase_primitives);
+    for primitive in lowercase_primitives {
+        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+            primitive,
+            None,
+            None,
+            node_id.clone(),
+            span.clone(),
+            use_kind,
+        ));
+    }
 }
 
 fn collect_schema_type_references<'a>(
@@ -4656,6 +4729,138 @@ fn collect_exact_width_schema_primitive_references<'a>(
         }
         Type::Unknown => {}
     }
+}
+
+fn collect_lowercase_schema_primitive_references<'a>(ty: &'a Type, primitives: &mut Vec<&'a str>) {
+    match ty {
+        Type::Named { name, args } => {
+            if lowercase_schema_primitive(name).is_some() {
+                primitives.push(name);
+            }
+            for arg in args {
+                collect_lowercase_schema_primitive_references(arg, primitives);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field_ty) in fields {
+                collect_lowercase_schema_primitive_references(field_ty, primitives);
+            }
+        }
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } => {
+            for param in params {
+                collect_lowercase_schema_primitive_references(param, primitives);
+            }
+            collect_lowercase_schema_primitive_references(return_type, primitives);
+        }
+        Type::Unknown => {}
+    }
+}
+
+pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
+    primitive: &str,
+    schema: Option<&SchemaDecl>,
+    field: Option<&SchemaField>,
+    node_id: String,
+    span: SourceSpan,
+    reason: LowercaseSchemaPrimitiveError,
+) -> Diagnostic {
+    let reason_text = match reason {
+        LowercaseSchemaPrimitiveError::MissingWidth => "missing_width",
+        LowercaseSchemaPrimitiveError::UnknownEndian => "unknown_endian",
+        LowercaseSchemaPrimitiveError::MissingEndian => "missing_endian",
+        LowercaseSchemaPrimitiveError::RedundantEndian => "redundant_endian",
+        LowercaseSchemaPrimitiveError::UnsupportedWidth => "unsupported_width",
+    };
+    let message = match reason {
+        LowercaseSchemaPrimitiveError::MissingWidth => {
+            format!("binary schema primitive `{primitive}` must specify a width")
+        }
+        LowercaseSchemaPrimitiveError::UnknownEndian => {
+            format!(
+                "binary schema primitive `{primitive}` must end with `be` or `le` when it specifies byte order"
+            )
+        }
+        LowercaseSchemaPrimitiveError::MissingEndian => {
+            format!("binary schema primitive `{primitive}` requires byte order suffix `be` or `le`")
+        }
+        LowercaseSchemaPrimitiveError::RedundantEndian => {
+            format!("binary schema primitive `{primitive}` must not specify byte order")
+        }
+        LowercaseSchemaPrimitiveError::UnsupportedWidth => {
+            format!("binary schema primitive `{primitive}` uses an unsupported width")
+        }
+    };
+    lowercase_schema_primitive_diagnostic_with_message(
+        primitive,
+        schema,
+        field,
+        node_id,
+        span,
+        reason_text,
+        message,
+    )
+}
+
+pub(in crate::analysis) fn lowercase_schema_primitive_position_diagnostic(
+    primitive: &str,
+    schema: Option<&SchemaDecl>,
+    field: Option<&SchemaField>,
+    node_id: String,
+    span: SourceSpan,
+    reason: &'static str,
+) -> Diagnostic {
+    let message = match reason {
+        "repeat_payload" => format!(
+            "binary schema primitive `{primitive}` is not yet supported in `Repeat` payload positions"
+        ),
+        "dispatch_payload" => format!(
+            "binary schema primitive `{primitive}` is not yet supported in dispatch payload positions"
+        ),
+        _ => format!(
+            "binary schema primitive `{primitive}` can only be used in a `format binary` schema field"
+        ),
+    };
+    lowercase_schema_primitive_diagnostic_with_message(
+        primitive, schema, field, node_id, span, reason, message,
+    )
+}
+
+fn lowercase_schema_primitive_diagnostic_with_message(
+    primitive: &str,
+    schema: Option<&SchemaDecl>,
+    field: Option<&SchemaField>,
+    node_id: String,
+    span: SourceSpan,
+    reason: &'static str,
+    message: String,
+) -> Diagnostic {
+    let mut details = vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(node_id)),
+        ("primitive", JsonValue::string(primitive.to_string())),
+        ("reason", JsonValue::string(reason)),
+    ];
+    if let Some(schema) = schema {
+        details.push((
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ));
+    }
+    if let Some(field) = field {
+        details.push(("field", JsonValue::string(field.name.clone())));
+    }
+    Diagnostic::new(
+        "schema.lowercase_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(span),
+        JsonValue::object(details),
+    )
 }
 
 fn schema_for_type_name<'a>(

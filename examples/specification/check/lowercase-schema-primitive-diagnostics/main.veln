@@ -1,0 +1,59 @@
+schema MissingEndian
+	format binary
+
+	length: uint24
+	flags: flag32
+end
+
+schema RedundantEndian
+	format binary
+
+	kind: uint8be
+	flags: flag8le
+end
+
+schema UnsupportedWidth
+	format binary
+
+	value: uint9
+	flags: flag31be
+end
+
+schema UnknownEndian
+	format binary
+
+	value: uint16ne
+end
+
+schema MissingWidth
+	format binary
+
+	value: uint
+	flags: flagbe
+end
+
+schema MissingFormatUInt
+	length: uint16be
+end
+
+schema MissingFormatFlag
+	flags: flag16le
+end
+
+schema NestedPayload
+	format binary
+
+	count: uint8
+	items: Repeat(count, uint16be)
+end
+
+schema DispatchPayload
+	format binary
+
+	tag: uint8
+	payload: Dispatch(tag, 1 => uint16be)
+end
+
+fn ordinary_type(value: uint24be) -> flag24be
+	flag16be
+end
