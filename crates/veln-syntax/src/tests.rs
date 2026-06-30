@@ -1956,7 +1956,18 @@ fn parses_boolean_literals_as_patterns() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    assert_eq!(format_tree(&output.tree), source.text());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn main(flag: Bool) -> String\n",
+            "\tif flag\n",
+            "\t\t\"yes\"\n",
+            "\telse\n",
+            "\t\t\"no\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
     let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
@@ -2591,8 +2602,30 @@ fn format_tree_only_rewrites_safe_literal_equality_match_parts() {
             "end\n",
         )
     );
-    assert_eq!(format_tree(&bool_output.tree), bool_literal.text());
-    assert_eq!(format_tree(&non_literal_output.tree), non_literal.text());
+    assert_eq!(
+        format_tree(&bool_output.tree),
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tif flag == true\n",
+            "\t\t\"yes\"\n",
+            "\telse\n",
+            "\t\t\"no\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+    assert_eq!(
+        format_tree(&non_literal_output.tree),
+        concat!(
+            "fn choose(value: String, fallback: String) -> String\n",
+            "\tif value == fallback\n",
+            "\t\t\"same\"\n",
+            "\telse\n",
+            "\t\tvalue\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]
@@ -2604,6 +2637,124 @@ fn format_tree_keeps_commented_literal_equality_match_lossless() {
             "\tmatch value == \"\\n\"  # keep this shape\n",
             "\t\ttrue => \"<lf>\"\n",
             "\t\tfalse => value\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
+fn format_tree_rewrites_bool_match_to_if_else() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tmatch flag\n",
+            "\t\ttrue => \"yes\"\n",
+            "\t\tfalse => \"no\"\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tif flag\n",
+            "\t\t\"yes\"\n",
+            "\telse\n",
+            "\t\t\"no\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_rewrites_reordered_bool_match_to_if_else() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tmatch flag\n",
+            "\t\tfalse => \"no\"\n",
+            "\t\ttrue => \"yes\"\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tif flag\n",
+            "\t\t\"yes\"\n",
+            "\telse\n",
+            "\t\t\"no\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_rewrites_bool_match_false_continuation_to_else_if() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(first: Bool, second: Bool) -> String\n",
+            "\tmatch first\n",
+            "\t\ttrue => \"first\"\n",
+            "\t\tfalse => match second\n",
+            "\t\t\ttrue => \"second\"\n",
+            "\t\t\tfalse => \"none\"\n",
+            "\t\tend\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn choose(first: Bool, second: Bool) -> String\n",
+            "\tif first\n",
+            "\t\t\"first\"\n",
+            "\telse if second\n",
+            "\t\t\"second\"\n",
+            "\telse\n",
+            "\t\t\"none\"\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_keeps_commented_bool_match_lossless() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(flag: Bool) -> String\n",
+            "\tmatch flag # keep this shape\n",
+            "\t\ttrue => \"yes\"\n",
+            "\t\tfalse => \"no\"\n",
             "\tend\n",
             "end\n",
         ),
