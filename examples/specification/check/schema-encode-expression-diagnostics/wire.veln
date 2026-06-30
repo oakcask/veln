@@ -1,0 +1,19 @@
+pub schema PublicPacket
+	format binary
+
+	length: UInt8
+end
+
+schema PrivatePacket
+	format binary
+
+	length: UInt8
+end
+
+pub fn make_packet() -> Int
+	1
+end
+
+pub type PacketShape
+	Box
+end

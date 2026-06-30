@@ -253,6 +253,66 @@ fn rejects_schema_decode_expression_missing_at() {
 }
 
 #[test]
+fn parses_and_formats_schema_encode_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn packet(value: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode wire::PacketWire from value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaEncode { schema, value } = &expr.kind else {
+        panic!("expected schema encode expression");
+    };
+    assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
+    assert!(
+        matches!(value.kind, ExprKind::NamePath(ref segments) if segments == &vec!["value".to_string()])
+    );
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn packet(value: { length : Int }) -> Result<ByteChunk, EncodeError>\n",
+            "\tencode wire::PacketWire from value\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn rejects_schema_encode_expression_missing_from() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn packet(value: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.schema_encode_expression")
+        .expect("expected schema encode expression diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "schema encode expression is missing `from`"
+    );
+    assert_eq!(diagnostic.expected, vec!["from"]);
+}
+
+#[test]
 fn parses_minimal_list_type_declaration() {
     let source = SourceFile::new(
         "main.veln",

@@ -38,3 +38,7 @@ end
 fn decode_header(view: ByteView, base: ByteOffset) -> DecodeStep<Int>
 	decode Http2FrameHeader from view at base
 end
+
+fn encode_header(header: Int) -> Result<ByteChunk, EncodeError>
+	encode Http2FrameHeader from header
+end

@@ -1,0 +1,37 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.encode_expression\"", "schema encode expression cannot resolve `MissingPacket` as an eligible binary schema", "schema encode expression schema `wire::PrivatePacket` is private", "schema encode expression target `wire::make_packet` is a function, not a schema", "schema encode expression target `wire::PacketShape` is a type, not a schema", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `MissingPacket` as an eligible binary schema"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression schema `wire::PrivatePacket` is private"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression target `wire::make_packet` is a function, not a schema"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression target `wire::PacketShape` is a type, not a schema"

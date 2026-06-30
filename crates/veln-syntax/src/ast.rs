@@ -270,6 +270,10 @@ pub enum ExprKind {
         input: Box<Expr>,
         base: Box<Expr>,
     },
+    SchemaEncode {
+        schema: Vec<String>,
+        value: Box<Expr>,
+    },
     FieldAccess {
         base: Box<Expr>,
         field: String,

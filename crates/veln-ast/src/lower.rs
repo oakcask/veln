@@ -461,6 +461,10 @@ impl AstBuilder {
                 input: Box::new(self.lower_expr(input)),
                 base: Box::new(self.lower_expr(base)),
             }),
+            SyntaxExprKind::SchemaEncode { schema, value } => Some(ExprKind::SchemaEncode {
+                schema: schema.clone(),
+                value: Box::new(self.lower_expr(value)),
+            }),
             SyntaxExprKind::FieldAccess {
                 base,
                 field,
