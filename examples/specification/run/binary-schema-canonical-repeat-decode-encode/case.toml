@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[json_assert]]
+path = "stdout"
+equals = "decoded 2 3 2 2 270 2 11\noutput_chunk_list canonical-repeat count 1\noutput_chunk canonical-repeat index 0 hex \"020302020001000200030004000500ffaabbccdd0506\" count 22\n"
+
+[[output_chunk_list]]
+name = "canonical-repeat"
+chunks = ["020302020001000200030004000500ffaabbccdd0506"]

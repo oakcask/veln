@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::repeat_schema_primitive;
+use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -5321,6 +5321,57 @@ fn repeat_count_expressions_accept_quotient_lengths() {
 }
 
 #[test]
+fn canonical_repeat_syntax_preserves_payload_then_count_order() {
+    let primitive = repeat_schema_primitive("[uint16be; row_count * column_count]")
+        .expect("canonical lowercase primitive repeat should parse");
+    assert_eq!(primitive.count_field, "row_count * column_count");
+    assert_eq!(
+        primitive.payload,
+        SchemaRepeatPayload::Primitive {
+            width: 2,
+            max_value: 0xffff,
+            little_endian: false,
+        }
+    );
+
+    let compatibility_primitive = repeat_schema_primitive("[UInt16le; count]")
+        .expect("canonical repeat with compatibility primitive payload should parse");
+    assert_eq!(compatibility_primitive.count_field, "count");
+    assert_eq!(
+        compatibility_primitive.payload,
+        SchemaRepeatPayload::Primitive {
+            width: 2,
+            max_value: 0xffff,
+            little_endian: true,
+        }
+    );
+
+    let byte_view = repeat_schema_primitive("[ByteView(left_length + right_length); count]")
+        .expect("canonical ByteView repeat should parse");
+    assert_eq!(byte_view.count_field, "count");
+    assert_eq!(
+        byte_view.payload,
+        SchemaRepeatPayload::ByteView {
+            length_field: "left_length + right_length".to_string(),
+        }
+    );
+
+    let nested = repeat_schema_primitive("[wire::Payload; count]")
+        .expect("canonical nested schema repeat should parse");
+    assert_eq!(nested.count_field, "count");
+    assert_eq!(
+        nested.payload,
+        SchemaRepeatPayload::Schema {
+            schema_name: "wire::Payload".to_string(),
+        }
+    );
+
+    assert!(repeat_schema_primitive("[uint16be count]").is_none());
+    assert!(repeat_schema_primitive("[uint16be; count; extra]").is_none());
+    assert!(repeat_schema_primitive("Repeat(count, uint16be)").is_none());
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_subtracted_repeat_count_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -5361,6 +5412,134 @@ fn generated_schema_decode_helpers_resolve_subtracted_repeat_count_fields() {
             .as_ref()
             .map(|repeat| repeat.count_field.as_str()),
         Some("length - padding_length")
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_accept_canonical_repeated_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ItemWire\n",
+            "  format binary\n",
+            "  value: uint8\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  count: uint8\n",
+            "  item_length: uint8\n",
+            "  values: [uint16be; count]\n",
+            "  views: [ByteView(item_length); count]\n",
+            "  items: [ItemWire; count]\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, item_length: Int, values: List<Int>, views: List<ByteView>, items: List<{value: Int}>}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet schema should be emitted");
+    assert_eq!(
+        schema.fields[2].repeat.as_ref().map(|repeat| (
+            repeat.count_field.as_str(),
+            repeat.width,
+            repeat.max_value
+        )),
+        Some(("count", 2, 0xffff))
+    );
+    assert_eq!(
+        schema.fields[3]
+            .repeat
+            .as_ref()
+            .and_then(|repeat| repeat.byte_view_length_field.as_deref()),
+        Some("item_length")
+    );
+    assert!(
+        schema.fields[4]
+            .repeat
+            .as_ref()
+            .and_then(|repeat| repeat.payload_schema.as_ref())
+            .is_some()
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_canonical_repeat_count_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  items: [uint16be; row_count * column_count]\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  items: [uint16be; row_count * column_count]\n",
+            "  column_count: uint8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  flags: flag8\n",
+            "  items: [uint16be; row_count * flags]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count operand `column_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count operand `column_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing canonical repeat count expression should not emit typed IR"
     );
 }
 

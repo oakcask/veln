@@ -1,0 +1,6 @@
+schema MissingRepeatSeparator
+	format binary
+
+	count: uint8
+	items: [uint16be count]
+end

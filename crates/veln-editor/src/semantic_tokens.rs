@@ -561,6 +561,7 @@ impl<'a> Classifier<'a> {
             | TokenKind::LBrace
             | TokenKind::RBrace
             | TokenKind::Comma
+            | TokenKind::Semicolon
             | TokenKind::Colon
             | TokenKind::Dot
             | TokenKind::DoubleColon

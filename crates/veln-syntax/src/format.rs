@@ -698,6 +698,9 @@ fn canonical_predicate_text(text: &str) -> String {
         .replace("[ ", "[")
         .replace(" ]", "]")
         .replace(" ,", ",")
+        .replace(" ; ", "; ")
+        .replace(" ;", ";")
+        .replace(";  ", "; ")
 }
 
 fn canonicalize_type_segment(text: &str) -> String {

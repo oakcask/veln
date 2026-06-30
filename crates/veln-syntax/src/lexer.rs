@@ -221,6 +221,7 @@ fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token 
         '{' => TokenKind::LBrace,
         '}' => TokenKind::RBrace,
         ',' => TokenKind::Comma,
+        ';' => TokenKind::Semicolon,
         '.' => TokenKind::Dot,
         ':' => TokenKind::Colon,
         '-' => TokenKind::Minus,

@@ -293,6 +293,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "  stream_reserved: ReservedBits( 1,0 )\n",
             "  stream_id: UInt31be\n",
             "  settings: Repeat( length - padding_length , UInt16be )\n",
+            "  canonical_settings: [ uint16be ; length - padding_length ]\n",
             "  payload: ByteView(length - padding_length)\n",
             "  aligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "  validate padding_length <= length\n",
@@ -312,7 +313,7 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 8);
+    assert_eq!(schema.fields.len(), 9);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
     assert_eq!(schema.fields[1].name, "kind");
@@ -333,12 +334,14 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.fields[5].ty,
         "Repeat(length - padding_length, UInt16be)"
     );
-    assert_eq!(schema.fields[6].name, "payload");
-    assert_eq!(schema.fields[6].ty, "ByteView(length - padding_length)");
-    assert_eq!(schema.fields[7].name, "aligned_payload");
-    assert_eq!(schema.fields[7].ty, "ByteView(length)");
+    assert_eq!(schema.fields[6].name, "canonical_settings");
+    assert_eq!(schema.fields[6].ty, "[uint16be; length - padding_length]");
+    assert_eq!(schema.fields[7].name, "payload");
+    assert_eq!(schema.fields[7].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[8].name, "aligned_payload");
+    assert_eq!(schema.fields[8].ty, "ByteView(length)");
     assert_eq!(
-        schema.fields[7]
+        schema.fields[8]
             .where_clause
             .as_ref()
             .map(|where_clause| where_clause.predicate.as_str()),
@@ -359,12 +362,40 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tstream_reserved: ReservedBits(1, 0)\n",
             "\tstream_id: UInt31be\n",
             "\tsettings: Repeat(length - padding_length, UInt16be)\n",
+            "\tcanonical_settings: [uint16be; length - padding_length]\n",
             "\tpayload: ByteView(length - padding_length)\n",
             "\taligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "\n",
             "\tvalidate padding_length <= length\n",
             "end\n",
         )
+    );
+}
+
+#[test]
+fn repeated_schema_field_syntax_requires_semicolon() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "schema Packet\n",
+            "  format binary\n",
+            "  count: uint8\n",
+            "  items: [uint16be count]\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.schema_repeat_semicolon"
+                && diagnostic.message
+                    == "expected `;` between repeated schema payload and count expression"
+                && diagnostic.expected == vec![";"]
+        }),
+        "{:#?}",
+        output.diagnostics
     );
 }
 

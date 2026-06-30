@@ -3862,6 +3862,9 @@ pub(crate) enum SchemaRepeatPayload {
 }
 
 pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
+    if let Some((payload, count_field)) = canonical_repeat_schema_primitive_parts(ty) {
+        return repeat_schema_primitive_from_parts(count_field, payload, true);
+    }
     let inner = schema_call_inner(ty, "Repeat")?;
     let args = inner
         .split(',')
@@ -3871,8 +3874,16 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     let [count_field, primitive] = args.as_slice() else {
         return None;
     };
+    repeat_schema_primitive_from_parts(count_field, primitive, false)
+}
+
+fn repeat_schema_primitive_from_parts(
+    count_field: &str,
+    primitive: &str,
+    allow_lowercase_payload: bool,
+) -> Option<SchemaRepeatSpec> {
     let count_expr = schema_length_expression(count_field)?;
-    if lowercase_schema_primitive(primitive).is_some() {
+    if !allow_lowercase_payload && lowercase_schema_primitive(primitive).is_some() {
         return None;
     }
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
@@ -3908,6 +3919,36 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
         count_field: count_expr.render(),
         payload,
     })
+}
+
+fn canonical_repeat_schema_primitive_parts(ty: &str) -> Option<(&str, &str)> {
+    let text = ty.trim();
+    let inner = text.strip_prefix('[')?.strip_suffix(']')?.trim();
+    let (payload, count) = split_top_level_once(inner, ';')?;
+    if count.contains(';') {
+        return None;
+    }
+    let payload = payload.trim();
+    let count = count.trim();
+    if payload.is_empty() || count.is_empty() {
+        return None;
+    }
+    Some((payload, count))
+}
+
+fn split_top_level_once(text: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            _ if ch == delimiter && depth == 0 => {
+                return Some((&text[..index], &text[index + ch.len_utf8()..]));
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn is_simple_schema_field_reference(text: &str) -> bool {
