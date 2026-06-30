@@ -200,6 +200,8 @@ behavior.
   [codec-generated-helper-boundary-slices.md](codec-generated-helper-boundary-slices.md).
 - Remove source codec declarations:
   [remove-source-codec-declarations.md](remove-source-codec-declarations.md).
+- Schema helper public surface cleanup:
+  [schema-helper-public-surface-cleanup.md](schema-helper-public-surface-cleanup.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

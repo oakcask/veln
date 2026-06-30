@@ -202,10 +202,13 @@ compiler-known calls.
   `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
   `Flag24le`, `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`,
   `Flag48le`, `Flag56be`, `Flag56le`, `Flag64be`, or `Flag64le` bitset
-  fields; generated decode-step helpers expose the same value shape through
-  `DecodeStep<T>` for open input. Explicit `decode Schema from view at base`
-  expressions expose that decode-step shape without naming the generated helper
-  in source; imported public schemas may be cited through qualified paths.
+  fields; compatibility generated decode-step helpers expose the same value
+  shape through `DecodeStep<T>` for open input. Explicit
+  `decode Schema from view at base` expressions are the public source surface
+  for applying schemas and expose that decode-step shape without naming the
+  generated helper in source; imported public schemas may be cited through
+  qualified paths. Explicit `encode Schema from value` expressions are the
+  matching public encode surface for schema-local values.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,

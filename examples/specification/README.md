@@ -33,13 +33,21 @@ against the built `veln` binary.
 
 ## Binary Schema Notes
 
-- Schema helpers use the schema-local visible record shape.
+- Public schema examples should apply schemas through explicit
+  `decode Schema from view at base_offset` and `encode Schema from value`
+  expressions, or through ordinary Veln functions that wrap those expressions.
+- Existing cases that still call generated schema helper names are
+  compatibility-only or diagnostic fixtures for the migration boundary. Keep
+  them readable as legacy acceptance evidence, but do not use them as the
+  teaching surface for normal schema application.
+- Schema operations use the schema-local visible record shape.
 - Use ordinary Veln functions to project between schema-local records and
-  domain records at helper-call or codec boundaries.
+  domain records at schema-operation boundaries.
 - `check/schema-map-to-rejected/` pins parser rejection for schema-level
   `map to`.
-- `run/binary-schema-local-projection-boundary/` pins schema-local decode and
-  encode helpers combined with ordinary projection functions.
+- `run/schema-decode-expression/`, `run/schema-encode-expression/`, and
+  `run/binary-schema-local-projection-boundary/` pin explicit schema
+  operations combined with ordinary projection functions.
 
 ## Placement Guidelines
 
@@ -51,6 +59,7 @@ against the built `veln` binary.
 - Do not add cases whose main purpose is to verify backend-private mechanics:
   artifact layout, classfile emission or validation, generated helper names,
   cache reuse, backend-specific limits, host tool setup, or other implementation
-  details.
+  details, except for narrowly named compatibility or diagnostic migration
+  fixtures.
 - Put backend invariants in backend crate tests, and put low-level CLI edge
   cases in CLI toolchain cases.
