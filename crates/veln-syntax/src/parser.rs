@@ -474,10 +474,32 @@ impl<'a> Parser<'a> {
                 .unwrap_or_else(|| "<missing>".to_string())
         };
         self.expect(TokenKind::Colon, "schema_field", vec![":"]);
+        let type_start = self.current().range;
         let ty = self.collect_type_until(
             "schema_field",
             &[TokenKind::Where, TokenKind::Newline, TokenKind::Eof],
         );
+        if schema_repeated_field_type_missing_semicolon(&ty) {
+            let type_end = self.previous().map_or(type_start, |token| token.range);
+            self.diagnostics.push(ParseDiagnostic {
+                id: "parse.schema_repeat_semicolon",
+                message: "expected `;` between repeated schema payload and count expression"
+                    .to_string(),
+                span: Some(self.source.span(type_start.cover(type_end))),
+                parser_context: "schema_field",
+                unexpected: UnexpectedToken {
+                    kind: "schema field type".to_string(),
+                    text: ty.clone(),
+                },
+                expected: vec![";"],
+                recovery: Recovery {
+                    strategy: RecoveryStrategy::InsertToken,
+                    anchor: Some("]".to_string()),
+                    dropped_token_count: 0,
+                },
+                repair_candidates: Vec::new(),
+            });
+        }
         let where_clause = self
             .eat(TokenKind::Where)
             .map(|where_token| self.parse_schema_field_where_clause(where_token));
@@ -3400,6 +3422,9 @@ fn normalize_collected_text(parts: Vec<String>) -> String {
         .replace("[ ", "[")
         .replace(" ]", "]")
         .replace(" ,", ",")
+        .replace(" ; ", "; ")
+        .replace(" ;", ";")
+        .replace(";  ", "; ")
 }
 
 fn is_byte_view_multiple_predicate_text(text: &str) -> bool {
@@ -3435,6 +3460,30 @@ fn normalize_type_text(parts: Vec<String>) -> String {
         .replace(" <", "<")
         .replace("< ", "<")
         .replace(" >", ">")
+}
+
+fn schema_repeated_field_type_missing_semicolon(text: &str) -> bool {
+    let text = text.trim();
+    let Some(inner) = text
+        .strip_prefix('[')
+        .and_then(|text| text.strip_suffix(']'))
+    else {
+        return false;
+    };
+    !contains_top_level_semicolon(inner)
+}
+
+fn contains_top_level_semicolon(text: &str) -> bool {
+    let mut depth = 0usize;
+    for ch in text.chars() {
+        match ch {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            ';' if depth == 0 => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 fn unquote_string_token(text: &str) -> String {

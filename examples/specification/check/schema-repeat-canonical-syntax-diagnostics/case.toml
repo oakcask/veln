@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.schema_repeat_semicolon\"", "\"expected\":[\";\"]"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.by_kind.parse"
+equals = 1
+
+[[diagnostics]]
+id = "parse.schema_repeat_semicolon"
+severity = "error"
+kind = "parse"
+message = "expected `;` between repeated schema payload and count expression"

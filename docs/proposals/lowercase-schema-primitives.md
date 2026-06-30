@@ -11,11 +11,16 @@ checked by
 `../../examples/specification/run/binary-schema-lowercase-primitives-decode/`,
 and
 `../../examples/specification/run/binary-schema-lowercase-reserves-decode-encode/`.
+The repeated-field array syntax slice is implemented under the same
+specification pages and checked by
+`../../examples/specification/check/schema-repeat-canonical-syntax-diagnostics/`
+and
+`../../examples/specification/run/binary-schema-canonical-repeat-decode-encode/`.
 
 This proposal tracks the remaining lower-case schema primitive work:
-repeated-field array syntax, nested payload positions, and formatter
-migration. Existing upper-case spellings such as `UInt24be` and `Flag16le`
-remain schema-only compatibility forms.
+nested dispatch payload positions and formatter migration. Existing upper-case
+spellings such as `UInt24be` and `Flag16le` remain schema-only compatibility
+forms.
 
 The goal is to keep binary representation vocabulary out of the ordinary
 source type namespace and to avoid implementation tables that enumerate one
@@ -118,7 +123,7 @@ visible unsigned field. It is schema-local representation vocabulary
 equivalent to the compatibility `ReservedBits(width, value)` primitive after
 normalization.
 
-## Remaining Repeated Syntax
+## Implemented Repeated Syntax
 
 Repeated schema fields use the canonical form:
 
@@ -164,7 +169,6 @@ later schema-only payload form accepted by semantic checking.
 Lower-case schema primitives still need to be accepted in these schema-only
 positions where current exact-width primitives are accepted:
 
-- `[Payload; count]` repeated payload fields
 - `match tag ... end` and `match tag bounded by length ... end` payload cases
 - `match extension tag bounded by length ... end` payload cases
 - any later schema-only composition form that explicitly accepts binary
@@ -279,22 +283,20 @@ imported, aliased, or used as an ordinary Veln type.
 
 ## Remaining Migration Plan
 
-The direct field parser, normalization, focused direct-field diagnostics, and
-direct-field executable examples are implemented. The remaining work can be
-staged without changing binary schema semantics:
+The direct field and repeated-field parsers, normalization, focused
+diagnostics, and executable examples are implemented. The remaining work can
+be staged without changing binary schema semantics:
 
-1. Parse `[Payload; count]` repeated field types and normalize them with
-   compatibility `Repeat(count, Payload)` fields.
-2. Extend lower-case primitive normalization to repeated and dispatch payload
-   positions that already accept compatibility primitive spellings.
-3. Keep helper generation, encode, decode, and diagnostic behavior unchanged
-   after normalization.
-4. Add executable examples for nested payload cases, repeated payloads, and
-   rejection diagnostics.
-5. Teach the formatter to write lower-case canonical spelling and
+1. Extend lower-case primitive normalization to dispatch payload positions that
+   already accept compatibility primitive spellings.
+2. Keep helper generation, encode, decode, and diagnostic behavior unchanged
+   after dispatch payload normalization.
+3. Add executable examples for nested dispatch payload cases and rejection
+   diagnostics.
+4. Teach the formatter to write lower-case canonical spelling and
    `[Payload; count]` repeated field syntax when the project is ready to
    migrate checked examples.
-6. Update `../specification/source-surface.md`,
+5. Update `../specification/source-surface.md`,
    `../specification/execution.md`, and matching examples for each remaining
    implemented slice.
 
@@ -319,10 +321,10 @@ The proposal is complete when:
 
 - Direct-field behavior remains covered by `../specification/` and executable
   examples.
-- `[Payload; count]` repeated field syntax is accepted only in schema field
-  type positions.
-- Lower-case primitives normalize in repeated payload and dispatch payload
-  positions that already accept compatibility primitive spellings.
+- Repeated-field behavior remains covered by `../specification/` and
+  executable examples.
+- Lower-case primitives normalize in dispatch payload positions that already
+  accept compatibility primitive spellings.
 - Existing `ReservedBits(width, value)` spellings continue to work as
   schema-only compatibility spellings and normalize to the same descriptor as
   canonical reserved fields.

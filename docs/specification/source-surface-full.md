@@ -16,6 +16,87 @@ ordinary source code outside the schema body.
 Schema-level mapping clauses are rejected by the parser and are not part of
 the implemented grammar.
 
+## Executable Grammar
+
+<!-- source-surface-grammar:start -->
+```text
+Module        ::= UseDecl* Item*
+UseDecl       ::= "use" ModulePath ImportSource? NL
+ImportSource  ::= "from" PackageString
+ModulePath    ::= Name ("::" Name)*
+PackageString ::= String
+IntLiteral    ::= ASCII decimal digit+
+Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
+                  | CodecDecl
+Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
+                  Contract* Body "end" NL?
+TestDecl      ::= "test" Name "(" ")" Return Effects? NL
+                  Contract* Body "end" NL?
+TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
+SchemaFormat  ::= "format" "binary" NL
+SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
+SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
+LowercaseSchemaPrimitive ::= ("uint" | "flag") IntLiteral ("be" | "le")?
+LowercaseReservedBitsPrimitive ::= "uint" IntLiteral ("be" | "le")? "reserves" IntLiteral
+ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
+RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
+CanonicalRepeatPrimitive ::= "[" SchemaFieldType ";" CountExpr "]"
+CountExpr ::= Name | Name ("-" | "+" | "*" | "/") Name
+SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
+ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
+SchemaValidation ::= "validate" ContractPredicate NL
+CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
+                  CodecImplementation* "end" NL?
+CodecDirections ::= CodecDirection+
+CodecDirection ::= "decode" | "encode"
+CodecImplementation ::= "derive" CodecDirection NL
+                  | CodecDirection "with" Name NL
+PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
+TypeParamList ::= "<" Name ("," Name)* ","? ">"
+TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
+TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
+                  | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
+TypeVariantField ::= Name ":" TypeText | TypeText
+ParamList     ::= Param ("," Param)* ","?
+Param         ::= Name (":" VariadicMarker? TypeText)?
+VariadicMarker ::= "..."
+Return        ::= "->" ResultBinding? TypeText
+ResultBinding ::= Name ":"
+Effects       ::= "effects" "[" EffectList? "]"
+EffectList    ::= Name ("," Name)* ","?
+Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
+Body          ::= (LetLine | ExprLine)*
+LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
+LetPattern    ::= "_" | BindingName | RecordPattern
+ExprLine      ::= Expr NL
+Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
+PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
+PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
+PrimaryExpr   ::= Hole | Literal | NamePath | "(" Expr ")" | "()"
+                  | Record | Dict | List | Match | If
+Call          ::= "(" ArgList? ")"
+ArgList       ::= Expr ("," Expr)* ","?
+TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"
+FieldAccess   ::= "." Name
+Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
+Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
+List          ::= "[" ArgList? "]"
+Match         ::= "match" Expr NL MatchArm+ "end"
+MatchArm      ::= Pattern "=>" Expr NL
+If            ::= "if" Expr NL Expr NL ElseIf* "else" NL Expr NL "end"
+ElseIf        ::= "else" "if" Expr NL Expr NL
+Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
+ConstructorPattern ::= ConstructorName "(" PatternList? ")" | ConstructorName
+ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
+RecordPattern ::= "{" PatternFieldList? "}"
+PatternList   ::= Pattern ("," Pattern)* ","?
+PatternFieldList ::= PatternField ("," PatternField)* ","?
+PatternField  ::= Name ":" Pattern
+MemberPath    ::= Name ("::" Name)*
+```
+<!-- source-surface-grammar:end -->
+
 ## Read When
 
 - Use this page only as a stable route for old links.

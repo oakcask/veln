@@ -35,9 +35,13 @@ appear after fields. Binary schema field vocabulary includes the implemented
 exact-width unsigned primitives, lowercase `uint...` fields, visible flag
 bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
 reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
-`ByteView(length)`, closed dispatch, and extension dispatch forms documented in
-[source-surface-full.md](source-surface-full.md) and checked
-by `docs/specification/source-surface-executable.pl`.
+canonical repeated fields `[Payload; count]`, `ByteView(length)`, closed
+dispatch, and extension dispatch forms documented in
+[source-surface-full.md](source-surface-full.md) and checked by
+`docs/specification/source-surface-executable.pl`. Canonical repeated fields
+write the payload field type before `;` and the count expression after it; the
+payload may use an exact-width primitive, a lowercase exact-width primitive, a
+nested binary schema, or `ByteView(length)`.
 
 Schema declarations return and accept schema-local visible record shapes
 through generated helpers. Projection into domain records is ordinary source

@@ -1,0 +1,95 @@
+# Binary schema canonical repeated fields decode and encode like Repeat fields.
+use stdio
+
+schema ItemWire
+	format binary
+
+	value: uint8
+end
+
+schema PacketWire
+	format binary
+
+	count: uint8
+	item_length: uint8
+	values: [uint16be; count]
+	views: [ByteView(item_length); count]
+	items: [ItemWire; count]
+end
+
+fn int_list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + int_list_sum(tail)
+	end
+end
+
+fn view_list_count(items: List<ByteView>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + view_list_count(tail)
+	end
+end
+
+fn item_list_sum(items: List<{value: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head.value + item_list_sum(tail)
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_decoded(packet: {count: Int, item_length: Int, values: List<Int>, views: List<ByteView>, items: List<{value: Int}>}) -> () effects [stdio]
+	stdio::print("decoded ")
+	stdio::print(int_to_string(packet.count))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.item_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(int_list_sum(packet.values)))
+	stdio::print(" ")
+	stdio::print(int_to_string(view_list_count(packet.views)))
+	stdio::print(" ")
+	stdio::println(int_to_string(item_list_sum(packet.items)))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	emit_output_chunk_list_header("canonical-repeat", 1)
+	emit_output_chunk("canonical-repeat", 0, bytes, "0202000100ffaabbccdd0506")
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0202000100ffaabbccdd0506")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(12)?)?
+	let packet: {count: Int, item_length: Int, values: List<Int>, views: List<ByteView>, items: List<{value: Int}>} = byte_decode_packet_wire(view)?
+	emit_decoded(packet)
+
+	let first_view_bytes: ByteChunk = byte_chunk_from_hex("aabb")?
+	let second_view_bytes: ByteChunk = byte_chunk_from_hex("ccdd")?
+	let first_view: ByteView = byte_view(first_view_bytes, byte_offset(0)?, byte_count(2)?)?
+	let second_view: ByteView = byte_view(second_view_bytes, byte_offset(0)?, byte_count(2)?)?
+	let values: List<Int> = list_cons(1, list_cons(255, list_nil()))
+	let views: List<ByteView> = list_cons(first_view, list_cons(second_view, list_nil()))
+	let items: List<{value: Int}> = list_cons({value: 5}, list_cons({value: 6}, list_nil()))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packet_wire({count: 2, item_length: 2, values: values, views: views, items: items})
+	match encoded
+		Ok(chunk) => Ok(emit_encoded(chunk))
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
+	end
+end
