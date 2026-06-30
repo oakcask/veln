@@ -465,6 +465,11 @@ impl<'a> CoreLowerer<'a> {
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             }
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
+            ExprKind::SchemaDecode {
+                schema,
+                input,
+                base,
+            } => self.lower_schema_decode(expr, schema, input, base),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
@@ -1039,6 +1044,55 @@ impl<'a> CoreLowerer<'a> {
             CoreExprKind::Call {
                 target,
                 args: lowered_args,
+            },
+        )
+    }
+
+    fn lower_schema_decode(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        input: &Expr,
+        base: &Expr,
+    ) -> CoreExpr {
+        let signature = self
+            .environment
+            .schema_decode_step_signature(schema, self.function.module_name.as_deref())
+            .cloned();
+        let params = signature
+            .as_ref()
+            .map(|signature| signature.params.iter().map(core_type).collect::<Vec<_>>());
+        let input = self.lower_expr(
+            input,
+            params
+                .as_ref()
+                .and_then(|params| params.first())
+                .or(Some(&CoreType::named("ByteView", Vec::new()))),
+        );
+        let base = self.lower_expr(
+            base,
+            params
+                .as_ref()
+                .and_then(|params| params.get(1))
+                .or(Some(&CoreType::named("ByteOffset", Vec::new()))),
+        );
+        let Some(signature) = signature else {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: expr.node_id,
+                reason: "schema_decode_expression".to_string(),
+            });
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+        let schema_name = schema
+            .last()
+            .cloned()
+            .unwrap_or_else(|| "<missing>".to_string());
+        self.core_expr(
+            expr,
+            core_type(&signature.return_type),
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaDecodeStep(schema_name),
+                args: vec![input, base],
             },
         )
     }

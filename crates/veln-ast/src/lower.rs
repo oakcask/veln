@@ -452,6 +452,15 @@ impl AstBuilder {
                 callee: Box::new(self.lower_expr(callee)),
                 args: self.lower_exprs(args),
             }),
+            SyntaxExprKind::SchemaDecode {
+                schema,
+                input,
+                base,
+            } => Some(ExprKind::SchemaDecode {
+                schema: schema.clone(),
+                input: Box::new(self.lower_expr(input)),
+                base: Box::new(self.lower_expr(base)),
+            }),
             SyntaxExprKind::FieldAccess {
                 base,
                 field,

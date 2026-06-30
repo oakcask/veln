@@ -2326,6 +2326,7 @@ impl<'a> ExprParser<'a> {
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
             TokenKind::Ident => self.parse_name_path(),
+            TokenKind::Decode => self.parse_schema_decode_primary(token),
             TokenKind::LParen => self.parse_group_or_unit_primary(),
             TokenKind::LBrace => self.parse_record_or_dict_primary(),
             TokenKind::LBracket => self.parse_list(),
@@ -2333,6 +2334,64 @@ impl<'a> ExprParser<'a> {
             TokenKind::If => self.parse_if(),
             _ => self.parse_missing_primary(token),
         }
+    }
+
+    fn parse_schema_decode_primary(&mut self, token: Token) -> Expr {
+        let start = token.range;
+        self.bump();
+        let schema = self.parse_schema_decode_path();
+        self.expect_expr_token(
+            TokenKind::From,
+            "parse.schema_decode_expression",
+            "schema decode expression is missing `from`",
+            vec!["from"],
+        );
+        let input = self.parse_expr(0);
+        self.expect_expr_token(
+            TokenKind::At,
+            "parse.schema_decode_expression",
+            "schema decode expression is missing `at`",
+            vec!["at"],
+        );
+        let base = self.parse_expr(0);
+        Expr {
+            span: self.source.span(start.cover(lhs_range(&base))),
+            kind: ExprKind::SchemaDecode {
+                schema,
+                input: Box::new(input),
+                base: Box::new(base),
+            },
+        }
+    }
+
+    fn parse_schema_decode_path(&mut self) -> Vec<String> {
+        let mut segments = Vec::new();
+        if self.at(TokenKind::Ident) {
+            segments.push(self.bump().text);
+        } else {
+            self.error_current(
+                "parse.schema_decode_expression",
+                "schema decode expression is missing a schema path",
+                vec!["schema path"],
+                RecoveryStrategy::InsertToken,
+                Some("from"),
+            );
+        }
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if self.at(TokenKind::Ident) {
+                segments.push(self.bump().text);
+            } else {
+                self.error_current(
+                    "parse.schema_decode_expression",
+                    "schema decode expression has an incomplete schema path",
+                    vec!["schema path segment"],
+                    RecoveryStrategy::InsertToken,
+                    Some("from"),
+                );
+                break;
+            }
+        }
+        segments
     }
 
     fn parse_hole_primary(&mut self, token: Token) -> Expr {

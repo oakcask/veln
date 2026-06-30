@@ -1,0 +1,60 @@
+# Explicit schema decode expressions produce the same DecodeStep values as generated helpers.
+use stdio
+use wire
+
+schema PacketWire
+	format binary
+
+	length: UInt8
+	kind: UInt8
+end
+
+fn decoded_length(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.length
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_kind(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(packet, _) => packet.kind
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("05030702")?
+	let local_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let local_base: ByteOffset = byte_offset(11)?
+	let local_explicit: DecodeStep<{length: Int, kind: Int}> = decode PacketWire from local_view at local_base
+	let local_helper: DecodeStep<{length: Int, kind: Int}> = byte_decode_step_packet_wire(local_view, local_base)
+	stdio::println(int_to_string(decoded_length(local_explicit)))
+	stdio::println(int_to_string(decoded_length(local_helper)))
+	stdio::println(int_to_string(decoded_kind(local_explicit)))
+	stdio::println(int_to_string(decoded_kind(local_helper)))
+	stdio::println(int_to_string(consumed_count(local_explicit)))
+	stdio::println(int_to_string(consumed_count(local_helper)))
+
+	let imported_view: ByteView = byte_view(bytes, byte_offset(2)?, byte_count(2)?)?
+	let imported_base: ByteOffset = byte_offset(19)?
+	let imported_explicit: DecodeStep<{length: Int, kind: Int}> = decode wire::ImportedWire from imported_view at imported_base
+	let imported_helper: DecodeStep<{length: Int, kind: Int}> = wire::byte_decode_step_imported_wire(imported_view, imported_base)
+	stdio::println(int_to_string(decoded_length(imported_explicit)))
+	stdio::println(int_to_string(decoded_length(imported_helper)))
+	stdio::println(int_to_string(decoded_kind(imported_explicit)))
+	stdio::println(int_to_string(decoded_kind(imported_helper)))
+	stdio::println(int_to_string(consumed_count(imported_explicit)))
+	stdio::println(int_to_string(consumed_count(imported_helper)))
+	Ok(())
+end

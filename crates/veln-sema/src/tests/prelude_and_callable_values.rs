@@ -85,6 +85,199 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn explicit_schema_decode_expression_resolves_as_schema_decode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode PacketWire from view at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            args,
+        } if name == "PacketWire" && args.len() == 2
+    ));
+}
+
+#[test]
+fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
+            "  decode wire::PacketWire from view at base\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: app.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
+fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_schema_paths() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "type Shape\n",
+            "  Box\n",
+            "end\n",
+            "\n",
+            "fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode MissingPacket from view at base\n",
+            "end\n",
+            "\n",
+            "fn private_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PrivatePacket from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_kind(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode Shape from view at base\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "schema PrivatePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: app.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let messages = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.decode_expression")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("`MissingPacket`")),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("`wire::PrivatePacket`")),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.iter().any(|message| message.contains("`Shape`")),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_schema_level_validation() {
     let source = SourceFile::new(
         "main.veln",

@@ -289,6 +289,11 @@ pub enum ExprKind {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+    SchemaDecode {
+        schema: Vec<String>,
+        input: Box<Expr>,
+        base: Box<Expr>,
+    },
     FieldAccess {
         base: Box<Expr>,
         field: String,

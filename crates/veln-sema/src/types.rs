@@ -460,6 +460,27 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn schema_decode_step_signature(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        let (schema_name, module_path) = schema_path.split_last()?;
+        let helper_name = schema_decode_step_function_name(schema_name);
+        if module_path.is_empty() {
+            return self
+                .unqualified_function(&helper_name, current_module)
+                .found();
+        }
+        let use_decl = imported_use_for_path(&self.uses, module_path, current_module)?;
+        let module_name = use_decl.name.as_str();
+        self.functions.iter().find(|function| {
+            function.name == helper_name
+                && function.module_name.as_deref() == Some(module_name)
+                && function.visibility == Visibility::Public
+        })
+    }
+
     fn imported_codec_helper_is_hidden(
         &self,
         function: &FunctionSignature,
@@ -820,6 +841,18 @@ fn collect_private_call_site_expr_constraints(
         }
         ExprKind::Call { callee, args } => {
             collect_private_call_site_call_constraints(callee, args, expected, context);
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_private_call_site_expr_constraints(
+                input,
+                Some(&Type::named("ByteView", Vec::new())),
+                context,
+            );
+            collect_private_call_site_expr_constraints(
+                base,
+                Some(&Type::named("ByteOffset", Vec::new())),
+                context,
+            );
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
@@ -1529,6 +1562,18 @@ fn collect_private_prelude_callback_expr_constraints(
         ExprKind::Call { callee, args } => {
             collect_private_prelude_callback_call_constraints(callee, args, expected, context);
         }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_private_prelude_callback_expr_constraints(
+                input,
+                Some(&Type::named("ByteView", Vec::new())),
+                context,
+            );
+            collect_private_prelude_callback_expr_constraints(
+                base,
+                Some(&Type::named("ByteOffset", Vec::new())),
+                context,
+            );
+        }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::Prefix { expr: base, .. } => {
@@ -1988,6 +2033,27 @@ fn infer_private_signature_expr_type(
                 adts,
             },
         ),
+        ExprKind::SchemaDecode { input, base, .. } => {
+            infer_private_signature_expr_type(
+                input,
+                Some(&Type::named("ByteView", Vec::new())),
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
+            infer_private_signature_expr_type(
+                base,
+                Some(&Type::named("ByteOffset", Vec::new())),
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
+            Type::Unknown
+        }
         ExprKind::FieldAccess { base, field, .. } => infer_private_signature_expr_type(
             base,
             None,
@@ -4874,6 +4940,26 @@ fn collect_expr_effects(
                     inferred,
                 );
             }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            collect_expr_effects(
+                input,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
+            collect_expr_effects(
+                base,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)

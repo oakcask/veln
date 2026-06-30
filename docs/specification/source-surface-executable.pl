@@ -132,8 +132,9 @@ grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
+grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
 grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
@@ -275,6 +276,7 @@ keyword_kind("invariant", invariant).
 keyword_kind("mod", mod).
 keyword_kind("use", use).
 keyword_kind("from", from).
+keyword_kind("at", at).
 keyword_kind("match", match).
 keyword_kind("if", if).
 keyword_kind("else", else).
@@ -662,6 +664,7 @@ primary_expr --> tok(hole), satisfy_opt.
 primary_expr --> tok(underscore), satisfy_opt.
 primary_expr --> literal.
 primary_expr --> name_path.
+primary_expr --> schema_decode_expr.
 primary_expr --> tok(lparen), nls, tok(rparen).
 primary_expr --> tok(lparen), nls, expr, nls, tok(rparen).
 primary_expr --> record_or_dict.
@@ -671,6 +674,14 @@ primary_expr --> if_expr.
 
 satisfy_opt --> ident_text("satisfy"), ident, tok(fat_arrow), expr, !.
 satisfy_opt --> [].
+
+schema_decode_expr -->
+    tok(decode),
+    member_path,
+    tok(from),
+    expr,
+    tok(at),
+    expr.
 
 call_suffix --> tok(lparen), nls, args_opt, nls, tok(rparen).
 args_opt --> expr, nls, args_tail, trailing_comma_opt, !.
