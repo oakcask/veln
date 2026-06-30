@@ -5334,6 +5334,18 @@ fn canonical_repeat_syntax_preserves_payload_then_count_order() {
         }
     );
 
+    let compatibility_primitive = repeat_schema_primitive("[UInt16le; count]")
+        .expect("canonical repeat with compatibility primitive payload should parse");
+    assert_eq!(compatibility_primitive.count_field, "count");
+    assert_eq!(
+        compatibility_primitive.payload,
+        SchemaRepeatPayload::Primitive {
+            width: 2,
+            max_value: 0xffff,
+            little_endian: true,
+        }
+    );
+
     let byte_view = repeat_schema_primitive("[ByteView(left_length + right_length); count]")
         .expect("canonical ByteView repeat should parse");
     assert_eq!(byte_view.count_field, "count");
@@ -5353,6 +5365,10 @@ fn canonical_repeat_syntax_preserves_payload_then_count_order() {
             schema_name: "wire::Payload".to_string(),
         }
     );
+
+    assert!(repeat_schema_primitive("[uint16be count]").is_none());
+    assert!(repeat_schema_primitive("[uint16be; count; extra]").is_none());
+    assert!(repeat_schema_primitive("Repeat(count, uint16be)").is_none());
 }
 
 #[test]
@@ -5457,6 +5473,73 @@ fn generated_schema_decode_helpers_accept_canonical_repeated_fields() {
             .as_ref()
             .and_then(|repeat| repeat.payload_schema.as_ref())
             .is_some()
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_canonical_repeat_count_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema MissingOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  items: [uint16be; row_count * column_count]\n",
+            "end\n",
+            "\n",
+            "schema ForwardOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  items: [uint16be; row_count * column_count]\n",
+            "  column_count: uint8\n",
+            "end\n",
+            "\n",
+            "schema WrongKindOperandPacket\n",
+            "  format binary\n",
+            "\n",
+            "  row_count: uint8\n",
+            "  flags: flag8\n",
+            "  items: [uint16be; row_count * flags]\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_field_reference",
+            "repeat count operand `column_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "forward_field_reference",
+            "repeat count operand `column_count` must be an earlier decoded `Int` field",
+        ),
+        (
+            "incompatible_field_reference",
+            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+        ),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.repeat_reference"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
+    assert!(
+        lowered.ir.is_none(),
+        "diagnostic-bearing canonical repeat count expression should not emit typed IR"
     );
 }
 

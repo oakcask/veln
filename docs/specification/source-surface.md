@@ -40,8 +40,10 @@ dispatch, and extension dispatch forms documented in
 [source-surface-full.md](source-surface-full.md) and checked by
 `docs/specification/source-surface-executable.pl`. Canonical repeated fields
 write the payload field type before `;` and the count expression after it; the
-payload may use an exact-width primitive, a lowercase exact-width primitive, a
-nested binary schema, or `ByteView(length)`.
+count expression may name an earlier visible count field or use implemented
+arithmetic forms over earlier count fields, and the payload may use an
+exact-width primitive, a lowercase exact-width primitive, a nested binary
+schema, or `ByteView(length)`.
 
 Schema declarations return and accept schema-local visible record shapes
 through generated helpers. Projection into domain records is ordinary source

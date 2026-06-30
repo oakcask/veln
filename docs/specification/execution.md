@@ -34,7 +34,8 @@ enough.
   return the schema-local visible record shape.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
-  payload before `;` and the count expression after it.
+  payload before `;` and the count expression after it. The count expression
+  uses the same earlier-field and arithmetic forms accepted by `Repeat`.
 - Representation-only fields such as supported `ReservedBits(width, value)`
   and lowercase `uint... reserves <value>` layouts are validated and omitted
   from the decoded record.
