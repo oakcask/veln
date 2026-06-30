@@ -55,14 +55,14 @@ schema vocabulary, including direct fields, supported reserved fields,
 repeated fields, and dispatch payload field text.
 
 Schema declarations return and accept schema-local visible record shapes
-through generated helpers and explicit schema operation expressions. The
-expression `decode SchemaName from view at base_offset` accepts the same
-eligible binary schemas, `ByteView`, and `ByteOffset` operands as the
-generated decode-step helper and returns the same `DecodeStep<T>` shape. The
+through explicit schema operation expressions and current generated helper
+compatibility. The expression `decode SchemaName from view at base_offset`
+accepts eligible binary schemas, `ByteView`, and `ByteOffset` operands and
+returns a `DecodeStep<T>` for the schema-local visible record shape. The
 expression `encode SchemaName from value` accepts the schema-local visible
-record shape for the same eligible binary schemas as the generated encode
-helper and returns the same `Result<ByteChunk, EncodeError>` shape. Qualified
-public schema paths are accepted when the imported schema is visible. The
+record shape for eligible binary schemas and returns
+`Result<ByteChunk, EncodeError>`. Qualified public schema paths are accepted
+when the imported schema is visible. The
 executable coverage is
 `examples/specification/run/schema-decode-expression/` and
 `examples/specification/run/schema-encode-expression/`; encode expression

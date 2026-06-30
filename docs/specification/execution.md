@@ -35,8 +35,8 @@ enough.
 - Explicit schema decode expressions lower to the generated decode-step
   boundary for the referenced eligible binary schema. They use the supplied
   `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count
-  and diagnostic offset accounting, returning the same `DecodeStep<T>` value
-  shape as `byte_decode_step_<schema>`.
+  and diagnostic offset accounting, returning `DecodeStep<T>` for the
+  schema-local visible record shape.
 - Explicit schema encode expressions lower to the generated encode boundary
   for the referenced eligible binary schema. They typecheck the supplied value
   against the schema-local visible record shape and return the same
