@@ -55,11 +55,22 @@ source module items. A schema body may omit its `format` clause when every
 field uses format-neutral type text. When present, the single `format binary`
 clause must appear before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In
-binary schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
-`UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`,
-`UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`, `UInt64be`,
-`UInt64le`, and
-`ReservedBits(width, value)` are accepted as schema primitives. `Flag8`,
+binary schemas, canonical lower-case direct field primitives `uint1` through
+`uint8`, `uint16be`, `uint16le`, `uint24be`, `uint24le`, `uint31be`,
+`uint31le`, `uint32be`, `uint32le`, `uint40be`, `uint40le`, `uint48be`,
+`uint48le`, `uint56be`, `uint56le`, `uint64be`, and `uint64le` are accepted
+as unsigned schema primitives. Compatibility spellings `UInt1` through
+`UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
+`UInt31le`, `UInt32be`, `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`,
+`UInt48le`, `UInt56be`, `UInt56le`, and `UInt64le`, plus
+`ReservedBits(width, value)`, are also accepted as schema primitives.
+Canonical lower-case direct field spellings `flag8`, `flag16be`,
+`flag16le`, `flag24be`, `flag24le`, `flag32be`, `flag32le`, `flag40be`,
+`flag40le`, `flag48be`, `flag48le`, `flag56be`, `flag56le`, `flag64be`,
+and `flag64le` are accepted as opt-in visible flag bitset fields. These
+lower-case spellings are valid only as direct field types in the implemented
+slice; `Repeat(...)` and dispatch payload positions still require the
+compatibility spellings. `Flag8`,
 `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`, `Flag32be`, `Flag32le`,
 `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`, `Flag56be`, `Flag56le`,
 `Flag64be`, and `Flag64le` are

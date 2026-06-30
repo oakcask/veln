@@ -1,10 +1,12 @@
 use super::boundary::{
     duplicate_name_diagnostic, exact_width_binary_primitive_name,
-    exact_width_schema_primitive_diagnostic, type_contains_unknown,
+    exact_width_schema_primitive_diagnostic, lowercase_schema_primitive_position_diagnostic,
+    type_contains_unknown,
 };
 use super::repair_reasoning::*;
 use super::*;
 use crate::standard_symbols::qualified_symbol;
+use crate::types::lowercase_schema_primitive;
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -3018,6 +3020,18 @@ impl<'a> FunctionChecker<'a> {
             self.diagnostics
                 .push(exact_width_schema_primitive_diagnostic(
                     primitive,
+                    None,
+                    None,
+                    node_id.display("name"),
+                    span,
+                    "value_position",
+                ));
+            return;
+        }
+        if namespace == "value" && lowercase_schema_primitive(symbol).is_some() {
+            self.diagnostics
+                .push(lowercase_schema_primitive_position_diagnostic(
+                    symbol,
                     None,
                     None,
                     node_id.display("name"),

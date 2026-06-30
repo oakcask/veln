@@ -188,6 +188,21 @@ Arity mismatch details also include:
 
 Concurrency runtime blockers also include `facts.symbol`.
 
+Schema lower-case binary primitive diagnostics report direct-field primitive
+spelling failures with `id: "schema.lowercase_primitive"` and `kind: "type"`.
+Their `details` include:
+
+- `phase: "schema"`
+- `node_id`
+- `primitive`
+- `reason`
+
+When the diagnostic is attached to a schema field, details also include
+`schema` and `field`. The implemented `reason` values are
+`missing_width`, `unknown_endian`, `missing_endian`, `redundant_endian`,
+`unsupported_width`, `non_binary_format`, `parameter_type`, `return_type`,
+`value_position`, `repeat_payload`, and `dispatch_payload`.
+
 Schema dispatch payload diagnostics report declaration-time payload eligibility
 failures with `id: "schema.dispatch_payload"` and `kind: "type"`. Their
 `details` include:

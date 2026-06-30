@@ -4329,30 +4329,35 @@ pub(crate) fn schema_validate_function_name(schema_name: &str) -> String {
 }
 
 pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
-    match ty.trim() {
-        "UInt1" | "UInt2" | "UInt3" | "UInt4" | "UInt5" | "UInt6" | "UInt7" => Some(1),
-        "UInt8" | "Flag8" => Some(1),
-        "Flag16be" | "Flag16le" => Some(2),
-        "Flag24be" | "Flag24le" => Some(3),
-        "Flag32be" | "Flag32le" => Some(4),
-        "Flag40be" | "Flag40le" => Some(5),
-        "Flag48be" | "Flag48le" => Some(6),
-        "Flag56be" | "Flag56le" => Some(7),
-        "Flag64be" | "Flag64le" => Some(8),
-        "UInt16be" | "UInt16le" => Some(2),
-        "UInt24be" | "UInt24le" => Some(3),
-        "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
-        "UInt40be" | "UInt40le" => Some(5),
-        "UInt48be" | "UInt48le" => Some(6),
-        "UInt56be" | "UInt56le" => Some(7),
-        "UInt64be" | "UInt64le" => Some(8),
-        _ => None,
+    match canonical_schema_primitive_name(ty).as_deref() {
+        Some(name) => exact_width_schema_primitive(name),
+        None => match ty.trim() {
+            "UInt1" | "UInt2" | "UInt3" | "UInt4" | "UInt5" | "UInt6" | "UInt7" => Some(1),
+            "UInt8" | "Flag8" => Some(1),
+            "Flag16be" | "Flag16le" => Some(2),
+            "Flag24be" | "Flag24le" => Some(3),
+            "Flag32be" | "Flag32le" => Some(4),
+            "Flag40be" | "Flag40le" => Some(5),
+            "Flag48be" | "Flag48le" => Some(6),
+            "Flag56be" | "Flag56le" => Some(7),
+            "Flag64be" | "Flag64le" => Some(8),
+            "UInt16be" | "UInt16le" => Some(2),
+            "UInt24be" | "UInt24le" => Some(3),
+            "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
+            "UInt40be" | "UInt40le" => Some(5),
+            "UInt48be" | "UInt48le" => Some(6),
+            "UInt56be" | "UInt56le" => Some(7),
+            "UInt64be" | "UInt64le" => Some(8),
+            _ => None,
+        },
     }
 }
 
 pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
+    let canonical = canonical_schema_primitive_name(ty);
+    let name = canonical.as_deref().unwrap_or_else(|| ty.trim());
     matches!(
-        ty.trim(),
+        name,
         "UInt16le"
             | "Flag16le"
             | "Flag24le"
@@ -4372,6 +4377,26 @@ pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
 }
 
 pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
+    if let Some(canonical) = canonical_schema_primitive_name(ty) {
+        return match canonical.as_str() {
+            "Flag8" => Some("Flag8"),
+            "Flag16be" => Some("Flag16be"),
+            "Flag16le" => Some("Flag16le"),
+            "Flag24be" => Some("Flag24be"),
+            "Flag24le" => Some("Flag24le"),
+            "Flag32be" => Some("Flag32be"),
+            "Flag32le" => Some("Flag32le"),
+            "Flag40be" => Some("Flag40be"),
+            "Flag40le" => Some("Flag40le"),
+            "Flag48be" => Some("Flag48be"),
+            "Flag48le" => Some("Flag48le"),
+            "Flag56be" => Some("Flag56be"),
+            "Flag56le" => Some("Flag56le"),
+            "Flag64be" => Some("Flag64be"),
+            "Flag64le" => Some("Flag64le"),
+            _ => None,
+        };
+    }
     match ty.trim() {
         "Flag8" => Some("Flag8"),
         "Flag16be" => Some("Flag16be"),
@@ -4393,60 +4418,169 @@ pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
 }
 
 pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
-    match ty.trim() {
-        "UInt1" => Some(1),
-        "UInt2" => Some(2),
-        "UInt3" => Some(3),
-        "UInt4" => Some(4),
-        "UInt5" => Some(5),
-        "UInt6" => Some(6),
-        "UInt7" => Some(7),
-        "UInt8" | "Flag8" => Some(8),
-        "Flag16be" | "Flag16le" => Some(16),
-        "Flag24be" | "Flag24le" => Some(24),
-        "Flag32be" | "Flag32le" => Some(32),
-        "Flag40be" | "Flag40le" => Some(40),
-        "Flag48be" | "Flag48le" => Some(48),
-        "Flag56be" | "Flag56le" => Some(56),
-        "Flag64be" | "Flag64le" => Some(64),
-        "UInt16be" | "UInt16le" => Some(16),
-        "UInt24be" | "UInt24le" => Some(24),
-        "UInt31be" | "UInt31le" => Some(31),
-        "UInt32be" | "UInt32le" => Some(32),
-        "UInt40be" | "UInt40le" => Some(40),
-        "UInt48be" | "UInt48le" => Some(48),
-        "UInt56be" | "UInt56le" => Some(56),
-        "UInt64be" | "UInt64le" => Some(64),
-        _ => None,
+    match canonical_schema_primitive_name(ty).as_deref() {
+        Some(name) => exact_width_schema_primitive_bit_width(name),
+        None => match ty.trim() {
+            "UInt1" => Some(1),
+            "UInt2" => Some(2),
+            "UInt3" => Some(3),
+            "UInt4" => Some(4),
+            "UInt5" => Some(5),
+            "UInt6" => Some(6),
+            "UInt7" => Some(7),
+            "UInt8" | "Flag8" => Some(8),
+            "Flag16be" | "Flag16le" => Some(16),
+            "Flag24be" | "Flag24le" => Some(24),
+            "Flag32be" | "Flag32le" => Some(32),
+            "Flag40be" | "Flag40le" => Some(40),
+            "Flag48be" | "Flag48le" => Some(48),
+            "Flag56be" | "Flag56le" => Some(56),
+            "Flag64be" | "Flag64le" => Some(64),
+            "UInt16be" | "UInt16le" => Some(16),
+            "UInt24be" | "UInt24le" => Some(24),
+            "UInt31be" | "UInt31le" => Some(31),
+            "UInt32be" | "UInt32le" => Some(32),
+            "UInt40be" | "UInt40le" => Some(40),
+            "UInt48be" | "UInt48le" => Some(48),
+            "UInt56be" | "UInt56le" => Some(56),
+            "UInt64be" | "UInt64le" => Some(64),
+            _ => None,
+        },
     }
 }
 
 pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
-    match ty.trim() {
-        "UInt1" => Some(0x1),
-        "UInt2" => Some(0x3),
-        "UInt3" => Some(0x7),
-        "UInt4" => Some(0xf),
-        "UInt5" => Some(0x1f),
-        "UInt6" => Some(0x3f),
-        "UInt7" => Some(0x7f),
-        "UInt8" | "Flag8" => Some(0xff),
-        "Flag16be" | "Flag16le" => Some(0xffff),
-        "Flag24be" | "Flag24le" => Some(0xffffff),
-        "Flag32be" | "Flag32le" => Some(0xffffffff),
-        "Flag40be" | "Flag40le" => Some(0xffffffffff),
-        "Flag48be" | "Flag48le" => Some(0xffffffffffff),
-        "Flag56be" | "Flag56le" => Some(0xffffffffffffff),
-        "Flag64be" | "Flag64le" => Some(i64::MAX),
-        "UInt16be" | "UInt16le" => Some(0xffff),
-        "UInt24be" | "UInt24le" => Some(0xffffff),
-        "UInt31be" | "UInt31le" => Some(0x7fffffff),
-        "UInt32be" | "UInt32le" => Some(0xffffffff),
-        "UInt40be" | "UInt40le" => Some(0xffffffffff),
-        "UInt48be" | "UInt48le" => Some(0xffffffffffff),
-        "UInt56be" | "UInt56le" => Some(0xffffffffffffff),
-        "UInt64be" | "UInt64le" => Some(i64::MAX),
-        _ => None,
+    match canonical_schema_primitive_name(ty).as_deref() {
+        Some(name) => exact_width_schema_primitive_max_value(name),
+        None => match ty.trim() {
+            "UInt1" => Some(0x1),
+            "UInt2" => Some(0x3),
+            "UInt3" => Some(0x7),
+            "UInt4" => Some(0xf),
+            "UInt5" => Some(0x1f),
+            "UInt6" => Some(0x3f),
+            "UInt7" => Some(0x7f),
+            "UInt8" | "Flag8" => Some(0xff),
+            "Flag16be" | "Flag16le" => Some(0xffff),
+            "Flag24be" | "Flag24le" => Some(0xffffff),
+            "Flag32be" | "Flag32le" => Some(0xffffffff),
+            "Flag40be" | "Flag40le" => Some(0xffffffffff),
+            "Flag48be" | "Flag48le" => Some(0xffffffffffff),
+            "Flag56be" | "Flag56le" => Some(0xffffffffffffff),
+            "Flag64be" | "Flag64le" => Some(i64::MAX),
+            "UInt16be" | "UInt16le" => Some(0xffff),
+            "UInt24be" | "UInt24le" => Some(0xffffff),
+            "UInt31be" | "UInt31le" => Some(0x7fffffff),
+            "UInt32be" | "UInt32le" => Some(0xffffffff),
+            "UInt40be" | "UInt40le" => Some(0xffffffffff),
+            "UInt48be" | "UInt48le" => Some(0xffffffffffff),
+            "UInt56be" | "UInt56le" => Some(0xffffffffffffff),
+            "UInt64be" | "UInt64le" => Some(i64::MAX),
+            _ => None,
+        },
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LowercaseSchemaPrimitive {
+    pub(crate) spelling: String,
+    pub(crate) family: &'static str,
+    pub(crate) width_bits: u16,
+    pub(crate) endian: Option<&'static str>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LowercaseSchemaPrimitiveError {
+    MissingWidth,
+    UnknownEndian,
+    MissingEndian,
+    RedundantEndian,
+    UnsupportedWidth,
+}
+
+impl LowercaseSchemaPrimitive {
+    pub(crate) fn canonical_name(&self) -> String {
+        let family = match self.family {
+            "uint" => "UInt",
+            "flag" => "Flag",
+            _ => unreachable!("schema primitive families are fixed"),
+        };
+        match self.endian {
+            Some(endian) => format!("{family}{}{endian}", self.width_bits),
+            None => format!("{family}{}", self.width_bits),
+        }
+    }
+}
+
+pub(crate) fn lowercase_schema_primitive(
+    text: &str,
+) -> Option<Result<LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError>> {
+    let spelling = text.trim();
+    let (family, rest) = if let Some(rest) = spelling.strip_prefix("uint") {
+        ("uint", rest)
+    } else if let Some(rest) = spelling.strip_prefix("flag") {
+        ("flag", rest)
+    } else {
+        return None;
+    };
+    if rest.is_empty() {
+        return Some(Err(LowercaseSchemaPrimitiveError::MissingWidth));
+    }
+    if !rest.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
+        return match rest {
+            "be" | "le" => Some(Err(LowercaseSchemaPrimitiveError::MissingWidth)),
+            _ => None,
+        };
+    }
+    let width_len = rest
+        .char_indices()
+        .take_while(|(_, ch)| ch.is_ascii_digit())
+        .map(|(index, ch)| index + ch.len_utf8())
+        .last()
+        .unwrap_or(0);
+    if width_len == 0 {
+        return Some(Err(LowercaseSchemaPrimitiveError::MissingWidth));
+    }
+    let width_text = &rest[..width_len];
+    let suffix = &rest[width_len..];
+    let Ok(width_bits) = width_text.parse::<u16>() else {
+        return Some(Err(LowercaseSchemaPrimitiveError::UnsupportedWidth));
+    };
+    let endian = match suffix {
+        "" => None,
+        "be" => Some("be"),
+        "le" => Some("le"),
+        _ => return Some(Err(LowercaseSchemaPrimitiveError::UnknownEndian)),
+    };
+    let supported_width = match family {
+        "uint" => matches!(
+            width_bits,
+            1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64
+        ),
+        "flag" => matches!(width_bits, 8 | 16 | 24 | 32 | 40 | 48 | 56 | 64),
+        _ => false,
+    };
+    if !supported_width {
+        return Some(Err(LowercaseSchemaPrimitiveError::UnsupportedWidth));
+    }
+    if width_bits <= 8 && endian.is_some() {
+        return Some(Err(LowercaseSchemaPrimitiveError::RedundantEndian));
+    }
+    if width_bits > 8 && endian.is_none() {
+        return Some(Err(LowercaseSchemaPrimitiveError::MissingEndian));
+    }
+    Some(Ok(LowercaseSchemaPrimitive {
+        spelling: spelling.to_string(),
+        family,
+        width_bits,
+        endian,
+    }))
+}
+
+pub(crate) fn canonical_schema_primitive_name(text: &str) -> Option<String> {
+    match lowercase_schema_primitive(text)? {
+        Ok(primitive) => Some(primitive.canonical_name()),
+        Err(_) => None,
     }
 }
 
@@ -4635,6 +4769,9 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
         return None;
     };
     let count_expr = schema_length_expression(count_field)?;
+    if lowercase_schema_primitive(primitive).is_some() {
+        return None;
+    }
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
         if exact_width_schema_primitive_bit_width(primitive)? < 8
             || flag_schema_primitive(primitive).is_some()
@@ -5191,6 +5328,9 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
 }
 
 fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {
+    if lowercase_schema_primitive(text).is_some() {
+        return None;
+    }
     if let Some(width) = exact_width_schema_primitive(text) {
         if exact_width_schema_primitive_bit_width(text)? < 8 {
             return None;
@@ -5203,6 +5343,40 @@ fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload>
     schema_payload_name_is_path(text).then(|| SchemaDispatchCasePayload::Schema {
         schema_name: text.to_string(),
     })
+}
+
+pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str, &'static str)> {
+    let mut payloads = Vec::new();
+    if let Some(inner) = schema_call_inner(ty, "Repeat") {
+        let args = inner
+            .split(',')
+            .map(str::trim)
+            .filter(|arg| !arg.is_empty())
+            .collect::<Vec<_>>();
+        if let [_, payload] = args.as_slice()
+            && lowercase_schema_primitive(payload).is_some()
+        {
+            payloads.push((*payload, "repeat_payload"));
+        }
+    }
+    for call_name in ["Dispatch", "ExtensionDispatch"] {
+        if let Some(inner) = schema_call_inner(ty, call_name) {
+            for arg in inner
+                .split(',')
+                .map(str::trim)
+                .filter(|arg| !arg.is_empty())
+            {
+                let Some((_, payload)) = arg.split_once("=>") else {
+                    continue;
+                };
+                let payload = payload.trim();
+                if lowercase_schema_primitive(payload).is_some() {
+                    payloads.push((payload, "dispatch_payload"));
+                }
+            }
+        }
+    }
+    payloads
 }
 
 fn schema_call_inner<'a>(ty: &'a str, name: &str) -> Option<&'a str> {
@@ -6421,6 +6595,64 @@ mod tests {
 
         assert!(!is_assignable(&variadic, &fixed));
         assert!(!is_assignable(&fixed, &variadic));
+    }
+
+    #[test]
+    fn parses_lowercase_schema_primitives_as_canonical_names() {
+        let cases = [
+            ("uint1", "UInt1"),
+            ("uint8", "UInt8"),
+            ("uint24be", "UInt24be"),
+            ("uint31le", "UInt31le"),
+            ("flag8", "Flag8"),
+            ("flag16be", "Flag16be"),
+            ("flag64le", "Flag64le"),
+        ];
+
+        for (text, canonical) in cases {
+            let primitive = lowercase_schema_primitive(text)
+                .expect("lowercase spelling should be recognized")
+                .expect("lowercase spelling should be accepted");
+            assert_eq!(primitive.canonical_name(), canonical);
+            assert_eq!(
+                canonical_schema_primitive_name(text).as_deref(),
+                Some(canonical)
+            );
+            assert_eq!(
+                exact_width_schema_primitive_bit_width(text),
+                exact_width_schema_primitive_bit_width(canonical)
+            );
+            assert_eq!(
+                exact_width_schema_primitive_little_endian(text),
+                exact_width_schema_primitive_little_endian(canonical)
+            );
+            assert_eq!(
+                exact_width_schema_primitive_max_value(text),
+                exact_width_schema_primitive_max_value(canonical)
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_lowercase_schema_primitives_with_focused_reasons() {
+        let cases = [
+            ("uint", LowercaseSchemaPrimitiveError::MissingWidth),
+            ("flagbe", LowercaseSchemaPrimitiveError::MissingWidth),
+            ("uint16ne", LowercaseSchemaPrimitiveError::UnknownEndian),
+            ("uint24", LowercaseSchemaPrimitiveError::MissingEndian),
+            ("flag32", LowercaseSchemaPrimitiveError::MissingEndian),
+            ("uint8be", LowercaseSchemaPrimitiveError::RedundantEndian),
+            ("flag8le", LowercaseSchemaPrimitiveError::RedundantEndian),
+            ("uint9", LowercaseSchemaPrimitiveError::UnsupportedWidth),
+            ("flag31be", LowercaseSchemaPrimitiveError::UnsupportedWidth),
+        ];
+
+        for (text, reason) in cases {
+            assert_eq!(lowercase_schema_primitive(text), Some(Err(reason)));
+            assert_eq!(canonical_schema_primitive_name(text), None);
+        }
+        assert_eq!(lowercase_schema_primitive("uint_value"), None);
+        assert_eq!(lowercase_schema_primitive("flag_bits"), None);
     }
 
     #[test]

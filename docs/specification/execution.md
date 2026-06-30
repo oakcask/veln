@@ -290,6 +290,10 @@ execution reference.
   diagnostic shape as the frame-header slice, including byte offset, field
   path, expected count, available count, readiness, and structured byte
   preview fields.
+- Lower-case direct field spellings such as `uint24be`, `uint8`, and
+  `flag16le` normalize to the same generated decode helper behavior as their
+  `UInt...` and `Flag...` compatibility spellings. The checked example is
+  `examples/specification/run/binary-schema-lowercase-primitives-decode/`.
 - Generated binary schema decode helpers also support `UInt16le`, `UInt24le`,
   `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
   as little-endian unsigned primitives.

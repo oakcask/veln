@@ -26,11 +26,13 @@ TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? SchemaMapping* "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
-SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
+SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | ReservedBitsPrimitive | RepeatPrimitive
+LowercaseSchemaPrimitive ::= ("uint" | "flag") IntLiteral ("be" | "le")?
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
 CountExpr ::= Name | Name ("-" | "+") Name
-SchemaFieldWhere ::= "where" ContractPredicate
+SchemaFieldWhere ::= "where" (ContractPredicate | ByteViewMultiplePredicate)
+ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral)
 SchemaValidation ::= "validate" ContractPredicate NL
 SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
 SchemaMappingSelector ::= "when" Expr
@@ -105,8 +107,21 @@ single `format binary` clause may appear before any schema fields to enable
 binary schema field vocabulary; a `format binary` clause after a field reports
 `parse.schema_field_before_format`. A field line may end with a field-local
 `where` predicate after the type text, such as `padding_length: UInt8 where
-padding_length <= length`. Binary schema fields also accept exact-width
-unsigned primitive names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
+padding_length <= length`. Binary schema fields accept lower-case canonical
+unsigned primitive spellings `uint1` through `uint8`, `uint16be`,
+`uint16le`, `uint24be`, `uint24le`, `uint31be`, `uint31le`, `uint32be`,
+`uint32le`, `uint40be`, `uint40le`, `uint48be`, `uint48le`, `uint56be`,
+`uint56le`, `uint64be`, and `uint64le`. Binary schema fields also accept
+the lower-case canonical visible flag bitset spellings `flag8`, `flag16be`,
+`flag16le`, `flag24be`, `flag24le`, `flag32be`, `flag32le`, `flag40be`,
+`flag40le`, `flag48be`, `flag48le`, `flag56be`, `flag56le`, `flag64be`,
+and `flag64le`. Multi-byte `uint` and `flag` fields require `be` or `le`;
+sub-byte and one-byte fields must omit byte order; and unsupported widths
+report `schema.lowercase_primitive`. These spellings are valid only as direct
+`format binary` schema field types in the implemented slice; `Repeat(...)`
+and dispatch payload positions still require the compatibility spellings.
+Binary schema fields also accept compatibility exact-width unsigned primitive
+names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
 `UInt24be`, `UInt24le`, `UInt31be`, `UInt31le`, `UInt32be`, `UInt32le`,
 `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`, `UInt56le`,
 `UInt64be`, and `UInt64le`; those names are schema-local representation
@@ -193,7 +208,11 @@ payload schema's recursive mapped payload type; the extension-tolerant parent
 wraps that payload type in `SchemaDispatchPayload`.
 Exact-width primitive names used outside `format binary` schema field type
 positions, including schema fields without a `format binary` clause, report
-`schema.exact_width_primitive`. `ReservedBits(width, value)` used outside a
+`schema.exact_width_primitive`. Lower-case binary primitive spellings used
+outside direct `format binary` schema field type positions, malformed
+lower-case widths, missing or unknown byte order, redundant byte order, and
+unsupported widths report `schema.lowercase_primitive`.
+`ReservedBits(width, value)` used outside a
 `format binary` schema field reports `schema.reserved_bits_primitive`.
 Missing `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and

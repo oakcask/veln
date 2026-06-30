@@ -316,6 +316,11 @@ against the built `veln` binary.
   vocabulary, binary-only vocabulary without `format binary` reports schema
   wrong-kind diagnostics, while malformed declaration cases keep late
   `format binary` clauses as parse diagnostics.
+- `check/lowercase-schema-primitive-diagnostics/`: lower-case direct binary
+  schema primitives reject missing width, missing or unknown byte order,
+  redundant byte order, unsupported width, non-binary schema fields, and
+  repeat payload, dispatch payload, ordinary source type, and ordinary value
+  positions with `schema.lowercase_primitive`.
 - `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, `UInt31le`,
   `UInt32le`, `UInt40be`, `UInt40le`, `UInt48be`, `UInt48le`, `UInt56be`,
   and `UInt56le` are accepted as `format binary` schema field primitives on
@@ -1214,6 +1219,9 @@ against the built `veln` binary.
 - `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
   `UInt32be` primitive decode slice returns visible exact-width fields as
   ordinary `Int` values.
+- `run/binary-schema-lowercase-primitives-decode/`: lower-case direct
+  `uint24be`, `flag16le`, and `uint8` fields normalize to the same generated
+  decode helper behavior as their upper-case compatibility spellings.
 - `run/binary-schema-width-sample-truncated-json/`: schema decode truncation
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
   output with byte offset, field path, byte counts, readiness, and structured
