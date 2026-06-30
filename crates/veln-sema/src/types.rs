@@ -14,8 +14,50 @@ use crate::effects::{concurrency_effects, is_stdio_call, standard_library_effect
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     codec_calls: Vec<CodecCallSignature>,
+    schema_symbols: SchemaSymbolTable,
+    type_symbols: Vec<NamedSymbol>,
+    codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
+}
+
+#[derive(Clone)]
+struct SchemaSymbolTable {
+    schemas: Vec<SchemaSymbol>,
+    aliases: Vec<SchemaAliasSymbol>,
+}
+
+#[derive(Clone)]
+struct SchemaSymbol {
+    name: String,
+    module_name: Option<String>,
+    visibility: Visibility,
+}
+
+#[derive(Clone)]
+struct SchemaAliasSymbol {
+    name: String,
+    module_name: Option<String>,
+    target: Vec<String>,
+}
+
+#[derive(Clone)]
+struct NamedSymbol {
+    name: String,
+    module_name: Option<String>,
+    visibility: Visibility,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaReferenceErrorKind {
+    Unresolved,
+    Private,
+    WrongKind,
+}
+
+pub(crate) struct SchemaReferenceError {
+    pub(crate) kind: SchemaReferenceErrorKind,
+    pub(crate) resolved_kind: Option<&'static str>,
 }
 
 #[derive(Clone)]
@@ -369,6 +411,9 @@ impl TypeEnvironment {
         Self {
             functions,
             codec_calls,
+            schema_symbols: SchemaSymbolTable::from_module(module),
+            type_symbols: named_type_symbols(module),
+            codec_symbols: named_codec_symbols(module),
             uses: module.uses.clone(),
             adts,
         }
@@ -479,6 +524,90 @@ impl TypeEnvironment {
                 && function.module_name.as_deref() == Some(module_name)
                 && function.visibility == Visibility::Public
         })
+    }
+
+    pub(crate) fn schema_reference_error(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+    ) -> SchemaReferenceError {
+        if self
+            .schema_symbols
+            .private_schema(schema_path, current_module, &self.uses)
+        {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::Private,
+                resolved_kind: Some("schema"),
+            };
+        }
+        if let Some(kind) = self.wrong_schema_reference_kind(schema_path, current_module) {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::WrongKind,
+                resolved_kind: Some(kind),
+            };
+        }
+        SchemaReferenceError {
+            kind: SchemaReferenceErrorKind::Unresolved,
+            resolved_kind: None,
+        }
+    }
+
+    fn wrong_schema_reference_kind(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&'static str> {
+        let (name, module_name) = self.resolve_symbol_module(schema_path, current_module)?;
+        if self.type_symbols.iter().any(|symbol| {
+            symbol.name == name.as_str()
+                && symbol.module_name.as_deref() == module_name.as_deref()
+                && self.symbol_is_visible(symbol, module_name.as_deref(), current_module)
+        }) {
+            return Some("type");
+        }
+        if self.functions.iter().any(|function| {
+            function.name == name.as_str()
+                && function.module_name.as_deref() == module_name.as_deref()
+                && self.symbol_is_visible(function, module_name.as_deref(), current_module)
+        }) {
+            return Some("function");
+        }
+        if self.codec_symbols.iter().any(|symbol| {
+            symbol.name == name.as_str()
+                && symbol.module_name.as_deref() == module_name.as_deref()
+                && self.symbol_is_visible(symbol, module_name.as_deref(), current_module)
+        }) {
+            return Some("codec");
+        }
+        None
+    }
+
+    fn resolve_symbol_module(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<(String, Option<String>)> {
+        match segments {
+            [name] => Some((name.clone(), current_module.map(str::to_string))),
+            [_, .., name] => {
+                let use_decl = imported_use_for_path(
+                    &self.uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                )?;
+                Some((name.clone(), Some(use_decl.name.clone())))
+            }
+            _ => None,
+        }
+    }
+
+    fn symbol_is_visible(
+        &self,
+        symbol: &impl SymbolVisibility,
+        module_name: Option<&str>,
+        current_module: Option<&str>,
+    ) -> bool {
+        module_name == current_module || symbol.visibility() == Visibility::Public
     }
 
     fn imported_codec_helper_is_hidden(
@@ -4710,6 +4839,180 @@ impl FunctionSignature {
             ),
         }
     }
+}
+
+trait SymbolVisibility {
+    fn visibility(&self) -> Visibility;
+}
+
+impl SymbolVisibility for FunctionSignature {
+    fn visibility(&self) -> Visibility {
+        self.visibility
+    }
+}
+
+impl SymbolVisibility for NamedSymbol {
+    fn visibility(&self) -> Visibility {
+        self.visibility
+    }
+}
+
+impl SchemaSymbolTable {
+    fn from_module(module: &SurfaceModule) -> Self {
+        let schemas = module
+            .schemas
+            .iter()
+            .filter_map(|schema| {
+                Some(SchemaSymbol {
+                    name: schema.name.clone()?,
+                    module_name: schema.module_name.clone(),
+                    visibility: schema.visibility,
+                })
+            })
+            .collect();
+        let aliases = module
+            .aliases
+            .iter()
+            .filter(|alias| alias.kind == PublicAliasKind::Schema)
+            .filter_map(|alias| {
+                Some(SchemaAliasSymbol {
+                    name: alias.name.clone()?,
+                    module_name: alias.module_name.clone(),
+                    target: alias.target.clone(),
+                })
+            })
+            .collect();
+        Self { schemas, aliases }
+    }
+
+    fn private_schema(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        self.schema_path(segments, current_module, uses, true, &mut Vec::new())
+            == SchemaPathLookup::Private
+    }
+
+    fn schema_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        allow_private_local_schema: bool,
+        visited_aliases: &mut Vec<(Option<String>, String)>,
+    ) -> SchemaPathLookup {
+        match segments {
+            [name] => self.schema_in_module(
+                current_module,
+                name,
+                allow_private_local_schema,
+                uses,
+                visited_aliases,
+            ),
+            [_, .., name] => {
+                let Some(use_decl) =
+                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+                else {
+                    return SchemaPathLookup::Missing;
+                };
+                self.schema_in_module(Some(&use_decl.name), name, false, uses, visited_aliases)
+            }
+            _ => SchemaPathLookup::Missing,
+        }
+    }
+
+    fn schema_in_module(
+        &self,
+        module_name: Option<&str>,
+        name: &str,
+        allow_private_schema: bool,
+        uses: &[UseDecl],
+        visited_aliases: &mut Vec<(Option<String>, String)>,
+    ) -> SchemaPathLookup {
+        if let Some(schema) = self
+            .schemas
+            .iter()
+            .find(|schema| schema.name == name && schema.module_name.as_deref() == module_name)
+        {
+            return if allow_private_schema || schema.visibility == Visibility::Public {
+                SchemaPathLookup::Visible
+            } else {
+                SchemaPathLookup::Private
+            };
+        }
+        let Some(alias) = self
+            .aliases
+            .iter()
+            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)
+        else {
+            return SchemaPathLookup::Missing;
+        };
+        let key = (alias.module_name.clone(), alias.name.clone());
+        if visited_aliases.contains(&key) {
+            return SchemaPathLookup::Missing;
+        }
+        visited_aliases.push(key);
+        let result = self.schema_path(
+            &alias.target,
+            alias.module_name.as_deref(),
+            uses,
+            false,
+            visited_aliases,
+        );
+        visited_aliases.pop();
+        result
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SchemaPathLookup {
+    Visible,
+    Private,
+    Missing,
+}
+
+fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
+    let mut symbols = module
+        .types
+        .iter()
+        .filter_map(|ty| {
+            Some(NamedSymbol {
+                name: ty.name.clone()?,
+                module_name: ty.module_name.clone(),
+                visibility: ty.visibility,
+            })
+        })
+        .collect::<Vec<_>>();
+    symbols.extend(
+        module
+            .aliases
+            .iter()
+            .filter(|alias| alias.kind == PublicAliasKind::Type)
+            .filter_map(|alias| {
+                Some(NamedSymbol {
+                    name: alias.name.clone()?,
+                    module_name: alias.module_name.clone(),
+                    visibility: Visibility::Public,
+                })
+            }),
+    );
+    symbols
+}
+
+fn named_codec_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
+    module
+        .codecs
+        .iter()
+        .filter_map(|codec| {
+            Some(NamedSymbol {
+                name: codec.name.clone()?,
+                module_name: codec.module_name.clone(),
+                visibility: codec.visibility,
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn function_alias_signatures(

@@ -175,7 +175,7 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
         types: wire.types,
         schemas: wire.schemas,
         codecs: wire.codecs,
-        functions: app.functions,
+        functions: [app.functions, wire.functions].concat(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -207,10 +207,6 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
             "mod app\n",
             "use wire\n",
             "\n",
-            "type Shape\n",
-            "  Box\n",
-            "end\n",
-            "\n",
             "fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
             "  decode MissingPacket from view at base\n",
             "end\n",
@@ -219,8 +215,16 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
             "  decode wire::PrivatePacket from view at base\n",
             "end\n",
             "\n",
-            "fn wrong_kind(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
-            "  decode Shape from view at base\n",
+            "fn wrong_type(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PacketShape from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_function(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::make_packet from view at base\n",
+            "end\n",
+            "\n",
+            "fn wrong_codec(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  decode wire::PacketCodec from view at base\n",
             "end\n",
         ),
     );
@@ -229,10 +233,28 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         concat!(
             "mod wire\n",
             "\n",
+            "pub schema PublicPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
             "schema PrivatePacket\n",
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn make_packet() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type PacketShape\n",
+            "  Box\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PublicPacket decode\n",
+            "  derive decode\n",
             "end\n",
         ),
     );
@@ -245,7 +267,7 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         types: [app.types, wire.types].concat(),
         schemas: wire.schemas,
         codecs: wire.codecs,
-        functions: app.functions,
+        functions: [app.functions, wire.functions].concat(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -259,22 +281,62 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
     assert!(
         messages
             .iter()
-            .any(|message| message.contains("`MissingPacket`")),
+            .any(|message| *message
+                == "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema"),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages
-            .iter()
-            .any(|message| message.contains("`wire::PrivatePacket`")),
+        messages.iter().any(|message| *message
+            == "schema decode expression schema `wire::PrivatePacket` is private"),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages.iter().any(|message| message.contains("`Shape`")),
+        messages.iter().any(|message| *message
+            == "schema decode expression target `wire::PacketShape` is a type, not a schema"),
         "{:#?}",
         lowered.diagnostics
     );
+    assert!(
+        messages.iter().any(|message| *message
+            == "schema decode expression target `wire::make_packet` is a function, not a schema"),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        messages.iter().any(|message| *message
+            == "schema decode expression target `wire::PacketCodec` is a codec, not a schema"),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    for (schema_path, reason) in [
+        ("MissingPacket", "unresolved_schema"),
+        ("wire::PrivatePacket", "private_schema"),
+        ("wire::PacketShape", "wrong_kind"),
+        ("wire::make_packet", "wrong_kind"),
+        ("wire::PacketCodec", "wrong_kind"),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.decode_expression"
+                    && matches!(
+                        &diagnostic.details,
+                        veln_diagnostics::JsonValue::Object(entries)
+                            if entries.iter().any(|(key, value)| {
+                                key == "schema_path"
+                                    && value
+                                        == &veln_diagnostics::JsonValue::string(schema_path)
+                            }) && entries.iter().any(|(key, value)| {
+                                key == "reason"
+                                    && value == &veln_diagnostics::JsonValue::string(reason)
+                            })
+                    )
+            }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
 }
 
 #[test]

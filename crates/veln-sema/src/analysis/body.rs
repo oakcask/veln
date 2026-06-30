@@ -6,7 +6,7 @@ use super::boundary::{
 use super::repair_reasoning::*;
 use super::*;
 use crate::standard_symbols::qualified_symbol;
-use crate::types::lowercase_schema_primitive;
+use crate::types::{SchemaReferenceErrorKind, lowercase_schema_primitive};
 
 pub(crate) fn check_function_body(
     function: &Function,
@@ -1349,20 +1349,44 @@ impl<'a> FunctionChecker<'a> {
         } else {
             schema.join("::")
         };
+        let error = self
+            .environment
+            .schema_reference_error(schema, self.function.module_name.as_deref());
+        let reason = match error.kind {
+            SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
+            SchemaReferenceErrorKind::Private => "private_schema",
+            SchemaReferenceErrorKind::WrongKind => "wrong_kind",
+        };
+        let message = match (error.kind, error.resolved_kind) {
+            (SchemaReferenceErrorKind::Private, _) => {
+                format!("schema decode expression schema `{symbol}` is private")
+            }
+            (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
+                format!("schema decode expression target `{symbol}` is a {kind}, not a schema")
+            }
+            _ => {
+                format!(
+                    "schema decode expression cannot resolve `{symbol}` as an eligible binary schema"
+                )
+            }
+        };
+        let mut details = vec![
+            ("phase", JsonValue::string("body_analysis")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("schema_path", JsonValue::string(symbol)),
+            ("operation", JsonValue::string("decode_step")),
+            ("reason", JsonValue::string(reason)),
+        ];
+        if let Some(kind) = error.resolved_kind {
+            details.push(("resolved_kind", JsonValue::string(kind)));
+        }
         self.diagnostics.push(Diagnostic::new(
             "schema.decode_expression",
             Severity::Error,
             DiagnosticKind::Type,
-            format!(
-                "schema decode expression cannot resolve `{symbol}` as an eligible binary schema"
-            ),
+            message,
             Some(expr.span.clone()),
-            JsonValue::object([
-                ("phase", JsonValue::string("body_analysis")),
-                ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-                ("schema_path", JsonValue::string(symbol)),
-                ("operation", JsonValue::string("decode_step")),
-            ]),
+            JsonValue::object(details),
         ));
     }
 

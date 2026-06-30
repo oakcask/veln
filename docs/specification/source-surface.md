@@ -82,7 +82,8 @@ The parser rejects schema-level `map to` with
 runtime diagnostics are not current behavior. Current schema diagnostics cover
 format placement, field references, primitive kind checks, field-local and
 schema-level validation predicates, dispatch payload eligibility, codec schema
-references, and helper availability.
+references, explicit schema decode expression schema-path resolution, and
+helper availability.
 
 ## Read When
 
