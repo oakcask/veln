@@ -46,8 +46,9 @@ The implemented first slice covers:
 - schema declarations without a `format` clause when their fields use
   format-neutral type text, while binary-only field vocabulary remains gated
   by a preceding `format binary` clause
-- schema references from codec declaration heads, including same-module bare
-  references and imported public schema references through written `use` paths
+- schema references from the existing codec declaration head compatibility
+  surface, including same-module bare references and imported public schema
+  references through written `use` paths
 - top-level public schema member aliases that re-export existing public
   schemas through the declaring module's public path and resolve through
   schema-aware lookup
@@ -170,24 +171,20 @@ bitstream parsing, signed integer families, floating-point encodings,
 variable-length integers, or text encoding primitives; those require separate
 proposal work when a concrete protocol slice needs them.
 
-## Discussion Result: Codec Binding Direction
+## Superseded Discussion Result: Codec Binding Direction
 
-Schema declarations should not name the codec declarations that decode or
-encode them. A schema is the reusable external representation contract; it
-remains meaningful when a module exposes a decoder, an encoder, both
-directions, fixture-only helpers, or no executable codec yet.
+This discussion result is superseded for new design work by
+[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md).
 
-The binding should point from a codec declaration to the schema it implements.
-That keeps schema declarations free of executable API ownership and lets the
-codec boundary decide direction, readiness variants, consumed byte counts,
-offset handling, imports, and exported names. A schema may still import or
-select field vocabularies for its representation format, but that selection is
-not the same thing as naming executable codec entry points.
+A schema is still the reusable external representation contract, and it still
+must not name executable API entry points in its body. The replacement design
+removes the source-level `codec` declaration family instead of moving
+executable names into schemas. New work should expose decode and encode
+through explicit schema operations inside ordinary functions.
 
-This means a schema can be imported and referenced as a boundary contract on
-its own. Modules expose executable decoding or encoding by exporting codec
-declarations that cite the schema, rather than by adding codec names inside the
-schema body.
+The older source-level rule pointed from a codec declaration to the schema it
+implemented. Treat that rule as compatibility history for implemented slices,
+not as the future schema composition model.
 
 ## Discussion Result: Schema Value Mapping
 
@@ -252,7 +249,8 @@ validation and diagnostics without turning them into protocol-domain data by
 accident.
 
 Mapping is checked after schema field validation and before the decoded value
-is returned by a codec. The checker should resolve target record fields and ADT
+is returned by a schema operation or compatibility helper. The checker should
+resolve target record fields and ADT
 constructors through the normal source module rules, reject missing or
 duplicate assignments, and require each assigned schema value to type check
 against the target field. Schema primitive values may use the primitive's
@@ -269,7 +267,7 @@ and ordered comparisons over supported `Int` mapping operands composed with
 implemented along with direct pure `Bool` converter selector calls. Arbitrary
 function calls, ambiguous bare imported converter names, private imported
 converters, runtime settings, stream state, and recovery behavior belong in
-explicit codec functions rather than in schema mapping.
+ordinary projection or protocol functions rather than in schema mapping.
 
 ## Discussion Result: Top-Level Schema Declarations
 
@@ -281,34 +279,37 @@ The declaration name owns an external representation boundary. Its body owns
 schema-local fields, validation clauses, mapping clauses, and the
 format-specific vocabulary selected by its `format` clause. It does not create
 an ordinary Veln value type by itself, and it does not imply executable decode
-or encode APIs. Codecs cite schemas from their own declarations when a module
-wants to expose execution.
+or encode APIs. New work should cite schemas from explicit schema operations
+inside ordinary functions when a module wants to expose execution.
 
 This keeps the parser, formatter, editor support, documentation, and module
 item model direct: a source file contains a schema item with a stable name and
-span. It also keeps schemas reusable across generated codecs, hand-written
-codecs, fixtures, documentation, and diagnostic tests without forcing every
-schema to commit to one executable direction.
+span. It also keeps schemas reusable across explicit schema operations,
+ordinary protocol functions, fixtures, documentation, and diagnostic tests
+without forcing every schema to commit to one executable direction.
 
-## Implemented Slice: Codec Schema Imports And References
+## Implemented Compatibility Slice: Codec Schema Imports And References
 
 The codec declaration head slice is implemented as current behavior under
-`../specification/source-surface.md`. Schema visibility follows the ordinary
-source module boundary for codec schema references. A private schema is visible
-only in its declaring module. A `pub schema` declaration is part of the
-declaring module's public API when the module's source file is listed by the
-package manifest's `[lib].exports`.
+`../specification/source-surface.md`, but it is not the future proposal
+direction. Schema visibility follows the ordinary source module boundary for
+that compatibility surface. A private schema is visible only in its declaring
+module. A `pub schema` declaration is part of the declaring module's public
+API when the module's source file is listed by the package manifest's
+`[lib].exports`.
 
 References to schemas use schema-aware name resolution rather than value
-resolution. Codec declarations may reference a schema by bare name inside the
-declaring module. From another module, codec declarations reference public
-schemas through the written `use` module path, such as `http2::FrameHeader`. A
-`use` declaration does not re-export the schema from the importing module.
+resolution. The compatibility codec surface may reference a schema by bare
+name inside the declaring module. From another module, that compatibility
+surface references public schemas through the written `use` module path, such
+as `http2::FrameHeader`. A `use` declaration does not re-export the schema
+from the importing module.
 
 Importing or referencing a schema imports only the schema item. It does not
 import schema-local field names as ordinary bindings, expose a generated record
-type, or make any decoder or encoder available. Executable APIs remain owned
-by public codec declarations that explicitly cite the schema.
+type, or make any decoder or encoder available. Future executable APIs should
+be ordinary functions that cite explicit schema operations; existing public
+codec declarations remain compatibility history for implemented slices.
 
 The implemented surface also accepts top-level public schema member aliases:
 

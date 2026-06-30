@@ -3,8 +3,9 @@
 Status: proposed
 
 This proposal uses a minimal HTTP/2 server core as a practical design driver
-for Veln schema boundaries, binary data handling, codec support, and network
-effects. It does not make HTTP/2 support current language behavior.
+for Veln schema boundaries, binary data handling, explicit parser operations,
+and network effects. It does not make HTTP/2 support current language
+behavior.
 
 ## Problem
 
@@ -59,46 +60,46 @@ reserved bits, tags, field paths, and local structural validation. It also
 keeps ordinary records and ADTs as the source of truth for internal protocol
 values, contracts, pattern matching, and public APIs. Multiple external
 representations can map into the same Veln type, and one external schema can
-also map into different internal views through explicit codec functions when a
-proposal later accepts that surface.
+also map into different internal views through ordinary projection functions.
 
 The schema may still define schema-local field names and intermediate decoded
 values for validation, diagnostics, dispatch, and mapping. Those names are not
 exported as ordinary Veln type declarations unless an independent `type`
 declaration says so.
 
-## Discussion Result: Codec Direction
+## Discussion Result: Schema Operation Direction
 
 Schema declarations should not implicitly export both decoders and encoders.
-The codec surface should make direction explicit: a codec can opt into
-decoding, encoding, or both for a named schema.
+The explicit schema operation should make direction visible at the call site:
+a module can decode from a named schema, encode a schema-local visible record
+through that schema, or expose neither operation publicly.
 
 This keeps schema declarations as external boundary contracts while making
-executable behavior visible at the module API boundary. HTTP/2 frame headers
-need both directions, so their codec can derive both from the same schema when
-the mapping is total and canonical. Other boundaries may need decoding only,
-or may need hand-written encoding because output construction depends on
-state, canonicalization, omitted fields, reserved bits, or values that are not
-present in the internal type.
+executable behavior visible through ordinary module APIs. HTTP/2 frame headers
+need both directions, so a module can publish `decode_header` and
+`encode_header` functions that cite the same schema. Other boundaries may need
+decoding only, or may need hand-written encoding because output construction
+depends on state, canonicalization, omitted fields, reserved bits, or values
+that are not present in the internal type.
 
-The proposal should still allow schema-driven implementation of explicit codec
-functions. The important boundary is source visibility: importing a schema
-does not silently import every possible executable codec, and exporting a
-codec says which directions callers may use.
+The important boundary is source visibility: importing a schema permits
+explicit schema operations when the schema is public, but it does not silently
+import generated helper names or executable wrapper items. Exporting ordinary
+functions says which protocol operations callers may use.
 
 ## Discussion Result: Incomplete Input Boundary
 
-Incomplete byte input should be represented as a dedicated codec transition,
+Incomplete byte input should be represented as a dedicated decode transition,
 not as `Result<T, DecodeError>`.
 
 Incomplete input is a normal streaming state while more chunks may arrive. It
 should not be reported through the same error path as malformed bytes,
 unknown invalid tags, failed reserved-bit checks, or protocol-state failures.
-The codec boundary should expose a transition shape with successful decode,
-need-more-input, and invalid-input outcomes. A successful decode reports the
-decoded value and consumed `ByteCount`; a need-more-input outcome reports the
-readiness fact without consuming the undecoded suffix; an invalid-input
-outcome carries a structured `DecodeError`.
+The schema decode operation should expose a transition shape with successful
+decode, need-more-input, and invalid-input outcomes. A successful decode
+reports the decoded value and consumed `ByteCount`; a need-more-input outcome
+reports the readiness fact without consuming the undecoded suffix; an
+invalid-input outcome carries a structured `DecodeError`.
 
 End-of-stream is where a pending need-more-input state becomes a truncation
 failure. That failure should use the normal diagnostic path with byte offset,
@@ -107,8 +108,8 @@ keeps ordinary chunk arrival pure and restartable while still giving agents a
 repairable diagnostic once the stream can no longer satisfy the schema.
 
 One-shot helpers may adapt the transition into `Result<T, DecodeError>` for
-closed byte strings, but the incremental codec API used by protocol cores must
-keep incomplete input distinct from invalid input.
+closed byte strings, but the incremental schema decode operation used by
+protocol cores must keep incomplete input distinct from invalid input.
 
 ## Discussion Result: Binary Schema Declaration Form
 
@@ -122,12 +123,12 @@ vocabulary: exact-width integers, byte-order annotations, reserved bits,
 length-dependent fields, and tag dispatch. Those are schema-local
 representation facts, not a different kind of top-level declaration.
 
-The `codec` surface remains the place where executable decoding and encoding
-are named, imported, exported, and made directional. Using `codec schema`
-would blur that boundary by making the schema declaration look like executable
-codec API rather than a boundary contract. The format selector belongs inside
-the schema body so it can make representation primitives available without
-importing ordinary values or implying executable codec APIs.
+Executable decoding and encoding are selected by explicit schema operations
+inside ordinary functions. Using `codec schema` would blur that boundary by
+making the schema declaration look like executable API rather than a
+representation pattern. The format selector belongs inside the schema body so
+it can make representation primitives available without importing ordinary
+values or implying executable APIs.
 
 ## Discussion Result: Schema Dependent Structure
 
@@ -144,15 +145,15 @@ those bytes.
 Schema declarations should not gain general loops, recursion through runtime
 values, arbitrary function calls, connection or stream state access,
 negotiated settings access, mutation, or protocol recovery behavior. Those
-belong in explicit codec functions, library codec state, or the HTTP/2
-protocol core. The boundary keeps schemas useful for length-prefixed payloads
-and dispatch without turning them into a second parser language.
+belong in ordinary functions, library codec state, or the HTTP/2 protocol
+core. The boundary keeps schemas useful for length-prefixed payloads and
+dispatch without turning them into a second parser language.
 
 The implemented first repeated-structure slice uses a bounded schema primitive
 whose count comes from a prior field, with diagnostics still reported against
 field paths and byte offsets. Repetition beyond that bounded primitive,
 semantic lookahead, and stateful recovery should require ordinary Veln code at
-the codec boundary.
+the protocol parser boundary.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -364,8 +365,9 @@ needs:
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   exact-width fields, endian-aware fields, reserved bits, length-dependent
   payloads, tag dispatch, and unknown tag preservation.
-- [Codec Execution Boundary](codec-execution-boundary.md): decode and encode
-  APIs, consumed byte counts, incremental readiness, and immutable codec state.
+- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md):
+  explicit schema decode and encode operations, consumed byte counts,
+  incremental readiness, and ordinary function-owned parser or encoder state.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   byte offsets, field paths, incomplete-input reports, invalid-input reports,
   and protocol-state context.

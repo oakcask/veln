@@ -105,7 +105,7 @@ The removal does not cover:
 - exact-width integer, flag, reserved-bit, repeat, byte-view, or dispatch
   representation primitives
 - generated helpers over schema-local visible records
-- codec declarations that explicitly call helper functions and ordinary
+- ordinary decode or encode functions that call schema operations and
   projection functions
 
 ## Migration
@@ -124,7 +124,7 @@ Existing schemas with `map to` should be migrated by:
   encode function
 
 The migration should prefer local, named functions over anonymous inline
-projection when the conversion is part of a public codec boundary.
+projection when the conversion is part of a public decode or encode boundary.
 
 ## Diagnostics
 
