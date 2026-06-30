@@ -1,0 +1,8 @@
+# DecodeStep Invalid tag mismatch failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(14)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.tag_mismatch", offset, "ManualPacketWire.kind", "expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

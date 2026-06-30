@@ -2229,6 +2229,15 @@ against the built `veln` binary.
   and `run --json` `details.byte_diagnostic` fields for the codec-owned id,
   byte offset, field path, expected sequence, actual sequence, and failure
   reason.
+- `run/codec-tag-mismatch-direct-human/`,
+  `run/codec-tag-mismatch-direct-json/`,
+  `run/codec-tag-mismatch-step-human/`, and
+  `run/codec-tag-mismatch-step-json/`: direct
+  `DecodeErrorWithReason(...)` result failures and
+  `Invalid(DecodeErrorWithReason(...))` entry results with
+  `codec.tag_mismatch` use focused tag-mismatch human diagnostics and
+  `run --json` `details.byte_diagnostic` fields for the codec-owned id, byte
+  offset, field path, expected tag, actual tag, and failure reason.
 - `run/codec-decode-invalid-byte-context-human/` and
   `run/codec-decode-invalid-byte-context-json/`: a hand-written codec
   boundary returns a codec-owned `Invalid(DecodeErrorWithReason(...))` whose

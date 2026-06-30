@@ -1770,6 +1770,8 @@
                 mergeLengthMismatchReason(details, reason);
             } else if (id.equals("codec.sequence_mismatch")) {
                 mergeSequenceMismatchReason(details, reason);
+            } else if (id.equals("codec.tag_mismatch")) {
+                mergeTagMismatchReason(details, reason);
             } else {
                 details.add(DiagnosticDetail.string("reason", reason));
             }
@@ -1965,6 +1967,63 @@
         SequenceMismatchReason(String expectedSequence, String actualSequence, String reason) {
             this.expectedSequence = expectedSequence;
             this.actualSequence = actualSequence;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeTagMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        TagMismatchReason parsed = parseTagMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.string("expected_tag", parsed.expectedTag));
+        details.add(DiagnosticDetail.string("actual_tag", parsed.actualTag));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static TagMismatchReason parseTagMismatchReason(String reason) {
+        String expectedTag = null;
+        String actualTag = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_tag")) {
+                expectedTag = value;
+            } else if (key.equals("actual_tag")) {
+                actualTag = value;
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedTag == null
+            || expectedTag.isEmpty()
+            || actualTag == null
+            || actualTag.isEmpty()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new TagMismatchReason(expectedTag, actualTag, failureReason);
+    }
+
+    private static final class TagMismatchReason {
+        final String expectedTag;
+        final String actualTag;
+        final String reason;
+
+        TagMismatchReason(String expectedTag, String actualTag, String reason) {
+            this.expectedTag = expectedTag;
+            this.actualTag = actualTag;
             this.reason = reason;
         }
     }
