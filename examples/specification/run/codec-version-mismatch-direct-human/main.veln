@@ -1,0 +1,17 @@
+# Direct version mismatch decode failures render focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	version: UInt8
+	length: UInt16be
+	payload: ByteView(length)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.version_mismatch", offset(3), "ManualPacketWire.version", "expected_version=2; actual_version=1; reason=codec version is not supported"))
+end

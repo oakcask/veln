@@ -553,6 +553,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.version_mismatch" {
+        return version_mismatch_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     if id == "codec.tag_mismatch" {
         return tag_mismatch_result_failure_diagnostic(
             failure,
@@ -777,6 +786,54 @@ fn tag_mismatch_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Tag mismatch reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn version_mismatch_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("version mismatch at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(expected_version), Some(actual_version)) = (
+        json_string(byte_entries, "expected_version"),
+        json_string(byte_entries, "actual_version"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected version `{expected_version}`; actual version was `{actual_version}`."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Version mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2550,6 +2607,69 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_version_mismatch_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.version_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(3)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("version")),
+                    ]),
+                ]),
+            ),
+            ("expected_version", JsonValue::string("2")),
+            ("actual_version", JsonValue::string("1")),
+            (
+                "reason",
+                JsonValue::string("codec version is not supported"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.version"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.version_mismatch");
+        assert_eq!(diagnostic.message, "version mismatch at byte offset 3");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Expected version `2`; actual version was `1`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Version mismatch reason: codec version is not supported.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported).\"}"
         );
     }
 

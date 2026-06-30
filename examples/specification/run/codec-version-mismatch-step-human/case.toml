@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.version_mismatch]: version mismatch at byte offset 3", "note: Field path: schema `ManualPacketWire` / field `version`.", "note: Expected version `2`; actual version was `1`.", "note: Version mismatch reason: codec version is not supported.", "note: DecodeError value: DecodeErrorWithReason(codec.version_mismatch, ByteOffset(3), ManualPacketWire.version, expected_version=2; actual_version=1; reason=codec version is not supported)."]

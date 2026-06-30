@@ -434,6 +434,12 @@ When a `veln run` entry returns a source-visible
 - `actual_sequence`: the actual sequence string when the id is
   `codec.sequence_mismatch` and the source-visible reason carries sequence
   mismatch fields
+- `expected_version`: the expected version string when the id is
+  `codec.version_mismatch` and the source-visible reason carries version
+  mismatch fields
+- `actual_version`: the actual version string when the id is
+  `codec.version_mismatch` and the source-visible reason carries version
+  mismatch fields
 - `expected_tag`: the expected tag string when the id is
   `codec.tag_mismatch` and the source-visible reason carries tag mismatch
   fields
@@ -484,6 +490,14 @@ sequence facts. The checked direct result and `DecodeStep::Invalid(...)`
 examples are
 `examples/specification/run/codec-sequence-mismatch-direct-json/` and
 `examples/specification/run/codec-sequence-mismatch-step-json/`.
+For `codec.version_mismatch`, a source-visible reason written as
+`expected_version=<value>; actual_version=<value>; reason=<text>` is
+projected as separate `expected_version`, `actual_version`, and `reason`
+fields. Plain reason strings still keep only `reason` and do not invent
+version facts. The checked direct result and `DecodeStep::Invalid(...)`
+examples are
+`examples/specification/run/codec-version-mismatch-direct-json/` and
+`examples/specification/run/codec-version-mismatch-step-json/`.
 For `codec.tag_mismatch`, a source-visible reason written as
 `expected_tag=<value>; actual_tag=<value>; reason=<text>` is projected as
 separate `expected_tag`, `actual_tag`, and `reason` fields. Plain reason
