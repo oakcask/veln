@@ -279,20 +279,36 @@ fn ir_schema_dispatch_case(
 ) -> Option<IrSchemaDecodeDispatchCase> {
     let width = match &case.payload {
         SchemaDispatchCasePayload::Primitive { width, .. } => *width,
+        SchemaDispatchCasePayload::ReservedBits { bit_width, .. } => bit_width / 8,
         SchemaDispatchCasePayload::Schema { .. } => 0,
     };
     let little_endian = match &case.payload {
         SchemaDispatchCasePayload::Primitive { little_endian, .. } => *little_endian,
+        SchemaDispatchCasePayload::ReservedBits { .. } => false,
         SchemaDispatchCasePayload::Schema { .. } => false,
     };
+    let reserved_bits = match &case.payload {
+        SchemaDispatchCasePayload::ReservedBits {
+            bit_width,
+            expected_value,
+        } => Some(IrSchemaReservedBits {
+            bit_width: *bit_width,
+            expected_value: *expected_value,
+        }),
+        SchemaDispatchCasePayload::Primitive { .. } | SchemaDispatchCasePayload::Schema { .. } => {
+            None
+        }
+    };
     let payload_schema = match case.payload {
-        SchemaDispatchCasePayload::Primitive { .. } => None,
+        SchemaDispatchCasePayload::Primitive { .. }
+        | SchemaDispatchCasePayload::ReservedBits { .. } => None,
         SchemaDispatchCasePayload::Schema { schema_name } => {
             if schema.name.as_deref() == Some(schema_name.as_str()) {
                 return Some(IrSchemaDecodeDispatchCase {
                     tag: case.tag,
                     width,
                     little_endian,
+                    reserved_bits,
                     payload_schema: None,
                     payload_schema_name: Some(schema_name),
                 });
@@ -309,6 +325,7 @@ fn ir_schema_dispatch_case(
         tag: case.tag,
         width,
         little_endian,
+        reserved_bits,
         payload_schema,
         payload_schema_name: None,
     })
@@ -373,6 +390,7 @@ fn schema_dispatch_field_type(
         .iter()
         .map(|case| match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+            SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
                 if recursive_dispatch_payload_case_is_eligible(
                     module,

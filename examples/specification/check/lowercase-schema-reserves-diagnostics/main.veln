@@ -16,6 +16,11 @@ schema MissingFormatReserve
 	padding: uint16be reserves 0
 end
 
+schema MissingFormatReserveDispatchPayload
+	tag: Int
+	payload: Dispatch(tag, 1 => uint24be reserves 0)
+end
+
 schema RepeatReservePayload
 	format binary
 
@@ -28,4 +33,11 @@ schema DispatchReservePayload
 
 	tag: uint8
 	payload: Dispatch(tag, 1 => uint16be reserves 0)
+end
+
+schema DispatchSubbyteReservePayload
+	format binary
+
+	tag: uint8
+	payload: Dispatch(tag, 1 => uint1 reserves 0)
 end

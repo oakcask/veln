@@ -2890,6 +2890,7 @@ pub(crate) fn schema_dispatch_case_type(
 ) -> Option<Type> {
     match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
         SchemaDispatchCasePayload::Schema { schema_name } => {
             if schema.name.as_deref() == Some(schema_name.as_str()) {
                 return schema_recursive_dispatch_payload_type(module, schema);
@@ -2909,6 +2910,7 @@ fn schema_encode_dispatch_case_type(
 ) -> Option<Type> {
     match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
         SchemaDispatchCasePayload::Schema { schema_name } => {
             if recursive_dispatch_payload_case_is_eligible(
                 module,
@@ -3091,6 +3093,7 @@ fn dispatch_has_non_recursive_payload_case(
 ) -> bool {
     dispatch.cases.iter().any(|case| match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => true,
+        SchemaDispatchCasePayload::ReservedBits { .. } => true,
         SchemaDispatchCasePayload::Schema { schema_name } => {
             !recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
         }
@@ -4405,16 +4408,13 @@ pub(crate) struct SchemaDispatchCase {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SchemaDispatchCasePayload {
     Primitive { width: u8, little_endian: bool },
+    ReservedBits { bit_width: u8, expected_value: i64 },
     Schema { schema_name: String },
 }
 
 pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
     let inner = schema_call_inner(ty, "Dispatch")?;
-    let mut args = inner
-        .split(',')
-        .map(str::trim)
-        .filter(|arg| !arg.is_empty())
-        .peekable();
+    let mut args = split_top_level_args(inner).into_iter().peekable();
     let tag_field = args.next()?.to_string();
     if !is_schema_identifier(&tag_field) {
         return None;
@@ -4453,10 +4453,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
 
 pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
     let inner = schema_call_inner(ty, "ExtensionDispatch")?;
-    let mut args = inner
-        .split(',')
-        .map(str::trim)
-        .filter(|arg| !arg.is_empty());
+    let mut args = split_top_level_args(inner).into_iter();
     let tag_field = args.next()?.to_string();
     let length_field = args.next()?.to_string();
     if !is_schema_identifier(&tag_field) || !is_schema_identifier(&length_field) {
@@ -4482,6 +4479,13 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
 }
 
 fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {
+    if let Some((bit_width, expected_value)) = reserved_bits_schema_primitive(text) {
+        let bit_width = dispatch_reserved_bits_width(bit_width, expected_value)?;
+        return Some(SchemaDispatchCasePayload::ReservedBits {
+            bit_width,
+            expected_value,
+        });
+    }
     if let Some(width) = exact_width_schema_primitive(text) {
         if exact_width_schema_primitive_bit_width(text)? < 8 {
             return None;
@@ -4494,6 +4498,24 @@ fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload>
     schema_payload_name_is_path(text).then(|| SchemaDispatchCasePayload::Schema {
         schema_name: text.to_string(),
     })
+}
+
+pub(crate) fn schema_dispatch_payload_accepts_lowercase_primitive(text: &str) -> bool {
+    (lowercase_schema_primitive(text).is_some()
+        || lowercase_reserved_bits_schema_primitive(text).is_some())
+        && schema_dispatch_case_payload(text).is_some()
+}
+
+fn dispatch_reserved_bits_width(bit_width: i64, expected_value: i64) -> Option<u8> {
+    if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
+        return None;
+    }
+    let max_value = if bit_width == 32 {
+        0xffffffff
+    } else {
+        (1_i64 << bit_width) - 1
+    };
+    (expected_value <= max_value).then_some(bit_width as u8)
 }
 
 pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str, &'static str)> {
@@ -4513,11 +4535,7 @@ pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str,
     }
     for call_name in ["Dispatch", "ExtensionDispatch"] {
         if let Some(inner) = schema_call_inner(ty, call_name) {
-            for arg in inner
-                .split(',')
-                .map(str::trim)
-                .filter(|arg| !arg.is_empty())
-            {
+            for arg in split_top_level_args(inner) {
                 let Some((_, payload)) = arg.split_once("=>") else {
                     continue;
                 };
@@ -4531,6 +4549,31 @@ pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str,
         }
     }
     payloads
+}
+
+fn split_top_level_args(text: &str) -> Vec<&str> {
+    let mut args = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                let arg = text[start..index].trim();
+                if !arg.is_empty() {
+                    args.push(arg);
+                }
+                start = index + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let arg = text[start..].trim();
+    if !arg.is_empty() {
+        args.push(arg);
+    }
+    args
 }
 
 fn schema_call_inner<'a>(ty: &'a str, name: &str) -> Option<&'a str> {

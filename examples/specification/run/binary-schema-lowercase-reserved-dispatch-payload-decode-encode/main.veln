@@ -1,0 +1,88 @@
+# Lowercase reserved dispatch payloads validate fixed bytes and decode to unit.
+use stdio
+
+schema ClosedReservedDispatch
+	format binary
+
+	kind: uint8
+	payload: Dispatch(kind, 1 => uint16be reserves 43981)
+end
+
+schema ClosedCompatReservedDispatch
+	format binary
+
+	kind: uint8
+	payload: Dispatch(kind, 1 => ReservedBits(16, 43981))
+end
+
+schema ExtensionReservedDispatch
+	format binary
+
+	length: uint8
+	kind: uint8
+	payload: ExtensionDispatch(kind, length, 1 => uint16be reserves 43981)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<()>) -> () effects [stdio]
+	match payload
+		Known(_) => stdio::println("extension-known")
+		Unknown(_, _) => stdio::println("unexpected unknown")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("01abcd")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(3)?)?
+	let closed: {kind: Int, payload: ()} = byte_decode_closed_reserved_dispatch(closed_view)?
+	stdio::print("closed ")
+	stdio::println(int_to_string(closed.kind))
+	emit_encoded("closed-reserved-dispatch", byte_encode_closed_reserved_dispatch(closed), "01abcd")
+
+	let compat_bytes: ByteChunk = byte_chunk_from_hex("01abcd")?
+	let compat_view: ByteView = byte_view(compat_bytes, byte_offset(0)?, byte_count(3)?)?
+	let compat: {kind: Int, payload: ()} = byte_decode_closed_compat_reserved_dispatch(compat_view)?
+	stdio::print("compat ")
+	stdio::println(int_to_string(compat.kind))
+	emit_encoded("closed-compat-reserved-dispatch", byte_encode_closed_compat_reserved_dispatch(compat), "01abcd")
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("0201abcd")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(4)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<()>} = byte_decode_extension_reserved_dispatch(extension_view)?
+	stdio::print("extension ")
+	stdio::print(int_to_string(extension.length))
+	stdio::print(" ")
+	stdio::println(int_to_string(extension.kind))
+	emit_extension_payload(extension.payload)
+	emit_encoded("extension-reserved-dispatch", byte_encode_extension_reserved_dispatch({length: extension.length, kind: extension.kind, payload: Known(())}), "0201abcd")
+	Ok(())
+end

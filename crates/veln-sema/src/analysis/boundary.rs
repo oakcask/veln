@@ -11,11 +11,12 @@ use crate::types::{
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive,
     schema_decode_only_recursive_dispatch_payload_type, schema_decode_step_function_name,
-    schema_decode_value_type, schema_dispatch_payload_schema, schema_encode_function_name,
-    schema_encode_value_type, schema_has_eligible_recursive_dispatch_payload,
-    schema_has_recursive_dispatch_payload, schema_length_expression_references,
-    schema_payload_name_last_segment, schema_payload_name_path,
-    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
+    schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
+    schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
+    schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
+    schema_length_expression_references, schema_payload_name_last_segment,
+    schema_payload_name_path, schema_recursive_dispatch_payload_type,
+    supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{
@@ -1500,7 +1501,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 for (primitive, reason) in lowercase_nested_payloads {
                     if format_name == Some("binary")
                         && reason == "dispatch_payload"
-                        && matches!(lowercase_schema_primitive(primitive), Some(Ok(_)))
+                        && schema_dispatch_payload_accepts_lowercase_primitive(primitive)
                     {
                         continue;
                     }
@@ -2375,6 +2376,7 @@ fn check_schema_dispatch_field(
     for case in &dispatch.cases {
         let payload_ty = match &case.payload {
             SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+            SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
             SchemaDispatchCasePayload::Schema { schema_name } => {
                 if schema.name.as_deref() == Some(schema_name.as_str()) {
                     if !recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
@@ -2516,6 +2518,7 @@ fn check_schema_dispatch_field(
         if let Some((case, payload_ty)) = dispatch.cases.iter().find_map(|case| {
             let payload_ty = match &case.payload {
                 SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+                SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
                 SchemaDispatchCasePayload::Schema { schema_name } => {
                     if schema.name.as_deref() == Some(schema_name.as_str()) {
                         schema_recursive_dispatch_payload_type(module, schema)
@@ -2878,6 +2881,7 @@ fn resolve_imported_schema_dispatch_payload_schema<'a>(
 fn schema_dispatch_case_payload_name(payload: &SchemaDispatchCasePayload) -> &str {
     match payload {
         SchemaDispatchCasePayload::Primitive { .. } => "<primitive>",
+        SchemaDispatchCasePayload::ReservedBits { .. } => "<reserved>",
         SchemaDispatchCasePayload::Schema { schema_name } => schema_name,
     }
 }

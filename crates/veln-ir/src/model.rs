@@ -60,6 +60,7 @@ pub struct IrSchemaDecodeDispatchCase {
     pub tag: i64,
     pub width: u8,
     pub little_endian: bool,
+    pub reserved_bits: Option<IrSchemaReservedBits>,
     pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
     pub payload_schema_name: Option<String>,
 }
