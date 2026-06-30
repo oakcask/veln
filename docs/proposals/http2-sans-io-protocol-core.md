@@ -342,11 +342,13 @@ form names a supported static-table header name already accepted by the
 static-indexed fixture set, including ordinary names such as `server`,
 `content-type`, and `user-agent`.
 Complete HEADERS and final CONTINUATION paths also attempt the implemented
-source-visible `hpack_static` decoder before fixture fallback for the first
-static-indexed subset: `:method: GET`, `:method: POST`, `:path: /`,
-`:scheme: http`, `:scheme: https`, `:status: 200`, and `:status: 404`.
-Static-only header blocks with unsupported static-table indexes now project
-`hpack.static.unsupported_index`. The source-visible decoder also accepts the
+source-visible `hpack_static` decoder before fixture fallback for every
+single-byte static indexed entry from `0x81` `:authority` through `0xbd`
+`www-authenticate:`, using one static-table lookup path. Static-only header
+blocks with unsupported static-table indexes now project
+`hpack.static.unsupported_index`, including the standalone source-visible
+boundary case for static table index `62`. The source-visible decoder also
+accepts the
 bounded literal-without-indexing static-name slice for `:authority`, `:path`,
 `:status`, `server`, `content-type`, and `user-agent` when the value is a raw
 single-byte-length visible-ASCII string. Unsupported literal names,
