@@ -30,13 +30,6 @@ recursive payload cases.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-dispatch-payload-decode-only-helper/`
-  checks direct parent decode, generated decode-step, and `derive decode`
-  through a nested payload schema whose generated encode helper is unavailable.
-- `../../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
-  checks that the corresponding encode path still reports
-  `schema.dispatch_payload` with the generated encode helper boundary,
-  unavailable encode direction, and mapping-projection fact.
 - `../../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
   keeps decode-ineligible payload schemas on the existing dispatch payload
   diagnostic route.

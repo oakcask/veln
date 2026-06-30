@@ -27,9 +27,6 @@ value positions continue to reject the primitive names with
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-u56-widths-decode/`
-  checks seven-byte big-endian and little-endian decode into ordinary `Int`
-  fields.
 - `../../../examples/specification/run/binary-schema-u56-widths-encode/`
   checks seven-byte big-endian and little-endian encode output.
 - `../../../examples/specification/run/binary-schema-u56-widths-encode-out-of-range/`

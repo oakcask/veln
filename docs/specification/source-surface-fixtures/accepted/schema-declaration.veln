@@ -12,14 +12,6 @@ schema Http2FrameHeader
 	aligned_payload: ByteView(length) where payload_count multiple of padding_length
 
 	validate padding_length <= length
-
-	map to FrameHeader
-		priority = priority
-		length = length
-		kind = convert_kind(priority)
-		stream_id = stream_id
-		checksum = checksum
-		payload = payload
 end
 
 pub schema PublicFrameHeader
@@ -36,14 +28,6 @@ pub schema PublicFrameHeader
 	aligned_payload: ByteView(length) where payload_count multiple of padding_length
 
 	validate padding_length <= length
-
-	map to FrameHeader
-		priority = priority
-		length = length
-		kind = convert_kind(priority)
-		stream_id = stream_id
-		checksum = checksum
-		payload = payload
 end
 
 schema Metadata

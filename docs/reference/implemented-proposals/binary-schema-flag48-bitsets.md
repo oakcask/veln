@@ -35,11 +35,6 @@ families.
 - `../../../examples/specification/run/binary-schema-flag48be-encode/` and
   `../../../examples/specification/run/binary-schema-flag48le-encode/` check
   six-byte big-endian and little-endian encode output.
-- `../../../examples/specification/run/binary-schema-flag48be-mapped-record-decode/`,
-  `../../../examples/specification/run/binary-schema-flag48le-mapped-record-decode/`,
-  `../../../examples/specification/run/binary-schema-flag48be-mapped-record-encode/`,
-  and `../../../examples/specification/run/binary-schema-flag48le-mapped-record-encode/`
-  check direct structural mappings in both directions.
 - `../../../examples/specification/run/binary-schema-flag48be-bit-helpers/`
   and `../../../examples/specification/run/binary-schema-flag48le-bit-helpers/`
   check successful helper reads, writes, raw-bit extraction, raw-bit

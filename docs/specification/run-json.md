@@ -334,18 +334,6 @@ validation failure,
   such as `length` and `padding_length`
 - `byte_preview`: a structured bounded byte preview object
 
-When the result value is a binary schema mapping division-by-zero failure,
-`details.byte_diagnostic` includes:
-
-- `kind: "byte_diagnostic"`
-- `id: "schema.mapping_division_by_zero"`
-- `byte_offset`: the offset after the decoded schema body
-- `field_path`: schema-local path segment objects with `kind` and `name`,
-  ending at the mapping target field
-- `target_field`: the target field whose mapping expression failed
-- `operator: "/"`
-- `byte_preview`: a structured bounded byte preview object
-
 When the result value is a schema value validation failure from
 `validate_<schema>`, `details.value_diagnostic` includes:
 
@@ -383,15 +371,14 @@ reason)))` for the same generated encode ids,
 
 - `kind: "value_diagnostic"`
 - `id`: one of `codec.encode_value_unrepresentable`,
-  `codec.encode_mapping_mismatch`, `codec.dispatch_unknown_tag`,
-  `codec.dispatch_length_mismatch`, or
+  `codec.dispatch_unknown_tag`, `codec.dispatch_length_mismatch`, or
   `codec.dispatch_mismatch`, or `schema.validation_failed`
 - `field_path`: schema-local path segment objects with `kind` and `name`,
   derived from the source-visible field path
 - `field_path_display`: the source-visible field path string for
-  representation, dispatch, and mapping failures
-- `reason`: the source-visible encode failure reason for representation,
-  dispatch, and mapping failures
+  representation and dispatch failures
+- `reason`: the source-visible encode failure reason for representation and
+  dispatch failures
 - `expected_count`, `actual_count`, `length_expression`, `byte_offset`, and
   `byte_preview` for generated length-bounded `ByteView` encode count
   mismatches

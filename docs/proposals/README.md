@@ -71,47 +71,18 @@ compare it with `../specification/` before changing behavior.
   source-level `codec` declarations, stop exposing generated helper names as
   public source API, and reposition binary `schema` declarations as explicit
   byte-pattern operations used from ordinary functions.
-- [Remove Schema Map To](remove-schema-map-to.md): remove schema-level
-  `map to` clauses and require explicit ordinary projection functions at
-  schema operation or ordinary function boundaries.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
-  schema primitive declaration and execution boundaries, structural mapping
-  clauses, existing codec compatibility schema import/reference visibility
-  checks, and generated
-  field-local validation plus decoded-field single-record mapping decode
-  helper slices with schema-local field reference, record construction, ADT
-  constructor construction mapping expressions including nested constructor
-  payloads in generated decode mappings, pure same-module and imported
-  public representation conversion hooks that take one or more supported
-  arguments from schema-local fields or structural mapping expressions
-  including pure converter calls, field
-  selection from record-shaped structural mapping expressions, decoded-field,
-  integer-literal, and `Int` converter-call mapping arithmetic including
-  integer division, equality, inequality, and ordered mapping comparisons over
-  supported `Int` mapping operands for `Bool` target fields composed with
-  `and`, `or`, and `not`, narrow boolean mapping selection, pure `Bool`
-  converter selector calls through same-module functions, written imported
-  paths, unqualified public imports, or public function aliases, format-neutral
-  schema bodies without a `format` clause plus
-  `format binary` gating for binary-only field vocabulary, focused mapping
-  selection diagnostics, and the generated-helper schema validation diagnostic boundary,
-  generated `validate_<schema>` decoded-record validation boundary, visible
-  flag bitset decode bindings, bounded repeat generated helper bindings, plus
-  projectable structural mapped schema encode helper including explicitly
-  named same-module and imported converter inverse projection through written
-  imports, unqualified public imports, and public function aliases, generated encode-time
-  field-local validation for eligible schema helpers, derived encode boundary
-  support, derived selected-mapping encode boundary support including ordered
-  field-literal selector comparisons, and codec decode boundaries over
-  multiple decoded-field selected mappings that resolve to one mapped record
-  shape. The completed bounded repeat helper binding slice is
-  archived under
-  [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
-  The completed narrow arithmetic mapped encode slice is
-  archived under
-  [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
+  schema primitive declaration and execution boundaries, existing codec
+  compatibility schema import/reference visibility checks, generated
+  field-local validation, generated `validate_<schema>` decoded-record
+  validation, visible flag bitset decode bindings, bounded repeat generated
+  helper bindings, generated encode-time field-local validation for eligible
+  schema helpers, derived encode boundary support, format-neutral schema bodies
+  without a `format` clause, and `format binary` gating for binary-only field
+  vocabulary. Schema-level `map to` clauses are removed as recorded in
+  [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup. The completed documentation-comment schema reference slice is
@@ -193,14 +164,8 @@ compare it with `../specification/` before changing behavior.
   seven-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
   eight-byte little-endian visible flag
   bitset decode and encode, checked bit and raw-bit helpers,
-  structural mapping decode including constructor payload field selection
-  from record-shaped mapping expressions, projectable mapped-record encode,
-  same-module and imported converter-call mapped encode with explicitly named
-  inverse converters through written imports, unqualified public imports, and
-  public function aliases, and direct or nested ADT constructor mapped encode
-  projections for supported schema-local fields plus record-payload
-  constructor slices, direction-specific nested dispatch payload decode helper
-  eligibility with encode-helper diagnostics preserved for encode paths,
+  direction-specific nested dispatch payload decode helper eligibility with
+  encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte, two-byte,
   three-byte, four-byte, five-byte, six-byte, and seven-byte group decode
@@ -250,19 +215,16 @@ compare it with `../specification/` before changing behavior.
   `ByteView(left_length / right_length)` fields, and checked non-HTTP coverage
   combines the implemented helper vocabulary in one
   decode-and-encode schema. Closed dispatch payload cases
-  with mixed primitive and nested decoded shapes are implemented for selected
-  mappings keyed by the dispatch tag field when those mappings cover the
-  dispatch cases and resolve to one target record shape. Same-module and
-  public imported recursive closed-dispatch and extension-dispatch payload
-  decode and encode support is implemented for the length-bounded forms when
-  selected mappings cover every known case, resolve to one target record
-  shape, and include a non-recursive base case; same-module wrapper
-  dispatches may also select a separate eligible recursive payload schema
-  through that same helper path. Earlier same-module recursive payload schemas
-  and public imported recursive payload schemas are also accepted for
-  decode-only length-bounded parent dispatch fields without selected mappings
-  when the payload schema already has bounded recursive helper support and the
-  parent includes a non-recursive primitive case
+  with mixed primitive and nested decoded shapes are implemented for
+  schema-local visible record helper paths. Same-module and public imported
+  recursive closed-dispatch and extension-dispatch payload decode and encode
+  support is implemented for the length-bounded forms when the helper path has
+  a non-recursive base case; same-module wrapper dispatches may also select a
+  separate eligible recursive payload schema through that same helper path.
+  Earlier same-module recursive payload schemas and public imported recursive
+  payload schemas are also accepted for decode-only length-bounded parent
+  dispatch fields when the payload schema already has bounded recursive helper
+  support and the parent includes a non-recursive primitive case
   ([Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md)).
   Focused dispatch payload diagnostics now also
   name the failed recursive-helper fact for recursive payload rejections and
@@ -270,9 +232,7 @@ compare it with `../specification/` before changing behavior.
   for resolved binary nested payload schemas that cannot expose those helpers,
   including unsupported `ByteView` payload layouts whose length field is not
   an earlier decoded `Int` field and unsupported representation-only
-  `ReservedBits` payload layouts, and mapped payload schemas that decode but
-  cannot project their mapping assignment back to schema-local fields for
-  generated encode. The completed dispatch payload helper boundary diagnostics
+  `ReservedBits` payload layouts. The completed dispatch payload helper boundary diagnostics
   slice is archived under
   [Binary Schema Dispatch Payload Helper Boundary Diagnostics](../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
   The completed direction-specific nested dispatch payload helper slice is
@@ -295,10 +255,6 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Dispatch ByteView Quotient Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-byteview-quotient-payload-helpers.md).
   The completed bounded repeat helper binding slice is archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
-  The completed narrow arithmetic mapped encode slice is archived under
-  [Binary Schema Mapping Arithmetic Encode](../reference/implemented-proposals/binary-schema-mapping-arithmetic-encode.md).
-  The completed mapped encode projection diagnostic slice is archived under
-  [Binary Schema Mapped Encode Projection Diagnostics](../reference/implemented-proposals/binary-schema-mapped-encode-projection-diagnostics.md).
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
@@ -310,8 +266,6 @@ compare it with `../specification/` before changing behavior.
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
   and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
-  The completed opt-in reserved-bit mapping exposure slice is archived under
-  [Binary Schema Reserved Bit Mapping Exposure](../reference/implemented-proposals/binary-schema-reserved-bit-mapping-exposure.md).
   The completed one-byte reserved suffix slice is archived under
   [Binary Schema One-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md).
   The completed `UInt8` plus multi-byte reserved suffix slice is archived

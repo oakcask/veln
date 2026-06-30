@@ -1021,8 +1021,8 @@ fields in schema order, check supported field-local `where` predicates after
 the owning field is decoded, project field-local fixed equality predicates
 through `Err(RuntimeDiagnostic(...))` with `schema.fixed_field_mismatch` when
 the decoded value differs, return ordinary `Int` values when validation
-passes, and can return a mapped record shape when one eligible structural
-`map to Target` clause maps decoded schema fields into `Int` target fields.
+passes. Projection from the schema-local record into a domain shape is ordinary
+source code at the helper-call or codec boundary.
 They report `schema.validation_failed` with field path, predicate, decoded
 values, and structured byte preview fields when validation fails. The same
 eligible schema declarations also expose `byte_decode_step_<schema>` helpers

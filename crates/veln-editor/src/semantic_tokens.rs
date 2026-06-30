@@ -251,11 +251,6 @@ impl<'a> Classifier<'a> {
                         self.cursor += 1;
                     }
                 }
-                TokenKind::Ident
-                    if token.text == "map" && self.next_significant_text() == Some("to") =>
-                {
-                    self.collect_schema_mapping(&mut semantic_tokens);
-                }
                 TokenKind::Let => {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
                     self.cursor += 1;
@@ -319,28 +314,6 @@ impl<'a> Classifier<'a> {
             let token = &self.tokens[self.cursor];
             if matches!(token.kind, TokenKind::Decode | TokenKind::Encode) {
                 semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
-            } else if let Some(classified) = self.classify_current_token() {
-                semantic_tokens.push(classified);
-            }
-            self.cursor += 1;
-        }
-    }
-
-    fn collect_schema_mapping(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
-        let token = &self.tokens[self.cursor];
-        semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-        self.cursor += 1;
-        self.skip_trivia();
-        if self.at(TokenKind::Ident) && self.tokens[self.cursor].text == "to" {
-            let token = &self.tokens[self.cursor];
-            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-            self.cursor += 1;
-            self.skip_trivia();
-        }
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident {
-                semantic_tokens.push(self.simple(token, SemanticTokenType::Type));
             } else if let Some(classified) = self.classify_current_token() {
                 semantic_tokens.push(classified);
             }
@@ -738,14 +711,6 @@ impl<'a> Classifier<'a> {
             .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
             .map(|token| token.kind)
     }
-
-    fn next_significant_text(&self) -> Option<&str> {
-        self.tokens
-            .iter()
-            .skip(self.cursor + 1)
-            .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-            .map(|token| token.text.as_str())
-    }
 }
 
 fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
@@ -1010,9 +975,6 @@ mod tests {
                 "  padding_length: UInt8 where padding_length <= length\n",
                 "  stream_reserved: ReservedBits(1, 0)\n",
                 "  settings: Repeat(length - padding_length, UInt16be)\n",
-                "\n",
-                "  map to FrameHeader\n",
-                "    length = length\n",
                 "end\n",
             ),
         );
@@ -1055,21 +1017,6 @@ mod tests {
         )));
         assert!(tokens.contains(&(
             "Repeat".to_string(),
-            SemanticTokenType::Type,
-            SemanticTokenModifiers::empty().bits()
-        )));
-        assert!(tokens.contains(&(
-            "map".to_string(),
-            SemanticTokenType::Keyword,
-            SemanticTokenModifiers::empty().bits()
-        )));
-        assert!(tokens.contains(&(
-            "to".to_string(),
-            SemanticTokenType::Keyword,
-            SemanticTokenModifiers::empty().bits()
-        )));
-        assert!(tokens.contains(&(
-            "FrameHeader".to_string(),
             SemanticTokenType::Type,
             SemanticTokenModifiers::empty().bits()
         )));

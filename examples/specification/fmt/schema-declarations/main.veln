@@ -11,16 +11,4 @@ pub  schema   Http2FrameHeader
   product_settings:Repeat(length*padding_length,UInt16be)
   payload:ByteView(length-padding_length)
   product_payload:ByteView(length*padding_length)
-
-  map   to   FrameHeader
-    priority=priority
-    length =length
-    kind= kind
-    stream_id=stream_id
-    checksum = checksum
-    body_length=(length-padding_length)+checksum
-    settings=settings
-    product_settings=product_settings
-    payload=payload
-    product_payload=product_payload
 end

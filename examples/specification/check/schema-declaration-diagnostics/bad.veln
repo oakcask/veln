@@ -5,7 +5,7 @@ schema BadHeader
   _reserved: UInt8
   broken: UInt8 where
   map to EmptyHeader
-  map Header
+  map to OtherHeader when length == 1
     length = length
     length = kind
     = stream_id

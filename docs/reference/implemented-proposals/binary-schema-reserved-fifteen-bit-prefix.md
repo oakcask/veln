@@ -28,15 +28,8 @@ path. Other unsupported `ReservedBits` layouts remain outside this slice.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-decode-encode/`
-  checks direct helper decode and encode, generated decode-step helper
-  eligibility, derived codec decode and encode, omitted reserved fields,
-  lowercase hex output, and visible-field range failure behavior.
-- `../../../examples/specification/run/binary-schema-reserved-fifteen-bit-prefix-json/`
-  checks JSON reserved-bit mismatch details for the same two-field boundary.
-- `crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks helper
-  eligibility for the accepted two-byte packed reserved-prefix width range,
-  including the width-fifteen boundary.
+Helper eligibility for the accepted two-byte packed reserved-prefix width
+range, including the width-fifteen boundary, remains covered by semantic tests.
 
 ## Remaining Work
 

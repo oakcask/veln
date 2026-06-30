@@ -199,9 +199,7 @@ work share these semantic rules:
   endian.
 - A `uint` field with `reserves <value>` is representation-only. Decode and
   encode helpers validate or emit the declared value, omit the field from
-  ordinary decoded and encoded records, and expose the validated value as an
-  `Int` mapping source only when a mapping assignment explicitly names the
-  reserved field.
+  ordinary decoded and encoded records.
 - The field path for reserved-bit diagnostics uses the declared field name.
 
 The accepted width set matches the implemented upper-case and
@@ -289,8 +287,8 @@ staged without changing binary schema semantics:
    compatibility `Repeat(count, Payload)` fields.
 3. Extend lower-case primitive normalization to repeated and dispatch payload
    positions that already accept compatibility primitive spellings.
-4. Keep helper generation, mapping, encode, decode, and diagnostic behavior
-   unchanged after normalization.
+4. Keep helper generation, encode, decode, and diagnostic behavior unchanged
+   after normalization.
 5. Add executable examples for reserved fields, nested payload cases, repeated
    payloads, and rejection diagnostics.
 6. Teach the formatter to write lower-case canonical spelling and
@@ -308,7 +306,7 @@ byte widths beyond the already implemented helper surface.
 
 This proposal does not change the source-visible wrapper types used by
 implemented flag helper functions. For example, a decoded `flag16be` field may
-still map to the existing source-visible flag wrapper value until a separate
+still use the existing source-visible flag wrapper value until a separate
 proposal changes that runtime value surface.
 
 This proposal does not make `reserves` a general-purpose field constraint for
@@ -333,8 +331,8 @@ The proposal is complete when:
 - Existing `Repeat(count, Payload)` spellings continue to work as schema-only
   compatibility spellings and normalize to the same descriptor as canonical
   repeated fields.
-- Generated decode, encode, mapping, repeat, dispatch, and derived codec
-  helper behavior is unchanged after each remaining normalization slice.
+- Generated decode, encode, repeat, dispatch, and derived codec helper behavior
+  is unchanged after each remaining normalization slice.
 - Formatter, editor token, source-surface documentation, execution
   documentation, and executable specification examples reflect the canonical
   lower-case spelling and repeated field syntax.

@@ -28,19 +28,7 @@ nested schemas whose decode helper is available and encode helper is not.
 
 ## Evidence
 
-- `../../../examples/specification/check/binary-schema-mapped-encode-projection-diagnostics-json/`
-  checks stable JSON details for a schema-local mapped encode projection
-  failure.
-- `../../../examples/specification/check/binary-schema-mapped-encode-projection-diagnostics-human/`
-  checks the human primary message and related notes.
-- `../../../examples/specification/check/binary-schema-mapped-encode-projection-helper-json/`
-  checks the same schema-local projection failure for a direct
-  `byte_encode_<schema>` helper request.
-- `../../../examples/specification/check/binary-schema-dispatch-payload-encode-helper-boundary-json/`
-  keeps nested dispatch payload helper-boundary JSON coverage for the same
-  projection fact.
-- `crates/veln-sema/src/tests/declarations_and_names.rs` checks derived encode
-  diagnostics for converter and nested mapping projection gaps.
+This historical slice was retired with schema-level mapping support.
 
 ## Remaining Work
 

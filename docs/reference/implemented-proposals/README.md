@@ -114,6 +114,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Schema documentation references:
   [schema-documentation-references.md](schema-documentation-references.md).
+- Remove schema map-to:
+  [remove-schema-map-to.md](remove-schema-map-to.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
 - Binary schema `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` bitsets:

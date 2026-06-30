@@ -1,7 +1,0 @@
-pub fn next_kind(kind: Int) -> Int
-	kind + 1
-end
-
-pub fn next_length(length: Int) -> Int
-	length + 1
-end

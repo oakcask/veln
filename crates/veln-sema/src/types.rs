@@ -1,25 +1,19 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
-    BinaryOp, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind,
-    Function, FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SchemaDecl, SchemaField, SchemaMappingAssignment, SurfaceModule, UseDecl, Visibility,
+    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
+    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl,
+    SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
 use crate::adt::{self, AdtRegistry};
 use crate::effects::{concurrency_effects, is_stdio_call, standard_library_effects};
-use crate::schema::mapping::{
-    SchemaDecodeMappingExpr, SchemaMappingSelectorComparison, SchemaMappingTyper,
-    schema_decode_mapping_record_fields, schema_mapping_selector_predicate,
-    schema_mapping_target_record_fields,
-};
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     codec_calls: Vec<CodecCallSignature>,
-    schema_encode_projection_failures: Vec<SchemaEncodeProjectionFailure>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
 }
@@ -50,17 +44,6 @@ pub(crate) struct CodecCallSignature {
     pub(crate) effects: Vec<String>,
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
-}
-
-#[derive(Clone)]
-pub(crate) struct SchemaEncodeProjectionFailure {
-    pub(crate) helper_name: String,
-    pub(crate) schema_name: String,
-    pub(crate) schema_span: SourceSpan,
-    pub(crate) assignment_node_id: NodeId,
-    pub(crate) assignment_span: SourceSpan,
-    pub(crate) assignment_source: String,
-    pub(crate) assignment_target: String,
 }
 
 type SchemaEncodeFields = (Vec<(String, Type)>, Vec<String>);
@@ -382,12 +365,10 @@ impl TypeEnvironment {
         infer_function_body_effects(module, &mut functions);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
-        let schema_encode_projection_failures = schema_encode_projection_failures(module);
         functions.extend(aliases);
         Self {
             functions,
             codec_calls,
-            schema_encode_projection_failures,
             uses: module.uses.clone(),
             adts,
         }
@@ -401,18 +382,6 @@ impl TypeEnvironment {
         self.functions
             .iter()
             .find(|function| function.node_id == node_id)
-    }
-
-    pub(crate) fn schema_encode_projection_failure(
-        &self,
-        helper_name: &str,
-    ) -> Option<&SchemaEncodeProjectionFailure> {
-        if helper_name.contains("::") {
-            return None;
-        }
-        self.schema_encode_projection_failures
-            .iter()
-            .find(|failure| failure.helper_name == helper_name)
     }
 
     pub(crate) fn unqualified_function(
@@ -2744,9 +2713,7 @@ fn schema_decode_function_signatures_for_schema(
     };
     let byte_view = Type::named("ByteView", Vec::new());
     let byte_offset = Type::named("ByteOffset", Vec::new());
-    let mapped_fields = schema_decode_mapping_record_fields(module, schema, &fields)
-        .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
-    let decoded_type = Type::Record(mapped_fields);
+    let decoded_type = Type::Record(fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
     let result = Type::named("Result", vec![decoded_type.clone(), Type::string()]);
     let step = Type::named("DecodeStep", vec![decoded_type]);
     vec![
@@ -2782,21 +2749,6 @@ pub(crate) fn schema_decode_record_fields(
     schema: &SchemaDecl,
 ) -> Option<Vec<(String, Type, u8)>> {
     schema_decode_record_fields_inner(module, schema, &mut Vec::new())
-}
-
-pub(crate) fn schema_decode_record_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-) -> Option<Type> {
-    if schema.format.as_ref()?.name != "binary" {
-        return None;
-    }
-    Some(Type::Record(
-        schema_decode_record_fields(module, schema)?
-            .into_iter()
-            .map(|(name, ty, _)| (name, ty))
-            .collect(),
-    ))
 }
 
 fn schema_decode_record_fields_inner(
@@ -2903,31 +2855,13 @@ fn schema_dispatch_case_types(
 fn schema_dispatch_payload_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
-    field: &SchemaField,
+    _field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
     payload_types: &[(i64, Type)],
 ) -> Option<Type> {
     let first = payload_types.first()?.1.clone();
     if payload_types.iter().all(|(_, ty)| ty == &first) {
         Some(first)
-    } else if selected_mappings_cover_closed_dispatch(schema, dispatch)
-        || (dispatch.length_field.is_some()
-            && dispatch.cases.iter().any(|case| {
-                matches!(
-                    &case.payload,
-                    SchemaDispatchCasePayload::Schema { schema_name }
-                        if recursive_dispatch_payload_case_is_eligible(
-                            module,
-                            schema,
-                            field,
-                            dispatch,
-                            schema_name,
-                        )
-                )
-            })
-            && selected_mappings_cover_dispatch_cases(schema, dispatch))
-    {
-        schema_recursive_dispatch_payload_type(module, schema)
     } else if dispatch.length_field.is_some()
         && dispatch.cases.iter().any(|case| {
             matches!(
@@ -3013,211 +2947,45 @@ fn schema_decode_value_type_inner(
     stack: &mut Vec<String>,
 ) -> Option<Type> {
     let fields = schema_decode_record_fields_inner(module, schema, stack)?;
-    let mapped_fields = schema_decode_mapping_record_fields(module, schema, &fields)
-        .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
-    Some(Type::Record(mapped_fields))
+    Some(Type::Record(
+        fields.into_iter().map(|(name, ty, _)| (name, ty)).collect(),
+    ))
 }
 
 pub(crate) fn schema_recursive_dispatch_payload_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
+    _module: &SurfaceModule,
+    _schema: &SchemaDecl,
 ) -> Option<Type> {
-    let [first_mapping, rest @ ..] = schema.mappings.as_slice() else {
-        return None;
-    };
-    let target_fields = schema_mapping_target_record_fields(module, schema, first_mapping)?;
-    for mapping in rest {
-        mapping.selector.as_ref()?;
-        if schema_mapping_target_record_fields(module, schema, mapping)? != target_fields {
-            return None;
-        }
-    }
-    Some(Type::Record(target_fields))
+    None
 }
 
 pub(crate) fn schema_imported_recursive_dispatch_payload_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    dispatch: &SchemaDispatchSpec,
+    _module: &SurfaceModule,
+    _schema: &SchemaDecl,
+    _dispatch: &SchemaDispatchSpec,
 ) -> Option<Type> {
-    recursive_dispatch_payload_mapping_field_type(
-        module,
-        schema,
-        dispatch,
-        imported_recursive_dispatch_payload_case_is_eligible,
-    )
+    None
 }
 
 pub(crate) fn schema_decode_only_recursive_dispatch_payload_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
+    _module: &SurfaceModule,
+    _schema: &SchemaDecl,
     dispatch: &SchemaDispatchSpec,
 ) -> Option<Type> {
-    recursive_dispatch_payload_mapping_field_type(
-        module,
-        schema,
-        dispatch,
-        recursive_dispatch_decode_only_payload_case_is_eligible,
-    )
-}
-
-fn recursive_dispatch_payload_mapping_field_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    dispatch: &SchemaDispatchSpec,
-    is_eligible: fn(&SurfaceModule, &SchemaDecl, &SchemaDispatchSpec, &str) -> bool,
-) -> Option<Type> {
-    let mut payload_types = dispatch
+    dispatch
         .cases
         .iter()
-        .filter_map(|case| {
-            let SchemaDispatchCasePayload::Schema { schema_name } = &case.payload else {
-                return None;
-            };
-            let payload_schema = is_eligible(module, schema, dispatch, schema_name)
-                .then(|| schema_dispatch_payload_schema(module, schema, schema_name))
-                .flatten()?;
-            schema_recursive_dispatch_payload_mapping_field_type(module, payload_schema)
-        })
-        .collect::<Vec<_>>();
-    let payload_ty = payload_types.pop()?;
-    if payload_types.iter().any(|ty| ty != &payload_ty) {
-        return None;
-    }
-    if dispatch.preserves_unknown {
-        schema_dispatch_payload_inner_type(payload_ty)
-    } else {
-        Some(payload_ty)
-    }
-}
-
-fn schema_recursive_dispatch_payload_mapping_field_type(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-) -> Option<Type> {
-    let recursive_field_name = schema_recursive_dispatch_payload_field_name(schema)?;
-    let [first_mapping, rest @ ..] = schema.mappings.as_slice() else {
-        return None;
-    };
-    let target_name = schema_mapping_assignment_target_referencing_field(
-        &first_mapping.assignments,
-        recursive_field_name,
-    )?;
-    for mapping in rest {
-        let candidate = schema_mapping_assignment_target_referencing_field(
-            &mapping.assignments,
-            recursive_field_name,
-        )?;
-        if candidate != target_name {
-            return None;
-        }
-    }
-    schema_mapping_target_record_fields(module, schema, first_mapping)?
-        .into_iter()
-        .find_map(|(name, ty)| (name == target_name).then_some(ty))
-}
-
-fn schema_recursive_dispatch_payload_field_name(schema: &SchemaDecl) -> Option<&str> {
-    let schema_name = schema.name.as_deref()?;
-    schema.fields.iter().find_map(|field| {
-        let dispatch = closed_dispatch_schema_primitive(&field.ty)
-            .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-        recursive_dispatch_payload_is_eligible(schema, field, &dispatch, schema_name)
-            .then_some(field.name.as_str())
-    })
-}
-
-fn schema_mapping_assignment_target_referencing_field<'a>(
-    assignments: &'a [veln_ast::SchemaMappingAssignment],
-    field_name: &str,
-) -> Option<&'a str> {
-    assignments
-        .iter()
-        .find(|assignment| expr_references_name(&assignment.expr, field_name))
-        .map(|assignment| assignment.target.as_str())
-}
-
-fn expr_references_name(expr: &Expr, name: &str) -> bool {
-    match &expr.kind {
-        ExprKind::NamePath(segments) => matches!(segments.as_slice(), [segment] if segment == name),
-        ExprKind::TypeApply { callee, .. } | ExprKind::Try(callee) => {
-            expr_references_name(callee, name)
-        }
-        ExprKind::Call { callee, args } => {
-            expr_references_name(callee, name)
-                || args.iter().any(|arg| expr_references_name(arg, name))
-        }
-        ExprKind::FieldAccess { base, .. } => expr_references_name(base, name),
-        ExprKind::Record(fields) => fields
-            .iter()
-            .any(|field| expr_references_name(&field.expr, name)),
-        ExprKind::Dict(entries) => entries.iter().any(|entry| {
-            expr_references_name(&entry.key, name) || expr_references_name(&entry.value, name)
-        }),
-        ExprKind::List(items) => items.iter().any(|item| expr_references_name(item, name)),
-        ExprKind::Match { scrutinee, arms } => {
-            expr_references_name(scrutinee, name)
-                || arms.iter().any(|arm| expr_references_name(&arm.expr, name))
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            expr_references_name(condition, name)
-                || expr_references_name(then_branch, name)
-                || else_if_branches.iter().any(|branch| {
-                    expr_references_name(&branch.condition, name)
-                        || expr_references_name(&branch.expr, name)
-                })
-                || expr_references_name(else_branch, name)
-        }
-        ExprKind::Prefix { expr, .. } => expr_references_name(expr, name),
-        ExprKind::Binary { left, right, .. } => {
-            expr_references_name(left, name) || expr_references_name(right, name)
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => false,
-    }
-}
-
-fn schema_dispatch_payload_inner_type(ty: Type) -> Option<Type> {
-    match ty {
-        Type::Named { name, mut args } if name == "SchemaDispatchPayload" && args.len() == 1 => {
-            args.pop()
-        }
-        _ => Some(ty),
-    }
+        .any(|case| matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
+        .then_some(Type::int())
 }
 
 pub(crate) fn recursive_dispatch_payload_is_eligible(
-    schema: &SchemaDecl,
-    field: &SchemaField,
-    dispatch: &SchemaDispatchSpec,
-    schema_name: &str,
+    _schema: &SchemaDecl,
+    _field: &SchemaField,
+    _dispatch: &SchemaDispatchSpec,
+    _schema_name: &str,
 ) -> bool {
-    schema.name.as_deref() == Some(schema_name)
-        && dispatch.length_field.is_some()
-        && schema.mappings.len() == dispatch.cases.len()
-        && selected_mappings_cover_dispatch_cases(schema, dispatch)
-        && schema
-            .fields
-            .iter()
-            .position(|candidate| candidate.node_id == field.node_id)
-            .is_some_and(|index| index > 0)
-        && dispatch.cases.iter().any(|case| {
-            !matches!(
-                &case.payload,
-                SchemaDispatchCasePayload::Schema { schema_name }
-                    if schema.name.as_deref() == Some(schema_name.as_str())
-            )
-        })
+    false
 }
 
 pub(crate) fn recursive_dispatch_payload_case_is_eligible(
@@ -3228,13 +2996,6 @@ pub(crate) fn recursive_dispatch_payload_case_is_eligible(
     schema_name: &str,
 ) -> bool {
     if recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name) {
-        return true;
-    }
-    if dispatch.length_field.is_some()
-        && selected_mappings_cover_dispatch_cases(schema, dispatch)
-        && dispatch_has_non_recursive_payload_case(module, schema, dispatch)
-        && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name)
-    {
         return true;
     }
     imported_recursive_dispatch_payload_case_is_eligible(module, schema, dispatch, schema_name)
@@ -3265,7 +3026,6 @@ pub(crate) fn recursive_dispatch_decode_only_payload_case_is_eligible(
         dispatch,
         schema_name,
     ) || (!schema_name.contains("::")
-        && schema.mappings.is_empty()
         && dispatch.length_field.is_some()
         && dispatch_has_non_recursive_primitive_payload_case(dispatch)
         && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name))
@@ -3403,51 +3163,6 @@ pub(crate) fn schema_decode_value_type(
     schema_decode_value_type_inner(module, schema, &mut Vec::new())
 }
 
-pub(crate) fn selected_mappings_cover_closed_dispatch(
-    schema: &SchemaDecl,
-    dispatch: &SchemaDispatchSpec,
-) -> bool {
-    !dispatch.preserves_unknown && selected_mappings_cover_dispatch_cases(schema, dispatch)
-}
-
-pub(crate) fn selected_mappings_cover_dispatch_cases(
-    schema: &SchemaDecl,
-    dispatch: &SchemaDispatchSpec,
-) -> bool {
-    if schema.mappings.len() != dispatch.cases.len() || schema.mappings.is_empty() {
-        return false;
-    }
-    let case_tags = dispatch
-        .cases
-        .iter()
-        .map(|case| case.tag)
-        .collect::<BTreeSet<_>>();
-    let mut selector_tags = BTreeSet::<i64>::new();
-    for mapping in &schema.mappings {
-        let Some(selector) = &mapping.selector else {
-            return false;
-        };
-        let Some((field, SchemaMappingSelectorComparison::Equal, value)) =
-            schema_mapping_selector_predicate(selector)
-                .ok()
-                .and_then(|predicate| {
-                    predicate
-                        .as_simple_comparison()
-                        .map(|(field, op, value)| (field.to_string(), op, value))
-                })
-        else {
-            return false;
-        };
-        if field != dispatch.tag_field
-            || !case_tags.contains(&value)
-            || !selector_tags.insert(value)
-        {
-            return false;
-        }
-    }
-    selector_tags == case_tags
-}
-
 pub(crate) fn schema_payload_name_path(text: &str) -> Option<Vec<String>> {
     let segments = text.split("::").map(str::trim).collect::<Vec<_>>();
     if segments.is_empty()
@@ -3474,73 +3189,6 @@ fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
         .iter()
         .filter_map(|schema| schema_encode_function_signature_for_schema(module, schema))
         .collect()
-}
-
-fn schema_encode_projection_failures(module: &SurfaceModule) -> Vec<SchemaEncodeProjectionFailure> {
-    module
-        .schemas
-        .iter()
-        .filter_map(|schema| schema_encode_projection_failure(module, schema))
-        .collect()
-}
-
-pub(crate) fn schema_encode_projection_failure(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-) -> Option<SchemaEncodeProjectionFailure> {
-    let schema_name = schema.name.as_ref()?;
-    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
-        return None;
-    }
-    schema_decode_value_type(module, schema)?;
-    if schema_encode_value_type(module, schema).is_some() {
-        return None;
-    }
-    let (schema_fields, exact_width_field_names) = schema_encode_schema_fields(module, schema)?;
-    let assignment = schema_encode_projection_failure_assignment(
-        module,
-        schema,
-        &schema_fields,
-        &exact_width_field_names,
-    )?;
-    Some(SchemaEncodeProjectionFailure {
-        helper_name: schema_encode_function_name(schema_name),
-        schema_name: schema_name.clone(),
-        schema_span: schema.span.clone(),
-        assignment_node_id: assignment.node_id,
-        assignment_span: assignment.span.clone(),
-        assignment_source: assignment.source.clone(),
-        assignment_target: assignment.target.clone(),
-    })
-}
-
-fn schema_encode_projection_failure_assignment<'a>(
-    module: &SurfaceModule,
-    schema: &'a SchemaDecl,
-    schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
-) -> Option<&'a SchemaMappingAssignment> {
-    match schema.mappings.as_slice() {
-        [] => None,
-        [mapping] => schema_encode_mapping_projection_failure_assignment(
-            module,
-            schema,
-            schema_fields,
-            exact_width_field_names,
-            mapping,
-            false,
-        ),
-        mappings => mappings.iter().find_map(|mapping| {
-            schema_encode_mapping_projection_failure_assignment(
-                module,
-                schema,
-                schema_fields,
-                exact_width_field_names,
-                mapping,
-                true,
-            )
-        }),
-    }
 }
 
 fn schema_validate_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
@@ -3683,25 +3331,8 @@ fn schema_encode_schema_fields(
             .iter()
             .map(|case| schema_encode_dispatch_case_type(module, schema, field, &dispatch, case))
             .collect::<Option<Vec<_>>>()?;
-        let selected_mapping_closed_dispatch =
-            selected_mappings_cover_closed_dispatch(schema, &dispatch);
-        let payload_ty = if recursive_dispatch_payload
-            && selected_mappings_cover_dispatch_cases(schema, &dispatch)
-        {
-            schema_recursive_dispatch_payload_type(module, schema)?
-        } else if selected_mapping_closed_dispatch {
-            payload_types.pop()?
-        } else {
-            let payload_ty = payload_types.pop()?;
-            if payload_types.iter().any(|ty| ty != &payload_ty) {
-                return None;
-            }
-            payload_ty
-        };
-        if !recursive_dispatch_payload
-            && !selected_mapping_closed_dispatch
-            && payload_types.iter().any(|ty| ty != &payload_ty)
-        {
+        let payload_ty = payload_types.pop()?;
+        if !recursive_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
             return None;
         }
         if dispatch.preserves_unknown {
@@ -3746,570 +3377,12 @@ pub(crate) fn schema_encode_value_type(
 }
 
 fn schema_encode_value_fields(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
+    _module: &SurfaceModule,
+    _schema: &SchemaDecl,
     schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
+    _exact_width_field_names: &[String],
 ) -> Option<Vec<(String, Type)>> {
-    let [] = schema.mappings.as_slice() else {
-        return schema_encode_mapping_value_fields(
-            module,
-            schema,
-            schema_fields,
-            exact_width_field_names,
-        );
-    };
     Some(schema_fields.to_vec())
-}
-
-fn schema_encode_mapping_value_fields(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
-) -> Option<Vec<(String, Type)>> {
-    let [mapping] = schema.mappings.as_slice() else {
-        return schema_encode_selected_mapping_value_fields(
-            module,
-            schema,
-            schema_fields,
-            exact_width_field_names,
-        );
-    };
-    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    let schema_field_types = schema_encode_mapping_schema_field_types(schema, schema_fields)?;
-    let supported_int_field_names =
-        schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?;
-    let typer = SchemaMappingTyper::new(module, schema);
-    let source_context = SchemaEncodeMappingSourceContext {
-        module,
-        typer: &typer,
-        schema_field_types: &schema_field_types,
-        exact_width_field_names: &supported_int_field_names,
-        allow_single_payload_variant: false,
-    };
-    if mapping.selector.is_some()
-        || schema_encode_mapping_source_targets(
-            schema_fields,
-            &source_context,
-            mapping,
-            &target_fields,
-        )
-        .is_none()
-    {
-        return None;
-    }
-    Some(target_fields)
-}
-
-fn schema_encode_selected_mapping_value_fields(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
-) -> Option<Vec<(String, Type)>> {
-    let [first, rest @ ..] = schema.mappings.as_slice() else {
-        return None;
-    };
-    schema_encode_mapping_selector_is_simple_comparison(first).then_some(())?;
-    let target_fields = schema_mapping_target_record_fields(module, schema, first)?;
-    let (schema_field_types, supported_int_field_names) = schema_encode_mapping_field_types(
-        module,
-        schema,
-        schema_fields,
-        exact_width_field_names,
-        first,
-    )?;
-    let typer = SchemaMappingTyper::new(module, schema);
-    let source_context = SchemaEncodeMappingSourceContext {
-        module,
-        typer: &typer,
-        schema_field_types: &schema_field_types,
-        exact_width_field_names: &supported_int_field_names,
-        allow_single_payload_variant: true,
-    };
-    schema_encode_mapping_source_targets(schema_fields, &source_context, first, &target_fields)?;
-    for mapping in rest {
-        schema_encode_mapping_selector_is_simple_comparison(mapping).then_some(())?;
-        let candidate_target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-        if candidate_target_fields != target_fields {
-            return None;
-        }
-        let (schema_field_types, supported_int_field_names) = schema_encode_mapping_field_types(
-            module,
-            schema,
-            schema_fields,
-            exact_width_field_names,
-            mapping,
-        )?;
-        let source_context = SchemaEncodeMappingSourceContext {
-            module,
-            typer: &typer,
-            schema_field_types: &schema_field_types,
-            exact_width_field_names: &supported_int_field_names,
-            allow_single_payload_variant: true,
-        };
-        schema_encode_mapping_source_targets(
-            schema_fields,
-            &source_context,
-            mapping,
-            &target_fields,
-        )?;
-    }
-    Some(target_fields)
-}
-
-fn schema_encode_mapping_selector_is_simple_comparison(
-    mapping: &veln_ast::SchemaMappingClause,
-) -> bool {
-    mapping.selector.as_ref().is_some_and(|selector| {
-        schema_mapping_selector_predicate(selector)
-            .ok()
-            .and_then(|predicate| predicate.as_simple_comparison().map(|_| ()))
-            .is_some()
-    })
-}
-
-fn schema_encode_mapping_field_types(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
-    mapping: &veln_ast::SchemaMappingClause,
-) -> Option<(BTreeMap<String, Type>, Vec<String>)> {
-    let mut schema_field_types = schema_encode_mapping_schema_field_types(schema, schema_fields)?;
-    let mut supported_int_field_names =
-        schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?;
-    let selector = mapping.selector.as_ref()?;
-    for field in &schema.fields {
-        let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
-            .or_else(|| extension_dispatch_schema_primitive(&field.ty))
-        else {
-            continue;
-        };
-        let selector_case =
-            schema_mapping_selector_predicate(selector)
-                .ok()
-                .and_then(|predicate| {
-                    predicate
-                        .as_simple_comparison()
-                        .map(|(field, op, value)| (field.to_string(), op, value))
-                });
-        let Some((selector_field, SchemaMappingSelectorComparison::Equal, selector_value)) =
-            selector_case
-        else {
-            continue;
-        };
-        let recursive_payload = dispatch.cases.iter().any(|case| {
-            matches!(
-                &case.payload,
-                SchemaDispatchCasePayload::Schema { schema_name }
-                    if recursive_dispatch_payload_case_is_eligible(
-                        module,
-                        schema,
-                        field,
-                        &dispatch,
-                        schema_name,
-                    )
-            )
-        });
-        if selector_field != dispatch.tag_field
-            || (dispatch.preserves_unknown && !recursive_payload)
-        {
-            continue;
-        }
-        let case = dispatch
-            .cases
-            .iter()
-            .find(|case| case.tag == selector_value)?;
-        let case_ty = schema_encode_dispatch_case_type(module, schema, field, &dispatch, case)?;
-        if case_ty == Type::int() {
-            supported_int_field_names.push(field.name.clone());
-        }
-        schema_field_types.insert(field.name.clone(), case_ty);
-    }
-    Some((schema_field_types, supported_int_field_names))
-}
-
-fn schema_encode_mapping_schema_field_types(
-    schema: &SchemaDecl,
-    schema_fields: &[(String, Type)],
-) -> Option<BTreeMap<String, Type>> {
-    let mut fields = schema_fields.iter().cloned().collect::<BTreeMap<_, _>>();
-    for (index, field) in schema.fields.iter().enumerate() {
-        let Some(reserved) = reserved_bits_schema_primitive(&field.ty) else {
-            continue;
-        };
-        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
-        fields.insert(field.name.clone(), Type::int());
-    }
-    Some(fields)
-}
-
-fn schema_encode_mapping_supported_int_field_names(
-    schema: &SchemaDecl,
-    exact_width_field_names: &[String],
-) -> Option<Vec<String>> {
-    let mut names = exact_width_field_names.to_vec();
-    for (index, field) in schema.fields.iter().enumerate() {
-        let Some(reserved) = reserved_bits_schema_primitive(&field.ty) else {
-            continue;
-        };
-        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
-        names.push(field.name.clone());
-    }
-    Some(names)
-}
-
-struct SchemaEncodeMappingSourceContext<'a> {
-    module: &'a SurfaceModule,
-    typer: &'a SchemaMappingTyper<'a>,
-    schema_field_types: &'a BTreeMap<String, Type>,
-    exact_width_field_names: &'a [String],
-    allow_single_payload_variant: bool,
-}
-
-fn schema_encode_mapping_source_targets(
-    schema_fields: &[(String, Type)],
-    context: &SchemaEncodeMappingSourceContext<'_>,
-    mapping: &veln_ast::SchemaMappingClause,
-    target_fields: &[(String, Type)],
-) -> Option<BTreeMap<String, String>> {
-    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
-    let mut source_to_target = BTreeMap::<String, String>::new();
-    for assignment in &mapping.assignments {
-        let target_ty = target_field_types.get(&assignment.target)?;
-        let sources = schema_encode_mapping_assignment_sources(
-            context,
-            context.schema_field_types,
-            context.exact_width_field_names,
-            assignment,
-            target_ty,
-            context.allow_single_payload_variant,
-        )?;
-        for source in sources {
-            if source_to_target
-                .insert(source.clone(), assignment.target.clone())
-                .is_some()
-            {
-                return None;
-            }
-        }
-    }
-    if schema_fields
-        .iter()
-        .any(|(source, _)| !source_to_target.contains_key(source))
-    {
-        return None;
-    }
-    Some(source_to_target)
-}
-
-fn schema_encode_mapping_projection_failure_assignment<'a>(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    schema_fields: &[(String, Type)],
-    exact_width_field_names: &[String],
-    mapping: &'a veln_ast::SchemaMappingClause,
-    allow_single_payload_variant: bool,
-) -> Option<&'a SchemaMappingAssignment> {
-    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    let target_field_types = target_fields.iter().cloned().collect::<BTreeMap<_, _>>();
-    let (schema_field_types, supported_int_field_names) = if allow_single_payload_variant {
-        schema_encode_mapping_field_types(
-            module,
-            schema,
-            schema_fields,
-            exact_width_field_names,
-            mapping,
-        )?
-    } else {
-        (
-            schema_encode_mapping_schema_field_types(schema, schema_fields)?,
-            schema_encode_mapping_supported_int_field_names(schema, exact_width_field_names)?,
-        )
-    };
-    let typer = SchemaMappingTyper::new(module, schema);
-    let context = SchemaEncodeMappingSourceContext {
-        module,
-        typer: &typer,
-        schema_field_types: &schema_field_types,
-        exact_width_field_names: &supported_int_field_names,
-        allow_single_payload_variant,
-    };
-    let mut source_to_target = BTreeMap::<String, String>::new();
-    let mut fallback = None;
-    for assignment in &mapping.assignments {
-        if fallback.is_none() && !assignment.source.trim().is_empty() {
-            fallback = Some(assignment);
-        }
-        let target_ty = target_field_types.get(&assignment.target)?;
-        let Some(sources) = schema_encode_mapping_assignment_sources(
-            &context,
-            context.schema_field_types,
-            context.exact_width_field_names,
-            assignment,
-            target_ty,
-            context.allow_single_payload_variant,
-        ) else {
-            return Some(assignment);
-        };
-        for source in sources {
-            if source_to_target
-                .insert(source.clone(), assignment.target.clone())
-                .is_some()
-            {
-                return Some(assignment);
-            }
-        }
-    }
-    if schema_fields
-        .iter()
-        .any(|(source, _)| !source_to_target.contains_key(source))
-    {
-        return fallback;
-    }
-    None
-}
-
-fn schema_encode_mapping_assignment_sources(
-    context: &SchemaEncodeMappingSourceContext<'_>,
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
-    assignment: &veln_ast::SchemaMappingAssignment,
-    target_ty: &Type,
-    allow_single_payload_variant: bool,
-) -> Option<Vec<String>> {
-    if let ExprKind::NamePath(segments) = &assignment.expr.kind {
-        let [source] = segments.as_slice() else {
-            return None;
-        };
-        let source_ty = schema_field_types.get(source)?;
-        return is_assignable(target_ty, source_ty).then(|| vec![source.clone()]);
-    }
-
-    let typed = context
-        .typer
-        .assignment_expr_typed_for_codegen(schema_field_types, assignment, target_ty)
-        .ok()?;
-    match typed.expr {
-        SchemaDecodeMappingExpr::Constructor { name, args } => {
-            let registry = AdtRegistry::from_module(context.module);
-            let descriptor = registry.descriptor_for_type(target_ty)?;
-            if name.len() != 2 || name[0] != descriptor.type_name {
-                return None;
-            }
-            if !descriptor.variants.iter().any(|variant| {
-                variant.name == name[1] && variant.payload_fields.len() == args.len()
-            }) {
-                return None;
-            }
-            if !allow_single_payload_variant
-                && args.len() == 1
-                && descriptor.variants.len() != 1
-                && !matches!(
-                    args.first(),
-                    Some(
-                        SchemaDecodeMappingExpr::Record(_)
-                            | SchemaDecodeMappingExpr::Constructor { .. }
-                    )
-                )
-            {
-                return None;
-            }
-            let mut sources = Vec::with_capacity(args.len());
-            for arg in args {
-                let arg_sources = schema_encode_mapping_expr_sources(
-                    &arg,
-                    schema_field_types,
-                    exact_width_field_names,
-                )?;
-                if arg_sources.is_empty() {
-                    return None;
-                }
-                sources.extend(arg_sources);
-            }
-            Some(sources)
-        }
-        expr => {
-            let sources = schema_encode_mapping_expr_sources(
-                &expr,
-                schema_field_types,
-                exact_width_field_names,
-            )?;
-            (!sources.is_empty()).then_some(sources)
-        }
-    }
-}
-
-fn schema_encode_mapping_expr_sources(
-    expr: &SchemaDecodeMappingExpr,
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
-) -> Option<Vec<String>> {
-    match expr {
-        SchemaDecodeMappingExpr::Field(source) => {
-            let source_ty = schema_field_types.get(source)?;
-            schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
-                .then(|| vec![source.clone()])
-        }
-        SchemaDecodeMappingExpr::Record(fields) => {
-            let mut sources = Vec::with_capacity(fields.len());
-            for field in fields {
-                let SchemaDecodeMappingExpr::Field(source) = &field.expr else {
-                    return None;
-                };
-                let source_ty = schema_field_types.get(source)?;
-                if !schema_encode_mapping_source_supported(
-                    source,
-                    source_ty,
-                    exact_width_field_names,
-                ) {
-                    return None;
-                }
-                sources.push(source.clone());
-            }
-            Some(sources)
-        }
-        SchemaDecodeMappingExpr::FieldAccess { base, field } => {
-            schema_encode_mapping_selected_record_source(
-                base,
-                field,
-                schema_field_types,
-                exact_width_field_names,
-            )
-            .map(|source| vec![source])
-        }
-        SchemaDecodeMappingExpr::Constructor { args, .. } => {
-            let mut sources = Vec::new();
-            for arg in args {
-                let arg_sources = schema_encode_mapping_expr_sources(
-                    arg,
-                    schema_field_types,
-                    exact_width_field_names,
-                )?;
-                sources.extend(arg_sources);
-            }
-            Some(sources)
-        }
-        SchemaDecodeMappingExpr::Converter {
-            inverse_function,
-            args,
-            ..
-        } => {
-            inverse_function.as_ref()?;
-            let [arg] = args.as_slice() else {
-                return None;
-            };
-            schema_encode_mapping_expr_sources(
-                &arg.expr,
-                schema_field_types,
-                exact_width_field_names,
-            )
-        }
-        SchemaDecodeMappingExpr::Binary { op, left, right } => {
-            schema_encode_mapping_arithmetic_sources(
-                *op,
-                left,
-                right,
-                schema_field_types,
-                exact_width_field_names,
-            )
-        }
-        SchemaDecodeMappingExpr::Literal(_) | SchemaDecodeMappingExpr::Prefix { .. } => None,
-    }
-}
-
-fn schema_encode_mapping_arithmetic_sources(
-    op: BinaryOp,
-    left: &SchemaDecodeMappingExpr,
-    right: &SchemaDecodeMappingExpr,
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
-) -> Option<Vec<String>> {
-    match op {
-        BinaryOp::Add => schema_encode_mapping_field_literal_source(
-            left,
-            right,
-            schema_field_types,
-            exact_width_field_names,
-        )
-        .or_else(|| {
-            schema_encode_mapping_field_literal_source(
-                right,
-                left,
-                schema_field_types,
-                exact_width_field_names,
-            )
-        }),
-        BinaryOp::Subtract => schema_encode_mapping_field_literal_source(
-            left,
-            right,
-            schema_field_types,
-            exact_width_field_names,
-        ),
-        _ => None,
-    }
-}
-
-fn schema_encode_mapping_field_literal_source(
-    field_expr: &SchemaDecodeMappingExpr,
-    literal_expr: &SchemaDecodeMappingExpr,
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
-) -> Option<Vec<String>> {
-    let SchemaDecodeMappingExpr::Field(source) = field_expr else {
-        return None;
-    };
-    let SchemaDecodeMappingExpr::Literal(_) = literal_expr else {
-        return None;
-    };
-    let source_ty = schema_field_types.get(source)?;
-    schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
-        .then(|| vec![source.clone()])
-}
-
-fn schema_encode_mapping_selected_record_source(
-    base: &SchemaDecodeMappingExpr,
-    field: &str,
-    schema_field_types: &BTreeMap<String, Type>,
-    exact_width_field_names: &[String],
-) -> Option<String> {
-    let SchemaDecodeMappingExpr::Record(fields) = base else {
-        return None;
-    };
-    let selected = fields.iter().find(|candidate| candidate.name == field)?;
-    let SchemaDecodeMappingExpr::Field(source) = &selected.expr else {
-        return None;
-    };
-    let source_ty = schema_field_types.get(source)?;
-    schema_encode_mapping_source_supported(source, source_ty, exact_width_field_names)
-        .then(|| source.clone())
-}
-
-fn schema_encode_mapping_source_supported(
-    source: &str,
-    ty: &Type,
-    exact_width_field_names: &[String],
-) -> bool {
-    is_type_flag_bitset(ty)
-        || ty != &Type::int()
-        || exact_width_field_names.iter().any(|field| field == source)
-}
-
-fn is_type_flag_bitset(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if matches!(
-                name.as_str(),
-                "Flag8" | "Flag16be" | "Flag16le" | "Flag24be" | "Flag24le"
-                    | "Flag32be" | "Flag32le" | "Flag40be" | "Flag40le"
-                    | "Flag48be" | "Flag48le" | "Flag56be" | "Flag56le"
-                    | "Flag64be" | "Flag64le"
-            )
-                && args.is_empty()
-    )
 }
 
 pub(crate) fn schema_decode_function_name(schema_name: &str) -> String {
@@ -5896,14 +4969,6 @@ pub(crate) fn imported_use_for_path<'a>(
 
 fn imported_function_is_visible(function: &FunctionSignature, use_decl: &UseDecl) -> bool {
     use_decl.package.is_none() || function.visibility == Visibility::Public
-}
-
-pub(crate) fn imported_module_for_path<'a>(
-    uses: &'a [UseDecl],
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a str> {
-    imported_use_for_path(uses, segments, current_module).map(|use_decl| use_decl.name.as_str())
 }
 
 fn effects_for_bare_callee<'a>(

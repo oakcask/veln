@@ -14,8 +14,6 @@ pub struct IrSchemaDecodeSpec {
     pub function_name: String,
     pub fields: Vec<IrSchemaDecodeField>,
     pub validation: Option<String>,
-    pub mapping: Vec<IrSchemaDecodeMappingField>,
-    pub mapping_alternatives: Vec<IrSchemaDecodeMapping>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,63 +62,6 @@ pub struct IrSchemaDecodeDispatchCase {
     pub little_endian: bool,
     pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
     pub payload_schema_name: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IrSchemaDecodeMappingField {
-    pub target: String,
-    pub source: String,
-    pub expr: IrSchemaDecodeMappingExpr,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IrSchemaDecodeMapping {
-    pub selector: Option<IrSchemaDecodeMappingSelector>,
-    pub fields: Vec<IrSchemaDecodeMappingField>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IrSchemaDecodeMappingSelector {
-    pub text: String,
-    pub field: Option<String>,
-    pub operator: String,
-    pub value: i64,
-    pub expr: Option<IrSchemaDecodeMappingExpr>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum IrSchemaDecodeMappingExpr {
-    Field(String),
-    Literal(i64),
-    FieldAccess {
-        base: Box<IrSchemaDecodeMappingExpr>,
-        field: String,
-    },
-    Record(Vec<IrSchemaDecodeMappingRecordField>),
-    Constructor {
-        name: Vec<String>,
-        args: Vec<IrSchemaDecodeMappingExpr>,
-    },
-    Converter {
-        function: String,
-        inverse_function: Option<String>,
-        args: Vec<IrSchemaDecodeMappingExpr>,
-    },
-    Prefix {
-        op: PrefixOp,
-        expr: Box<IrSchemaDecodeMappingExpr>,
-    },
-    Binary {
-        op: BinaryOp,
-        left: Box<IrSchemaDecodeMappingExpr>,
-        right: Box<IrSchemaDecodeMappingExpr>,
-    },
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IrSchemaDecodeMappingRecordField {
-    pub name: String,
-    pub expr: IrSchemaDecodeMappingExpr,
 }
 
 #[derive(Clone, Debug, PartialEq)]

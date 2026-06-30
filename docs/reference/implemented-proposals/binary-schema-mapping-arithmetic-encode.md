@@ -33,18 +33,10 @@ arithmetic such as `left + right` to mapped encode projection.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-mapping-arithmetic-encode/`
-  checks successful generated schema encode through `field + literal`,
-  `literal + field`, and `field - literal` inverse projection.
-- `../../../examples/specification/run/binary-schema-mapping-arithmetic-encode-out-of-range/`
-  checks that a recovered schema-local value outside the declared primitive
-  range reports the existing `codec.encode_value_unrepresentable` diagnostic at
-  the schema-local field path.
-- `../../../examples/specification/run/derived-codec-mapping-arithmetic-encode-boundary/`
-  checks the same projection through a `derive encode` codec boundary.
-- `crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks generated
-  helper eligibility and derived codec encode-step resolution for mapped
-  arithmetic records.
+This historical slice was retired with schema-level mapping support.
+Earlier semantic tests checked generated
+helper eligibility and derived codec encode-step resolution for mapped
+arithmetic records.
 
 ## Remaining Work
 

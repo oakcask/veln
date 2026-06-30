@@ -9,11 +9,11 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   at the reported span; put causes, provenance, repair hints, and other
   locations in related notes.
 - Top-level envelope and status values:
-  [diagnostics-json-full.md](diagnostics-json-full.md#envelope).
+  [diagnostics-json-full.md](diagnostics-json-full.md).
 - Common diagnostic fields and span shape:
-  [diagnostics-json-full.md](diagnostics-json-full.md#diagnostics).
+  [diagnostics-json-full.md](diagnostics-json-full.md).
 - Stable `details` payloads by diagnostic family:
-  [diagnostics-json-full.md](diagnostics-json-full.md#stable-details).
+  [diagnostics-json-full.md](diagnostics-json-full.md).
 - Advisory repair candidate fields and application-policy routing:
   [repair-candidates.md](repair-candidates.md).
 
@@ -38,14 +38,14 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 
 ## Envelope
 
-See [diagnostics-json-full.md#envelope](diagnostics-json-full.md#envelope).
+See [diagnostics-json-full.md](diagnostics-json-full.md).
 
 ## Diagnostics
 
 See
-[diagnostics-json-full.md#diagnostics](diagnostics-json-full.md#diagnostics).
+[diagnostics-json-full.md](diagnostics-json-full.md).
 
 ## Stable Details
 
 See
-[diagnostics-json-full.md#stable-details](diagnostics-json-full.md#stable-details).
+[diagnostics-json-full.md](diagnostics-json-full.md).

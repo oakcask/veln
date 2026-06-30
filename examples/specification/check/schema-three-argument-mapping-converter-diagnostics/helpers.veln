@@ -1,3 +1,0 @@
-pub fn combine_text(value: Int, extra: Int, another: Int, final: Int, label: String) -> Int
-	value + extra
-end

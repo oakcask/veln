@@ -6,7 +6,7 @@ use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
     IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaDecodeMappingExpr, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 
 use crate::api::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
@@ -917,12 +917,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_dispatch_case_little_endian_values(code, schema);
         self.emit_schema_dispatch_case_schema_specs(code, schema);
-        self.emit_schema_mapping_targets(code, schema);
-        self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            &object_method_descriptor(26),
+            &object_method_descriptor(24),
         );
     }
 
@@ -962,12 +960,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_dispatch_case_little_endian_values(code, schema);
         self.emit_schema_dispatch_case_schema_specs(code, schema);
-        self.emit_schema_mapping_targets(code, schema);
-        self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            &object_method_descriptor(27),
+            &object_method_descriptor(25),
         );
     }
 
@@ -1005,12 +1001,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_dispatch_case_little_endian_values(code, schema);
         self.emit_schema_dispatch_case_schema_specs(code, schema);
-        self.emit_schema_mapping_targets(code, schema);
-        self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
-            &object_method_descriptor(25),
+            &object_method_descriptor(23),
         );
     }
 
@@ -1052,12 +1046,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             self.emit_schema_dispatch_case_widths(code, schema);
             self.emit_schema_dispatch_case_little_endian_values(code, schema);
             self.emit_schema_dispatch_case_schema_specs(code, schema);
-            self.emit_schema_mapping_targets(code, schema);
-            self.emit_schema_mapping_sources(code, schema);
             code.invokestatic(
                 &self.program.options.runtime_class,
                 "byteEncodeStepDeclaredBinarySchemaBudgeted",
-                &object_method_descriptor(26),
+                &object_method_descriptor(24),
             );
             return;
         };
@@ -1084,12 +1076,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_dispatch_case_little_endian_values(code, schema);
         self.emit_schema_dispatch_case_schema_specs(code, schema);
-        self.emit_schema_mapping_targets(code, schema);
-        self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeStepDeclaredBinarySchema",
-            &object_method_descriptor(25),
+            &object_method_descriptor(23),
         );
     }
 
@@ -1557,7 +1547,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, 25, |this, code, index| match index {
+        self.emit_object_array(code, 23, |this, code, index| match index {
             0 => code.ldc_string(&schema.schema_name),
             1 => this.emit_schema_field_names(code, schema),
             2 => this.emit_schema_field_widths(code, schema),
@@ -1581,284 +1571,8 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             20 => this.emit_schema_dispatch_case_widths(code, schema),
             21 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
             22 => this.emit_schema_dispatch_case_schema_specs(code, schema),
-            23 => this.emit_schema_mapping_targets(code, schema),
-            24 => this.emit_schema_mapping_sources(code, schema),
             _ => unreachable!(),
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
-    }
-
-    fn emit_schema_mapping_targets(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        if schema.mapping_alternatives.len() <= 1 {
-            let fields = schema
-                .mapping_alternatives
-                .first()
-                .map(|mapping| mapping.fields.as_slice())
-                .unwrap_or(schema.mapping.as_slice());
-            self.emit_object_array(code, fields.len(), |_, code, index| {
-                code.ldc_string(&fields[index].target);
-            });
-        } else {
-            self.emit_object_array(
-                code,
-                schema.mapping_alternatives.len(),
-                |this, code, index| {
-                    let mapping = &schema.mapping_alternatives[index];
-                    let selector = mapping
-                        .selector
-                        .as_ref()
-                        .expect("selected schema mapping should have a selector");
-                    if let Some(field) = &selector.field {
-                        this.emit_object_array(
-                            code,
-                            5,
-                            |this, code, spec_index| match spec_index {
-                                0 => code.ldc_string("select"),
-                                1 => code.ldc_string(field),
-                                2 => {
-                                    code.ldc_long(selector.value);
-                                    code.invokestatic(
-                                        "java/lang/Long",
-                                        "valueOf",
-                                        "(J)Ljava/lang/Long;",
-                                    );
-                                }
-                                3 => code.ldc_string(&selector.operator),
-                                4 => {
-                                    this.emit_object_array(
-                                        code,
-                                        mapping.fields.len(),
-                                        |_, code, field_index| {
-                                            code.ldc_string(&mapping.fields[field_index].target);
-                                        },
-                                    );
-                                    code.invokestatic(
-                                        &this.program.options.runtime_class,
-                                        "list",
-                                        "([Ljava/lang/Object;)Ljava/util/List;",
-                                    );
-                                }
-                                _ => unreachable!(),
-                            },
-                        );
-                    } else {
-                        let selector_expr = selector
-                            .expr
-                            .as_ref()
-                            .expect("expression schema mapping selector should have metadata");
-                        this.emit_object_array(
-                            code,
-                            4,
-                            |this, code, spec_index| match spec_index {
-                                0 => code.ldc_string("select_expr"),
-                                1 => code.ldc_string(&selector.text),
-                                2 => this.emit_schema_mapping_expr_spec(code, selector_expr),
-                                3 => {
-                                    this.emit_object_array(
-                                        code,
-                                        mapping.fields.len(),
-                                        |_, code, field_index| {
-                                            code.ldc_string(&mapping.fields[field_index].target);
-                                        },
-                                    );
-                                    code.invokestatic(
-                                        &this.program.options.runtime_class,
-                                        "list",
-                                        "([Ljava/lang/Object;)Ljava/util/List;",
-                                    );
-                                }
-                                _ => unreachable!(),
-                            },
-                        );
-                    }
-                    code.invokestatic(
-                        &this.program.options.runtime_class,
-                        "list",
-                        "([Ljava/lang/Object;)Ljava/util/List;",
-                    );
-                },
-            );
-        }
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
-    }
-
-    fn emit_schema_mapping_sources(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        if schema.mapping_alternatives.len() <= 1 {
-            let fields = schema
-                .mapping_alternatives
-                .first()
-                .map(|mapping| mapping.fields.as_slice())
-                .unwrap_or(schema.mapping.as_slice());
-            self.emit_object_array(code, fields.len(), |this, code, index| {
-                this.emit_schema_mapping_expr_spec(code, &fields[index].expr);
-            });
-        } else {
-            self.emit_object_array(
-                code,
-                schema.mapping_alternatives.len(),
-                |this, code, index| {
-                    let mapping = &schema.mapping_alternatives[index];
-                    this.emit_object_array(
-                        code,
-                        mapping.fields.len(),
-                        |this, code, field_index| {
-                            this.emit_schema_mapping_expr_spec(
-                                code,
-                                &mapping.fields[field_index].expr,
-                            );
-                        },
-                    );
-                    code.invokestatic(
-                        &this.program.options.runtime_class,
-                        "list",
-                        "([Ljava/lang/Object;)Ljava/util/List;",
-                    );
-                },
-            );
-        }
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
-    }
-
-    fn emit_schema_mapping_expr_spec(
-        &mut self,
-        code: &mut MethodCode,
-        expr: &IrSchemaDecodeMappingExpr,
-    ) {
-        match expr {
-            IrSchemaDecodeMappingExpr::Field(name) => {
-                self.emit_object_array(code, 2, |_, code, index| match index {
-                    0 => code.ldc_string("field"),
-                    1 => code.ldc_string(name),
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Literal(value) => {
-                self.emit_object_array(code, 2, |_, code, index| match index {
-                    0 => code.ldc_string("literal"),
-                    1 => {
-                        code.ldc_long(*value);
-                        code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-                    }
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::FieldAccess { base, field } => {
-                self.emit_object_array(code, 3, |this, code, index| match index {
-                    0 => code.ldc_string("field_access"),
-                    1 => this.emit_schema_mapping_expr_spec(code, base),
-                    2 => code.ldc_string(field),
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Record(fields) => {
-                self.emit_object_array(code, 3, |this, code, index| match index {
-                    0 => code.ldc_string("record"),
-                    1 => {
-                        this.emit_object_array(code, fields.len(), |_, code, field_index| {
-                            code.ldc_string(&fields[field_index].name);
-                        });
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    2 => {
-                        this.emit_object_array(code, fields.len(), |this, code, field_index| {
-                            this.emit_schema_mapping_expr_spec(code, &fields[field_index].expr);
-                        });
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Constructor { name, args } => {
-                self.emit_object_array(code, 3, |this, code, index| match index {
-                    0 => code.ldc_string("constructor"),
-                    1 => code.ldc_string(&name.join("::")),
-                    2 => {
-                        this.emit_object_array(code, args.len(), |this, code, arg_index| {
-                            this.emit_schema_mapping_expr_spec(code, &args[arg_index]);
-                        });
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Converter {
-                function,
-                inverse_function,
-                args,
-            } => {
-                let spec_len = if inverse_function.is_some() { 4 } else { 3 };
-                self.emit_object_array(code, spec_len, |this, code, index| match index {
-                    0 => code.ldc_string("converter"),
-                    1 => this.emit_function_value(code, function),
-                    2 if spec_len == 4 => {
-                        this.emit_function_value(
-                            code,
-                            inverse_function
-                                .as_ref()
-                                .expect("converter inverse should exist"),
-                        );
-                    }
-                    2 => {
-                        this.emit_object_array(code, args.len(), |this, code, arg_index| {
-                            this.emit_schema_mapping_expr_spec(code, &args[arg_index]);
-                        });
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    3 => {
-                        let [arg] = args.as_slice() else {
-                            panic!("converter inverse should have exactly one argument");
-                        };
-                        this.emit_schema_mapping_expr_spec(code, arg);
-                    }
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Prefix { op, expr } => {
-                self.emit_object_array(code, 3, |this, code, index| match index {
-                    0 => code.ldc_string("prefix"),
-                    1 => code.ldc_string(schema_mapping_prefix_op_text(*op)),
-                    2 => this.emit_schema_mapping_expr_spec(code, expr),
-                    _ => unreachable!(),
-                });
-            }
-            IrSchemaDecodeMappingExpr::Binary { op, left, right } => {
-                self.emit_object_array(code, 4, |this, code, index| match index {
-                    0 => code.ldc_string("binary"),
-                    1 => code.ldc_string(schema_mapping_binary_op_text(*op)),
-                    2 => this.emit_schema_mapping_expr_spec(code, left),
-                    3 => this.emit_schema_mapping_expr_spec(code, right),
-                    _ => unreachable!(),
-                });
-            }
-        }
         code.invokestatic(
             &self.program.options.runtime_class,
             "list",
@@ -2528,33 +2242,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .locals
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
-    }
-}
-
-fn schema_mapping_binary_op_text(op: BinaryOp) -> &'static str {
-    match op {
-        BinaryOp::Or => "or",
-        BinaryOp::And => "and",
-        BinaryOp::Add => "+",
-        BinaryOp::Subtract => "-",
-        BinaryOp::Multiply => "*",
-        BinaryOp::Divide => "/",
-        BinaryOp::Equal => "==",
-        BinaryOp::NotEqual => "!=",
-        BinaryOp::Less => "<",
-        BinaryOp::LessEqual => "<=",
-        BinaryOp::Greater => ">",
-        BinaryOp::GreaterEqual => ">=",
-        _ => unreachable!(
-            "schema mapping binary expressions only support boolean, arithmetic, and comparison operators"
-        ),
-    }
-}
-
-fn schema_mapping_prefix_op_text(op: PrefixOp) -> &'static str {
-    match op {
-        PrefixOp::Not => "not",
-        _ => unreachable!("schema mapping prefix expressions only support `not`"),
     }
 }
 

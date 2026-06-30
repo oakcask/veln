@@ -34,17 +34,8 @@ parent helper.
 
 ## Evidence
 
-- `../../../examples/specification/run/binary-schema-same-module-recursive-dispatch-decode/`
-  checks successful same-module closed and extension-tolerant recursive decode
-  without selected parent mappings, including extension unknown preservation.
-- `../../../examples/specification/check/binary-schema-imported-recursive-dispatch-payload-accepted/`
-  checks the matching declaration-time acceptance path for imported and
-  same-module length-bounded unmapped parents.
-- `../../../examples/specification/check/binary-schema-recursive-dispatch-payload-diagnostics/`
-  keeps unsupported recursive payload shapes on the existing
-  `schema.dispatch_payload` diagnostic route.
-- `crates/veln-sema/src/tests/declarations_and_names.rs` includes focused
-  same-module and imported unmapped recursive dispatch acceptance coverage.
+Focused same-module and imported unmapped recursive dispatch acceptance
+coverage remains in semantic tests.
 
 ## Remaining Work
 
