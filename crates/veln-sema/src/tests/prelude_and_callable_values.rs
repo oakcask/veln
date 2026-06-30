@@ -279,34 +279,35 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         .map(|diagnostic| diagnostic.message.as_str())
         .collect::<Vec<_>>();
     assert!(
-        messages
-            .iter()
-            .any(|message| *message
-                == "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema"),
+        messages.contains(
+            &"schema decode expression cannot resolve `MissingPacket` as an eligible binary schema",
+        ),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages.iter().any(|message| *message
-            == "schema decode expression schema `wire::PrivatePacket` is private"),
+        messages.contains(&"schema decode expression schema `wire::PrivatePacket` is private"),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages.iter().any(|message| *message
-            == "schema decode expression target `wire::PacketShape` is a type, not a schema"),
+        messages.contains(
+            &"schema decode expression target `wire::PacketShape` is a type, not a schema"
+        ),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages.iter().any(|message| *message
-            == "schema decode expression target `wire::make_packet` is a function, not a schema"),
+        messages.contains(
+            &"schema decode expression target `wire::make_packet` is a function, not a schema",
+        ),
         "{:#?}",
         lowered.diagnostics
     );
     assert!(
-        messages.iter().any(|message| *message
-            == "schema decode expression target `wire::PacketCodec` is a codec, not a schema"),
+        messages.contains(
+            &"schema decode expression target `wire::PacketCodec` is a codec, not a schema",
+        ),
         "{:#?}",
         lowered.diagnostics
     );
