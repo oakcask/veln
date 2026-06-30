@@ -2560,9 +2560,9 @@ execution reference.
   fixture decoding. Those receive-limit diagnostics carry bounded structured
   previews of the inspected header-block bytes. The header-list receive-limit
   boundary can carry those facts in a source-visible
-  `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` payload. Fixture-marked
-  request header lists are validated after that HPACK fixture decode on
-  completed HEADERS and final CONTINUATION paths.
+  `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` payload. Request
+  header lists are validated after that HPACK fixture decode on completed
+  HEADERS and final CONTINUATION paths.
   Duplicate request pseudo-headers, request pseudo-headers after regular
   headers, missing `:method`, `:scheme`, or `:path`, response-only
   `:status`, uppercase ordinary header names, ordinary header names outside
@@ -2586,11 +2586,14 @@ execution reference.
   presence is confirmed; an empty value fails with `path_value_empty`.
   The same boundary accepts ordinary `te: trailers` on inbound requests and
   rejects any other fixture-marked `te` value with failed fact
-  `te_header_value_not_trailers`. Fixture-marked request `content-length`
-  values are valid only when each value is a decimal byte string and repeated
-  values are exactly identical. Empty, non-decimal, signed, whitespace-padded,
-  and negative-looking values fail with `content_length_invalid`; repeated
-  valid decimal values that differ fail with `content_length_mismatch`.
+  `te_header_value_not_trailers`. Request `content-length` values are valid
+  only when each value is a decimal byte string and repeated values are
+  exactly identical. The check applies both to the fixture-marked request
+  header-list values and to decoded `content-length` header values carried
+  beside the request pseudo-header marker. Empty, non-decimal, signed,
+  whitespace-padded, and negative-looking values fail with
+  `content_length_invalid`; repeated valid decimal values that differ fail
+  with `content_length_mismatch`.
   A second inbound HEADERS block on an already-open request stream is treated
   as request trailers only when the HEADERS sequence carries peer
   `END_STREAM`; accepted trailers close the stream by peer without consuming

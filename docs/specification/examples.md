@@ -3175,9 +3175,13 @@ connection-specific ordinary request header names `connection`, `keep-alive`,
 `proxy-connection`, `transfer-encoding`, and `upgrade`, and an invalid `te`
 value. It accepts one and repeated matching valid decimal
 `content-length` request values and rejects mismatched, empty, non-decimal,
-signed, whitespace-padded, and negative-looking request values. It also
-checks focused body-length accounting for an accepted `content-length`
-request: exact body length is accepted, PADDED DATA excludes padding from the
+signed, whitespace-padded, and negative-looking request values. The focused
+production request `content-length` checks in that case assert the same
+accepted and rejected facts when the `content-length` name and value are
+decoded headers rather than part of the request fixture marker, including both
+completed HEADERS and final CONTINUATION paths. The larger case also checks
+focused body-length accounting for an accepted `content-length` request:
+exact body length is accepted, PADDED DATA excludes padding from the
 application-byte count, over-length DATA projects JSON details, and early
 `END_STREAM` projects human related context. It also
 checks inbound request trailers on an already-open stream: ordinary trailer

@@ -282,6 +282,10 @@ fn request_headers_with_content_length(value_label: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":request", value_label), 9)
 end
 
+fn request_headers_with_production_content_length(value: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), 9)
+end
+
 fn response_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":response", "ok"), 9)
 end
@@ -500,6 +504,10 @@ end
 
 fn decoded_request_headers_with_content_length(value_label: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_with_content_length(value_label), next_state(state)))
+end
+
+fn decoded_request_headers_with_production_content_length(value: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(request_headers_with_production_content_length(value), next_state(state)))
 end
 
 fn decoded_response_headers(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -3377,6 +3385,38 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_response_headers_with_content_length("ok,content-length:-5", state)
 				false => unsupported(block, offset)
 			end
+			103 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("5", state)
+				false => unsupported(block, offset)
+			end
+			104 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("5,5", state)
+				false => unsupported(block, offset)
+			end
+			105 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("5,7", state)
+				false => unsupported(block, offset)
+			end
+			106 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("", state)
+				false => unsupported(block, offset)
+			end
+			107 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("abc", state)
+				false => unsupported(block, offset)
+			end
+			108 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("+5", state)
+				false => unsupported(block, offset)
+			end
+			109 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length(" 5", state)
+				false => unsupported(block, offset)
+			end
+			110 => match observed_size == 4
+				true => decoded_request_headers_with_production_content_length("-5", state)
+				false => unsupported(block, offset)
+			end
 			33 => match observed_size == 4
 				true => decoded_trailer_headers_with_regular_header(state)
 				false => unsupported(block, offset)
@@ -3545,8 +3585,63 @@ fn response_content_length_label(value: String) -> Bool
 	end
 end
 
+fn content_length_decimal_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	match index == count
+		true => true
+		false => match byte_at_or_missing(bytes, index) >= 48 and byte_at_or_missing(bytes, index) <= 57
+			true => content_length_decimal_bytes(bytes, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn content_length_value_is_decimal(value: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0
+			true => content_length_decimal_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+			false => false
+		end
+		Err(_) => false
+	end
+end
+
+fn content_length_value_is_invalid(value: String) -> Bool
+	match string_split_once(value, ",")
+		Some(parts) => match content_length_value_is_decimal(parts.left)
+			true => not content_length_value_is_decimal(parts.right)
+			false => true
+		end
+		None => not content_length_value_is_decimal(value)
+	end
+end
+
+fn content_length_value_is_mismatched(value: String) -> Bool
+	match string_split_once(value, ",")
+		Some(parts) => match content_length_value_is_decimal(parts.left) and content_length_value_is_decimal(parts.right)
+			true => parts.left != parts.right
+			false => false
+		end
+		None => false
+	end
+end
+
+fn request_content_length_header_value(headers: HpackHeaderList) -> Option<String>
+	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => Some(value)
+		_ => None
+	end
+end
+
+fn production_request_content_length_decoded_names(value: String) -> String
+	match string_split_once(value, ",")
+		Some(_) => ":method,:scheme,:path,content-length,content-length"
+		None => ":method,:scheme,:path,content-length"
+	end
+end
+
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => true
@@ -3606,6 +3701,7 @@ end
 
 pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
@@ -3625,6 +3721,7 @@ end
 
 pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,host"), _) => true
@@ -3648,6 +3745,7 @@ end
 
 pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":path", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":path", _), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
@@ -3762,11 +3860,25 @@ pub fn header_list_has_invalid_content_length(headers: HpackHeaderList) -> Bool
 	end
 end
 
+pub fn request_header_list_has_invalid_content_length(headers: HpackHeaderList) -> Bool
+	match request_content_length_header_value(headers)
+		Some(value) => content_length_value_is_invalid(value)
+		None => header_list_has_invalid_content_length(headers)
+	end
+end
+
 pub fn header_list_has_mismatched_content_length(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:7"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:7"), _) => true
 		_ => false
+	end
+end
+
+pub fn request_header_list_has_mismatched_content_length(headers: HpackHeaderList) -> Bool
+	match request_content_length_header_value(headers)
+		Some(value) => content_length_value_is_mismatched(value)
+		None => header_list_has_mismatched_content_length(headers)
 	end
 end
 
@@ -3859,6 +3971,7 @@ end
 
 pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => production_request_content_length_decoded_names(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => ":method,:scheme,:path"

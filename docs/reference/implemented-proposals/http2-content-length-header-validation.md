@@ -2,16 +2,19 @@
 
 Status: implemented
 
-This record closes the fixture-marked `content-length` header-list validation
-slice from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior
-lives in `../../specification/execution.md`, `../../specification/run-json.md`,
-and the checked examples under `../../../examples/specification/run/`.
+This record closes the checked `content-length` header-list validation slices
+from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives
+in `../../specification/execution.md`, `../../specification/run-json.md`, and
+the checked examples under `../../../examples/specification/run/`.
 
 ## Implemented Behavior
 
 The HTTP/2 protocol-core example decodes completed inbound HEADERS and final
 CONTINUATION header blocks through the imported HPACK fixture module before
-running request and response header-list validation for fixture-marked lists.
+running request and response header-list validation. Request validation covers
+both fixture-marked `content-length` list values and decoded `content-length`
+header values carried beside the request pseudo-header marker. Response
+validation covers the fixture-marked list values.
 
 Request and response validation accepts header lists without `content-length`,
 with one valid decimal `content-length` value, or with repeated
@@ -29,7 +32,9 @@ through `http2.protocol.invalid_response_header_list`.
   request and response `content-length` header lists with one value and with
   repeated matching values, plus rejected mismatch, empty, non-decimal, signed,
   whitespace-padded, and negative-looking values for both request and
-  response lists.
+  response lists. The same case checks production request `content-length`
+  header values that are not part of the request marker on completed HEADERS
+  and final CONTINUATION paths.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-content-length-json/`
   checks JSON projection for an invalid request `content-length` value.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/`
