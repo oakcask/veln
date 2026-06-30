@@ -10,8 +10,9 @@ under `../../examples/specification/` are the primary source-surface evidence.
 
 Schemas contain fields, an optional `format binary` clause, field-local
 `where` predicates, and at most one schema-level `validate` predicate.
-Generated helpers use schema-local visible records. Domain projection is
-ordinary source code outside the schema body.
+Explicit schema `decode` and `encode` expressions use schema-local visible
+records. Compatibility helper lowering uses the same record boundary. Domain
+projection is ordinary source code outside the schema body.
 
 Schema-level mapping clauses are rejected by the parser and are not part of
 the implemented grammar.

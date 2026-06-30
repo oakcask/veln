@@ -13,6 +13,14 @@ pub type DocResult<A>
 	Hidden(String)
 end
 
+## A public binary packet schema.
+pub schema PacketWire
+	format binary
+
+	length: UInt8
+	kind: UInt8
+end
+
 ## Doubles a non-negative value.
 ## ```veln
 ## > let seed: Int = 2
@@ -27,4 +35,21 @@ end
 ## Collects labeled values.
 pub fn collect(label: String, values: ...String) -> List<String>
 	values
+end
+
+## Decodes packet bytes with an explicit schema operation.
+## ```veln
+## let step: DecodeStep<{length: Int, kind: Int}> = decode PacketWire from view at base_offset
+## step
+## ```
+pub fn decode_packet_wire(view: ByteView, base_offset: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	decode PacketWire from view at base_offset
+end
+
+## Encodes packet bytes with an explicit schema operation.
+## ```veln
+## encode PacketWire from value
+## ```
+pub fn encode_packet_wire(value: {length: Int, kind: Int}) -> Result<ByteChunk, EncodeError>
+	encode PacketWire from value
 end

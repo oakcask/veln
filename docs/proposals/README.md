@@ -72,11 +72,13 @@ compare it with `../specification/` before changing behavior.
   public source API, and reposition binary `schema` declarations as explicit
   byte-pattern operations used from ordinary functions. The explicit schema
   decode and encode expression slices, source-level codec-declaration
-  rejection, and former codec example migration are current behavior under
+  rejection, generated-helper public-surface cleanup, and former codec example
+  migration are current behavior under
   `../specification/source-surface.md` and archived under
-  `../reference/implemented-proposals/remove-source-codec-declarations.md`;
-  the remaining proposal work covers source-visible generated-helper cleanup
-  and diagnostic reclassification.
+  `../reference/implemented-proposals/remove-source-codec-declarations.md` and
+  `../reference/implemented-proposals/schema-helper-public-surface-cleanup.md`;
+  the remaining proposal work covers diagnostic reclassification and archival
+  cleanup.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary

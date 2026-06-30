@@ -882,6 +882,11 @@ string_parse_int(text: String) -> Result<Int, String>
 int_to_string(value: Int) -> String
 ```
 
+The generated schema helper signatures in this list are compatibility and
+runtime adapter signatures. Source code should apply schemas through explicit
+schema `decode` and `encode` expressions or through ordinary wrapper
+functions that call those expressions.
+
 ### Value Semantics
 
 Container update helpers return new frozen values and do not mutate their input
@@ -1002,10 +1007,11 @@ would exceed the source-visible `Int` maximum for the helper width. The
 `byte_expect_fixed_u8_be` helper reads one byte and returns
 `schema.fixed_field_mismatch` diagnostic details when the actual byte differs
 from the expected fixed byte for the supplied schema and field names. The
-`byte_decode_schema_width_sample` helper is the narrow executable schema slice
-for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
-ordinary `Int` values, and reports schema truncation with field-path byte
-diagnostic details. Generated binary schema helpers also accept `UInt16le`,
+`byte_decode_schema_width_sample` remains as compatibility coverage for the
+narrow executable schema slice for `UInt16be` and `UInt32be`: it reads both
+fields from a `ByteView`, returns ordinary `Int` values, and reports schema
+truncation with field-path byte diagnostic details. Compatibility binary
+schema helper lowering also accepts `UInt16le`,
 `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and
 `UInt64le` as little-endian unsigned fields. `UInt40be` uses the matching
 five-byte big-endian representation, `UInt48be` uses the matching six-byte
@@ -1015,23 +1021,24 @@ big-endian representation. Those
 fields decode to ordinary `Int` when representable and encode with the same
 representability boundaries as their matching unsigned widths.
 Source `format binary` schema declarations whose fields
-all use implemented exact-width unsigned primitives expose generated
+all use implemented exact-width unsigned primitives retain compatibility
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode
 fields in schema order, check supported field-local `where` predicates after
 the owning field is decoded, project field-local fixed equality predicates
 through `Err(RuntimeDiagnostic(...))` with `schema.fixed_field_mismatch` when
 the decoded value differs, return ordinary `Int` values when validation
 passes. Projection from the schema-local record into a domain shape is ordinary
-source code at the helper-call or codec boundary.
+source code at the explicit operation or compatibility helper boundary.
 They report `schema.validation_failed` with field path, predicate, decoded
 values, and structured byte preview fields when validation fails. The same
-eligible schema declarations also expose `byte_decode_step_<schema>` helpers
-that accept `ByteView` plus `ByteOffset` and return `DecodeStep<T>` with
+eligible schema declarations also retain compatibility
+`byte_decode_step_<schema>` helpers that accept `ByteView` plus `ByteOffset`
+and return `DecodeStep<T>` with
 `Decoded(value, consumed)` for a complete buffered value or
 `NeedMore(NeedBytes(count))` for an open view that is too short to decide. The
 exact-width, supported reserved-bit, length-bounded `ByteView`, closed
 dispatch, extension dispatch, and eligible nested dispatch payload encode
-slices expose
+slices retain compatibility
 `byte_encode_<schema>` helpers for eligible binary schemas whose
 source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
@@ -1113,7 +1120,9 @@ logic and display.
 
 ### Source-Backed Boundary
 
-The implemented standard symbol table has this current pure-helper split:
+The implemented standard symbol table has this current pure-helper split.
+This table records compiler-known runtime symbols, including compatibility
+helpers, rather than the public schema application surface.
 
 - source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,

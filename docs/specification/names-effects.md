@@ -202,10 +202,13 @@ compiler-known calls.
   `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
   `Flag24le`, `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`,
   `Flag48le`, `Flag56be`, `Flag56le`, `Flag64be`, or `Flag64le` bitset
-  fields; generated decode-step helpers expose the same value shape through
-  `DecodeStep<T>` for open input. Explicit `decode Schema from view at base`
-  expressions expose that decode-step shape without naming the generated helper
-  in source; imported public schemas may be cited through qualified paths.
+  fields; compatibility generated decode-step helpers expose the same value
+  shape through `DecodeStep<T>` for open input. Explicit
+  `decode Schema from view at base` expressions are the public source surface
+  for applying schemas and expose that decode-step shape without naming the
+  generated helper in source; imported public schemas may be cited through
+  qualified paths. Explicit `encode Schema from value` expressions are the
+  matching public encode surface for schema-local values.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
@@ -261,12 +264,12 @@ compiler-known calls.
   `UInt40be` and `UInt40le`, the `u48` helpers use the same six-byte
   representations as `UInt48be` and `UInt48le`, and the `u64` helpers use the
   same eight-byte representations as `UInt64be` and `UInt64le`.
-  HTTP/2 frame-header decoding is provided by generated schema helpers such
-  as `byte_decode_http2_frame_header_wire`; bounded payload frame decoding and
-  protocol diagnostic projection helpers including stream id domain and
-  post-GOAWAY stream failure projection, plus request and response header-list
-  validation, are
-  listed with those signatures:
+  HTTP/2 frame-header decoding should be expressed at source level through
+  explicit schema operations or ordinary protocol wrapper functions. Remaining
+  compiler-known compatibility and protocol diagnostic projection helpers,
+  including stream id domain and post-GOAWAY stream failure projection plus
+  request and response header-list validation, are listed with those
+  signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, including network stream write-side

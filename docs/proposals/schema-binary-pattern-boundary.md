@@ -230,13 +230,17 @@ Current parser and source-surface fixtures reject `codec` and `pub codec`
 declarations with a migration diagnostic that points to ordinary functions
 plus explicit schema decode and encode expressions. Former codec examples
 that describe current source behavior now use ordinary functions or explicit
-schema operations. Remaining migration work is:
+schema operations. The source-visible generated helper cleanup slice is
+implemented and archived under
+`../reference/implemented-proposals/schema-helper-public-surface-cleanup.md`.
+Specification routes now describe explicit schema operations as the public
+source surface, and executable examples that still call generated helper names
+are compatibility or diagnostic migration fixtures. Remaining migration work
+is:
 
-1. Remove source-visible generated helper names from documentation and public
-   examples, leaving only compatibility and diagnostic coverage while accepted.
-2. Reclassify representation-local `codec.*` diagnostics as schema-owned
+1. Reclassify representation-local `codec.*` diagnostics as schema-owned
    diagnostics.
-3. Archive implemented codec proposal records as historical implementation
+2. Archive implemented codec proposal records as historical implementation
    records, not current design direction.
 
 During migration, compatibility shims may remain inside the compiler or
@@ -261,15 +265,16 @@ runtime, but source examples should stop teaching generated helper names and
 - Should direct schema encode return `Result<ByteChunk, EncodeError>` or
   reuse `EncodeStep<()>` for consistency with budgeted encoders?
 - How long should source-visible generated helper names remain accepted for
-  existing executable specification cases?
+  compatibility and diagnostic executable specification cases?
 
 ## Completion Criteria
 
 - Current specification no longer lists `codec` as a top-level declaration.
 - Current specification describes schemas as representation pattern
   declarations with explicit decode and encode operations.
-- Executable examples use explicit schema operations or ordinary functions,
-  not source-visible generated helper names.
+- Public executable examples use explicit schema operations or ordinary
+  functions; source-visible generated helper names remain only in
+  compatibility and diagnostic migration cases.
 - HTTP/2 Sans-I/O examples decode frame headers and payloads by applying
   schema patterns inside ordinary state-transition functions.
 - Representation-local failures use schema-owned diagnostic ids.
