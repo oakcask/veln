@@ -69,6 +69,8 @@ executable coverage is
 diagnostics are checked by
 `examples/specification/check/schema-encode-expression-diagnostics/` and
 runtime value failures by
+`examples/specification/run/schema-encode-expression-unrepresentable-human/`
+and
 `examples/specification/run/schema-encode-expression-unrepresentable-json/`.
 Projection into domain records is ordinary source code at the helper-call,
 schema-operation, or codec boundary. Schema-level `map to` clauses, selected

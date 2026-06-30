@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[codec.encode_value_unrepresentable]: encode value is unrepresentable", "note: Field path: schema `SubByteWrite` / field `control`.", "note: Encode failure reason: value must be between 0 and 7.", "note: Result value: EncodeError(codec.encode_value_unrepresentable, SubByteWrite.control, value must be between 0 and 7)."]
