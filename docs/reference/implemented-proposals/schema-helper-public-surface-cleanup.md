@@ -17,9 +17,8 @@ The current public source surface applies schemas with explicit operations:
 - Source-visible helper inventory and effect routing:
   [../../specification/names-effects.md](../../specification/names-effects.md).
 - Executable public examples:
-  [../../../examples/specification/run/schema-decode-expression/](../../../examples/specification/run/schema-decode-expression/)
-  and
-  [../../../examples/specification/run/schema-encode-expression/](../../../examples/specification/run/schema-encode-expression/).
+  `examples/specification/run/schema-decode-expression/` and
+  `examples/specification/run/schema-encode-expression/`.
 
 ## Completion Evidence
 
