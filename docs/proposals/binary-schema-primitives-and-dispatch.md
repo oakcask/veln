@@ -233,18 +233,52 @@ closed dispatch slice implements
 `Dispatch(tag_field, tag => Primitive, ...)` for generated binary schema
 decode helpers, decodes known case payloads as `Int`, and reports
 `schema.dispatch_unknown_tag` with structured tag and byte context for unknown
-tags. The narrow extension-tolerant dispatch slice implements
-`ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)` for
-generated binary schema decode helpers, decodes known case payloads as
+tags. The proposed source spelling for this closed dispatch is a schema field
+type `match`:
+
+```text
+payload: match kind
+  1 => UInt8
+  2 => UInt16be
+end
+```
+
+A length-bounded closed dispatch adds `bounded by length_field`:
+
+```text
+payload: match kind bounded by length
+  0 => UInt8
+  1 => RecursiveNode
+end
+```
+
+The narrow extension-tolerant dispatch slice implements known primitive cases
+for generated binary schema decode helpers, decodes known case payloads as
 `SchemaDispatchPayload::Known(Int)`, preserves unknown tags and bounded raw
 payload bytes as `SchemaDispatchPayload::Unknown(tag, payload)`, and still
-reports `schema.length_out_of_bounds` for malformed payload ranges. The
-same-module nested payload slice also implements known
-`Dispatch(..., tag => SchemaName, ...)` and
-`ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
-schema decode helpers, returns the nested schema's decoded record shape for
-known cases, keeps extension-tolerant unknown tags opaque, and reports nested
-payload failures with the nested schema field path and absolute byte offset.
+reports `schema.length_out_of_bounds` for malformed payload ranges. Its
+proposed source spelling marks the field as extension-tolerant before the tag:
+
+```text
+payload: match extension kind bounded by length
+  1 => UInt16be
+  2 => UInt32be
+end
+```
+
+The existing `Dispatch(tag_field, tag => Payload, ...)`,
+`Dispatch(tag_field, length_field, tag => Payload, ...)`, and
+`ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` spellings
+remain compatibility spellings during migration and are semantically
+equivalent to the corresponding `match` forms. The formatter may preserve the
+input spelling during the compatibility window, then later canonicalize to
+the `match` spelling once the migration point is chosen.
+The same-module nested payload slice also implements known match-form closed
+and extension-tolerant cases whose payload arm names a nested binary schema
+for generated binary schema decode helpers, returns the nested schema's
+decoded record shape for known cases, keeps extension-tolerant unknown tags
+opaque, and reports nested payload failures with the nested schema field path
+and absolute byte offset.
 Public imported nested binary schema payloads named through written `use`
 paths are accepted by those same dispatch decode helper slices and decode to
 the imported schema's record shape. Same-module and public imported recursive
@@ -296,15 +330,15 @@ case's payload shape, and all selected mappings resolve to one target record
 shape. Selectors outside the dispatch tag field and uncovered mixed cases
 remain rejected through the existing dispatch payload or mapping selection
 diagnostics.
-The same-module and imported public nested payload encode slice implements known
-`Dispatch(..., tag => SchemaName, ...)` and
-`ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
-schema encode helpers, uses the nested schema decoded record shape for closed
-payload fields and `SchemaDispatchPayload<NestedRecord>` for
-extension-tolerant payload fields, accepts public imported payload schemas
-named through written `use` paths, preserves extension-tolerant unknown raw
-payload bytes, and keeps nested schema encode failures on the nested schema
-field path. Those nested dispatch payload decode and encode slices route
+The same-module and imported public nested payload encode slice implements
+known match-form closed and extension-tolerant cases whose payload arm names a
+nested binary schema for generated binary schema encode helpers, uses the
+nested schema decoded record shape for closed payload fields and
+`SchemaDispatchPayload<NestedRecord>` for extension-tolerant payload fields,
+accepts public imported payload schemas named through written `use` paths,
+preserves extension-tolerant unknown raw payload bytes, and keeps nested
+schema encode failures on the nested schema field path. Those nested dispatch
+payload decode and encode slices route
 selected nested payload schemas through the same generated binary schema
 helper path as ordinary schema fields; focused executable examples cover
 fixed-field validation, byte-aligned reserved fields, little-endian primitive
@@ -983,6 +1017,84 @@ at the reserved field path and byte offset, report the expected bit pattern and
 actual bit pattern, and keep protocol-state causes out of the primary schema
 failure.
 
+## Discussion Result: Dispatch Match Field Syntax
+
+Dispatch field types should use a schema-local `match` form rather than the
+old function-call-like `Dispatch` and `ExtensionDispatch` spellings. The
+syntax is available only where the schema grammar expects a field type, so it
+does not introduce ordinary expression `match` into type positions outside
+schema declarations.
+
+Closed dispatch uses the already decoded tag field as the selector:
+
+```text
+payload: match kind
+  1 => UInt8
+  2 => UInt16be
+  3 => SettingsPayload
+end
+```
+
+Length-bounded closed dispatch uses the same selector and explicitly names the
+earlier decoded length field:
+
+```text
+payload: match kind bounded by length
+  0 => UInt8
+  1 => RecursiveNode
+end
+```
+
+Extension-tolerant dispatch requires a bounded payload and marks the dispatch
+as extension-tolerant in the head. `extension` is contextual schema-field
+vocabulary in this position:
+
+```text
+payload: match extension kind bounded by length
+  1 => UInt16be
+  2 => SettingsPayload
+end
+```
+
+The arm grammar remains `tag => Payload`. Tags are integer literals.
+`Payload` remains the existing schema-local payload vocabulary: implemented
+exact-width unsigned primitives, eligible nested binary schema payloads, and
+the other payload forms admitted by the dispatch helper slice. The selector
+and bounded length names keep the same backward-only field-reference rules as
+the old spellings.
+
+The old spellings are compatibility aliases:
+
+```text
+Dispatch(kind, 1 => UInt8, 2 => UInt16be)
+Dispatch(kind, length, 0 => UInt8, 1 => RecursiveNode)
+ExtensionDispatch(kind, length, 1 => UInt16be, 2 => SettingsPayload)
+```
+
+They normalize respectively to:
+
+```text
+match kind
+  1 => UInt8
+  2 => UInt16be
+end
+
+match kind bounded by length
+  0 => UInt8
+  1 => RecursiveNode
+end
+
+match extension kind bounded by length
+  1 => UInt16be
+  2 => SettingsPayload
+end
+```
+
+Diagnostics and generated-helper terminology should describe the semantic
+field role, such as closed dispatch or extension-tolerant dispatch, instead of
+naming only the surface spelling. This keeps diagnostics stable while both
+spellings are accepted.
+
 ## Discussion Result: Unknown Dispatch Preservation
 
 Tag dispatch should preserve unknown tags when the schema author explicitly
@@ -1005,12 +1117,14 @@ extension handling may need. The retained payload must remain bounded by the
 decoded length field so extension preservation cannot keep unrelated consumed
 input alive.
 
-The implemented narrow slice exposes this through
-`ExtensionDispatch(tag_field, length_field, tag => Payload, ...)`, where the
-tag and length fields must already be decoded in the same schema, known cases
-use implemented exact-width unsigned primitive payloads, same-module nested
-binary schema payloads, or public imported nested binary schema payloads, and
-unknown cases retain the bounded raw `ByteView`. Unbounded recursive dispatch
+The proposed source surface exposes this through
+`match extension tag_field bounded by length_field`, where the tag and length
+fields must already be decoded in the same schema, known cases use
+implemented exact-width unsigned primitive payloads, same-module nested binary
+schema payloads, or public imported nested binary schema payloads, and unknown
+cases retain the bounded raw `ByteView`. The current
+`ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` spelling is
+the compatibility form for the same behavior. Unbounded recursive dispatch
 payload schemas, otherwise ineligible nested payload schemas, and
 protocol-state legality checks remain outside this slice.
 

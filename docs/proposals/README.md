@@ -67,11 +67,14 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
+- [Remove Schema Map To](remove-schema-map-to.md): remove schema-level
+  `map to` clauses and require explicit ordinary projection functions at
+  helper or codec boundaries.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
-  schema primitive declaration slices, structural mapping clauses, codec
-  declaration schema import/reference visibility checks, and generated
+  schema primitive declaration and execution boundaries, structural mapping
+  clauses, codec declaration schema import/reference visibility checks, and generated
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions including nested constructor
@@ -110,7 +113,12 @@ compare it with `../specification/` before changing behavior.
   archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
   Binary fixture metadata in executable specification cases may also validate
-  schema-aware references.
+  schema-aware references. Binary primitive execution is current behavior
+  under `../specification/source-surface.md` and
+  `../specification/execution.md`; this proposal does not keep arbitrary
+  bitstream parsing, signed integer families, floating-point encodings,
+  variable-length integers, or text encoding primitives open as schema
+  declaration work.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
@@ -326,6 +334,11 @@ compare it with `../specification/` before changing behavior.
   The completed seven-byte and eight-byte reserved prefix group slice is
   archived under
   [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
+- [Lowercase Schema Primitives](lowercase-schema-primitives.md): change
+  schema-only binary primitive spelling from upper-case identifier-like names
+  such as `UInt24be` and `Flag16le` to lower-case canonical field type syntax
+  such as `uint24be` and `flag16le`, while preserving the existing spellings
+  as schema-only compatibility forms.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,
@@ -522,7 +535,7 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Dynamic Table Fixture](../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, richer production socket APIs, richer
-  stream-routing, richer deadline, cancellation, channel, and task behavior
+  stream-routing, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, relative and absolute monotonic deadline,
   cancellation, deadline-aware listener
@@ -594,6 +607,11 @@ compare it with `../specification/` before changing behavior.
   The completed production owner-drain cancellable deadline lifecycle slice is
   archived under
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
+  Deadline and cancellation behavior is complete for this proposal at the
+  current relative and absolute monotonic `Deadline`, `CancelToken`,
+  cancellation status-query, cancellable wait-outcome, cancellable
+  deadline-aware listener accept, stream read, stream write, accepted-stream
+  lifecycle, and cancellation owner/token/status boundary.
   The completed receiver-list select-many routing and stale route-count
   fixture cleanup slice is archived under
   [Network Channel Select-Many Routing](../reference/implemented-proposals/network-channel-select-many-routing.md).

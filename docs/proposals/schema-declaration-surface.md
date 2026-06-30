@@ -148,11 +148,27 @@ This proposal remains open for:
   integer mapping arithmetic, supported ordered and equality integer mapping
   comparisons, boolean mapping assignment composition, narrow decoded-field
   integer boolean mapping selection, and pure `Bool` converter selector calls
-- general binary primitive execution semantics beyond the implemented narrow
-  primitive decode slices
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments, and
   binary fixture metadata
+
+## Discussion Result: Binary Primitive Execution Boundary
+
+Binary primitive execution is limited to fixed-width unsigned schema
+representation fields, representation-only reserved bits, length-bounded byte
+views, bounded repeats, and dispatch payloads over those eligible shapes.
+
+Exact-width unsigned fields decode to ordinary `Int` values and encode from
+ordinary `Int` values with structured range failures. Primitive names remain
+schema-local representation vocabulary, not ordinary source-visible numeric
+types.
+
+Bit packing is supported only for declared adjacent primitive and
+reserved-bit groups whose total width fits a fixed byte storage unit already
+accepted by the schema helper surface. Schemas do not define arbitrary
+bitstream parsing, signed integer families, floating-point encodings,
+variable-length integers, or text encoding primitives; those require separate
+proposal work when a concrete protocol slice needs them.
 
 ## Discussion Result: Codec Binding Direction
 

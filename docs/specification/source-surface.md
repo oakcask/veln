@@ -173,6 +173,9 @@ types or values. Exact-width primitives and `ReservedBits(width, value)` used
 in a schema without `format binary` report schema wrong-kind diagnostics
 instead of being treated as unresolved ordinary type or value names. A
 `format binary` clause that appears after a field is a parse diagnostic.
+Binary schemas do not define arbitrary bitstream parsing, signed integer
+families, floating-point encodings, variable-length integers, or text encoding
+primitives.
 One schema-level `validate` predicate may appear after binary schema fields.
 It uses the same predicate syntax as field-local `where` clauses, but may
 reference only `Int` fields decoded by the same schema helper. Unknown field
