@@ -85,6 +85,7 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
             collect_expr_node_ids(input, ids);
             collect_expr_node_ids(base, ids);
         }
+        ExprKind::SchemaEncode { value, .. } => collect_expr_node_ids(value, ids),
         ExprKind::FieldAccess { base, .. } => collect_expr_node_ids(base, ids),
         ExprKind::Try(expr) => collect_expr_node_ids(expr, ids),
         ExprKind::Record(fields) => {

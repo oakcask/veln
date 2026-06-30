@@ -470,6 +470,9 @@ impl<'a> CoreLowerer<'a> {
                 input,
                 base,
             } => self.lower_schema_decode(expr, schema, input, base),
+            ExprKind::SchemaEncode { schema, value } => {
+                self.lower_schema_encode(expr, schema, value)
+            }
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
@@ -1093,6 +1096,40 @@ impl<'a> CoreLowerer<'a> {
             CoreExprKind::Call {
                 target: CoreCallTarget::SchemaDecodeStep(schema_name),
                 args: vec![input, base],
+            },
+        )
+    }
+
+    fn lower_schema_encode(&mut self, expr: &Expr, schema: &[String], value: &Expr) -> CoreExpr {
+        let signature = self
+            .environment
+            .schema_encode_signature(schema, self.function.module_name.as_deref())
+            .cloned();
+        let value = self.lower_expr(
+            value,
+            signature
+                .as_ref()
+                .and_then(|signature| signature.params.first())
+                .map(core_type)
+                .as_ref(),
+        );
+        let Some(signature) = signature else {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: expr.node_id,
+                reason: "schema_encode_expression".to_string(),
+            });
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+        let schema_name = schema
+            .last()
+            .cloned()
+            .unwrap_or_else(|| "<missing>".to_string());
+        self.core_expr(
+            expr,
+            core_type(&signature.return_type),
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaEncode(schema_name),
+                args: vec![value],
             },
         )
     }

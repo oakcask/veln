@@ -1,0 +1,17 @@
+use wire
+
+fn missing(value: {length: Int}) -> Result<ByteChunk, EncodeError>
+	encode MissingPacket from value
+end
+
+fn private_schema(value: {length: Int}) -> Result<ByteChunk, EncodeError>
+	encode wire::PrivatePacket from value
+end
+
+fn wrong_function(value: {length: Int}) -> Result<ByteChunk, EncodeError>
+	encode wire::make_packet from value
+end
+
+fn wrong_type(value: {length: Int}) -> Result<ByteChunk, EncodeError>
+	encode wire::PacketShape from value
+end

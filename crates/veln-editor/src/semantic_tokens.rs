@@ -1105,6 +1105,47 @@ mod tests {
     }
 
     #[test]
+    fn collector_classifies_schema_encode_expression_tokens() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn packet(value: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+                "  encode wire::PacketWire from value\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        for keyword in ["encode", "from"] {
+            assert!(tokens.contains(&(
+                keyword.to_string(),
+                SemanticTokenType::Keyword,
+                SemanticTokenModifiers::empty().bits()
+            )));
+        }
+        assert!(tokens.contains(&(
+            "wire".to_string(),
+            SemanticTokenType::Variable,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "PacketWire".to_string(),
+            SemanticTokenType::Type,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "value".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+    }
+
+    #[test]
     fn collector_classifies_unnamed_holes_and_boolean_literals() {
         let source = SourceFile::new(
             "main.veln",

@@ -1,0 +1,48 @@
+# Explicit schema encode expressions produce the same ByteChunk results as generated helpers.
+use stdio
+use wire
+
+schema PacketWire
+	format binary
+
+	length: UInt8
+	kind: UInt8
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_success(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_success(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let local_explicit: Result<ByteChunk, EncodeError> = encode PacketWire from {length: 5, kind: 3}
+	emit_encoded("schema-encode-local", local_explicit, "0503")
+
+	let imported_explicit: Result<ByteChunk, EncodeError> = encode wire::ImportedWire from {length: 7, kind: 2}
+	emit_encoded("schema-encode-imported", imported_explicit, "0702")
+end

@@ -37,6 +37,10 @@ enough.
   `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count
   and diagnostic offset accounting, returning the same `DecodeStep<T>` value
   shape as `byte_decode_step_<schema>`.
+- Explicit schema encode expressions lower to the generated encode boundary
+  for the referenced eligible binary schema. They typecheck the supplied value
+  against the schema-local visible record shape and return the same
+  `Result<ByteChunk, EncodeError>` shape as `byte_encode_<schema>`.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

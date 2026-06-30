@@ -1264,6 +1264,9 @@ impl<'a> FunctionChecker<'a> {
                 input,
                 base,
             } => self.infer_schema_decode(expr, schema, input, base),
+            ExprKind::SchemaEncode { schema, value } => {
+                self.infer_schema_encode(expr, schema, value)
+            }
             ExprKind::FieldAccess {
                 base,
                 field,
@@ -1344,6 +1347,53 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn push_schema_decode_expression_diagnostic(&mut self, expr: &Expr, schema: &[String]) {
+        self.push_schema_operation_expression_diagnostic(expr, schema, "decode", "decode_step");
+    }
+
+    fn infer_schema_encode(&mut self, expr: &Expr, schema: &[String], value: &Expr) -> Type {
+        let Some(signature) = self
+            .environment
+            .schema_encode_signature(schema, self.function.module_name.as_deref())
+            .cloned()
+        else {
+            self.infer_expr(value, None);
+            self.push_schema_encode_expression_diagnostic(expr, schema);
+            return Type::Unknown;
+        };
+        let Some(value_type) = signature.params.first().cloned() else {
+            self.infer_expr(value, None);
+            self.push_schema_encode_expression_diagnostic(expr, schema);
+            return Type::Unknown;
+        };
+        let value_expected = ExpectedType {
+            ty: value_type,
+            source: ExpectedTypeSource::DeclaredParameter,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Schema encode value must match the schema-local visible record.",
+        };
+        let value_actual = self.infer_expr(value, Some(&value_expected));
+        self.check_assignable(
+            value,
+            &value_expected.ty,
+            &value_actual,
+            &value_expected,
+            "schema_encode_value",
+        );
+        signature.return_type
+    }
+
+    fn push_schema_encode_expression_diagnostic(&mut self, expr: &Expr, schema: &[String]) {
+        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode");
+    }
+
+    fn push_schema_operation_expression_diagnostic(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        operation: &str,
+        operation_detail: &str,
+    ) {
         let symbol = if schema.is_empty() {
             "<missing>".to_string()
         } else {
@@ -1359,14 +1409,14 @@ impl<'a> FunctionChecker<'a> {
         };
         let message = match (error.kind, error.resolved_kind) {
             (SchemaReferenceErrorKind::Private, _) => {
-                format!("schema decode expression schema `{symbol}` is private")
+                format!("schema {operation} expression schema `{symbol}` is private")
             }
             (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
-                format!("schema decode expression target `{symbol}` is a {kind}, not a schema")
+                format!("schema {operation} expression target `{symbol}` is a {kind}, not a schema")
             }
             _ => {
                 format!(
-                    "schema decode expression cannot resolve `{symbol}` as an eligible binary schema"
+                    "schema {operation} expression cannot resolve `{symbol}` as an eligible binary schema"
                 )
             }
         };
@@ -1374,14 +1424,14 @@ impl<'a> FunctionChecker<'a> {
             ("phase", JsonValue::string("body_analysis")),
             ("node_id", JsonValue::string(expr.node_id.display("expr"))),
             ("schema_path", JsonValue::string(symbol)),
-            ("operation", JsonValue::string("decode_step")),
+            ("operation", JsonValue::string(operation_detail)),
             ("reason", JsonValue::string(reason)),
         ];
         if let Some(kind) = error.resolved_kind {
             details.push(("resolved_kind", JsonValue::string(kind)));
         }
         self.diagnostics.push(Diagnostic::new(
-            "schema.decode_expression",
+            format!("schema.{operation}_expression"),
             Severity::Error,
             DiagnosticKind::Type,
             message,

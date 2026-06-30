@@ -71,10 +71,10 @@ compare it with `../specification/` before changing behavior.
   source-level `codec` declarations, stop exposing generated helper names as
   public source API, and reposition binary `schema` declarations as explicit
   byte-pattern operations used from ordinary functions. The explicit schema
-  decode expression slice is current behavior under
+  decode and encode expression slices are current behavior under
   `../specification/source-surface.md`; the remaining proposal work covers
-  broader example migration, explicit encode, generated-helper removal, codec
-  removal, and diagnostic reclassification.
+  broader example migration, generated-helper removal, codec removal, and
+  diagnostic reclassification.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary

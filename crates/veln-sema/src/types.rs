@@ -526,6 +526,27 @@ impl TypeEnvironment {
         })
     }
 
+    pub(crate) fn schema_encode_signature(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        let (schema_name, module_path) = schema_path.split_last()?;
+        let helper_name = schema_encode_function_name(schema_name);
+        if module_path.is_empty() {
+            return self
+                .unqualified_function(&helper_name, current_module)
+                .found();
+        }
+        let use_decl = imported_use_for_path(&self.uses, module_path, current_module)?;
+        let module_name = use_decl.name.as_str();
+        self.functions.iter().find(|function| {
+            function.name == helper_name
+                && function.module_name.as_deref() == Some(module_name)
+                && function.visibility == Visibility::Public
+        })
+    }
+
     pub(crate) fn schema_reference_error(
         &self,
         schema_path: &[String],
@@ -982,6 +1003,9 @@ fn collect_private_call_site_expr_constraints(
                 Some(&Type::named("ByteOffset", Vec::new())),
                 context,
             );
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_private_call_site_expr_constraints(value, None, context);
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
@@ -1703,6 +1727,9 @@ fn collect_private_prelude_callback_expr_constraints(
                 context,
             );
         }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_private_prelude_callback_expr_constraints(value, None, context);
+        }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::Prefix { expr: base, .. } => {
@@ -2175,6 +2202,18 @@ fn infer_private_signature_expr_type(
             infer_private_signature_expr_type(
                 base,
                 Some(&Type::named("ByteOffset", Vec::new())),
+                current_module,
+                uses,
+                bindings,
+                returns_by_path,
+                adts,
+            );
+            Type::Unknown
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            infer_private_signature_expr_type(
+                value,
+                None,
                 current_module,
                 uses,
                 bindings,
@@ -5256,6 +5295,17 @@ fn collect_expr_effects(
             );
             collect_expr_effects(
                 base,
+                uses,
+                current_module,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            collect_expr_effects(
+                value,
                 uses,
                 current_module,
                 bindings,

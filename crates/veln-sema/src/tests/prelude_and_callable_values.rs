@@ -142,6 +142,63 @@ fn explicit_schema_decode_expression_resolves_as_schema_decode_step_boundary() {
 }
 
 #[test]
+fn explicit_schema_encode_expression_resolves_as_schema_encode_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PacketWire from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            args,
+        } if name == "PacketWire" && args.len() == 1
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            args,
+        } if name == "PacketWire" && args.len() == 1
+    ));
+}
+
+#[test]
 fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
     let app_source = SourceFile::new(
         "app.veln",

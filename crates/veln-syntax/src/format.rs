@@ -98,6 +98,7 @@ fn expr_has_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> boo
             expr_has_commented_match_rewrite(input, comments)
                 || expr_has_commented_match_rewrite(base, comments)
         }
+        ExprKind::SchemaEncode { value, .. } => expr_has_commented_match_rewrite(value, comments),
         ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
             expr_has_commented_match_rewrite(base, comments)
         }
@@ -1062,6 +1063,11 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             format_expr_at_indent(input, indent),
             format_expr_at_indent(base, indent)
         ),
+        ExprKind::SchemaEncode { schema, value } => format!(
+            "encode {} from {}",
+            schema.join("::"),
+            format_expr_at_indent(value, indent)
+        ),
         ExprKind::FieldAccess { base, field, .. } => {
             format!(
                 "{}.{field}",
@@ -1460,6 +1466,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         ExprKind::Prefix { .. } => 15,
         ExprKind::Call { .. }
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
         | ExprKind::Try(_) => 17,
         ExprKind::Match { .. } | ExprKind::If { .. } => 19,

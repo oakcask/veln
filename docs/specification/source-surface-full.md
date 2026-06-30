@@ -80,8 +80,11 @@ ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode
+                  | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
+SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
+SchemaEncode  ::= "encode" MemberPath "from" Expr
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
 TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"

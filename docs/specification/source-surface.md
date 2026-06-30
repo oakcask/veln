@@ -55,17 +55,25 @@ schema vocabulary, including direct fields, supported reserved fields,
 repeated fields, and dispatch payload field text.
 
 Schema declarations return and accept schema-local visible record shapes
-through generated helpers and explicit decode expressions. The expression
-`decode SchemaName from view at base_offset` accepts the same eligible binary
-schemas, `ByteView`, and `ByteOffset` operands as the generated decode-step
-helper and returns the same `DecodeStep<T>` shape. Qualified public schema
-paths are accepted when the imported schema is visible. The executable
-coverage is
-`examples/specification/run/schema-decode-expression/`. Projection into
-domain records is ordinary source code at the helper-call, decode-expression,
-or codec boundary. Schema-level `map to` clauses, selected schema mappings,
-mapping assignments, and `inverse` projection annotations are not accepted
-source syntax.
+through generated helpers and explicit schema operation expressions. The
+expression `decode SchemaName from view at base_offset` accepts the same
+eligible binary schemas, `ByteView`, and `ByteOffset` operands as the
+generated decode-step helper and returns the same `DecodeStep<T>` shape. The
+expression `encode SchemaName from value` accepts the schema-local visible
+record shape for the same eligible binary schemas as the generated encode
+helper and returns the same `Result<ByteChunk, EncodeError>` shape. Qualified
+public schema paths are accepted when the imported schema is visible. The
+executable coverage is
+`examples/specification/run/schema-decode-expression/` and
+`examples/specification/run/schema-encode-expression/`; encode expression
+diagnostics are checked by
+`examples/specification/check/schema-encode-expression-diagnostics/` and
+runtime value failures by
+`examples/specification/run/schema-encode-expression-unrepresentable-json/`.
+Projection into domain records is ordinary source code at the helper-call,
+schema-operation, or codec boundary. Schema-level `map to` clauses, selected
+schema mappings, mapping assignments, and `inverse` projection annotations are
+not accepted source syntax.
 
 ## Codecs
 
