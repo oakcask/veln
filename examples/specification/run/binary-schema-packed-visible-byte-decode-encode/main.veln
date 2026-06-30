@@ -107,7 +107,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded.middle))
 	stdio::println(int_to_string(decoded.low))
 
-	let stepped: DecodeStep<{high: Int, middle: Int, low: Int}> = byte_decode_step_packed_visible_byte_header(view, byte_offset(24)?)
+	let stepped: DecodeStep<{high: Int, middle: Int, low: Int}> = decode PackedVisibleByteHeader from view at byte_offset(24)?
 	stdio::println(step_kind(stepped))
 	stdio::println(int_to_string(decoded_high(stepped)))
 	stdio::println(int_to_string(decoded_middle(stepped)))

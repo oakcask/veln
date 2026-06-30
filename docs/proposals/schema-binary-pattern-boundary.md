@@ -221,20 +221,19 @@ second name for calls that ordinary functions can already own.
 The explicit schema decode and encode expression slices are implemented and
 specified under `../specification/source-surface.md`, with executable coverage
 under `../../examples/specification/run/schema-decode-expression/` and
-`../../examples/specification/run/schema-encode-expression/`. Remaining
-migration work is:
+`../../examples/specification/run/schema-encode-expression/`. Direct
+decode-step executable examples now apply schemas through explicit decode
+expressions. Remaining migration work is:
 
-1. Rewrite executable examples to call schemas through explicit decode
-   expressions instead of `byte_decode_step_<schema>` helper names.
-2. Rewrite encode examples to use ordinary projection functions plus explicit
+1. Rewrite encode examples to use ordinary projection functions plus explicit
    schema encode expressions.
-3. Remove source-visible generated helper names from documentation and public
-   examples.
-4. Remove parser, formatter, AST, lowering, semantic, editor-token, and
+2. Remove source-visible generated helper names from documentation and public
+   examples, leaving only compatibility and diagnostic coverage while accepted.
+3. Remove parser, formatter, AST, lowering, semantic, editor-token, and
    documentation support for top-level `codec` declarations.
-5. Reclassify representation-local `codec.*` diagnostics as schema-owned
+4. Reclassify representation-local `codec.*` diagnostics as schema-owned
    diagnostics.
-6. Archive implemented codec proposal records as historical implementation
+5. Archive implemented codec proposal records as historical implementation
    records, not current design direction.
 
 During migration, compatibility shims may remain inside the compiler or

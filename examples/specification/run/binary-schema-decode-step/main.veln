@@ -1,4 +1,4 @@
-# Generated binary schema decode-step helpers expose consumed counts and readiness.
+# Explicit binary schema decode expressions expose consumed counts and readiness.
 use stdio
 
 schema StepPacket
@@ -62,7 +62,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let complete_bytes: ByteChunk = byte_chunk_from_hex("000504aa")?
 	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(4)?)?
 	let complete_base: ByteOffset = byte_offset(32)?
-	let complete: DecodeStep<{length: Int, kind: Int}> = byte_decode_step_step_packet(complete_view, complete_base)
+	let complete: DecodeStep<{length: Int, kind: Int}> = decode StepPacket from complete_view at complete_base
 	stdio::println(step_kind(complete))
 	stdio::println(int_to_string(decoded_length(complete)))
 	stdio::println(int_to_string(decoded_kind(complete)))
@@ -71,7 +71,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let short_bytes: ByteChunk = byte_chunk_from_hex("0005")?
 	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(2)?)?
 	let short_base: ByteOffset = byte_offset(64)?
-	let waiting: DecodeStep<{length: Int, kind: Int}> = byte_decode_step_step_packet(short_view, short_base)
+	let waiting: DecodeStep<{length: Int, kind: Int}> = decode StepPacket from short_view at short_base
 	stdio::println(step_kind(waiting))
 	stdio::println(readiness_kind(waiting))
 	stdio::println(int_to_string(readiness_count(waiting)))
