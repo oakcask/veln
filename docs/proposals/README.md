@@ -475,17 +475,18 @@ compare it with `../specification/` before changing behavior.
   checked outbound `PUSH_PROMISE` rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
-  the first source-visible HPACK static-indexed decoder subset for
-  `:method: GET`, `:method: POST`, `:path: /`, `:scheme: http`,
-  `:scheme: https`, `:status: 200`, and `:status: 404`, and focused
-  `hpack.static.unsupported_index` diagnostics, plus source-visible
+  the source-visible HPACK static-indexed decoder for every single-byte
+  static table entry from `0x81` `:authority` through `0xbd`
+  `www-authenticate:`, focused `hpack.static.unsupported_index`
+  diagnostics for indexes outside the static table boundary, plus
+  source-visible
   literal-without-indexing static-name decoding for raw visible-ASCII values
   on `:authority`, `:path`, `:status`, `server`, `content-type`, and
   `user-agent`,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented source-visible static decoder subset,
+  fixture boundary and implemented source-visible static decoder,
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).

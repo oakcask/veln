@@ -40,9 +40,11 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":path", _), HpackHeader(":fixture", _), _) => ":path,:fixture"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":fixture", _), _) => ":scheme,:fixture"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", _), _) => ":status,:fixture"
+		HpackHeaderList(HpackHeader("accept-encoding", _), HpackHeader(":fixture", _), _) => "accept-encoding,:fixture"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":fixture", _), _) => "server,:fixture"
 		HpackHeaderList(HpackHeader("content-type", _), HpackHeader(":fixture", _), _) => "content-type,:fixture"
 		HpackHeaderList(HpackHeader("user-agent", _), HpackHeader(":fixture", _), _) => "user-agent,:fixture"
+		HpackHeaderList(HpackHeader("www-authenticate", _), HpackHeader(":fixture", _), _) => "www-authenticate,:fixture"
 		_ => ":unknown"
 	end
 end

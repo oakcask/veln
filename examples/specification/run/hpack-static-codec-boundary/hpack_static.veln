@@ -29,32 +29,94 @@ fn unsupported_static_index(block: ByteChunk, offset: Int) -> Result<HpackHeader
 	Err(UnsupportedStaticIndex(offset, observed_size(block), byte_at_or_missing(block, 0), "HPACK static indexed header", "hpack_static", block))
 end
 
-fn index_supported(byte: Int) -> Bool
-	match byte == 130
-		true => true
-		false => match byte == 131
-			true => true
-			false => match byte == 132
-				true => true
-				false => match byte == 134
-					true => true
-					false => match byte == 135
-						true => true
-						false => match byte == 136
-							true => true
-							false => byte == 141
-						end
-					end
-				end
-			end
-		end
+fn static_table_header(index: Int) -> Option<HpackHeader>
+	match index
+		1 => Some(hpack_fixture::hpack_header(":authority", ""))
+		2 => Some(hpack_fixture::hpack_header(":method", "GET"))
+		3 => Some(hpack_fixture::hpack_header(":method", "POST"))
+		4 => Some(hpack_fixture::hpack_header(":path", "/"))
+		5 => Some(hpack_fixture::hpack_header(":path", "/index.html"))
+		6 => Some(hpack_fixture::hpack_header(":scheme", "http"))
+		7 => Some(hpack_fixture::hpack_header(":scheme", "https"))
+		8 => Some(hpack_fixture::hpack_header(":status", "200"))
+		9 => Some(hpack_fixture::hpack_header(":status", "204"))
+		10 => Some(hpack_fixture::hpack_header(":status", "206"))
+		11 => Some(hpack_fixture::hpack_header(":status", "304"))
+		12 => Some(hpack_fixture::hpack_header(":status", "400"))
+		13 => Some(hpack_fixture::hpack_header(":status", "404"))
+		14 => Some(hpack_fixture::hpack_header(":status", "500"))
+		15 => Some(hpack_fixture::hpack_header("accept-charset", ""))
+		16 => Some(hpack_fixture::hpack_header("accept-encoding", "gzip, deflate"))
+		17 => Some(hpack_fixture::hpack_header("accept-language", ""))
+		18 => Some(hpack_fixture::hpack_header("accept-ranges", ""))
+		19 => Some(hpack_fixture::hpack_header("accept", ""))
+		20 => Some(hpack_fixture::hpack_header("access-control-allow-origin", ""))
+		21 => Some(hpack_fixture::hpack_header("age", ""))
+		22 => Some(hpack_fixture::hpack_header("allow", ""))
+		23 => Some(hpack_fixture::hpack_header("authorization", ""))
+		24 => Some(hpack_fixture::hpack_header("cache-control", ""))
+		25 => Some(hpack_fixture::hpack_header("content-disposition", ""))
+		26 => Some(hpack_fixture::hpack_header("content-encoding", ""))
+		27 => Some(hpack_fixture::hpack_header("content-language", ""))
+		28 => Some(hpack_fixture::hpack_header("content-length", ""))
+		29 => Some(hpack_fixture::hpack_header("content-location", ""))
+		30 => Some(hpack_fixture::hpack_header("content-range", ""))
+		31 => Some(hpack_fixture::hpack_header("content-type", ""))
+		32 => Some(hpack_fixture::hpack_header("cookie", ""))
+		33 => Some(hpack_fixture::hpack_header("date", ""))
+		34 => Some(hpack_fixture::hpack_header("etag", ""))
+		35 => Some(hpack_fixture::hpack_header("expect", ""))
+		36 => Some(hpack_fixture::hpack_header("expires", ""))
+		37 => Some(hpack_fixture::hpack_header("from", ""))
+		38 => Some(hpack_fixture::hpack_header("host", ""))
+		39 => Some(hpack_fixture::hpack_header("if-match", ""))
+		40 => Some(hpack_fixture::hpack_header("if-modified-since", ""))
+		41 => Some(hpack_fixture::hpack_header("if-none-match", ""))
+		42 => Some(hpack_fixture::hpack_header("if-range", ""))
+		43 => Some(hpack_fixture::hpack_header("if-unmodified-since", ""))
+		44 => Some(hpack_fixture::hpack_header("last-modified", ""))
+		45 => Some(hpack_fixture::hpack_header("link", ""))
+		46 => Some(hpack_fixture::hpack_header("location", ""))
+		47 => Some(hpack_fixture::hpack_header("max-forwards", ""))
+		48 => Some(hpack_fixture::hpack_header("proxy-authenticate", ""))
+		49 => Some(hpack_fixture::hpack_header("proxy-authorization", ""))
+		50 => Some(hpack_fixture::hpack_header("range", ""))
+		51 => Some(hpack_fixture::hpack_header("referer", ""))
+		52 => Some(hpack_fixture::hpack_header("refresh", ""))
+		53 => Some(hpack_fixture::hpack_header("retry-after", ""))
+		54 => Some(hpack_fixture::hpack_header("server", ""))
+		55 => Some(hpack_fixture::hpack_header("set-cookie", ""))
+		56 => Some(hpack_fixture::hpack_header("strict-transport-security", ""))
+		57 => Some(hpack_fixture::hpack_header("transfer-encoding", ""))
+		58 => Some(hpack_fixture::hpack_header("user-agent", ""))
+		59 => Some(hpack_fixture::hpack_header("vary", ""))
+		60 => Some(hpack_fixture::hpack_header("via", ""))
+		61 => Some(hpack_fixture::hpack_header("www-authenticate", ""))
+		_ => None
+	end
+end
+
+fn static_table_header_from_indexed_byte(byte: Int) -> Option<HpackHeader>
+	static_table_header(byte - 128)
+end
+
+fn static_index_wire_size(byte: Int) -> Int
+	match byte
+		129 => 1
+		130 => 8
+		131 => 9
+		132 => 6
+		133 => 9
+		134 => 8
+		135 => 9
+		_ => 9
 	end
 end
 
 fn all_bytes_indexed(block: ByteChunk, index: Int, count: Int) -> Bool
 	match index == count
 		true => true
-		false => match byte_at_or_missing(block, index) >= 128 and byte_at_or_missing(block, index) <= 189
+		false => match byte_at_or_missing(block, index) >= 128
 			true => all_bytes_indexed(block, index + 1, count)
 			false => false
 		end
@@ -64,9 +126,9 @@ end
 fn all_indexes_supported(block: ByteChunk, index: Int, count: Int) -> Bool
 	match index == count
 		true => true
-		false => match index_supported(byte_at_or_missing(block, index))
-			true => all_indexes_supported(block, index + 1, count)
-			false => false
+		false => match static_table_header_from_indexed_byte(byte_at_or_missing(block, index))
+			Some(_) => all_indexes_supported(block, index + 1, count)
+			None => false
 		end
 	end
 end
@@ -76,15 +138,9 @@ fn request_marker(method: String, wire_size: Int) -> HpackHeaderList
 end
 
 fn single_header(byte: Int) -> HpackHeaderList
-	match byte
-		130 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", "GET"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 8)
-		131 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", "POST"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
-		132 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":path", "/"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 6)
-		134 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":scheme", "http"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 8)
-		135 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":scheme", "https"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
-		136 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":status", "200"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
-		141 => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":status", "404"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 9)
-		_ => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":fixture", "unsupported-static-index"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 0)
+	match static_table_header_from_indexed_byte(byte)
+		Some(header) => hpack_fixture::hpack_header_list(header, hpack_fixture::hpack_header(":fixture", "static-indexed"), static_index_wire_size(byte))
+		None => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":fixture", "unsupported-static-index"), hpack_fixture::hpack_header(":fixture", "static-indexed"), 0)
 	end
 end
 

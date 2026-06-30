@@ -2343,6 +2343,13 @@ against the built `veln` binary.
   updates project through `hpack.fixture.table_size_update_malformed` and
   table-size updates with trailing bytes after a complete integer stay on the
   unsupported fixture path.
+- `run/hpack-static-codec-boundary/`: the source-visible `hpack_static`
+  decoder uses one static-table lookup for supported single-byte static
+  indexed entries. Checked entries cover the start, pseudo-header path,
+  response status, ordinary-header, and final table positions, and the case
+  also pins the focused unsupported-index diagnostic above the table boundary
+  while preserving existing unsupported static index and literal fallback
+  behavior.
 - `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: the
   JSON case directly decodes static indexed `0x85` as
   `:path: /index.html`, and an unsupported HPACK fixture header block returns

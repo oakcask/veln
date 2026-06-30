@@ -2245,11 +2245,15 @@ execution reference.
 - The HTTP/2 protocol core routes complete HEADERS blocks and completed final
   CONTINUATION header blocks through the source-visible `hpack_static` decoder
   before falling back to the fixture codec. This implemented source-visible
-  slice decodes single-byte indexed representations for `:method: GET`,
-  `:method: POST`, `:path: /`, `:scheme: http`, `:scheme: https`,
-  `:status: 200`, and `:status: 404`, and decodes supported request blocks
-  containing method, scheme, and root path indexed fields such as
-  `0x82 0x87 0x84`. It also decodes literal-without-indexing header fields
+  slice uses one static-table lookup for every valid single-byte static indexed
+  representation from `0x81` `:authority` through `0xbd`
+  `www-authenticate:`. The checked standalone boundary includes representative
+  newly covered pseudo-header, response-status, ordinary-header, and last-table
+  entries, plus the focused unsupported-index diagnostic for static table
+  index `62`. The decoder still decodes supported request blocks containing
+  method, scheme, and root path indexed fields such as `0x82 0x87 0x84`. It
+  also decodes
+  literal-without-indexing header fields
   whose name is a supported HPACK static-table index and whose value is a raw
   single-byte-length visible-ASCII string. The supported source-visible literal
   names are `:authority`, `:path`, `:status`, `server`, `content-type`, and

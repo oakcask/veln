@@ -2597,13 +2597,18 @@ The same HPACK fixture boundary accepts the static indexed `0x81`
 	final CONTINUATION frame before HPACK decode. The standalone
 	`hpack-fixture-codec-json` example directly decodes the same static
 	indexed byte before preserving the unsupported-header-block JSON
-	diagnostic projection. The source-visible `hpack_static` boundary also
-	checks literal-without-indexing static-name blocks for pseudo-header and
-	ordinary-header raw visible-ASCII values, including `:authority`, `:path`,
-	`:status`, `server`, `content-type`, and `user-agent`, while leaving
-	unsupported literal names, Huffman-marked values, and malformed literal
-	lengths, including saturated length prefixes, on the existing fallback
-	failure shape. The HTTP/2 protocol-core example carries raw
+	diagnostic projection. The source-visible `hpack_static` boundary checks
+	representative entries across the complete HPACK static table lookup,
+	including `0x81` `:authority`, `0x85` `:path: /index.html`, `0x8e`
+	`:status: 500`, `0x90` `accept-encoding: gzip, deflate`, and `0xbd`
+	`www-authenticate:`, plus the focused unsupported-index diagnostic above
+	the static table boundary. It also checks literal-without-indexing
+	static-name blocks for pseudo-header and ordinary-header raw visible-ASCII
+	values, including `:authority`, `:path`, `:status`, `server`,
+	`content-type`, and `user-agent`, while leaving unsupported literal names,
+	Huffman-marked values, and malformed literal lengths, including saturated
+	length prefixes, on the existing fallback failure shape. The HTTP/2
+	protocol-core example carries raw
 	literal-without-indexing `:status` through completed HEADERS before fixture
 	fallback. It also checks
 	literal-without-indexing,
