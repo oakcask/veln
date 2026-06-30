@@ -67,11 +67,19 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
+- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md): remove
+  source-level `codec` declarations, stop exposing generated helper names as
+  public source API, and reposition binary `schema` declarations as explicit
+  byte-pattern operations used from ordinary functions.
+- [Remove Schema Map To](remove-schema-map-to.md): remove schema-level
+  `map to` clauses and require explicit ordinary projection functions at
+  schema operation or ordinary function boundaries.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
-  schema primitive declaration slices, structural mapping clauses, codec
-  declaration schema import/reference visibility checks, and generated
+  schema primitive declaration and execution boundaries, structural mapping
+  clauses, existing codec compatibility schema import/reference visibility
+  checks, and generated
   field-local validation plus decoded-field single-record mapping decode
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions including nested constructor
@@ -110,7 +118,12 @@ compare it with `../specification/` before changing behavior.
   archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
   Binary fixture metadata in executable specification cases may also validate
-  schema-aware references.
+  schema-aware references. Binary primitive execution is current behavior
+  under `../specification/source-surface.md` and
+  `../specification/execution.md`; this proposal does not keep arbitrary
+  bitstream parsing, signed integer families, floating-point encodings,
+  variable-length integers, or text encoding primitives open as schema
+  declaration work.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
@@ -197,11 +210,12 @@ compare it with `../specification/` before changing behavior.
   bounded `Repeat(left_count - right_count, Payload)`,
   `Repeat(left_count + right_count, Payload)`, and
   `Repeat(left_count * right_count, Payload)` decode and encode with
-  count-mismatch, invalid-count, and derived codec boundary coverage, bounded
+  count-mismatch, invalid-count, and compatibility derived codec boundary
+  coverage, bounded
   `Repeat(left_count / right_count, Payload)` decode and encode plus
-  division-by-zero and derived codec boundary coverage,
+  division-by-zero and compatibility derived codec boundary coverage,
   bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
-  derived codec boundary slices, bounded
+  compatibility derived codec boundary slices, bounded
   `Repeat(count_field, ByteView(left_length + right_length))` decode and
   encode, length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
@@ -326,55 +340,17 @@ compare it with `../specification/` before changing behavior.
   The completed seven-byte and eight-byte reserved prefix group slice is
   archived under
   [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
-- [Codec Execution Boundary](codec-execution-boundary.md): define remaining
-  executable decode and encode behavior beyond the implemented codec
-  declaration source-surface slice, decode function signature boundary,
-  mapped decode value boundary, encode function return and mapped value
-  parameter boundaries, derived codec mapping value boundary checks,
-  source-visible decode and encode result vocabulary, direct source-visible
-  `DecodeError`, `DecodeErrorWithReason`, and `EncodeError` command-facing
-  projection from run entry result failures, generated binary schema
-  decode-step helper slice for implemented exact-width, middle reserved,
-  repeat-backed, and same-module and public imported nested dispatch payload
-  boundaries,
-  hand-written codec decode consumed-count validation, hand-written codec
-  encode and decode execution boundaries including caller-owned parser-state
-  retention around `Decoded` and `NeedMore`, the bounded `ByteView` plus base
-  `ByteOffset` hand-written decode example with non-consuming short-input
-  readiness, same-module hand-written `NeedEnd` readiness preservation and
-  closed-input projection, and absolute malformed-input offsets,
-  source-visible partial encode preservation and same-module plus imported
-  resume, plus eligible derived codec decode and
-  encode execution boundaries, including budgeted derived encode, over the
-  checked non-HTTP composite helper shape and general generated helper shape,
-  additive, subtractive, quotient-sized, and product-sized `ByteView` payload
-  fields, arithmetic-count and quotient-count
-  repeated primitive fields, same-module recursive closed and extension
-  dispatch payload helpers, byte-aligned representation-only
-  `ReservedBits(width, value)` fields through the derived decode boundary,
-  derived bounded `ByteView` plus explicit base-offset decode projection,
-  standalone visible `UInt1` through `UInt7`
-  fields, visible-only packed two-byte, three-byte, four-byte, five-byte,
-  six-byte, and seven-byte groups,
-  opt-in visible flag bitset fields, including generated-helper-backed
-  `Flag24be` and `Flag24le` fields, wide reserved suffix groups, wide reserved
-  prefix groups, the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
-  helper route,
-  schema mappings that call pure same-module or imported public converters
-  with one or more supported structural arguments through generated decode
-  mapping and the derived codec decode boundary,
-  and selected structural mapping encode slice,
-  and derived helper eligibility diagnostics for unsupported generated decode
-  and encode directions.
-  The completed same-module hand-written encode resume slice is archived under
-  [Codec Hand-Written Encode Resume](../reference/implemented-proposals/codec-hand-written-encode-resume.md).
-  The completed same-module hand-written `NeedEnd` readiness preservation
-  slice is archived under
-  [Codec Hand-Written NeedEnd Boundary](../reference/implemented-proposals/codec-hand-written-need-end-boundary.md).
-  The completed imported hand-written codec boundary is archived under
-  [Codec Imported Hand-Written Boundary](../reference/implemented-proposals/codec-imported-hand-written-boundary.md).
-  The completed imported derived codec boundary is archived under
-  [Codec Imported Derived Boundary](../reference/implemented-proposals/codec-imported-derived-boundary.md).
+- [Lowercase Schema Primitives](lowercase-schema-primitives.md): change
+  schema-only binary primitive spelling from upper-case identifier-like names
+  such as `UInt24be` and `Flag16le` to lower-case canonical field type syntax
+  such as `uint24be` and `flag16le`, while preserving the existing spellings
+  as schema-only compatibility forms.
+- [Codec Execution Boundary](codec-execution-boundary.md): superseded route
+  for the former source-level `codec` declaration design. New binary schema
+  work should use
+  [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md), which
+  moves explicit decode and encode operations onto schemas and exposes public
+  protocol APIs as ordinary functions.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
@@ -522,7 +498,7 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Dynamic Table Fixture](../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, richer production socket APIs, richer
-  stream-routing, richer deadline, cancellation, channel, and task behavior
+  stream-routing, channel, and task behavior
   beyond the implemented transport, bounded channel-first routing, general
   receiver-list routing, task, relative and absolute monotonic deadline,
   cancellation, deadline-aware listener
@@ -594,6 +570,11 @@ compare it with `../specification/` before changing behavior.
   The completed production owner-drain cancellable deadline lifecycle slice is
   archived under
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
+  Deadline and cancellation behavior is complete for this proposal at the
+  current relative and absolute monotonic `Deadline`, `CancelToken`,
+  cancellation status-query, cancellable wait-outcome, cancellable
+  deadline-aware listener accept, stream read, stream write, accepted-stream
+  lifecycle, and cancellation owner/token/status boundary.
   The completed receiver-list select-many routing and stale route-count
   fixture cleanup slice is archived under
   [Network Channel Select-Many Routing](../reference/implemented-proposals/network-channel-select-many-routing.md).

@@ -7,8 +7,9 @@ transport integration. Current implemented transport, channel, task, deadline,
 and cancellation slices are specified by `../specification/names-effects.md`
 and `../specification/execution.md`; completed proposal records live under
 `../reference/implemented-proposals/`. This page keeps the larger transport
-adapter, richer stream routing, richer deadline, cancellation, and socket work
-open.
+adapter, richer stream routing, and socket work open while treating deadline
+and cancellation behavior as complete for this proposal at the current
+owner/token/status/outcome boundary.
 
 ## Problem
 
@@ -84,7 +85,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   `task::spawn_with<Result, Context>` handler boundary. Additional work should
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
   another same-shaped spawned-handler arity.
-- richer deadline, timeout, and cancellation adapter APIs beyond
+- follow-up deadline, timeout, and cancellation adapter APIs only when a
+  concrete adapter use case needs capabilities beyond
   `time::monotonic_ms`, `time::timeout_ms`, `time::deadline_after_ms`,
   `time::deadline_at_ms`, `time::wait_until`, `time::cancel_token`,
   `time::cancel`, and
@@ -104,15 +106,19 @@ Completed fixture-backed listen, accept, read, write, and close operations use
 the existing coarse `net` effect label and remain runtime boundaries.
 
 The remaining transport surface should keep the existing coarse `net` effect
-label. Listen, accept, read, write, and close operations should be
+label until effect handlers or an equivalent runtime permission mechanism are
+implemented. Listen, accept, read, write, and close operations should be
 distinguished by standard-library function names, typed values, and
 diagnostics rather than by separate effect labels.
 
 This preserves the current effect-label source surface and avoids requiring the
-HTTP/2 design driver to decide a full network permission taxonomy from the
-first fixture-backed socket calls. If later runtime work needs static
-separation between network access modes, it should introduce that split with
-concrete APIs, compatibility rules, and migration guidance.
+HTTP/2 design driver to decide a full network permission taxonomy before the
+runtime can express, intercept, or delegate those permissions. Fine-grained
+labels such as listen-only, accept-only, read-only, write-only, or close-only
+network effects are therefore out of scope for this proposal. If later runtime
+work needs static separation between network access modes, it should introduce
+that split in a follow-up proposal with concrete effect-handler behavior,
+compatibility rules, and migration guidance.
 
 ## Discussion Result: Channel Byte Views
 
@@ -140,10 +146,15 @@ requiring application code to understand transport scheduling. Fixture tests
 can also invoke the same handler directly with decoded stream events and
 assert the returned response actions.
 
-A service interface is deferred until routing, deadlines, cancellation,
-middleware, and resource ownership have concrete standard-library APIs. That
-future interface should wrap or compose plain handlers rather than forcing the
-HTTP/2 design driver to define a Web-service framework.
+A service interface is explicitly outside this proposal's completion
+criteria. Routing, deadlines, cancellation, middleware, and resource ownership
+need concrete standard-library APIs before that abstraction can be designed
+without turning the HTTP/2 design driver into a Web-service framework.
+
+If a future proposal adds a service interface, it should wrap or compose plain
+handlers at the adapter layer. It should not replace the event/action handler
+boundary chosen here, pass socket handles into application handlers, or make
+application code own transport scheduling.
 
 ## Discussion Result: Stream Adapter Event Boundary
 
@@ -558,6 +569,12 @@ scheduler APIs if examples need them, but that work should extend the `time`
 standard-library surface rather than introduce deadline behavior into schemas
 or the pure protocol core.
 
+The current proposal is complete at the owner/token/status/outcome boundary.
+It should not add richer timer handles, scheduler APIs, or cancellation
+capabilities without a concrete adapter use case. Future work that needs those
+capabilities should open a separate runtime proposal that extends the `time`
+standard-library surface.
+
 ## Non-Goals
 
 - Do not block the sans-I/O protocol core on sockets.
@@ -592,12 +609,12 @@ or the pure protocol core.
   lifecycle, cancellable accepted-stream lifecycle,
   cancellable deadline-aware accepted-stream lifecycle, context-based spawned
   handler task and adapter-level cancellable stream routing;
-  remaining examples still need richer production socket APIs and richer
-  deadline and cancellation APIs beyond the current relative and absolute
-  monotonic `Deadline`, `CancelToken`, cancellation status-query, cancellable
-  wait-outcome, cancellable deadline-aware listener accept, stream read,
-  stream write, and accepted-stream lifecycle boundaries, plus the current
-  cancellation owner/token/status split.
+  remaining examples still need richer production socket APIs. Deadline and
+  cancellation behavior is complete for this proposal at the current relative
+  and absolute monotonic `Deadline`, `CancelToken`, cancellation status-query,
+  cancellable wait-outcome, cancellable deadline-aware listener accept, stream
+  read, stream write, and accepted-stream lifecycle boundaries, plus the
+  current cancellation owner/token/status split.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to
