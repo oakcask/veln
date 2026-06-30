@@ -104,7 +104,8 @@ format invocation exits with failure and writes nothing.
 For parse-clean files, formatting is deterministic for the implemented syntax:
 use declarations, function signatures, contract clauses, let statements,
 tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
-prefix operators, binary operators, and postfix `?`.
+prefix operators, binary operators, postfix `?`, and supported binary schema
+primitive compatibility spellings.
 
 Canonical indentation uses one tab character per indentation level. Top-level
 imports, item signatures, and item-closing `end` lines use
@@ -127,7 +128,10 @@ Formatting accepts multiple parse-clean input files in one invocation and
 writes each selected file only after all selected files have parsed without
 diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
 and binary precedence, postfix `?`, nested records, lists, calls, and
-idempotent formatting across multiple input files.
+idempotent formatting across multiple input files. In `format binary` schemas,
+supported compatibility spellings such as `UIntN`, `FlagN`, representable
+`ReservedBits(width, value)`, and `Repeat(count, Payload)` are formatted as
+canonical lowercase field text, including dispatch payload field text.
 
 Standalone line comments attach to the next parsed source line during
 formatting. The formatter emits hash comments with the same indentation as the

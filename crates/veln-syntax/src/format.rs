@@ -210,7 +210,7 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         let mut line = format!(
             "{}: {}",
             field.name,
-            canonical_schema_field_type_text(&field.ty)
+            canonical_schema_field_type_text(&field.ty, schema_format_is_binary(schema))
         );
         if let Some(where_clause) = &field.where_clause {
             line.push_str(" where ");
@@ -250,6 +250,13 @@ fn format_schema_validation(
             canonical_predicate_text(&validation.predicate)
         ),
     );
+}
+
+fn schema_format_is_binary(schema: &SchemaDecl) -> bool {
+    schema
+        .format
+        .as_ref()
+        .is_some_and(|format| format.name == "binary")
 }
 
 fn format_alias(alias: &crate::PublicAliasDecl) -> String {
@@ -682,8 +689,13 @@ pub fn canonical_type_text(text: &str) -> String {
     canonicalize_type_segment(text)
 }
 
-fn canonical_schema_field_type_text(text: &str) -> String {
-    canonical_predicate_text(text)
+fn canonical_schema_field_type_text(text: &str, binary_schema: bool) -> String {
+    let text = canonical_predicate_text(text);
+    if binary_schema {
+        canonical_binary_schema_field_type_text(&text)
+    } else {
+        text
+    }
 }
 
 fn canonical_predicate_text(text: &str) -> String {
@@ -742,6 +754,203 @@ fn canonicalize_type_segment(text: &str) -> String {
         }
     }
     out
+}
+
+fn canonical_binary_schema_field_type_text(text: &str) -> String {
+    if let Some(primitive) = canonical_compatible_schema_primitive(text) {
+        return primitive;
+    }
+    if let Some(reserved) = canonical_reserved_bits_schema_field_type_call(text) {
+        return reserved;
+    }
+    if let Some(repeated) = canonical_repeat_schema_field_type_call(text) {
+        return repeated;
+    }
+    if let Some(repeated) = canonical_repeat_schema_field_type_brackets(text) {
+        return repeated;
+    }
+    if let Some(dispatch) = canonical_dispatch_schema_field_type_call(text, "Dispatch") {
+        return dispatch;
+    }
+    if let Some(dispatch) = canonical_dispatch_schema_field_type_call(text, "ExtensionDispatch") {
+        return dispatch;
+    }
+    text.to_string()
+}
+
+fn canonical_binary_schema_payload_type_text(text: &str) -> String {
+    if let Some(primitive) = canonical_compatible_schema_primitive(text) {
+        return primitive;
+    }
+    if let Some(reserved) = canonical_reserved_bits_schema_field_type_call(text) {
+        return reserved;
+    }
+    text.to_string()
+}
+
+fn canonical_repeat_schema_payload_type_text(text: &str) -> String {
+    if let Some(repeated) = canonical_repeat_schema_field_type_call(text) {
+        return repeated;
+    }
+    if let Some(repeated) = canonical_repeat_schema_field_type_brackets(text) {
+        return repeated;
+    }
+    canonical_binary_schema_payload_type_text(text)
+}
+
+fn canonical_repeat_schema_field_type_call(text: &str) -> Option<String> {
+    let inner = exact_call_inner(text, "Repeat")?;
+    let args = split_top_level_args(inner);
+    let [count, payload] = args.as_slice() else {
+        return None;
+    };
+    let count = canonical_predicate_text(count);
+    let payload = canonical_repeat_schema_payload_type_text(&canonical_predicate_text(payload));
+    Some(format!("[{payload}; {count}]"))
+}
+
+fn canonical_repeat_schema_field_type_brackets(text: &str) -> Option<String> {
+    let inner = exact_bracket_inner(text)?;
+    let (payload, count) = split_top_level_once(inner, ';')?;
+    let payload = canonical_repeat_schema_payload_type_text(&canonical_predicate_text(payload));
+    let count = canonical_predicate_text(count);
+    Some(format!("[{payload}; {count}]"))
+}
+
+fn canonical_reserved_bits_schema_field_type_call(text: &str) -> Option<String> {
+    let inner = exact_call_inner(text, "ReservedBits")?;
+    let args = split_top_level_args(inner);
+    let [width, value] = args.as_slice() else {
+        return None;
+    };
+    let width = width.trim();
+    let value = value.trim();
+    if !is_ascii_unsigned_integer(width) || !is_ascii_unsigned_integer(value) {
+        return None;
+    }
+    let Ok(width) = width.parse::<u16>() else {
+        return None;
+    };
+    let endian = match width {
+        1..=8 => "",
+        16 | 24 | 31 | 32 | 40 | 48 | 56 | 64 => "be",
+        _ => return None,
+    };
+    Some(format!("uint{width}{endian} reserves {value}"))
+}
+
+fn canonical_dispatch_schema_field_type_call(text: &str, name: &str) -> Option<String> {
+    let inner = exact_call_inner(text, name)?;
+    let args = split_top_level_args(inner)
+        .into_iter()
+        .map(|arg| {
+            if let Some((tag, payload)) = arg.split_once("=>") {
+                let tag = canonical_predicate_text(tag.trim());
+                let payload = canonical_binary_schema_payload_type_text(&canonical_predicate_text(
+                    payload.trim(),
+                ));
+                format!("{tag} => {payload}")
+            } else {
+                canonical_predicate_text(&arg)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!("{name}({args})"))
+}
+
+fn canonical_compatible_schema_primitive(text: &str) -> Option<String> {
+    let (family, rest) = if let Some(rest) = text.strip_prefix("UInt") {
+        ("uint", rest)
+    } else if let Some(rest) = text.strip_prefix("Flag") {
+        ("flag", rest)
+    } else {
+        return None;
+    };
+    let width_len = rest
+        .char_indices()
+        .take_while(|(_, ch)| ch.is_ascii_digit())
+        .map(|(index, ch)| index + ch.len_utf8())
+        .last()?;
+    let width = &rest[..width_len];
+    let suffix = &rest[width_len..];
+    let width_bits = width.parse::<u16>().ok()?;
+    let supported = matches!(
+        (family, width_bits, suffix),
+        ("uint", 1..=8, "")
+            | ("uint", 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64, "be" | "le")
+            | ("flag", 8, "")
+            | ("flag", 16 | 24 | 32 | 40 | 48 | 56 | 64, "be" | "le")
+    );
+    supported.then(|| format!("{family}{width}{suffix}"))
+}
+
+fn exact_call_inner<'a>(text: &'a str, name: &str) -> Option<&'a str> {
+    let rest = text.strip_prefix(name)?;
+    if !rest.starts_with('(') {
+        return None;
+    }
+    let open = name.len();
+    let close = matching_delimiter(text, open, '(', ')')?;
+    (close + 1 == text.len()).then_some(&text[open + 1..close])
+}
+
+fn exact_bracket_inner(text: &str) -> Option<&str> {
+    if !text.starts_with('[') {
+        return None;
+    }
+    let close = matching_delimiter(text, 0, '[', ']')?;
+    (close + 1 == text.len()).then_some(&text[1..close])
+}
+
+fn split_top_level_once(text: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    let mut cursor = 0usize;
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        match ch {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            _ if ch == delimiter && depth == 0 => {
+                return Some((text[..cursor].trim(), text[cursor + ch.len_utf8()..].trim()));
+            }
+            _ => {}
+        }
+        cursor += ch.len_utf8();
+    }
+    None
+}
+
+fn split_top_level_args(text: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    let mut cursor = 0usize;
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        match ch {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                args.push(text[start..cursor].trim().to_string());
+                start = cursor + ch.len_utf8();
+            }
+            _ => {}
+        }
+        cursor += ch.len_utf8();
+    }
+    args.push(text[start..].trim().to_string());
+    args
+}
+
+fn is_ascii_unsigned_integer(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|ch| ch.is_ascii_digit())
 }
 
 fn consume_type_path(text: &str, mut cursor: usize) -> usize {

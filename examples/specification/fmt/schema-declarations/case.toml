@@ -10,4 +10,4 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "pub schema Http2FrameHeader\n\tformat binary\n\n\tpriority: UInt16be\n\tlength: UInt24be\n\tkind: UInt8\n\tpadding_length: UInt8 where padding_length <= length\n\tstream_reserved: ReservedBits(1, 0)\n\tstream_id: UInt31be\n\tchecksum: UInt32be\n\tsettings: Repeat(length - padding_length, UInt16be)\n\tproduct_settings: Repeat(length * padding_length, UInt16be)\n\tpayload: ByteView(length - padding_length)\n\tproduct_payload: ByteView(length * padding_length)\nend\n"
+equals = "pub schema Http2FrameHeader\n\tformat binary\n\n\tpriority: uint16be\n\tlength: uint24be\n\tkind: uint8\n\tpadding_length: uint8 where padding_length <= length\n\tstream_reserved: uint1 reserves 0\n\tstream_id: uint31be\n\tchecksum: uint32be\n\tsettings: [uint16be; length - padding_length]\n\tproduct_settings: [uint16be; length * padding_length]\n\tpayload: ByteView(length - padding_length)\n\tproduct_payload: ByteView(length * padding_length)\nend\n"
