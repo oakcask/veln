@@ -109,9 +109,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   target field
 - schema mapping selectors that call one pure same-module `Bool` converter
   function or one imported public pure `Bool` converter function through a
-  written `use` path or alias, using the same converter argument rules as
-  schema mapping converter assignments during generated decode mapping
-  selection
+  written `use` path or alias, unqualified public import, or public function
+  alias, using the same converter argument rules as schema mapping converter
+  assignments during generated decode mapping selection
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface. The completed documentation-comment schema
   reference slice is archived under
@@ -183,8 +183,8 @@ may use one `map to Target` clause, or multiple clauses selected by
 expressions built from decoded schema-local `Int` fields, integer literals,
 `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, and `not`, or by direct
 selector calls to one pure same-module `Bool` converter function or one
-imported public pure `Bool` converter function through a written `use` path
-or alias, to construct an
+imported public pure `Bool` converter function through a written `use` path,
+unqualified public import, or alias, to construct an
 ordinary mapped record after field-local validation succeeds when each
 assignment expression type checks against the target field. Selected mappings
 whose truth can be decided from decoded `Int` field comparisons must use
@@ -220,8 +220,9 @@ supported `Int` mapping operands composed with `and`, `or`, and `not` for
 calls may take one or more arguments. Arguments may be schema-local field
 references or structural mapping expressions made from schema-local fields,
 records, ADT constructors, pure converter calls, and nested combinations of
-those forms, including supported integer arithmetic mapping expressions. Direct converter selector
-calls reuse those converter argument rules and must return `Bool`. A schema
+those forms, including supported integer arithmetic mapping expressions.
+Direct converter selector calls reuse those converter argument and import
+rules and must return `Bool`. A schema
 does not implicitly publish a record type just
 because it names fields, and importing a schema does not make its schema-local
 field names available as ordinary source bindings.
@@ -479,7 +480,9 @@ Implemented:
 - The generated helper slice resolves one structural `map to Target` clause,
   or multiple clauses selected by `when field == literal`, `when field !=
   literal`, ordered field-literal comparisons, or narrow decoded-field boolean
-  selector expressions, or by direct pure `Bool` converter selector calls,
+  selector expressions, or by direct pure `Bool` converter selector calls
+  through same-module functions, written imports, unqualified public imports,
+  or aliases,
   when assignment expressions type check against target
   record fields, rejects
   invalid mapping assignments before execution, and returns the selected mapped

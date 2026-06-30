@@ -268,17 +268,18 @@ with the schema and target-field path. A `Bool` mapping assignment may use
 may compose those supported comparisons with `and`, `or`, and `not`. A mapping
 assignment may also call one pure same-module converter
 function or one imported public pure converter function through a written
-`use` path or alias with one or more arguments. Each argument must be
-either one decoded schema-local field or an already implemented structural
-mapping expression made from decoded schema fields, records, ADT constructors,
-integer arithmetic mapping expressions, and nested combinations of those forms
-before assigning the returned value to the target field. Multiple selected mappings
+`use` path or alias, unqualified public import, or public function alias with
+one or more arguments. Each argument must be either one decoded schema-local
+field or an already implemented structural mapping expression made from
+decoded schema fields, records, ADT constructors, integer arithmetic mapping
+expressions, and nested combinations of those forms before assigning the
+returned value to the target field. Multiple selected mappings
 may use narrow boolean selector expressions over decoded schema-local `Int`
 fields, integer literals, `==`, `!=`, `and`, `or`, and `not` when the selector
 clauses do not overlap, or direct selector calls to one pure same-module
 `Bool` converter function or one imported public pure `Bool` converter
-function through a written `use` path or alias, when all branches resolve to
-one target record shape. A
+function through a written `use` path, unqualified public import, or alias,
+when all branches resolve to one target record shape. A
 mapping assignment may also select a field from an already supported
 structural mapping expression after that source expression is available, when
 the source expression has a record-shaped type with the selected field.

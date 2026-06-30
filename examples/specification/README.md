@@ -345,6 +345,9 @@ against the built `veln` binary.
   decode selects one structural mapping from an already decoded field value.
 - `run/binary-schema-mapping-selection-not-equal-decode/`: generated binary
   schema decode selects a structural mapping with `when field != literal`.
+- `run/binary-schema-unqualified-imported-mapping-converter-selector-decode/`:
+  generated binary schema decode selects a structural mapping through an
+  unqualified imported public pure `Bool` selector converter.
 - `run/binary-schema-mapped-field-selection-decode/`: generated binary schema
   decode maps a selected field from an already decoded nested record value.
 - `run/binary-schema-mapped-constructor-field-selection-decode/`: generated

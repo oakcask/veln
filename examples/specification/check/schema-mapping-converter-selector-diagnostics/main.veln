@@ -1,4 +1,5 @@
 use selectors
+use alternate_selectors
 
 type Packet
 	Packet {kind: Int, value: Int}
@@ -76,7 +77,22 @@ schema PrivateImportedWire
 		value = value
 end
 
-schema BareImportedWire
+schema MissingImportedWire
+	format binary
+
+	kind: UInt8
+	value: UInt8
+
+	map to Packet when missing_selector(kind)
+		kind = kind
+		value = value
+
+	map to Packet when kind == 2
+		kind = kind
+		value = value
+end
+
+schema AmbiguousImportedWire
 	format binary
 
 	kind: UInt8

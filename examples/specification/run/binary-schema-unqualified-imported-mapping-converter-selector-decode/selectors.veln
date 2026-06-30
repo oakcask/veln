@@ -1,0 +1,7 @@
+pub fn is_primary(kind: Int) -> Bool
+	kind == 1
+end
+
+pub fn is_fallback(kind: Int) -> Bool
+	kind == 2
+end
