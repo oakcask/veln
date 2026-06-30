@@ -296,10 +296,10 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
 - [Lowercase Schema Primitives](lowercase-schema-primitives.md): change
   remaining schema-only binary primitive spelling beyond the implemented
-  direct `format binary` field `uint...` and `flag...` slice. Remaining work
-  covers reserved-field suffixes, repeated-field array syntax, nested payload
-  positions, and formatter migration while preserving existing compatibility
-  spellings.
+  direct `format binary` field `uint...`, `flag...`, and
+  `uint... reserves <value>` slices. Remaining work covers repeated-field
+  array syntax, nested payload positions, and formatter migration while
+  preserving existing compatibility spellings.
 - [Codec Execution Boundary](codec-execution-boundary.md): superseded route
   for the former source-level `codec` declaration design. New binary schema
   work should use

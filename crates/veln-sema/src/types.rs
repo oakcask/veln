@@ -3569,6 +3569,8 @@ pub(crate) enum LowercaseSchemaPrimitiveError {
     MissingEndian,
     RedundantEndian,
     UnsupportedWidth,
+    ReservesOnFlag,
+    ReservesValue,
 }
 
 impl LowercaseSchemaPrimitive {
@@ -3648,6 +3650,34 @@ pub(crate) fn lowercase_schema_primitive(
         width_bits,
         endian,
     }))
+}
+
+pub(crate) fn lowercase_reserved_bits_schema_primitive(
+    text: &str,
+) -> Option<Result<(i64, i64), LowercaseSchemaPrimitiveError>> {
+    let spelling = text.trim();
+    let mut parts = spelling.split_whitespace();
+    let primitive_text = parts.next()?;
+    if parts.next()? != "reserves" {
+        return None;
+    }
+    let Some(value_text) = parts.next() else {
+        return Some(Err(LowercaseSchemaPrimitiveError::ReservesValue));
+    };
+    if parts.next().is_some() {
+        return Some(Err(LowercaseSchemaPrimitiveError::ReservesValue));
+    }
+    let primitive = match lowercase_schema_primitive(primitive_text)? {
+        Ok(primitive) => primitive,
+        Err(reason) => return Some(Err(reason)),
+    };
+    if primitive.family != "uint" {
+        return Some(Err(LowercaseSchemaPrimitiveError::ReservesOnFlag));
+    }
+    let Some(value) = parse_reserved_bits_integer(value_text) else {
+        return Some(Err(LowercaseSchemaPrimitiveError::ReservesValue));
+    };
+    Some(Ok((i64::from(primitive.width_bits), value)))
 }
 
 pub(crate) fn canonical_schema_primitive_name(text: &str) -> Option<String> {
@@ -3892,6 +3922,9 @@ fn is_simple_schema_field_reference(text: &str) -> bool {
 }
 
 pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {
+    if let Some(reserved) = lowercase_reserved_bits_schema_primitive(ty) {
+        return reserved.ok();
+    }
     let rest = ty.strip_prefix("ReservedBits")?;
     if rest
         .chars()
@@ -3918,6 +3951,13 @@ pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {
     Some((width, value))
 }
 
+fn canonical_schema_primitive_is(ty: &str, expected: &str) -> bool {
+    canonical_schema_primitive_name(ty)
+        .as_deref()
+        .unwrap_or_else(|| ty.trim())
+        == expected
+}
+
 pub(crate) fn supported_encode_reserved_bits(
     fields: &[veln_ast::SchemaField],
     index: usize,
@@ -3940,7 +3980,7 @@ pub(crate) fn supported_encode_reserved_bits(
     let next_next_field = fields.get(index + 2);
     if bit_width == 1
         && expected_value == 0
-        && next_field.is_some_and(|field| field.ty.trim() == "UInt31be")
+        && next_field.is_some_and(|field| canonical_schema_primitive_is(&field.ty, "UInt31be"))
     {
         return Some((1, 0));
     }
@@ -4164,7 +4204,7 @@ fn supported_byte_visible_reserved_suffix(
     if bit_width <= 8 || bit_width >= 56 || bit_width % 8 == 0 {
         return false;
     }
-    if visible_field.ty.trim() != "UInt8" {
+    if !canonical_schema_primitive_is(&visible_field.ty, "UInt8") {
         return false;
     }
     let storage_bit_width = ((8 + bit_width + 7) / 8) * 8;
@@ -4195,7 +4235,7 @@ fn supported_reserved_byte_prefix(
 ) -> bool {
     matches!(bit_width, 1 | 2 | 9)
         && expected_value == 0
-        && visible_field.is_some_and(|field| field.ty.trim() == "UInt8")
+        && visible_field.is_some_and(|field| canonical_schema_primitive_is(&field.ty, "UInt8"))
 }
 
 fn supported_middle_reserved_bits(
@@ -4427,7 +4467,8 @@ pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str,
             .filter(|arg| !arg.is_empty())
             .collect::<Vec<_>>();
         if let [_, payload] = args.as_slice()
-            && lowercase_schema_primitive(payload).is_some()
+            && (lowercase_schema_primitive(payload).is_some()
+                || lowercase_reserved_bits_schema_primitive(payload).is_some())
         {
             payloads.push((*payload, "repeat_payload"));
         }
@@ -4443,7 +4484,9 @@ pub(crate) fn lowercase_schema_primitive_nested_payloads(ty: &str) -> Vec<(&str,
                     continue;
                 };
                 let payload = payload.trim();
-                if lowercase_schema_primitive(payload).is_some() {
+                if lowercase_schema_primitive(payload).is_some()
+                    || lowercase_reserved_bits_schema_primitive(payload).is_some()
+                {
                     payloads.push((payload, "dispatch_payload"));
                 }
             }
@@ -5699,6 +5742,25 @@ mod tests {
     }
 
     #[test]
+    fn parses_lowercase_schema_reserves_as_reserved_bits() {
+        let cases = [
+            ("uint1 reserves 0", (1, 0)),
+            ("uint8 reserves 255", (8, 255)),
+            ("uint24be reserves 66051", (24, 66051)),
+            ("uint64le reserves 42", (64, 42)),
+        ];
+
+        for (text, reserved) in cases {
+            assert_eq!(
+                lowercase_reserved_bits_schema_primitive(text),
+                Some(Ok(reserved))
+            );
+            assert_eq!(reserved_bits_schema_primitive(text), Some(reserved));
+            assert_eq!(canonical_schema_primitive_name(text), None);
+        }
+    }
+
+    #[test]
     fn rejects_malformed_lowercase_schema_primitives_with_focused_reasons() {
         let cases = [
             ("uint", LowercaseSchemaPrimitiveError::MissingWidth),
@@ -5718,6 +5780,45 @@ mod tests {
         }
         assert_eq!(lowercase_schema_primitive("uint_value"), None);
         assert_eq!(lowercase_schema_primitive("flag_bits"), None);
+    }
+
+    #[test]
+    fn rejects_malformed_lowercase_schema_reserves_with_focused_reasons() {
+        let cases = [
+            (
+                "flag8 reserves 0",
+                LowercaseSchemaPrimitiveError::ReservesOnFlag,
+            ),
+            (
+                "uint8 reserves",
+                LowercaseSchemaPrimitiveError::ReservesValue,
+            ),
+            (
+                "uint8 reserves value",
+                LowercaseSchemaPrimitiveError::ReservesValue,
+            ),
+            (
+                "uint8 reserves -1",
+                LowercaseSchemaPrimitiveError::ReservesValue,
+            ),
+            (
+                "uint24 reserves 0",
+                LowercaseSchemaPrimitiveError::MissingEndian,
+            ),
+        ];
+
+        for (text, reason) in cases {
+            assert_eq!(
+                lowercase_reserved_bits_schema_primitive(text),
+                Some(Err(reason))
+            );
+            assert_eq!(reserved_bits_schema_primitive(text), None);
+        }
+        assert_eq!(lowercase_reserved_bits_schema_primitive("uint8"), None);
+        assert_eq!(
+            lowercase_reserved_bits_schema_primitive("count reserves 0"),
+            None
+        );
     }
 
     #[test]

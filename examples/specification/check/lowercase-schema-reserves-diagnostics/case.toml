@@ -1,0 +1,63 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"reserves_on_flag\"", "\"reason\":\"reserves_value\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"primitive\":\"flag8 reserves 0\"", "\"primitive\":\"uint8 reserves\"", "\"primitive\":\"uint8 reserves expected\"", "\"primitive\":\"uint8 reserves - 1\"", "\"primitive\":\"uint16be reserves 0\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 7
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 7
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `flag8 reserves 0` cannot use `reserves` on a flag field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint8 reserves` requires `reserves` value to be a literal non-negative integer"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint8 reserves expected` requires `reserves` value to be a literal non-negative integer"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint8 reserves - 1` requires `reserves` value to be a literal non-negative integer"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be reserves 0` can only be used in a `format binary` schema field"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be reserves 0` is not yet supported in `Repeat` payload positions"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint16be reserves 0` is not yet supported in dispatch payload positions"
