@@ -242,16 +242,17 @@ schema mapping expression on the right. The implemented expression slice
 supports schema-local field references, record construction, ADT constructor
 construction resolved through ordinary source module rules, one pure
 same-module converter call, and one imported public pure converter call
-through a written `use` path or alias, and field selection from an already
-supported structural mapping expression whose type has the selected record
-field. An `Int` target field may also use `+`, `-`, `*`, and `/` expressions
-whose operands are decoded schema-local `Int` fields, integer literals,
-`Int`-returning converter calls, or nested supported integer arithmetic
-mapping expressions. A `Bool` target field may use `==`, `!=`, `<`, `<=`,
-`>`, and `>=` between supported `Int` mapping operands, and may compose those
-supported comparisons with `and`, `or`, and `not`. Converter calls take one or
-more arguments. Each argument is either a schema-local field reference or an
-already implemented structural mapping expression made from
+through a written `use` path or alias, unqualified public import, or public
+function alias, and field selection from an already supported structural
+mapping expression whose type has the selected record field. An `Int` target
+field may also use `+`, `-`, `*`, and `/` expressions whose operands are
+decoded schema-local `Int` fields, integer literals, `Int`-returning
+converter calls, or nested supported integer arithmetic mapping expressions.
+A `Bool` target field may use `==`, `!=`, `<`, `<=`, `>`, and `>=` between
+supported `Int` mapping operands, and may compose those supported comparisons
+with `and`, `or`, and `not`. Converter calls take one or more arguments. Each
+argument is either a schema-local field reference or an already implemented
+structural mapping expression made from
 schema-local fields, records, ADT constructors, supported integer arithmetic
 mapping expressions, pure converter calls, and nested combinations of those
 forms.
@@ -264,16 +265,17 @@ multiple eligible mapping clauses selected by `when field == literal`,
 `when field != literal`, ordered field-literal comparisons, or by narrow
 boolean selector expressions over decoded schema-local `Int` fields, or by a
 direct selector call to one pure same-module `Bool` converter or imported
-public pure `Bool` converter named through a written `use` path or alias, when
-all schema fields are implemented exact-width unsigned primitives, supported
-reserved-bit fields, bounded repeated primitive or nested schema fields, closed dispatch
-fields, or extension dispatch fields and the target resolves to matching
-record fields. Multiple selected mappings must decode to the same record
-shape. Selector comparisons may only compare decoded schema-local `Int` fields
+public pure `Bool` converter named through a written `use` path, unqualified
+public import, or alias, when all schema fields are implemented exact-width
+unsigned primitives, supported reserved-bit fields, bounded repeated primitive
+or nested schema fields, closed dispatch fields, or extension dispatch fields
+and the target resolves to matching record fields. Multiple selected mappings
+must decode to the same record shape. Selector comparisons may only compare
+decoded schema-local `Int` fields
 with integer literals, and selector clauses must not overlap for any concrete
 assignment of referenced selector fields. Converter selector calls follow the
-same visibility, purity, return-type, and argument rules as schema mapping
-converters and must return `Bool`. Missing selectors report
+same visibility, purity, return-type, import, and argument rules as schema
+mapping converters and must return `Bool`. Missing selectors report
 `schema.mapping_selection_required`, duplicate or overlapping selectors report
 `schema.mapping_selection_ambiguous`, and unsupported selector
 or target-shape boundaries report `schema.mapping_selection` or
@@ -310,6 +312,8 @@ The executable diagnostics case
 `../../examples/specification/check/schema-mapping-converter-selector-diagnostics/`
 keeps converter selector return type, argument type, purity, visibility, and
 written import-path diagnostics executable.
+`../../examples/specification/run/binary-schema-unqualified-imported-mapping-converter-selector-decode/`
+keeps unqualified public imported selector calls executable.
 `../../examples/specification/run/binary-schema-nested-mapping-converter-selector-decode/`
 keeps nested converter calls inside direct converter selector arguments
 executable.
