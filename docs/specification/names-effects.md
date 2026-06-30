@@ -240,6 +240,9 @@ compiler-known calls.
   fields, using `ByteView` fields for length-bounded payloads,
   `List<T>` fields for repeated payloads, and
   `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
+  lowercase dispatch payload spelling slice normalizes visible exact-width
+  `uint...` and `flag...` payloads to the same helper behavior as compatible
+  upper-case exact-width primitive payloads. One
   supported reserved-bit slice omits `ReservedBits(2, 0)` or
   `ReservedBits(9, 0)` immediately before `UInt8` from the encode value
   record while exposing the visible byte field. Generated encode helpers

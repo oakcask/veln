@@ -44,6 +44,10 @@ count expression may name an earlier visible count field or use implemented
 arithmetic forms over earlier count fields, and the payload may use an
 exact-width primitive, a lowercase exact-width primitive, a nested binary
 schema, or `ByteView(length)`.
+Closed and extension dispatch payload cases accept the same visible lowercase
+exact-width `uint...` and `flag...` spelling wherever the compatible
+upper-case exact-width primitive payload spelling is accepted. Binary-only
+primitive vocabulary remains gated by `format binary`.
 
 Schema declarations return and accept schema-local visible record shapes
 through generated helpers. Projection into domain records is ordinary source

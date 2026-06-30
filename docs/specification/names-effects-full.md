@@ -1065,9 +1065,10 @@ length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
 visible exact-width fields, closed dispatch fields, or extension-tolerant
 dispatch fields with earlier visible exact-width tag and length fields. Dispatch
-payload cases may be exact-width unsigned primitive payloads or eligible
-nested binary schema payloads named as earlier same-module binary schemas or
-public imported binary schemas through written `use` paths. Those helpers
+payload cases may be exact-width visible primitive payloads, including
+lowercase `uint...` and `flag...` spelling, or eligible nested binary schema
+payloads named as earlier same-module binary schemas or public imported binary
+schemas through written `use` paths. Those helpers
 accept a schema-local visible
 record, using ordinary `Int` fields for visible primitives, `ByteView` fields
 for length-bounded payloads, `List<ByteView>` fields for repeated bounded

@@ -298,8 +298,10 @@ compare it with `../specification/` before changing behavior.
   remaining schema-only binary primitive spelling beyond the implemented
   direct `format binary` field `uint...`, `flag...`, and
   `uint... reserves <value>` slices and implemented repeated-field array
-  syntax. Remaining work covers nested dispatch payload positions and
-  formatter migration while preserving existing compatibility spellings.
+  syntax plus implemented visible dispatch payload `uint...` and `flag...`
+  spelling. Remaining work covers formatter migration and any later direct
+  reserved-bit dispatch payload decision while preserving existing
+  compatibility spellings.
 - [Codec Execution Boundary](codec-execution-boundary.md): superseded route
   for the former source-level `codec` declaration design. New binary schema
   work should use

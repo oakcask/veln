@@ -36,6 +36,9 @@ enough.
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression
   uses the same earlier-field and arithmetic forms accepted by `Repeat`.
+- Dispatch payload cases written with lowercase visible exact-width `uint...`
+  and `flag...` primitive spelling normalize to the same generated decode and
+  encode helper behavior as compatible upper-case exact-width payload spelling.
 - Representation-only fields such as supported `ReservedBits(width, value)`
   and lowercase `uint... reserves <value>` layouts are validated and omitted
   from the decoded record.

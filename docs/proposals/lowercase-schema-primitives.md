@@ -16,11 +16,18 @@ specification pages and checked by
 `../../examples/specification/check/schema-repeat-canonical-syntax-diagnostics/`
 and
 `../../examples/specification/run/binary-schema-canonical-repeat-decode-encode/`.
+The visible dispatch payload spelling slice for lowercase `uint...` and
+`flag...` primitive payloads is implemented under the same specification pages
+and checked by
+`../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
+`../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
+and
+`../../examples/specification/run/binary-schema-extension-dispatch-encode/`.
 
 This proposal tracks the remaining lower-case schema primitive work:
-nested dispatch payload positions and formatter migration. Existing upper-case
-spellings such as `UInt24be` and `Flag16le` remain schema-only compatibility
-forms.
+formatter migration and any later decision to add a direct reserved-bit
+dispatch payload surface. Existing upper-case spellings such as `UInt24be`
+and `Flag16le` remain schema-only compatibility forms.
 
 The goal is to keep binary representation vocabulary out of the ordinary
 source type namespace and to avoid implementation tables that enumerate one
@@ -164,10 +171,11 @@ count fields. The payload field type may be a lower-case primitive, a
 compatibility primitive, a nested schema type, a `ByteView(...)` payload, or a
 later schema-only payload form accepted by semantic checking.
 
-## Remaining Field Type Positions
+## Implemented Dispatch Payload Syntax
 
-Lower-case schema primitives still need to be accepted in these schema-only
-positions where current exact-width primitives are accepted:
+Lowercase visible exact-width primitive spelling is accepted in these
+schema-only positions where current exact-width primitive spelling is
+accepted:
 
 - `match tag ... end` and `match tag bounded by length ... end` payload cases
 - `match extension tag bounded by length ... end` payload cases
@@ -176,6 +184,12 @@ positions where current exact-width primitives are accepted:
 
 They remain gated by `format binary`. Format-neutral schemas must continue to
 reject binary-only primitive vocabulary.
+
+The implemented dispatch payload slice covers visible `uint...` and `flag...`
+payloads that normalize to the same descriptor as compatible upper-case
+exact-width primitive payloads. A direct reserved-bit dispatch payload remains
+outside the implemented helper surface because no compatible
+`ReservedBits(width, value)` dispatch payload surface is accepted there yet.
 
 ## Width And Endian Rules
 
@@ -283,20 +297,16 @@ imported, aliased, or used as an ordinary Veln type.
 
 ## Remaining Migration Plan
 
-The direct field and repeated-field parsers, normalization, focused
-diagnostics, and executable examples are implemented. The remaining work can
-be staged without changing binary schema semantics:
+The direct field, repeated-field, and visible dispatch payload parsers,
+normalization, focused diagnostics, and executable examples are implemented.
+The remaining work can be staged without changing binary schema semantics:
 
-1. Extend lower-case primitive normalization to dispatch payload positions that
-   already accept compatibility primitive spellings.
-2. Keep helper generation, encode, decode, and diagnostic behavior unchanged
-   after dispatch payload normalization.
-3. Add executable examples for nested dispatch payload cases and rejection
-   diagnostics.
-4. Teach the formatter to write lower-case canonical spelling and
+1. Decide whether a direct reserved-bit dispatch payload surface should be
+   added separately from existing nested reserved-bit payload schemas.
+2. Teach the formatter to write lower-case canonical spelling and
    `[Payload; count]` repeated field syntax when the project is ready to
    migrate checked examples.
-5. Update `../specification/source-surface.md`,
+3. Update `../specification/source-surface.md`,
    `../specification/execution.md`, and matching examples for each remaining
    implemented slice.
 
@@ -325,6 +335,8 @@ The proposal is complete when:
   executable examples.
 - Lower-case primitives normalize in dispatch payload positions that already
   accept compatibility primitive spellings.
+- A direct reserved-bit dispatch payload is either implemented with executable
+  evidence or explicitly left out as a non-goal for this proposal.
 - Existing `ReservedBits(width, value)` spellings continue to work as
   schema-only compatibility spellings and normalize to the same descriptor as
   canonical reserved fields.

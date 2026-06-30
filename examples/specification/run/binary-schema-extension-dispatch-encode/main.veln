@@ -5,7 +5,7 @@ schema ExtensionDispatchWritePacket
 
 	length: UInt8
 	kind: UInt8
-	payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be, 3 => UInt24le, 4 => UInt32le)
+	payload: ExtensionDispatch(kind, length, 1 => uint16be, 2 => uint32be, 3 => uint24le, 4 => uint32le)
 end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]

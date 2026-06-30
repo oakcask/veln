@@ -4482,9 +4482,6 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
 }
 
 fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {
-    if lowercase_schema_primitive(text).is_some() {
-        return None;
-    }
     if let Some(width) = exact_width_schema_primitive(text) {
         if exact_width_schema_primitive_bit_width(text)? < 8 {
             return None;
