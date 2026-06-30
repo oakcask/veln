@@ -448,8 +448,9 @@ compare it with `../specification/` before changing behavior.
   request-side, response-side, request-trailer, and response-trailer
   header-list validation,
   the source-visible request `:path` value rule, the source-visible `te`
-  header value rule, the `content-length`
-  header-list consistency slice, accepted `content-length` body-length
+  header value rule, response-side production `content-length`
+  header-list consistency beyond the checked fixture boundary,
+  accepted `content-length` body-length
   accounting for tracked inbound and outbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,

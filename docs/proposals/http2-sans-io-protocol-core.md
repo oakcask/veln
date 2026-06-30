@@ -865,8 +865,9 @@ fixture encoder boundary, outbound table-size behavior beyond
 the checked fixture encoder update boundary, and production header validation
 beyond ordinary request,
 response,
-and trailer header-name shape, the source-visible `te` value rule, and the
-fixture-marked `content-length` consistency rule.
+and trailer header-name shape, the source-visible `te` value rule, request
+`content-length` decoded header values, and the fixture-marked
+`content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
@@ -874,8 +875,8 @@ current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-te-header-validation.md` plus
 `../reference/implemented-proposals/http2-content-length-header-validation.md`:
 the HTTP/2
-core validates fixture-marked request and response header lists after HPACK
-fixture decode on both completed HEADERS and final CONTINUATION paths.
+core validates request and response header lists after HPACK fixture decode on
+both completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
@@ -899,7 +900,9 @@ also accept absent `content-length`, one valid decimal value, and repeated
 identical valid decimal values; reject empty, non-decimal, signed,
 whitespace-padded, and negative-looking values with failed fact
 `content_length_invalid`; and reject mismatched repeated valid decimal values
-with failed fact `content_length_mismatch`. Accepted fixture-marked
+with failed fact `content_length_mismatch`. Request validation applies these
+facts to both fixture-marked request values and decoded request
+`content-length` header values. Accepted fixture-marked
 `content-length` values are also carried into the tracked stream body state:
 received DATA application byte counts must match the accepted value by peer
 `END_STREAM`, over-length DATA fails immediately, and PADDED DATA counts only
