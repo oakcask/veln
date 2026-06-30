@@ -2,17 +2,20 @@
 
 Status: partially implemented
 
-The direct `format binary` field spelling slice for `uint...` and `flag...`
-is implemented under `../specification/source-surface.md`,
-`../specification/execution.md`, and checked by
-`../../examples/specification/check/lowercase-schema-primitive-diagnostics/`
-plus
-`../../examples/specification/run/binary-schema-lowercase-primitives-decode/`.
+The direct `format binary` field spelling slice for `uint...`, `flag...`, and
+`uint... reserves <value>` is implemented under
+`../specification/source-surface.md`, `../specification/execution.md`, and
+checked by
+`../../examples/specification/check/lowercase-schema-primitive-diagnostics/`,
+`../../examples/specification/check/lowercase-schema-reserves-diagnostics/`,
+`../../examples/specification/run/binary-schema-lowercase-primitives-decode/`,
+and
+`../../examples/specification/run/binary-schema-lowercase-reserves-decode-encode/`.
 
-This proposal tracks the remaining lower-case schema primitive work: reserved
-field suffixes, repeated-field array syntax, nested payload positions, and
-formatter migration. Existing upper-case spellings such as `UInt24be` and
-`Flag16le` remain schema-only compatibility forms.
+This proposal tracks the remaining lower-case schema primitive work:
+repeated-field array syntax, nested payload positions, and formatter
+migration. Existing upper-case spellings such as `UInt24be` and `Flag16le`
+remain schema-only compatibility forms.
 
 The goal is to keep binary representation vocabulary out of the ordinary
 source type namespace and to avoid implementation tables that enumerate one
@@ -48,7 +51,7 @@ call even though it is only valid in schema field type positions. The repeated
 payload should use field-type syntax instead of borrowing a source-like call
 surface.
 
-## Remaining Proposed Syntax
+## Implemented Direct Field Syntax
 
 Direct `format binary` schema fields already accept the canonical unsigned and
 flag primitive spellings:
@@ -58,7 +61,7 @@ uint<width><endian?>
 flag<width><endian?>
 ```
 
-The remaining reserved-field spelling is:
+They also accept the reserved-field spelling:
 
 ```text
 uint<width><endian?> reserves <value>
@@ -88,8 +91,8 @@ The direct-field implementation decomposes the lower-case token into:
 - decimal width
 - optional byte order suffix: `be` or `le`
 
-Remaining suffix and nested-payload work should reuse the same normalized
-descriptor shape instead of enumerating each width spelling:
+Remaining nested-payload work should reuse the same normalized descriptor
+shape instead of enumerating each width spelling:
 
 ```text
 SchemaPrimitive {
@@ -115,8 +118,7 @@ visible unsigned field. It is schema-local representation vocabulary
 equivalent to the compatibility `ReservedBits(width, value)` primitive after
 normalization.
 
-The semantic checker decides whether the parsed width and any remaining
-reserved suffix are accepted by the implemented binary schema helper surface.
+## Remaining Repeated Syntax
 
 Repeated schema fields use the canonical form:
 
@@ -173,8 +175,8 @@ reject binary-only primitive vocabulary.
 
 ## Width And Endian Rules
 
-The direct-field implementation and the remaining reserved and nested-payload
-work share these semantic rules:
+The direct-field implementation and the remaining nested-payload work share
+these semantic rules:
 
 - `uint1` through `uint7` are sub-byte unsigned integer fields.
 - `uint8` is the one-byte unsigned integer field.
@@ -281,20 +283,18 @@ The direct field parser, normalization, focused direct-field diagnostics, and
 direct-field executable examples are implemented. The remaining work can be
 staged without changing binary schema semantics:
 
-1. Parse `reserves <value>` after `uint` field types and normalize it with
-   compatibility `ReservedBits(width, value)` fields.
-2. Parse `[Payload; count]` repeated field types and normalize them with
+1. Parse `[Payload; count]` repeated field types and normalize them with
    compatibility `Repeat(count, Payload)` fields.
-3. Extend lower-case primitive normalization to repeated and dispatch payload
+2. Extend lower-case primitive normalization to repeated and dispatch payload
    positions that already accept compatibility primitive spellings.
-4. Keep helper generation, encode, decode, and diagnostic behavior unchanged
+3. Keep helper generation, encode, decode, and diagnostic behavior unchanged
    after normalization.
-5. Add executable examples for reserved fields, nested payload cases, repeated
-   payloads, and rejection diagnostics.
-6. Teach the formatter to write lower-case canonical spelling and
+4. Add executable examples for nested payload cases, repeated payloads, and
+   rejection diagnostics.
+5. Teach the formatter to write lower-case canonical spelling and
    `[Payload; count]` repeated field syntax when the project is ready to
    migrate checked examples.
-7. Update `../specification/source-surface.md`,
+6. Update `../specification/source-surface.md`,
    `../specification/execution.md`, and matching examples for each remaining
    implemented slice.
 
@@ -319,8 +319,6 @@ The proposal is complete when:
 
 - Direct-field behavior remains covered by `../specification/` and executable
   examples.
-- `uint<width><endian?> reserves <value>` normalizes with compatible
-  `ReservedBits(width, value)` fields.
 - `[Payload; count]` repeated field syntax is accepted only in schema field
   type positions.
 - Lower-case primitives normalize in repeated payload and dispatch payload

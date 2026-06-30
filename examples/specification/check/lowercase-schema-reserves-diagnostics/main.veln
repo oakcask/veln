@@ -1,0 +1,31 @@
+schema FlagReserve
+	format binary
+
+	flags: flag8 reserves 0
+end
+
+schema InvalidReserveValue
+	format binary
+
+	missing: uint8 reserves
+	named: uint8 reserves expected
+	negative: uint8 reserves -1
+end
+
+schema MissingFormatReserve
+	padding: uint16be reserves 0
+end
+
+schema RepeatReservePayload
+	format binary
+
+	count: uint8
+	items: Repeat(count, uint16be reserves 0)
+end
+
+schema DispatchReservePayload
+	format binary
+
+	tag: uint8
+	payload: Dispatch(tag, 1 => uint16be reserves 0)
+end

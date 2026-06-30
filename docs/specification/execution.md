@@ -33,13 +33,16 @@ enough.
 - Generated binary schema decode helpers read fields in declaration order and
   return the schema-local visible record shape.
 - Representation-only fields such as supported `ReservedBits(width, value)`
-  layouts are validated and omitted from the decoded record.
+  and lowercase `uint... reserves <value>` layouts are validated and omitted
+  from the decoded record.
 - Generated `validate_<schema>` helpers accept the schema-local decoded record
   shape and check field-local `where` predicates plus the single schema-level
   `validate` predicate when present.
 - Generated binary schema encode helpers accept the schema-local visible
   record shape, validate field-local and representation constraints, and write
-  bytes through the declared schema layout.
+  bytes through the declared schema layout. Lowercase reserved-bit fields emit
+  their declared values and are omitted from the input record like compatible
+  `ReservedBits(width, value)` fields.
 - Projection between a schema-local record and a domain value is ordinary Veln
   source at the caller or codec boundary. The checked schema-local projection
   case is

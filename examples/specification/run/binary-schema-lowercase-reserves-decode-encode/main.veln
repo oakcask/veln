@@ -1,0 +1,50 @@
+# Lower-case `uint... reserves ...` fields normalize to reserved-bit layout
+# helpers and stay out of the visible schema record.
+use stdio
+
+schema LowercaseReservedPacket
+	format binary
+
+	high: uint3
+	guard: uint5 reserves 21
+	kind: uint8
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::println(" count 1")
+	emit_output_chunk(name, 0, chunk, expected_hex)
+end
+
+fn emit_encode_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
+	match encoded
+		Ok(chunk) => Ok(emit_encoded_chunk("lowercase-reserves", chunk, "b52a"))
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("b52a")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {high: Int, kind: Int} = byte_decode_lowercase_reserved_packet(view)?
+	stdio::println(int_to_string(packet.high))
+	stdio::println(int_to_string(packet.kind))
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_lowercase_reserved_packet({high: 5, kind: 42})
+	let ignored: () = emit_encode_result(encoded)?
+	Ok(())
+end

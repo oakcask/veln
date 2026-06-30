@@ -32,9 +32,10 @@ appear before schema fields.
 Schema field lines contain a field name, `:`, type text, and an optional
 field-local `where` predicate. One schema-level `validate` predicate may
 appear after fields. Binary schema field vocabulary includes the implemented
-exact-width unsigned primitives, visible flag bitset primitives,
-`ReservedBits(width, value)`, `Repeat(count, Payload)`, `ByteView(length)`,
-closed dispatch, and extension dispatch forms documented in
+exact-width unsigned primitives, lowercase `uint...` fields, visible flag
+bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
+reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
+`ByteView(length)`, closed dispatch, and extension dispatch forms documented in
 [source-surface-full.md](source-surface-full.md) and checked
 by `docs/specification/source-surface-executable.pl`.
 

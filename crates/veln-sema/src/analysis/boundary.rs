@@ -5,7 +5,8 @@ use crate::types::{
     SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, lowercase_schema_primitive, lowercase_schema_primitive_nested_payloads,
+    flag_schema_primitive, lowercase_reserved_bits_schema_primitive, lowercase_schema_primitive,
+    lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive,
@@ -1360,6 +1361,61 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         let mut decoded_fields = BTreeMap::<String, Type>::new();
         for field in &schema.fields {
+            if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
+                match (format_name, reserved) {
+                    (Some("binary"), Ok(reserved)) => {
+                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
+                        let field_index = schema
+                            .fields
+                            .iter()
+                            .position(|schema_field| schema_field.node_id == field.node_id);
+                        if field_index
+                            .and_then(|index| {
+                                supported_encode_reserved_bits(&schema.fields, index, reserved)
+                            })
+                            .is_none()
+                        {
+                            diagnostics.push(reserved_bits_encode_shape_diagnostic(
+                                schema,
+                                field,
+                                field_index,
+                                reserved,
+                            ));
+                        }
+                    }
+                    (Some("binary"), Err(reason)) => {
+                        diagnostics.push(lowercase_schema_primitive_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            reason,
+                        ));
+                    }
+                    (_, Ok(_)) => {
+                        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            "non_binary_format",
+                        ));
+                    }
+                    (_, Err(reason)) => {
+                        diagnostics.push(lowercase_schema_primitive_diagnostic(
+                            &field.ty,
+                            Some(schema),
+                            Some(field),
+                            field.node_id.display("schema-field"),
+                            field.span.clone(),
+                            reason,
+                        ));
+                    }
+                }
+                continue;
+            }
             if let Some(primitive) = lowercase_schema_primitive(&field.ty) {
                 match (format_name, primitive) {
                     (Some("binary"), Ok(primitive)) => {
@@ -3562,6 +3618,8 @@ pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
         LowercaseSchemaPrimitiveError::MissingEndian => "missing_endian",
         LowercaseSchemaPrimitiveError::RedundantEndian => "redundant_endian",
         LowercaseSchemaPrimitiveError::UnsupportedWidth => "unsupported_width",
+        LowercaseSchemaPrimitiveError::ReservesOnFlag => "reserves_on_flag",
+        LowercaseSchemaPrimitiveError::ReservesValue => "reserves_value",
     };
     let message = match reason {
         LowercaseSchemaPrimitiveError::MissingWidth => {
@@ -3580,6 +3638,14 @@ pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
         }
         LowercaseSchemaPrimitiveError::UnsupportedWidth => {
             format!("binary schema primitive `{primitive}` uses an unsupported width")
+        }
+        LowercaseSchemaPrimitiveError::ReservesOnFlag => {
+            format!("binary schema primitive `{primitive}` cannot use `reserves` on a flag field")
+        }
+        LowercaseSchemaPrimitiveError::ReservesValue => {
+            format!(
+                "binary schema primitive `{primitive}` requires `reserves` value to be a literal non-negative integer"
+            )
         }
     };
     lowercase_schema_primitive_diagnostic_with_message(
