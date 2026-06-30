@@ -146,6 +146,49 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
 }
 
 #[test]
+fn fmt_canonicalizes_binary_schema_compatibility_primitives() {
+    let project = TestProject::new("fmt-schema-primitives");
+    project.write(
+        "main.veln",
+        concat!(
+            "schema Wire\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  flags: Flag16le\n",
+            "  padding: ReservedBits( 16 , 43981 )\n",
+            "  values: Repeat( count , UInt24be )\n",
+            "  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => Flag8 )\n",
+            "  wrapped: List<UInt8>\n",
+            "end\n",
+            "\n",
+            "schema Neutral\n",
+            "  value: UInt8\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "schema Wire\n",
+        "\tformat binary\n",
+        "\n",
+        "\tcount: uint8\n",
+        "\tflags: flag16le\n",
+        "\tpadding: uint16be reserves 43981\n",
+        "\tvalues: [uint24be; count]\n",
+        "\tpayload: Dispatch(count, 1 => uint8, 2 => uint16be reserves 43981, 3 => flag8)\n",
+        "\twrapped: List<UInt8>\n",
+        "end\n",
+        "\n",
+        "schema Neutral\n",
+        "\n",
+        "\tvalue: UInt8\n",
+        "end\n",
+    );
+
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
 fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     let project = TestProject::new("fmt-match-indent");
     project.write(

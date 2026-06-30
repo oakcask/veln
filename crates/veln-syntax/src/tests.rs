@@ -356,17 +356,67 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "pub schema Http2FrameHeader\n",
             "\tformat binary\n",
             "\n",
-            "\tlength: UInt24be\n",
-            "\tkind: UInt8\n",
-            "\tpadding_length: UInt8 where padding_length <= length\n",
-            "\tstream_reserved: ReservedBits(1, 0)\n",
-            "\tstream_id: UInt31be\n",
-            "\tsettings: Repeat(length - padding_length, UInt16be)\n",
+            "\tlength: uint24be\n",
+            "\tkind: uint8\n",
+            "\tpadding_length: uint8 where padding_length <= length\n",
+            "\tstream_reserved: uint1 reserves 0\n",
+            "\tstream_id: uint31be\n",
+            "\tsettings: [uint16be; length - padding_length]\n",
             "\tcanonical_settings: [uint16be; length - padding_length]\n",
             "\tpayload: ByteView(length - padding_length)\n",
             "\taligned_payload: ByteView(length) where payload_count multiple of padding_length\n",
             "\n",
             "\tvalidate padding_length <= length\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_canonicalizes_binary_schema_compatibility_primitives() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "schema Wire\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  flags: Flag16le\n",
+            "  padding: ReservedBits( 16 , 43981 )\n",
+            "  values: Repeat( count , UInt24be )\n",
+            "  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => Flag8 )\n",
+            "  wrapped: List<UInt8>\n",
+            "  qualified: wire::UInt8\n",
+            "end\n",
+            "\n",
+            "schema Neutral\n",
+            "  value: UInt8\n",
+            "  qualified: wire::UInt8\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "schema Wire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tcount: uint8\n",
+            "\tflags: flag16le\n",
+            "\tpadding: uint16be reserves 43981\n",
+            "\tvalues: [uint24be; count]\n",
+            "\tpayload: Dispatch(count, 1 => uint8, 2 => uint16be reserves 43981, 3 => flag8)\n",
+            "\twrapped: List<UInt8>\n",
+            "\tqualified: wire::UInt8\n",
+            "end\n",
+            "\n",
+            "schema Neutral\n",
+            "\n",
+            "\tvalue: UInt8\n",
+            "\tqualified: wire::UInt8\n",
             "end\n",
         )
     );
