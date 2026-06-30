@@ -239,7 +239,11 @@ compiler-known calls.
   dispatch payload slices accept schema-local visible
   fields, using `ByteView` fields for length-bounded payloads,
   `List<T>` fields for repeated payloads, and
-  `SchemaDispatchPayload<T>` for extension dispatch payload fields. One
+  `SchemaDispatchPayload<T>` for extension dispatch payload fields. Lowercase
+  dispatch payload spelling normalizes exact-width `uint...` and `flag...`
+  payloads to the same helper behavior as compatible upper-case exact-width
+  primitive payloads, and byte-aligned `uint... reserves <value>` payloads
+  validate or emit fixed bytes while exposing `()` as the payload value. One
   supported reserved-bit slice omits `ReservedBits(2, 0)` or
   `ReservedBits(9, 0)` immediately before `UInt8` from the encode value
   record while exposing the visible byte field. Generated encode helpers

@@ -6,7 +6,7 @@ schema ExtensionDispatchPacket
 
 	length: UInt8
 	kind: UInt8
-	payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be, 3 => UInt24le, 4 => UInt32le)
+	payload: ExtensionDispatch(kind, length, 1 => uint16be, 2 => uint32be, 3 => uint24le, 4 => uint32le, 5 => flag16le)
 end
 
 fn emit_payload(payload: SchemaDispatchPayload<Int>) -> Result<(), String> effects [stdio]
@@ -47,5 +47,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(int_to_string(wide_packet.kind))
 	stdio::print(" ")
 	emit_payload(wide_packet.payload)
+
+	let flag_bytes: ByteChunk = byte_chunk_from_hex("02050201")?
+	let flag_count: ByteCount = byte_count(4)?
+	let flag_view: ByteView = byte_view(flag_bytes, offset, flag_count)?
+	let flag_packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>} = byte_decode_extension_dispatch_packet(flag_view)?
+	stdio::print(int_to_string(flag_packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(flag_packet.kind))
+	stdio::print(" ")
+	emit_payload(flag_packet.payload)
 	Ok(())
 end

@@ -16,6 +16,13 @@ ordinary source code outside the schema body.
 Schema-level mapping clauses are rejected by the parser and are not part of
 the implemented grammar.
 
+`format binary` dispatch payload cases accept lowercase exact-width `uint...`
+and `flag...` primitive spelling in the same positions as compatible
+upper-case exact-width primitive payload spelling. They also accept
+byte-aligned lowercase `uint... reserves <value>` spelling in direct
+reserved-bit dispatch payload positions. Format-neutral schemas reject
+binary-only primitive vocabulary in dispatch payload positions.
+
 ## Executable Grammar
 
 <!-- source-surface-grammar:start -->

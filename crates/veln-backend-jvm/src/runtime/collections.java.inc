@@ -813,6 +813,7 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
+        final long reservedValue;
         final BinarySchemaSpec payloadSchema;
         final String payloadSchemaName;
 
@@ -824,6 +825,7 @@
             this.tag = tag;
             this.width = width;
             this.littleEndian = littleEndian;
+            this.reservedValue = -1L;
             this.payloadSchema = null;
             this.payloadSchemaName = "";
             long value = 0L;
@@ -833,11 +835,22 @@
             this.maxValue = value;
         }
 
+        SchemaDispatchCaseSpec(long tag, int width, long reservedValue) {
+            this.tag = tag;
+            this.width = width;
+            this.littleEndian = false;
+            this.reservedValue = reservedValue;
+            this.payloadSchema = null;
+            this.payloadSchemaName = "";
+            this.maxValue = reservedMaxValue(width * 8);
+        }
+
         SchemaDispatchCaseSpec(long tag, BinarySchemaSpec payloadSchema) {
             this.tag = tag;
             this.width = 0;
             this.maxValue = 0L;
             this.littleEndian = false;
+            this.reservedValue = -1L;
             this.payloadSchema = payloadSchema;
             this.payloadSchemaName = "";
         }
@@ -847,8 +860,13 @@
             this.width = 0;
             this.maxValue = 0L;
             this.littleEndian = false;
+            this.reservedValue = -1L;
             this.payloadSchema = null;
             this.payloadSchemaName = payloadSchemaName;
+        }
+
+        boolean isReserved() {
+            return reservedValue >= 0L;
         }
 
         BinarySchemaSpec payloadSchema(BinarySchemaSpec currentSchema) {
@@ -6406,6 +6424,28 @@
                     if (!lengthBoundedPayload) {
                         payloadWidth = asLong(nestedValue.get("consumed"));
                     }
+                } else if (dispatchCase.isReserved()) {
+                    Object readView = view;
+                    long readBaseOffset = diagnosticBaseOffset;
+                    int readRelativeOffset = (int) relativeOffset;
+                    if (lengthBoundedPayload) {
+                        readView = byteViewDerivedObject(view, relativeOffset, payloadWidth);
+                        readBaseOffset = diagnosticBaseOffset + relativeOffset;
+                        readRelativeOffset = 0;
+                    }
+                    Object reservedRead = schemaReadReservedBits(
+                        readView,
+                        readBaseOffset,
+                        readRelativeOffset,
+                        dispatchCase.width * 8,
+                        dispatchCase.reservedValue,
+                        schema.name,
+                        field.name
+                    );
+                    if (isErr(reservedRead)) {
+                        return reservedRead;
+                    }
+                    dispatchValue = UNIT;
                 } else {
                     Object readView = view;
                     long readBaseOffset = diagnosticBaseOffset;
@@ -7640,6 +7680,41 @@
                 );
                 continue;
             }
+            if (schemaSpec instanceof String && asString(schemaSpec).startsWith("reserved:")) {
+                String expectedText = asString(schemaSpec).substring("reserved:".length());
+                long expectedValue;
+                try {
+                    expectedValue = Long.parseLong(expectedText);
+                } catch (NumberFormatException error) {
+                    return err(
+                        "invalid reserved dispatch payload metadata for field `"
+                            + fieldName
+                            + "` in schema `"
+                            + schemaName
+                            + "`"
+                    );
+                }
+                int bitWidth = (int) width * 8;
+                if (width < 1L
+                    || width > 4L
+                    || !supportedReservedBits(bitWidth, expectedValue)) {
+                    return err(
+                        "unsupported reserved dispatch payload width "
+                            + bitWidth
+                            + " for field `"
+                            + fieldName
+                            + "` in schema `"
+                            + schemaName
+                            + "`"
+                    );
+                }
+                cases[index] = new SchemaDispatchCaseSpec(
+                    asLong(tagValues.get(index)),
+                    (int) width,
+                    expectedValue
+                );
+                continue;
+            }
             if (width < 1L || width > 8L) {
                 return err(
                     "unsupported dispatch field width "
@@ -7936,6 +8011,15 @@
             Object encoded;
             if (payloadSchema != null) {
                 encoded = byteEncodeBinarySchema(fields.get(fieldName), payloadSchema);
+            } else if (dispatchCase.isReserved()) {
+                encoded = schemaWriteUnsigned(
+                    Long.valueOf(dispatchCase.reservedValue),
+                    dispatchCase.width,
+                    dispatchCase.maxValue,
+                    false,
+                    schema.name,
+                    fieldName
+                );
             } else {
                 encoded = schemaWriteUnsigned(
                     fields.get(fieldName),
@@ -8003,6 +8087,25 @@
                 Object encoded = byteEncodeBinarySchema(
                     asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],
                     payloadSchema
+                );
+                if (isErr(encoded)) {
+                    return encoded;
+                }
+                return schemaDispatchLengthCheckedChunk(
+                    unwrapOk(encoded),
+                    suppliedLength,
+                    dispatch.lengthField,
+                    fieldPath
+                );
+            }
+            if (selectedCase.isReserved()) {
+                Object encoded = schemaWriteUnsigned(
+                    Long.valueOf(selectedCase.reservedValue),
+                    selectedCase.width,
+                    selectedCase.maxValue,
+                    false,
+                    schema.name,
+                    fieldName
                 );
                 if (isErr(encoded)) {
                     return encoded;

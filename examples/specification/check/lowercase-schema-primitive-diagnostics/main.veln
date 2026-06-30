@@ -54,6 +54,11 @@ schema DispatchPayload
 	payload: Dispatch(tag, 1 => uint16be)
 end
 
+schema MissingFormatDispatchPayload
+	tag: Int
+	payload: Dispatch(tag, 1 => uint32be, 2 => flag24le)
+end
+
 fn ordinary_type(value: uint24be) -> flag24be
 	flag16be
 end
