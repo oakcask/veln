@@ -99,7 +99,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	let _: () = emit_extension_payload(extension.payload)?
 
-	let stepped: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = byte_decode_step_closed_product_packet(closed_view, byte_offset(11)?)
+	let stepped: DecodeStep<{kind: Int, payload: {row_count: Int, column_count: Int, payload: ByteView}}> = decode ClosedProductPacket from closed_view at byte_offset(11)?
 	stdio::print("step ")
 	stdio::print(closed_step_kind(stepped))
 	stdio::print(" ")

@@ -73,8 +73,8 @@ compare it with `../specification/` before changing behavior.
   byte-pattern operations used from ordinary functions. The explicit schema
   decode and encode expression slices are current behavior under
   `../specification/source-surface.md`; the remaining proposal work covers
-  broader example migration, generated-helper removal, codec removal, and
-  diagnostic reclassification.
+  encode example migration, source-visible generated-helper cleanup, codec
+  removal, and diagnostic reclassification.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary

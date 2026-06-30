@@ -1,4 +1,4 @@
-# Binary schema Flag16be decode-step helpers preserve bitset values and consumed counts.
+# Binary schema Flag16be decode expressions preserve bitset values and consumed counts.
 use stdio
 
 schema FlagStepPacket
@@ -50,7 +50,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let bytes: ByteChunk = byte_chunk_from_hex("123407")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
 	let base: ByteOffset = byte_offset(16)?
-	let step: DecodeStep<{flags: Flag16be, kind: Int}> = byte_decode_step_flag_step_packet(view, base)
+	let step: DecodeStep<{flags: Flag16be, kind: Int}> = decode FlagStepPacket from view at base
 	stdio::println(step_kind(step))
 	stdio::println(int_to_string(decoded_flags(step)))
 	stdio::println(int_to_string(decoded_kind(step)))
