@@ -15,8 +15,8 @@ pub fn main(raw: String) -> Result<(), { message : String }> effects [stdio]
 		None => "missing"
 	end
 	stdio::println(message)
-	match vec_len(mapped) == 1
-		true => Ok(())
-		false => Err({ message: "bad" })
+	match vec_len(mapped)
+		1 => Ok(())
+		_ => Err({ message: "bad" })
 	end
 end

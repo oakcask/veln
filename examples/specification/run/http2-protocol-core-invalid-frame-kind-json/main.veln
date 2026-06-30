@@ -41,12 +41,12 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 end
 
 fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
-	match stream_id == 0
-		true => match kind == 4
+	match stream_id
+		0 => match kind == 4
 			true => Ok(FrameOk(kind))
 			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 4, preview)))
 		end
-		false => Ok(FrameOk(kind))
+		_ => Ok(FrameOk(kind))
 	end
 end
 

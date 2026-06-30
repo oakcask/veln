@@ -18,8 +18,8 @@ pub codec PacketCodec for PacketWire decode
 end
 
 fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
-	match byte_count_to_int(byte_view_count(input)) == 0
-		true => NeedMore(NeedEnd)
-		false => byte_decode_step_packet_wire(input, base)
+	match byte_count_to_int(byte_view_count(input))
+		0 => NeedMore(NeedEnd)
+		_ => byte_decode_step_packet_wire(input, base)
 	end
 end

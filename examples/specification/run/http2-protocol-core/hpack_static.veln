@@ -152,9 +152,9 @@ fn hpack_static_supported_request_block(first: Int, second: Int, third: Int) -> 
 end
 
 fn hpack_static_request_method(byte: Int) -> String
-	match byte == 131
-		true => "POST"
-		false => "GET"
+	match byte
+		131 => "POST"
+		_ => "GET"
 	end
 end
 
@@ -164,12 +164,12 @@ end
 
 fn hpack_static_literal_without_indexing_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = hpack_static_byte_at_or_missing(block, 0)
-	match first_byte == 15
-		true => match hpack_static_byte_at_or_missing(block, 1) >= 0 and hpack_static_byte_at_or_missing(block, 1) < 128
+	match first_byte
+		15 => match hpack_static_byte_at_or_missing(block, 1) >= 0 and hpack_static_byte_at_or_missing(block, 1) < 128
 			true => 15 + hpack_static_byte_at_or_missing(block, 1)
 			false => -1
 		end
-		false => match first_byte > 0 and first_byte < 15
+		_ => match first_byte > 0 and first_byte < 15
 			true => first_byte
 			false => -1
 		end
@@ -177,31 +177,21 @@ fn hpack_static_literal_without_indexing_name_index(block: ByteChunk) -> Int
 end
 
 fn hpack_static_literal_without_indexing_value_index(block: ByteChunk) -> Int
-	match hpack_static_byte_at_or_missing(block, 0) == 15
-		true => 2
-		false => 1
+	match hpack_static_byte_at_or_missing(block, 0)
+		15 => 2
+		_ => 1
 	end
 end
 
 fn hpack_static_supported_literal_name(name_index: Int) -> Option<String>
-	match name_index == 1
-		true => Some(":authority")
-		false => match name_index == 4
-			true => Some(":path")
-			false => match name_index == 8
-				true => Some(":status")
-				false => match name_index == 54
-					true => Some("server")
-					false => match name_index == 31
-						true => Some("content-type")
-						false => match name_index == 58
-							true => Some("user-agent")
-							false => None
-						end
-					end
-				end
-			end
-		end
+	match name_index
+		1 => Some(":authority")
+		4 => Some(":path")
+		8 => Some(":status")
+		54 => Some("server")
+		31 => Some("content-type")
+		58 => Some("user-agent")
+		_ => None
 	end
 end
 
@@ -262,9 +252,9 @@ end
 
 pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
 	let count: Int = hpack_static_observed_size(block)
-	match count == 0
-		true => hpack_static_not_static(block, offset)
-		false => match hpack_static_all_bytes_indexed(block, 0, count)
+	match count
+		0 => hpack_static_not_static(block, offset)
+		_ => match hpack_static_all_bytes_indexed(block, 0, count)
 			false => hpack_static_decode_literal_without_indexing_block(block, count, offset)
 			true => hpack_static_decode_supported_block(block, count, offset)
 		end

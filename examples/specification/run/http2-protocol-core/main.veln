@@ -445,12 +445,12 @@ end
 
 fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
-	match available == 0
-		true => match continuation
+	match available
+		0 => match continuation
 			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
 			Continuation(_, _, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
 		end
-		false => match preface_state
+		_ => match preface_state
 			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPartialPreface(next_offset, available)))
 			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
 		end
@@ -507,78 +507,32 @@ fn read_byte(pending: ByteChunk, index: Int) -> Result<Int, String>
 end
 
 fn expected_preface_byte(index: Int) -> Int
-	match index == 0
-		true => 80
-		false => match index == 1
-			true => 82
-			false => match index == 2
-				true => 73
-				false => match index == 3
-					true => 32
-					false => match index == 4
-						true => 42
-						false => match index == 5
-							true => 32
-							false => match index == 6
-								true => 72
-								false => match index == 7
-									true => 84
-									false => match index == 8
-										true => 84
-										false => match index == 9
-											true => 80
-											false => match index == 10
-												true => 47
-												false => match index == 11
-													true => 50
-													false => match index == 12
-														true => 46
-														false => match index == 13
-															true => 48
-															false => match index == 14
-																true => 13
-																false => match index == 15
-																	true => 10
-																	false => match index == 16
-																		true => 13
-																		false => match index == 17
-																			true => 10
-																			false => match index == 18
-																				true => 83
-																				false => match index == 19
-																					true => 77
-																					false => match index == 20
-																						true => 13
-																						false => match index == 21
-																							true => 10
-																							false => match index == 22
-																								true => 13
-																								false => match index == 23
-																									true => 10
-																									false => 0
-																								end
-																							end
-																						end
-																					end
-																				end
-																			end
-																		end
-																	end
-																end
-															end
-														end
-													end
-												end
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match index
+		0 => 80
+		1 => 82
+		2 => 73
+		3 => 32
+		4 => 42
+		5 => 32
+		6 => 72
+		7 => 84
+		8 => 84
+		9 => 80
+		10 => 47
+		11 => 50
+		12 => 46
+		13 => 48
+		14 => 13
+		15 => 10
+		16 => 13
+		17 => 10
+		18 => 83
+		19 => 77
+		20 => 13
+		21 => 10
+		22 => 13
+		23 => 10
+		_ => 0
 	end
 end
 
@@ -693,12 +647,12 @@ fn complete_after_data_padding(pending: ByteChunk, suffix: ByteChunk, next_offse
 end
 
 fn validate_priority_dependency(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PriorityDependencyDecision, String>
-	match kind == 2
-		true => match length == 5
+	match kind
+		2 => match length == 5
 			true => validate_priority_dependency_payload(offset, payload, stream_id)
 			false => Ok(PriorityDependencyOk)
 		end
-		false => match headers_priority_set(kind, flags)
+		_ => match headers_priority_set(kind, flags)
 			true => match length >= 5
 				true => validate_priority_dependency_payload(offset, payload, stream_id)
 				false => Ok(PriorityDependencyOk)
@@ -724,43 +678,25 @@ fn frame_payload_chunk(frame: ByteChunk, length: Int) -> Result<ByteChunk, Strin
 end
 
 fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
-	match kind == 4
-		true => require_connection_stream_id(offset, kind, stream_id)
-		false => match kind == 6
-			true => require_connection_stream_id(offset, kind, stream_id)
-			false => match kind == 7
-				true => require_connection_stream_id(offset, kind, stream_id)
-				false => match kind == 0
-					true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
-					false => match kind == 1
-						true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
-						false => match kind == 3
-							true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
-							false => match kind == 9
-								true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
-								false => match kind == 8
-									true => validate_window_update_stream_id(offset, kind, stream_id, receive_flow_control)
-									false => match kind == 2
-										true => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
-										false => match kind == 5
-											true => require_client_stream_id(offset, kind, stream_id)
-											false => ProtocolStreamIdOk
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match kind
+		4 => require_connection_stream_id(offset, kind, stream_id)
+		6 => require_connection_stream_id(offset, kind, stream_id)
+		7 => require_connection_stream_id(offset, kind, stream_id)
+		0 => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+		1 => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+		3 => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+		9 => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+		8 => validate_window_update_stream_id(offset, kind, stream_id, receive_flow_control)
+		2 => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+		5 => require_client_stream_id(offset, kind, stream_id)
+		_ => ProtocolStreamIdOk
 	end
 end
 
 fn validate_window_update_stream_id(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
-	match stream_id == 0
-		true => ProtocolStreamIdOk
-		false => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
+	match stream_id
+		0 => ProtocolStreamIdOk
+		_ => require_peer_stream_id(offset, kind, stream_id, receive_flow_control)
 	end
 end
 
@@ -780,16 +716,16 @@ fn stream_id_is_reserved_by_peer(stream_id: Int, receive_flow_control: ReceiveFl
 end
 
 fn require_connection_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_id == 0
-		true => ProtocolStreamIdOk
-		false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero"))
+	match stream_id
+		0 => ProtocolStreamIdOk
+		_ => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero"))
 	end
 end
 
 fn require_client_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_id == 0
-		true => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
-		false => match stream_id_is_client_initiated(stream_id)
+	match stream_id
+		0 => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
+		_ => match stream_id_is_client_initiated(stream_id)
 			true => ProtocolStreamIdOk
 			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
 		end
@@ -882,15 +818,11 @@ fn validate_header_table_size_update(offset: Int, kind: Int, flags: Int, stream_
 end
 
 fn header_list_boundary_reached(kind: Int, flags: Int) -> Bool
-	match kind == 1
-		true => end_headers_set(flags)
-		false => match kind == 9
-			true => end_headers_set(flags)
-			false => match kind == 5
-				true => end_headers_set(flags)
-				false => false
-			end
-		end
+	match kind
+		1 => end_headers_set(flags)
+		9 => end_headers_set(flags)
+		5 => end_headers_set(flags)
+		_ => false
 	end
 end
 
@@ -1110,9 +1042,9 @@ end
 fn frame_value(pending: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Frame, String>
 	let payload_chunk: ByteChunk = frame_payload_chunk(pending, length)?
 	let payload: ByteView = data_content_view(payload_chunk, length, kind, flags)?
-	match kind == 2
-		true => Ok(PriorityFrame(flags, stream_id, priority_dependency_stream_id(payload)?, priority_exclusive(payload)?, priority_weight(payload)?))
-		false => match is_known_frame_kind(kind)
+	match kind
+		2 => Ok(PriorityFrame(flags, stream_id, priority_dependency_stream_id(payload)?, priority_exclusive(payload)?, priority_weight(payload)?))
+		_ => match is_known_frame_kind(kind)
 			true => Ok(KnownFrame(kind, flags, stream_id, payload))
 			false => Ok(UnknownFrame(kind, flags, stream_id, payload))
 		end
@@ -1139,36 +1071,18 @@ fn priority_weight(payload: ByteView) -> Result<Int, String>
 end
 
 fn is_known_frame_kind(kind: Int) -> Bool
-	match kind == 0
-		true => true
-		false => match kind == 1
-			true => true
-			false => match kind == 3
-				true => true
-				false => match kind == 4
-					true => true
-					false => match kind == 6
-						true => true
-						false => match kind == 7
-							true => true
-							false => match kind == 8
-								true => true
-								false => match kind == 9
-									true => true
-									false => match kind == 2
-										true => true
-										false => match kind == 5
-											true => true
-											false => false
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match kind
+		0 => true
+		1 => true
+		3 => true
+		4 => true
+		6 => true
+		7 => true
+		8 => true
+		9 => true
+		2 => true
+		5 => true
+		_ => false
 	end
 end
 
@@ -1180,30 +1094,16 @@ fn is_unknown_frame_kind(kind: Int) -> Bool
 end
 
 fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
-	match kind == 6
-		true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_ping_payload_length")
-		false => match kind == 7
-			true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_goaway_payload_length")
-			false => match kind == 8
-				true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "flow-control", "rfc9113_window_update_payload_length")
-				false => match kind == 4
-					true => validate_settings_ack_payload_length(offset, payload, length, flags, stream_id)
-					false => match kind == 3
-						true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
-						false => match kind == 2
-							true => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 5, "stream-control", "rfc9113_priority_payload_length")
-							false => match kind == 1
-								true => validate_headers_payload_length(offset, payload, length, kind, flags, stream_id)
-								false => match kind == 5
-									true => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
-									false => Ok(ProtocolPayloadOk)
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match kind
+		6 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_ping_payload_length")
+		7 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_goaway_payload_length")
+		8 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "flow-control", "rfc9113_window_update_payload_length")
+		4 => validate_settings_ack_payload_length(offset, payload, length, flags, stream_id)
+		3 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
+		2 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 5, "stream-control", "rfc9113_priority_payload_length")
+		1 => validate_headers_payload_length(offset, payload, length, kind, flags, stream_id)
+		5 => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
+		_ => Ok(ProtocolPayloadOk)
 	end
 end
 
@@ -1222,20 +1122,20 @@ fn validate_push_promise_payload_length(offset: Int, payload: ByteChunk, length:
 end
 
 fn validate_data_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<PaddingDecision, String>
-	match kind == 0
-		false => Ok(PaddingOk)
-		true => match data_padded_set(flags)
+	match kind
+		0 => match data_padded_set(flags)
 			false => Ok(PaddingOk)
 			true => validate_padded_data_payload(offset, payload, length, stream_id, receive_flow_control)
 		end
+		_ => Ok(PaddingOk)
 	end
 end
 
 fn validate_padded_data_payload(offset: Int, payload: ByteChunk, length: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<PaddingDecision, String>
 	let active_state: String = data_padding_active_state(stream_id, receive_flow_control)
-	match length == 0
-		true => Ok(PaddingFailed(InvalidDataPadding(offset, stream_id, 0, -1, active_state, "rfc9113_data_padding", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
-		false => match data_pad_length(payload)? > length - 1
+	match length
+		0 => Ok(PaddingFailed(InvalidDataPadding(offset, stream_id, 0, -1, active_state, "rfc9113_data_padding", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+		_ => match data_pad_length(payload)? > length - 1
 			true => Ok(PaddingFailed(InvalidDataPadding(offset + 9, stream_id, data_pad_length(payload)?, length - 1, active_state, "rfc9113_data_padding", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
 			false => Ok(PaddingOk)
 		end
@@ -1260,12 +1160,12 @@ fn data_padding_active_state(stream_id: Int, receive_flow_control: ReceiveFlowCo
 end
 
 fn data_content_view(payload: ByteChunk, length: Int, kind: Int, flags: Int) -> Result<ByteView, String>
-	match kind == 0
-		false => byte_view(payload, byte_offset(0)?, byte_count(length)?)
-		true => match data_padded_set(flags)
+	match kind
+		0 => match data_padded_set(flags)
 			false => byte_view(payload, byte_offset(0)?, byte_count(length)?)
 			true => padded_data_content_view(payload, length)
 		end
+		_ => byte_view(payload, byte_offset(0)?, byte_count(length)?)
 	end
 end
 
@@ -1305,15 +1205,15 @@ fn validate_fixed_payload_length(offset: Int, payload: ByteChunk, length: Int, k
 end
 
 fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int) -> Result<SettingsRangeDecision, String>
-	match kind == 4
-		true => match settings_ack_set(flags)
+	match kind
+		4 => match settings_ack_set(flags)
 			true => Ok(SettingsValueOk)
 			false => match settings_payload_has_complete_items(length)
 				true => validate_settings_items(pending, next_offset, 9, 9 + length)
 				false => Ok(SettingsValueOk)
 			end
 		end
-		false => Ok(SettingsValueOk)
+		_ => Ok(SettingsValueOk)
 	end
 end
 
@@ -1343,15 +1243,11 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wir
 	let value_count: ByteCount = byte_count(4)?
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
-	match identifier == 5
-		true => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
-		false => match identifier == 4
-			true => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
-			false => match identifier == 2
-				true => validate_enable_push_setting(next_offset + item_wire_offset, value, item)
-				false => Ok(SettingsValueOk)
-			end
-		end
+	match identifier
+		5 => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
+		4 => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
+		2 => validate_enable_push_setting(next_offset + item_wire_offset, value, item)
+		_ => Ok(SettingsValueOk)
 	end
 end
 
@@ -1380,12 +1276,12 @@ fn validate_enable_push_setting(item_offset: Int, value: Int, preview: ByteView)
 end
 
 fn update_peer_settings(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
-	match kind == 4
-		true => match settings_ack_set(flags)
+	match kind
+		4 => match settings_ack_set(flags)
 			true => Ok(peer_settings)
 			false => update_settings_frame(pending, next_offset, length, peer_settings)
 		end
-		false => Ok(peer_settings)
+		_ => Ok(peer_settings)
 	end
 end
 
@@ -1413,38 +1309,28 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, item_wire_o
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-					false => match identifier == 3
-						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push))
-						false => match identifier == 1
-							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push))
-							false => match identifier == 6
-								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push))
-								false => Ok(peer_settings)
-							end
-						end
-					end
-				end
-			end
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier
+			5 => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push))
+			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push))
+			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push))
+			_ => Ok(peer_settings)
 		end
 	end
 end
 
 fn update_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
-	match kind == 4
-		true => match settings_ack_set(flags)
+	match kind
+		4 => match settings_ack_set(flags)
 			true => Ok(receive_flow_control)
 			false => match settings_payload_has_complete_items(length)
 				true => update_initial_window_receive_credit_items(pending, next_offset, 9, 9 + length, peer_settings, receive_flow_control)
 				false => Ok(receive_flow_control)
 			end
 		end
-		false => Ok(receive_flow_control)
+		_ => Ok(receive_flow_control)
 	end
 end
 
@@ -1464,9 +1350,9 @@ fn update_single_initial_window_receive_credit(pending: ByteChunk, next_offset: 
 	let value_count: ByteCount = byte_count(4)?
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
-	match identifier == 4
-		true => Ok(apply_initial_window_delta(value - active_peer_initial_window_size(peer_settings), receive_flow_control))
-		false => Ok(receive_flow_control)
+	match identifier
+		4 => Ok(apply_initial_window_delta(value - active_peer_initial_window_size(peer_settings), receive_flow_control))
+		_ => Ok(receive_flow_control)
 	end
 end
 
@@ -1712,9 +1598,9 @@ fn update_connection_after_receive(step: Http2Step, outstanding_settings: Outsta
 end
 
 fn settings_ack_frame(kind: Int, flags: Int) -> Bool
-	match kind == 4
-		true => settings_ack_set(flags)
-		false => false
+	match kind
+		4 => settings_ack_set(flags)
+		_ => false
 	end
 end
 
@@ -1931,9 +1817,9 @@ fn goaway_sent_state(last_stream_id: Int, error_code: Int, state: Http2DecodeSta
 end
 
 fn send_rst_stream(stream_id: Int, error_code: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundRstStreamDecision, String>
-	match stream_id == 0
-		true => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidStreamId(0, 3, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_rst_stream_requires_open_stream")))
-		false => send_nonzero_rst_stream(stream_id, error_code, receive_credit)
+	match stream_id
+		0 => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidStreamId(0, 3, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_rst_stream_requires_open_stream")))
+		_ => send_nonzero_rst_stream(stream_id, error_code, receive_credit)
 	end
 end
 
@@ -1976,9 +1862,9 @@ fn encode_rst_stream_payload_intent(stream_id: Int, error_code: Int, connection_
 end
 
 fn send_priority(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundPriorityDecision, String>
-	match stream_id == 0
-		true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidStreamId(0, 2, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_priority_requires_open_stream")))
-		false => send_nonzero_priority(stream_id, dependency_stream_id, exclusive, weight, receive_credit)
+	match stream_id
+		0 => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidStreamId(0, 2, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_priority_requires_open_stream")))
+		_ => send_nonzero_priority(stream_id, dependency_stream_id, exclusive, weight, receive_credit)
 	end
 end
 
@@ -2057,9 +1943,9 @@ end
 
 fn send_headers_with_shutdown(stream_id: Int, header_block: ByteChunk, end_stream: Bool, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundHeadersDecision, String>
 	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
-	match stream_id == 0
-		true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_headers_requires_open_stream")))
-		false => send_nonzero_headers(stream_id, payload_length, header_block, end_stream, active_peer_max_frame_size(peer_settings), shutdown_state, receive_credit)
+	match stream_id
+		0 => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_headers_requires_open_stream")))
+		_ => send_nonzero_headers(stream_id, payload_length, header_block, end_stream, active_peer_max_frame_size(peer_settings), shutdown_state, receive_credit)
 	end
 end
 
@@ -2204,9 +2090,9 @@ end
 fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPushPromiseDecision, String>
 	let header_block_length: Int = byte_count_to_int(byte_chunk_count(header_block))
 	let payload_length: Int = header_block_length + 4
-	match stream_id == 0
-		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
-		false => match stream_id_is_client_initiated(stream_id)
+	match stream_id
+		0 => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, stream_id, "nonzero open client-created stream id", "local", "stream-id-domain", "outbound_push_promise_requires_open_stream")))
+		_ => match stream_id_is_client_initiated(stream_id)
 			true => match peer_enable_push_disabled(peer_settings)
 				true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidFrameKind(0, 5, stream_id, 5, "peer-settings", "settings_enable_push_disabled")))
 				false => send_nonzero_push_promise(stream_id, promised_stream_id, payload_length, header_block, active_peer_max_frame_size(peer_settings), receive_credit)
@@ -2259,9 +2145,9 @@ fn send_nonzero_push_promise(stream_id: Int, promised_stream_id: Int, payload_le
 end
 
 fn validate_promised_stream_id(stream_id: Int, promised_stream_id: Int, payload_length: Int, header_block: ByteChunk, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPushPromiseDecision, String>
-	match promised_stream_id == 0
-		true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, promised_stream_id, "nonzero server-initiated promised stream id", "local", "stream-id-domain", "outbound_push_promise_requires_server_stream")))
-		false => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
+	match promised_stream_id
+		0 => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, InvalidStreamId(0, 5, promised_stream_id, "nonzero server-initiated promised stream id", "local", "stream-id-domain", "outbound_push_promise_requires_server_stream")))
+		_ => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
 	end
 end
 
@@ -2644,9 +2530,9 @@ fn padded_data_payload(padding_length: Int, application_payload: ByteChunk) -> R
 end
 
 fn zero_padding_bytes(length: Int) -> Result<ByteChunk, String>
-	match length == 0
-		true => Ok(byte_chunk([]))
-		false => Ok(byte_append(byte_write_u8_be(0)?, zero_padding_bytes(length - 1)?))
+	match length
+		0 => Ok(byte_chunk([]))
+		_ => Ok(byte_append(byte_write_u8_be(0)?, zero_padding_bytes(length - 1)?))
 	end
 end
 
@@ -2683,9 +2569,9 @@ fn send_connection_window_update(increment: Int, receive_credit: OutboundReceive
 end
 
 fn send_stream_window_update(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
-	match stream_id == 0
-		true => Ok(OutboundWindowUpdateRejected(InvalidStreamId(0, 8, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_window_update_requires_open_stream")))
-		false => match validate_outbound_window_update_increment(stream_id, increment, "open-stream")
+	match stream_id
+		0 => Ok(OutboundWindowUpdateRejected(InvalidStreamId(0, 8, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_window_update_requires_open_stream")))
+		_ => match validate_outbound_window_update_increment(stream_id, increment, "open-stream")
 			OutboundWindowUpdateIncrementOk => send_valid_stream_window_update(stream_id, increment, receive_credit)
 			OutboundWindowUpdateIncrementFailed(error) => Ok(OutboundWindowUpdateRejected(error))
 		end
@@ -2731,9 +2617,9 @@ fn validate_stream_window_update_bound(stream_id: Int, increment: Int, connectio
 end
 
 fn validate_outbound_window_update_increment(stream_id: Int, increment: Int, active_state: String) -> OutboundWindowUpdateIncrementDecision
-	match increment == 0
-		true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero", empty_header_block()))
-		false => match increment < 0
+	match increment
+		0 => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero", empty_header_block()))
+		_ => match increment < 0
 			true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_range", empty_header_block()))
 			false => match increment > max_receive_flow_control_window()
 				true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window(), active_state, "window_update_increment_range", empty_header_block()))
@@ -2804,24 +2690,14 @@ fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, pee
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-					false => match identifier == 3
-						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push))
-						false => match identifier == 1
-							true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push))
-							false => match identifier == 6
-								true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push))
-								false => Ok(peer_settings)
-							end
-						end
-					end
-				end
-			end
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier
+			5 => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
+			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push))
+			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push))
+			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push))
+			_ => Ok(peer_settings)
 		end
 	end
 end
@@ -2830,9 +2706,9 @@ fn update_single_initial_window_send_credit(payload: ByteChunk, item_offset: Int
 	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
-	match identifier == 4
-		true => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(value - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))))
-		false => Ok(decision)
+	match identifier
+		4 => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(value - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))))
+		_ => Ok(decision)
 	end
 end
 
@@ -2847,9 +2723,9 @@ fn apply_initial_window_delta_to_outbound_send_credit(delta: Int, send_credit: O
 end
 
 fn refill_outbound_send_credit(offset: Int, stream_id: Int, increment: Int, preview: ByteChunk, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
-	match stream_id == 0
-		true => refill_outbound_connection_send_credit(offset, increment, preview, send_credit)
-		false => refill_outbound_stream_send_credit(offset, stream_id, increment, preview, send_credit)
+	match stream_id
+		0 => refill_outbound_connection_send_credit(offset, increment, preview, send_credit)
+		_ => refill_outbound_stream_send_credit(offset, stream_id, increment, preview, send_credit)
 	end
 end
 
@@ -2926,12 +2802,12 @@ fn record_local_end_stream(state: Http2DecodeState, stream_id: Int) -> Http2Deco
 end
 
 fn update_shutdown_state(pending: ByteChunk, offset: Int, length: Int, kind: Int, shutdown_state: ConnectionShutdownState) -> Result<ShutdownStateDecision, String>
-	match kind == 7
-		true => match length == 8
+	match kind
+		7 => match length == 8
 			true => validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, pending)
 			false => Ok(ShutdownStateOk(shutdown_state))
 		end
-		false => Ok(ShutdownStateOk(shutdown_state))
+		_ => Ok(ShutdownStateOk(shutdown_state))
 	end
 end
 
@@ -2967,15 +2843,13 @@ fn validate_continuation(continuation: PendingContinuation, offset: Int, payload
 end
 
 fn validate_without_continuation(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	match kind == 1
-		true => match end_headers_set(flags)
+	match kind
+		1 => match end_headers_set(flags)
 			true => Ok(Decision(NoContinuation, payload, data_end_stream_set(flags), completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0))
 			false => Ok(Decision(Continuation(stream_id, kind, offset, flags, completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0, payload), empty_header_block(), false, false, 0))
 		end
-		false => match kind == 5
-			true => validate_push_promise_header_block(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
-			false => validate_connection_frame_kind(offset, kind, stream_id, receive_flow_control)
-		end
+		5 => validate_push_promise_header_block(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
+		_ => validate_connection_frame_kind(offset, kind, stream_id, receive_flow_control)
 	end
 end
 
@@ -2996,9 +2870,9 @@ fn validate_push_promise_header_block(offset: Int, payload: ByteChunk, kind: Int
 end
 
 fn frame_promised_stream_id(payload: ByteChunk, kind: Int) -> Result<Int, String>
-	match kind == 5
-		true => promised_stream_id_from_payload(payload)
-		false => Ok(0)
+	match kind
+		5 => promised_stream_id_from_payload(payload)
+		_ => Ok(0)
 	end
 end
 
@@ -3012,12 +2886,10 @@ fn decoded_push_promise_payload(payload: ByteChunk) -> Result<{promised_stream_i
 end
 
 fn continuation_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
-	match kind == 5
-		true => byte_drop(payload, byte_count(4)?)
-		false => match kind == 1
-			true => headers_payload_chunk(payload, kind, flags)
-			false => Ok(payload)
-		end
+	match kind
+		5 => byte_drop(payload, byte_count(4)?)
+		1 => headers_payload_chunk(payload, kind, flags)
+		_ => Ok(payload)
 	end
 end
 
@@ -3029,9 +2901,9 @@ fn headers_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<By
 end
 
 fn headers_priority_set(kind: Int, flags: Int) -> Bool
-	match kind == 1
-		true => ((flags / 32) * 32) != ((flags / 64) * 64)
-		false => false
+	match kind
+		1 => ((flags / 32) * 32) != ((flags / 64) * 64)
+		_ => false
 	end
 end
 
@@ -3070,48 +2942,32 @@ fn empty_header_block() -> ByteChunk
 end
 
 fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	match stream_id == 0
-		true => match kind == 4
-			true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-			false => match kind == 6
+	match stream_id
+		0 => match kind
+			4 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			6 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			7 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			8 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			_ => match is_unknown_frame_kind(kind)
 				true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-				false => match kind == 7
-					true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-					false => match kind == 8
-						true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-						false => match is_unknown_frame_kind(kind)
-							true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-							false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
-						end
-					end
-				end
+				false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
 			end
 		end
-		false => validate_stream_frame_kind(offset, kind, stream_id, receive_flow_control)
+		_ => validate_stream_frame_kind(offset, kind, stream_id, receive_flow_control)
 	end
 end
 
 fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	match kind == 1
-		true => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-		false => match kind == 0
-			true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-			false => match kind == 3
-				true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-				false => match kind == 8
-					true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-					false => match kind == 2
-						true => validate_priority_stream_state(offset, kind, stream_id, receive_flow_control)
-						false => match kind == 5
-							true => validate_push_promise_stream_state(offset, kind, stream_id, receive_flow_control)
-							false => match is_unknown_frame_kind(kind)
-								true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
-								false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
-							end
-						end
-					end
-				end
-			end
+	match kind
+		1 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+		0 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
+		3 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
+		8 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
+		2 => validate_priority_stream_state(offset, kind, stream_id, receive_flow_control)
+		5 => validate_push_promise_stream_state(offset, kind, stream_id, receive_flow_control)
+		_ => match is_unknown_frame_kind(kind)
+			true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		end
 	end
 end
@@ -3127,9 +2983,9 @@ fn validate_push_promise_stream_state(offset: Int, kind: Int, stream_id: Int, re
 end
 
 fn validate_received_push_promise_stream(offset: Int, kind: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
-	match promised_stream_id == 0
-		true => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, promised_stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
-		false => match stream_id_is_server_initiated(promised_stream_id)
+	match promised_stream_id
+		0 => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, promised_stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
+		_ => match stream_id_is_server_initiated(promised_stream_id)
 			true => validate_received_push_promise_associated_stream(offset, kind, stream_id, receive_flow_control)
 			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, promised_stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
 		end
@@ -3255,9 +3111,9 @@ fn validate_data_stream_state(offset: Int, kind: Int, stream_id: Int, receive_fl
 end
 
 fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, promised_stream_id: Int, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	match kind == 9
-		true => validate_continuation_stream(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, promised_stream_id, accumulated, offset, payload, kind, flags, stream_id, header_preview)
-		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
+	match kind
+		9 => validate_continuation_stream(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, promised_stream_id, accumulated, offset, payload, kind, flags, stream_id, header_preview)
+		_ => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
 	end
 end
 
@@ -3272,30 +3128,18 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 end
 
 fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
-	match kind == 1
-		true => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control)
-		false => match kind == 0
-			true => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
-			false => match kind == 3
-				true => reset_receive_stream(pending, offset, stream_id, receive_flow_control)
-				false => match kind == 8
-					true => update_window_receive_credit(pending, offset, stream_id, receive_flow_control)
-					false => match kind == 9
-						true => match promised_stream_id > 0
-							true => reserve_push_promise_stream(offset, stream_id, promised_stream_id, receive_flow_control)
-							false => complete_continuation_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
-						end
-						false => match kind == 2
-							true => update_priority_receive_state(pending, offset, length, stream_id, receive_flow_control)
-							false => match kind == 5
-								true => reserve_push_promise_stream(offset, stream_id, promised_stream_id, receive_flow_control)
-								false => Ok(ReceiveFlowControlOk(receive_flow_control))
-							end
-						end
-					end
-				end
-			end
+	match kind
+		1 => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control)
+		0 => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
+		3 => reset_receive_stream(pending, offset, stream_id, receive_flow_control)
+		8 => update_window_receive_credit(pending, offset, stream_id, receive_flow_control)
+		9 => match promised_stream_id > 0
+			true => reserve_push_promise_stream(offset, stream_id, promised_stream_id, receive_flow_control)
+			false => complete_continuation_receive_stream(offset, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
 		end
+		2 => update_priority_receive_state(pending, offset, length, stream_id, receive_flow_control)
+		5 => reserve_push_promise_stream(offset, stream_id, promised_stream_id, receive_flow_control)
+		_ => Ok(ReceiveFlowControlOk(receive_flow_control))
 	end
 end
 
@@ -3719,9 +3563,9 @@ end
 fn update_window_receive_credit(pending: ByteChunk, offset: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	let increment: Int = window_update_increment(pending)?
 	let preview: ByteView = window_update_payload_view(pending)?
-	match stream_id == 0
-		true => Ok(update_connection_receive_credit(offset, increment, preview, receive_flow_control))
-		false => Ok(update_stream_receive_credit(offset, stream_id, increment, preview, receive_flow_control))
+	match stream_id
+		0 => Ok(update_connection_receive_credit(offset, increment, preview, receive_flow_control))
+		_ => Ok(update_stream_receive_credit(offset, stream_id, increment, preview, receive_flow_control))
 	end
 end
 
@@ -4358,9 +4202,9 @@ fn state_priority_label(state: Http2DecodeState) -> String
 end
 
 fn first_tracked_priority_label(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> String
-	match stream_priority_label(first_priority) == "tracked"
-		true => "tracked"
-		false => stream_priority_label(second_priority)
+	match stream_priority_label(first_priority)
+		"tracked" => "tracked"
+		_ => stream_priority_label(second_priority)
 	end
 end
 
@@ -4386,9 +4230,9 @@ fn state_priority_dependency_stream_id(state: Http2DecodeState) -> Int
 end
 
 fn first_tracked_priority_dependency_stream_id(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Int
-	match stream_priority_label(first_priority) == "tracked"
-		true => stream_priority_dependency_stream_id(first_priority)
-		false => stream_priority_dependency_stream_id(second_priority)
+	match stream_priority_label(first_priority)
+		"tracked" => stream_priority_dependency_stream_id(first_priority)
+		_ => stream_priority_dependency_stream_id(second_priority)
 	end
 end
 
@@ -4414,9 +4258,9 @@ fn state_priority_exclusive(state: Http2DecodeState) -> Bool
 end
 
 fn first_tracked_priority_exclusive(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Bool
-	match stream_priority_label(first_priority) == "tracked"
-		true => stream_priority_exclusive(first_priority)
-		false => stream_priority_exclusive(second_priority)
+	match stream_priority_label(first_priority)
+		"tracked" => stream_priority_exclusive(first_priority)
+		_ => stream_priority_exclusive(second_priority)
 	end
 end
 
@@ -4442,9 +4286,9 @@ fn state_priority_weight(state: Http2DecodeState) -> Int
 end
 
 fn first_tracked_priority_weight(first_priority: StreamPriorityState, second_priority: StreamPriorityState) -> Int
-	match stream_priority_label(first_priority) == "tracked"
-		true => stream_priority_weight(first_priority)
-		false => stream_priority_weight(second_priority)
+	match stream_priority_label(first_priority)
+		"tracked" => stream_priority_weight(first_priority)
+		_ => stream_priority_weight(second_priority)
 	end
 end
 
@@ -5472,45 +5316,21 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 end
 
 fn hpack_fixture_failure_id(expected_fixture: String) -> String
-	match expected_fixture == "fixture HPACK string length"
-		true => "hpack.fixture.malformed_string_length"
-		false => match expected_fixture == "fixture HPACK static indexed header"
-			true => "hpack.fixture.unsupported_static_index"
-			false => match expected_fixture == "fixture HPACK raw string value"
-			true => "hpack.fixture.malformed_raw_string_value"
-			false => match expected_fixture == "fixture HPACK Huffman padding"
-				true => "hpack.fixture.malformed_huffman_padding"
-				false => match expected_fixture == "fixture HPACK Huffman data symbol instead of EOS"
-					true => "hpack.fixture.huffman_eos_symbol"
-					false => match expected_fixture == "fixture HPACK Huffman checked header value"
-						true => "hpack.fixture.huffman_non_visible_value"
-						false => match expected_fixture == "fixture HPACK table-size update at header block start"
-							true => "hpack.fixture.table_size_update_not_at_start"
-							false => match expected_fixture == "fixture HPACK malformed table-size update integer"
-								true => "hpack.fixture.table_size_update_malformed"
-								false => match expected_fixture == "fixture HPACK table-size update without trailing bytes"
-									true => "hpack.fixture.table_size_update_trailing_bytes"
-									false => match expected_fixture == "fixture dynamic indexed header"
-										true => "hpack.fixture.dynamic_index_out_of_range"
-										false => match expected_fixture == "fixture dynamic-name continuation entry"
-											true => "hpack.fixture.dynamic_name_continuation_missing"
-											false => match expected_fixture == "fixture dynamic-name continuation integer"
-												true => "hpack.fixture.dynamic_name_continuation_malformed"
-												false => match expected_fixture == "fixture dynamic-name continuation range"
-													true => "hpack.fixture.dynamic_name_continuation_out_of_range"
-													false => "hpack.fixture.unsupported_header_block"
-												end
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-		end
+	match expected_fixture
+		"fixture HPACK string length" => "hpack.fixture.malformed_string_length"
+		"fixture HPACK static indexed header" => "hpack.fixture.unsupported_static_index"
+		"fixture HPACK raw string value" => "hpack.fixture.malformed_raw_string_value"
+		"fixture HPACK Huffman padding" => "hpack.fixture.malformed_huffman_padding"
+		"fixture HPACK Huffman data symbol instead of EOS" => "hpack.fixture.huffman_eos_symbol"
+		"fixture HPACK Huffman checked header value" => "hpack.fixture.huffman_non_visible_value"
+		"fixture HPACK table-size update at header block start" => "hpack.fixture.table_size_update_not_at_start"
+		"fixture HPACK malformed table-size update integer" => "hpack.fixture.table_size_update_malformed"
+		"fixture HPACK table-size update without trailing bytes" => "hpack.fixture.table_size_update_trailing_bytes"
+		"fixture dynamic indexed header" => "hpack.fixture.dynamic_index_out_of_range"
+		"fixture dynamic-name continuation entry" => "hpack.fixture.dynamic_name_continuation_missing"
+		"fixture dynamic-name continuation integer" => "hpack.fixture.dynamic_name_continuation_malformed"
+		"fixture dynamic-name continuation range" => "hpack.fixture.dynamic_name_continuation_out_of_range"
+		_ => "hpack.fixture.unsupported_header_block"
 	end
 end
 
@@ -5830,71 +5650,44 @@ fn request_header_active_state(failed_header_fact: String, decoded_header_names:
 end
 
 fn request_header_failure_is_trailer(failed_header_fact: String, decoded_header_names: String) -> Bool
-	match failed_header_fact == "trailer_pseudo_header"
-		true => true
-		false => match decoded_header_names == "server,Server"
-			true => true
-			false => match decoded_header_names == "server,bad header"
-				true => true
-				false => match decoded_header_names == "server,connection"
-					true => true
-					false => match decoded_header_names == "server,te"
-						true => true
-						false => match decoded_header_names == "Server"
-							true => true
-							false => decoded_header_names == "bad@name"
-						end
-					end
-				end
-			end
+	match failed_header_fact
+		"trailer_pseudo_header" => true
+		_ => match decoded_header_names
+			"server,Server" => true
+			"server,bad header" => true
+			"server,connection" => true
+			"server,te" => true
+			"Server" => true
+			"bad@name" => true
+			_ => false
 		end
 	end
 end
 
 fn request_header_rule_provenance(failed_header_fact: String) -> String
-	match failed_header_fact == "ordinary_header_name_not_lowercase"
-		true => "rfc9113_field_name_lowercase"
-		false => match failed_header_fact == "ordinary_header_name_invalid_token"
-			true => "rfc9110_field_name_token"
-			false => match failed_header_fact == "connection_specific_header"
-				true => "rfc9113_connection_specific_header_fields"
-				false => match failed_header_fact == "te_header_value_not_trailers"
-					true => "rfc9113_te_trailers_only"
-					false => match failed_header_fact == "content_length_invalid" or failed_header_fact == "content_length_mismatch"
-						true => "rfc9113_content_length"
-						false => match failed_header_fact == "scheme_value_not_http_or_https"
-							true => "rfc9113_request_scheme"
-							false => match failed_header_fact == "path_value_empty"
-								true => "rfc9113_request_pseudo_headers"
-								false => match failed_header_fact == "trailer_pseudo_header"
-									true => "rfc9113_trailer_pseudo_headers"
-									false => "rfc9113_request_pseudo_headers"
-								end
-							end
-						end
-					end
-				end
-			end
-		end
+	match failed_header_fact
+		"ordinary_header_name_not_lowercase" => "rfc9113_field_name_lowercase"
+		"ordinary_header_name_invalid_token" => "rfc9110_field_name_token"
+		"connection_specific_header" => "rfc9113_connection_specific_header_fields"
+		"te_header_value_not_trailers" => "rfc9113_te_trailers_only"
+		"content_length_invalid" => "rfc9113_content_length"
+		"content_length_mismatch" => "rfc9113_content_length"
+		"scheme_value_not_http_or_https" => "rfc9113_request_scheme"
+		"path_value_empty" => "rfc9113_request_pseudo_headers"
+		"trailer_pseudo_header" => "rfc9113_trailer_pseudo_headers"
+		_ => "rfc9113_request_pseudo_headers"
 	end
 end
 
 fn response_header_rule_provenance(failed_header_fact: String) -> String
-	match failed_header_fact == "ordinary_header_name_not_lowercase"
-		true => "rfc9113_field_name_lowercase"
-		false => match failed_header_fact == "ordinary_header_name_invalid_token"
-			true => "rfc9110_field_name_token"
-			false => match failed_header_fact == "te_header_value_not_trailers"
-				true => "rfc9113_te_trailers_only"
-				false => match failed_header_fact == "content_length_invalid" or failed_header_fact == "content_length_mismatch"
-				true => "rfc9113_content_length"
-					false => match failed_header_fact == "trailer_pseudo_header"
-						true => "rfc9113_trailer_pseudo_headers"
-						false => "rfc9113_response_pseudo_headers"
-					end
-				end
-			end
-		end
+	match failed_header_fact
+		"ordinary_header_name_not_lowercase" => "rfc9113_field_name_lowercase"
+		"ordinary_header_name_invalid_token" => "rfc9110_field_name_token"
+		"te_header_value_not_trailers" => "rfc9113_te_trailers_only"
+		"content_length_invalid" => "rfc9113_content_length"
+		"content_length_mismatch" => "rfc9113_content_length"
+		"trailer_pseudo_header" => "rfc9113_trailer_pseudo_headers"
+		_ => "rfc9113_response_pseudo_headers"
 	end
 end
 
@@ -6150,53 +5943,53 @@ fn failure_decoded_header_names(failure: Http2ProtocolFailure) -> String
 end
 
 fn context_expected_stream(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
-	match failure_expected_stream(failure) == 0
-		true => state_continuation_stream(state)
-		false => failure_expected_stream(failure)
+	match failure_expected_stream(failure)
+		0 => state_continuation_stream(state)
+		_ => failure_expected_stream(failure)
 	end
 end
 
 fn context_expected_kind(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
-	match failure_expected_kind(failure) == 0
-		true => match state_continuation_label(state) == "active"
+	match failure_expected_kind(failure)
+		0 => match state_continuation_label(state) == "active"
 			true => 9
 			false => 0
 		end
-		false => failure_expected_kind(failure)
+		_ => failure_expected_kind(failure)
 	end
 end
 
 fn context_started_kind(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
-	match failure_started_kind(failure) == 0
-		true => state_continuation_started_kind(state)
-		false => failure_started_kind(failure)
+	match failure_started_kind(failure)
+		0 => state_continuation_started_kind(state)
+		_ => failure_started_kind(failure)
 	end
 end
 
 fn context_started_offset(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
-	match failure_started_offset(failure) == 0
-		true => state_continuation_started_offset(state)
-		false => failure_started_offset(failure)
+	match failure_started_offset(failure)
+		0 => state_continuation_started_offset(state)
+		_ => failure_started_offset(failure)
 	end
 end
 
 fn context_active_state(failure: Http2ProtocolFailure, state: Http2DecodeState) -> String
-	match failure_active_state(failure) == "none"
-		true => match state_continuation_label(state) == "active"
+	match failure_active_state(failure)
+		"none" => match state_continuation_label(state) == "active"
 			true => "headers"
 			false => "none"
 		end
-		false => failure_active_state(failure)
+		_ => failure_active_state(failure)
 	end
 end
 
 fn context_rule_provenance(failure: Http2ProtocolFailure, state: Http2DecodeState) -> String
-	match failure_rule_provenance(failure) == "none"
-		true => match state_continuation_label(state) == "active"
+	match failure_rule_provenance(failure)
+		"none" => match state_continuation_label(state) == "active"
 			true => "rfc9113_continuation_sequence"
 			false => "none"
 		end
-		false => failure_rule_provenance(failure)
+		_ => failure_rule_provenance(failure)
 	end
 end
 
@@ -7271,9 +7064,9 @@ fn print_reserved_by_peer_stream(label: String, state: Http2DecodeState) -> () e
 end
 
 fn ping_ack_label(flags: Int) -> String
-	match flags == 1
-		true => "ack"
-		false => "data"
+	match flags
+		1 => "ack"
+		_ => "data"
 	end
 end
 
@@ -7482,12 +7275,10 @@ fn emit_frame_payload(name: String, step: Http2Step, expected_hex: String) -> Re
 end
 
 fn display_hpack_header_value(value: String) -> String
-	match value == "\n"
-		true => "<lf>"
-		false => match value == "hpack-byte-00"
-			true => "<nul>"
-			false => value
-		end
+	match value
+		"\n" => "<lf>"
+		"hpack-byte-00" => "<nul>"
+		_ => value
 	end
 end
 
@@ -7706,9 +7497,9 @@ fn continue_http2_deep_dynamic_path_state(inserted: Http2Step, state: Http2Decod
 end
 
 fn build_http2_deep_dynamic_path_state(remaining: Int, state: Http2DecodeState) -> Result<Http2DecodeState, String>
-	match remaining == 0
-		true => Ok(state)
-		false => continue_http2_deep_dynamic_path_state(receive(InputChunk(byte_chunk_from_hex("00000401040000000144022f61")?), state)?, state, remaining)
+	match remaining
+		0 => Ok(state)
+		_ => continue_http2_deep_dynamic_path_state(receive(InputChunk(byte_chunk_from_hex("00000401040000000144022f61")?), state)?, state, remaining)
 	end
 end
 

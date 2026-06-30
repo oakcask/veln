@@ -392,24 +392,20 @@ fn unsupported_raw_string_encoding(value: String, offset: Int) -> Result<ByteChu
 end
 
 fn hpack_raw_string_unsupported_preview(value: String) -> ByteChunk
-	match value == "bad"
-		true => match byte_chunk_from_hex("626164")
+	match value
+		"bad" => match byte_chunk_from_hex("626164")
 			Ok(preview) => preview
 			Err(_) => byte_chunk([])
 		end
-		false => match value == "\n"
-			true => match byte_chunk_from_hex("0a")
-				Ok(preview) => preview
-				Err(_) => byte_chunk([])
-			end
-			false => match value == "hpack-byte-00"
-				true => match byte_chunk_from_hex("00")
-					Ok(preview) => preview
-					Err(_) => byte_chunk([])
-				end
-				false => byte_chunk([])
-			end
+		"\n" => match byte_chunk_from_hex("0a")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
 		end
+		"hpack-byte-00" => match byte_chunk_from_hex("00")
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		_ => byte_chunk([])
 	end
 end
 
@@ -506,21 +502,13 @@ fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_siz
 end
 
 fn literal_static_name_index(name: String) -> Int
-	match name == ":authority"
-		true => 1
-		false => match name == ":method"
-			true => 2
-			false => match name == ":path"
-				true => 4
-				false => match name == ":scheme"
-					true => 6
-					false => match name == ":status"
-						true => 8
-						false => -1
-					end
-				end
-			end
-		end
+	match name
+		":authority" => 1
+		":method" => 2
+		":path" => 4
+		":scheme" => 6
+		":status" => 8
+		_ => -1
 	end
 end
 
@@ -1031,12 +1019,10 @@ fn hpack_huffman_padding_valid(code: Int, length: Int) -> Bool
 end
 
 fn hpack_huffman_decoded_wire_size(value: String, decoded_size: Int) -> Int
-	match value == ""
-		true => 2
-		false => match value == "www.example.com"
-			true => 13
-			false => decoded_size
-		end
+	match value
+		"" => 2
+		"www.example.com" => 13
+		_ => decoded_size
 	end
 end
 
@@ -1415,18 +1401,12 @@ fn supported_no_huffman_literal_static_name(index: Int) -> Bool
 end
 
 fn literal_static_name(index: Int) -> String
-	match index == 1
-		true => ":authority"
-		false => match index == 2
-			true => ":method"
-			false => match index == 4
-				true => ":path"
-				false => match index == 6
-					true => ":scheme"
-					false => ":status"
-				end
-			end
-		end
+	match index
+		1 => ":authority"
+		2 => ":method"
+		4 => ":path"
+		6 => ":scheme"
+		_ => ":status"
 	end
 end
 
@@ -1695,11 +1675,9 @@ fn decode_static_indexed_two_header_block(first_byte: Int, second_byte: Int, sta
 end
 
 fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match observed_size == 2
-		true => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
-		false => match observed_size == 1
-			false => unsupported(block, offset)
-			true => match first_byte
+	match observed_size
+		2 => decode_static_indexed_two_header_block(first_byte, byte_at_or_missing(block, 1), state, block, offset)
+		1 => match first_byte
 			129 => decoded_static_indexed_authority(state)
 			130 => decoded_static_indexed_method_get(state)
 			131 => decoded_static_indexed_method_post(state)
@@ -1762,8 +1740,8 @@ fn decode_static_indexed_header_block(first_byte: Int, observed_size: Int, state
 			188 => decoded_static_indexed_header("via", "", state)
 			189 => decoded_static_indexed_header("www-authenticate", "", state)
 			_ => unsupported(block, offset)
-			end
 		end
+		_ => unsupported(block, offset)
 	end
 end
 
