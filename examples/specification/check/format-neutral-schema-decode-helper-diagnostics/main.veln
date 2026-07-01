@@ -1,7 +1,10 @@
 schema BadPacket
 	code: Int
-	items: Option<List<Int>>
 	names: List<String>
-	nested_items: {items: List<Int>}
+	float_items: List<Float>
+	bool_items: List<Bool>
+	nested_lists: List<List<Int>>
+	optional_items: Option<List<Int>>
+	nested_items: {items: List<Float>}
 	vec_items: Vec<Int>
 end

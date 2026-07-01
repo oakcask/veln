@@ -93,12 +93,13 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
             "  code: Int\n",
             "  label: String\n",
             "  items: List<Int>\n",
+            "  names: List<String>\n",
             "  metadata: {ready: Bool, score: Float}\n",
             "  optional_code: Option<Int>\n",
             "  optional_metadata: Option<{ready: Bool, score: Float}>\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {code: Int, label: String, items: List<Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}) -> Result<{code: Int, label: String, items: List<Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>\n",
+            "pub fn main(packet: {code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}) -> Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>\n",
             "  byte_decode_plain_packet(packet)\n",
             "end\n",
         ),
@@ -141,6 +142,7 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
             ("code", 0),
             ("label", 0),
             ("items", 0),
+            ("names", 0),
             ("metadata", 0),
             ("optional_code", 0),
             ("optional_metadata", 0),
@@ -170,7 +172,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         .expect("unsupported field should be reported");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, List<Int>, Option, or record-shaped field type"
+        "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, top-level List<Int> or List<String>, Option, or record-shaped field type"
     );
     assert!(diagnostic.related.iter().any(|related| {
         related
@@ -200,7 +202,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_option_inside_record_fi
         .expect("nested option field should be reported");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ maybe_code : Option<Int> }` is not a supported scalar, List<Int>, Option, or record-shaped field type"
+        "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ maybe_code : Option<Int> }` is not a supported scalar, top-level List<Int> or List<String>, Option, or record-shaped field type"
     );
 }
 

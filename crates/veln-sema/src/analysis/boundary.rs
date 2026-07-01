@@ -883,13 +883,14 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
     let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let supported = "supported scalar, top-level List<Int> or List<String>, Option, or record-shaped field type";
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_decode_helper",
         Severity::Error,
         DiagnosticKind::Type,
         format!(
-            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a supported scalar, List<Int>, Option, or record-shaped field type",
-            field.name, field.ty
+            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a {supported}",
+            field.name, field.ty,
         ),
         Some(field.span.clone()),
         JsonValue::object([
@@ -913,7 +914,7 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
         (
             "message",
             JsonValue::string(format!(
-                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, List<Int> fields, supported Option fields, and nested record-shaped fields."
+                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, top-level List<Int> or List<String> fields, supported Option fields, and nested record-shaped fields."
             )),
         ),
     ]));
