@@ -17,10 +17,10 @@ record-shaped values made from scalar or `Option<scalar>` fields, or
 The helper remains a validation/pass-through boundary over the schema-local
 visible record shape and returns `Result<TRecord, String>`. This slice did not
 add collection payloads. Later work added top-level `Option<List<scalar>>`
-fields and `Option<Dict<String, scalar>>` fields. Nested record fields such as
-`Option<List<Int>>` keep the `schema.format_neutral_decode_helper` diagnostic
-family at the containing field declaration with a related generated-helper
-boundary note.
+fields, nested record `Option<List<scalar>>` fields, and
+`Option<Dict<String, scalar>>` fields. Deeper recursive option-list payloads
+keep the `schema.format_neutral_decode_helper` diagnostic family at the
+containing field declaration with a related generated-helper boundary note.
 
 ## Evidence
 
@@ -29,7 +29,7 @@ boundary note.
   nested record-shaped fields, plus `Option<scalar>` fields inside a nested
   record-shaped field.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  checks unsupported nested-record `Option<List<Int>>` payload diagnostics.
+  checks unsupported recursive option-list payload diagnostics.
 
 ## Remaining Work
 
@@ -39,6 +39,6 @@ top-level scalar list, top-level `Dict<String, Int>`, `Dict<String, Bool>`,
 `Dict<String, Float>`, or `Dict<String, String>`, supported `Option`,
 top-level `Option<List<scalar>>`, top-level
 `Option<Dict<String, scalar>>`, and nested record-shaped payloads with scalar,
-`Option<scalar>`, or `Option<Dict<String, scalar>>` fields, and later schema
-composition surfaces. Later completed records describe additional
-format-neutral helper slices.
+`Option<scalar>`, `Option<List<scalar>>`, or
+`Option<Dict<String, scalar>>` fields, and later schema composition surfaces.
+Later completed records describe additional format-neutral helper slices.

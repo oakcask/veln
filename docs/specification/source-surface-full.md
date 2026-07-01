@@ -34,7 +34,8 @@ generated decode helpers are limited to scalar fields, top-level `List<Int>`,
 `Dict<String, String>` fields, supported top-level `Option` fields including
 `Option<List<scalar>>` and `Option<Dict<String, scalar>>`, and nested
 record-shaped fields made from scalar, `List<scalar>`, `Option<scalar>`,
-`Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types.
+`Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
+`Dict<String, scalar>` field types.
 
 ## Executable Grammar
 

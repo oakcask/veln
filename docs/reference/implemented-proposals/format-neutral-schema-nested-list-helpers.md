@@ -16,8 +16,9 @@ helper remains a validation/pass-through boundary over the schema-local
 visible record shape and returns `Result<TRecord, String>`.
 
 The slice does not add arbitrary nested collection eligibility. Nested
-dictionaries, nested `Option<List<T>>`, nested `List<Option<T>>`, and nested
-lists of records remain unsupported helper fields and keep the
+dictionaries, recursive option-list payloads such as
+`Option<List<List<T>>>`, nested `List<Option<T>>`, and nested lists of records
+remain unsupported helper fields and keep the
 `schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
@@ -27,7 +28,7 @@ lists of records remain unsupported helper fields and keep the
   `List<Float>`, and `List<String>` fields.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported nested collection shapes, including nested
-  record fields containing nested lists and `Option<List<Int>>`.
+  record fields containing nested lists and recursive option-list payloads.
 
 ## Remaining Work
 

@@ -241,7 +241,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         .expect("unsupported field should be reported");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<List<Int>>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields"
+        "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<List<Int>>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields"
     );
     assert!(diagnostic.related.iter().any(|related| {
         related
@@ -276,10 +276,10 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_dict_shapes
     assert_eq!(
         messages,
         vec![
-            "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
-            "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<Int, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
-            "format-neutral schema field `nested_scores` cannot expose a generated decode helper because `Dict<String, Dict<String, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
-            "format-neutral schema field `nested_record_scores` cannot expose a generated decode helper because `{ scores : Dict<String, Dict<String, Int>> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
+            "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
+            "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<Int, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
+            "format-neutral schema field `nested_scores` cannot expose a generated decode helper because `Dict<String, Dict<String, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
+            "format-neutral schema field `nested_record_scores` cannot expose a generated decode helper because `{ scores : Dict<String, Dict<String, Int>> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields",
         ]
     );
 }
@@ -315,10 +315,10 @@ fn generated_format_neutral_schema_decode_helpers_accept_option_inside_record_fi
         "main.veln",
         concat!(
             "schema Packet\n",
-            "  metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}\n",
+            "  metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>, items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}) -> Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>\n",
+            "pub fn main(packet: {metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>, items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}}) -> Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>, items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}}, String>\n",
             "  byte_decode_packet(packet)\n",
             "end\n",
         ),
@@ -360,12 +360,12 @@ fn generated_format_neutral_schema_decode_helpers_accept_dicts_inside_record_fie
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_reject_unsupported_option_inside_record_fields() {
+fn generated_format_neutral_schema_decode_helpers_reject_nested_recursive_option_lists() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "schema BadPacket\n",
-            "  metadata: {items: Option<List<Int>>}\n",
+            "  metadata: {items: Option<List<List<Int>>>}\n",
             "end\n",
         ),
     );
@@ -377,10 +377,10 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_option_insi
     let diagnostic = diagnostics
         .iter()
         .find(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
-        .expect("unsupported nested option field should be reported");
+        .expect("unsupported recursive option-list field should be reported");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ items : Option<List<Int>> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields"
+        "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ items : Option<List<List<Int>>> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Dict<String, scalar> fields"
     );
 }
 

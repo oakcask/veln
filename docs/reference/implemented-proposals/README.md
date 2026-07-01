@@ -218,6 +218,8 @@ behavior.
   [format-neutral-schema-list-helpers.md](format-neutral-schema-list-helpers.md).
 - Format-neutral schema nested record list helpers:
   [format-neutral-schema-nested-list-helpers.md](format-neutral-schema-nested-list-helpers.md).
+- Format-neutral schema nested record option-list helpers:
+  [format-neutral-schema-nested-option-list-helpers.md](format-neutral-schema-nested-option-list-helpers.md).
 - Format-neutral schema string-keyed scalar dictionary helpers:
   [format-neutral-schema-dict-helpers.md](format-neutral-schema-dict-helpers.md).
 - Format-neutral schema nested record dictionary helpers:
