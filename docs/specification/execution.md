@@ -49,8 +49,9 @@ enough.
   clause accept a schema-local visible record shape and return
   `Result<T, String>`. The helper returns the supplied record on success and
   is limited to scalar fields, top-level `List<Int>` or `List<String>` fields,
-  nested record-shaped fields that use scalar field types, and `Option<T>`
-  fields whose payload is one of those scalar or nested record shapes.
+  top-level `Dict<String, Int>` fields, nested record-shaped fields that use
+  scalar field types, and `Option<T>` fields whose payload is one of those
+  scalar or nested record shapes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

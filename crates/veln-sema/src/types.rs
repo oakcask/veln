@@ -3031,6 +3031,9 @@ fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
         Type::Named { name, args } if name == "List" && args.len() == 1 => {
             format_neutral_schema_list_element_type_is_supported(&args[0])
         }
+        Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
+            format_neutral_schema_top_level_dict_type_is_supported(&args[0], &args[1])
+        }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => {
             format_neutral_schema_non_option_type_is_supported(&args[0])
         }
@@ -3047,6 +3050,11 @@ fn format_neutral_schema_list_element_type_is_supported(ty: &Type) -> bool {
         Type::Named { name, args }
             if matches!(name.as_str(), "Int" | "String") && args.is_empty()
     )
+}
+
+fn format_neutral_schema_top_level_dict_type_is_supported(key: &Type, value: &Type) -> bool {
+    matches!(key, Type::Named { name, args } if name == "String" && args.is_empty())
+        && matches!(value, Type::Named { name, args } if name == "Int" && args.is_empty())
 }
 
 fn format_neutral_schema_non_option_type_is_supported(ty: &Type) -> bool {
