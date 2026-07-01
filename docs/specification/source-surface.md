@@ -31,8 +31,8 @@ only when every field is `Int`, `Bool`, `Float`, `String`, top-level
 `List<Int>`, `List<Bool>`, `List<Float>`, or `List<String>`, top-level
 `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
 `Dict<String, String>`, a nested record shape made from scalar,
-`List<scalar>`, or `Option<scalar>` field types, or `Option<T>` where `T` is
-one of those scalar or nested record shapes.
+`List<scalar>`, `Option<scalar>`, or `Dict<String, scalar>` field types, or
+`Option<T>` where `T` is one of those scalar or nested record shapes.
 Unsupported format-neutral helper fields are declaration diagnostics.
 When present, the single `format binary` clause must appear before schema
 fields.

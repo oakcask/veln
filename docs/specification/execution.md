@@ -53,9 +53,9 @@ enough.
   is limited to scalar fields, top-level `List<Int>`, `List<Bool>`,
   `List<Float>`, or `List<String>` fields, top-level `Dict<String, Int>`,
   `Dict<String, Bool>`, `Dict<String, Float>`, or `Dict<String, String>`
-  fields, nested record-shaped fields that use scalar, `List<scalar>`, or
-  `Option<scalar>` field types, and `Option<T>` fields whose payload is one
-  of those scalar or nested record shapes.
+  fields, nested record-shaped fields that use scalar, `List<scalar>`,
+  `Option<scalar>`, or `Dict<String, scalar>` field types, and `Option<T>`
+  fields whose payload is one of those scalar or nested record shapes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

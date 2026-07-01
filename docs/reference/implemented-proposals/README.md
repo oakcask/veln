@@ -216,6 +216,8 @@ behavior.
   [format-neutral-schema-nested-list-helpers.md](format-neutral-schema-nested-list-helpers.md).
 - Format-neutral schema string-keyed scalar dictionary helpers:
   [format-neutral-schema-dict-helpers.md](format-neutral-schema-dict-helpers.md).
+- Format-neutral schema nested record dictionary helpers:
+  [format-neutral-schema-nested-dict-helpers.md](format-neutral-schema-nested-dict-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:
