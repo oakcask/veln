@@ -211,9 +211,9 @@ requiring the full command reference on the first read.
   expected fixture, codec module, and bounded byte preview projected from the
   returned error value. The standalone source-visible HPACK static boundary
   case checks accepted static-name literal-with-indexing and
-  literal-never-indexed inputs, accepted checked Huffman-marked literal values
-  for the three static-name forms, and malformed raw-length fallback for those
-  forms. The aggregate HTTP/2
+  literal-never-indexed inputs, accepted Huffman-marked literal values decoded
+  through the HPACK static Huffman table for the three static-name forms, and
+  malformed raw-length fallback for those forms. The aggregate HTTP/2
   protocol-core run case also checks a source-visible HPACK static-name
   `content-length` literal in request header blocks across the
   literal-without-indexing, literal-with-indexing, and literal-never-indexed

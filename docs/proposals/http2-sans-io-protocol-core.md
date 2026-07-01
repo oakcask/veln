@@ -351,7 +351,10 @@ boundary case for static table index `62`. The source-visible decoder also
 accepts bounded literal-without-indexing, literal-with-indexing, and
 literal-never-indexed static-name slices for names resolved through the HPACK
 static table metadata when the value is a raw single-byte-length
-visible-ASCII string or a checked bounded Huffman-marked literal value.
+visible-ASCII string or a bounded Huffman-marked literal value decoded by
+scanning the HPACK static Huffman table. The standalone static boundary checks
+visible ASCII, line feed, single-byte `hpack-byte-*` labels, and multi-byte
+`hpack-bytes-*` labels across the static-name literal forms.
 Unsupported Huffman-marked strings, malformed lengths, dynamic-table behavior,
 and table-size-update behavior remain fixture-owned. The broader HPACK fixture
 literal paths share the HPACK string literal decoder for
@@ -1025,15 +1028,20 @@ header-list validation diagnostic. Current behavior is specified by
 The standalone source-visible HPACK static boundary also accepts bounded
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 fields for names resolved through the HPACK static table metadata when their
-values are raw single-byte-length visible ASCII strings or checked bounded
-Huffman-marked literal values. Unsupported Huffman-marked values and malformed
-raw lengths stay on the unsupported static header-block fallback path.
+values are raw single-byte-length visible ASCII strings or bounded
+Huffman-marked literal values decoded by scanning the HPACK static Huffman
+table, including line feed, single-byte `hpack-byte-*` labels, and multi-byte
+`hpack-bytes-*` labels in the standalone static boundary. Unsupported
+Huffman-marked values and malformed raw lengths stay on the unsupported
+static header-block fallback path.
 Stateful HTTP/2 header-block decoding keeps
 literal-with-indexing on the fixture decoder when dynamic-table state must be
 updated. Current behavior is checked by
 `../../examples/specification/run/hpack-static-codec-boundary/` and archived
 under
-`../reference/implemented-proposals/http2-hpack-static-table-decode.md`.
+[HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md)
+and
+[HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.
