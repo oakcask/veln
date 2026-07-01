@@ -340,6 +340,10 @@ behavior.
   [runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md](runtime-diagnostic-http2-hpack-raw-request-trailer-token-payload.md).
 - HTTP/2 response trailer validation:
   [http2-response-trailer-validation.md](http2-response-trailer-validation.md).
+- HTTP/2 content-length header validation:
+  [http2-content-length-header-validation.md](http2-content-length-header-validation.md).
+- HTTP/2 content-length body accounting:
+  [http2-content-length-body-accounting.md](http2-content-length-body-accounting.md).
 - Runtime diagnostic HTTP/2 closed-input helper payload:
   [runtime-diagnostic-http2-closed-helper-payload.md](runtime-diagnostic-http2-closed-helper-payload.md).
 - Runtime diagnostic HTTP/2 partial preface helper payload:

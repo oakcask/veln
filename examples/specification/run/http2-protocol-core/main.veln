@@ -9766,6 +9766,30 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
 	let ignored_hpack_static_literal_response_headers: () = emit_header_block("http2-hpack-static-literal-response-headers", hpack_static_literal_response_headers, "0803323031")?
 	print_hpack_static_transition("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
+	let hpack_static_response_content_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001880f0d023132")?), state)?
+	print_step("hpack-static-response-content-length", hpack_static_response_content_length)
+	let ignored_hpack_static_response_content_length: () = emit_header_block("http2-hpack-static-response-content-length", hpack_static_response_content_length, "880f0d023132")?
+	print_hpack_static_transition("hpack-static-response-content-length", hpack_static_response_content_length)
+	print_content_length_body_state("hpack-static-response-content-length", step_state(hpack_static_response_content_length))
+	let hpack_static_response_content_length_indexed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005010400000001885c023132")?), state)?
+	print_step("hpack-static-response-content-length-indexed", hpack_static_response_content_length_indexed)
+	let ignored_hpack_static_response_content_length_indexed: () = emit_header_block("http2-hpack-static-response-content-length-indexed", hpack_static_response_content_length_indexed, "885c023132")?
+	print_hpack_static_transition("hpack-static-response-content-length-indexed", hpack_static_response_content_length_indexed)
+	print_content_length_body_state("hpack-static-response-content-length-indexed", step_state(hpack_static_response_content_length_indexed))
+	let hpack_static_response_content_length_never_indexed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001881f0d023132")?), state)?
+	print_step("hpack-static-response-content-length-never-indexed", hpack_static_response_content_length_never_indexed)
+	let ignored_hpack_static_response_content_length_never_indexed: () = emit_header_block("http2-hpack-static-response-content-length-never-indexed", hpack_static_response_content_length_never_indexed, "881f0d023132")?
+	print_hpack_static_transition("hpack-static-response-content-length-never-indexed", hpack_static_response_content_length_never_indexed)
+	print_content_length_body_state("hpack-static-response-content-length-never-indexed", step_state(hpack_static_response_content_length_never_indexed))
+	let hpack_static_response_content_length_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c000000000001000102030405060708090a0b")?), step_state(hpack_static_response_content_length))?
+	print_step("hpack-static-response-content-length-data", hpack_static_response_content_length_data)
+	print_content_length_body_state("hpack-static-response-content-length-data", step_state(hpack_static_response_content_length_data))
+	let hpack_static_response_content_length_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007010400000001880f0d03616263")?), state)?
+	print_request_header_failure("hpack-static-response-content-length-invalid", hpack_static_response_content_length_invalid)
+	let hpack_static_response_content_length_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001885c03616263")?), state)?
+	print_request_header_failure("hpack-static-response-content-length-indexed-invalid", hpack_static_response_content_length_indexed_invalid)
+	let hpack_static_response_content_length_never_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007010400000001881f0d03616263")?), state)?
+	print_request_header_failure("hpack-static-response-content-length-never-indexed-invalid", hpack_static_response_content_length_never_indexed_invalid)
 	let hpack_static_request_content_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000070104000000018287840f0d0135")?), state)?
 	print_step("hpack-static-request-content-length", hpack_static_request_content_length)
 	let ignored_hpack_static_request_content_length: () = emit_header_block("http2-hpack-static-request-content-length", hpack_static_request_content_length, "8287840f0d0135")?

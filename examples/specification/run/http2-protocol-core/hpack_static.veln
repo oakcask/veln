@@ -266,6 +266,10 @@ fn hpack_static_literal_content_length_request_header(value: String, wire_size: 
 	end
 end
 
+fn hpack_static_literal_content_length_response_header(status: String, value: String, wire_size: Int) -> HpackHeaderList
+	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":status", status), hpack_fixture::hpack_header("content-length", value), wire_size)
+end
+
 fn hpack_static_decode_literal_indexing_form(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
 	match hpack_static_table_literal_name(name_index)
 		Some(name) => match hpack_static_literal_raw_value(block, count, value_index, offset)
@@ -341,6 +345,19 @@ fn hpack_static_decode_request_with_content_length(block: ByteChunk, count: Int,
 		true => match hpack_static_literal_raw_value(block, count, hpack_static_literal_tail_value_index(block, 3), offset)
 			Ok(value) => Ok(hpack_static_literal_content_length_request_header(value, count))
 			Err(failure) => Err(failure)
+		end
+		false => hpack_static_decode_response_with_content_length(block, count, offset)
+	end
+end
+
+fn hpack_static_decode_response_with_content_length(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match count > 1 and hpack_static_byte_at_or_missing(block, 0) >= 136 and hpack_static_byte_at_or_missing(block, 0) <= 142 and hpack_static_literal_tail_name_index(block, 1) == 28
+		true => match hpack_static_table_header_from_indexed_byte(hpack_static_byte_at_or_missing(block, 0))
+			Some(HpackHeader(_, status)) => match hpack_static_literal_raw_value(block, count, hpack_static_literal_tail_value_index(block, 1), offset)
+				Ok(value) => Ok(hpack_static_literal_content_length_response_header(status, value, count))
+				Err(failure) => Err(failure)
+			end
+			None => hpack_static_not_static(block, offset)
 		end
 		false => hpack_static_decode_static_name_literal_block(block, count, offset)
 	end

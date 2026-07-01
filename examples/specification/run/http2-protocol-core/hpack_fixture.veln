@@ -3630,6 +3630,13 @@ fn production_request_content_length_decoded_names(value: String) -> String
 	end
 end
 
+fn production_response_content_length_decoded_names(value: String) -> String
+	match string_split_once(value, ",")
+		Some(_) => ":status,content-length,content-length"
+		None => ":status,content-length"
+	end
+end
+
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
@@ -3658,6 +3665,7 @@ end
 
 pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "static-indexed"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-without-indexing"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-with-indexing"), _) => true
@@ -3855,6 +3863,7 @@ end
 
 pub fn header_list_has_invalid_content_length(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => content_length_value_is_invalid(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:abc"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:+5"), _) => true
@@ -3878,6 +3887,7 @@ end
 
 pub fn header_list_has_mismatched_content_length(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => content_length_value_is_mismatched(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:7"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5,content-length:7"), _) => true
 		_ => false
@@ -3894,6 +3904,7 @@ end
 pub fn header_list_accepted_content_length(headers: HpackHeaderList) -> Int
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => content_length_accepted_value(value)
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => content_length_accepted_value(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5"), _) => 5
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:5"), _) => 5
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5"), _) => 5
@@ -3982,6 +3993,7 @@ end
 pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => production_request_content_length_decoded_names(value)
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => production_response_content_length_decoded_names(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => ":method,:scheme,:path,:authority"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"
