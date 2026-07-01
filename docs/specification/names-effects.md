@@ -215,8 +215,9 @@ compiler-known calls.
   helpers accept and return schema-local visible records through
   `Result<T, String>` when all fields are scalar values, top-level `List<Int>`
   `List<Bool>`, `List<Float>`, or `List<String>` values, top-level
-  `Dict<String, Int>`, `Dict<String, Bool>`, or `Dict<String, String>` values,
-  supported `Option` values, or nested record-shaped values. Explicit
+  `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
+  `Dict<String, String>` values, supported `Option` values, or nested
+  record-shaped values. Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the
   generated helper in source; imported public schemas may be cited through
