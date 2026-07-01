@@ -115,6 +115,13 @@ enough.
   returned encode state through outbound HEADERS and server-side
   `PUSH_PROMISE` framing in
   `examples/specification/run/http2-protocol-core/`.
+- The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
+  send intent after a valid non-ACK peer SETTINGS frame with payload items.
+  Multiple peer SETTINGS frames received before consumption coalesce to that
+  one pending ACK. Consuming the intent emits an empty SETTINGS frame with the
+  ACK flag and clears the pending ACK state without mutating peer-advertised
+  settings. The checked case is
+  `examples/specification/run/http2-protocol-core/`.
 
 ## Runtime Output
 

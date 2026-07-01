@@ -452,6 +452,8 @@ compare it with `../specification/` before changing behavior.
   The completed outbound `PUSH_PROMISE` peer enable-push setting slice is
   archived under
   [HTTP/2 Outbound PUSH_PROMISE Enable-Push Setting](../reference/implemented-proposals/http2-outbound-push-promise-enable-push-setting.md).
+  The completed outbound SETTINGS ACK send-intent slice is archived under
+  [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
   The completed inbound dynamic-table fixture slice is archived under
   [HTTP/2 HPACK Dynamic Table Fixture](../reference/implemented-proposals/http2-hpack-dynamic-table-eviction-fixture.md).
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
