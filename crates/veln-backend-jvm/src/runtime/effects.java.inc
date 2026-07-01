@@ -157,20 +157,24 @@
     }
 
     private static final class InMemoryLoopback {
-        private final byte[] clientInput;
+        private final java.util.List<byte[]> clientInputChunks;
         private final int index;
         private final ProductionWriteCapture capture;
         private final java.io.ByteArrayOutputStream clientWrites =
             new java.io.ByteArrayOutputStream();
 
-        private InMemoryLoopback(byte[] clientInput, int index, ProductionWriteCapture capture) {
-            this.clientInput = clientInput;
+        private InMemoryLoopback(
+            java.util.List<byte[]> clientInputChunks,
+            int index,
+            ProductionWriteCapture capture
+        ) {
+            this.clientInputChunks = clientInputChunks;
             this.index = index;
             this.capture = capture;
         }
 
         private java.io.InputStream serverInput() {
-            return new java.io.ByteArrayInputStream(clientInput);
+            return new ChunkedLoopbackInputStream(clientInputChunks);
         }
 
         private java.io.OutputStream serverOutput() {
@@ -179,6 +183,57 @@
 
         private void capture() {
             capture.record(index, clientWrites.toByteArray());
+        }
+    }
+
+    private static final class ChunkedLoopbackInputStream extends java.io.InputStream {
+        private final java.util.List<byte[]> chunks;
+        private int chunkIndex;
+        private int byteIndex;
+
+        private ChunkedLoopbackInputStream(java.util.List<byte[]> chunks) {
+            this.chunks = chunks;
+        }
+
+        @Override
+        public int read() {
+            while (chunkIndex < chunks.size()) {
+                byte[] chunk = chunks.get(chunkIndex);
+                if (byteIndex < chunk.length) {
+                    int value = chunk[byteIndex] & 0xff;
+                    byteIndex += 1;
+                    return value;
+                }
+                chunkIndex += 1;
+                byteIndex = 0;
+            }
+            return -1;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) {
+            if (buffer == null) {
+                throw new NullPointerException("buffer");
+            }
+            if (offset < 0 || length < 0 || length > buffer.length - offset) {
+                throw new IndexOutOfBoundsException();
+            }
+            if (length == 0) {
+                return 0;
+            }
+            while (chunkIndex < chunks.size()) {
+                byte[] chunk = chunks.get(chunkIndex);
+                if (byteIndex >= chunk.length) {
+                    chunkIndex += 1;
+                    byteIndex = 0;
+                    continue;
+                }
+                int count = Math.min(length, chunk.length - byteIndex);
+                System.arraycopy(chunk, byteIndex, buffer, offset, count);
+                byteIndex += count;
+                return count;
+            }
+            return -1;
         }
     }
 
@@ -214,20 +269,24 @@
     private static final class LoopbackClient implements Runnable {
         private final String host;
         private final int port;
-        private final java.util.List<byte[]> outboundChunks;
+        private final java.util.List<java.util.List<byte[]>> outboundStreams;
         private final ProductionWriteCapture capture;
         private volatile RuntimeException failure;
         private Thread thread;
 
-        private LoopbackClient(String host, int port, java.util.List<byte[]> outboundChunks) {
+        private LoopbackClient(
+            String host,
+            int port,
+            java.util.List<java.util.List<byte[]>> outboundStreams
+        ) {
             this.host = host;
             this.port = port;
-            this.outboundChunks = outboundChunks;
-            this.capture = new ProductionWriteCapture(outboundChunks.size());
+            this.outboundStreams = outboundStreams;
+            this.capture = new ProductionWriteCapture(outboundStreams.size());
         }
 
         private int streamCount() {
-            return outboundChunks.size();
+            return outboundStreams.size();
         }
 
         private void start() {
@@ -246,13 +305,15 @@
         }
 
         private void runClient() {
-            for (int index = 0; index < outboundChunks.size(); index += 1) {
-                byte[] outbound = outboundChunks.get(index);
+            for (int index = 0; index < outboundStreams.size(); index += 1) {
+                java.util.List<byte[]> outboundChunks = outboundStreams.get(index);
                 try (java.net.Socket socket = new java.net.Socket()) {
                     socket.connect(new java.net.InetSocketAddress(host, port), productionTimeoutMillis());
                     java.io.OutputStream output = socket.getOutputStream();
-                    output.write(outbound);
-                    output.flush();
+                    for (byte[] outbound : outboundChunks) {
+                        output.write(outbound);
+                        output.flush();
+                    }
                     socket.shutdownOutput();
                     capture.record(index, readAllBytes(socket.getInputStream()));
                 } catch (java.io.IOException error) {
@@ -391,6 +452,10 @@
     }
 
     private static Object netListenProduction(String address) {
+        java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
+        if (productionReadInputsRequireChunkBoundaries(inputs)) {
+            return netListenProductionInMemory(address, inputs);
+        }
         java.net.InetSocketAddress socketAddress;
         try {
             socketAddress = parseSocketAddress(address);
@@ -408,7 +473,7 @@
                 client = new LoopbackClient(
                     loopbackConnectHost(server),
                     server.getLocalPort(),
-                    loopbackClientReadChunks()
+                    inputs
                 );
                 client.start();
             }
@@ -421,7 +486,13 @@
     }
 
     private static Object netListenProductionInMemory(String address) {
-        java.util.List<byte[]> inputs = loopbackClientReadChunks();
+        return netListenProductionInMemory(address, loopbackClientReadStreams());
+    }
+
+    private static Object netListenProductionInMemory(
+        String address,
+        java.util.List<java.util.List<byte[]>> inputs
+    ) {
         ProductionWriteCapture capture = new ProductionWriteCapture(inputs.size());
         java.util.ArrayList<InMemoryLoopback> loopbacks = new java.util.ArrayList<InMemoryLoopback>();
         for (int index = 0; index < inputs.size(); index += 1) {
@@ -1389,29 +1460,57 @@
         return productionSocketRuntime();
     }
 
-    private static java.util.List<byte[]> loopbackClientReadChunks() {
+    private static java.util.List<java.util.List<byte[]>> loopbackClientReadStreams() {
         String inputs = System.getenv("VELN_NET_PRODUCTION_READS_HEX");
         String sourceName = "VELN_NET_PRODUCTION_READS_HEX";
-        String[] parts;
+        String[] streamParts;
         if (inputs == null) {
             String input = System.getenv("VELN_NET_PRODUCTION_READ_HEX");
             sourceName = "VELN_NET_PRODUCTION_READ_HEX";
-            parts = new String[] { input == null ? "" : input };
+            streamParts = new String[] { input == null ? "" : input };
         } else {
-            parts = inputs.split(",", -1);
-            if (parts.length == 0) {
-                parts = new String[] { "" };
+            streamParts = inputs.split(",", -1);
+            if (streamParts.length == 0) {
+                streamParts = new String[] { "" };
             }
         }
+        java.util.ArrayList<java.util.List<byte[]>> streams =
+            new java.util.ArrayList<java.util.List<byte[]>>();
+        for (String streamPart : streamParts) {
+            streams.add(loopbackClientReadStreamChunks(streamPart, sourceName));
+        }
+        return streams;
+    }
+
+    private static java.util.List<byte[]> loopbackClientReadStreamChunks(
+        String streamPart,
+        String sourceName
+    ) {
         java.util.ArrayList<byte[]> chunks = new java.util.ArrayList<byte[]>();
-        for (String part : parts) {
-            Object chunk = byteChunkFromHex(part.trim());
+        String trimmedStream = streamPart.trim();
+        if (trimmedStream.isEmpty()) {
+            return chunks;
+        }
+        String[] chunkParts = trimmedStream.split(";", -1);
+        for (String chunkPart : chunkParts) {
+            Object chunk = byteChunkFromHex(chunkPart.trim());
             if (isErr(chunk)) {
                 throw new RuntimeFailure("transport listen failed: malformed " + sourceName);
             }
             chunks.add(byteChunkToByteArray(unwrapOk(chunk)));
         }
         return chunks;
+    }
+
+    private static boolean productionReadInputsRequireChunkBoundaries(
+        java.util.List<java.util.List<byte[]>> inputs
+    ) {
+        for (java.util.List<byte[]> stream : inputs) {
+            if (stream.size() > 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int productionTimeoutMillis() {

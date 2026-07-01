@@ -26,7 +26,9 @@ enough.
 - `net` and `time` calls are host runtime boundaries. Fixture-backed and
   production-loopback transport paths preserve the same source-visible result
   shapes while keeping socket, deadline, cancellation, and monotonic-clock
-  work outside pure protocol code.
+  work outside pure protocol code. Production-loopback cases can preserve more
+  than one configured read chunk for one accepted stream; each chunk is
+  observed by source as a separate read result before clean end.
 
 ## Binary Schemas
 
