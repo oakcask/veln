@@ -365,7 +365,7 @@ needs:
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   exact-width fields, endian-aware fields, reserved bits, length-dependent
   payloads, tag dispatch, and unknown tag preservation.
-- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md):
+- [Schema Binary Pattern Boundary](../reference/implemented-proposals/schema-binary-pattern-boundary.md):
   explicit schema decode and encode operations, consumed byte counts,
   incremental readiness, and ordinary function-owned parser or encoder state.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the source-visible generated-helper cleanup slice from
-[Schema Binary Pattern Boundary](../../proposals/schema-binary-pattern-boundary.md).
+[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md).
 The current public source surface applies schemas with explicit operations:
 `decode Schema from view at base_offset` for open-input decode and
 `encode Schema from value` for schema-local encode.

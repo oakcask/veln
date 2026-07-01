@@ -196,6 +196,8 @@ behavior.
   [binary-schema-mapping-converter-varargs.md](binary-schema-mapping-converter-varargs.md).
 - Binary schema imported converter bare inverse encode:
   [binary-schema-imported-converter-bare-inverse-encode.md](binary-schema-imported-converter-bare-inverse-encode.md).
+- Schema binary pattern boundary:
+  [schema-binary-pattern-boundary.md](schema-binary-pattern-boundary.md).
 - Codec generated helper boundary slices:
   [codec-generated-helper-boundary-slices.md](codec-generated-helper-boundary-slices.md).
 - Remove source codec declarations:
