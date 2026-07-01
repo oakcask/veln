@@ -131,6 +131,32 @@ test("allows proposal links to specifications", () => {
   assert.equal(result.valid, true);
 });
 
+test("allows archival routes from proposals through implemented records", () => {
+  using fixture = tempDocs("doc-links-implemented-proposal-route");
+  fixture.write(
+    "proposals/README.md",
+    [
+      "# Proposals",
+      "",
+      "[archived boundary](../reference/implemented-proposals/schema-boundary.md)",
+    ].join("\n"),
+  );
+  fixture.write(
+    "reference/implemented-proposals/schema-boundary.md",
+    [
+      "# Schema Boundary",
+      "",
+      "[current syntax](../../specification/source-surface.md)",
+    ].join("\n"),
+  );
+  fixture.write("specification/source-surface.md", "# Source Surface\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 test("rejects references to unversioned paths", () => {
   using fixture = tempDocs("doc-links-unversioned");
   fixture.git("init");

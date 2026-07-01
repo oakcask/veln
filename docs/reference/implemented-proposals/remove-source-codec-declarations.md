@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed source-level `codec` declaration removal
-slice from `../../proposals/schema-binary-pattern-boundary.md`. Current
+slice from `schema-binary-pattern-boundary.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/source-surface-full.md`, and executable examples under
 `../../../examples/specification/`.
@@ -35,8 +35,10 @@ use them; those ids are not source declaration syntax.
   `../../../examples/specification/run/schema-encode-expression/` check the
   current explicit schema operation routes.
 
-## Remaining Work
+## Closure
 
-The broader schema binary pattern boundary proposal remains open for
-source-visible generated helper cleanup and representation-local diagnostic
-reclassification.
+The broader schema binary pattern boundary is now closed by
+[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md).
+The generated helper public-surface cleanup and representation-local
+diagnostic reclassification records are indexed from
+[README.md](README.md).

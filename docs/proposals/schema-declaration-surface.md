@@ -114,8 +114,8 @@ proposal work when a concrete protocol slice needs them.
 
 ## Superseded Discussion Result: Codec Binding Direction
 
-This discussion result is superseded for new design work by
-[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md).
+This discussion result is superseded for new design work by the completed
+[Schema Binary Pattern Boundary](../reference/implemented-proposals/schema-binary-pattern-boundary.md).
 
 A schema is still the reusable external representation contract, and it still
 must not name executable API entry points in its body. The replacement design

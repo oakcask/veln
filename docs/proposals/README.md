@@ -67,22 +67,6 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
-- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md): remove
-  source-level `codec` declarations, stop exposing generated helper names as
-  public source API, and reposition binary `schema` declarations as explicit
-  byte-pattern operations used from ordinary functions. The explicit schema
-  decode and encode expression slices, source-level codec-declaration
-  rejection, generated-helper public-surface cleanup, and former codec example
-  migration are current behavior under
-  `../specification/source-surface.md` and archived under
-  [Remove Source Codec Declarations](../reference/implemented-proposals/remove-source-codec-declarations.md)
-  and
-  [Schema Helper Public Surface Cleanup](../reference/implemented-proposals/schema-helper-public-surface-cleanup.md).
-  Generated schema encode value diagnostic reclassification is archived under
-  [Schema-Owned Encode Value Diagnostics](../reference/implemented-proposals/schema-owned-encode-value-diagnostics.md);
-  generated schema dispatch diagnostic reclassification is archived under
-  [Schema-Owned Dispatch Value Diagnostics](../reference/implemented-proposals/schema-owned-dispatch-value-diagnostics.md).
-  The remaining proposal work covers archival cleanup.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
@@ -306,12 +290,6 @@ compare it with `../specification/` before changing behavior.
   The completed seven-byte and eight-byte reserved prefix group slice is
   archived under
   [Binary Schema Wide Reserved Prefix Groups](../reference/implemented-proposals/binary-schema-wide-reserved-prefix-groups.md).
-- [Codec Execution Boundary](codec-execution-boundary.md): superseded route
-  for the former source-level `codec` declaration design. New binary schema
-  work should use
-  [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md), which
-  moves explicit decode and encode operations onto schemas and exposes public
-  protocol APIs as ordinary functions.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
@@ -549,4 +527,19 @@ compare it with `../specification/` before changing behavior.
 - Proposal work becomes implemented and the resulting behavior is documented
   under `../specification/`.
 - A completed proposal record moves to
+  `../reference/implemented-proposals/`.
+
+## Closed Routes
+
+- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md): closed
+  route for the completed source-level `codec` cleanup and explicit schema
+  operation boundary. Current behavior is specified under
+  `../specification/source-surface.md` and `../specification/execution.md`;
+  the completed record is archived under
+  `../reference/implemented-proposals/schema-binary-pattern-boundary.md`.
+- [Codec Execution Boundary](codec-execution-boundary.md): superseded route
+  for the former source-level `codec` declaration design. Current schema
+  operation behavior is specified under
+  `../specification/source-surface.md` and `../specification/execution.md`;
+  completed codec-era records are archived under
   `../reference/implemented-proposals/`.

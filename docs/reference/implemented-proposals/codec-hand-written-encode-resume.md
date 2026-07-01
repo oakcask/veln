@@ -39,5 +39,6 @@ be called again with that state, and ordinary source can observe the later
 
 ## Remaining Work
 
-The broader codec execution boundary proposal remains open for schema-driven
-codec execution beyond the implemented hand-written and helper-backed slices.
+The source-level codec route is closed by
+[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md). Current
+schema work should use explicit schema operations and ordinary functions.

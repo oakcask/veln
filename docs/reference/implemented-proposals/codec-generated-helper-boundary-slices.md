@@ -109,9 +109,7 @@ produced count, and a resumable state record carrying `encoded_offset`.
 
 ## Remaining Work
 
-The broader codec execution boundary proposal remains open for schema-driven
-codec execution beyond the helper-backed slices already accepted by generated
-binary schema helpers. Extending this record by adding another same-shaped
-helper-backed layout is not a goal on its own; future work should either name
-a specific language capability that still lacks a codec boundary or define a
-more general codec abstraction.
+The source-level codec route is closed by
+[Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md). Do not
+extend this record by adding another same-shaped helper-backed layout; current
+schema work should use explicit schema operations and ordinary functions.
