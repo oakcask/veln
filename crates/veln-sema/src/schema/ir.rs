@@ -14,10 +14,10 @@ use crate::types::{
     extension_dispatch_schema_primitive, flag_schema_primitive, format_neutral_schema_field_type,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name,
-    schema_decode_only_recursive_dispatch_payload_type, schema_decode_value_type,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
     schema_dispatch_payload_schema, schema_length_expression_references,
-    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
+    schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
+    supported_encode_reserved_bits,
 };
 
 pub(crate) fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
@@ -442,7 +442,7 @@ fn schema_dispatch_field_type(
                     dispatch,
                     schema_name,
                 ) {
-                    schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)
+                    schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)
                 } else {
                     let payload_schema =
                         schema_dispatch_payload_schema(module, schema, schema_name)?;
@@ -471,7 +471,7 @@ fn schema_dispatch_field_type(
         )
     });
     let payload_ty = if recursive_payload {
-        schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)?
+        schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)?
     } else if payload_types.iter().any(|ty| ty != &payload_ty) {
         return None;
     } else {

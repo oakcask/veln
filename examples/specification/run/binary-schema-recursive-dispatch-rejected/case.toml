@@ -1,0 +1,9 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.dispatch_payload]", "dispatch payload schema `MissingBasePacket` requires parent dispatch field `payload` to include a non-recursive primitive case"]

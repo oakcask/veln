@@ -103,12 +103,27 @@ schema ForwardPacket
 	payload: Dispatch(kind, 1 => LaterPayload)
 end
 
+schema UnboundedRecursivePayload
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UnboundedRecursivePayload)
+end
+
 schema ExtensionSelfPacket
 	format binary
 
 	length: UInt8
 	kind: UInt8
 	payload: ExtensionDispatch(kind, length, 1 => ExtensionSelfPacket)
+end
+
+schema MissingBoundedHelperPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => UInt8, 2 => UnboundedRecursivePayload)
 end
 
 schema PriorPayload

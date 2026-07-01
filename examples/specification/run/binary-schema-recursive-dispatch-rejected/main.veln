@@ -1,0 +1,11 @@
+schema MissingBasePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 1 => MissingBasePacket)
+end
+
+pub fn main() -> Int
+	0
+end

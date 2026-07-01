@@ -10,14 +10,13 @@ use crate::types::{
     lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
-    repeat_schema_primitive, reserved_bits_schema_primitive,
-    schema_decode_only_recursive_dispatch_payload_type, schema_decode_step_function_name,
+    repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
     schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
-    schema_payload_name_path, schema_recursive_dispatch_payload_type,
-    supported_encode_reserved_bits,
+    schema_payload_name_path, schema_recursive_dispatch_helper_payload_type,
+    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
@@ -1852,7 +1851,7 @@ fn check_schema_dispatch_field(
         return None;
     }
     let payload_ty = if recursive_dispatch_payload {
-        schema_decode_only_recursive_dispatch_payload_type(module, schema, dispatch)?
+        schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)?
     } else {
         expected_payload_type?
     };
@@ -1886,15 +1885,6 @@ fn recursive_dispatch_payload_blocker(
             ),
         };
     }
-    if !schema_has_eligible_recursive_dispatch_payload(payload_schema) {
-        return RecursiveDispatchPayloadBlocker {
-            reason: "recursive_payload_missing_bounded_helper",
-            fact: "recursive dispatch payload schemas must expose a bounded recursive helper",
-            message: format!(
-                "dispatch payload schema `{schema_name}` does not expose a bounded recursive helper"
-            ),
-        };
-    }
     if !dispatch
         .cases
         .iter()
@@ -1906,6 +1896,15 @@ fn recursive_dispatch_payload_blocker(
             message: format!(
                 "dispatch payload schema `{schema_name}` requires parent dispatch field `{}` to include a non-recursive primitive case",
                 field.name
+            ),
+        };
+    }
+    if !schema_has_eligible_recursive_dispatch_payload(payload_schema) {
+        return RecursiveDispatchPayloadBlocker {
+            reason: "recursive_payload_missing_bounded_helper",
+            fact: "recursive dispatch payload schemas must expose a bounded recursive helper",
+            message: format!(
+                "dispatch payload schema `{schema_name}` does not expose a bounded recursive helper"
             ),
         };
     }

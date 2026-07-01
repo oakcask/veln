@@ -255,14 +255,16 @@ compiler-known calls.
   length-bounded
   `ByteView`, bounded repeated fields written as `Repeat(count, Payload)` or
   `[Payload; count]`, closed dispatch, extension dispatch, and eligible nested
-  dispatch payload slices accept schema-local visible
-  fields, using `ByteView` fields for length-bounded payloads,
-  `List<T>` fields for repeated payloads, and
-  `SchemaDispatchPayload<T>` for extension dispatch payload fields. Lowercase
-  dispatch payload spelling normalizes exact-width `uint...` and `flag...`
-  payloads to the same helper behavior as compatible upper-case exact-width
-  primitive payloads, and byte-aligned `uint... reserves <value>` payloads
-  validate or emit fixed bytes while exposing `()` as the payload value. One
+  dispatch payload slices accept schema-local visible fields, using
+  `ByteView` fields for length-bounded payloads, `List<T>` fields for repeated
+  payloads, and `SchemaDispatchPayload<T>` for extension dispatch payload
+  fields. Same-module recursive dispatch payload slices with a length-bounded
+  recursive field and a primitive base case expose that finite primitive
+  payload shape. Lowercase dispatch payload spelling normalizes exact-width
+  `uint...` and `flag...` payloads to the same helper behavior as compatible
+  upper-case exact-width primitive payloads, and byte-aligned
+  `uint... reserves <value>` payloads validate or emit fixed bytes while
+  exposing `()` as the payload value. One
   supported reserved-bit slice omits `ReservedBits(2, 0)` or
   `ReservedBits(9, 0)` immediately before `UInt8` from the encode value
   record while exposing the visible byte field. Generated encode helpers

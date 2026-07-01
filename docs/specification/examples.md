@@ -12,6 +12,10 @@ behavior.
   `../../examples/specification/run/binary-schema-local-projection-boundary/`.
 - Parser rejection for schema-level `map to`:
   `../../examples/specification/check/schema-map-to-rejected/`.
+- Same-module recursive dispatch helper decode and primitive-base encode:
+  `../../examples/specification/run/binary-schema-recursive-dispatch-decode-encode/`.
+- Same-module recursive dispatch missing primitive base rejection:
+  `../../examples/specification/run/binary-schema-recursive-dispatch-rejected/`.
 
 ## Read When
 

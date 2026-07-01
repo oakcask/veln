@@ -232,11 +232,10 @@ compare it with `../specification/` before changing behavior.
   support is implemented for the length-bounded forms when the helper path has
   a non-recursive base case; same-module wrapper dispatches may also select a
   separate eligible recursive payload schema through that same helper path.
-  Earlier same-module recursive payload schemas and public imported recursive
-  payload schemas are also accepted for decode-only length-bounded parent
-  dispatch fields when the payload schema already has bounded recursive helper
-  support and the parent includes a non-recursive primitive case
-  ([Binary Schema Same-Module Recursive Dispatch Decode-Only](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-decode-only.md)).
+  Same-module recursive payload helpers expose the finite primitive payload
+  shape for length-bounded recursive fields with a non-recursive primitive
+  base case
+  ([Binary Schema Same-Module Recursive Dispatch Helpers](../reference/implemented-proposals/binary-schema-same-module-recursive-dispatch-helpers.md)).
   Focused dispatch payload diagnostics now also
   name the failed recursive-helper fact for recursive payload rejections and
   name the generated decode and encode helper boundaries

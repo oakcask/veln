@@ -7292,6 +7292,20 @@
         Object value,
         BinarySchemaSpec payloadSchema
     ) {
+        if (!(value instanceof java.util.Map<?, ?>)) {
+            return value;
+        }
+        java.util.Map<Object, Object> fields = asMap(value);
+        for (SchemaFieldSpec field : payloadSchema.fields) {
+            if (field.dispatch == null) {
+                continue;
+            }
+            Object payload = fields.get(field.name);
+            if (isAdtNamed(payload, "SchemaDispatchPayload::Known")) {
+                return asAdt(payload, "SchemaDispatchPayload::Known").payloads[0];
+            }
+            return payload;
+        }
         return value;
     }
 
