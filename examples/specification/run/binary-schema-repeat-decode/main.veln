@@ -1,11 +1,11 @@
-# Binary schema Repeat fields decode counted primitive lists.
+# Binary schema Repeat fields decode counted lowercase primitive lists.
 use stdio
 
 schema CountedValues
 	format binary
 
 	count: UInt8
-	items: Repeat(count, UInt16be)
+	items: Repeat(count, uint16be)
 end
 
 fn list_count(items: List<Int>) -> Int

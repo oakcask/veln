@@ -4286,7 +4286,7 @@ pub(crate) enum SchemaRepeatPayload {
 
 pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     if let Some((payload, count_field)) = canonical_repeat_schema_primitive_parts(ty) {
-        return repeat_schema_primitive_from_parts(count_field, payload, true);
+        return repeat_schema_primitive_from_parts(count_field, payload);
     }
     let inner = schema_call_inner(ty, "Repeat")?;
     let args = inner
@@ -4297,18 +4297,14 @@ pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
     let [count_field, primitive] = args.as_slice() else {
         return None;
     };
-    repeat_schema_primitive_from_parts(count_field, primitive, false)
+    repeat_schema_primitive_from_parts(count_field, primitive)
 }
 
 fn repeat_schema_primitive_from_parts(
     count_field: &str,
     primitive: &str,
-    allow_lowercase_payload: bool,
 ) -> Option<SchemaRepeatSpec> {
     let count_expr = schema_length_expression(count_field)?;
-    if !allow_lowercase_payload && lowercase_schema_primitive(primitive).is_some() {
-        return None;
-    }
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
         if exact_width_schema_primitive_bit_width(primitive)? < 8
             || flag_schema_primitive(primitive).is_some()
@@ -4342,6 +4338,13 @@ fn repeat_schema_primitive_from_parts(
         count_field: count_expr.render(),
         payload,
     })
+}
+
+pub(crate) fn schema_repeat_payload_accepts_lowercase_primitive(text: &str) -> bool {
+    matches!(lowercase_schema_primitive(text), Some(Ok(_)))
+        && exact_width_schema_primitive(text).is_some()
+        && exact_width_schema_primitive_bit_width(text).is_some_and(|width| width >= 8)
+        && flag_schema_primitive(text).is_none()
 }
 
 fn canonical_repeat_schema_primitive_parts(ty: &str) -> Option<(&str, &str)> {

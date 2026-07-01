@@ -5966,6 +5966,18 @@ fn canonical_repeat_syntax_preserves_payload_then_count_order() {
         }
     );
 
+    let legacy_lowercase_primitive = repeat_schema_primitive("Repeat(count, uint16be)")
+        .expect("legacy repeat with lowercase primitive payload should parse");
+    assert_eq!(legacy_lowercase_primitive.count_field, "count");
+    assert_eq!(
+        legacy_lowercase_primitive.payload,
+        SchemaRepeatPayload::Primitive {
+            width: 2,
+            max_value: 0xffff,
+            little_endian: false,
+        }
+    );
+
     let byte_view = repeat_schema_primitive("[ByteView(left_length + right_length); count]")
         .expect("canonical ByteView repeat should parse");
     assert_eq!(byte_view.count_field, "count");
@@ -5988,7 +6000,7 @@ fn canonical_repeat_syntax_preserves_payload_then_count_order() {
 
     assert!(repeat_schema_primitive("[uint16be count]").is_none());
     assert!(repeat_schema_primitive("[uint16be; count; extra]").is_none());
-    assert!(repeat_schema_primitive("Repeat(count, uint16be)").is_none());
+    assert!(repeat_schema_primitive("Repeat(count, flag16be)").is_none());
 }
 
 #[test]
