@@ -888,7 +888,7 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
         Severity::Error,
         DiagnosticKind::Type,
         format!(
-            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a supported scalar, Option, or record-shaped field type",
+            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a supported scalar, List<Int>, Option, or record-shaped field type",
             field.name, field.ty
         ),
         Some(field.span.clone()),
@@ -913,7 +913,7 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
         (
             "message",
             JsonValue::string(format!(
-                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, supported Option fields, and nested record-shaped fields."
+                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, List<Int> fields, supported Option fields, and nested record-shaped fields."
             )),
         ),
     ]));
