@@ -189,6 +189,7 @@ fn hpack_static_supported_literal_name(name_index: Int) -> Option<String>
 		4 => Some(":path")
 		8 => Some(":status")
 		54 => Some("server")
+		28 => Some("content-length")
 		31 => Some("content-type")
 		58 => Some("user-agent")
 		_ => None
@@ -227,6 +228,17 @@ fn hpack_static_literal_without_indexing_header(name: String, value: String, wir
 	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(name, value), hpack_fixture::hpack_header(":fixture", "literal-without-indexing"), wire_size)
 end
 
+fn hpack_static_request_content_length_legacy_header(wire_size: Int) -> HpackHeaderList
+	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":method", "GET"), hpack_fixture::hpack_header(":request", "scheme,path,content-length:5"), wire_size)
+end
+
+fn hpack_static_literal_content_length_request_header(value: String, wire_size: Int) -> HpackHeaderList
+	match value
+		"5" => hpack_static_request_content_length_legacy_header(wire_size)
+		_ => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":request", "method,scheme,path"), hpack_fixture::hpack_header("content-length", value), wire_size)
+	end
+end
+
 fn hpack_static_decode_literal_without_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
 	match hpack_static_supported_literal_name(hpack_static_literal_without_indexing_name_index(block))
 		Some(name) => match hpack_static_literal_raw_value(block, count, hpack_static_literal_without_indexing_value_index(block), offset)
@@ -234,6 +246,37 @@ fn hpack_static_decode_literal_without_indexing_block(block: ByteChunk, count: I
 			Err(failure) => Err(failure)
 		end
 		None => hpack_static_not_static(block, offset)
+	end
+end
+
+fn hpack_static_literal_tail_value_index(block: ByteChunk, literal_index: Int) -> Int
+	match hpack_static_byte_at_or_missing(block, literal_index)
+		15 => literal_index + 2
+		_ => literal_index + 1
+	end
+end
+
+fn hpack_static_literal_tail_name_index(block: ByteChunk, literal_index: Int) -> Int
+	let first_byte: Int = hpack_static_byte_at_or_missing(block, literal_index)
+	match first_byte
+		15 => match hpack_static_byte_at_or_missing(block, literal_index + 1) >= 0 and hpack_static_byte_at_or_missing(block, literal_index + 1) < 128
+			true => 15 + hpack_static_byte_at_or_missing(block, literal_index + 1)
+			false => -1
+		end
+		_ => match first_byte > 0 and first_byte < 15
+			true => first_byte
+			false => -1
+		end
+	end
+end
+
+fn hpack_static_decode_request_with_content_length(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match count > 3 and hpack_static_supported_request_block(hpack_static_byte_at_or_missing(block, 0), hpack_static_byte_at_or_missing(block, 1), hpack_static_byte_at_or_missing(block, 2)) and hpack_static_literal_tail_name_index(block, 3) == 28
+		true => match hpack_static_literal_raw_value(block, count, hpack_static_literal_tail_value_index(block, 3), offset)
+			Ok(value) => Ok(hpack_static_literal_content_length_request_header(value, count))
+			Err(failure) => Err(failure)
+		end
+		false => hpack_static_decode_literal_without_indexing_block(block, count, offset)
 	end
 end
 
@@ -255,7 +298,7 @@ pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderL
 	match count
 		0 => hpack_static_not_static(block, offset)
 		_ => match hpack_static_all_bytes_indexed(block, 0, count)
-			false => hpack_static_decode_literal_without_indexing_block(block, count, offset)
+			false => hpack_static_decode_request_with_content_length(block, count, offset)
 			true => hpack_static_decode_supported_block(block, count, offset)
 		end
 	end

@@ -733,7 +733,11 @@ request, empty `:method`, invalid `:scheme`, empty `:path`, invalid
 `:authority`, and invalid and mismatched `content-length` values; the larger
 protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
-accepted `te: trailers`, and accepted `content-length` values. The focused
+accepted `te: trailers`, and accepted `content-length` values. The aggregate
+protocol-core run case also checks a source-visible HPACK static-name
+`content-length` literal after static request pseudo-headers; the decoded
+value feeds the same request header-list validation and content-length body
+accounting paths, including rejection of a non-decimal value. The focused
 request header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
@@ -906,7 +910,11 @@ diagnostic payload path for those ids uses the same
 The source-visible HPACK static decoder uses
 `hpack.static.unsupported_index` for static-only header blocks that name an
 unsupported static-table index; it reuses the same public fields with
-`codec_module: "hpack_static"`.
+`codec_module: "hpack_static"`. It also accepts the static-table
+`content-length` name in a literal-without-indexing request block when the
+raw value is an accepted visible ASCII decimal string, and that value feeds
+the existing content-length body-accounting state. Non-decimal visible values
+on the same decoded path still use the existing request header-list rules.
 These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
