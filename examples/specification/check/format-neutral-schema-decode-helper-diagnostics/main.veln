@@ -6,7 +6,6 @@ schema BadPacket
 	nested_lists: List<List<Int>>
 	optional_items: Option<List<Int>>
 	nested_items: {items: List<Float>}
-	text_scores: Dict<String, String>
 	numeric_scores: Dict<Int, Int>
 	flag_scores: Dict<String, Bool>
 	nested_scores: Dict<String, Dict<String, Int>>

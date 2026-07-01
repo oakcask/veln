@@ -3054,7 +3054,11 @@ fn format_neutral_schema_list_element_type_is_supported(ty: &Type) -> bool {
 
 fn format_neutral_schema_top_level_dict_type_is_supported(key: &Type, value: &Type) -> bool {
     matches!(key, Type::Named { name, args } if name == "String" && args.is_empty())
-        && matches!(value, Type::Named { name, args } if name == "Int" && args.is_empty())
+        && matches!(
+            value,
+            Type::Named { name, args }
+                if matches!(name.as_str(), "Int" | "String") && args.is_empty()
+        )
 }
 
 fn format_neutral_schema_non_option_type_is_supported(ty: &Type) -> bool {
