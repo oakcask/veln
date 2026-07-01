@@ -215,6 +215,7 @@ fn supported_literal_name(name_index: Int) -> Option<String>
 		4 => Some(":path")
 		8 => Some(":status")
 		54 => Some("server")
+		28 => Some("content-length")
 		31 => Some("content-type")
 		58 => Some("user-agent")
 		_ => None

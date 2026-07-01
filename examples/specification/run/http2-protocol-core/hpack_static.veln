@@ -325,6 +325,7 @@ end
 fn hpack_static_literal_tail_value_index(block: ByteChunk, literal_index: Int) -> Int
 	match hpack_static_byte_at_or_missing(block, literal_index)
 		15 => literal_index + 2
+		31 => literal_index + 2
 		_ => literal_index + 1
 	end
 end
@@ -336,9 +337,19 @@ fn hpack_static_literal_tail_name_index(block: ByteChunk, literal_index: Int) ->
 			true => 15 + hpack_static_byte_at_or_missing(block, literal_index + 1)
 			false => -1
 		end
+		31 => match hpack_static_byte_at_or_missing(block, literal_index + 1) >= 0 and hpack_static_byte_at_or_missing(block, literal_index + 1) < 128
+			true => 15 + hpack_static_byte_at_or_missing(block, literal_index + 1)
+			false => -1
+		end
 		_ => match first_byte > 0 and first_byte < 15
 			true => first_byte
-			false => -1
+			false => match first_byte > 16 and first_byte < 31
+				true => first_byte - 16
+				false => match first_byte > 64 and first_byte < 127
+					true => first_byte - 64
+					false => -1
+				end
+			end
 		end
 	end
 end

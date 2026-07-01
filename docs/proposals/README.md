@@ -403,9 +403,12 @@ compare it with `../specification/` before changing behavior.
   source-visible
   literal-without-indexing, literal-with-indexing, and
   literal-never-indexed static-name decoding for raw visible-ASCII values on
-  `:authority`, `:path`, `:status`, `server`, `content-type`, and
-  `user-agent`, plus the narrowed request `content-length` static-name path
-  for accepted visible ASCII decimal values,
+  `:authority`, `:path`, `:status`, `server`, `content-length`,
+  `content-type`, and `user-agent`, plus the narrowed request
+  `content-length` static-name path for accepted visible ASCII decimal values
+  on literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed forms that do not observe later fixture dynamic-table
+  reuse,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

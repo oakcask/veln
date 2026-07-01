@@ -19,11 +19,17 @@ single-byte static indexed representations for every HPACK static table entry
 from `0x81` `:authority` through `0xbd` `www-authenticate:` through one
 source-visible static table lookup. It also accepts literal-without-indexing
 header fields whose name is one of the supported static-table indexes
-`:authority`, `:path`, `:status`, `server`, `content-type`, or `user-agent`,
-and whose value is a raw single-byte-length visible-ASCII string. The
+`:authority`, `:path`, `:status`, `server`, `content-length`, `content-type`,
+or `user-agent`, and whose value is a raw single-byte-length visible-ASCII
+string. The
 standalone source-visible boundary accepts the same checked static names for
 literal-with-indexing and literal-never-indexed fields with raw
-single-byte-length visible-ASCII values.
+single-byte-length visible-ASCII values. The HTTP/2 request path also accepts
+static-name `content-length` after static request pseudo-headers through
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+forms when no later fixture dynamic-table reuse is observed, and passes
+decoded values to the existing request header-list validation and
+content-length body-accounting paths.
 
 The slice remains limited to static indexed fields and bounded static-name
 literal fields. Unsupported literal names, Huffman strings, malformed literal
@@ -55,6 +61,9 @@ block size, first byte, expected static header description, decoder module
 - `../../../examples/specification/run/http2-protocol-core/` checks accepted
   request HEADERS, accepted final CONTINUATION completion, accepted response
   HEADERS, accepted source-visible literal-without-indexing response HEADERS,
+  accepted request `content-length` literal-without-indexing,
+  literal-with-indexing, and literal-never-indexed forms that do not observe
+  later dynamic-table reuse, non-decimal `content-length` request validation,
   and the focused unsupported static-index failure through the protocol core.
 - `../../../examples/specification/run/hpack-static-core-index-unsupported-human/`
   checks the human diagnostic projection for

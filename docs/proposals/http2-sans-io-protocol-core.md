@@ -1001,7 +1001,9 @@ trailing-byte slice reports saturated-prefix table-size update integers that
 successfully parse and leave trailing header-block bytes through
 `hpack.fixture.table_size_update_trailing_bytes`.
 The source-visible HPACK static decoder also accepts the `content-length`
-static-table name in a literal-without-indexing request header block when the
+static-table name in literal-without-indexing, literal-with-indexing, and
+literal-never-indexed request header blocks after static request
+pseudo-headers when no later fixture dynamic-table reuse is observed and the
 raw value is an accepted visible ASCII decimal string. The decoded value feeds
 the existing request header-list validation and content-length body-accounting
 paths, while non-decimal visible values are rejected by the existing request
@@ -1010,12 +1012,12 @@ header-list validation diagnostic. Current behavior is specified by
 `../../examples/specification/run/http2-protocol-core/`.
 The standalone source-visible HPACK static boundary also accepts bounded
 literal-with-indexing and literal-never-indexed fields for `:authority`,
-`:path`, `:status`, `server`, `content-type`, and `user-agent` when their
-values are raw single-byte-length visible ASCII strings. Unsupported names,
-Huffman-marked values, and malformed raw lengths stay on the unsupported
-static header-block fallback path. Stateful HTTP/2 header-block decoding keeps
-literal-with-indexing on the fixture decoder when dynamic-table state must be
-updated. Current behavior is checked by
+`:path`, `:status`, `server`, `content-length`, `content-type`, and
+`user-agent` when their values are raw single-byte-length visible ASCII
+strings. Unsupported names, Huffman-marked values, and malformed raw lengths
+stay on the unsupported static header-block fallback path. Stateful HTTP/2
+header-block decoding keeps literal-with-indexing on the fixture decoder when
+dynamic-table state must be updated. Current behavior is checked by
 `../../examples/specification/run/hpack-static-codec-boundary/` and archived
 under
 `../reference/implemented-proposals/http2-hpack-static-table-decode.md`.
