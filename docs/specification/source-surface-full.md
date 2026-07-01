@@ -29,8 +29,8 @@ byte-aligned lowercase `uint... reserves <value>` spelling in direct
 reserved-bit dispatch payload positions. Format-neutral schemas reject
 binary-only primitive vocabulary in dispatch payload positions. Format-neutral
 generated decode helpers are limited to scalar fields, top-level `List<Int>`
-or `List<String>` fields, supported `Option` fields, and nested record-shaped
-fields made from scalar field types.
+or `List<String>` fields, top-level `Dict<String, Int>` fields, supported
+`Option` fields, and nested record-shaped fields made from scalar field types.
 
 ## Executable Grammar
 

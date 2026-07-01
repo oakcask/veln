@@ -65,10 +65,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   payloads, or the implemented dispatch payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is `Int`, `Bool`, `Float`,
-  `String`, top-level `List<Int>` or `List<String>`, a nested record shape
-  made from scalar field types, or `Option<T>` where `T` is one of those scalar
-  or nested record shapes, with declaration diagnostics for unsupported helper
-  field types
+  `String`, top-level `List<Int>` or `List<String>`, top-level
+  `Dict<String, Int>`, a nested record shape made from scalar field types, or
+  `Option<T>` where `T` is one of those scalar or nested record shapes, with
+  declaration diagnostics for unsupported helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -96,8 +96,8 @@ This proposal remains open for:
   implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral fields outside the implemented scalar,
-  top-level `List<Int>` or `List<String>`, supported `Option`, and nested
-  record-shaped helper slice
+  top-level `List<Int>` or `List<String>`, top-level `Dict<String, Int>`,
+  supported `Option`, and nested record-shaped helper slice
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments, and
   binary fixture metadata
@@ -349,9 +349,10 @@ Implemented:
   over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads expose generated `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are `Int`,
-  `Bool`, `Float`, `String`, top-level `List<Int>` or `List<String>`, nested
-  record shapes made from scalar field types, or `Option<T>` where `T` is one
-  of those scalar or nested record shapes, expose generated
+  `Bool`, `Float`, `String`, top-level `List<Int>` or `List<String>`,
+  top-level `Dict<String, Int>`, nested record shapes made from scalar field
+  types, or `Option<T>` where `T` is one of those scalar or nested record
+  shapes, expose generated
   `byte_decode_<schema>` helper bindings that accept and return the
   schema-local visible record through
   `Result<T, String>`.
@@ -370,6 +371,7 @@ Remaining:
   the implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
   dispatch, and format-neutral scalar, top-level `List<Int>` or
-  `List<String>`, supported `Option`, or nested record-shaped slices.
+  `List<String>`, top-level `Dict<String, Int>`, supported `Option`, or
+  nested record-shaped slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

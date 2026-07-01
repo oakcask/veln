@@ -6,6 +6,7 @@ schema PlainPacket
 	label: String
 	items: List<Int>
 	names: List<String>
+	scores: Dict<String, Int>
 	metadata: {ready: Bool, score: Float}
 	optional_code: Option<Int>
 	optional_metadata: Option<{ready: Bool, score: Float}>
@@ -18,28 +19,28 @@ fn list_sum(items: List<Int>) -> Int
 	end
 end
 
-fn decoded_code(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_code(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => packet.code
 		Err(_) => -1
 	end
 end
 
-fn decoded_label(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_label(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => packet.label
 		Err(message) => message
 	end
 end
 
-fn decoded_item_sum(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_item_sum(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => list_sum(packet.items)
 		Err(_) => -1
 	end
 end
 
-fn decoded_first_name(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_first_name(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.names
 			Nil => "missing"
@@ -49,7 +50,17 @@ fn decoded_first_name(result: Result<{code: Int, label: String, items: List<Int>
 	end
 end
 
-fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_score(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.scores, "math")
+			Some(score) => score
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => match packet.optional_code
 			Some(value) => value
@@ -59,7 +70,7 @@ fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<I
 	end
 end
 
-fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.optional_metadata
 			Some(metadata) => match metadata.ready
@@ -73,11 +84,12 @@ fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: Li
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let decoded: Result<{code: Int, label: String, items: List<Int>, names: List<String>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), names: list_cons("alpha", list_cons("beta", list_nil())), metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
+	let decoded: Result<{code: Int, label: String, items: List<Int>, names: List<String>, scores: Dict<String, Int>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
 	stdio::println(int_to_string(decoded_code(decoded)))
 	stdio::println(decoded_label(decoded))
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
 	stdio::println(decoded_first_name(decoded))
+	stdio::println(int_to_string(decoded_score(decoded)))
 	stdio::println(int_to_string(decoded_optional_code(decoded)))
 	stdio::println(decoded_optional_metadata(decoded))
 	Ok(())

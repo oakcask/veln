@@ -16,9 +16,10 @@ schema-local visible record shape and returns `Result<TRecord, String>`.
 
 The slice does not add general container eligibility. Payloads such as
 `Option<List<Int>>`, unsupported list element types such as `List<Float>` and
-`List<Bool>`, nested lists, nested record fields that contain lists, `Vec`,
-and `Dict` remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family.
+`List<Bool>`, nested lists, nested record fields that contain lists, and `Vec`
+remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family. Later completed
+records describe additional implemented format-neutral helper slices.
 
 ## Evidence
 
