@@ -212,6 +212,8 @@ behavior.
   [format-neutral-schema-option-helpers.md](format-neutral-schema-option-helpers.md).
 - Format-neutral schema top-level list helpers:
   [format-neutral-schema-list-helpers.md](format-neutral-schema-list-helpers.md).
+- Format-neutral schema nested record list helpers:
+  [format-neutral-schema-nested-list-helpers.md](format-neutral-schema-nested-list-helpers.md).
 - Format-neutral schema string-keyed scalar dictionary helpers:
   [format-neutral-schema-dict-helpers.md](format-neutral-schema-dict-helpers.md).
 - Codec hand-written encode resume:

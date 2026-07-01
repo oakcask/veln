@@ -4,7 +4,7 @@ schema BadPacket
 	supported_metadata: {label: Option<String>, retries: Option<Int>}
 	nested_lists: List<List<Int>>
 	optional_items: Option<List<Int>>
-	nested_items: {items: List<Float>}
+	nested_item_lists: {items: List<List<Int>>}
 	nested_optional_items: {items: Option<List<Int>>}
 	numeric_scores: Dict<Int, Int>
 	nested_scores: Dict<String, Dict<String, Int>>

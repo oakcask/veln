@@ -3098,6 +3098,9 @@ fn format_neutral_schema_option_payload_type_is_supported(ty: &Type) -> bool {
 
 fn format_neutral_schema_record_field_type_is_supported(ty: &Type) -> bool {
     match ty {
+        Type::Named { name, args } if name == "List" && args.len() == 1 => {
+            format_neutral_schema_scalar_type(&args[0])
+        }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => {
             format_neutral_schema_scalar_type(&args[0])
         }

@@ -38,4 +38,5 @@ outside the implemented helper slices, format-neutral fields outside scalar,
 top-level scalar list, top-level `Dict<String, Int>`, `Dict<String, Bool>`,
 `Dict<String, Float>`, or `Dict<String, String>`, supported `Option`, and
 nested record-shaped payloads with scalar or `Option<scalar>` fields, and
-later schema composition surfaces.
+later schema composition surfaces. Later completed records describe additional
+format-neutral helper slices.

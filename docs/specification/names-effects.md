@@ -217,7 +217,8 @@ compiler-known calls.
   `List<Bool>`, `List<Float>`, or `List<String>` values, top-level
   `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
   `Dict<String, String>` values, supported `Option` values, or nested
-  record-shaped values. Explicit
+  record-shaped values made from scalar, `List<scalar>`, or `Option<scalar>`
+  fields. Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the
   generated helper in source; imported public schemas may be cited through
