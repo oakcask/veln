@@ -324,7 +324,14 @@ Adapter-owned production loopback examples can handle multiple accepted
 streams independently through ordinary `StreamInput` and response-action
 values, route them through the existing `concurrency` boundary, project only
 ordered `SendBytes` actions to `net::write_chunk`, close each stream, and
-drain the listener until clean end. The deadline-aware production adapter
+drain the listener until clean end. A production multi-chunk routing case
+keeps configured read chunk boundaries within one accepted stream, exposes
+each read as an ordinary `StreamInput.Chunk` routed through the same channel
+boundary, calls a pure handler for each chunk and clean end, and projects the
+ordered `SendBytes` response actions through `net::write_chunks` under the
+same coarse `net` and `concurrency` effects. Its matching static effect case
+rejects adapter entry points that omit either label while leaving the public
+handler boundary effect-free. The deadline-aware production adapter
 uses the same handler/action boundary through `net::accept_until` and
 `net::read_chunk_until`, adds only the existing coarse `time` effect label,
 writes ordered response bytes, closes the stream, and then observes clean
@@ -399,6 +406,12 @@ socket reads and ordered `net::write_chunk` calls with standard channel and
 task calls. One case uses `net::read_chunk` for byte-only reads; the clean-end
 case uses `net::read_chunk_or_end` so adapter-owned source can translate
 `None` into the standard `StreamInput.End` value for a pure handler boundary.
+The production multi-chunk routing case uses the same optional read surface to
+turn more than one host-owned read chunk from one accepted stream into
+ordinary `StreamInput.Chunk` values before clean end, then writes only ordered
+`SendBytes` response actions through `net::write_chunks`. Its matching effect
+case rejects adapter paths that omit either `net` or `concurrency` while
+leaving the handler boundary effect-free.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and

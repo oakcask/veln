@@ -48,18 +48,20 @@ checked task slices, and narrow deadline and cancellation slices, for:
   adapter-owned listener-to-clean-stream-end, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
-  adapter-owned clean shutdown lifecycle, and explicit listener close
-  lifecycle slices
+  adapter-owned clean shutdown lifecycle, explicit listener close lifecycle,
+  and production multi-chunk event routing slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  the checked adapter-owned multi-event routing, deadline-aware lifecycle,
-  cancellable lifecycle, and cancellable deadline-aware lifecycle fixtures
+  the checked adapter-owned multi-event routing, production multi-chunk
+  routing, deadline-aware lifecycle, cancellable lifecycle, and cancellable
+  deadline-aware lifecycle fixtures
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
-  ordered `net::write_chunks` projection slice, the adapter-owned outbound
-  write-failure boundary, plus the source-visible ordered chunk-list
-  boundary, deadline-aware stream-write boundary,
+  ordered `net::write_chunks` projection slice, the production multi-chunk
+  routing `net::write_chunks` projection slice, the adapter-owned outbound
+  write-failure boundary, plus the source-visible ordered chunk-list boundary,
+  deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
   chunk-list stream-write boundary
@@ -367,6 +369,15 @@ pure handler response projection. The failure remains a runtime transport
 failure owned by the adapter boundary; it does not become a protocol, schema,
 codec, or handler failure, and no response write or stream close is recorded.
 
+Implemented production multi-chunk event routing slice: an executable
+specification case accepts one deterministic production-loopback stream, reads
+multiple configured input chunks through `net::read_chunk_or_end`, converts
+each read chunk into an ordinary `StreamInput.Chunk`, routes those values
+through an existing channel to a pure handler, observes clean end as
+`StreamInput.End`, and projects only ordered `SendBytes` actions back to the
+stream through `net::write_chunks`. The adapter owns `net` and `concurrency`;
+the handler receives no `NetStream` and calls no transport functions.
+
 Implemented production owner-drain cancellable deadline lifecycle slice: an
 executable specification case creates a `CancelOwner` in adapter code, passes
 only observer `CancelToken` values to cancellable deadline-aware accept/read
@@ -428,6 +439,10 @@ accept/read outcome boundary slice is recorded as implemented in
 The production owner-drain cancellable deadline lifecycle slice is recorded
 as implemented in
 `../reference/implemented-proposals/network-production-owner-drain-lifecycle.md`.
+
+The production multi-chunk event routing slice is recorded as implemented in
+`../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
+including runtime and static effect-boundary evidence.
 
 The receiver-list select-many, timeout, timeout-result, and cancellable
 timeout-result channel-first stream routing slices are recorded as implemented
@@ -598,7 +613,7 @@ standard-library surface.
   richer production adapter
   socket ownership beyond those deterministic loopback lifecycle slices, first
   fixture-backed listener/stream handles,
-  narrow multi-event socket-to-handler routing, stream-task handler, clean
+  stream-task handler, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
   lifecycle, two-route, three-route, four-route, general receiver-list
   routing through the current checked boundary, receiver-list timeout,
