@@ -1602,11 +1602,17 @@ fn protocol_header_list_message(
         "te_header_value_not_trailers" => {
             format!("{subject} contains te value other than trailers at byte offset {byte_offset}")
         }
+        "method_value_empty" => {
+            format!("{subject} contains empty :method at byte offset {byte_offset}")
+        }
         "scheme_value_not_http_or_https" => format!(
             "{subject} contains :scheme value other than http or https at byte offset {byte_offset}"
         ),
         "path_value_empty" => {
             format!("{subject} contains empty :path at byte offset {byte_offset}")
+        }
+        "authority_value_invalid" => {
+            format!("{subject} contains invalid :authority at byte offset {byte_offset}")
         }
         "content_length_invalid" => {
             format!("{subject} contains invalid content-length at byte offset {byte_offset}")
@@ -4845,6 +4851,124 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_request_pseudo_headers")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_empty_request_method_value() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("method_value_empty"),
+            ),
+            ("header_name", JsonValue::string(":method")),
+            (
+                "decoded_header_names",
+                JsonValue::string(":method,:scheme,:path"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_request_pseudo_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list contains empty :method at byte offset 12".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list contains empty :method at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains(":method,:scheme,:path")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_request_pseudo_headers")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_request_authority_value() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_request_header_list"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(12)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "failed_header_fact",
+                JsonValue::string("authority_value_invalid"),
+            ),
+            ("header_name", JsonValue::string(":authority")),
+            (
+                "decoded_header_names",
+                JsonValue::string(":method,:scheme,:path,:authority"),
+            ),
+            ("active_state", JsonValue::string("request-headers")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_request_authority"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 request header list contains invalid :authority at byte offset 12".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.message,
+            "request header list contains invalid :authority at byte offset 12"
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains(":method,:scheme,:path,:authority")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_request_authority")
         );
     }
 

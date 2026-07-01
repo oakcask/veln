@@ -887,8 +887,10 @@ connection-specific ordinary header names `connection`, `keep-alive`,
 `http2.protocol.invalid_request_header_list`. Request validation also accepts
 `:scheme` values `http` and `https`, and rejects any other fixture-marked
 value with failed fact `scheme_value_not_http_or_https`; it rejects empty
+fixture-marked `:method` values with failed fact `method_value_empty`, empty
 fixture-marked `:path` values with failed fact `path_value_empty` after
-`:path` presence has been confirmed. Response validation
+`:path` presence has been confirmed, and fixture-marked invalid `:authority`
+values with failed fact `authority_value_invalid`. Response validation
 rejects missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,
 uppercase ordinary header names, and ordinary header names outside the HTTP

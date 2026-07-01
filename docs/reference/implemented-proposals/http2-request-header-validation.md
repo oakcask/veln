@@ -22,9 +22,12 @@ header slice also rejects `connection`, `keep-alive`, `proxy-connection`,
 `transfer-encoding`, and `upgrade` as ordinary request headers. The
 request `:scheme` value slice accepts `http` and `https`, and rejects any
 other fixture-marked value with failed fact
-`scheme_value_not_http_or_https`. The request `:path` value slice rejects
-fixture-marked empty values with failed fact `path_value_empty` after
-`:path` presence has been confirmed. Failures use the protocol-owned
+`scheme_value_not_http_or_https`. The request `:method` value slice rejects
+fixture-marked empty values with failed fact `method_value_empty`, and the
+request `:path` value slice rejects fixture-marked empty values with failed
+fact `path_value_empty` after `:path` presence has been confirmed. The
+request `:authority` value slice rejects fixture-marked invalid values with
+failed fact `authority_value_invalid`. Failures use the protocol-owned
 `http2.protocol.invalid_request_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
 
@@ -34,9 +37,10 @@ HPACK fixture diagnostics.
   integrated protocol-core path, including one accepted request fixture, a
   request fixture with a lowercase ordinary `host` header, accepted
   `:scheme` values `http` and `https` through completed HEADERS and final
-  CONTINUATION paths, an unsupported `:scheme` value, an empty `:path`
-  value after method and scheme presence are satisfied, a final
-  CONTINUATION path missing `:method`, a HEADERS path containing
+  CONTINUATION paths, an unsupported `:scheme` value, an empty `:method`
+  value, an empty `:path` value after method and scheme presence are
+  satisfied, an invalid `:authority` value, a final CONTINUATION path
+  missing `:method`, a HEADERS path containing
   response-only `:status`, a duplicate `:method`, and a `:method` after a
   regular `host` header, plus uppercase and token-invalid ordinary request
   header names and the checked connection-specific ordinary request header
@@ -65,6 +69,14 @@ HPACK fixture diagnostics.
   checks the JSON projection for an empty request `:path` value.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-path-empty-human/`
   checks the human projection for an empty request `:path` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-method-empty-json/`
+  checks the JSON projection for an empty request `:method` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-method-empty-human/`
+  checks the human projection for an empty request `:method` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-authority-invalid-json/`
+  checks the JSON projection for an invalid request `:authority` value.
+- `../../../examples/specification/run/http2-protocol-core-request-headers-authority-invalid-human/`
+  checks the human projection for an invalid request `:authority` value.
 
 ## Remaining Work
 
