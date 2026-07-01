@@ -349,7 +349,8 @@ compare it with `../specification/` before changing behavior.
   reason details, codec-owned version mismatch projection with expected
   version, actual version, and failure reason details, codec-owned tag
   mismatch projection with expected tag, actual tag, and failure reason
-  details, generated binary schema decode
+  details, codec-owned magic mismatch projection with expected magic, actual
+  magic, and failure reason details, generated binary schema decode
   integer range failures,
   generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
@@ -363,6 +364,8 @@ compare it with `../specification/` before changing behavior.
   [Codec Version Mismatch Diagnostics](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
   The completed codec-owned tag mismatch slice is archived under
   [Codec Tag Mismatch Diagnostics](../reference/implemented-proposals/codec-tag-mismatch-diagnostics.md).
+  The completed codec-owned magic mismatch slice is archived under
+  [Codec Magic Mismatch Diagnostics](../reference/implemented-proposals/codec-magic-mismatch-diagnostics.md).
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,

@@ -1,0 +1,16 @@
+# Direct magic mismatch decode failures render focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	magic: ByteView(4)
+	payload: ByteView(0)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.magic_mismatch", offset(18), "ManualPacketWire.magic", "expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature"))
+end

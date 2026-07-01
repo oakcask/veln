@@ -187,6 +187,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainTagMismatch));
 
+        Object magicMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.magic_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(18) }),
+                "Packet.magic",
+                "expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(magicMismatch));
+
+        Object plainMagicMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.magic_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
+                "Packet.magic",
+                "plain magic mismatch"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainMagicMismatch));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -1735,6 +1757,32 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_tag_line.contains("\texpected_tag\t"));
     assert!(!plain_tag_line.contains("\tactual_tag\t"));
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.magic_mismatch\t18\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\texpected_magic\tstring\t56454c4e"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tactual_magic\tstring\t5645494e"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t66696c65206d6167696320646964206e6f74206d61746368206578706563746564207369676e6174757265"),
+        "{trace}"
+    );
+    let plain_magic_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.magic_mismatch\t19\t"))
+        .expect("plain magic mismatch should be recorded");
+    assert!(
+        plain_magic_line.contains("\treason\tstring\t706c61696e206d61676963206d69736d61746368"),
+        "{plain_magic_line}"
+    );
+    assert!(!plain_magic_line.contains("\texpected_magic\t"));
+    assert!(!plain_magic_line.contains("\tactual_magic\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"

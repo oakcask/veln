@@ -1,0 +1,87 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-run-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "run"
+
+[[json_assert]]
+path = "exit_code"
+equals = 1
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.message"
+equals = "runtime result failure: Err(DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature))"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature)"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.magic_mismatch"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 18
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ManualPacketWire"},{"kind":"field","name":"magic"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path_display"
+equals = "ManualPacketWire.magic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_magic"
+equals = "VELN"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.actual_magic"
+equals = "VEIN"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.reason"
+equals = "file magic did not match expected signature"
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature))\n"

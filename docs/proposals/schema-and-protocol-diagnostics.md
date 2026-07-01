@@ -156,6 +156,16 @@ at the byte offset, and is checked by
 `../../examples/specification/run/codec-tag-mismatch-direct-human/`,
 `../../examples/specification/run/codec-tag-mismatch-step-json/`, and
 `../../examples/specification/run/codec-tag-mismatch-step-human/`.
+The codec-owned magic mismatch diagnostic slice is implemented for
+`codec.magic_mismatch` direct `DecodeErrorWithReason(...)` failures and
+`DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries field
+path, expected magic, actual magic, and failure reason in
+`details.byte_diagnostic`, keeps the human primary focused on the magic
+mismatch at the byte offset, and is checked by
+`../../examples/specification/run/codec-magic-mismatch-direct-json/`,
+`../../examples/specification/run/codec-magic-mismatch-direct-human/`,
+`../../examples/specification/run/codec-magic-mismatch-step-json/`, and
+`../../examples/specification/run/codec-magic-mismatch-step-human/`.
 The completed codec-owned decode invalid id slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
 The completed codec-owned sequence mismatch slice is archived under the
@@ -164,6 +174,8 @@ The completed codec-owned version mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
 The completed codec-owned tag mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-tag-mismatch-diagnostics.md).
+The completed codec-owned magic mismatch slice is archived under the
+[implemented proposal record](../reference/implemented-proposals/codec-magic-mismatch-diagnostics.md).
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
 implemented as `codec.incomplete_input` at the closed-input reporting
 boundary, with readiness and requested byte count details in `run --json` and

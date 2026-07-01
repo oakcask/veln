@@ -554,6 +554,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.magic_mismatch" {
+        return magic_mismatch_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -769,6 +778,54 @@ fn tag_mismatch_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Tag mismatch reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn magic_mismatch_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("magic mismatch at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(expected_magic), Some(actual_magic)) = (
+        json_string(byte_entries, "expected_magic"),
+        json_string(byte_entries, "actual_magic"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Expected magic `{expected_magic}`; actual magic was `{actual_magic}`."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Magic mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2600,6 +2657,69 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.tag_mismatch, ByteOffset(14), ManualPacketWire.kind, expected_tag=DATA; actual_tag=HEADERS; reason=dispatch tag did not match selected payload).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_magic_mismatch_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.magic_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(18)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("magic")),
+                    ]),
+                ]),
+            ),
+            ("expected_magic", JsonValue::string("VELN")),
+            ("actual_magic", JsonValue::string("VEIN")),
+            (
+                "reason",
+                JsonValue::string("file magic did not match expected signature"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.magic"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.magic_mismatch");
+        assert_eq!(diagnostic.message, "magic mismatch at byte offset 18");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Expected magic `VELN`; actual magic was `VEIN`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Magic mismatch reason: file magic did not match expected signature.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature).\"}"
         );
     }
 

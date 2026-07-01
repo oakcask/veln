@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.magic_mismatch]: magic mismatch at byte offset 18", "note: Field path: schema `ManualPacketWire` / field `magic`.", "note: Expected magic `VELN`; actual magic was `VEIN`.", "note: Magic mismatch reason: file magic did not match expected signature.", "note: DecodeError value: DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature)."]

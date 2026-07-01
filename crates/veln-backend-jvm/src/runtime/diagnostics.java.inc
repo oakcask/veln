@@ -1751,6 +1751,8 @@
                 mergeVersionMismatchReason(details, reason);
             } else if (id.equals("codec.tag_mismatch")) {
                 mergeTagMismatchReason(details, reason);
+            } else if (id.equals("codec.magic_mismatch")) {
+                mergeMagicMismatchReason(details, reason);
             } else {
                 details.add(DiagnosticDetail.string("reason", reason));
             }
@@ -2060,6 +2062,63 @@
         TagMismatchReason(String expectedTag, String actualTag, String reason) {
             this.expectedTag = expectedTag;
             this.actualTag = actualTag;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeMagicMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        MagicMismatchReason parsed = parseMagicMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.string("expected_magic", parsed.expectedMagic));
+        details.add(DiagnosticDetail.string("actual_magic", parsed.actualMagic));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static MagicMismatchReason parseMagicMismatchReason(String reason) {
+        String expectedMagic = null;
+        String actualMagic = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_magic")) {
+                expectedMagic = value;
+            } else if (key.equals("actual_magic")) {
+                actualMagic = value;
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedMagic == null
+            || expectedMagic.isEmpty()
+            || actualMagic == null
+            || actualMagic.isEmpty()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new MagicMismatchReason(expectedMagic, actualMagic, failureReason);
+    }
+
+    private static final class MagicMismatchReason {
+        final String expectedMagic;
+        final String actualMagic;
+        final String reason;
+
+        MagicMismatchReason(String expectedMagic, String actualMagic, String reason) {
+            this.expectedMagic = expectedMagic;
+            this.actualMagic = actualMagic;
             this.reason = reason;
         }
     }
