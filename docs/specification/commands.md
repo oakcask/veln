@@ -63,7 +63,9 @@ requiring the full command reference on the first read.
   header-block byte previews,
   GOAWAY receive preserving already-admitted stream DATA and trailer HEADERS
   lifecycle while rejecting later peer-created streams above the recorded last
-  stream id with bounded frame-header byte previews,
+  stream id with bounded frame-header byte previews, plus local outbound
+  HEADERS and server-side outbound `PUSH_PROMISE` send-intents above received
+  or locally sent GOAWAY boundaries,
   standard helper-returned frame-size, SETTINGS value, and header-table
   runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and
@@ -259,8 +261,8 @@ requiring the full command reference on the first read.
   concurrent-stream receive-limit
   projections include bounded byte previews for inspected frame headers from
   the returned `RuntimeDiagnostic(...)` value, and stream-after-GOAWAY
-  projections include the bounded inspected frame-header preview carried by
-  the returned value. The standard
+  projections include the bounded inspected frame-header preview or empty local
+  outbound preview carried by the returned value. The standard
   `http2_protocol_invalid_preface(...)`,
   `http2_protocol_continuation_expected(...)`, and
   `http2_protocol_invalid_frame_kind(...)`,
