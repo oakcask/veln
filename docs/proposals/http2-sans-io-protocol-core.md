@@ -25,9 +25,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   peer-advertised state, unknown-identifier handling, SETTINGS ACK receive,
   local SETTINGS send-intents for
   header-table-size, enable-push, initial-window-size,
-  maximum-concurrent-streams, maximum-frame-size, maximum-header-list-size, a
-  two-item local SETTINGS batch, and the narrow outbound SETTINGS ACK
-  send-intent slices
+  maximum-concurrent-streams, maximum-frame-size, maximum-header-list-size,
+  and a two-item local SETTINGS batch
 - remaining DATA behavior not covered by the implemented receive-window
   accounting, inbound PADDED DATA handling, inbound `END_STREAM`
   closed-by-peer lifecycle, outbound PADDED DATA send-intent slice,
@@ -548,8 +547,12 @@ failure into a protocol diagnostic.
 It also includes the outbound SETTINGS ACK send-intent slice. After a valid
 non-ACK SETTINGS receive, ordinary source constructs exactly one immutable
 nine-byte output chunk through the same frame-header encode path, with length
-`0`, kind `4`, flags `1`, and stream id `0`. The send intent does not update
-peer-advertised SETTINGS state or local receive-limit state.
+`0`, kind `4`, flags `1`, and stream id `0`. Multiple valid peer SETTINGS
+frames received before the ACK intent is consumed coalesce to one pending ACK,
+and consuming the intent clears the pending state. The send intent does not
+update peer-advertised SETTINGS state or local receive-limit state. The
+completed slice is archived under
+[HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
 The implemented slice also includes outbound DATA send-intent flow control,
 frame-size splitting, PADDED DATA encoding, and output. Ordinary source tracks
 outbound connection and stream credit separately from inbound receive windows,
