@@ -30,8 +30,9 @@ reserved-bit dispatch payload positions. Format-neutral schemas reject
 binary-only primitive vocabulary in dispatch payload positions. Format-neutral
 generated decode helpers are limited to scalar fields, top-level `List<Int>`,
 `List<Bool>`, `List<Float>`, or `List<String>` fields, top-level
-`Dict<String, Int>` or `Dict<String, String>` fields, supported `Option`
-fields, and nested record-shaped fields made from scalar field types.
+`Dict<String, Int>`, `Dict<String, Bool>`, or `Dict<String, String>` fields,
+supported `Option` fields, and nested record-shaped fields made from scalar
+field types.
 
 ## Executable Grammar
 
