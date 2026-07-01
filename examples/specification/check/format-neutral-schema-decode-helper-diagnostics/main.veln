@@ -1,4 +1,7 @@
 schema BadPacket
 	code: Int
 	items: Option<List<Int>>
+	names: List<String>
+	nested_items: {items: List<Int>}
+	vec_items: Vec<Int>
 end

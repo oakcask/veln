@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `items` cannot expose a generated decode helper", "\"field_type\":\"Option<List<Int>>\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `items` cannot expose a generated decode helper", "\"field_type\":\"Option<List<Int>>\"", "format-neutral schema field `names` cannot expose a generated decode helper", "\"field_type\":\"List<String>\"", "format-neutral schema field `nested_items` cannot expose a generated decode helper", "\"field_type\":\"{ items : List<Int> }\"", "format-neutral schema field `vec_items` cannot expose a generated decode helper", "\"field_type\":\"Vec<Int>\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
 
 [stderr]
 format = "empty"
@@ -14,10 +14,28 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 1
+equals = 4
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, Option, or record-shaped field type"
+message = "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, List<Int>, Option, or record-shaped field type"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `names` cannot expose a generated decode helper because `List<String>` is not a supported scalar, List<Int>, Option, or record-shaped field type"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `nested_items` cannot expose a generated decode helper because `{ items : List<Int> }` is not a supported scalar, List<Int>, Option, or record-shaped field type"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `vec_items` cannot expose a generated decode helper because `Vec<Int>` is not a supported scalar, List<Int>, Option, or record-shaped field type"
