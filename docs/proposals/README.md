@@ -83,8 +83,9 @@ compare it with `../specification/` before changing behavior.
   without a `format` clause, generated format-neutral decode helpers for
   scalar, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, top-level string-keyed scalar dictionary, supported
-  `Option`, and nested record-shaped fields with scalar, `List<scalar>`,
-  `Option<scalar>`, or `Dict<String, scalar>` fields, and
+  `Option`, top-level `Option<List<scalar>>`, and nested record-shaped fields
+  with scalar, `List<scalar>`, `Option<scalar>`, or `Dict<String, scalar>`
+  fields, and
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -97,6 +98,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Option` helper slice, including
   `Option<scalar>` fields inside nested record-shaped fields, is archived under
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
+  The completed format-neutral top-level `Option<List<scalar>>` helper slice
+  is archived under
+  [Format-Neutral Schema Option List Helpers](../reference/implemented-proposals/format-neutral-schema-option-list-helpers.md).
   The completed format-neutral top-level list helper slice is archived under
   [Format-Neutral Schema List Helpers](../reference/implemented-proposals/format-neutral-schema-list-helpers.md).
   The completed format-neutral nested record list helper slice is archived

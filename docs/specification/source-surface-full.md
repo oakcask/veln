@@ -31,9 +31,9 @@ binary-only primitive vocabulary in dispatch payload positions. Format-neutral
 generated decode helpers are limited to scalar fields, top-level `List<Int>`,
 `List<Bool>`, `List<Float>`, or `List<String>` fields, top-level
 `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
-`Dict<String, String>` fields, supported `Option` fields, and nested
-record-shaped fields made from scalar, `List<scalar>`, `Option<scalar>`, or
-`Dict<String, scalar>` field types.
+`Dict<String, String>` fields, supported top-level `Option` fields including
+`Option<List<scalar>>`, and nested record-shaped fields made from scalar,
+`List<scalar>`, `Option<scalar>`, or `Dict<String, scalar>` field types.
 
 ## Executable Grammar
 

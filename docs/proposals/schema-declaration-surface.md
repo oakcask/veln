@@ -94,6 +94,10 @@ The completed format-neutral `Option` helper slice, including
 `Option<scalar>` fields inside nested record-shaped fields, is archived under
 [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
 
+The completed format-neutral top-level `Option<List<scalar>>` helper slice is
+archived under
+[Format-Neutral Schema Option List Helpers](../reference/implemented-proposals/format-neutral-schema-option-list-helpers.md).
+
 The completed format-neutral nested record list helper slice is archived under
 [Format-Neutral Schema Nested List Helpers](../reference/implemented-proposals/format-neutral-schema-nested-list-helpers.md).
 
@@ -113,7 +117,8 @@ This proposal remains open for:
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral fields outside the implemented scalar,
   top-level scalar list, top-level string-keyed scalar dictionary, supported
-  `Option`, and nested record-shaped helper slices
+  `Option`, top-level `Option<List<scalar>>`, and nested record-shaped helper
+  slices
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -388,7 +393,7 @@ Remaining:
   the implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
   dispatch, and format-neutral scalar, top-level scalar list,
-  top-level string-keyed scalar dictionary, supported `Option`, or nested
-  record-shaped slices.
+  top-level string-keyed scalar dictionary, supported `Option`, top-level
+  `Option<List<scalar>>`, or nested record-shaped slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.
