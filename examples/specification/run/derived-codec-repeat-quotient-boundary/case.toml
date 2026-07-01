@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n4\n10\n10\nneed_more\nneed_bytes\n2\n0\ninvalid\nschema.length_division_by_zero\n43\nCountedValues.items\n0\nencoded\noutput_chunk_list repeat-quotient count 1\noutput_chunk repeat-quotient index 0 hex \"08020001000200030004\" count 10\ninvalid\ncodec.encode_value_unrepresentable\nCountedValues.items\nlist length 3 does not match count expression `total_count / group_count` value 4\n"
+equals = "decoded\n4\n10\n10\nneed_more\nneed_bytes\n2\n0\ninvalid\nschema.length_division_by_zero\n43\nCountedValues.items\n0\nencoded\noutput_chunk_list repeat-quotient count 1\noutput_chunk repeat-quotient index 0 hex \"08020001000200030004\" count 10\ninvalid\nschema.encode_value_unrepresentable\nCountedValues.items\nlist length 3 does not match count expression `total_count / group_count` value 4\n"
 
 [[json_assert]]
 path = "error"

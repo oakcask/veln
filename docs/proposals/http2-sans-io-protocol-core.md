@@ -541,7 +541,7 @@ slice. Ordinary source builds record-shaped frame descriptions with `length`,
 helper for the HTTP/2 wire header layout, and checks one nine-byte output
 chunk for a SETTINGS header on the connection stream, a DATA header on a
 nonzero stream, and the maximum valid `UInt31be` stream id. It also keeps the
-generated helper's `codec.encode_value_unrepresentable` error visible for an
+generated helper's `schema.encode_value_unrepresentable` error visible for an
 out-of-range stream id instead of projecting that representation failure into
 a protocol diagnostic.
 It also includes the outbound SETTINGS ACK send-intent slice. After a valid
@@ -590,7 +590,7 @@ open stream above the recorded last stream id is rejected before frame-size
 splitting, encode checks, or outbound credit changes; the recorded boundary
 remains accepted, and missing, closed, reset, or mismatched stream cases keep
 their narrower failures. Generated frame-header
-representation failures stay on the `codec.encode_value_unrepresentable`
+representation failures stay on the `schema.encode_value_unrepresentable`
 encode-error path.
 The same source slice now also keeps peer `WINDOW_UPDATE` send-credit refill
 separate from local receive-credit `WINDOW_UPDATE` send-intents. A valid
@@ -626,7 +626,7 @@ four-byte unsigned increment payload, and rejects zero, negative,
 out-of-range, current-window overflow, stream id zero, idle-stream,
 closed-stream, reset-stream, and mismatched-stream intents before output
 bytes. Generated frame-header and increment-payload representation failures
-remain `codec.encode_value_unrepresentable` encode errors instead of
+remain `schema.encode_value_unrepresentable` encode errors instead of
 protocol diagnostics.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
@@ -717,7 +717,7 @@ id, and weight, and leaves outbound receive credit unchanged. It rejects
 stream id `0`, missing or non-open streams, already closed or reset streams,
 mismatched open streams, and self-dependency before accepted bytes are
 produced. Generated encode-helper representation failures for the frame
-stream id or dependency payload remain `codec.encode_value_unrepresentable`
+stream id or dependency payload remain `schema.encode_value_unrepresentable`
 encode errors instead of protocol diagnostics.
 The implemented slice also includes the narrow outbound HEADERS send-intent.
 Ordinary source accepts a nonzero currently open stream and an already-encoded
@@ -755,7 +755,7 @@ reset, mismatched, or server-created associated streams, promised stream id
 `0`, and representable client-initiated promised stream ids before accepted
 bytes are produced. Generated payload representation failures, such
 as out-of-range promised stream ids, remain
-`codec.encode_value_unrepresentable` encode errors instead of HTTP/2
+`schema.encode_value_unrepresentable` encode errors instead of HTTP/2
 protocol diagnostics.
 The implemented slice also includes the outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id and error code through

@@ -2614,7 +2614,7 @@ fn result_value_parser_exposes_runtime_diagnostic_shape() {
 #[test]
 fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
     let parsed = parse_result_value(
-        "RuntimeDiagnostic(codec.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))",
+        "RuntimeDiagnostic(schema.encode_value_unrepresentable, encode value is unrepresentable, RuntimeValueDiagnostic(Cons(RuntimeDiagnosticFieldPathSegment(schema, RuntimeValuePacket), Cons(RuntimeDiagnosticFieldPathSegment(field, value), Nil)), value must be between 0 and 255))",
     )
     .expect("runtime value diagnostic should parse");
 

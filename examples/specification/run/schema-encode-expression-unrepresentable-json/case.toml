@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.id"
-equals = "codec.encode_value_unrepresentable"
+equals = "schema.encode_value_unrepresentable"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.field_path"
@@ -36,4 +36,4 @@ equals = "value must be between 0 and 7"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "EncodeError(codec.encode_value_unrepresentable, SubByteWrite.control, value must be between 0 and 7)"
+equals = "EncodeError(schema.encode_value_unrepresentable, SubByteWrite.control, value must be between 0 and 7)"

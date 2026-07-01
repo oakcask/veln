@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "codec.encode_value_unrepresentable\nCountedViews.items.1\nbyte view count 3 does not match length expression `left_length + right_length` value 4\n"
+equals = "schema.encode_value_unrepresentable\nCountedViews.items.1\nbyte view count 3 does not match length expression `left_length + right_length` value 4\n"
 
 [[json_assert]]
 path = "error"

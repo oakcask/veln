@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "21\n85\n106\n7\n21\n85\n106\ncodec.encode_value_unrepresentable\nSevenByteSplitReservedHeader.mode\nvalue must be between 0 and 127\n"
+equals = "21\n85\n106\n7\n21\n85\n106\nschema.encode_value_unrepresentable\nSevenByteSplitReservedHeader.mode\nvalue must be between 0 and 127\n"
 
 [[json_assert]]
 path = "error"

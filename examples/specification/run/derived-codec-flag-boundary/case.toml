@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n40\n4660\n3\nneed_more\nneed_bytes\n3\n0\nencoded\noutput_chunk_list derived-codec-flag count 1\noutput_chunk derived-codec-flag index 0 hex \"283412\" count 3\ninvalid\ncodec.encode_value_unrepresentable\nFlagControlPacket.window\nvalue must be between 0 and 65535\n"
+equals = "decoded\n40\n4660\n3\nneed_more\nneed_bytes\n3\n0\nencoded\noutput_chunk_list derived-codec-flag count 1\noutput_chunk derived-codec-flag index 0 hex \"283412\" count 3\ninvalid\nschema.encode_value_unrepresentable\nFlagControlPacket.window\nvalue must be between 0 and 65535\n"
 
 [[json_assert]]
 path = "error"

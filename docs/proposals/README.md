@@ -332,7 +332,7 @@ compare it with `../specification/` before changing behavior.
   peer-limit failures, including post-GOAWAY stream rejection, fixed
   payload-length, invalid DATA padding, SETTINGS ACK state, preface,
   continuation, and invalid frame-kind fixtures, and
-  generated
+  schema-owned generated
   binary schema encode value-representation failures, generated `EncodeError`
   command-facing projection for encode value, dispatch unknown tag, dispatch
   length mismatch, and dispatch mismatch failures, command-facing projection

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "42\noutput_chunk_list wide-suffix-eight count 1\noutput_chunk wide-suffix-eight index 0 hex \"5415555555555555\" count 8\ndecoded\n42\n8\nencoded\noutput_chunk_list wide-suffix-eight-derived count 1\noutput_chunk wide-suffix-eight-derived index 0 hex \"5415555555555555\" count 8\ninvalid\ncodec.encode_value_unrepresentable\nEightByteWideSuffixHeader.value\nvalue must be between 0 and 127\n"
+equals = "42\noutput_chunk_list wide-suffix-eight count 1\noutput_chunk wide-suffix-eight index 0 hex \"5415555555555555\" count 8\ndecoded\n42\n8\nencoded\noutput_chunk_list wide-suffix-eight-derived count 1\noutput_chunk wide-suffix-eight-derived index 0 hex \"5415555555555555\" count 8\ninvalid\nschema.encode_value_unrepresentable\nEightByteWideSuffixHeader.value\nvalue must be between 0 and 127\n"
 
 [[json_assert]]
 path = "error"

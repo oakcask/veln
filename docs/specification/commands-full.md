@@ -267,7 +267,7 @@ human mode uses the same focused encode diagnostic as the corresponding
 generated encode or `EncodeStep::Invalid(EncodeError(...))` value and keeps the
 rendered `EncodeError` value in related notes.
 When generated length-bounded `ByteView` schema encode returns
-`codec.encode_value_unrepresentable` for a count mismatch, human mode reports
+`schema.encode_value_unrepresentable` for a count mismatch, human mode reports
 the failed encode fact and puts the field path, mismatch reason, expected byte
 count, actual `ByteView` count, byte offset, bounded nearby byte preview, and
 the source-visible `EncodeError` value in related notes.

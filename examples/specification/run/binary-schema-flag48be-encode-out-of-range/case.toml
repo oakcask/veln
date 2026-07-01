@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "codec.encode_value_unrepresentable\nFlagPacket.flags\nvalue must be between 0 and 281474976710655\n"
+equals = "schema.encode_value_unrepresentable\nFlagPacket.flags\nvalue must be between 0 and 281474976710655\n"
 
 [[json_assert]]
 path = "error"

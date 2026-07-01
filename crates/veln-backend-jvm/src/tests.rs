@@ -90,7 +90,17 @@ public final class RuntimeByteHexHarness {
 const RUNTIME_RESULT_DIAGNOSTIC_TRACE_HARNESS: &str = r#"
 public final class RuntimeResultDiagnosticTraceHarness {
     public static void main(String[] args) {
-        Object encodeError = VelnRuntime.adt(
+        Object schemaEncodeError = VelnRuntime.adt(
+            "EncodeError::EncodeError",
+            new Object[] {
+                "schema.encode_value_unrepresentable",
+                "Packet.value",
+                "too large"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(schemaEncodeError));
+
+        Object codecEncodeError = VelnRuntime.adt(
             "EncodeError::EncodeError",
             new Object[] {
                 "codec.encode_value_unrepresentable",
@@ -98,7 +108,7 @@ public final class RuntimeResultDiagnosticTraceHarness {
                 "too large"
             }
         );
-        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(encodeError));
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(codecEncodeError));
 
         Object decodeError = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
@@ -1627,6 +1637,10 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     let trace = fs::read_to_string(&trace_path).expect("result trace should be written");
     let _ = fs::remove_dir_all(&root);
 
+    assert!(
+        trace.contains("\tvalue_diagnostic\tschema.encode_value_unrepresentable\t"),
+        "{trace}"
+    );
     assert!(
         trace.contains("\tvalue_diagnostic\tcodec.encode_value_unrepresentable\t"),
         "{trace}"

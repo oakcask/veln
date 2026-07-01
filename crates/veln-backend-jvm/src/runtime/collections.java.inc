@@ -3018,14 +3018,14 @@
                 long secondValue = asLong(schemaFieldEncodeValue(fields.get(second.name), second));
                 if (firstValue < 0L || firstValue > first.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + first.name,
                         "value must be between 0 and " + first.maxValue
                     ));
                 }
                 if (secondValue < 0L || secondValue > second.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + second.name,
                         "value must be between 0 and " + second.maxValue
                     ));
@@ -3059,7 +3059,7 @@
                             asLong(schemaFieldEncodeValue(fields.get(groupField.name), groupField));
                         if (fieldValue < 0L || fieldValue > groupField.maxValue) {
                             return err(encodeError(
-                                "codec.encode_value_unrepresentable",
+                                "schema.encode_value_unrepresentable",
                                 schema.name + "." + groupField.name,
                                 "value must be between 0 and " + groupField.maxValue
                             ));
@@ -3088,7 +3088,7 @@
                             asLong(schemaFieldEncodeValue(fields.get(groupField.name), groupField));
                         if (fieldValue < 0L || fieldValue > groupField.maxValue) {
                             return err(encodeError(
-                                "codec.encode_value_unrepresentable",
+                                "schema.encode_value_unrepresentable",
                                 schema.name + "." + groupField.name,
                                 "value must be between 0 and " + groupField.maxValue
                             ));
@@ -3111,14 +3111,14 @@
                 long secondValue = asLong(schemaFieldEncodeValue(fields.get(second.name), second));
                 if (firstValue < 0L || firstValue > field.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + field.name,
                         "value must be between 0 and " + field.maxValue
                     ));
                 }
                 if (secondValue < 0L || secondValue > second.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + second.name,
                         "value must be between 0 and " + second.maxValue
                     ));
@@ -3142,14 +3142,14 @@
                 long rightValue = asLong(schemaFieldEncodeValue(fields.get(right.name), right));
                 if (leftValue < 0L || leftValue > field.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + field.name,
                         "value must be between 0 and " + field.maxValue
                     ));
                 }
                 if (rightValue < 0L || rightValue > right.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + right.name,
                         "value must be between 0 and " + right.maxValue
                     ));
@@ -3179,7 +3179,7 @@
                     ));
                 if (visibleValue < 0L || visibleValue > reservedBytePrefixVisible.maxValue) {
                     return err(encodeError(
-                        "codec.encode_value_unrepresentable",
+                        "schema.encode_value_unrepresentable",
                         schema.name + "." + reservedBytePrefixVisible.name,
                         "value must be between 0 and " + reservedBytePrefixVisible.maxValue
                     ));
@@ -3231,7 +3231,7 @@
                         long visibleValue = asLong(fields.get(nextField.name));
                         if (visibleValue < 0L || visibleValue > nextField.maxValue) {
                             return err(encodeError(
-                                "codec.encode_value_unrepresentable",
+                                "schema.encode_value_unrepresentable",
                                 schema.name + "." + nextField.name,
                                 "value must be between 0 and " + nextField.maxValue
                             ));
@@ -3260,7 +3260,7 @@
                     long visibleValue = asLong(schemaFieldEncodeValue(fields.get(field.name), field));
                     if (visibleValue < 0L || visibleValue > field.maxValue) {
                         return err(encodeError(
-                            "codec.encode_value_unrepresentable",
+                            "schema.encode_value_unrepresentable",
                             schema.name + "." + field.name,
                             "value must be between 0 and " + field.maxValue
                         ));
@@ -3327,7 +3327,7 @@
             long fieldValue = asLong(schemaFieldEncodeValue(fields.get(field.name), field));
             if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
                 return err(encodeError(
-                    "codec.encode_value_unrepresentable",
+                    "schema.encode_value_unrepresentable",
                     schema.name + "." + field.name,
                     "fixed field expected value "
                         + field.fixedValue
@@ -8174,7 +8174,7 @@
         );
         if (isErr(expectedCountValue)) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 asString(resultValue(expectedCountValue))
             ));
@@ -8190,7 +8190,7 @@
         while (current.cons) {
             if (actualCount >= expectedCount) {
                 return err(encodeError(
-                    "codec.encode_value_unrepresentable",
+                    "schema.encode_value_unrepresentable",
                     schemaName + "." + field.name,
                     "list length exceeds "
                         + schemaCountDescription(field.repeat.countField)
@@ -8223,7 +8223,7 @@
         }
         if (actualCount != expectedCount) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 "list length "
                     + actualCount
@@ -8250,7 +8250,7 @@
         );
         if (isErr(lengthValue)) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 asString(resultValue(lengthValue))
             ));
@@ -8263,7 +8263,7 @@
         while (current.cons) {
             if (actualCount >= expectedCount) {
                 return err(encodeError(
-                    "codec.encode_value_unrepresentable",
+                    "schema.encode_value_unrepresentable",
                     schemaName + "." + field.name,
                     "list length exceeds "
                         + schemaCountDescription(field.repeat.countField)
@@ -8274,7 +8274,7 @@
             long actualLength = byteViewCountLong(current.head);
             if (actualLength != suppliedLength) {
                 Object error = encodeError(
-                    "codec.encode_value_unrepresentable",
+                    "schema.encode_value_unrepresentable",
                     schemaName + "." + field.name + "." + actualCount,
                     "byte view count " + actualLength + " does not match "
                         + schemaLengthDescription(field.repeat.byteViewLengthField)
@@ -8294,7 +8294,7 @@
         }
         if (actualCount != expectedCount) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 "list length "
                     + actualCount
@@ -8665,7 +8665,7 @@
         );
         if (isErr(lengthValue)) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 asString(resultValue(lengthValue))
             ));
@@ -8675,7 +8675,7 @@
         long actualLength = byteViewCountLong(view);
         if (actualLength != suppliedLength) {
             Object error = encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + field.name,
                 "byte view count " + actualLength + " does not match "
                     + schemaLengthDescription(field.lengthField)
@@ -8711,7 +8711,7 @@
         long unsigned = asLong(value);
         if (unsigned < 0 || unsigned > maxValue) {
             return err(encodeError(
-                "codec.encode_value_unrepresentable",
+                "schema.encode_value_unrepresentable",
                 schemaName + "." + fieldName,
                 "value must be between 0 and " + schemaUnsignedMaxValueText(width, maxValue)
             ));

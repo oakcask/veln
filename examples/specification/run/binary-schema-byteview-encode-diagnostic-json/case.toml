@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.id"
-equals = "codec.encode_value_unrepresentable"
+equals = "schema.encode_value_unrepresentable"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.field_path"
