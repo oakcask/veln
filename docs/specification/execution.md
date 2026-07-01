@@ -55,7 +55,8 @@ enough.
   `Dict<String, Bool>`, `Dict<String, Float>`, or `Dict<String, String>`
   fields, nested record-shaped fields that use scalar, `List<scalar>`,
   `Option<scalar>`, or `Dict<String, scalar>` field types, and `Option<T>`
-  fields whose payload is one of those scalar or nested record shapes.
+  fields whose payload is a scalar, `List<scalar>`, or one of those nested
+  record shapes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

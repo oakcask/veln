@@ -1,0 +1,89 @@
+# Format-neutral schema decode helpers accept top-level Option<List<scalar>> fields.
+use stdio
+
+schema OptionListPacket
+	items: Option<List<Int>>
+	flags: Option<List<Bool>>
+	ratios: Option<List<Float>>
+	names: Option<List<String>>
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn bool_list_score(flags: List<Bool>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			true => 1 + bool_list_score(tail)
+			false => bool_list_score(tail)
+		end
+	end
+end
+
+fn decoded_item_sum(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match packet.items
+			Some(items) => list_sum(items)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_flag_count(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match packet.flags
+			Some(flags) => bool_list_score(flags)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_ratio_status(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.ratios
+			Some(ratios) => match ratios
+				Cons(head, _) => match head > 1.0
+					true => "ratio-high"
+					false => "ratio-low"
+				end
+				Nil => "missing"
+			end
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_first_name(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.names
+			Some(names) => match names
+				Cons(head, _) => head
+				Nil => "missing"
+			end
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let decoded: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String> = byte_decode_option_list_packet({items: Some(list_cons(2, list_cons(3, list_cons(5, list_nil())))), flags: Some(list_cons(true, list_cons(false, list_cons(true, list_nil())))), ratios: Some(list_cons(1.25, list_nil())), names: Some(list_cons("alpha", list_nil()))})
+	let decoded_empty: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, ratios: Option<List<Float>>, names: Option<List<String>>}, String> = byte_decode_option_list_packet({items: None, flags: None, ratios: None, names: None})
+	stdio::println(int_to_string(decoded_item_sum(decoded)))
+	stdio::println(int_to_string(decoded_flag_count(decoded)))
+	stdio::println(decoded_ratio_status(decoded))
+	stdio::println(decoded_first_name(decoded))
+	stdio::println(int_to_string(decoded_item_sum(decoded_empty)))
+	stdio::println(int_to_string(decoded_flag_count(decoded_empty)))
+	stdio::println(decoded_ratio_status(decoded_empty))
+	stdio::println(decoded_first_name(decoded_empty))
+	Ok(())
+end
