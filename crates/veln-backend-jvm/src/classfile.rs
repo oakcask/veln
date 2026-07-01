@@ -838,6 +838,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaDecodeStep(name) => {
                 self.emit_schema_decode_step_call(code, name, args);
             }
+            IrCallTarget::SchemaNeutralDecode(name) => {
+                self.emit_schema_neutral_decode_call(code, name, args);
+            }
             IrCallTarget::SchemaEncode(name) => {
                 self.emit_schema_encode_call(code, name, args);
             }
@@ -1006,6 +1009,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "byteEncodeDeclaredBinarySchema",
             &object_method_descriptor(23),
         );
+    }
+
+    fn emit_schema_neutral_decode_call(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        args: &[IrExpr],
+    ) {
+        self.emit_schema_validate_call(code, name, args);
     }
 
     fn emit_schema_encode_step_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {

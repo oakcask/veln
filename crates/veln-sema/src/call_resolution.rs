@@ -13,8 +13,9 @@ use crate::prelude::{
 use crate::types::{
     CallOrigin, CodecCallBoundary, CodecCallSignature, FunctionSignature,
     SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
-    SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX, SCHEMA_VALIDATE_TARGET_PREFIX,
-    Type, TypeEnvironment, core_type, is_assignable,
+    SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
+    SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX, SCHEMA_VALIDATE_TARGET_PREFIX, Type, TypeEnvironment,
+    core_type, is_assignable,
 };
 
 pub(crate) struct TypeBinding<'a> {
@@ -578,6 +579,9 @@ fn core_target_from_signature_name(target_name: &str) -> CoreCallTarget {
     }
     if let Some(schema_name) = target_name.strip_prefix(SCHEMA_DECODE_STEP_TARGET_PREFIX) {
         return CoreCallTarget::SchemaDecodeStep(schema_name.to_string());
+    }
+    if let Some(schema_name) = target_name.strip_prefix(SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX) {
+        return CoreCallTarget::SchemaNeutralDecode(schema_name.to_string());
     }
     if let Some(schema_name) = target_name.strip_prefix(SCHEMA_ENCODE_TARGET_PREFIX) {
         return CoreCallTarget::SchemaEncode(schema_name.to_string());

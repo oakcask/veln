@@ -1,0 +1,23 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `items` cannot expose a generated decode helper", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `items` cannot expose a generated decode helper because `List<Int>` is not a supported scalar or record-shaped field type"

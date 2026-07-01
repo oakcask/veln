@@ -178,6 +178,7 @@ pub enum IrCallTarget {
     CodecDecode { function: String, codec: String },
     SchemaDecode(String),
     SchemaDecodeStep(String),
+    SchemaNeutralDecode(String),
     SchemaEncode(String),
     SchemaEncodeStep(String),
     SchemaValidate(String),

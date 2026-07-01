@@ -45,6 +45,11 @@ enough.
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public
   source surface for applying schemas.
+- Format-neutral generated decode helpers for schemas without a `format`
+  clause accept a schema-local visible record shape and return
+  `Result<T, String>`. The helper returns the supplied record on success and
+  is limited to scalar fields plus nested record-shaped fields that use those
+  scalar field types.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

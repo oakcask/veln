@@ -76,8 +76,9 @@ compare it with `../specification/` before changing behavior.
   validation, visible flag bitset decode bindings, bounded repeat generated
   helper bindings, generated encode-time field-local validation for eligible
   schema helpers, derived encode boundary support, format-neutral schema bodies
-  without a `format` clause, and `format binary` gating for binary-only field
-  vocabulary. Schema-level `map to` clauses are removed as recorded in
+  without a `format` clause, generated format-neutral decode helpers for
+  scalar and nested record-shaped fields, and `format binary` gating for
+  binary-only field vocabulary. Schema-level `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
