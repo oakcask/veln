@@ -384,6 +384,8 @@ compare it with `../specification/` before changing behavior.
   [Codec Sequence Mismatch Diagnostics](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
   The completed codec-owned payload length mismatch slice is archived under
   [Codec Payload Length Mismatch Diagnostics](../reference/implemented-proposals/codec-payload-length-mismatch-diagnostics.md).
+  The completed codec-owned integer out-of-range slice is archived under
+  [Codec Integer Out-Of-Range Diagnostics](../reference/implemented-proposals/codec-integer-out-of-range-diagnostics.md).
   The completed codec-owned version mismatch slice is archived under
   [Codec Version Mismatch Diagnostics](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
   The completed codec-owned tag mismatch slice is archived under
