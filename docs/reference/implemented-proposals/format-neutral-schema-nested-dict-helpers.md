@@ -17,9 +17,10 @@ boundary over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
 The slice does not add arbitrary nested dictionary eligibility. Nested
-dictionaries, `Option<Dict<...>>`, dictionaries inside lists, lists of
-dictionaries, and non-string dictionary keys remain unsupported helper fields
-and keep the `schema.format_neutral_decode_helper` diagnostic family.
+dictionaries, dictionaries inside lists, lists of dictionaries, and non-string
+dictionary keys remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family. Later work added
+`Option<Dict<String, scalar>>` fields.
 
 ## Evidence
 
@@ -29,7 +30,7 @@ and keep the `schema.format_neutral_decode_helper` diagnostic family.
   fields.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported adjacent dictionary shapes, including
-  `Option<Dict<String, Int>>`, `Dict<String, Dict<String, Int>>`, and nested
+  non-string dictionary keys, `Dict<String, Dict<String, Int>>`, and nested
   record fields containing `Dict<String, Dict<String, Int>>`.
 
 ## Remaining Work

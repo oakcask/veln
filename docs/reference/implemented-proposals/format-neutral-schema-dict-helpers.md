@@ -19,10 +19,11 @@ visible record shape and returns
 
 The slice did not add general dictionary eligibility beyond top-level scalar
 dictionary fields. Later work extended the same string-keyed scalar dictionary
-shape to fields inside nested record-shaped fields. Non-`String` keys, values
-outside `Int`, `Bool`, `Float`, or `String`, nested dictionaries, and
-`Option<Dict<...>>` remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family.
+shape to fields inside nested record-shaped fields and inside
+`Option<Dict<String, scalar>>` fields. Non-`String` keys, values outside
+`Int`, `Bool`, `Float`, or `String`, and nested dictionaries remain
+unsupported helper fields and keep the `schema.format_neutral_decode_helper`
+diagnostic family.
 
 ## Evidence
 
@@ -31,8 +32,7 @@ outside `Int`, `Bool`, `Float`, or `String`, nested dictionaries, and
   `Dict<String, Float>`, and `Dict<String, String>` fields beside the
   existing scalar, list, nested record-shaped, and supported `Option` fields.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  keeps diagnostics for unsupported dictionary key, value, nested, and
-  option-contained shapes.
+  keeps diagnostics for unsupported dictionary key, value, and nested shapes.
 
 ## Remaining Work
 

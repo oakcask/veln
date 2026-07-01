@@ -3091,6 +3091,9 @@ fn format_neutral_schema_option_payload_type_is_supported(ty: &Type) -> bool {
         Type::Named { name, args } if name == "List" && args.len() == 1 => {
             format_neutral_schema_list_element_type_is_supported(&args[0])
         }
+        Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
+            format_neutral_schema_top_level_dict_type_is_supported(&args[0], &args[1])
+        }
         Type::Named { .. } => format_neutral_schema_scalar_type(ty),
         Type::Record(fields) => fields
             .iter()
@@ -3106,6 +3109,12 @@ fn format_neutral_schema_record_field_type_is_supported(ty: &Type) -> bool {
         }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => {
             format_neutral_schema_scalar_type(&args[0])
+                || matches!(
+                    &args[0],
+                    Type::Named { name, args } if name == "Dict"
+                        && args.len() == 2
+                        && format_neutral_schema_top_level_dict_type_is_supported(&args[0], &args[1])
+                )
         }
         Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
             format_neutral_schema_top_level_dict_type_is_supported(&args[0], &args[1])

@@ -17,10 +17,10 @@ record-shaped values made from scalar or `Option<scalar>` fields, or
 The helper remains a validation/pass-through boundary over the schema-local
 visible record shape and returns `Result<TRecord, String>`. This slice did not
 add collection payloads. Later work added top-level `Option<List<scalar>>`
-fields; nested record fields such as `Option<List<Int>>` and
-`Option<Dict<String, Int>>` keep the `schema.format_neutral_decode_helper`
-diagnostic family at the containing field declaration with a related
-generated-helper boundary note.
+fields and `Option<Dict<String, scalar>>` fields. Nested record fields such as
+`Option<List<Int>>` keep the `schema.format_neutral_decode_helper` diagnostic
+family at the containing field declaration with a related generated-helper
+boundary note.
 
 ## Evidence
 
@@ -37,6 +37,8 @@ The broader schema declaration proposal remains open for binary schema fields
 outside the implemented helper slices, format-neutral fields outside scalar,
 top-level scalar list, top-level `Dict<String, Int>`, `Dict<String, Bool>`,
 `Dict<String, Float>`, or `Dict<String, String>`, supported `Option`,
-top-level `Option<List<scalar>>`, and nested record-shaped payloads with
-scalar or `Option<scalar>` fields, and later schema composition surfaces.
-Later completed records describe additional format-neutral helper slices.
+top-level `Option<List<scalar>>`, top-level
+`Option<Dict<String, scalar>>`, and nested record-shaped payloads with scalar,
+`Option<scalar>`, or `Option<Dict<String, scalar>>` fields, and later schema
+composition surfaces. Later completed records describe additional
+format-neutral helper slices.
