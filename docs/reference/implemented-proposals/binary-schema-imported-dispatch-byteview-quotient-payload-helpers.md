@@ -50,6 +50,9 @@ the imported nested schema field path and unsupported `ByteView` layout fact.
 - `../../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-quotient-division-by-zero-json/`
   checks that imported nested quotient division by zero reports
   `schema.length_division_by_zero` with the imported nested schema field path.
+- `../../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-quotient-truncated-json/`
+  checks that imported nested quotient payload truncation reports
+  `schema.length_out_of_bounds` with the imported nested schema field path.
 - `../../../examples/specification/run/binary-schema-imported-dispatch-nested-byteview-quotient-encode-length-mismatch/`
   checks that imported nested quotient encode rejects a byte-view count
   mismatch with the imported nested schema field path.
