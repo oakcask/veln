@@ -9320,8 +9320,10 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority_half_closed_local_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000010102")?), step_state(priority_half_closed_local))?
 	print_step("priority-half-closed-local-data", priority_half_closed_local_data)
 	print_receive_windows("priority-half-closed-local-data", step_state(priority_half_closed_local_data))
+	print_half_closed_local_stream("priority-half-closed-local-data", step_state(priority_half_closed_local_data))
 	let priority_idle: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority_idle: () = print_priority_frame("priority-idle", priority_idle)?
+	print_priority_state("priority-idle", step_state(priority_idle))
 	print_peer_streams("priority-idle", step_state(priority_idle))
 	let priority_closed_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
 	let priority_closed_state: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(priority_closed_open))?
