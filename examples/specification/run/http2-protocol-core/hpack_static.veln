@@ -212,28 +212,10 @@ fn hpack_static_literal_never_indexed_value_index(block: ByteChunk) -> Int
 	end
 end
 
-fn hpack_static_supported_literal_name(name_index: Int) -> Option<String>
-	match name_index
-		1 => Some(":authority")
-		4 => Some(":path")
-		8 => Some(":status")
-		54 => Some("server")
-		28 => Some("content-length")
-		31 => Some("content-type")
-		58 => Some("user-agent")
-		_ => None
-	end
-end
-
-fn hpack_static_supported_literal_indexing_name(name_index: Int) -> Option<String>
-	match name_index
-		1 => Some(":authority")
-		4 => Some(":path")
-		8 => Some(":status")
-		54 => Some("server")
-		31 => Some("content-type")
-		58 => Some("user-agent")
-		_ => None
+fn hpack_static_table_literal_name(name_index: Int) -> Option<String>
+	match hpack_static_table_header(name_index)
+		Some(HpackHeader(name, _)) => Some(name)
+		None => None
 	end
 end
 
@@ -285,7 +267,7 @@ fn hpack_static_literal_content_length_request_header(value: String, wire_size: 
 end
 
 fn hpack_static_decode_literal_indexing_form(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
-	match hpack_static_supported_literal_indexing_name(name_index)
+	match hpack_static_table_literal_name(name_index)
 		Some(name) => match hpack_static_literal_raw_value(block, count, value_index, offset)
 			Ok(value) => Ok(hpack_static_literal_static_name_header(name, value, marker, count))
 			Err(failure) => Err(failure)
@@ -303,7 +285,7 @@ fn hpack_static_decode_literal_never_indexed_block(block: ByteChunk, count: Int,
 end
 
 fn hpack_static_decode_literal_without_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
-	match hpack_static_supported_literal_name(hpack_static_literal_without_indexing_name_index(block))
+	match hpack_static_table_literal_name(hpack_static_literal_without_indexing_name_index(block))
 		Some(name) => match hpack_static_literal_raw_value(block, count, hpack_static_literal_without_indexing_value_index(block), offset)
 			Ok(value) => Ok(hpack_static_literal_without_indexing_header(name, value, count))
 			Err(failure) => Err(failure)

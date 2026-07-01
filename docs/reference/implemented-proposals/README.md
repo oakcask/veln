@@ -264,7 +264,7 @@ behavior.
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 - HTTP/2 HPACK static indexed fixture:
   [http2-hpack-authority-static-indexed-fixture.md](http2-hpack-authority-static-indexed-fixture.md).
-- HTTP/2 HPACK static table decode:
+- HTTP/2 HPACK static table decode and static-name literals:
   [http2-hpack-static-table-decode.md](http2-hpack-static-table-decode.md).
 - HTTP/2 HPACK no-Huffman raw literal fixture:
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).

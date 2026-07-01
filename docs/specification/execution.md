@@ -93,7 +93,7 @@ enough.
 - The source-visible HPACK static decoder accepts static indexed fields,
   bounded static-name literal-without-indexing fields, bounded static-name
   literal-with-indexing fields, and bounded static-name literal-never-indexed
-  fields for the checked static names under
+  fields for names resolved through the HPACK static table metadata under
   `examples/specification/run/hpack-static-codec-boundary/`. Stateful HTTP/2
   request decoding also accepts `content-length` through the static-name
   literal forms checked by `examples/specification/run/http2-protocol-core/`

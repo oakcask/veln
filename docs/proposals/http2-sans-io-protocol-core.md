@@ -350,11 +350,10 @@ Static-only header blocks with unsupported static-table indexes now project
 `hpack.static.unsupported_index`, including the standalone source-visible
 boundary case for static table index `62`. The source-visible decoder also
 accepts bounded literal-without-indexing, literal-with-indexing, and
-literal-never-indexed static-name slices for `:authority`, `:path`, `:status`,
-`server`, `content-type`, and `user-agent` when the value is a raw
-single-byte-length visible-ASCII string. Unsupported literal names,
-Huffman-marked strings, malformed lengths, dynamic-table behavior, and
-table-size-update behavior remain fixture-owned.
+literal-never-indexed static-name slices for names resolved through the HPACK
+static table metadata when the value is a raw single-byte-length
+visible-ASCII string. Huffman-marked strings, malformed lengths,
+dynamic-table behavior, and table-size-update behavior remain fixture-owned.
 Those literal fixtures share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table across the full byte symbol range rather than
@@ -1011,13 +1010,13 @@ header-list validation diagnostic. Current behavior is specified by
 `../specification/run-json.md` and checked by
 `../../examples/specification/run/http2-protocol-core/`.
 The standalone source-visible HPACK static boundary also accepts bounded
-literal-with-indexing and literal-never-indexed fields for `:authority`,
-`:path`, `:status`, `server`, `content-length`, `content-type`, and
-`user-agent` when their values are raw single-byte-length visible ASCII
-strings. Unsupported names, Huffman-marked values, and malformed raw lengths
-stay on the unsupported static header-block fallback path. Stateful HTTP/2
-header-block decoding keeps literal-with-indexing on the fixture decoder when
-dynamic-table state must be updated. Current behavior is checked by
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+fields for names resolved through the HPACK static table metadata when their
+values are raw single-byte-length visible ASCII strings. Huffman-marked
+values and malformed raw lengths stay on the unsupported static header-block
+fallback path. Stateful HTTP/2 header-block decoding keeps
+literal-with-indexing on the fixture decoder when dynamic-table state must be
+updated. Current behavior is checked by
 `../../examples/specification/run/hpack-static-codec-boundary/` and archived
 under
 `../reference/implemented-proposals/http2-hpack-static-table-decode.md`.
