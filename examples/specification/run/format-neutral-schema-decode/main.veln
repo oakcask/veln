@@ -29,6 +29,17 @@ schema NestedDictPacket
 	metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}
 end
 
+schema OptionDictPacket
+	scores: Option<Dict<String, Int>>
+	labels: Option<Dict<String, String>>
+	states: Option<Dict<String, Bool>>
+	weights: Option<Dict<String, Float>>
+end
+
+schema NestedOptionDictPacket
+	metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}
+end
+
 fn list_sum(items: List<Int>) -> Int
 	match items
 		Nil => 0
@@ -295,11 +306,131 @@ fn decoded_nested_weight(result: Result<{metadata: {scores: Dict<String, Int>, l
 	end
 end
 
+fn decoded_optional_dict_score(result: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String>) -> Int
+	match result
+		Ok(packet) => match packet.scores
+			Some(scores) => match dict_get(scores, "math")
+				Some(score) => score
+				None => -1
+			end
+			None => -10
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_optional_dict_label(result: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.labels
+			Some(labels) => match dict_get(labels, "owner")
+				Some(label) => label
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_optional_dict_state(result: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.states
+			Some(states) => match dict_get(states, "enabled")
+				Some(enabled) => match enabled
+					true => "option-enabled"
+					false => "option-disabled"
+				end
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_optional_dict_weight(result: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.weights
+			Some(weights) => match dict_get(weights, "ratio")
+				Some(weight) => match weight > 1.0
+					true => "option-weight-high"
+					false => "option-weight-low"
+				end
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_optional_dict_score(result: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String>) -> Int
+	match result
+		Ok(packet) => match packet.metadata.scores
+			Some(scores) => match dict_get(scores, "math")
+				Some(score) => score
+				None => -1
+			end
+			None => -10
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_nested_optional_dict_label(result: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.labels
+			Some(labels) => match dict_get(labels, "owner")
+				Some(label) => label
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_optional_dict_state(result: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.states
+			Some(states) => match dict_get(states, "enabled")
+				Some(enabled) => match enabled
+					true => "nested-option-enabled"
+					false => "nested-option-disabled"
+				end
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_optional_dict_weight(result: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.weights
+			Some(weights) => match dict_get(weights, "ratio")
+				Some(weight) => match weight > 1.0
+					true => "nested-option-weight-high"
+					false => "nested-option-weight-low"
+				end
+				None => "missing-key"
+			end
+			None => "missing-option"
+		end
+		Err(message) => message
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let decoded: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_cons(0.75, list_nil())), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, labels: {"owner": "core", "lane": "stable"}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.5}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
 	let nested: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String> = byte_decode_nested_option_packet({metadata: {label: Some("inner"), retries: Some(3), active: Some(true), ratio: Some(1.25)}})
 	let nested_lists: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String> = byte_decode_nested_list_packet({metadata: {items: list_cons(4, list_cons(6, list_nil())), flags: list_cons(true, list_cons(true, list_nil())), ratios: list_cons(1.5, list_nil()), names: list_cons("nested-alpha", list_nil())}})
 	let nested_dicts: Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String> = byte_decode_nested_dict_packet({metadata: {scores: {"math": 17, "language": 19}, labels: {"owner": "nested-core", "lane": "stable"}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.75, "bonus": 0.25}}})
+	let option_dicts: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String> = byte_decode_option_dict_packet({scores: Some({"math": 23, "language": 29}), labels: Some({"owner": "option-core", "lane": "stable"}), states: Some({"enabled": true, "paused": false}), weights: Some({"ratio": 2.0, "bonus": 0.25})})
+	let empty_option_dicts: Result<{scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}, String> = byte_decode_option_dict_packet({scores: None, labels: None, states: None, weights: None})
+	let nested_option_dicts: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String> = byte_decode_nested_option_dict_packet({metadata: {scores: Some({"math": 31, "language": 37}), labels: Some({"owner": "nested-option-core", "lane": "stable"}), states: Some({"enabled": true, "paused": false}), weights: Some({"ratio": 2.5, "bonus": 0.5})}})
+	let empty_nested_option_dicts: Result<{metadata: {scores: Option<Dict<String, Int>>, labels: Option<Dict<String, String>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>}}, String> = byte_decode_nested_option_dict_packet({metadata: {scores: None, labels: None, states: None, weights: None}})
 	stdio::println(int_to_string(decoded_code(decoded)))
 	stdio::println(decoded_label(decoded))
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
@@ -324,5 +455,21 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(decoded_nested_tag(nested_dicts))
 	stdio::println(decoded_nested_state(nested_dicts))
 	stdio::println(decoded_nested_weight(nested_dicts))
+	stdio::println(int_to_string(decoded_optional_dict_score(option_dicts)))
+	stdio::println(decoded_optional_dict_label(option_dicts))
+	stdio::println(decoded_optional_dict_state(option_dicts))
+	stdio::println(decoded_optional_dict_weight(option_dicts))
+	stdio::println(int_to_string(decoded_optional_dict_score(empty_option_dicts)))
+	stdio::println(decoded_optional_dict_label(empty_option_dicts))
+	stdio::println(decoded_optional_dict_state(empty_option_dicts))
+	stdio::println(decoded_optional_dict_weight(empty_option_dicts))
+	stdio::println(int_to_string(decoded_nested_optional_dict_score(nested_option_dicts)))
+	stdio::println(decoded_nested_optional_dict_label(nested_option_dicts))
+	stdio::println(decoded_nested_optional_dict_state(nested_option_dicts))
+	stdio::println(decoded_nested_optional_dict_weight(nested_option_dicts))
+	stdio::println(int_to_string(decoded_nested_optional_dict_score(empty_nested_option_dicts)))
+	stdio::println(decoded_nested_optional_dict_label(empty_nested_option_dicts))
+	stdio::println(decoded_nested_optional_dict_state(empty_nested_option_dicts))
+	stdio::println(decoded_nested_optional_dict_weight(empty_nested_option_dicts))
 	Ok(())
 end

@@ -71,8 +71,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `String`, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, a top-level string-keyed dictionary with scalar values, a
   nested record shape made from scalar, `List<scalar>`, `Option<scalar>`, or
-  `Dict<String, scalar>` field types, or `Option<T>` where `T` is one of
-  those scalar or nested record shapes, with declaration diagnostics for
+  `Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types, or
+  `Option<T>` where `T` is one of those scalar, string-keyed scalar
+  dictionary, or nested record shapes, with declaration diagnostics for
   unsupported helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
@@ -105,6 +106,10 @@ The completed format-neutral nested record dictionary helper slice is archived
 under
 [Format-Neutral Schema Nested Dict Helpers](../reference/implemented-proposals/format-neutral-schema-nested-dict-helpers.md).
 
+The completed format-neutral `Option<Dict<String, scalar>>` helper slice is
+archived under
+[Format-Neutral Schema Option Dict Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -117,8 +122,8 @@ This proposal remains open for:
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral fields outside the implemented scalar,
   top-level scalar list, top-level string-keyed scalar dictionary, supported
-  `Option`, top-level `Option<List<scalar>>`, and nested record-shaped helper
-  slices
+  `Option`, top-level `Option<List<scalar>>`, top-level
+  `Option<Dict<String, scalar>>`, and nested record-shaped helper slices
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -373,10 +378,11 @@ Implemented:
   `Bool`, `Float`, `String`, top-level `List<Int>`, `List<Bool>`,
   `List<Float>`, or `List<String>`, top-level string-keyed scalar
   dictionaries, nested record shapes made from scalar, `List<scalar>`,
-  `Option<scalar>`, or `Dict<String, scalar>` field types, or `Option<T>`
-  where `T` is one of those scalar or nested record shapes, expose generated
-  `byte_decode_<schema>` helper bindings that accept and return the
-  schema-local visible record through
+  `Option<scalar>`, `Option<Dict<String, scalar>>`, or
+  `Dict<String, scalar>` field types, or `Option<T>` where `T` is one of
+  those scalar, string-keyed scalar dictionary, or nested record shapes,
+  expose generated `byte_decode_<schema>` helper bindings that accept and
+  return the schema-local visible record through
   `Result<T, String>`.
   Unsupported format-neutral helper fields report
   `schema.format_neutral_decode_helper` at the field declaration with a
@@ -394,6 +400,7 @@ Remaining:
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
   dispatch, and format-neutral scalar, top-level scalar list,
   top-level string-keyed scalar dictionary, supported `Option`, top-level
-  `Option<List<scalar>>`, or nested record-shaped slices.
+  `Option<List<scalar>>`, top-level `Option<Dict<String, scalar>>`, or
+  nested record-shaped slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

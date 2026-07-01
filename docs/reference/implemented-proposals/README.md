@@ -212,6 +212,8 @@ behavior.
   [format-neutral-schema-option-helpers.md](format-neutral-schema-option-helpers.md).
 - Format-neutral schema top-level option-list helpers:
   [format-neutral-schema-option-list-helpers.md](format-neutral-schema-option-list-helpers.md).
+- Format-neutral schema option dictionary helpers:
+  [format-neutral-schema-option-dict-helpers.md](format-neutral-schema-option-dict-helpers.md).
 - Format-neutral schema top-level list helpers:
   [format-neutral-schema-list-helpers.md](format-neutral-schema-list-helpers.md).
 - Format-neutral schema nested record list helpers:

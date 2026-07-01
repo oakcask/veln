@@ -7,8 +7,8 @@ schema BadPacket
 	nested_optional_items: {items: Option<List<Int>>}
 	numeric_scores: Dict<Int, Int>
 	nested_scores: Dict<String, Dict<String, Int>>
-	optional_scores: Option<Dict<String, Int>>
-	nested_optional_scores: {scores: Option<Dict<String, Int>>}
+	optional_scores: Option<Dict<Int, Int>>
+	nested_optional_scores: {scores: Option<Dict<Int, Int>>}
 	record_nested_scores: {scores: Dict<String, Dict<String, Int>>}
 	vec_items: Vec<Int>
 end
