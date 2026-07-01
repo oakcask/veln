@@ -222,6 +222,8 @@ behavior.
   [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
 - Codec sequence mismatch diagnostics:
   [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
+- Codec payload length mismatch diagnostics:
+  [codec-payload-length-mismatch-diagnostics.md](codec-payload-length-mismatch-diagnostics.md).
 - Codec version mismatch diagnostics:
   [codec-version-mismatch-diagnostics.md](codec-version-mismatch-diagnostics.md).
 - Codec tag mismatch diagnostics:

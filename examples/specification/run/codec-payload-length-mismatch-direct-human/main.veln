@@ -1,0 +1,16 @@
+# Direct payload length mismatch decode failures render focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	payload: ByteView(length)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.payload_length_mismatch", offset(21), "ManualPacketWire.payload", "expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header"))
+end

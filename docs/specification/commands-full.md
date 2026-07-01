@@ -299,6 +299,14 @@ related notes when the source-visible reason uses
 `expected_length=<n>; actual_length=<n>; reason=<text>`. `run --json` keeps
 the same length facts in `details.byte_diagnostic.expected_length`,
 `actual_length`, and `reason`; plain reason strings keep only `reason`.
+For `codec.payload_length_mismatch`, human mode reports
+`payload length mismatch at byte offset ...` and puts field path, expected
+payload length, actual payload length, failure reason, and the source-visible
+`DecodeError` value in related notes when the source-visible reason uses
+`expected_payload_length=<n>; actual_payload_length=<n>; reason=<text>`.
+`run --json` keeps the same payload length facts in
+`details.byte_diagnostic.expected_payload_length`, `actual_payload_length`,
+and `reason`; plain reason strings keep only `reason`.
 When an entry returns `DecodeStep::NeedMore(readiness)`, human mode reports
 `codec.incomplete_input` at the closed-input byte boundary and puts readiness,
 requested count when present, and the source-visible `DecodeStep` value in

@@ -143,6 +143,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainLengthMismatch));
 
+        Object payloadLengthMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.payload_length_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(21) }),
+                "Packet.payload",
+                "expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(payloadLengthMismatch));
+
+        Object plainPayloadLengthMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.payload_length_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(22) }),
+                "Packet.payload",
+                "plain payload length mismatch"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPayloadLengthMismatch));
+
         Object sequenceMismatch = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
             new Object[] {
@@ -1701,6 +1723,34 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_length_line.contains("\texpected_length\t"));
     assert!(!plain_length_line.contains("\tactual_length\t"));
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.payload_length_mismatch\t21\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\texpected_payload_length\tnumber\t8"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tactual_payload_length\tnumber\t5"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t7061796c6f6164206c656e67746820646964206e6f74206d61746368206672616d6520686561646572"),
+        "{trace}"
+    );
+    let plain_payload_length_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.payload_length_mismatch\t22\t"))
+        .expect("plain payload length mismatch should be recorded");
+    assert!(
+        plain_payload_length_line.contains(
+            "\treason\tstring\t706c61696e207061796c6f6164206c656e677468206d69736d61746368"
+        ),
+        "{plain_payload_length_line}"
+    );
+    assert!(!plain_payload_length_line.contains("\texpected_payload_length\t"));
+    assert!(!plain_payload_length_line.contains("\tactual_payload_length\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.sequence_mismatch\t13\t"),
         "{trace}"

@@ -1745,6 +1745,8 @@
                 mergeChecksumMismatchReason(details, reason);
             } else if (id.equals("codec.length_mismatch")) {
                 mergeLengthMismatchReason(details, reason);
+            } else if (id.equals("codec.payload_length_mismatch")) {
+                mergePayloadLengthMismatchReason(details, reason);
             } else if (id.equals("codec.sequence_mismatch")) {
                 mergeSequenceMismatchReason(details, reason);
             } else if (id.equals("codec.version_mismatch")) {
@@ -1891,6 +1893,72 @@
         LengthMismatchReason(long expectedLength, long actualLength, String reason) {
             this.expectedLength = expectedLength;
             this.actualLength = actualLength;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergePayloadLengthMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        PayloadLengthMismatchReason parsed = parsePayloadLengthMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number(
+            "expected_payload_length",
+            parsed.expectedPayloadLength
+        ));
+        details.add(DiagnosticDetail.number("actual_payload_length", parsed.actualPayloadLength));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static PayloadLengthMismatchReason parsePayloadLengthMismatchReason(String reason) {
+        Long expectedPayloadLength = null;
+        Long actualPayloadLength = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_payload_length")) {
+                expectedPayloadLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("actual_payload_length")) {
+                actualPayloadLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedPayloadLength == null
+            || actualPayloadLength == null
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new PayloadLengthMismatchReason(
+            expectedPayloadLength.longValue(),
+            actualPayloadLength.longValue(),
+            failureReason
+        );
+    }
+
+    private static final class PayloadLengthMismatchReason {
+        final long expectedPayloadLength;
+        final long actualPayloadLength;
+        final String reason;
+
+        PayloadLengthMismatchReason(
+            long expectedPayloadLength,
+            long actualPayloadLength,
+            String reason
+        ) {
+            this.expectedPayloadLength = expectedPayloadLength;
+            this.actualPayloadLength = actualPayloadLength;
             this.reason = reason;
         }
     }
