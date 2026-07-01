@@ -142,12 +142,16 @@ enough.
   `PUSH_PROMISE` framing in
   `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
-  send-intents on open associated streams above a received or locally sent
-  GOAWAY last-stream boundary before HPACK fixture encoding, frame splitting,
-  or output chunk emission. Boundary streams remain accepted; missing-stream,
-  closed-stream, reset-stream, disabled-push, stream-id-domain, promised-stream
-  id, and HPACK fixture failures keep their narrower facts. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  send-intents on open associated streams and stream-level outbound
+  `WINDOW_UPDATE` receive-credit intents on open streams above a received or
+  locally sent GOAWAY last-stream boundary before HPACK fixture encoding,
+  frame splitting, receive-credit updates, or output chunk emission. Boundary
+  streams remain accepted; connection-level outbound `WINDOW_UPDATE` remains
+  accepted after GOAWAY subject to the existing increment and receive-window
+  checks. Missing-stream, closed-stream, reset-stream, disabled-push,
+  stream-id-domain, promised-stream id, increment range, receive-window
+  overflow, and HPACK fixture failures keep their narrower facts. The checked
+  case is `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
   Multiple peer SETTINGS frames received before consumption coalesce to that

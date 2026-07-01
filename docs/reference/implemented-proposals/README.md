@@ -414,6 +414,8 @@ behavior.
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
 - HTTP/2 outbound DATA GOAWAY boundary:
   [http2-outbound-data-goaway-boundary.md](http2-outbound-data-goaway-boundary.md).
+- HTTP/2 outbound WINDOW_UPDATE GOAWAY boundary:
+  [http2-outbound-window-update-goaway-boundary.md](http2-outbound-window-update-goaway-boundary.md).
 - HTTP/2 GOAWAY receive lifecycle:
   [http2-goaway-receive-lifecycle.md](http2-goaway-receive-lifecycle.md).
 - HTTP/2 half-closed-by-peer outbound DATA:

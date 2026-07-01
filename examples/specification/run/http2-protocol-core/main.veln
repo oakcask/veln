@@ -2820,10 +2820,14 @@ fn send_connection_window_update(increment: Int, receive_credit: OutboundReceive
 end
 
 fn send_stream_window_update(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
+	send_stream_window_update_with_shutdown(stream_id, increment, OpenConnection, receive_credit)
+end
+
+fn send_stream_window_update_with_shutdown(stream_id: Int, increment: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	match stream_id
 		0 => Ok(OutboundWindowUpdateRejected(InvalidStreamId(0, 8, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_window_update_requires_open_stream")))
 		_ => match validate_outbound_window_update_increment(stream_id, increment, "open-stream")
-			OutboundWindowUpdateIncrementOk => send_valid_stream_window_update(stream_id, increment, receive_credit)
+			OutboundWindowUpdateIncrementOk => send_valid_stream_window_update(stream_id, increment, shutdown_state, receive_credit)
 			OutboundWindowUpdateIncrementFailed(error) => Ok(OutboundWindowUpdateRejected(error))
 		end
 	end
@@ -2838,15 +2842,15 @@ fn validate_connection_window_update_bound(increment: Int, receive_credit: Outbo
 	end
 end
 
-fn send_valid_stream_window_update(stream_id: Int, increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
+fn send_valid_stream_window_update(stream_id: Int, increment: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
-			true => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
+			true => validate_stream_window_update_after_goaway(stream_id, increment, shutdown_state, connection_window, open_stream_id, stream_window)
 			false => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window, _, _)) => match stream_id == open_stream_id
-			true => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
+			true => validate_stream_window_update_after_goaway(stream_id, increment, shutdown_state, connection_window, open_stream_id, stream_window)
 			false => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
@@ -2856,6 +2860,16 @@ fn send_valid_stream_window_update(stream_id: Int, increment: Int, receive_credi
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
 			true => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
 			false => Ok(OutboundWindowUpdateRejected(InvalidFrameKind(0, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+	end
+end
+
+fn validate_stream_window_update_after_goaway(stream_id: Int, increment: Int, shutdown_state: ConnectionShutdownState, connection_window: Int, open_stream_id: Int, stream_window: Int) -> Result<OutboundWindowUpdateDecision, String>
+	match shutdown_state
+		OpenConnection => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
+		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundWindowUpdateRejected(StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
 		end
 	end
 end
@@ -4907,6 +4921,14 @@ fn outbound_window_update_chunk(decision: OutboundWindowUpdateDecision) -> ByteC
 		OutboundWindowUpdateAccepted(_, _, _, chunk) => chunk
 		OutboundWindowUpdateRejected(_) => byte_chunk([])
 		OutboundWindowUpdateEncodeFailed(_) => byte_chunk([])
+	end
+end
+
+fn outbound_window_update_failure(decision: OutboundWindowUpdateDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundWindowUpdateAccepted(_, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
+		OutboundWindowUpdateRejected(failure) => failure
+		OutboundWindowUpdateEncodeFailed(_) => ClosedWithPending(0, 0, byte_chunk([]))
 	end
 end
 
@@ -8950,6 +8972,27 @@ fn print_outbound_window_update_cases() -> Result<(), String> effects [stdio]
 	print_outbound_window_update("outbound-window-update-encode-error", outbound_window_update_encode_error)
 	let outbound_window_update_payload_encode_error: OutboundWindowUpdateDecision = encode_window_update_intent(1, 2147483648, outbound_receive_credit)?
 	print_outbound_window_update("outbound-window-update-payload-encode-error", outbound_window_update_payload_encode_error)
+	let received_goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
+	let received_shutdown: ConnectionShutdownState = state_shutdown_state_value(step_state(received_goaway))
+	let outbound_window_update_after_goaway_allowed: OutboundWindowUpdateDecision = send_stream_window_update_with_shutdown(5, 7, received_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_window_update("outbound-window-update-after-goaway-allowed", outbound_window_update_after_goaway_allowed)
+	let ignored_after_goaway_allowed_chunk: () = print_outbound_window_update_chunk("http2-window-update-after-goaway-allowed", outbound_window_update_after_goaway_allowed, "00000408000000000500000007")?
+	let outbound_window_update_after_goaway_late: OutboundWindowUpdateDecision = send_stream_window_update_with_shutdown(7, 7, received_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_window_update("outbound-window-update-after-goaway-late", outbound_window_update_after_goaway_late)
+	let ignored_after_goaway_late_chunk: () = print_outbound_window_update_chunk("http2-window-update-after-goaway-late", outbound_window_update_after_goaway_late, "")?
+	print_goaway_stream_failure("outbound-window-update-after-goaway-late", Failed(frame_state(), outbound_window_update_failure(outbound_window_update_after_goaway_late)))
+	let outbound_connection_window_update_after_goaway: OutboundWindowUpdateDecision = send_connection_window_update(5, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_window_update("outbound-window-update-connection-after-goaway", outbound_connection_window_update_after_goaway)
+	let ignored_connection_after_goaway_chunk: () = print_outbound_window_update_chunk("http2-window-update-connection-after-goaway", outbound_connection_window_update_after_goaway, "00000408000000000000000005")?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
+	let outbound_window_update_after_local_goaway_allowed: OutboundWindowUpdateDecision = send_stream_window_update_with_shutdown(5, 7, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_window_update("outbound-window-update-after-local-goaway-allowed", outbound_window_update_after_local_goaway_allowed)
+	let ignored_after_local_goaway_allowed_chunk: () = print_outbound_window_update_chunk("http2-window-update-after-local-goaway-allowed", outbound_window_update_after_local_goaway_allowed, "00000408000000000500000007")?
+	let outbound_window_update_after_local_goaway_late: OutboundWindowUpdateDecision = send_stream_window_update_with_shutdown(7, 7, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_window_update("outbound-window-update-after-local-goaway-late", outbound_window_update_after_local_goaway_late)
+	let ignored_after_local_goaway_late_chunk: () = print_outbound_window_update_chunk("http2-window-update-after-local-goaway-late", outbound_window_update_after_local_goaway_late, "")?
+	print_goaway_stream_failure("outbound-window-update-after-local-goaway-late", Failed(frame_state(), outbound_window_update_failure(outbound_window_update_after_local_goaway_late)))
 	Ok(())
 end
 

@@ -42,8 +42,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
   slice, outbound DATA local closed-stream send-intent slice, outbound
-  HEADERS, DATA, and server-side `PUSH_PROMISE` send-intent rejection above
-  received or locally sent GOAWAY boundaries,
+  HEADERS, DATA, stream-level `WINDOW_UPDATE`, and server-side `PUSH_PROMISE`
+  send-intent rejection above received or locally sent GOAWAY boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
 - remaining outbound flow control and broader stream-window interactions
@@ -54,9 +54,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  outbound GOAWAY send-intent state, and outbound HEADERS, DATA, and
-  server-side `PUSH_PROMISE` send-intent rejection above received or locally
-  sent GOAWAY boundaries
+  outbound GOAWAY send-intent state, and outbound HEADERS, DATA,
+  stream-level `WINDOW_UPDATE`, and server-side `PUSH_PROMISE` send-intent
+  rejection above received or locally sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -638,6 +638,18 @@ closed-stream, reset-stream, and mismatched-stream intents before output
 bytes. Generated frame-header and increment-payload representation failures
 remain `schema.encode_value_unrepresentable` encode errors instead of
 protocol diagnostics.
+The same outbound `WINDOW_UPDATE` receive-credit intent now observes received
+and locally sent GOAWAY graceful-shutdown state for stream-level intents.
+Connection-level outbound `WINDOW_UPDATE` remains valid after GOAWAY subject
+to the existing increment and receive-window checks. A stream-level intent for
+an open stream at the recorded last-stream-id boundary remains accepted; an
+open stream above the recorded boundary is rejected with
+`http2.protocol.stream_after_goaway` before output bytes or receive-credit
+changes. Stream id zero, idle, closed, reset, mismatched, increment range, and
+receive-window overflow failures keep their narrower existing paths.
+The completed outbound `WINDOW_UPDATE` post-GOAWAY send-intent boundary is
+archived under
+[HTTP/2 Outbound WINDOW_UPDATE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-window-update-goaway-boundary.md).
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only
