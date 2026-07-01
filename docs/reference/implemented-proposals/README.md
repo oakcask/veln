@@ -192,8 +192,8 @@ behavior.
   [binary-schema-directional-dispatch-payload-helpers.md](binary-schema-directional-dispatch-payload-helpers.md).
 - Binary schema mapped encode projection diagnostics:
   [binary-schema-mapped-encode-projection-diagnostics.md](binary-schema-mapped-encode-projection-diagnostics.md).
-- Binary schema same-module recursive dispatch decode-only:
-  [binary-schema-same-module-recursive-dispatch-decode-only.md](binary-schema-same-module-recursive-dispatch-decode-only.md).
+- Binary schema same-module recursive dispatch helpers:
+  [binary-schema-same-module-recursive-dispatch-helpers.md](binary-schema-same-module-recursive-dispatch-helpers.md).
 - Binary schema mapping arithmetic encode:
   [binary-schema-mapping-arithmetic-encode.md](binary-schema-mapping-arithmetic-encode.md).
 - Binary schema mapping converter varargs:

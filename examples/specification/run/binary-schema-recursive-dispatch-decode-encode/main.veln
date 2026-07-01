@@ -1,0 +1,56 @@
+# Same-module recursive dispatch helpers use a finite primitive payload shape.
+use stdio
+
+schema RecursivePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 1 => UInt8, 2 => RecursivePacket)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let recursive_bytes: ByteChunk = byte_chunk_from_hex("0302010109")?
+	let recursive_view: ByteView = byte_view(recursive_bytes, byte_offset(0)?, byte_count(5)?)?
+	let recursive: {length: Int, kind: Int, payload: Int} = byte_decode_recursive_packet(recursive_view)?
+	stdio::print("decode ")
+	stdio::print(int_to_string(recursive.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(recursive.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(recursive.payload))
+
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_recursive_packet({length: 1, kind: 1, payload: 7})
+	emit_encoded("recursive-base", encoded, "010107")
+	Ok(())
+end

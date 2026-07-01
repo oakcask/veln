@@ -63,6 +63,15 @@ enough.
   Byte-aligned lowercase `uint... reserves <value>` dispatch payloads validate
   the fixed payload bytes during decode, emit those bytes during encode, and
   expose `()` as the payload value.
+- Same-module recursive dispatch payload cases expose a finite primitive
+  payload shape when the recursive dispatch field is length-bounded and has a
+  non-recursive primitive base case. Decode helpers collapse recursive known
+  payload chains to that primitive payload value. Encode helpers accept the
+  same schema-local visible shape and can encode the primitive base case while
+  preserving the usual dispatch length checks. The checked success case is
+  `examples/specification/run/binary-schema-recursive-dispatch-decode-encode/`;
+  the checked missing-base rejection case is
+  `examples/specification/run/binary-schema-recursive-dispatch-rejected/`.
 - Representation-only fields such as supported `ReservedBits(width, value)`
   and lowercase `uint... reserves <value>` layouts are validated and omitted
   from the decoded record.

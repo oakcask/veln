@@ -7,8 +7,9 @@ Current implemented behavior is specified under
 `../specification/source-surface.md`, `../specification/execution.md`, and
 checked examples under `../../examples/specification/`.
 
-Completed primitive, flag, reserved-bit, repeat, byte-view, and dispatch
-helper slices are archived under `../reference/implemented-proposals/`.
+Completed primitive, flag, reserved-bit, repeat, byte-view, dispatch, and
+recursive dispatch helper slices are archived under
+`../reference/implemented-proposals/`.
 Schema-level value projection is no longer part of this proposal: `map to` in
 schema bodies is removed as recorded in
 [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
