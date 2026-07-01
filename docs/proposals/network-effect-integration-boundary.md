@@ -396,18 +396,6 @@ handler route continues. The matching effect-checking case requires `net`,
 `time`, and `concurrency` at the adapter boundary while keeping the handler
 free of transport, time, and concurrency effects.
 
-Implemented HTTP/2 adapter/core write boundary slice: an executable
-specification case calls a pure handler that returns ordinary response action
-values, routes those values through pure HTTP/2 outbound HEADERS and DATA
-send-intent helpers, preserves the accepted core-produced output chunk order,
-and writes only accepted chunks through `net::write_chunks`. The DATA action
-uses the outbound credit and frame-size path that splits output into ordered
-DATA frames. A later rejected DATA action after local end-stream remains an
-ordinary protocol decision and records no transport write for that rejected
-action. The matching effect-checking case keeps the handler and pure core
-path transport-free while requiring the adapter write boundary to declare the
-existing coarse `net` effect.
-
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
