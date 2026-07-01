@@ -51,22 +51,24 @@ active state, and rule provenance. These protocol projections are checked by
 the HTTP/2 protocol-core cases under
 `../../examples/specification/run/`. Generated exact-width binary schema
 encode range failures use `schema.encode_value_unrepresentable` through
-direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
-HTTP/2 frame-header encode fixture, including selected dispatch payload encode
-paths that surface the same generated helper failure; the current behavior is
-specified under `../specification/execution.md` and checked by the generated
-encode cases under `../../examples/specification/run/`. Command-facing
-projection for generated `EncodeError` result values is also implemented for
-`schema.encode_value_unrepresentable`, `schema.dispatch_unknown_tag`,
-`schema.dispatch_length_mismatch`, and `schema.dispatch_mismatch`; `veln run`
-human output reports focused runtime diagnostics, and `veln run --json`
-attaches `details.value_diagnostic` with field path and reason details as
-specified under `../specification/run-json.md` and
-`../specification/commands.md`. The same command-facing projection is
-implemented when a `veln run` entry returns
-`EncodeStep::Invalid(EncodeError(...))`, including hand-written codec
-`encode with` functions; successful `Encoded` and `Partial` entry values
-remain ordinary values. Command-facing projection for
+explicit schema encode operations, compatibility `byte_encode_<schema>`
+helpers, derived encode calls, and the HTTP/2 frame-header encode fixture,
+including selected dispatch payload encode paths that surface the same
+generated schema failure. Generated schema dispatch encode failures use
+`schema.dispatch_unknown_tag`, `schema.dispatch_length_mismatch`, and
+`schema.dispatch_mismatch`; the current behavior is specified under
+`../specification/execution.md`, `../specification/names-effects.md`,
+`../specification/run-json.md`, and `../specification/commands.md`, and is
+checked by the generated encode cases under
+`../../examples/specification/run/`. Command-facing projection for generated
+`EncodeError` result values reports focused runtime diagnostics in human
+output, and `veln run --json` attaches `details.value_diagnostic` with field
+path and reason details as specified under `../specification/run-json.md` and
+`../specification/commands.md`. Legacy source-created `codec.*` encode values
+project through the same command-facing value-diagnostic shape. The same
+command-facing projection is implemented when a `veln run` entry returns
+`EncodeStep::Invalid(EncodeError(...))`; successful `Encoded` and `Partial`
+entry values remain ordinary values. Command-facing projection for
 `DecodeStep::Invalid(DecodeError(...))` entry results is implemented;
 `veln run` human output reports a focused runtime diagnostic at the contained
 byte offset with field-path, optional reason, and source-visible value notes,
@@ -381,8 +383,9 @@ representation itself. The first canonical ids are:
   helper
 - `codec.consumed_count_invalid` for a decoder result whose consumed
   `ByteCount` is outside the supplied `ByteView`
-- `codec.encode_value_unrepresentable` for source-visible compatibility
-  encode values that are not produced by generated schema encode helpers
+- `codec.encode_value_unrepresentable` for legacy source-created encoder
+  values whose id is supplied directly by source; generated schema
+  representation checks use schema-owned ids
 
 Do not collapse schema failures into a generic `codec.invalid_input` when the
 schema can name the failed field fact. A hand-written codec may project an
