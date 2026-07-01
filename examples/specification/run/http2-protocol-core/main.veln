@@ -6833,6 +6833,13 @@ fn print_outbound_hpack_encode_transition(label: String, result: Result<HpackEnc
 	end
 end
 
+fn print_outbound_hpack_encode_expected_failure(label: String, result: Result<HpackEncodeTransition, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected outbound HPACK fixture header-list encoding failure")
+		Err(failure) => print_outbound_hpack_encode_failure(label, failure)
+	end
+end
+
 fn print_checked_outbound_hpack_encode_transition(label: String, transition: HpackEncodeTransition, expected_hex: String) -> Result<HpackFixtureState, String> effects [stdio]
 	let matches: Bool = byte_chunks_equal(hpack_fixture::encode_transition_bytes(transition), byte_chunk_from_hex(expected_hex)?)?
 	match matches
@@ -8647,6 +8654,25 @@ fn print_peer_header_table_size_outbound_hpack_cases() -> Result<(), String> eff
 	Ok(())
 end
 
+fn print_outbound_headers_never_indexed_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let outbound_never_indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_never_indexed_ordinary_x_never_headers(), outbound_dynamic_encode_state, 0)
+	let outbound_never_indexed_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-literal-never-indexed-x-never", outbound_never_indexed_encode, "1007782d6e65766572026e6f")?
+	let outbound_never_indexed_encode_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_never_indexed_encode)?
+	let outbound_headers_hpack_never_indexed: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_never_indexed_encode_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_dynamic))?
+	print_outbound_headers("outbound-headers-hpack-stateful-literal-never-indexed", outbound_headers_hpack_never_indexed)
+	let ignored_headers_hpack_never_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-literal-never-indexed", outbound_headers_hpack_never_indexed, "00000c0104000000011007782d6e65766572026e6f")?
+	let outbound_never_indexed_probe_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_dynamic_indexed_ordinary_x_never_probe_headers(), outbound_never_indexed_encode_state, 0)
+	let ignored_outbound_never_indexed_probe: () = print_outbound_hpack_encode_expected_failure("outbound-headers-hpack-stateful-never-indexed-dynamic-missing", outbound_never_indexed_probe_encode)?
+	let outbound_retained_after_never_indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_never_indexed_encode_state, 0)
+	let outbound_retained_after_never_indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-never-indexed-retains-path-target", outbound_retained_after_never_indexed_encode, "be")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-after-never-indexed-retained", outbound_retained_after_never_indexed_state)
+	let outbound_retained_after_never_indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_retained_after_never_indexed_encode)?
+	let outbound_headers_hpack_retained_after_never_indexed: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_retained_after_never_indexed_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_never_indexed))?
+	print_outbound_headers("outbound-headers-hpack-stateful-retained-after-never-indexed", outbound_headers_hpack_retained_after_never_indexed)
+	let ignored_headers_hpack_retained_after_never_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-retained-after-never-indexed", outbound_headers_hpack_retained_after_never_indexed, "000001010400000001be")?
+	Ok(())
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -8699,6 +8725,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_encode_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_literal))?
 	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-indexed", outbound_headers_hpack_stateful_dynamic)
 	let ignored_headers_hpack_stateful_dynamic_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-indexed", outbound_headers_hpack_stateful_dynamic, "000001010400000001be")?
+	let ignored_outbound_never_indexed_cases: () = print_outbound_headers_never_indexed_cases(outbound_dynamic_encode_state, outbound_headers_hpack_stateful_dynamic)?
 	let outbound_table_size_update_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(30, empty_peer_settings(), outbound_dynamic_encode_state)
 	let outbound_table_size_update_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-table-size-update", outbound_table_size_update_encode, "3e")?
 	let outbound_table_size_update_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_table_size_update_encode)?

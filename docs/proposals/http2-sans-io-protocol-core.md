@@ -853,6 +853,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
 and
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
 The checked fixture boundary also includes source-visible raw new-name
@@ -952,8 +953,14 @@ literal-with-indexing `:path: /target` fixture header list, the checked request
 and response pseudo-header fixture lists needed by outbound send-intents, and
 ordinary new-name literal-without-indexing for accepted visible-ASCII
 field-name and value pairs used by outbound HEADERS and `PUSH_PROMISE`
-send-intents. Unsupported ordinary names stay on HPACK fixture header-list
-encode failures. It also supports checked outbound dynamic table-size update
+send-intents, and ordinary new-name literal-never-indexed for accepted
+visible-ASCII field-name and value pairs used by outbound HEADERS. The
+never-indexed outbound slice emits the checked raw literal bytes without
+inserting the field into the dynamic table, keeps a later dynamic-index probe
+for that field on the fixture encode-failure path, and preserves earlier
+dynamic entries for later indexed reuse. Unsupported ordinary names stay on
+HPACK fixture header-list encode failures. It also supports checked outbound
+dynamic table-size update
 requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture

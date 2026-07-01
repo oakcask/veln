@@ -494,6 +494,14 @@ pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
 end
 
+pub fn outbound_literal_never_indexed_ordinary_x_never_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-never", "no"), HpackHeader(":fixture", "literal-never-indexed"), 12)
+end
+
+pub fn outbound_dynamic_indexed_ordinary_x_never_probe_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-never", "no"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
+end
+
 pub fn outbound_literal_dynamic_name_path_fresh_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/fresh"), HpackHeader(":fixture", "literal-dynamic-name-without-indexing"), 9)
 end
@@ -644,8 +652,8 @@ end
 fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let index: Int = literal_static_name_index(name)
 	match index < 0
-		true => match prefix_offset == 0
-			true => encode_new_name_literal_header_with_prefix(name, value, 0, headers, offset)
+		true => match prefix_offset == 0 or prefix_offset == 16
+			true => encode_new_name_literal_header_with_prefix(name, value, prefix_offset, headers, offset)
 			false => unsupported_header_list_encoding(headers, offset)
 		end
 		false => match byte_write_u8_be(prefix_offset + index)
@@ -666,9 +674,12 @@ pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteC
 end
 
 pub fn encode_header_list_with_state(headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
-	match outbound_dynamic_name_literal_header_list(headers)
-		true => encode_dynamic_name_literal_header_list(headers, state, offset)
-		false => encode_header_list_with_dynamic_index_lookup(headers, state, offset)
+	match header_list_requires_literal_encoding(headers)
+		true => encode_non_dynamic_header_list(headers, state, offset)
+		false => match outbound_dynamic_name_literal_header_list(headers)
+			true => encode_dynamic_name_literal_header_list(headers, state, offset)
+			false => encode_header_list_with_dynamic_index_lookup(headers, state, offset)
+		end
 	end
 end
 
@@ -748,6 +759,7 @@ fn encode_non_dynamic_header_list(headers: HpackHeaderList, state: HpackFixtureS
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), _) => encode_header_list_transition(encode_static_indexed_header(name, value, headers, offset), next_state(state))
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 0, headers, offset), next_state(state))
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 16, headers, offset), next_state(state))
 		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
 	end
 end
@@ -790,6 +802,13 @@ end
 fn outbound_dynamic_name_literal_header_list(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-without-indexing"), _) => true
+		_ => false
+	end
+end
+
+fn header_list_requires_literal_encoding(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-never-indexed"), _) => true
 		_ => false
 	end
 end

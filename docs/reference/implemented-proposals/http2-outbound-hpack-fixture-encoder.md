@@ -23,6 +23,13 @@ field-name token boundary, is not connection-specific, and the value is a
 visible-ASCII raw string. It emits deterministic new-name HPACK literal bytes
 without Huffman compression.
 
+The same outbound boundary accepts a fixture-owned ordinary new-name
+literal-never-indexed header list. It emits the checked `0x10` HPACK prefix
+and raw `x-never: no` bytes without inserting that field into the bounded
+dynamic table. A later dynamic-index probe for `x-never: no` therefore stays
+on the HPACK fixture header-list encode failure path, while any earlier
+inserted dynamic entry remains reusable from the returned state.
+
 The fixture module also exposes a stateful encode transition. Callers create a
 separate initial encode state, encode a supported literal-with-indexing header
 list, and receive both the encoded header block and a new state whose bounded
@@ -97,6 +104,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   over-peer-limit table-size update failure,
   raw new-name literal-without-indexing `x-demo: hello` into outbound
   HEADERS and server-side `PUSH_PROMISE`,
+  raw new-name literal-never-indexed `x-never: no` into outbound HEADERS,
+  the matching missing dynamic-index probe failure, retained dynamic indexed
+  reuse as `0xbe` after that never-indexed block,
   Huffman-marked literal `:path: test` into outbound HEADERS,
   Huffman-marked literal `:path: hpack-byte-ff` into outbound HEADERS,
   Huffman-marked literal `:path: hpack-bytes-00-ff` into outbound HEADERS,
@@ -112,9 +122,11 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   separate initial encode state, literal-with-indexing insertion, dynamic
   indexed reuse, encode-count advancement, stateless wrapper compatibility,
   accepted raw new-name literal-without-indexing bytes, rejected invalid
-  ordinary new-name failure, accepted outbound table-size update bytes,
-  reduced table capacity observed by a later encode, and over-peer-limit
-  table-size update failure.
+  ordinary new-name failure, accepted raw new-name literal-never-indexed
+  bytes, the matching dynamic-index probe failure, retained dynamic indexed
+  reuse after the never-indexed block, accepted outbound table-size update
+  bytes, reduced table capacity observed by a later encode, and
+  over-peer-limit table-size update failure.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks the
   direct static-indexed header-list encoder bytes for `:method: GET`,
   `:path: /`, `:scheme: https`, and `:status: 200`, plus unsupported
