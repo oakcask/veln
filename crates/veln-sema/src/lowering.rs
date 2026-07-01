@@ -18,7 +18,8 @@ use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
 use crate::types::{
-    FunctionLookup, TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown,
+    FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX, TypeEnvironment,
+    core_type, parse_type_annotation, parse_type_or_unknown,
 };
 
 #[derive(Clone)]
@@ -1086,10 +1087,11 @@ impl<'a> CoreLowerer<'a> {
             });
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
-        let schema_name = schema
-            .last()
-            .cloned()
-            .unwrap_or_else(|| "<missing>".to_string());
+        let schema_name = signature
+            .target_name
+            .strip_prefix(SCHEMA_DECODE_STEP_TARGET_PREFIX)
+            .unwrap_or_else(|| schema.last().map(String::as_str).unwrap_or("<missing>"))
+            .to_string();
         self.core_expr(
             expr,
             core_type(&signature.return_type),
@@ -1120,10 +1122,11 @@ impl<'a> CoreLowerer<'a> {
             });
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
-        let schema_name = schema
-            .last()
-            .cloned()
-            .unwrap_or_else(|| "<missing>".to_string());
+        let schema_name = signature
+            .target_name
+            .strip_prefix(SCHEMA_ENCODE_TARGET_PREFIX)
+            .unwrap_or_else(|| schema.last().map(String::as_str).unwrap_or("<missing>"))
+            .to_string();
         self.core_expr(
             expr,
             core_type(&signature.return_type),

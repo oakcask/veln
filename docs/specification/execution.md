@@ -36,11 +36,13 @@ enough.
   boundary for the referenced eligible binary schema. They use the supplied
   `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count
   and diagnostic offset accounting, returning `DecodeStep<T>` for the
-  schema-local visible record shape.
+  schema-local visible record shape. Public schema aliases lower through the
+  same generated boundary as the aliased schema.
 - Explicit schema encode expressions lower to the generated encode boundary
   for the referenced eligible binary schema. They typecheck the supplied value
   against the schema-local visible record shape and return
-  `Result<ByteChunk, EncodeError>`.
+  `Result<ByteChunk, EncodeError>`. Public schema aliases lower through the
+  same generated boundary as the aliased schema.
 - Compatibility generated binary schema decode helpers read fields in
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public

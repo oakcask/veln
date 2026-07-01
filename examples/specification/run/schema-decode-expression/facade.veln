@@ -1,0 +1,3 @@
+use wire
+
+pub schema AliasWire = wire::ImportedWire

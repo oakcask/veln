@@ -49,6 +49,9 @@ The implemented first slice covers:
 - top-level public schema member aliases that re-export existing public
   schemas through the declaring module's public path and resolve through
   schema-aware lookup
+- explicit schema decode and encode expressions that resolve imported public
+  schema aliases through the same eligible binary helper boundary as the
+  aliased public schema
 - executable field-local validation helper slices that decode binary schema
   fields in declaration order and evaluate supported `where` predicates after
   the owning field is decoded
@@ -100,8 +103,8 @@ This proposal remains open for:
   top-level scalar list, top-level string-keyed scalar dictionary, supported
   `Option`, and nested record-shaped helper slice
 - schema-aware references from later schema composition surfaces beyond codec
-  declaration heads, public schema member aliases, documentation comments, and
-  binary fixture metadata
+  declaration heads, public schema member aliases, documentation comments,
+  binary fixture metadata, and explicit schema operations
 
 ## Discussion Result: Binary Primitive Execution Boundary
 

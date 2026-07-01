@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln", "wire.veln"]
+command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
 exit = 0
 
 [requires]
@@ -25,3 +25,7 @@ chunks = ["0503"]
 [[output_chunk_list]]
 name = "schema-encode-imported"
 chunks = ["0702"]
+
+[[output_chunk_list]]
+name = "schema-encode-alias"
+chunks = ["0904"]

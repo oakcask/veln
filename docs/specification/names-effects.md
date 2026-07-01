@@ -221,8 +221,9 @@ compiler-known calls.
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the
   generated helper in source; imported public schemas may be cited through
-  qualified paths. Explicit `encode Schema from value` expressions are the
-  matching public encode surface for schema-local values.
+  qualified paths, including public schema aliases. Explicit
+  `encode Schema from value` expressions are the matching public encode
+  surface for schema-local values and accept the same schema-reference paths.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
