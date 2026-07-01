@@ -72,6 +72,12 @@ enough.
   Byte-aligned lowercase `uint... reserves <value>` dispatch payloads validate
   the fixed payload bytes during decode, emit those bytes during encode, and
   expose `()` as the payload value.
+- Closed and extension dispatch payload cases may name an eligible same-module
+  or public imported nested binary schema. Nested payload schemas expose their
+  schema-local visible record shapes through the same generated decode and
+  encode helper boundary as ordinary nested schema fields, including
+  length-bounded `ByteView(left_length / right_length)` fields whose operands
+  are earlier visible `Int` fields in the nested payload schema.
 - Same-module recursive dispatch payload cases expose a finite primitive
   payload shape when the recursive dispatch field is length-bounded and has a
   non-recursive primitive base case. Decode helpers collapse recursive known
