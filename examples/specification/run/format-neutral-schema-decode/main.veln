@@ -11,6 +11,7 @@ schema PlainPacket
 	scores: Dict<String, Int>
 	labels: Dict<String, String>
 	states: Dict<String, Bool>
+	weights: Dict<String, Float>
 	metadata: {ready: Bool, score: Float}
 	optional_code: Option<Int>
 	optional_metadata: Option<{ready: Bool, score: Float}>
@@ -23,28 +24,28 @@ fn list_sum(items: List<Int>) -> Int
 	end
 end
 
-fn decoded_code(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_code(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => packet.code
 		Err(_) => -1
 	end
 end
 
-fn decoded_label(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_label(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => packet.label
 		Err(message) => message
 	end
 end
 
-fn decoded_item_sum(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_item_sum(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => list_sum(packet.items)
 		Err(_) => -1
 	end
 end
 
-fn decoded_first_name(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_first_name(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.names
 			Nil => "missing"
@@ -64,14 +65,14 @@ fn bool_list_score(flags: List<Bool>) -> Int
 	end
 end
 
-fn decoded_flag_count(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_flag_count(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => bool_list_score(packet.flags)
 		Err(_) => -1
 	end
 end
 
-fn decoded_ratio_status(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_ratio_status(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.ratios
 			Nil => "missing"
@@ -84,7 +85,7 @@ fn decoded_ratio_status(result: Result<{code: Int, label: String, items: List<In
 	end
 end
 
-fn decoded_score(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_score(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => match dict_get(packet.scores, "math")
 			Some(score) => score
@@ -94,7 +95,7 @@ fn decoded_score(result: Result<{code: Int, label: String, items: List<Int>, fla
 	end
 end
 
-fn decoded_tag(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_tag(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.labels, "owner")
 			Some(tag) => tag
@@ -104,7 +105,7 @@ fn decoded_tag(result: Result<{code: Int, label: String, items: List<Int>, flags
 	end
 end
 
-fn decoded_state(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_state(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.states, "enabled")
 			Some(enabled) => match enabled
@@ -117,7 +118,20 @@ fn decoded_state(result: Result<{code: Int, label: String, items: List<Int>, fla
 	end
 end
 
-fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
+fn decoded_weight(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+	match result
+		Ok(packet) => match dict_get(packet.weights, "ratio")
+			Some(weight) => match weight > 1.0
+				true => "weight-high"
+				false => "weight-low"
+			end
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> Int
 	match result
 		Ok(packet) => match packet.optional_code
 			Some(value) => value
@@ -127,7 +141,7 @@ fn decoded_optional_code(result: Result<{code: Int, label: String, items: List<I
 	end
 end
 
-fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
+fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.optional_metadata
 			Some(metadata) => match metadata.ready
@@ -141,7 +155,7 @@ fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: Li
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let decoded: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_cons(0.75, list_nil())), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, labels: {"owner": "core", "lane": "stable"}, states: {"enabled": true, "paused": false}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
+	let decoded: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_cons(0.75, list_nil())), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, labels: {"owner": "core", "lane": "stable"}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.5}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
 	stdio::println(int_to_string(decoded_code(decoded)))
 	stdio::println(decoded_label(decoded))
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
@@ -151,6 +165,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_score(decoded)))
 	stdio::println(decoded_tag(decoded))
 	stdio::println(decoded_state(decoded))
+	stdio::println(decoded_weight(decoded))
 	stdio::println(int_to_string(decoded_optional_code(decoded)))
 	stdio::println(decoded_optional_metadata(decoded))
 	Ok(())

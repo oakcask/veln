@@ -32,6 +32,6 @@ declaration with a related generated-helper boundary note.
 
 The broader schema declaration proposal remains open for binary schema fields
 outside the implemented helper slices, format-neutral fields outside scalar,
-top-level scalar list, top-level `Dict<String, Int>`, `Dict<String, Bool>`, or
-`Dict<String, String>`, supported `Option`, and nested record-shaped payloads,
-and later schema composition surfaces.
+top-level scalar list, top-level `Dict<String, Int>`, `Dict<String, Bool>`,
+`Dict<String, Float>`, or `Dict<String, String>`, supported `Option`, and
+nested record-shaped payloads, and later schema composition surfaces.

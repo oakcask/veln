@@ -82,9 +82,8 @@ compare it with `../specification/` before changing behavior.
   schema helpers, derived encode boundary support, format-neutral schema bodies
   without a `format` clause, generated format-neutral decode helpers for
   scalar, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
-  `List<String>`, top-level `Dict<String, Int>`, `Dict<String, Bool>`, or
-  `Dict<String, String>`, supported `Option`, and nested record-shaped fields,
-  and
+  `List<String>`, top-level string-keyed scalar dictionary, supported
+  `Option`, and nested record-shaped fields, and
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -97,8 +96,8 @@ compare it with `../specification/` before changing behavior.
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
   The completed format-neutral top-level list helper slice is archived under
   [Format-Neutral Schema List Helpers](../reference/implemented-proposals/format-neutral-schema-list-helpers.md).
-  The completed format-neutral top-level dictionary helper slice is archived
-  under
+  The completed format-neutral top-level string-keyed scalar dictionary helper
+  slice is archived under
   [Format-Neutral Schema Dict Helpers](../reference/implemented-proposals/format-neutral-schema-dict-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
