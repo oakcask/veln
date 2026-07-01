@@ -265,7 +265,10 @@ compiler-known calls.
   dispatch payload slices accept schema-local visible fields, using
   `ByteView` fields for length-bounded payloads, `List<T>` fields for repeated
   payloads, and `SchemaDispatchPayload<T>` for extension dispatch payload
-  fields. Same-module recursive dispatch payload slices with a length-bounded
+  fields. Eligible nested dispatch payloads include public imported binary
+  schemas with quotient-sized `ByteView(left_length / right_length)` fields
+  whose operands are earlier visible `Int` fields in the nested payload
+  schema. Same-module recursive dispatch payload slices with a length-bounded
   recursive field and a primitive base case expose that finite primitive
   payload shape. Lowercase dispatch payload spelling normalizes exact-width
   `uint...` and `flag...` payloads to the same helper behavior as compatible

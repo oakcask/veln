@@ -1,0 +1,97 @@
+# Imported nested dispatch payload decode accepts ByteView quotient lengths.
+use stdio
+use wire
+
+schema ImportedClosedQuotientPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::ImportedQuotientPayload)
+end
+
+schema ImportedExtensionQuotientPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => wire::ImportedQuotientPayload)
+end
+
+
+
+fn emit_payload(prefix: String, payload: {total_length: Int, chunk_count: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(prefix)
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.total_length))
+	stdio::print(" ")
+	stdio::print(int_to_string(payload.chunk_count))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(payload.payload))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(payload.payload)?))
+	Ok(())
+end
+
+fn emit_extension_payload(payload: SchemaDispatchPayload<{total_length: Int, chunk_count: Int, payload: ByteView}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_payload("imported-extension", value)
+		Unknown(_, _) => Ok(())
+	end
+end
+
+fn closed_step_kind(step: DecodeStep<{kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn closed_consumed_count(step: DecodeStep<{kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn extension_step_kind(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{total_length: Int, chunk_count: Int, payload: ByteView}>}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn extension_consumed_count(step: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{total_length: Int, chunk_count: Int, payload: ByteView}>}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let closed_bytes: ByteChunk = byte_chunk_from_hex("010802aabbccdd")?
+	let closed_view: ByteView = byte_view(closed_bytes, byte_offset(0)?, byte_count(7)?)?
+	let closed: {kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}} = byte_decode_imported_closed_quotient_packet(closed_view)?
+	let _: () = emit_payload("imported-closed", closed.payload)?
+
+	let extension_bytes: ByteChunk = byte_chunk_from_hex("06010802aabbccdd")?
+	let extension_view: ByteView = byte_view(extension_bytes, byte_offset(0)?, byte_count(8)?)?
+	let extension: {length: Int, kind: Int, payload: SchemaDispatchPayload<{total_length: Int, chunk_count: Int, payload: ByteView}>} = byte_decode_imported_extension_quotient_packet(extension_view)?
+	let _: () = emit_extension_payload(extension.payload)?
+
+	let closed_codec: DecodeStep<{kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}}> = decode ImportedClosedQuotientPacket from closed_view at byte_offset(13)?
+	stdio::print("codec-imported-closed ")
+	stdio::print(closed_step_kind(closed_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(closed_consumed_count(closed_codec)))
+
+	let extension_codec: DecodeStep<{length: Int, kind: Int, payload: SchemaDispatchPayload<{total_length: Int, chunk_count: Int, payload: ByteView}>}> = decode ImportedExtensionQuotientPacket from extension_view at byte_offset(19)?
+	stdio::print("codec-imported-extension ")
+	stdio::print(extension_step_kind(extension_codec))
+	stdio::print(" ")
+	stdio::println(int_to_string(extension_consumed_count(extension_codec)))
+	Ok(())
+end

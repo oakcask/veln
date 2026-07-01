@@ -180,6 +180,8 @@ behavior.
   [binary-schema-dispatch-byteview-product-payload-helpers.md](binary-schema-dispatch-byteview-product-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length / right_length)` payload helpers:
   [binary-schema-dispatch-byteview-quotient-payload-helpers.md](binary-schema-dispatch-byteview-quotient-payload-helpers.md).
+- Binary schema imported dispatch `ByteView(left_length / right_length)` payload helpers:
+  [binary-schema-imported-dispatch-byteview-quotient-payload-helpers.md](binary-schema-imported-dispatch-byteview-quotient-payload-helpers.md).
 - Binary schema dispatch one-bit reserved payload helpers:
   [binary-schema-dispatch-one-bit-reserved-payload-helpers.md](binary-schema-dispatch-one-bit-reserved-payload-helpers.md).
 - Binary schema dispatch reserved byte prefix payload helpers:

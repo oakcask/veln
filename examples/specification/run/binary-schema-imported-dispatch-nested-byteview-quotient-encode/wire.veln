@@ -1,0 +1,7 @@
+pub schema ImportedQuotientPayload
+	format binary
+
+	total_length: UInt8
+	chunk_count: UInt8
+	payload: ByteView(total_length / chunk_count)
+end

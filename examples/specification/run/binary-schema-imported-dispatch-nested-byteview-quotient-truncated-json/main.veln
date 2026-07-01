@@ -1,0 +1,16 @@
+# Imported nested dispatch ByteView quotient lengths report truncation paths.
+use wire
+
+schema ImportedClosedQuotientTruncatedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::ImportedQuotientTruncatedPayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010802aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let ignored: {kind: Int, payload: {total_length: Int, chunk_count: Int, payload: ByteView}} = byte_decode_imported_closed_quotient_truncated_packet(view)?
+	Ok(())
+end
