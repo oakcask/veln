@@ -858,6 +858,13 @@ push is disabled. The rejected case uses
 `http2.protocol.invalid_frame_kind` with active state `local-settings`, rule
 provenance `local_settings_enable_push_disabled`, and prints that the
 promised stream remains unreserved.
+That checked stdout also records local SETTINGS batches as ordered
+frame-header-plus-payload chunks. It covers a three-item batch whose emitted
+identifier/value pairs remain in caller order, a peer SETTINGS ACK that clears
+that multi-item batch while preserving a later outstanding batch, and an
+invalid item inside a larger local batch that emits no output chunk and keeps
+`local_settings` provenance on
+`http2.peer_limit.settings_value_out_of_range`.
 It validates the decoded promised request header list before reservation,
 including accepted ordinary request headers and rejected `:status` and invalid
 `te` request-header facts through the existing request header-list diagnostic

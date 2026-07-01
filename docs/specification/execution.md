@@ -136,6 +136,17 @@ enough.
   ACK flag and clears the pending ACK state without mutating peer-advertised
   settings. The checked case is
   `examples/specification/run/http2-protocol-core/`.
+- The same checked HTTP/2 protocol core emits local SETTINGS send-intents as
+  one frame-header-plus-payload chunk whose payload preserves caller item
+  order. Supported local batch items are
+  `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_ENABLE_PUSH`,
+  `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
+  `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`. Accepted
+  batches are recorded as one outstanding local batch; one valid peer
+  SETTINGS ACK clears exactly the oldest outstanding batch and leaves later
+  batches pending. The checked case also fixes the no-output
+  `local_settings` range-diagnostic path for an invalid item inside a larger
+  batch.
 
 ## Runtime Output
 
