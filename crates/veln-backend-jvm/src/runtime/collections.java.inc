@@ -8045,7 +8045,7 @@
             return encoded;
         }
         return err(encodeError(
-            "codec.dispatch_unknown_tag",
+            "schema.dispatch_unknown_tag",
             fieldPath,
             "tag field `"
                 + dispatch.tagField
@@ -8076,7 +8076,7 @@
         if (selectedCase != null) {
             if (!isAdtNamed(payload, "SchemaDispatchPayload::Known")) {
                 return err(encodeError(
-                    "codec.dispatch_mismatch",
+                    "schema.dispatch_mismatch",
                     fieldPath,
                     "tag field `" + dispatch.tagField + "` value " + tagValue
                         + " selects a known payload case"
@@ -8137,7 +8137,7 @@
         }
         if (!isAdtNamed(payload, "SchemaDispatchPayload::Unknown")) {
             return err(encodeError(
-                "codec.dispatch_mismatch",
+                "schema.dispatch_mismatch",
                 fieldPath,
                 "tag field `" + dispatch.tagField + "` value " + tagValue
                     + " requires an unknown payload variant"
@@ -8147,7 +8147,7 @@
         long payloadTag = asLong(unknown.payloads[0]);
         if (payloadTag != tagValue) {
             return err(encodeError(
-                "codec.dispatch_mismatch",
+                "schema.dispatch_mismatch",
                 fieldPath,
                 "tag field `" + dispatch.tagField + "` value " + tagValue
                     + " does not match unknown payload tag " + payloadTag
@@ -8338,7 +8338,7 @@
         long actualLength = byteChunkBytes(chunk).size();
         if (actualLength != suppliedLength) {
             return err(encodeError(
-                "codec.dispatch_length_mismatch",
+                "schema.dispatch_length_mismatch",
                 fieldPath,
                 "length field `" + lengthField + "` value " + suppliedLength
                     + " does not match encoded payload byte count " + actualLength

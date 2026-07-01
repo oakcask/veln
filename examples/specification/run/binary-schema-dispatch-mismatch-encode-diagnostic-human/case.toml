@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[codec.dispatch_mismatch]: dispatch tag and payload mismatch", "note: Field path: schema `ExtensionDispatchWritePacket` / field `payload`.", "note: Encode failure reason: tag field `kind` value 1 selects a known payload case.", "note: Result value: EncodeError(codec.dispatch_mismatch, ExtensionDispatchWritePacket.payload, tag field `kind` value 1 selects a known payload case)."]
+contains = ["error[schema.dispatch_mismatch]: dispatch tag and payload mismatch", "note: Field path: schema `ExtensionDispatchWritePacket` / field `payload`.", "note: Encode failure reason: tag field `kind` value 1 selects a known payload case.", "note: Result value: EncodeError(schema.dispatch_mismatch, ExtensionDispatchWritePacket.payload, tag field `kind` value 1 selects a known payload case)."]

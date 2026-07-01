@@ -1719,6 +1719,9 @@
     private static boolean isCommandEncodeDiagnosticId(String id) {
         return id.equals("schema.encode_value_unrepresentable")
             || id.equals("codec.encode_value_unrepresentable")
+            || id.equals("schema.dispatch_unknown_tag")
+            || id.equals("schema.dispatch_length_mismatch")
+            || id.equals("schema.dispatch_mismatch")
             || id.equals("codec.dispatch_unknown_tag")
             || id.equals("codec.dispatch_length_mismatch")
             || id.equals("codec.dispatch_mismatch");

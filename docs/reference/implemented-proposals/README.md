@@ -288,6 +288,10 @@ behavior.
   [runtime-diagnostic-hpack-helper-payload.md](runtime-diagnostic-hpack-helper-payload.md).
 - Runtime diagnostic generated encode value payload:
   [runtime-diagnostic-encode-value-payload.md](runtime-diagnostic-encode-value-payload.md).
+- Schema-owned encode value diagnostics:
+  [schema-owned-encode-value-diagnostics.md](schema-owned-encode-value-diagnostics.md).
+- Schema-owned dispatch value diagnostics:
+  [schema-owned-dispatch-value-diagnostics.md](schema-owned-dispatch-value-diagnostics.md).
 - Runtime diagnostic generated schema fixed-field payload:
   [runtime-diagnostic-schema-fixed-field-payload.md](runtime-diagnostic-schema-fixed-field-payload.md).
 - Codec-owned decode invalid id diagnostics:

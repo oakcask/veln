@@ -75,11 +75,14 @@ compare it with `../specification/` before changing behavior.
   rejection, generated-helper public-surface cleanup, and former codec example
   migration are current behavior under
   `../specification/source-surface.md` and archived under
-  `../reference/implemented-proposals/remove-source-codec-declarations.md` and
-  `../reference/implemented-proposals/schema-helper-public-surface-cleanup.md`;
-  the generated schema encode diagnostic reclassification is current behavior
-  under `../specification/commands.md` and `../specification/run-json.md`; the
-  remaining proposal work covers archival cleanup.
+  [Remove Source Codec Declarations](../reference/implemented-proposals/remove-source-codec-declarations.md)
+  and
+  [Schema Helper Public Surface Cleanup](../reference/implemented-proposals/schema-helper-public-surface-cleanup.md).
+  Generated schema encode value diagnostic reclassification is archived under
+  [Schema-Owned Encode Value Diagnostics](../reference/implemented-proposals/schema-owned-encode-value-diagnostics.md);
+  generated schema dispatch diagnostic reclassification is archived under
+  [Schema-Owned Dispatch Value Diagnostics](../reference/implemented-proposals/schema-owned-dispatch-value-diagnostics.md).
+  The remaining proposal work covers archival cleanup.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
@@ -333,10 +336,10 @@ compare it with `../specification/` before changing behavior.
   peer-limit failures, including post-GOAWAY stream rejection, fixed
   payload-length, invalid DATA padding, SETTINGS ACK state, preface,
   continuation, and invalid frame-kind fixtures, and
-  schema-owned generated
-  binary schema encode value-representation failures, generated `EncodeError`
-  command-facing projection for encode value, dispatch unknown tag, dispatch
-  length mismatch, and dispatch mismatch failures, command-facing projection
+  generated
+  binary schema encode value-representation failures, generated schema
+  dispatch `EncodeError` command-facing projection for unknown tag, length
+  mismatch, and tag/payload mismatch failures, command-facing projection
   for `EncodeStep::Invalid(EncodeError(...))` entry results,
   direct source-visible `DecodeError`, `DecodeErrorWithReason`, and
   `EncodeError` result failures with JSON and human fixtures,

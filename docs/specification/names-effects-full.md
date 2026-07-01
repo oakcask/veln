@@ -1101,11 +1101,11 @@ consecutive non-byte-aligned `UIntN` and `ReservedBits(width, value)` groups
 omit every reserved field and write visible and declared reserved values in
 declaration order in the shared storage unit. The closed
 dispatch encode layout selects the payload width from the earlier visible tag
-field and reports `codec.dispatch_unknown_tag` when no
+field and reports `schema.dispatch_unknown_tag` when no
 case matches. The extension dispatch encode layout writes `Known` selected
 payloads, preserves matching unknown raw payload bytes, reports
-`codec.dispatch_mismatch` for tag or variant disagreements, and reports
-`codec.dispatch_length_mismatch` when the explicit length field differs from
+`schema.dispatch_mismatch` for tag or variant disagreements, and reports
+`schema.dispatch_length_mismatch` when the explicit length field differs from
 the emitted payload byte count. The fixed-width unsigned big-endian and
 little-endian read helpers return `Ok(Int)` when the bounded `ByteView`
 contains enough bytes and the decoded unsigned value fits the helper width;

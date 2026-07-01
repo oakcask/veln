@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "codec.dispatch_mismatch\nExtensionDispatchWritePacket.payload\ntag field `kind` value 7 does not match unknown payload tag 9\n"
+equals = "schema.dispatch_mismatch\nExtensionDispatchWritePacket.payload\ntag field `kind` value 7 does not match unknown payload tag 9\n"
 
 [[json_assert]]
 path = "error"

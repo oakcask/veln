@@ -235,15 +235,14 @@ implemented and archived under
 `../reference/implemented-proposals/schema-helper-public-surface-cleanup.md`.
 Specification routes now describe explicit schema operations as the public
 source surface, and executable examples that still call generated helper names
-are compatibility or diagnostic migration fixtures. Representation-local
-generated schema encode value failures now use
-`schema.encode_value_unrepresentable` for primitive range failures,
-length/count mismatches, nested schema encode failures, and explicit schema
-encode expression failures. `veln run` human and JSON output preserve the
-focused encode message, field path, reason, optional byte-count details, byte
-offsets, and bounded byte previews for those schema-owned failures while
-retaining `codec.encode_value_unrepresentable` projection for source-visible
-hand-written compatibility values. Remaining migration work is:
+are compatibility or diagnostic migration fixtures. One completed migration
+slice has reclassified generated schema encode value representability failures
+to `schema.encode_value_unrepresentable`, as archived under
+[Schema-Owned Encode Value Diagnostics](../reference/implemented-proposals/schema-owned-encode-value-diagnostics.md).
+The generated schema dispatch diagnostic reclassification slice is also
+implemented and archived under
+[Schema-Owned Dispatch Value Diagnostics](../reference/implemented-proposals/schema-owned-dispatch-value-diagnostics.md).
+Remaining migration work is:
 
 1. Archive implemented codec proposal records as historical implementation
    records, not current design direction.

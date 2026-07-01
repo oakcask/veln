@@ -57,8 +57,8 @@ paths that surface the same generated helper failure; the current behavior is
 specified under `../specification/execution.md` and checked by the generated
 encode cases under `../../examples/specification/run/`. Command-facing
 projection for generated `EncodeError` result values is also implemented for
-`schema.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
-`codec.dispatch_length_mismatch`, and `codec.dispatch_mismatch`; `veln run`
+`schema.encode_value_unrepresentable`, `schema.dispatch_unknown_tag`,
+`schema.dispatch_length_mismatch`, and `schema.dispatch_mismatch`; `veln run`
 human output reports focused runtime diagnostics, and `veln run --json`
 attaches `details.value_diagnostic` with field path and reason details as
 specified under `../specification/run-json.md` and
@@ -359,6 +359,10 @@ that name the failed representation fact. The first canonical ids are:
   evaluates to false; the first narrow validation slice is implemented under
   `../specification/run-json.md`
 - `schema.dispatch_unknown_tag` for an unknown tag in a closed dispatch
+- `schema.dispatch_length_mismatch` for a dispatch payload whose encoded byte
+  count differs from the schema-local length field
+- `schema.dispatch_mismatch` for a dispatch tag and payload variant that cannot
+  represent the same schema-local case
 - `schema.length_out_of_bounds` for a decoded length or count that cannot be
   sliced from the available bounded input
 - `schema.integer_out_of_range` for a value that cannot be represented by the

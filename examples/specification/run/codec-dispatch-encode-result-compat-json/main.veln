@@ -1,0 +1,5 @@
+# Hand-written codec dispatch encode ids remain command-facing compatibility values.
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	Err(EncodeError("codec.dispatch_mismatch", "ManualPacket.payload", "hand-written compatibility dispatch mismatch"))
+end

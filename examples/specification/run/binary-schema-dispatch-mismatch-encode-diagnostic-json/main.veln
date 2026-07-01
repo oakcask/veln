@@ -7,7 +7,7 @@ schema ExtensionDispatchWritePacket
 end
 
 fn fixture_error(message: String) -> EncodeError
-	EncodeError("codec.dispatch_mismatch", "ExtensionDispatchWritePacket.payload", message)
+	EncodeError("schema.dispatch_mismatch", "ExtensionDispatchWritePacket.payload", message)
 end
 
 fn raw_payload_view() -> Result<ByteView, EncodeError>

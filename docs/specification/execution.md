@@ -64,6 +64,17 @@ enough.
   bytes through the declared schema layout. Lowercase reserved-bit fields emit
   their declared values and are omitted from the input record like compatible
   `ReservedBits(width, value)` fields.
+- Representation-local generated schema encode failures that cannot write a
+  supplied value, repeat count, or length-bounded `ByteView` use
+  `schema.encode_value_unrepresentable` while preserving the existing
+  `EncodeError` field path and reason shape. Hand-written codec
+  `EncodeError(...)` values may still use codec-owned ids.
+- Representation-local generated schema dispatch encode failures use
+  `schema.dispatch_unknown_tag`, `schema.dispatch_length_mismatch`, and
+  `schema.dispatch_mismatch` for unknown closed-dispatch tags, extension
+  dispatch payload length mismatches, and extension dispatch tag/payload
+  mismatches. Compatibility-only hand-written `EncodeError(...)` values may
+  still use the corresponding `codec.dispatch_*` ids.
 - Projection between a schema-local record and a domain value is ordinary Veln
   source at the caller or schema-operation boundary. The checked schema-local projection
   case is
