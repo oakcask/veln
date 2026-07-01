@@ -14,7 +14,23 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "items"
+
+[[json_assert]]
+path = "diagnostics.0.details.missing_fact"
+equals = "parameter_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
 
 [[diagnostics]]
 id = "type.private_inference_incomplete"
@@ -27,6 +43,29 @@ file = "main.veln"
 line = 6
 column = 11
 
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.1.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 1
+
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"
@@ -35,5 +74,5 @@ message = "expected `Int`, but found `String`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 12
+line = 16
 column = 11

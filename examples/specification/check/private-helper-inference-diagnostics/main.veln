@@ -7,6 +7,10 @@ fn length(items)
 	vec_len(items)
 end
 
+fn partial_return()
+	[]
+end
+
 fn conflicting_call_sites() -> Int
 	let first: Int = identity(1)
 	identity("bad")

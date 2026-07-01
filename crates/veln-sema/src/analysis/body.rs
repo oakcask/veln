@@ -283,8 +283,10 @@ impl<'a> FunctionChecker<'a> {
                         ("phase", JsonValue::string("type_check")),
                         ("node_id", JsonValue::string(param.node_id.display("param"))),
                         ("boundary", JsonValue::string("private_function")),
+                        ("slot_kind", JsonValue::string("private_parameter")),
+                        ("parameter", JsonValue::string(param.name.clone())),
                         ("missing_fact", JsonValue::string("parameter_type")),
-                        ("inferred_type", JsonValue::string("unknown")),
+                        ("inferred_type", JsonValue::string(inferred.render())),
                     ]),
                 );
                 diagnostic.related.push(JsonValue::object([
@@ -301,7 +303,8 @@ impl<'a> FunctionChecker<'a> {
         if self.function.return_type.is_some() {
             return;
         }
-        if self.inferred_return_type.as_ref() == Some(&Type::Unknown) {
+        let inferred = self.inferred_return_type.as_ref().unwrap_or(&Type::Unknown);
+        if type_contains_unknown(inferred) {
             let mut diagnostic = Diagnostic::new(
                 "type.private_inference_incomplete",
                 Severity::Error,
@@ -315,8 +318,9 @@ impl<'a> FunctionChecker<'a> {
                         JsonValue::string(self.function.node_id.display("fn")),
                     ),
                     ("boundary", JsonValue::string("private_function")),
+                    ("slot_kind", JsonValue::string("private_return")),
                     ("missing_fact", JsonValue::string("return_type")),
-                    ("inferred_type", JsonValue::string("unknown")),
+                    ("inferred_type", JsonValue::string(inferred.render())),
                 ]),
             );
             diagnostic.related.push(JsonValue::object([
@@ -3129,6 +3133,7 @@ impl<'a> FunctionChecker<'a> {
             JsonValue::object([
                 ("phase", JsonValue::string("type")),
                 ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("slot_kind", JsonValue::string("constructor_type")),
                 ("constructor", JsonValue::string(symbol)),
                 ("inferred_type", JsonValue::string(ty.render())),
                 ("constraint", JsonValue::string("constructor_type_context")),
@@ -3180,6 +3185,7 @@ impl<'a> FunctionChecker<'a> {
             JsonValue::object([
                 ("phase", JsonValue::string("type")),
                 ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("slot_kind", JsonValue::string("empty_collection")),
                 ("collection", JsonValue::string(collection)),
                 ("inferred_type", JsonValue::string(ty.render())),
                 (

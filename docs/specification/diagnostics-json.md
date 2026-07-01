@@ -14,6 +14,8 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   [diagnostics-json-full.md](diagnostics-json-full.md).
 - Stable `details` payloads by diagnostic family:
   [diagnostics-json-full.md](diagnostics-json-full.md).
+- Local inference diagnostic details:
+  [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
   [repair-candidates.md](repair-candidates.md).
 

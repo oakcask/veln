@@ -16,6 +16,62 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 6
 
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.3.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.3.details.parameter"
+equals = "fixed"
+
+[[json_assert]]
+path = "diagnostics.3.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.4.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.4.details.inferred_type"
+equals = "Vec<fn(unknown) -> String>"
+
+[[json_assert]]
+path = "diagnostics.5.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.5.details.inferred_type"
+equals = "GenericGroup<unknown>"
+
+[[json_assert]]
+path = "diagnostics.5.details.constraint"
+equals = "constructor_type_context"
+
 [[diagnostics]]
 id = "type.mismatch"
 severity = "error"

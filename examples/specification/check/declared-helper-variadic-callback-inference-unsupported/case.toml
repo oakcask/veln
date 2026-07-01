@@ -17,6 +17,18 @@ path = "summary.diagnostic_count"
 equals = 3
 
 [[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "label"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
 path = "diagnostics.0.related.0.kind"
 equals = "repair_hint"
 
@@ -31,6 +43,18 @@ equals = "repair_hint"
 [[json_assert]]
 path = "diagnostics.1.related.0.message"
 equals = "Add a parameter type annotation."
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.2.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "unknown"
 
 [[json_assert]]
 path = "diagnostics.2.related.0.kind"

@@ -16,6 +16,22 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 2
 
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.0.details.missing_fact"
+equals = "parameter_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
 [[diagnostics]]
 id = "type.private_inference_incomplete"
 severity = "error"

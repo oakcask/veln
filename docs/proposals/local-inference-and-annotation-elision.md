@@ -287,19 +287,27 @@ argument, or a match scrutinee type. Related notes should carry provenance:
 initializer type, later use, earlier call site, helper body fact, expected
 return type, or constructor descriptor.
 
-JSON details should include stable fields for the inferred slot kind, current
-inferred type when any, and constraint provenance.
+The completed diagnostic-details slice is archived under
+`../reference/implemented-proposals/local-inference-diagnostic-details.md`.
+Implemented current behavior is specified in
+`../specification/diagnostics-json.md`,
+`../specification/types.md#read-first`, and
+`../specification/types-full.md#inference`: inference failure JSON details
+include stable fields for the inferred slot kind, current inferred type when
+the checker has one, and constraint provenance when the checker has that
+information.
 
-The diagnostic-id policy is decided: inference failures should use the narrow
-stable id for the slot or failed fact rather than collapsing all omitted local
-facts into `type.private_inference_incomplete`. Implemented same-function local
+The diagnostic-id policy is decided: inference failures use the narrow stable
+id for the slot or failed fact rather than collapsing all omitted local facts
+into `type.private_inference_incomplete`. Implemented same-function local
 binding gaps use `type.local_inference_incomplete`, private helper signature
 gaps use `type.private_inference_incomplete`, ambiguous constructor or literal
-contexts use `type.inference_ambiguous`, and conflicting concrete facts use
-`type.mismatch` at the incompatible use. Future inference slices should reuse
-those ids when their failure shape matches; add a new id only when callers need
-to distinguish a new slot kind or ambiguity boundary from the existing local,
-private, ambiguous, or mismatch cases.
+contexts and ambiguous match scrutinee domains use `type.inference_ambiguous`,
+and conflicting concrete facts use `type.mismatch` at the incompatible use.
+Future inference slices should reuse those ids when their failure shape
+matches; add a new id only when callers need to distinguish a new slot kind or
+ambiguity boundary from the existing local, private, ambiguous, or mismatch
+cases.
 
 ## Completed Examples Cleanup Evidence
 

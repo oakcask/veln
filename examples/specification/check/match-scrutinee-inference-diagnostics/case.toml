@@ -16,6 +16,38 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 4
 
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "catch_value"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "match_scrutinee"
+
+[[json_assert]]
+path = "diagnostics.1.details.constraint"
+equals = "match_constructor_pattern_domain"
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.parameter"
+equals = "ambiguous_value"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "unknown"
+
 [[diagnostics]]
 id = "type.private_inference_incomplete"
 severity = "error"

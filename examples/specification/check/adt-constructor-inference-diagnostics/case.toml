@@ -16,6 +16,30 @@ equals = "error"
 path = "summary.diagnostic_count"
 equals = 4
 
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "Result<Int, unknown>"
+
+[[json_assert]]
+path = "diagnostics.0.details.constraint"
+equals = "constructor_type_context"
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "Result<unknown, String>"
+
+[[json_assert]]
+path = "diagnostics.1.details.constraint"
+equals = "constructor_type_context"
+
 [[diagnostics]]
 id = "type.inference_ambiguous"
 severity = "error"

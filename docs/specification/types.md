@@ -80,6 +80,10 @@ full type reference.
   annotations when same-module concrete call sites and body facts determine one
   monomorphic signature. Public functions, tests, exported aliases, and
   imported public functions still require declared signature boundaries.
+- Inference failure diagnostics keep the primary message on the failed fact and
+  expose stable JSON details for the failed slot, current inferred type when
+  one is available, and known constraint provenance. See
+  [diagnostics-json.md](diagnostics-json.md).
 - `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain

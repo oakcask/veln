@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.local_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.field_missing\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`", "expected `Option<Int>`, but found `Result<unknown, unknown>`", "expected `Int`, but found `String`", "type `{count: Int}` has no field `missing`", "\"constraint\":\"record_pattern\"", "\"constraint\":\"constructor_pattern\"", "\"constraint\":\"list_element\"", "\"constraint\":\"dict_key\"", "\"constraint\":\"dict_value\""]
+contains = ["\"id\":\"type.local_inference_incomplete\"", "\"id\":\"type.private_inference_incomplete\"", "\"inferred_type\":\"Vec<unknown>\"", "\"inferred_type\":\"List<unknown>\"", "\"inferred_type\":\"Dict<unknown, unknown>\"", "\"id\":\"type.inference_ambiguous\"", "\"id\":\"type.field_missing\"", "\"id\":\"type.mismatch\"", "expected `Vec<String>`, but found `Vec<Int>`", "expected `Option<Int>`, but found `Result<unknown, unknown>`", "expected `Int`, but found `String`", "type `{count: Int}` has no field `missing`", "\"constraint\":\"record_pattern\"", "\"constraint\":\"constructor_pattern\"", "\"constraint\":\"list_element\"", "\"constraint\":\"dict_key\"", "\"constraint\":\"dict_value\""]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,79 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 16
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "List<unknown>"
+
+[[json_assert]]
+path = "diagnostics.8.details.slot_kind"
+equals = "empty_collection"
+
+[[json_assert]]
+path = "diagnostics.8.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
+equals = "empty_collection_type_context"
+
+[[json_assert]]
+path = "diagnostics.9.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.9.details.inferred_type"
+equals = "List<unknown>"
+
+[[json_assert]]
+path = "diagnostics.9.details.constraint"
+equals = "constructor_type_context"
+
+[[json_assert]]
+path = "diagnostics.10.details.slot_kind"
+equals = "empty_collection"
+
+[[json_assert]]
+path = "diagnostics.10.details.inferred_type"
+equals = "Dict<unknown, unknown>"
+
+[[json_assert]]
+path = "diagnostics.10.details.constraint"
+equals = "empty_collection_type_context"
+
+[[json_assert]]
+path = "diagnostics.11.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.11.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[json_assert]]
+path = "diagnostics.11.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.13.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.13.details.inferred_type"
+equals = "Vec<unknown>"
 
 [[diagnostics]]
 id = "type.local_inference_incomplete"
@@ -136,6 +208,17 @@ message = "empty Dict literal needs concrete type context"
 file = "main.veln"
 line = 55
 column = 36
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 59
+column = 1
 
 [[diagnostics]]
 id = "type.local_inference_incomplete"
