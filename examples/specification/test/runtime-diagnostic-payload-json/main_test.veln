@@ -26,7 +26,7 @@ fn value_diagnostic() -> RuntimeDiagnostic
 		Cons(RuntimeDiagnosticFieldPathSegment("field", "value"), Nil)
 	)
 	RuntimeDiagnostic(
-		"codec.encode_value_unrepresentable",
+		"schema.encode_value_unrepresentable",
 		"encode value is unrepresentable",
 		RuntimeValueDiagnostic(field_path, "value must be between 0 and 255")
 	)

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "decoded\n2\n3\n6\n43707\n8\nneed_more\nneed_bytes\n2\n0\nencoded\noutput_chunk_list byteview-product count 1\noutput_chunk byteview-product index 0 hex \"0203aabbccddeeff\" count 8\ninvalid\ncodec.encode_value_unrepresentable\nPacketWire.payload\nbyte view count 4 does not match length expression `row_count * column_count` value 6\n"
+equals = "decoded\n2\n3\n6\n43707\n8\nneed_more\nneed_bytes\n2\n0\nencoded\noutput_chunk_list byteview-product count 1\noutput_chunk byteview-product index 0 hex \"0203aabbccddeeff\" count 8\ninvalid\nschema.encode_value_unrepresentable\nPacketWire.payload\nbyte view count 4 does not match length expression `row_count * column_count` value 6\n"
 
 [[json_assert]]
 path = "error"

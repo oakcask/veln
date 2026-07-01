@@ -50,14 +50,14 @@ attempted stream id, recorded last stream id, shutdown state, endpoint role,
 active state, and rule provenance. These protocol projections are checked by
 the HTTP/2 protocol-core cases under
 `../../examples/specification/run/`. Generated exact-width binary schema
-encode range failures use `codec.encode_value_unrepresentable` through
+encode range failures use `schema.encode_value_unrepresentable` through
 direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
 HTTP/2 frame-header encode fixture, including selected dispatch payload encode
 paths that surface the same generated helper failure; the current behavior is
 specified under `../specification/execution.md` and checked by the generated
 encode cases under `../../examples/specification/run/`. Command-facing
 projection for generated `EncodeError` result values is also implemented for
-`codec.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
+`schema.encode_value_unrepresentable`, `codec.dispatch_unknown_tag`,
 `codec.dispatch_length_mismatch`, and `codec.dispatch_mismatch`; `veln run`
 human output reports focused runtime diagnostics, and `veln run --json`
 attaches `details.value_diagnostic` with field path and reason details as
@@ -364,6 +364,9 @@ that name the failed representation fact. The first canonical ids are:
 - `schema.integer_out_of_range` for a value that cannot be represented by the
   schema-owned external integer width; the generated exact-width binary schema
   decode slice is implemented under `../specification/run-json.md`
+- `schema.encode_value_unrepresentable` for a value that cannot be emitted by
+  generated schema encode because it violates representation-local schema
+  facts
 
 Codec-owned failures should use `codec.*` ids only when the failed fact belongs
 to executable decode or encode behavior rather than to the schema
@@ -374,9 +377,8 @@ representation itself. The first canonical ids are:
   helper
 - `codec.consumed_count_invalid` for a decoder result whose consumed
   `ByteCount` is outside the supplied `ByteView`
-- `codec.encode_value_unrepresentable` for a value that cannot be emitted by
-  an encoder because the selected codec direction, mapping, or representation
-  checks cannot produce bytes
+- `codec.encode_value_unrepresentable` for source-visible compatibility
+  encode values that are not produced by generated schema encode helpers
 
 Do not collapse schema failures into a generic `codec.invalid_input` when the
 schema can name the failed field fact. A hand-written codec may project an

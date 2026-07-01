@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "171\n5\n46453\ndecoded\n171\n5\n2\nencoded\noutput_chunk_list suffix-reserved-group count 1\noutput_chunk suffix-reserved-group index 0 hex \"b575\" count 2\ninvalid\ncodec.encode_value_unrepresentable\nSuffixReservedGroupHeader.channel\n"
+equals = "171\n5\n46453\ndecoded\n171\n5\n2\nencoded\noutput_chunk_list suffix-reserved-group count 1\noutput_chunk suffix-reserved-group index 0 hex \"b575\" count 2\ninvalid\nschema.encode_value_unrepresentable\nSuffixReservedGroupHeader.channel\n"
 
 [[json_assert]]
 path = "error"

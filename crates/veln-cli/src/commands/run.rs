@@ -1666,7 +1666,7 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
             }
             Some(diagnostic)
         }
-        "codec.encode_value_unrepresentable" => {
+        "schema.encode_value_unrepresentable" | "codec.encode_value_unrepresentable" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
         "codec.dispatch_unknown_tag" => {
@@ -1773,7 +1773,9 @@ fn encode_result_failure_diagnostic(
 
 fn encode_diagnostic_message(id: &str) -> String {
     match id {
-        "codec.encode_value_unrepresentable" => "encode value is unrepresentable",
+        "schema.encode_value_unrepresentable" | "codec.encode_value_unrepresentable" => {
+            "encode value is unrepresentable"
+        }
         "codec.dispatch_unknown_tag" => "unknown dispatch tag in encode value",
         "codec.dispatch_length_mismatch" => "dispatch payload length mismatch",
         "codec.dispatch_mismatch" => "dispatch tag and payload mismatch",
@@ -3505,7 +3507,7 @@ mod tests {
             ("kind", JsonValue::string("value_diagnostic")),
             (
                 "id",
-                JsonValue::string("codec.encode_value_unrepresentable"),
+                JsonValue::string("schema.encode_value_unrepresentable"),
             ),
             (
                 "field_path",
@@ -3536,13 +3538,13 @@ mod tests {
         ]);
         let failure = TestFailure {
             kind: "result".to_string(),
-            message: "runtime result failure: Err(EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2))".to_string(),
+            message: "runtime result failure: Err(EncodeError(schema.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2))".to_string(),
             details: JsonValue::object([
                 ("kind", JsonValue::string("result")),
                 ("phase", JsonValue::string("runtime")),
                 (
                     "value",
-                    JsonValue::string("EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)"),
+                    JsonValue::string("EncodeError(schema.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)"),
                 ),
                 ("value_diagnostic", value_diagnostic),
             ]),
@@ -3551,7 +3553,7 @@ mod tests {
         let diagnostic =
             value_result_failure_diagnostic(&failure).expect("value diagnostic should project");
 
-        assert_eq!(diagnostic.id, "codec.encode_value_unrepresentable");
+        assert_eq!(diagnostic.id, "schema.encode_value_unrepresentable");
         assert_eq!(diagnostic.message, "encode value is unrepresentable");
         assert_eq!(diagnostic.related.len(), 6);
         assert!(

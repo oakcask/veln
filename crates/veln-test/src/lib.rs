@@ -4008,8 +4008,8 @@ mod tests {
     fn value_diagnostic_result_trace_decodes_byte_preview_details() {
         let trace = concat!(
             "result\t",
-            "456e636f64654572726f7228636f6465632e656e636f64655f76616c75655f756e726570726573656e7461626c652c205061636b6574576972652e7061796c6f61642c2062797465207669657720636f756e74203320646f6573206e6f74206d61746368206c656e677468206669656c6420606c656e677468602076616c7565203229",
-            "\tvalue_diagnostic\tcodec.encode_value_unrepresentable",
+            "456e636f64654572726f7228736368656d612e656e636f64655f76616c75655f756e726570726573656e7461626c652c205061636b6574576972652e7061796c6f61642c2062797465207669657720636f756e74203320646f6573206e6f74206d61746368206c656e677468206669656c6420606c656e677468602076616c7565203229",
+            "\tvalue_diagnostic\tschema.encode_value_unrepresentable",
             "\t2\tschema\t5061636b657457697265\tfield\t7061796c6f6164",
             "\t7\treason\tstring\t62797465207669657720636f756e74203320646f6573206e6f74206d61746368206c656e677468206669656c6420606c656e677468602076616c75652032",
             "\tfield_path_display\tstring\t5061636b6574576972652e7061796c6f6164",
@@ -4026,9 +4026,9 @@ mod tests {
             failure.details.to_json(),
             concat!(
                 "{\"kind\":\"result\",\"phase\":\"runtime\",",
-                "\"value\":\"EncodeError(codec.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)\",",
+                "\"value\":\"EncodeError(schema.encode_value_unrepresentable, PacketWire.payload, byte view count 3 does not match length field `length` value 2)\",",
                 "\"value_diagnostic\":{\"kind\":\"value_diagnostic\",",
-                "\"id\":\"codec.encode_value_unrepresentable\",",
+                "\"id\":\"schema.encode_value_unrepresentable\",",
                 "\"field_path\":[{\"kind\":\"schema\",\"name\":\"PacketWire\"},",
                 "{\"kind\":\"field\",\"name\":\"payload\"}],",
                 "\"reason\":\"byte view count 3 does not match length field `length` value 2\",",

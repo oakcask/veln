@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "codec.encode_value_unrepresentable\nLittleEndianLengthWire.value\nvalue must be between 0 and 16777215\ncodec.encode_value_unrepresentable\nLittleEndianWideWire.value\nvalue must be between 0 and 4294967295\ncodec.encode_value_unrepresentable\nLittleEndianStreamWire.value\nvalue must be between 0 and 2147483647\ncodec.encode_value_unrepresentable\nLittleEndianStreamWire.value\nvalue must be between 0 and 2147483647\n"
+equals = "schema.encode_value_unrepresentable\nLittleEndianLengthWire.value\nvalue must be between 0 and 16777215\nschema.encode_value_unrepresentable\nLittleEndianWideWire.value\nvalue must be between 0 and 4294967295\nschema.encode_value_unrepresentable\nLittleEndianStreamWire.value\nvalue must be between 0 and 2147483647\nschema.encode_value_unrepresentable\nLittleEndianStreamWire.value\nvalue must be between 0 and 2147483647\n"
 
 [[json_assert]]
 path = "error"

@@ -59,7 +59,7 @@ same `schema.fixed_field_mismatch` byte diagnostic shape.
 When the returned error value is
 `RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(...))` for a generated
 binary schema encode failure id such as
-`codec.encode_value_unrepresentable`, `details.value` keeps the rendered
+`schema.encode_value_unrepresentable`, `details.value` keeps the rendered
 `RuntimeDiagnostic(...)` value and `details.value_diagnostic` is projected
 from that value. The value detail constructor carries the schema-local field
 path segment list and reason text; run JSON derives `field_path`,
@@ -362,15 +362,16 @@ When the result value is a checked `byte_write_*` conversion failure,
 - `byte_order`: `big_endian` or `little_endian`
 
 When the result value is a source-visible
-`EncodeError(id, field_path, reason)` with a supported generated encode
-diagnostic id, or a `veln run` entry returns
+`EncodeError(id, field_path, reason)` with a supported encode diagnostic id,
+or a `veln run` entry returns
 `EncodeStep::Invalid(EncodeError(id, field_path, reason))`, or the entry
 returns `Err(RuntimeDiagnostic(id, message, RuntimeValueDiagnostic(field_path,
-reason)))` for the same generated encode ids,
+reason)))` for the same supported encode ids,
 `details.value_diagnostic` includes:
 
 - `kind: "value_diagnostic"`
-- `id`: one of `codec.encode_value_unrepresentable`,
+- `id`: one of `schema.encode_value_unrepresentable`,
+  `codec.encode_value_unrepresentable`,
   `codec.dispatch_unknown_tag`, `codec.dispatch_length_mismatch`, or
   `codec.dispatch_mismatch`, or `schema.validation_failed`
 - `field_path`: schema-local path segment objects with `kind` and `name`,

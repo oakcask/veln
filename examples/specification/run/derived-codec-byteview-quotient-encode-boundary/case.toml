@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\noutput_chunk_list byteview-quotient-derived count 1\noutput_chunk byteview-quotient-derived index 0 hex \"0802aabbccdd\" count 6\ninvalid\ncodec.encode_value_unrepresentable\nPacketWire.payload\nbyte view count 3 does not match length expression `total_length / chunk_count` value 4\ninvalid\ncodec.encode_value_unrepresentable\nPacketWire.payload\nschema length division by zero\n"
+equals = "encoded\noutput_chunk_list byteview-quotient-derived count 1\noutput_chunk byteview-quotient-derived index 0 hex \"0802aabbccdd\" count 6\ninvalid\nschema.encode_value_unrepresentable\nPacketWire.payload\nbyte view count 3 does not match length expression `total_length / chunk_count` value 4\ninvalid\nschema.encode_value_unrepresentable\nPacketWire.payload\nschema length division by zero\n"
 
 [[json_assert]]
 path = "error"

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "5\n171\n6\n85\n94\ndecoded\n5\n171\n6\n2\nencoded\noutput_chunk_list byte-interleaved-middle-reserved count 1\noutput_chunk byte-interleaved-middle-reserved index 0 hex \"555e\" count 2\ninvalid\ncodec.encode_value_unrepresentable\nByteInterleavedMiddleReservedHeader.low\n"
+equals = "5\n171\n6\n85\n94\ndecoded\n5\n171\n6\n2\nencoded\noutput_chunk_list byte-interleaved-middle-reserved count 1\noutput_chunk byte-interleaved-middle-reserved index 0 hex \"555e\" count 2\ninvalid\nschema.encode_value_unrepresentable\nByteInterleavedMiddleReservedHeader.low\n"
 
 [[json_assert]]
 path = "error"

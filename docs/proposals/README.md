@@ -77,8 +77,9 @@ compare it with `../specification/` before changing behavior.
   `../specification/source-surface.md` and archived under
   `../reference/implemented-proposals/remove-source-codec-declarations.md` and
   `../reference/implemented-proposals/schema-helper-public-surface-cleanup.md`;
-  the remaining proposal work covers diagnostic reclassification and archival
-  cleanup.
+  the generated schema encode diagnostic reclassification is current behavior
+  under `../specification/commands.md` and `../specification/run-json.md`; the
+  remaining proposal work covers archival cleanup.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
@@ -332,7 +333,7 @@ compare it with `../specification/` before changing behavior.
   peer-limit failures, including post-GOAWAY stream rejection, fixed
   payload-length, invalid DATA padding, SETTINGS ACK state, preface,
   continuation, and invalid frame-kind fixtures, and
-  generated
+  schema-owned generated
   binary schema encode value-representation failures, generated `EncodeError`
   command-facing projection for encode value, dispatch unknown tag, dispatch
   length mismatch, and dispatch mismatch failures, command-facing projection

@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\noutput_chunk_list derived-counted-views count 1\noutput_chunk derived-counted-views index 0 hex \"0202aabbccdd\" count 6\ninvalid\ncodec.encode_value_unrepresentable\nCountedViews.items.0\nbyte view count 1 does not match length field `item_length` value 2\n"
+equals = "encoded\noutput_chunk_list derived-counted-views count 1\noutput_chunk derived-counted-views index 0 hex \"0202aabbccdd\" count 6\ninvalid\nschema.encode_value_unrepresentable\nCountedViews.items.0\nbyte view count 1 does not match length field `item_length` value 2\n"
 
 [[json_assert]]
 path = "error"
