@@ -194,10 +194,11 @@ requiring the full command reference on the first read.
   literal-never-indexed inputs, plus unsupported-name, Huffman-marked value,
   and malformed raw-length fallback for those forms. The aggregate HTTP/2
   protocol-core run case also checks a source-visible HPACK static-name
-  `content-length` literal in a request header block; accepted visible ASCII
-  decimal values update the existing content-length body-accounting state,
-  while non-decimal visible
-  values use the existing request header-list validation diagnostic.
+  `content-length` literal in request header blocks, including the
+  literal-never-indexed form that does not require fixture dynamic-table
+  state; accepted visible ASCII decimal values update the existing
+  content-length body-accounting state, while non-decimal visible values use
+  the existing request header-list validation diagnostic.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

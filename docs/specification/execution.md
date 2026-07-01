@@ -95,8 +95,11 @@ enough.
   literal-with-indexing fields, and bounded static-name literal-never-indexed
   fields for the checked static names under
   `examples/specification/run/hpack-static-codec-boundary/`. Stateful HTTP/2
-  header-block decoding still routes literal-with-indexing blocks through the
-  HPACK fixture decoder when fixture dynamic-table state must be updated.
+  request decoding also accepts `content-length` through the static-name
+  literal forms that do not need fixture dynamic-table updates. Stateful
+  HTTP/2 header-block decoding still routes literal-with-indexing blocks
+  through the HPACK fixture decoder when fixture dynamic-table state must be
+  updated.
 
 ## Runtime Output
 
