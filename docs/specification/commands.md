@@ -152,6 +152,16 @@ requiring the full command reference on the first read.
   `examples/specification/run/codec-payload-length-mismatch-direct-human/`
   and
   `examples/specification/run/codec-payload-length-mismatch-step-human/`.
+  Codec-owned integer range failures with id `codec.integer_out_of_range`
+  use `integer out of range at byte offset ...` as the primary human message
+  and put field path, byte width, expected integer range, actual decoded
+  value, failure reason, and the source-visible `DecodeError` value in
+  related notes when the source-visible reason uses the narrow form with
+  `byte_width=<n>`, `min_value=<n>`, `max_value=<n>`, `actual_value=<n>`,
+  and `reason=<text>`; the checked direct result and
+  `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-integer-out-of-range-direct-human/` and
+  `examples/specification/run/codec-integer-out-of-range-step-human/`.
   Codec-owned sequence mismatch failures with id `codec.sequence_mismatch`
   use `sequence mismatch at byte offset ...` as the primary human message and
   put field path, expected sequence, actual sequence, failure reason, and the

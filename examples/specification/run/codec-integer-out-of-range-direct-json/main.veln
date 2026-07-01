@@ -1,0 +1,16 @@
+# Direct integer out-of-range decode failures populate stable byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	stream_id: UInt32be
+	payload: ByteView(0)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.integer_out_of_range", offset(17), "ManualPacketWire.stream_id", "byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range"))
+end

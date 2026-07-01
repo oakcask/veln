@@ -165,6 +165,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPayloadLengthMismatch));
 
+        Object integerOutOfRange = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.integer_out_of_range",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(17) }),
+                "Packet.stream_id",
+                "byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(integerOutOfRange));
+
+        Object plainIntegerOutOfRange = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.integer_out_of_range",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(18) }),
+                "Packet.stream_id",
+                "plain integer conversion failure"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainIntegerOutOfRange));
+
         Object sequenceMismatch = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
             new Object[] {
@@ -1751,6 +1773,42 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_payload_length_line.contains("\texpected_payload_length\t"));
     assert!(!plain_payload_length_line.contains("\tactual_payload_length\t"));
+    let integer_range_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.integer_out_of_range\t17\t"))
+        .expect("integer out-of-range should be recorded");
+    assert!(
+        integer_range_line.contains("\tbyte_width\tnumber\t4"),
+        "{integer_range_line}"
+    );
+    assert!(
+        integer_range_line.contains("\tmin_value\tnumber\t0"),
+        "{integer_range_line}"
+    );
+    assert!(
+        integer_range_line.contains("\tmax_value\tnumber\t2147483647"),
+        "{integer_range_line}"
+    );
+    assert!(
+        integer_range_line.contains("\tactual_value\tnumber\t2147483648"),
+        "{integer_range_line}"
+    );
+    assert!(
+        integer_range_line.contains("\treason\tstring\t"),
+        "{integer_range_line}"
+    );
+    let plain_integer_range_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.integer_out_of_range\t18\t"))
+        .expect("plain integer out-of-range should be recorded");
+    assert!(
+        plain_integer_range_line.contains("\treason\tstring\t"),
+        "{plain_integer_range_line}"
+    );
+    assert!(!plain_integer_range_line.contains("\tbyte_width\t"));
+    assert!(!plain_integer_range_line.contains("\tmin_value\t"));
+    assert!(!plain_integer_range_line.contains("\tmax_value\t"));
+    assert!(!plain_integer_range_line.contains("\tactual_value\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.sequence_mismatch\t13\t"),
         "{trace}"

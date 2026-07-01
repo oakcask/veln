@@ -1747,6 +1747,8 @@
                 mergeLengthMismatchReason(details, reason);
             } else if (id.equals("codec.payload_length_mismatch")) {
                 mergePayloadLengthMismatchReason(details, reason);
+            } else if (id.equals("codec.integer_out_of_range")) {
+                mergeIntegerOutOfRangeReason(details, reason);
             } else if (id.equals("codec.sequence_mismatch")) {
                 mergeSequenceMismatchReason(details, reason);
             } else if (id.equals("codec.version_mismatch")) {
@@ -1885,6 +1887,27 @@
         }
     }
 
+    private static Long parseDecimal(String value) {
+        if (value.isEmpty()) {
+            return null;
+        }
+        int start = value.charAt(0) == '-' ? 1 : 0;
+        if (start == value.length()) {
+            return null;
+        }
+        for (int index = start; index < value.length(); index++) {
+            char ch = value.charAt(index);
+            if (ch < '0' || ch > '9') {
+                return null;
+            }
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException error) {
+            return null;
+        }
+    }
+
     private static final class LengthMismatchReason {
         final long expectedLength;
         final long actualLength;
@@ -1959,6 +1982,87 @@
         ) {
             this.expectedPayloadLength = expectedPayloadLength;
             this.actualPayloadLength = actualPayloadLength;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeIntegerOutOfRangeReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        IntegerOutOfRangeReason parsed = parseIntegerOutOfRangeReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number("byte_width", parsed.byteWidth));
+        details.add(DiagnosticDetail.number("min_value", parsed.minValue));
+        details.add(DiagnosticDetail.number("max_value", parsed.maxValue));
+        details.add(DiagnosticDetail.number("actual_value", parsed.actualValue));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static IntegerOutOfRangeReason parseIntegerOutOfRangeReason(String reason) {
+        Long byteWidth = null;
+        Long minValue = null;
+        Long maxValue = null;
+        Long actualValue = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("byte_width")) {
+                byteWidth = parseNonNegativeDecimal(value);
+            } else if (key.equals("min_value")) {
+                minValue = parseDecimal(value);
+            } else if (key.equals("max_value")) {
+                maxValue = parseDecimal(value);
+            } else if (key.equals("actual_value")) {
+                actualValue = parseDecimal(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (byteWidth == null
+            || minValue == null
+            || maxValue == null
+            || actualValue == null
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new IntegerOutOfRangeReason(
+            byteWidth.longValue(),
+            minValue.longValue(),
+            maxValue.longValue(),
+            actualValue.longValue(),
+            failureReason
+        );
+    }
+
+    private static final class IntegerOutOfRangeReason {
+        final long byteWidth;
+        final long minValue;
+        final long maxValue;
+        final long actualValue;
+        final String reason;
+
+        IntegerOutOfRangeReason(
+            long byteWidth,
+            long minValue,
+            long maxValue,
+            long actualValue,
+            String reason
+        ) {
+            this.byteWidth = byteWidth;
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+            this.actualValue = actualValue;
             this.reason = reason;
         }
     }

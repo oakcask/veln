@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.integer_out_of_range]: integer out of range at byte offset 18", "note: Field path: schema `ManualPacketWire` / field `signed_byte`.", "note: 1-byte integer expected value between -128 and 127; actual value was 128.", "note: Integer conversion reason: decoded value exceeds signed byte range.", "note: DecodeError value: DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(18), ManualPacketWire.signed_byte, byte_width=1; min_value=-128; max_value=127; actual_value=128; reason=decoded value exceeds signed byte range)."]
