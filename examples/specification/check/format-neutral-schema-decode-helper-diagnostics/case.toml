@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `float_items` cannot expose a generated decode helper", "\"field_type\":\"List<Float>\"", "format-neutral schema field `bool_items` cannot expose a generated decode helper", "\"field_type\":\"List<Bool>\"", "format-neutral schema field `nested_lists` cannot expose a generated decode helper", "\"field_type\":\"List<List<Int>>\"", "format-neutral schema field `optional_items` cannot expose a generated decode helper", "\"field_type\":\"Option<List<Int>>\"", "format-neutral schema field `nested_items` cannot expose a generated decode helper", "\"field_type\":\"{ items : List<Float> }\"", "format-neutral schema field `numeric_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, Int>\"", "format-neutral schema field `flag_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<String, Bool>\"", "format-neutral schema field `nested_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<String, Dict<String, Int>>\"", "format-neutral schema field `optional_scores` cannot expose a generated decode helper", "\"field_type\":\"Option<Dict<String, Int>>\"", "format-neutral schema field `record_scores` cannot expose a generated decode helper", "\"field_type\":\"{ scores : Dict<String, Int> }\"", "format-neutral schema field `vec_items` cannot expose a generated decode helper", "\"field_type\":\"Vec<Int>\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `nested_lists` cannot expose a generated decode helper", "\"field_type\":\"List<List<Int>>\"", "format-neutral schema field `optional_items` cannot expose a generated decode helper", "\"field_type\":\"Option<List<Int>>\"", "format-neutral schema field `nested_items` cannot expose a generated decode helper", "\"field_type\":\"{ items : List<Float> }\"", "format-neutral schema field `numeric_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, Int>\"", "format-neutral schema field `flag_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<String, Bool>\"", "format-neutral schema field `nested_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<String, Dict<String, Int>>\"", "format-neutral schema field `optional_scores` cannot expose a generated decode helper", "\"field_type\":\"Option<Dict<String, Int>>\"", "format-neutral schema field `record_scores` cannot expose a generated decode helper", "\"field_type\":\"{ scores : Dict<String, Int> }\"", "format-neutral schema field `vec_items` cannot expose a generated decode helper", "\"field_type\":\"Vec<Int>\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
 
 [stderr]
 format = "empty"
@@ -14,70 +14,58 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 11
+equals = 9
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `float_items` cannot expose a generated decode helper because `List<Float>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `nested_lists` cannot expose a generated decode helper because `List<List<Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `bool_items` cannot expose a generated decode helper because `List<Bool>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `optional_items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `nested_lists` cannot expose a generated decode helper because `List<List<Int>>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `nested_items` cannot expose a generated decode helper because `{ items : List<Float> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `optional_items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `nested_items` cannot expose a generated decode helper because `{ items : List<Float> }` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `flag_scores` cannot expose a generated decode helper because `Dict<String, Bool>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `nested_scores` cannot expose a generated decode helper because `Dict<String, Dict<String, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `flag_scores` cannot expose a generated decode helper because `Dict<String, Bool>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<String, Int>>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `nested_scores` cannot expose a generated decode helper because `Dict<String, Dict<String, Int>>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `record_scores` cannot expose a generated decode helper because `{ scores : Dict<String, Int> }` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<String, Int>>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
-
-[[diagnostics]]
-id = "schema.format_neutral_decode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `record_scores` cannot expose a generated decode helper because `{ scores : Dict<String, Int> }` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
-
-[[diagnostics]]
-id = "schema.format_neutral_decode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `vec_items` cannot expose a generated decode helper because `Vec<Int>` is not a supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"
+message = "format-neutral schema field `vec_items` cannot expose a generated decode helper because `Vec<Int>` is not a supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type"

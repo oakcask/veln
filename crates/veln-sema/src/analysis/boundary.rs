@@ -883,7 +883,10 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
     let schema_name = schema.name.as_deref().unwrap_or("<missing>");
-    let supported = "supported scalar, top-level List<Int> or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type";
+    let supported = "supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int> or Dict<String, String>, Option, or record-shaped field type";
+    let boundary_message = format!(
+        "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, top-level List<Int>, List<Bool>, List<Float>, or List<String> fields, top-level Dict<String, Int> or Dict<String, String> fields, supported Option fields, and nested record-shaped fields."
+    );
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_decode_helper",
         Severity::Error,
@@ -911,12 +914,7 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("schema_helper_boundary")),
         ("span", span_json(&schema.span)),
-        (
-            "message",
-            JsonValue::string(format!(
-                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields, top-level List<Int> or List<String> fields, top-level Dict<String, Int> or Dict<String, String> fields, supported Option fields, and nested record-shaped fields."
-            )),
-        ),
+        ("message", JsonValue::string(boundary_message)),
     ]));
     diagnostic
 }
