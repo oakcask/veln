@@ -312,6 +312,9 @@ fn lower_call_target(
         }),
         CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
         CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
+        CoreCallTarget::SchemaNeutralDecode(name) => {
+            Ok(IrCallTarget::SchemaNeutralDecode(name.clone()))
+        }
         CoreCallTarget::SchemaEncode(name) => Ok(IrCallTarget::SchemaEncode(name.clone())),
         CoreCallTarget::SchemaEncodeStep(name) => Ok(IrCallTarget::SchemaEncodeStep(name.clone())),
         CoreCallTarget::SchemaValidate(name) => Ok(IrCallTarget::SchemaValidate(name.clone())),

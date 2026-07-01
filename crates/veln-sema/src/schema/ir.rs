@@ -11,7 +11,7 @@ use crate::types::{
     SchemaRepeatSpec, Type, byte_view_multiple_constraint, byte_view_schema_primitive,
     closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
+    extension_dispatch_schema_primitive, flag_schema_primitive, format_neutral_schema_field_type,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name,
@@ -38,6 +38,9 @@ fn schema_decode_spec_inner(
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
+    if schema.format.is_none() {
+        return format_neutral_schema_decode_spec(schema);
+    }
     if schema.format.as_ref()?.name != "binary" {
         return None;
     }
@@ -48,6 +51,39 @@ fn schema_decode_spec_inner(
     let spec = schema_decode_spec_inner_after_push(module, schema, stack);
     stack.pop();
     spec
+}
+
+fn format_neutral_schema_decode_spec(schema: &SchemaDecl) -> Option<IrSchemaDecodeSpec> {
+    let schema_name = schema.name.as_ref()?;
+    let fields = schema
+        .fields
+        .iter()
+        .map(|field| {
+            format_neutral_schema_field_type(&field.ty)?;
+            Some(IrSchemaDecodeField {
+                name: field.name.clone(),
+                width: 0,
+                max_value: 0,
+                little_endian: false,
+                flag_type: String::new(),
+                predicate: field
+                    .where_clause
+                    .as_ref()
+                    .map(|where_clause| where_clause.predicate.clone()),
+                length_field: None,
+                length_multiple: None,
+                repeat: None,
+                dispatch: None,
+                reserved_bits: None,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(IrSchemaDecodeSpec {
+        schema_name: schema_name.clone(),
+        function_name: schema_decode_function_name(schema_name),
+        fields,
+        validation: ir_schema_validation(schema),
+    })
 }
 
 fn schema_decode_spec_inner_after_push(

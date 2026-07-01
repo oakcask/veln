@@ -85,6 +85,91 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PlainPacket\n",
+            "  code: Int\n",
+            "  label: String\n",
+            "  metadata: {ready: Bool, score: Float}\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {code: Int, label: String, metadata: {ready: Bool, score: Float}}) -> Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}}, String>\n",
+            "  byte_decode_plain_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaNeutralDecode(name),
+            ..
+        } if name == "PlainPacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "PlainPacket");
+    assert_eq!(schema.function_name, "byte_decode_plain_packet");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width))
+            .collect::<Vec<_>>(),
+        vec![("code", 0), ("label", 0), ("metadata", 0)]
+    );
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BadPacket\n",
+            "  code: Int\n",
+            "  items: List<Int>\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
+        .expect("unsupported field should be reported");
+    assert_eq!(
+        diagnostic.message,
+        "format-neutral schema field `items` cannot expose a generated decode helper because `List<Int>` is not a supported scalar or record-shaped field type"
+    );
+    assert!(diagnostic.related.iter().any(|related| {
+        related
+            .to_json()
+            .contains("Generated format-neutral decode helpers for schema `BadPacket`")
+    }));
+}
+
+#[test]
 fn explicit_schema_decode_expression_resolves_as_schema_decode_step_boundary() {
     let source = SourceFile::new(
         "main.veln",

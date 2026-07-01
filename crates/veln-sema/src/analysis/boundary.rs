@@ -5,7 +5,8 @@ use crate::types::{
     SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, lowercase_reserved_bits_schema_primitive, lowercase_schema_primitive,
+    flag_schema_primitive, format_neutral_schema_field_type,
+    lowercase_reserved_bits_schema_primitive, lowercase_schema_primitive,
     lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
@@ -858,6 +859,14 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 }
                 continue;
             }
+            if format_name.is_none() {
+                if let Some(field_ty) = format_neutral_schema_field_type(&field.ty) {
+                    decoded_fields.insert(field.name.clone(), field_ty);
+                } else {
+                    diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
+                }
+                continue;
+            }
             check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
         }
         for (index, validation) in schema.validations.iter().enumerate() {
@@ -870,6 +879,45 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let mut diagnostic = Diagnostic::new(
+        "schema.format_neutral_decode_helper",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a supported scalar or record-shaped field type",
+            field.name, field.ty
+        ),
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("schema", JsonValue::string(schema_name)),
+            ("field", JsonValue::string(field.name.clone())),
+            ("field_type", JsonValue::string(field.ty.clone())),
+            (
+                "reason",
+                JsonValue::string("unsupported_format_neutral_field_type"),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_helper_boundary")),
+        ("span", span_json(&schema.span)),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Generated format-neutral decode helpers for schema `{schema_name}` accept only scalar fields and nested record-shaped fields."
+            )),
+        ),
+    ]));
+    diagnostic
 }
 
 fn check_schema_validation_clause(

@@ -1,0 +1,29 @@
+# Format-neutral schema decode helpers accept schema-local visible records.
+use stdio
+
+schema PlainPacket
+	code: Int
+	label: String
+	metadata: {ready: Bool, score: Float}
+end
+
+fn decoded_code(result: Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}}, String>) -> Int
+	match result
+		Ok(packet) => packet.code
+		Err(_) => -1
+	end
+end
+
+fn decoded_label(result: Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}}, String>) -> String
+	match result
+		Ok(packet) => packet.label
+		Err(message) => message
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let decoded: Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}}, String> = byte_decode_plain_packet({code: 7, label: "ready", metadata: {ready: true, score: 1.5}})
+	stdio::println(int_to_string(decoded_code(decoded)))
+	stdio::println(decoded_label(decoded))
+	Ok(())
+end

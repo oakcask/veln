@@ -63,6 +63,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads, or the implemented dispatch payload slices
+- generated `byte_decode_<schema>` helper bindings for format-neutral schemas
+  without a `format` clause when every field is `Int`, `Bool`, `Float`,
+  `String`, or a nested record shape made from those field types, with
+  declaration diagnostics for unsupported helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -89,7 +93,8 @@ This proposal remains open for:
 - generated runtime decode bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices
+  dispatch slices, and format-neutral fields outside the implemented scalar
+  and nested record-shaped helper slice
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments, and
   binary fixture metadata
@@ -340,6 +345,13 @@ Implemented:
   unsigned primitives, visible flag bitset fields, or bounded repeat fields
   over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads expose generated `byte_decode_<schema>` helper bindings.
+- Format-neutral schemas without a `format` clause whose fields are `Int`,
+  `Bool`, `Float`, `String`, or nested record shapes made from those field
+  types expose generated `byte_decode_<schema>` helper bindings that accept
+  and return the schema-local visible record through `Result<T, String>`.
+  Unsupported format-neutral helper fields report
+  `schema.format_neutral_decode_helper` at the field declaration with a
+  related note for the generated helper boundary.
 - Eligible generated `byte_encode_<schema>` helpers evaluate supported
   field-local `where` predicates over schema-local visible `Int` values during
   encode and report `schema.validation_failed` with field path, predicate
@@ -350,7 +362,7 @@ Remaining:
 
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
-  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices.
+  bounded repeat, length-bounded `ByteView`, closed dispatch, extension
+  dispatch, and format-neutral scalar or nested record-shaped slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

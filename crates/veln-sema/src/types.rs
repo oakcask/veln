@@ -98,6 +98,7 @@ pub(crate) enum CodecCallBoundary {
 
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
+pub(crate) const SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX: &str = "schema-neutral-decode:";
 pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
 pub(crate) const SCHEMA_ENCODE_STEP_TARGET_PREFIX: &str = "schema-encode-step:";
 pub(crate) const SCHEMA_VALIDATE_TARGET_PREFIX: &str = "schema-validate:";
@@ -2939,6 +2940,11 @@ fn schema_decode_function_signatures_for_schema(
     let Some(schema_name) = schema.name.as_ref() else {
         return Vec::new();
     };
+    if schema.format.is_none() {
+        return format_neutral_schema_decode_function_signature_for_schema(schema)
+            .into_iter()
+            .collect();
+    }
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return Vec::new();
     }
@@ -2978,6 +2984,57 @@ fn schema_decode_function_signatures_for_schema(
     ]
 }
 
+fn format_neutral_schema_decode_function_signature_for_schema(
+    schema: &SchemaDecl,
+) -> Option<FunctionSignature> {
+    let schema_name = schema.name.as_ref()?;
+    let decoded_type = Type::Record(format_neutral_schema_decode_record_fields(schema)?);
+    Some(FunctionSignature {
+        name: schema_decode_function_name(schema_name),
+        target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
+        module_name: schema.module_name.clone(),
+        visibility: schema.visibility,
+        params: vec![decoded_type.clone()],
+        variadic: None,
+        return_type: Type::named("Result", vec![decoded_type, Type::string()]),
+        effects: Vec::new(),
+        node_id: schema.node_id,
+        span: schema.span.clone(),
+    })
+}
+
+pub(crate) fn format_neutral_schema_decode_record_fields(
+    schema: &SchemaDecl,
+) -> Option<Vec<(String, Type)>> {
+    schema
+        .fields
+        .iter()
+        .map(|field| {
+            Some((
+                field.name.clone(),
+                format_neutral_schema_field_type(&field.ty)?,
+            ))
+        })
+        .collect()
+}
+
+pub(crate) fn format_neutral_schema_field_type(text: &str) -> Option<Type> {
+    let ty = parse_type_annotation(text).ok()?;
+    format_neutral_schema_type_is_supported(&ty).then_some(ty)
+}
+
+fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
+    match ty {
+        Type::Named { name, args } if args.is_empty() => {
+            matches!(name.as_str(), "Int" | "Bool" | "Float" | "String")
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .all(|(_, field_ty)| format_neutral_schema_type_is_supported(field_ty)),
+        _ => false,
+    }
+}
+
 pub(crate) fn schema_decode_record_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -3005,6 +3062,10 @@ fn schema_decode_record_fields_inner_after_push(
     schema: &SchemaDecl,
     stack: &mut Vec<String>,
 ) -> Option<Vec<(String, Type, u8)>> {
+    if schema.format.is_none() {
+        return format_neutral_schema_decode_record_fields(schema)
+            .map(|fields| fields.into_iter().map(|(name, ty)| (name, ty, 0)).collect());
+    }
     let mut decoded_fields = BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
