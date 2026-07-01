@@ -573,16 +573,15 @@ impl TypeEnvironment {
         if let Some(alias_target) =
             self.schema_symbols
                 .schema_alias_target(schema_path, current_module, &self.uses)
-        {
-            if let Some(kind) = self.wrong_schema_reference_kind(
+            && let Some(kind) = self.wrong_schema_reference_kind(
                 &alias_target.target,
                 alias_target.module_name.as_deref(),
-            ) {
-                return SchemaReferenceError {
-                    kind: SchemaReferenceErrorKind::WrongKind,
-                    resolved_kind: Some(kind),
-                };
-            }
+            )
+        {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::WrongKind,
+                resolved_kind: Some(kind),
+            };
         }
         if let Some(kind) = self.wrong_schema_reference_kind(schema_path, current_module) {
             return SchemaReferenceError {
