@@ -83,7 +83,8 @@ compare it with `../specification/` before changing behavior.
   without a `format` clause, generated format-neutral decode helpers for
   scalar, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, top-level string-keyed scalar dictionary, supported
-  `Option`, and nested record-shaped fields, and
+  `Option`, and nested record-shaped fields with scalar or `Option<scalar>`
+  fields, and
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -93,7 +94,8 @@ compare it with `../specification/` before changing behavior.
   through the aliased schema helper boundary. The completed
   documentation-comment schema reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
-  The completed format-neutral `Option` helper slice is archived under
+  The completed format-neutral `Option` helper slice, including
+  `Option<scalar>` fields inside nested record-shaped fields, is archived under
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
   The completed format-neutral top-level list helper slice is archived under
   [Format-Neutral Schema List Helpers](../reference/implemented-proposals/format-neutral-schema-list-helpers.md).

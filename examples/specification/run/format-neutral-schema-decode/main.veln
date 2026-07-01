@@ -17,6 +17,10 @@ schema PlainPacket
 	optional_metadata: Option<{ready: Bool, score: Float}>
 end
 
+schema NestedOptionPacket
+	metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}
+end
+
 fn list_sum(items: List<Int>) -> Int
 	match items
 		Nil => 0
@@ -154,8 +158,55 @@ fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: Li
 	end
 end
 
+fn decoded_nested_option_label(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.label
+			Some(label) => label
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_option_retries(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> Int
+	match result
+		Ok(packet) => match packet.metadata.retries
+			Some(retries) => retries
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn decoded_nested_option_active(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.active
+			Some(active) => match active
+				true => "active"
+				false => "inactive"
+			end
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_option_ratio(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.ratio
+			Some(ratio) => match ratio > 1.0
+				true => "ratio-high"
+				false => "ratio-low"
+			end
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let decoded: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_cons(0.75, list_nil())), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, labels: {"owner": "core", "lane": "stable"}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.5}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
+	let nested: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String> = byte_decode_nested_option_packet({metadata: {label: Some("inner"), retries: Some(3), active: Some(true), ratio: Some(1.25)}})
 	stdio::println(int_to_string(decoded_code(decoded)))
 	stdio::println(decoded_label(decoded))
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
@@ -168,5 +219,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(decoded_weight(decoded))
 	stdio::println(int_to_string(decoded_optional_code(decoded)))
 	stdio::println(decoded_optional_metadata(decoded))
+	stdio::println(decoded_nested_option_label(nested))
+	stdio::println(int_to_string(decoded_nested_option_retries(nested)))
+	stdio::println(decoded_nested_option_active(nested))
+	stdio::println(decoded_nested_option_ratio(nested))
 	Ok(())
 end
