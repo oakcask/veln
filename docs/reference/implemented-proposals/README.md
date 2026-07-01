@@ -390,6 +390,8 @@ behavior.
   [http2-outbound-push-promise-enable-push-setting.md](http2-outbound-push-promise-enable-push-setting.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
+- HTTP/2 local SETTINGS batch send:
+  [http2-local-settings-batch-send.md](http2-local-settings-batch-send.md).
 - HTTP/2 outbound DATA flow control:
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
 - HTTP/2 outbound DATA GOAWAY boundary:

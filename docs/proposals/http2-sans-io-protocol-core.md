@@ -23,10 +23,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
   enable-push, maximum-frame-size, maximum-concurrent-streams,
   initial-window-size, header-table-size, and maximum-header-list-size
   peer-advertised state, unknown-identifier handling, SETTINGS ACK receive,
-  local SETTINGS send-intents for
+  SETTINGS ACK send state, and local SETTINGS send-intents for
   header-table-size, enable-push, initial-window-size,
   maximum-concurrent-streams, maximum-frame-size, maximum-header-list-size,
-  and a two-item local SETTINGS batch
+  and ordered multi-item batches
 - remaining DATA behavior not covered by the implemented receive-window
   accounting, inbound PADDED DATA handling, inbound `END_STREAM`
   closed-by-peer lifecycle, outbound PADDED DATA send-intent slice,
@@ -507,7 +507,7 @@ queue when the fixture emits
 local `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
 `SETTINGS_MAX_FRAME_SIZE`, or `SETTINGS_MAX_HEADER_LIST_SIZE` items, including
-a two-item batch. Those local SETTINGS send-intents emit one
+ordered multi-item batches. Those local SETTINGS send-intents emit one
 frame-header-plus-payload chunk with length `6 * item_count`, kind `4`, flags
 `0`, stream id `0`, and the selected identifier and four-byte unsigned value
 pairs in order. The local `SETTINGS_MAX_FRAME_SIZE` send-intent accepts
@@ -556,6 +556,8 @@ and consuming the intent clears the pending state. The send intent does not
 update peer-advertised SETTINGS state or local receive-limit state. The
 completed slice is archived under
 [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
+The completed ordered local SETTINGS batch send-intent slice is archived under
+[HTTP/2 Local SETTINGS Batch Send](../reference/implemented-proposals/http2-local-settings-batch-send.md).
 The implemented slice also includes outbound DATA send-intent flow control,
 frame-size splitting, PADDED DATA encoding, and output. Ordinary source tracks
 outbound connection and stream credit separately from inbound receive windows,
