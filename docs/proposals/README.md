@@ -396,7 +396,8 @@ compare it with `../specification/` before changing behavior.
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including static-name literal fixtures,
   visible-ASCII ordinary new-name literal-without-indexing for outbound
-  HEADERS and `PUSH_PROMISE`,
+  HEADERS and `PUSH_PROMISE`, visible-ASCII ordinary new-name
+  literal-never-indexed for outbound HEADERS without dynamic insertion,
   full-table single-byte Huffman-marked string literal decoding and encoding,
   and the bounded
   stateful dynamic-table fixture encoder path across outbound HEADERS and
