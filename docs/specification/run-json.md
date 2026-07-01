@@ -729,10 +729,12 @@ pseudo-header, a duplicate request pseudo-header, a request pseudo-header
 after a regular header, an uppercase ordinary header name, and an ordinary
 header name outside the HTTP field-name token shape, plus a
 connection-specific ordinary header name and invalid `te` value on an inbound
-request, and invalid and mismatched `content-length` values; the larger
+request, empty `:method`, invalid `:scheme`, empty `:path`, invalid
+`:authority`, and invalid and mismatched `content-length` values; the larger
 protocol-core fixture also checks the integrated completed HEADERS and final
-CONTINUATION paths, including accepted `te: trailers` and accepted
-`content-length` values. The focused request header-list JSON examples,
+CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
+accepted `te: trailers`, and accepted `content-length` values. The focused
+request header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
