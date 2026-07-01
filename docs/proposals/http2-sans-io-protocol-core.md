@@ -853,6 +853,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
 and
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
 The checked fixture boundary also includes source-visible raw new-name

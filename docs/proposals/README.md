@@ -406,8 +406,7 @@ compare it with `../specification/` before changing behavior.
   values, raw field-name validation through header-list diagnostics, inbound
   fixture dynamic-table insertion, ordinary raw new-name dynamic-indexed reuse
   and eviction, raw new-name literal-never-indexed receive without dynamic
-  insertion, outbound raw new-name literal-never-indexed encoding without
-  dynamic insertion, focused dynamic-index lookup failure diagnostics, checked
+  insertion, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
   inbound table-size update placement, malformed-integer, and trailing-byte
   diagnostics, checked outbound
@@ -453,6 +452,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Dynamic Name Continuation Diagnostics](../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md).
   The completed outbound dynamic-name literal fixture slice is archived under
   [HTTP/2 Outbound HPACK Dynamic-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md).
+  The completed outbound HPACK fixture encoder slice is archived under
+  [HTTP/2 Outbound HPACK Fixture Encoder](../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md).
   The completed outbound `PUSH_PROMISE` peer enable-push setting slice is
   archived under
   [HTTP/2 Outbound PUSH_PROMISE Enable-Push Setting](../reference/implemented-proposals/http2-outbound-push-promise-enable-push-setting.md).
