@@ -70,9 +70,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   without a `format` clause when every field is `Int`, `Bool`, `Float`,
   `String`, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, a top-level string-keyed dictionary with scalar values, a
-  nested record shape made from scalar or `Option<scalar>` field types, or
-  `Option<T>` where `T` is one of those scalar or nested record shapes, with
-  declaration diagnostics for unsupported helper field types
+  nested record shape made from scalar, `List<scalar>`, or `Option<scalar>`
+  field types, or `Option<T>` where `T` is one of those scalar or nested
+  record shapes, with declaration diagnostics for unsupported helper field
+  types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -93,6 +94,9 @@ The completed format-neutral `Option` helper slice, including
 `Option<scalar>` fields inside nested record-shaped fields, is archived under
 [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
 
+The completed format-neutral nested record list helper slice is archived under
+[Format-Neutral Schema Nested List Helpers](../reference/implemented-proposals/format-neutral-schema-nested-list-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -105,7 +109,7 @@ This proposal remains open for:
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral fields outside the implemented scalar,
   top-level scalar list, top-level string-keyed scalar dictionary, supported
-  `Option`, and nested record-shaped helper slice
+  `Option`, and nested record-shaped helper slices
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -359,9 +363,9 @@ Implemented:
 - Format-neutral schemas without a `format` clause whose fields are `Int`,
   `Bool`, `Float`, `String`, top-level `List<Int>`, `List<Bool>`,
   `List<Float>`, or `List<String>`, top-level string-keyed scalar
-  dictionaries, nested record shapes made from scalar or `Option<scalar>`
-  field types, or `Option<T>` where `T` is one of those scalar or nested
-  record shapes, expose generated
+  dictionaries, nested record shapes made from scalar, `List<scalar>`, or
+  `Option<scalar>` field types, or `Option<T>` where `T` is one of those
+  scalar or nested record shapes, expose generated
   `byte_decode_<schema>` helper bindings that accept and return the
   schema-local visible record through
   `Result<T, String>`.

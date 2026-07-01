@@ -16,10 +16,11 @@ validation/pass-through boundary over the schema-local visible record shape and
 returns `Result<TRecord, String>`.
 
 The slice does not add general container eligibility. Payloads such as
-`Option<List<Int>>`, nested lists, nested record fields that contain lists, and
-`Vec` remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family. Later completed
-records describe additional implemented format-neutral helper slices.
+`Option<List<Int>>`, nested lists, nested record fields that contain nested
+lists or option-wrapped lists, and `Vec` remain unsupported helper fields and
+keep the `schema.format_neutral_decode_helper` diagnostic family. Later
+completed records describe additional implemented format-neutral helper
+slices.
 
 ## Evidence
 
@@ -29,7 +30,7 @@ records describe additional implemented format-neutral helper slices.
   supported `Option` fields.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported `Option<List<Int>>`, nested lists, nested
-  record-contained lists, and unrelated container shapes.
+  record-contained nested lists, and unrelated container shapes.
 
 ## Remaining Work
 

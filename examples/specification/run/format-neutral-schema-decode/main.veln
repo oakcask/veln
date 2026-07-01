@@ -21,6 +21,10 @@ schema NestedOptionPacket
 	metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}
 end
 
+schema NestedListPacket
+	metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}
+end
+
 fn list_sum(items: List<Int>) -> Int
 	match items
 		Nil => 0
@@ -204,9 +208,47 @@ fn decoded_nested_option_ratio(result: Result<{metadata: {label: Option<String>,
 	end
 end
 
+fn decoded_nested_list_item_sum(result: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String>) -> Int
+	match result
+		Ok(packet) => list_sum(packet.metadata.items)
+		Err(_) => -1
+	end
+end
+
+fn decoded_nested_list_flag_count(result: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String>) -> Int
+	match result
+		Ok(packet) => bool_list_score(packet.metadata.flags)
+		Err(_) => -1
+	end
+end
+
+fn decoded_nested_list_ratio_status(result: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.ratios
+			Nil => "missing"
+			Cons(head, _) => match head > 1.0
+				true => "nested-ratio-high"
+				false => "nested-ratio-low"
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn decoded_nested_list_first_name(result: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.names
+			Nil => "missing"
+			Cons(head, _) => head
+		end
+		Err(message) => message
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let decoded: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String> = byte_decode_plain_packet({code: 7, label: "ready", items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_cons(0.75, list_nil())), names: list_cons("alpha", list_cons("beta", list_nil())), scores: {"math": 11, "language": 13}, labels: {"owner": "core", "lane": "stable"}, states: {"enabled": true, "paused": false}, weights: {"ratio": 1.5, "bonus": 0.5}, metadata: {ready: true, score: 1.5}, optional_code: Some(9), optional_metadata: Some({ready: true, score: 2.5})})
 	let nested: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String> = byte_decode_nested_option_packet({metadata: {label: Some("inner"), retries: Some(3), active: Some(true), ratio: Some(1.25)}})
+	let nested_lists: Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String> = byte_decode_nested_list_packet({metadata: {items: list_cons(4, list_cons(6, list_nil())), flags: list_cons(true, list_cons(true, list_nil())), ratios: list_cons(1.5, list_nil()), names: list_cons("nested-alpha", list_nil())}})
 	stdio::println(int_to_string(decoded_code(decoded)))
 	stdio::println(decoded_label(decoded))
 	stdio::println(int_to_string(decoded_item_sum(decoded)))
@@ -223,5 +265,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_nested_option_retries(nested)))
 	stdio::println(decoded_nested_option_active(nested))
 	stdio::println(decoded_nested_option_ratio(nested))
+	stdio::println(int_to_string(decoded_nested_list_item_sum(nested_lists)))
+	stdio::println(int_to_string(decoded_nested_list_flag_count(nested_lists)))
+	stdio::println(decoded_nested_list_ratio_status(nested_lists))
+	stdio::println(decoded_nested_list_first_name(nested_lists))
 	Ok(())
 end
