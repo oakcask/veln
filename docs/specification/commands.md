@@ -141,6 +141,17 @@ requiring the full command reference on the first read.
   direct result and `DecodeStep::Invalid(...)` examples are
   `examples/specification/run/codec-length-mismatch-direct-human/` and
   `examples/specification/run/codec-length-mismatch-step-human/`.
+  Codec-owned payload length mismatch failures with id
+  `codec.payload_length_mismatch` use
+  `payload length mismatch at byte offset ...` as the primary human message
+  and put field path, expected payload length, actual payload length, failure
+  reason, and the source-visible `DecodeError` value in related notes when
+  the source-visible reason uses the narrow
+  `expected_payload_length=<n>; actual_payload_length=<n>; reason=<text>`
+  form; the checked direct result and `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-payload-length-mismatch-direct-human/`
+  and
+  `examples/specification/run/codec-payload-length-mismatch-step-human/`.
   Codec-owned sequence mismatch failures with id `codec.sequence_mismatch`
   use `sequence mismatch at byte offset ...` as the primary human message and
   put field path, expected sequence, actual sequence, failure reason, and the

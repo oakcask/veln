@@ -417,6 +417,12 @@ When a `veln run` entry returns a source-visible
 - `actual_length`: the actual length number when the id is
   `codec.length_mismatch` and the source-visible reason carries length
   mismatch fields
+- `expected_payload_length`: the expected payload length number when the id
+  is `codec.payload_length_mismatch` and the source-visible reason carries
+  payload length mismatch fields
+- `actual_payload_length`: the actual payload length number when the id is
+  `codec.payload_length_mismatch` and the source-visible reason carries
+  payload length mismatch fields
 - `expected_sequence`: the expected sequence string when the id is
   `codec.sequence_mismatch` and the source-visible reason carries sequence
   mismatch fields
@@ -477,6 +483,14 @@ length facts. The checked direct result and `DecodeStep::Invalid(...)`
 examples are
 `examples/specification/run/codec-length-mismatch-direct-json/` and
 `examples/specification/run/codec-length-mismatch-step-json/`.
+For `codec.payload_length_mismatch`, a source-visible reason written as
+`expected_payload_length=<n>; actual_payload_length=<n>; reason=<text>` is
+projected as separate numeric `expected_payload_length`, numeric
+`actual_payload_length`, and `reason` fields. Plain reason strings still keep
+only `reason` and do not invent payload length facts. The checked direct
+result and `DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-payload-length-mismatch-direct-json/` and
+`examples/specification/run/codec-payload-length-mismatch-step-json/`.
 For `codec.sequence_mismatch`, a source-visible reason written as
 `expected_sequence=<value>; actual_sequence=<value>; reason=<text>` is
 projected as separate `expected_sequence`, `actual_sequence`, and `reason`
