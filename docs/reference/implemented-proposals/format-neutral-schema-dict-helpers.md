@@ -11,23 +11,24 @@ and `../../specification/names-effects.md`.
 ## Outcome
 
 Format-neutral schemas without a `format` clause may expose generated
-`byte_decode_<schema>` helpers when a top-level field is `Dict<String, Int>` or
-`Dict<String, String>`. The helper remains a validation/pass-through boundary
-over the schema-local visible record shape and returns
+`byte_decode_<schema>` helpers when a top-level field is `Dict<String, Int>`,
+`Dict<String, Bool>`, or `Dict<String, String>`. The helper remains a
+validation/pass-through boundary over the schema-local visible record shape
+and returns
 `Result<TRecord, String>`.
 
 The slice does not add general dictionary eligibility. Non-`String` keys,
-values outside `Int` or `String`, nested dictionaries, `Option<Dict<...>>`,
-and dictionary fields inside nested record-shaped fields remain unsupported
-helper fields and keep the `schema.format_neutral_decode_helper` diagnostic
-family.
+values outside `Int`, `Bool`, or `String`, nested dictionaries,
+`Option<Dict<...>>`, and dictionary fields inside nested record-shaped fields
+remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
 
 - `../../../examples/specification/run/format-neutral-schema-decode/` checks
-  successful top-level `Dict<String, Int>` and `Dict<String, String>` fields
-  beside the existing scalar, list, nested record-shaped, and supported
-  `Option` fields.
+  successful top-level `Dict<String, Int>`, `Dict<String, Bool>`, and
+  `Dict<String, String>` fields beside the existing scalar, list, nested
+  record-shaped, and supported `Option` fields.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported dictionary key, value, nested,
   option-contained, and record-contained shapes.

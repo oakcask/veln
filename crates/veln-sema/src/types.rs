@@ -3058,7 +3058,7 @@ fn format_neutral_schema_top_level_dict_type_is_supported(key: &Type, value: &Ty
         && matches!(
             value,
             Type::Named { name, args }
-                if matches!(name.as_str(), "Int" | "String") && args.is_empty()
+                if matches!(name.as_str(), "Int" | "Bool" | "String") && args.is_empty()
         )
 }
 

@@ -5,7 +5,6 @@ schema BadPacket
 	optional_items: Option<List<Int>>
 	nested_items: {items: List<Float>}
 	numeric_scores: Dict<Int, Int>
-	flag_scores: Dict<String, Bool>
 	nested_scores: Dict<String, Dict<String, Int>>
 	optional_scores: Option<Dict<String, Int>>
 	record_scores: {scores: Dict<String, Int>}
