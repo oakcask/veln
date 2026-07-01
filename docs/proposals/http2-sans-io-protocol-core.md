@@ -1001,12 +1001,14 @@ trailing-byte slice reports saturated-prefix table-size update integers that
 successfully parse and leave trailing header-block bytes through
 `hpack.fixture.table_size_update_trailing_bytes`.
 The source-visible HPACK static decoder also accepts the `content-length`
-static-table name in literal-without-indexing and literal-never-indexed request
-header blocks when the raw value is an accepted visible ASCII decimal string.
-The decoded value feeds the existing request header-list validation and
-content-length body-accounting paths, while non-decimal visible values are
-rejected by the existing request header-list validation diagnostic. Current
-behavior is specified by `../specification/run-json.md` and checked by
+static-table name in literal-without-indexing, literal-with-indexing, and
+literal-never-indexed request header blocks after static request
+pseudo-headers when no later fixture dynamic-table reuse is observed and the
+raw value is an accepted visible ASCII decimal string. The decoded value feeds
+the existing request header-list validation and content-length body-accounting
+paths, while non-decimal visible values are rejected by the existing request
+header-list validation diagnostic. Current behavior is specified by
+`../specification/run-json.md` and checked by
 `../../examples/specification/run/http2-protocol-core/`.
 The standalone source-visible HPACK static boundary also accepts bounded
 literal-with-indexing and literal-never-indexed fields for `:authority`,

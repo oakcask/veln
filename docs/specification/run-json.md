@@ -734,10 +734,11 @@ request, empty `:method`, invalid `:scheme`, empty `:path`, invalid
 protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
 accepted `te: trailers`, and accepted `content-length` values. The aggregate
-protocol-core run case also checks a source-visible HPACK static-name
-`content-length` literal after static request pseudo-headers; the decoded
-value feeds the same request header-list validation and content-length body
-accounting paths, including rejection of a non-decimal value. The focused
+protocol-core run case also checks source-visible HPACK static-name
+`content-length` literals after static request pseudo-headers, including
+literal-with-indexing and literal-never-indexed forms; the decoded values feed
+the same request header-list validation and content-length body accounting
+paths, including rejection of non-decimal values. The focused
 request header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return

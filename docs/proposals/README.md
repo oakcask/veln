@@ -406,7 +406,9 @@ compare it with `../specification/` before changing behavior.
   `:authority`, `:path`, `:status`, `server`, `content-length`,
   `content-type`, and `user-agent`, plus the narrowed request
   `content-length` static-name path for accepted visible ASCII decimal values
-  on literal forms that do not require fixture dynamic-table updates,
+  on literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed forms that do not observe later fixture dynamic-table
+  reuse,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
