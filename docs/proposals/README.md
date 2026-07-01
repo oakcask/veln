@@ -81,9 +81,9 @@ compare it with `../specification/` before changing behavior.
   helper bindings, generated encode-time field-local validation for eligible
   schema helpers, derived encode boundary support, format-neutral schema bodies
   without a `format` clause, generated format-neutral decode helpers for
-  scalar, top-level `List<Int>` or `List<String>`, top-level
-  `Dict<String, Int>` or `Dict<String, String>`, supported `Option`, and
-  nested record-shaped fields, and
+  scalar, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
+  `List<String>`, top-level `Dict<String, Int>` or `Dict<String, String>`,
+  supported `Option`, and nested record-shaped fields, and
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).

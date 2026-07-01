@@ -3048,7 +3048,8 @@ fn format_neutral_schema_list_element_type_is_supported(ty: &Type) -> bool {
     matches!(
         ty,
         Type::Named { name, args }
-            if matches!(name.as_str(), "Int" | "String") && args.is_empty()
+            if matches!(name.as_str(), "Int" | "Bool" | "Float" | "String")
+                && args.is_empty()
     )
 }
 

@@ -214,9 +214,9 @@ compiler-known calls.
   shape through `DecodeStep<T>` for open input. Format-neutral schema decode
   helpers accept and return schema-local visible records through
   `Result<T, String>` when all fields are scalar values, top-level `List<Int>`
-  or `List<String>` values, top-level `Dict<String, Int>` or
-  `Dict<String, String>` values, supported `Option` values, or nested
-  record-shaped values. Explicit
+  `List<Bool>`, `List<Float>`, or `List<String>` values, top-level
+  `Dict<String, Int>` or `Dict<String, String>` values, supported `Option`
+  values, or nested record-shaped values. Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the
   generated helper in source; imported public schemas may be cited through
