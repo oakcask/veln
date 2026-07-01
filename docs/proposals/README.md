@@ -395,8 +395,9 @@ compare it with `../specification/` before changing behavior.
   dynamic table-size update encoding and state handoff into later HEADERS
   and server-side `PUSH_PROMISE`, received peer
   `SETTINGS_HEADER_TABLE_SIZE` values driving later outbound HPACK fixture
-  capacity, checked outbound dynamic-name literal fixture encoding, and
-  checked outbound `PUSH_PROMISE` rejection after peer
+  capacity, checked outbound dynamic-name literal-without-indexing and
+  literal-with-indexing fixture encoding, and checked outbound `PUSH_PROMISE`
+  rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
   `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   the source-visible HPACK static-indexed decoder for every single-byte
@@ -437,8 +438,12 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
   The completed dynamic-name continuation diagnostic slice is archived under
   [HTTP/2 HPACK Dynamic Name Continuation Diagnostics](../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md).
-  The completed outbound dynamic-name literal fixture slice is archived under
+  The completed outbound dynamic-name literal-without-indexing fixture slice is
+  archived under
   [HTTP/2 Outbound HPACK Dynamic-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md).
+  The completed outbound dynamic-name literal-with-indexing fixture slice is
+  archived under
+  [HTTP/2 Outbound HPACK Dynamic-Name Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md).
   The completed outbound HPACK fixture encoder slice is archived under
   [HTTP/2 Outbound HPACK Fixture Encoder](../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md).
   The completed outbound `PUSH_PROMISE` peer enable-push setting slice is

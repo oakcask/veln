@@ -108,6 +108,12 @@ enough.
   when no later fixture dynamic-table reuse is observed. Stateful HTTP/2
   header-block decoding still routes literal-with-indexing blocks through the
   HPACK fixture decoder when fixture dynamic-table state must be updated.
+- The source-visible HPACK fixture encoder accepts the checked outbound
+  dynamic-name literal-with-indexing slice under
+  `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
+  returned encode state through outbound HEADERS and server-side
+  `PUSH_PROMISE` framing in
+  `examples/specification/run/http2-protocol-core/`.
 
 ## Runtime Output
 

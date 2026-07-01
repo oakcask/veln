@@ -75,6 +75,14 @@ state through later split HEADERS and split server-side `PUSH_PROMISE`
 encodes, and keeps the rejected over-peer-limit path on an empty HTTP/2
 output chunk list.
 
+The same outbound boundary accepts a fixture-owned dynamic-name
+literal-with-indexing header list when the selected header name is already in
+the bounded dynamic table. The checked `:path: /again` encode emits
+`0x7e 0x06 "/again"`, inserts that fresh pair as the newest dynamic entry,
+reuses it as `0xbe`, and keeps the older `:path: /target` entry reachable as
+`0xbf`. The aggregate protocol-core example feeds the returned state through
+both outbound HEADERS and server-side `PUSH_PROMISE` framing.
+
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
 Unsupported ordinary new-name fields stay on the same fixture header-list
@@ -100,7 +108,10 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   `0xbe`, outbound dynamic table-size update bytes `0x3e` and
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
   dynamic-table capacity, received lower and higher peer header-table-size
-  SETTINGS values driving later outbound HPACK fixture capacity, an
+  SETTINGS values driving later outbound HPACK fixture capacity,
+  dynamic-name literal-with-indexing `:path: /again` into outbound HEADERS,
+  reuse of that inserted value as `0xbe`, retained older `:path: /target`
+  reuse as `0xbf`, an
   over-peer-limit table-size update failure,
   raw new-name literal-without-indexing `x-demo: hello` into outbound
   HEADERS and server-side `PUSH_PROMISE`,
@@ -114,7 +125,10 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   indexed `:status: 200` and Huffman-marked literal `:status: 200` into
   server-side `PUSH_PROMISE`, stateful literal-with-indexing
   `:path: /target` encoding before `PUSH_PROMISE` splitting, stateful
-  dynamic indexed reuse as `0xbe` in a later `PUSH_PROMISE`, one non-visible
+  dynamic indexed reuse as `0xbe` in a later `PUSH_PROMISE`,
+  dynamic-name literal-with-indexing `:path: /again`, newest reuse as `0xbe`,
+  and retained older reuse as `0xbf` through later `PUSH_PROMISE`, one
+  non-visible
   Huffman value encode failure, and one unsupported-header encode failure
   that remains an HPACK fixture result.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
@@ -124,7 +138,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   accepted raw new-name literal-without-indexing bytes, rejected invalid
   ordinary new-name failure, accepted raw new-name literal-never-indexed
   bytes, the matching dynamic-index probe failure, retained dynamic indexed
-  reuse after the never-indexed block, accepted outbound table-size update
+  reuse after the never-indexed block, dynamic-name literal-with-indexing
+  insertion, newest reuse, retained older reuse, accepted outbound table-size
+  update
   bytes, reduced table capacity observed by a later encode, and
   over-peer-limit table-size update failure.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks the
