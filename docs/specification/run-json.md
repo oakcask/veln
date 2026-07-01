@@ -766,12 +766,13 @@ protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
 accepted `te: trailers`, and accepted `content-length` values. The aggregate
 protocol-core run case also checks source-visible HPACK static-name
-`content-length` literals after static request pseudo-headers across the
-literal-without-indexing, literal-with-indexing, and literal-never-indexed
-forms that do not require later fixture dynamic-table reuse; the decoded
-values feed the same request header-list validation and content-length body
-accounting paths, including rejection of non-decimal values. The focused
-request header-list JSON examples,
+`content-length` literals after static request pseudo-headers and after a
+static response `:status` pseudo-header across the literal-without-indexing,
+literal-with-indexing, and literal-never-indexed forms that do not require
+later fixture dynamic-table reuse; the decoded values feed the same matching
+request or response header-list validation and content-length body accounting
+paths, including rejection of non-decimal values. The focused request
+header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
 source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
@@ -959,11 +960,11 @@ Huffman table. Unsupported Huffman-marked values and malformed raw lengths
 stay on the unsupported static header-block fallback path. It also accepts the
 static-table
 `content-length` name in literal-without-indexing, literal-with-indexing, and
-literal-never-indexed request blocks when the raw value is an accepted visible
-ASCII decimal string and the block does not require later fixture
-dynamic-table reuse; that value feeds the existing content-length
+literal-never-indexed request and response blocks when the raw value is an
+accepted visible ASCII decimal string and the block does not require later
+fixture dynamic-table reuse; that value feeds the existing content-length
 body-accounting state. Non-decimal visible values on the same decoded request
-path still use the existing request header-list rules. Stateful HTTP/2
+or response path still use the existing header-list rules. Stateful HTTP/2
 header-block decoding still routes literal-with-indexing blocks through the
 HPACK fixture decoder when fixture dynamic-table state must be updated.
 These diagnostics record

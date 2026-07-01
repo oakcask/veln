@@ -877,7 +877,7 @@ the checked fixture encoder update boundary, and production header validation
 beyond ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, request
-`content-length` decoded header values, and the fixture-marked
+and response `content-length` decoded header values, and the fixture-marked
 `content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
@@ -915,8 +915,10 @@ whitespace-padded, and negative-looking values with failed fact
 `content_length_invalid`; and reject mismatched repeated valid decimal values
 with failed fact `content_length_mismatch`. Request validation applies these
 facts to both fixture-marked request values and decoded request
-`content-length` header values. Accepted fixture-marked
-`content-length` values are also carried into the tracked stream body state:
+`content-length` header values; response validation applies them to
+fixture-marked response values and decoded response `content-length` header
+values. Accepted `content-length` values are also carried into the tracked
+stream body state:
 received DATA application byte counts must match the accepted value by peer
 `END_STREAM`, over-length DATA fails immediately, and PADDED DATA counts only
 application bytes for the body length while still consuming receive-window
@@ -1020,12 +1022,13 @@ successfully parse and leave trailing header-block bytes through
 The source-visible HPACK static decoder also accepts the `content-length`
 static-table name in literal-without-indexing, literal-with-indexing, and
 literal-never-indexed request header blocks after static request
-pseudo-headers when no later fixture dynamic-table reuse is observed and the
+pseudo-headers, and response header blocks after a static response `:status`
+pseudo-header, when no later fixture dynamic-table reuse is observed and the
 raw value is an accepted visible ASCII decimal string. The decoded value feeds
-the existing request header-list validation and content-length body-accounting
-paths, while non-decimal visible values are rejected by the existing request
-header-list validation diagnostic. Current behavior is specified by
-`../specification/run-json.md` and checked by
+the existing matching request or response header-list validation and
+content-length body-accounting paths, while non-decimal visible values are
+rejected by the existing matching header-list validation diagnostic. Current
+behavior is specified by `../specification/run-json.md` and checked by
 `../../examples/specification/run/http2-protocol-core/`.
 The standalone source-visible HPACK static boundary also accepts bounded
 literal-without-indexing, literal-with-indexing, and literal-never-indexed

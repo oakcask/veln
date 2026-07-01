@@ -14,7 +14,8 @@ CONTINUATION header blocks through the imported HPACK fixture module before
 running request and response header-list validation. Request validation covers
 both fixture-marked `content-length` list values and decoded `content-length`
 header values carried beside the request pseudo-header marker. Response
-validation covers the fixture-marked list values.
+validation covers fixture-marked list values and decoded `content-length`
+header values carried beside a static response `:status` pseudo-header.
 
 Request and response validation accepts header lists without `content-length`,
 with one valid decimal `content-length` value, or with repeated
@@ -33,8 +34,10 @@ through `http2.protocol.invalid_response_header_list`.
   repeated matching values, plus rejected mismatch, empty, non-decimal, signed,
   whitespace-padded, and negative-looking values for both request and
   response lists. The same case checks production request `content-length`
-  header values that are not part of the request marker on completed HEADERS
-  and final CONTINUATION paths.
+  header values that are not part of the request marker, and source-visible
+  response static-name `content-length` header values carried beside a static
+  `:status` pseudo-header, on completed HEADERS and final CONTINUATION paths
+  where applicable.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-content-length-json/`
   checks JSON projection for an invalid request `content-length` value.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-content-length-human/`

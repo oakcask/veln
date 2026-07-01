@@ -437,9 +437,9 @@ compare it with `../specification/` before changing behavior.
   HPACK static table metadata with raw visible-ASCII values and bounded
   Huffman-marked literal values decoded through the HPACK static Huffman
   table, including line feed, single-byte `hpack-byte-*` labels, and
-  multi-byte `hpack-bytes-*` labels, plus the narrowed request
-  `content-length` static-name path for accepted visible ASCII decimal values
-  on literal-without-indexing, literal-with-indexing, and
+  multi-byte `hpack-bytes-*` labels, plus narrowed request and response
+  `content-length` static-name paths for accepted visible ASCII decimal
+  values on literal-without-indexing, literal-with-indexing, and
   literal-never-indexed forms that do not observe later fixture dynamic-table
   reuse,
   recorded under `../specification/` and
@@ -452,6 +452,12 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible static-name Huffman literal slice is archived
   under
   [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
+  The completed `content-length` header-list validation and body-accounting
+  slices, including source-visible static-name `content-length`, are archived
+  under
+  [HTTP/2 Content-Length Header Validation](../reference/implemented-proposals/http2-content-length-header-validation.md)
+  and
+  [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

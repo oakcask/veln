@@ -121,11 +121,14 @@ enough.
   visible ASCII, line feed, single-byte `hpack-byte-*` labels, and multi-byte
   `hpack-bytes-*` labels across the static-name literal forms under
   `examples/specification/run/hpack-static-codec-boundary/`. Stateful
-  HTTP/2 request decoding also accepts `content-length` through the static-name
-  literal forms checked by `examples/specification/run/http2-protocol-core/`
-  when no later fixture dynamic-table reuse is observed. Stateful HTTP/2
-  header-block decoding still routes literal-with-indexing blocks through the
-  HPACK fixture decoder when fixture dynamic-table state must be updated.
+  HTTP/2 request and response decoding also accept `content-length` through the
+  static-name literal forms checked by
+  `examples/specification/run/http2-protocol-core/` when no later fixture
+  dynamic-table reuse is observed. The decoded values feed the same
+  header-list validation and content-length body-accounting paths as fixture
+  header lists. Stateful HTTP/2 header-block decoding still routes
+  literal-with-indexing blocks through the HPACK fixture decoder when fixture
+  dynamic-table state must be updated.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
