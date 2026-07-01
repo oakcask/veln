@@ -70,9 +70,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   without a `format` clause when every field is `Int`, `Bool`, `Float`,
   `String`, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, a top-level string-keyed dictionary with scalar values, a
-  nested record shape made from scalar field types, or `Option<T>` where `T`
-  is one of those scalar or nested record shapes, with declaration diagnostics
-  for unsupported helper field types
+  nested record shape made from scalar or `Option<scalar>` field types, or
+  `Option<T>` where `T` is one of those scalar or nested record shapes, with
+  declaration diagnostics for unsupported helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -88,6 +88,10 @@ The completed visible flag bitset decode binding slice is archived under
 
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+
+The completed format-neutral `Option` helper slice, including
+`Option<scalar>` fields inside nested record-shaped fields, is archived under
+[Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
 
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
@@ -355,9 +359,9 @@ Implemented:
 - Format-neutral schemas without a `format` clause whose fields are `Int`,
   `Bool`, `Float`, `String`, top-level `List<Int>`, `List<Bool>`,
   `List<Float>`, or `List<String>`, top-level string-keyed scalar
-  dictionaries, nested record shapes made from scalar field types, or
-  `Option<T>` where `T` is one of those scalar or nested record shapes, expose
-  generated
+  dictionaries, nested record shapes made from scalar or `Option<scalar>`
+  field types, or `Option<T>` where `T` is one of those scalar or nested
+  record shapes, expose generated
   `byte_decode_<schema>` helper bindings that accept and return the
   schema-local visible record through
   `Result<T, String>`.
