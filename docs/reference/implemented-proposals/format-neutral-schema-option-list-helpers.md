@@ -26,7 +26,8 @@ schema helper behavior remain outside this slice.
 
 - `../../../examples/specification/run/format-neutral-schema-option-list-decode/`
   checks successful top-level `Option<List<Int>>`, `Option<List<Bool>>`,
-  `Option<List<Float>>`, and `Option<List<String>>` fields.
+  `Option<List<Float>>`, and `Option<List<String>>` fields, including present
+  and absent option payloads.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for nested record fields that contain
   `Option<List<Int>>`.
