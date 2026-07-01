@@ -3028,9 +3028,24 @@ fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
         Type::Named { name, args } if args.is_empty() => {
             matches!(name.as_str(), "Int" | "Bool" | "Float" | "String")
         }
+        Type::Named { name, args } if name == "Option" && args.len() == 1 => {
+            format_neutral_schema_non_option_type_is_supported(&args[0])
+        }
         Type::Record(fields) => fields
             .iter()
-            .all(|(_, field_ty)| format_neutral_schema_type_is_supported(field_ty)),
+            .all(|(_, field_ty)| format_neutral_schema_non_option_type_is_supported(field_ty)),
+        _ => false,
+    }
+}
+
+fn format_neutral_schema_non_option_type_is_supported(ty: &Type) -> bool {
+    match ty {
+        Type::Named { name, args } if args.is_empty() => {
+            matches!(name.as_str(), "Int" | "Bool" | "Float" | "String")
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .all(|(_, field_ty)| format_neutral_schema_non_option_type_is_supported(field_ty)),
         _ => false,
     }
 }

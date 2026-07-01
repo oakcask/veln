@@ -79,14 +79,17 @@ compare it with `../specification/` before changing behavior.
   helper bindings, generated encode-time field-local validation for eligible
   schema helpers, derived encode boundary support, format-neutral schema bodies
   without a `format` clause, generated format-neutral decode helpers for
-  scalar and nested record-shaped fields, and `format binary` gating for
-  binary-only field vocabulary. Schema-level `map to` clauses are removed as recorded in
+  scalar, supported `Option`, and nested record-shaped fields, and
+  `format binary` gating for binary-only field vocabulary. Schema-level
+  `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup. The completed documentation-comment schema reference slice is
   archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
+  The completed format-neutral `Option` helper slice is archived under
+  [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
   under `../specification/source-surface.md` and
