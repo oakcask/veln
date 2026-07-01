@@ -90,6 +90,13 @@ enough.
   or explicit schema operation expressions.
 - Compatibility-only runtime diagnostic ids under `codec.*` remain part of
   runtime diagnostic vocabulary where existing runtime values use them.
+- The source-visible HPACK static decoder accepts static indexed fields,
+  bounded static-name literal-without-indexing fields, bounded static-name
+  literal-with-indexing fields, and bounded static-name literal-never-indexed
+  fields for the checked static names under
+  `examples/specification/run/hpack-static-codec-boundary/`. Stateful HTTP/2
+  header-block decoding still routes literal-with-indexing blocks through the
+  HPACK fixture decoder when fixture dynamic-table state must be updated.
 
 ## Runtime Output
 

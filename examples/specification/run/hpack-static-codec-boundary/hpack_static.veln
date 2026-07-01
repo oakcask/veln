@@ -180,6 +180,35 @@ fn literal_without_indexing_value_index(block: ByteChunk) -> Int
 	end
 end
 
+fn literal_with_indexing_name_index(block: ByteChunk) -> Int
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte > 64 and first_byte < 127
+		true => first_byte - 64
+		false => -1
+	end
+end
+
+fn literal_never_indexed_name_index(block: ByteChunk) -> Int
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte
+		31 => match byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
+			true => 15 + byte_at_or_missing(block, 1)
+			false => -1
+		end
+		_ => match first_byte > 16 and first_byte < 31
+			true => first_byte - 16
+			false => -1
+		end
+	end
+end
+
+fn literal_never_indexed_value_index(block: ByteChunk) -> Int
+	match byte_at_or_missing(block, 0)
+		31 => 2
+		_ => 1
+	end
+end
+
 fn supported_literal_name(name_index: Int) -> Option<String>
 	match name_index
 		1 => Some(":authority")
@@ -220,17 +249,39 @@ fn literal_raw_value(block: ByteChunk, count: Int, value_index: Int, offset: Int
 	end
 end
 
-fn literal_without_indexing_header(name: String, value: String, wire_size: Int) -> HpackHeaderList
-	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(name, value), hpack_fixture::hpack_header(":fixture", "literal-without-indexing"), wire_size)
+fn literal_static_name_header(name: String, value: String, marker: String, wire_size: Int) -> HpackHeaderList
+	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(name, value), hpack_fixture::hpack_header(":fixture", marker), wire_size)
 end
 
-fn decode_literal_without_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
-	match supported_literal_name(literal_without_indexing_name_index(block))
-		Some(name) => match literal_raw_value(block, count, literal_without_indexing_value_index(block), offset)
-			Ok(value) => Ok(literal_without_indexing_header(name, value, count))
+fn decode_static_name_literal(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
+	match supported_literal_name(name_index)
+		Some(name) => match literal_raw_value(block, count, value_index, offset)
+			Ok(value) => Ok(literal_static_name_header(name, value, marker, count))
 			Err(failure) => Err(failure)
 		end
 		None => not_static(block, offset)
+	end
+end
+
+fn decode_literal_without_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	decode_static_name_literal(block, count, offset, literal_without_indexing_name_index(block), literal_without_indexing_value_index(block), "literal-without-indexing")
+end
+
+fn decode_literal_with_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	decode_static_name_literal(block, count, offset, literal_with_indexing_name_index(block), 1, "literal-with-indexing")
+end
+
+fn decode_literal_never_indexed_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	decode_static_name_literal(block, count, offset, literal_never_indexed_name_index(block), literal_never_indexed_value_index(block), "literal-never-indexed")
+end
+
+fn decode_static_name_literal_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match byte_at_or_missing(block, 0) >= 64 and byte_at_or_missing(block, 0) < 128
+		true => decode_literal_with_indexing_block(block, count, offset)
+		false => match byte_at_or_missing(block, 0) >= 16 and byte_at_or_missing(block, 0) < 32
+			true => decode_literal_never_indexed_block(block, count, offset)
+			false => decode_literal_without_indexing_block(block, count, offset)
+		end
 	end
 end
 
@@ -252,7 +303,7 @@ pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderL
 	match count
 		0 => not_static(block, offset)
 		_ => match all_bytes_indexed(block, 0, count)
-			false => decode_literal_without_indexing_block(block, count, offset)
+			false => decode_static_name_literal_block(block, count, offset)
 			true => decode_supported_block(block, count, offset)
 		end
 	end

@@ -58,9 +58,27 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_literal_server: () = print_static_block("literal-server", "0f27026f6b", 25)?
 	let ignored_literal_content_type: () = print_static_block("literal-content-type", "0f100474657874", 26)?
 	let ignored_literal_user_agent: () = print_static_block("literal-user-agent", "0f2b056167656e74", 27)?
-	let ignored_literal_method_falls_through: () = print_static_block("literal-method-falls-through", "0203505554", 28)?
-	let ignored_literal_huffman_falls_through: () = print_static_block("literal-huffman-falls-through", "048349509f", 29)?
-	let ignored_literal_malformed_length_falls_through: () = print_static_block("literal-malformed-length-falls-through", "0804323031", 30)?
-	let ignored_literal_saturated_length_falls_through: () = print_static_block("literal-saturated-length-falls-through", "087f", 31)?
+	let ignored_literal_indexed_authority: () = print_static_block("literal-indexed-authority", "41086162632e74657374", 28)?
+	let ignored_literal_indexed_path: () = print_static_block("literal-indexed-path", "44072f746172676574", 29)?
+	let ignored_literal_indexed_status: () = print_static_block("literal-indexed-status", "4803323031", 30)?
+	let ignored_literal_indexed_server: () = print_static_block("literal-indexed-server", "76026f6b", 31)?
+	let ignored_literal_indexed_content_type: () = print_static_block("literal-indexed-content-type", "5f0474657874", 32)?
+	let ignored_literal_indexed_user_agent: () = print_static_block("literal-indexed-user-agent", "7a056167656e74", 33)?
+	let ignored_literal_never_indexed_authority: () = print_static_block("literal-never-indexed-authority", "11086162632e74657374", 34)?
+	let ignored_literal_never_indexed_path: () = print_static_block("literal-never-indexed-path", "14072f746172676574", 35)?
+	let ignored_literal_never_indexed_status: () = print_static_block("literal-never-indexed-status", "1803323031", 36)?
+	let ignored_literal_never_indexed_server: () = print_static_block("literal-never-indexed-server", "1f27026f6b", 37)?
+	let ignored_literal_never_indexed_content_type: () = print_static_block("literal-never-indexed-content-type", "1f100474657874", 38)?
+	let ignored_literal_never_indexed_user_agent: () = print_static_block("literal-never-indexed-user-agent", "1f2b056167656e74", 39)?
+	let ignored_literal_method_falls_through: () = print_static_block("literal-method-falls-through", "0203505554", 40)?
+	let ignored_literal_indexed_method_falls_through: () = print_static_block("literal-indexed-method-falls-through", "4203505554", 41)?
+	let ignored_literal_never_indexed_method_falls_through: () = print_static_block("literal-never-indexed-method-falls-through", "1203505554", 42)?
+	let ignored_literal_huffman_falls_through: () = print_static_block("literal-huffman-falls-through", "048349509f", 43)?
+	let ignored_literal_indexed_huffman_falls_through: () = print_static_block("literal-indexed-huffman-falls-through", "448349509f", 44)?
+	let ignored_literal_never_indexed_huffman_falls_through: () = print_static_block("literal-never-indexed-huffman-falls-through", "148349509f", 45)?
+	let ignored_literal_malformed_length_falls_through: () = print_static_block("literal-malformed-length-falls-through", "0804323031", 46)?
+	let ignored_literal_indexed_malformed_length_falls_through: () = print_static_block("literal-indexed-malformed-length-falls-through", "4804323031", 47)?
+	let ignored_literal_never_indexed_malformed_length_falls_through: () = print_static_block("literal-never-indexed-malformed-length-falls-through", "1804323031", 48)?
+	let ignored_literal_saturated_length_falls_through: () = print_static_block("literal-saturated-length-falls-through", "087f", 49)?
 	Ok(())
 end

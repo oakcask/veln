@@ -401,8 +401,9 @@ compare it with `../specification/` before changing behavior.
   `www-authenticate:`, focused `hpack.static.unsupported_index`
   diagnostics for indexes outside the static table boundary, plus
   source-visible
-  literal-without-indexing static-name decoding for raw visible-ASCII values
-  on `:authority`, `:path`, `:status`, `server`, `content-type`, and
+  literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed static-name decoding for raw visible-ASCII values on
+  `:authority`, `:path`, `:status`, `server`, `content-type`, and
   `user-agent`, plus the narrowed request `content-length` static-name path
   for accepted visible ASCII decimal values,
   recorded under `../specification/` and

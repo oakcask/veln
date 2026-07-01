@@ -189,10 +189,14 @@ requiring the full command reference on the first read.
   uses the same focused HPACK fixture human diagnostic as the compatibility
   helper, with byte offset, observed header block size, observed first byte,
   expected fixture, codec module, and bounded byte preview projected from the
-  returned error value. The aggregate HTTP/2 protocol-core run case also
-  checks a source-visible HPACK static-name `content-length` literal in a
-  request header block; accepted visible ASCII decimal values update the
-  existing content-length body-accounting state, while non-decimal visible
+  returned error value. The standalone source-visible HPACK static boundary
+  case checks accepted static-name literal-with-indexing and
+  literal-never-indexed inputs, plus unsupported-name, Huffman-marked value,
+  and malformed raw-length fallback for those forms. The aggregate HTTP/2
+  protocol-core run case also checks a source-visible HPACK static-name
+  `content-length` literal in a request header block; accepted visible ASCII
+  decimal values update the existing content-length body-accounting state,
+  while non-decimal visible
   values use the existing request header-list validation diagnostic.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
