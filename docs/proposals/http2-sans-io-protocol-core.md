@@ -42,8 +42,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
   reset send-intent slice, outbound HEADERS local closed-stream send-intent
   slice, outbound DATA local closed-stream send-intent slice, outbound
-  HEADERS and DATA send-intent rejection above received or locally sent GOAWAY
-  boundaries,
+  HEADERS, DATA, and server-side `PUSH_PROMISE` send-intent rejection above
+  received or locally sent GOAWAY boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
 - remaining outbound flow control and broader stream-window interactions
@@ -54,8 +54,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  outbound GOAWAY send-intent state, and outbound HEADERS and DATA
-  send-intent rejection above received or locally sent GOAWAY boundaries
+  outbound GOAWAY send-intent state, and outbound HEADERS, DATA, and
+  server-side `PUSH_PROMISE` send-intent rejection above received or locally
+  sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -765,7 +766,13 @@ reset, mismatched, or server-created associated streams, promised stream id
 bytes are produced. Generated payload representation failures, such
 as out-of-range promised stream ids, remain
 `schema.encode_value_unrepresentable` encode errors instead of HTTP/2
-protocol diagnostics.
+protocol diagnostics. After received or locally sent GOAWAY, the same
+send-intent accepts an open associated stream at the recorded last stream id
+and rejects an above-boundary associated stream with
+`http2.protocol.stream_after_goaway` before HPACK fixture encoding, frame
+splitting, generated payload encoding, or output chunk emission. The completed
+outbound `PUSH_PROMISE` post-GOAWAY send-intent boundary is archived under
+[HTTP/2 Outbound PUSH_PROMISE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-push-promise-goaway-boundary.md).
 The implemented slice also includes the outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id and error code through
 the schema-declared GOAWAY payload record, encodes a nine-byte header with
@@ -773,8 +780,9 @@ length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
 GOAWAY payload, and records local graceful-shutdown state. A later
 peer-created HEADERS stream greater than the sent last stream id uses the
 same post-GOAWAY stream rejection boundary as received GOAWAY state, and a
-later local outbound HEADERS or DATA send-intent above the sent last stream
-id is rejected before frame splitting or encode checks.
+later local outbound HEADERS, DATA, or server-side `PUSH_PROMISE` send-intent
+above the sent last stream id is rejected before frame splitting or encode
+checks.
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.

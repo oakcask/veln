@@ -898,20 +898,23 @@ unsupported HPACK fixture
 inputs keep their existing structured diagnostic shapes inside the
 `run --json` stdout envelope.
 After receiving GOAWAY or after locally sending GOAWAY, a peer-created
-HEADERS stream or local outbound HEADERS send-intent greater than the recorded
-last stream id uses id `http2.protocol.stream_after_goaway` and records
+HEADERS stream, local outbound HEADERS send-intent, or server-side outbound
+`PUSH_PROMISE` send-intent greater than the recorded last stream id uses id
+`http2.protocol.stream_after_goaway` and records
 `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
 `shutdown_state`, `endpoint_role`, `byte_preview`, `active_state`, and
 `rule_provenance`. The peer-created receive case carries a bounded inspected
 frame-header preview; the local outbound helper form can carry an empty
-preview when no peer bytes were inspected.
+preview when no peer bytes were inspected. The aggregate protocol-core example
+also checks that above-boundary outbound `PUSH_PROMISE` rejects before HPACK
+fixture encoding and produces no output chunk list.
 The checked `run --json` protocol-core example also keeps already-admitted
 peer-created stream DATA and trailer HEADERS after received GOAWAY as passed
 stdout, not as a `protocol_diagnostic`; receive-window credit, HPACK fixture
 decode, and closed-by-peer lifecycle facts remain ordinary executable output.
 The checked stream-after-GOAWAY human and JSON examples return
 source-visible `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`
-payloads for peer-created and local outbound HEADERS streams, so
+payloads for peer-created and local outbound stream send-intents, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields and structured
 preview object.

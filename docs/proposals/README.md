@@ -435,8 +435,9 @@ compare it with `../specification/` before changing behavior.
   capacity, checked outbound dynamic-name literal-without-indexing and
   literal-with-indexing fixture encoding, and checked outbound `PUSH_PROMISE`
   rejection after peer
-  `SETTINGS_ENABLE_PUSH = 0`, plus deterministic
-  `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
+  `SETTINGS_ENABLE_PUSH = 0`, checked outbound `PUSH_PROMISE`
+  rejection above received or locally sent GOAWAY boundaries, plus
+  deterministic `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   the source-visible HPACK static-indexed decoder for every single-byte
   static table entry from `0x81` `:authority` through `0xbd`
   `www-authenticate:`, focused `hpack.static.unsupported_index`
@@ -497,6 +498,9 @@ compare it with `../specification/` before changing behavior.
   The completed outbound `PUSH_PROMISE` peer enable-push setting slice is
   archived under
   [HTTP/2 Outbound PUSH_PROMISE Enable-Push Setting](../reference/implemented-proposals/http2-outbound-push-promise-enable-push-setting.md).
+  The completed outbound `PUSH_PROMISE` post-GOAWAY send-intent boundary is
+  archived under
+  [HTTP/2 Outbound PUSH_PROMISE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-push-promise-goaway-boundary.md).
   The completed outbound SETTINGS ACK send-intent slice is archived under
   [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
   The completed ordered local SETTINGS batch send-intent slice is archived
