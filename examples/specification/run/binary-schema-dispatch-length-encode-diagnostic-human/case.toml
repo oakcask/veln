@@ -8,4 +8,4 @@ jdk = true
 format = "empty"
 
 [stderr]
-contains = ["error[codec.dispatch_length_mismatch]: dispatch payload length mismatch", "note: Field path: schema `ExtensionDispatchWritePacket` / field `payload`.", "note: Encode failure reason: length field `length` value 3 does not match encoded payload byte count 2.", "note: Result value: EncodeError(codec.dispatch_length_mismatch, ExtensionDispatchWritePacket.payload, length field `length` value 3 does not match encoded payload byte count 2)."]
+contains = ["error[schema.dispatch_length_mismatch]: dispatch payload length mismatch", "note: Field path: schema `ExtensionDispatchWritePacket` / field `payload`.", "note: Encode failure reason: length field `length` value 3 does not match encoded payload byte count 2.", "note: Result value: EncodeError(schema.dispatch_length_mismatch, ExtensionDispatchWritePacket.payload, length field `length` value 3 does not match encoded payload byte count 2)."]

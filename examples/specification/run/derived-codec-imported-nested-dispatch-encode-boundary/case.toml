@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\noutput_chunk_list derived-imported-closed-nested count 1\noutput_chunk derived-imported-closed-nested index 0 hex \"01071234\" count 4\ninvalid\ncodec.dispatch_unknown_tag\nImportedClosedNestedPacket.payload\n"
+equals = "encoded\noutput_chunk_list derived-imported-closed-nested count 1\noutput_chunk derived-imported-closed-nested index 0 hex \"01071234\" count 4\ninvalid\nschema.dispatch_unknown_tag\nImportedClosedNestedPacket.payload\n"
 
 [[json_assert]]
 path = "error"

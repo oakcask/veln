@@ -46,10 +46,10 @@ requiring the full command reference on the first read.
   closed-dispatch unknown tag
   failures, payload length boundary failures, schema length/count
   division-by-zero failures, generated binary schema
-  `EncodeError` value failures for schema encode value representability,
-  dispatch
-  unknown tags, dispatch length mismatches, and dispatch tag/payload
-  mismatches, direct source-visible `EncodeError(...)` result failures,
+  `EncodeError` value failures for schema-owned primitive representability,
+  repeat count mismatches, length-bounded `ByteView` count mismatches,
+  schema-owned dispatch unknown tags, dispatch length mismatches, and dispatch
+  tag/payload mismatches, direct source-visible `EncodeError(...)` result failures,
   hand-written codec `EncodeStep::Invalid(EncodeError(...))` entry results,
   direct source-visible `DecodeError(...)` and
   `DecodeErrorWithReason(...)` result failures,

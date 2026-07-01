@@ -20,16 +20,16 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.id"
-equals = "schema.dispatch_unknown_tag"
+equals = "codec.dispatch_mismatch"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.field_path"
-equals = [{"kind":"schema","name":"ClosedDispatchWritePacket"},{"kind":"field","name":"payload"}]
+equals = [{"kind":"schema","name":"ManualPacket"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
 path = "error.details.value_diagnostic.field_path_display"
-equals = "ClosedDispatchWritePacket.payload"
+equals = "ManualPacket.payload"
 
 [[json_assert]]
 path = "error.details.value_diagnostic.reason"
-equals = "tag field `kind` value 7 must be one of 1, 2"
+equals = "hand-written compatibility dispatch mismatch"

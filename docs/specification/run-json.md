@@ -371,9 +371,10 @@ reason)))` for the same supported encode ids,
 
 - `kind: "value_diagnostic"`
 - `id`: one of `schema.encode_value_unrepresentable`,
-  `codec.encode_value_unrepresentable`,
-  `codec.dispatch_unknown_tag`, `codec.dispatch_length_mismatch`, or
-  `codec.dispatch_mismatch`, or `schema.validation_failed`
+  `schema.dispatch_unknown_tag`, `schema.dispatch_length_mismatch`,
+  `schema.dispatch_mismatch`, or `schema.validation_failed`. Hand-written
+  codec encode values may still use `codec.encode_value_unrepresentable` or
+  compatibility-only `codec.dispatch_*` ids.
 - `field_path`: schema-local path segment objects with `kind` and `name`,
   derived from the source-visible field path
 - `field_path_display`: the source-visible field path string for

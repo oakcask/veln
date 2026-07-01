@@ -1669,13 +1669,13 @@ fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> 
         "schema.encode_value_unrepresentable" | "codec.encode_value_unrepresentable" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
-        "codec.dispatch_unknown_tag" => {
+        "schema.dispatch_unknown_tag" | "codec.dispatch_unknown_tag" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
-        "codec.dispatch_length_mismatch" => {
+        "schema.dispatch_length_mismatch" | "codec.dispatch_length_mismatch" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
-        "codec.dispatch_mismatch" => {
+        "schema.dispatch_mismatch" | "codec.dispatch_mismatch" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
         "codec.byte_write_value_unrepresentable" => {
@@ -1776,9 +1776,15 @@ fn encode_diagnostic_message(id: &str) -> String {
         "schema.encode_value_unrepresentable" | "codec.encode_value_unrepresentable" => {
             "encode value is unrepresentable"
         }
-        "codec.dispatch_unknown_tag" => "unknown dispatch tag in encode value",
-        "codec.dispatch_length_mismatch" => "dispatch payload length mismatch",
-        "codec.dispatch_mismatch" => "dispatch tag and payload mismatch",
+        "schema.dispatch_unknown_tag" | "codec.dispatch_unknown_tag" => {
+            "unknown dispatch tag in encode value"
+        }
+        "schema.dispatch_length_mismatch" | "codec.dispatch_length_mismatch" => {
+            "dispatch payload length mismatch"
+        }
+        "schema.dispatch_mismatch" | "codec.dispatch_mismatch" => {
+            "dispatch tag and payload mismatch"
+        }
         _ => "encode failed",
     }
     .to_string()
