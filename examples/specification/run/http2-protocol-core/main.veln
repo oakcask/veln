@@ -8610,6 +8610,27 @@ fn print_outbound_priority_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_outbound_push_promise_dynamic_name_indexed_cases(outbound_push_promise_stateful_dynamic: OutboundPushPromiseHpackTransition) -> Result<(), String> effects [stdio]
+	let outbound_push_promise_stateful_dynamic_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_stateful_dynamic)
+	let outbound_push_promise_dynamic_name_indexed_result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_list_with_state(1, 6, hpack_fixture::outbound_literal_dynamic_name_path_again_headers(), outbound_push_promise_hpack_state(outbound_push_promise_stateful_dynamic), empty_peer_settings(), outbound_push_promise_receive_credit(outbound_push_promise_stateful_dynamic_decision))?
+	let outbound_push_promise_dynamic_name_indexed: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(outbound_push_promise_dynamic_name_indexed_result)?
+	let outbound_push_promise_dynamic_name_indexed_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_dynamic_name_indexed)
+	print_outbound_push_promise("outbound-push-promise-hpack-stateful-dynamic-name-indexed", outbound_push_promise_dynamic_name_indexed_decision)
+	let ignored_push_promise_dynamic_name_indexed_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-dynamic-name-indexed", outbound_push_promise_dynamic_name_indexed_decision, "00000c050400000001000000067e062f616761696e")?
+	let outbound_push_promise_dynamic_name_newest_result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_list_with_state(1, 8, hpack_fixture::outbound_dynamic_indexed_path_again_probe_headers(), outbound_push_promise_hpack_state(outbound_push_promise_dynamic_name_indexed), empty_peer_settings(), outbound_push_promise_receive_credit(outbound_push_promise_dynamic_name_indexed_decision))?
+	let outbound_push_promise_dynamic_name_newest: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(outbound_push_promise_dynamic_name_newest_result)?
+	let outbound_push_promise_dynamic_name_newest_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_dynamic_name_newest)
+	print_outbound_push_promise("outbound-push-promise-hpack-stateful-dynamic-name-newest", outbound_push_promise_dynamic_name_newest_decision)
+	let ignored_push_promise_dynamic_name_newest_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-dynamic-name-newest", outbound_push_promise_dynamic_name_newest_decision, "00000505040000000100000008be")?
+	let outbound_push_promise_dynamic_name_older_result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_list_with_state(1, 10, hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_push_promise_hpack_state(outbound_push_promise_dynamic_name_newest), empty_peer_settings(), outbound_push_promise_receive_credit(outbound_push_promise_dynamic_name_newest_decision))?
+	let outbound_push_promise_dynamic_name_older: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(outbound_push_promise_dynamic_name_older_result)?
+	let outbound_push_promise_dynamic_name_older_decision: OutboundPushPromiseDecision = outbound_push_promise_hpack_decision(outbound_push_promise_dynamic_name_older)
+	print_outbound_push_promise("outbound-push-promise-hpack-stateful-dynamic-name-older", outbound_push_promise_dynamic_name_older_decision)
+	let ignored_push_promise_dynamic_name_older_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-dynamic-name-older", outbound_push_promise_dynamic_name_older_decision, "0000050504000000010000000abf")?
+	print_outbound_hpack_encode_state("outbound-push-promise-hpack-stateful-after-dynamic-name-indexed", outbound_push_promise_hpack_state(outbound_push_promise_dynamic_name_older))
+	Ok(())
+end
+
 fn small_peer_max_frame_size_settings(value: Int) -> PeerSettingsState
 	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
@@ -8696,6 +8717,29 @@ fn print_outbound_headers_never_indexed_cases(outbound_dynamic_encode_state: Hpa
 	Ok(())
 end
 
+fn print_outbound_headers_dynamic_name_indexed_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let outbound_dynamic_name_indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_again_headers(), outbound_dynamic_encode_state, 0)
+	let outbound_dynamic_name_indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-indexed-path-again", outbound_dynamic_name_indexed_encode, "7e062f616761696e")?
+	let outbound_dynamic_name_indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_indexed_encode)?
+	let outbound_headers_hpack_dynamic_name_indexed: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_indexed_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_dynamic))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-indexed", outbound_headers_hpack_dynamic_name_indexed)
+	let ignored_headers_hpack_dynamic_name_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-indexed", outbound_headers_hpack_dynamic_name_indexed, "0000080104000000017e062f616761696e")?
+	let outbound_dynamic_name_newest_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_dynamic_indexed_path_again_probe_headers(), outbound_dynamic_name_indexed_state, 0)
+	let outbound_dynamic_name_newest_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-newest-path-again", outbound_dynamic_name_newest_encode, "be")?
+	let outbound_dynamic_name_newest_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_newest_encode)?
+	let outbound_headers_hpack_dynamic_name_newest: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_newest_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_dynamic_name_indexed))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-newest", outbound_headers_hpack_dynamic_name_newest)
+	let ignored_headers_hpack_dynamic_name_newest_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-newest", outbound_headers_hpack_dynamic_name_newest, "000001010400000001be")?
+	let outbound_dynamic_name_older_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_dynamic_name_newest_state, 0)
+	let outbound_dynamic_name_older_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-older-path-target", outbound_dynamic_name_older_encode, "bf")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-after-dynamic-name-indexed", outbound_dynamic_name_older_state)
+	let outbound_dynamic_name_older_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_older_encode)?
+	let outbound_headers_hpack_dynamic_name_older: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_older_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_dynamic_name_newest))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-older", outbound_headers_hpack_dynamic_name_older)
+	let ignored_headers_hpack_dynamic_name_older_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-older", outbound_headers_hpack_dynamic_name_older, "000001010400000001bf")?
+	Ok(())
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -8748,6 +8792,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_encode_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_literal))?
 	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-indexed", outbound_headers_hpack_stateful_dynamic)
 	let ignored_headers_hpack_stateful_dynamic_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-indexed", outbound_headers_hpack_stateful_dynamic, "000001010400000001be")?
+	let ignored_outbound_dynamic_name_indexed_cases: () = print_outbound_headers_dynamic_name_indexed_cases(outbound_dynamic_encode_state, outbound_headers_hpack_stateful_dynamic)?
 	let ignored_outbound_never_indexed_cases: () = print_outbound_headers_never_indexed_cases(outbound_dynamic_encode_state, outbound_headers_hpack_stateful_dynamic)?
 	let outbound_table_size_update_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(30, empty_peer_settings(), outbound_dynamic_encode_state)
 	let outbound_table_size_update_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-table-size-update", outbound_table_size_update_encode, "3e")?
@@ -8881,6 +8926,7 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	print_outbound_push_promise("outbound-push-promise-hpack-stateful-dynamic-indexed", outbound_push_promise_stateful_dynamic_decision)
 	let ignored_push_promise_stateful_dynamic_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-stateful-dynamic-indexed", outbound_push_promise_stateful_dynamic_decision, "00000505040000000100000004be")?
 	print_outbound_hpack_encode_state("outbound-push-promise-hpack-stateful-after-dynamic", outbound_push_promise_hpack_state(outbound_push_promise_stateful_dynamic))
+	let ignored_push_promise_dynamic_name_indexed_cases: () = print_outbound_push_promise_dynamic_name_indexed_cases(outbound_push_promise_stateful_dynamic)?
 	let outbound_push_promise_continuation: OutboundPushPromiseDecision = send_push_promise(1, 2, byte_chunk_from_hex("828486")?, small_peer_max_frame_size_settings(5), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-continuation", outbound_push_promise_continuation)
 	let ignored_push_promise_continuation_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-continuation", outbound_push_promise_continuation, "00000505000000000100000002820000020904000000018486")?

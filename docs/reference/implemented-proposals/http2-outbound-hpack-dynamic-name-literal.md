@@ -2,8 +2,9 @@
 
 Status: implemented
 
-This record preserves the completed outbound HPACK fixture slice from the
-HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
+This record preserves the completed outbound HPACK fixture
+literal-without-indexing slice from the HTTP/2 sans-I/O protocol-core
+proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case
 `../../../examples/specification/run/hpack-fixture-codec-boundary/`.
 

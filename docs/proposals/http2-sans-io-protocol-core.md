@@ -855,8 +855,9 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
 and
-`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`.
 The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
 table state in ordinary Veln values.
@@ -974,12 +975,20 @@ drive smaller later outbound updates and prevent dynamic-index reuse while
 leaving the local inbound receive-limit boundary unchanged, and higher
 accepted peer limits permit matching outbound updates and later dynamic-index
 reuse.
-The completed outbound dynamic-name literal slice is archived under
+The completed outbound dynamic-name literal-without-indexing slice is archived
+under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.
 It reuses a returned outbound HPACK fixture state to encode a
 literal-without-indexing field whose name comes from the bounded dynamic table
 and whose value is a fresh raw literal, while keeping missing dynamic-table
 name state on a focused HPACK fixture failure.
+The completed outbound dynamic-name literal-with-indexing slice is archived
+under
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`.
+It reuses a returned outbound HPACK fixture state to encode and insert a fresh
+`:path: /again` value under the dynamic `:path` name, then proves the new
+entry is reusable as `0xbe` and the older `:path: /target` entry remains
+reachable as `0xbf` through the bounded table.
 Server-side `PUSH_PROMISE` send-intents also carry returned fixture encode
 state across successive promised header-list encodes: a supported
 literal-with-indexing promised header list updates the bounded dynamic table,
