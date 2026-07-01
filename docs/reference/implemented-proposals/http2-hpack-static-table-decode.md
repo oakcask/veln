@@ -20,8 +20,9 @@ from `0x81` `:authority` through `0xbd` `www-authenticate:` through one
 source-visible static table lookup. It also accepts literal-without-indexing,
 literal-with-indexing, and literal-never-indexed header fields whose name
 resolves through the same HPACK static table metadata and whose value is a raw
-single-byte-length visible-ASCII string or a checked bounded Huffman-marked
-literal value. The HTTP/2 request path also accepts
+single-byte-length visible-ASCII string or a bounded Huffman-marked literal
+value decoded through the HPACK static Huffman table. The HTTP/2 request path
+also accepts
 static-name `content-length` after static request pseudo-headers through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 forms when no later fixture dynamic-table reuse is observed, and passes
@@ -39,6 +40,9 @@ bytes name no static-table entry fail with `hpack.static.unsupported_index`,
 including the checked standalone source-visible boundary for static table
 index `62`.
 
+The later static-name Huffman literal promotion is recorded separately in
+[http2-hpack-static-name-huffman-literals.md](http2-hpack-static-name-huffman-literals.md).
+
 The diagnostic uses the existing `RuntimeHpackFixtureDiagnostic(...)` detail
 shape so human and `run --json` output carry the byte offset, observed header
 block size, first byte, expected static header description, decoder module
@@ -52,8 +56,9 @@ block size, first byte, expected static header description, decoder module
   static table boundary, supported literal-without-indexing,
   literal-with-indexing, and literal-never-indexed values for static-table
   pseudo-header and ordinary-header names beyond the earlier checked subset,
-  accepted checked Huffman-marked `:path: test`, `:method: PUT`, and
-  `:status: 200` values across the three static-name literal forms,
+  accepted Huffman-marked `:path: test`, line feed, `hpack-byte-ff`,
+  `hpack-bytes-00-ff`, `:method: PUT`, and `:status: 200` values across
+  the static-name literal forms,
   unsupported static index classification, malformed literal length fallback,
   and saturated length prefix fallback.
 - `../../../examples/specification/run/http2-protocol-core/` checks accepted

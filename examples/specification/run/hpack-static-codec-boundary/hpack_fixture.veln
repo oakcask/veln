@@ -26,21 +26,673 @@ fn hpack_fixture_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
 	end
 end
 
-pub fn checked_hpack_huffman_value(encoded: ByteChunk) -> Option<String>
-	match byte_count_to_int(byte_chunk_count(encoded))
-		2 => match hpack_fixture_byte_at_or_missing(encoded, 0) == 16 and hpack_fixture_byte_at_or_missing(encoded, 1) == 1
-			true => Some("200")
-			false => None
+fn hpack_static_huffman_pow2(value: Int) -> Int
+	match value
+		0 => 1
+		1 => 2
+		2 => 4
+		3 => 8
+		4 => 16
+		5 => 32
+		6 => 64
+		7 => 128
+		_ => 256
+	end
+end
+
+fn hpack_static_huffman_byte_bit(byte: Int, bit_index: Int) -> Int
+	let divisor: Int = hpack_static_huffman_pow2(7 - bit_index)
+	byte / divisor - (byte / (divisor * 2)) * 2
+end
+
+fn hpack_static_huffman_symbol(code: Int, length: Int) -> Option<Int>
+	match length
+		5 => match code
+			0 => Some(48)
+			1 => Some(49)
+			2 => Some(50)
+			3 => Some(97)
+			4 => Some(99)
+			5 => Some(101)
+			6 => Some(105)
+			7 => Some(111)
+			8 => Some(115)
+			9 => Some(116)
+			_ => None
 		end
-		3 => match hpack_fixture_byte_at_or_missing(encoded, 0) == 73 and hpack_fixture_byte_at_or_missing(encoded, 1) == 80 and hpack_fixture_byte_at_or_missing(encoded, 2) == 159
-			true => Some("test")
-			false => match hpack_fixture_byte_at_or_missing(encoded, 0) == 215 and hpack_fixture_byte_at_or_missing(encoded, 1) == 195 and hpack_fixture_byte_at_or_missing(encoded, 2) == 127
-				true => Some("PUT")
-				false => None
-			end
+		6 => match code
+			20 => Some(32)
+			21 => Some(37)
+			22 => Some(45)
+			23 => Some(46)
+			24 => Some(47)
+			25 => Some(51)
+			26 => Some(52)
+			27 => Some(53)
+			28 => Some(54)
+			29 => Some(55)
+			30 => Some(56)
+			31 => Some(57)
+			32 => Some(61)
+			33 => Some(65)
+			34 => Some(95)
+			35 => Some(98)
+			36 => Some(100)
+			37 => Some(102)
+			38 => Some(103)
+			39 => Some(104)
+			40 => Some(108)
+			41 => Some(109)
+			42 => Some(110)
+			43 => Some(112)
+			44 => Some(114)
+			45 => Some(117)
+			_ => None
+		end
+		7 => match code
+			92 => Some(58)
+			93 => Some(66)
+			94 => Some(67)
+			95 => Some(68)
+			96 => Some(69)
+			97 => Some(70)
+			98 => Some(71)
+			99 => Some(72)
+			100 => Some(73)
+			101 => Some(74)
+			102 => Some(75)
+			103 => Some(76)
+			104 => Some(77)
+			105 => Some(78)
+			106 => Some(79)
+			107 => Some(80)
+			108 => Some(81)
+			109 => Some(82)
+			110 => Some(83)
+			111 => Some(84)
+			112 => Some(85)
+			113 => Some(86)
+			114 => Some(87)
+			115 => Some(89)
+			116 => Some(106)
+			117 => Some(107)
+			118 => Some(113)
+			119 => Some(118)
+			120 => Some(119)
+			121 => Some(120)
+			122 => Some(121)
+			123 => Some(122)
+			_ => None
+		end
+		8 => match code
+			248 => Some(38)
+			249 => Some(42)
+			250 => Some(44)
+			251 => Some(59)
+			252 => Some(88)
+			253 => Some(90)
+			_ => None
+		end
+		10 => match code
+			1016 => Some(33)
+			1017 => Some(34)
+			1018 => Some(40)
+			1019 => Some(41)
+			1020 => Some(63)
+			_ => None
+		end
+		11 => match code
+			2042 => Some(39)
+			2043 => Some(43)
+			2044 => Some(124)
+			_ => None
+		end
+		12 => match code
+			4090 => Some(35)
+			4091 => Some(62)
+			_ => None
+		end
+		13 => match code
+			8184 => Some(0)
+			8185 => Some(36)
+			8186 => Some(64)
+			8187 => Some(91)
+			8188 => Some(93)
+			8189 => Some(126)
+			_ => None
+		end
+		14 => match code
+			16380 => Some(94)
+			16381 => Some(125)
+			_ => None
+		end
+		15 => match code
+			32764 => Some(60)
+			32765 => Some(96)
+			32766 => Some(123)
+			_ => None
+		end
+		19 => match code
+			524272 => Some(92)
+			524273 => Some(195)
+			524274 => Some(208)
+			_ => None
+		end
+		20 => match code
+			1048550 => Some(128)
+			1048551 => Some(130)
+			1048552 => Some(131)
+			1048553 => Some(162)
+			1048554 => Some(184)
+			1048555 => Some(194)
+			1048556 => Some(224)
+			1048557 => Some(226)
+			_ => None
+		end
+		21 => match code
+			2097116 => Some(153)
+			2097117 => Some(161)
+			2097118 => Some(167)
+			2097119 => Some(172)
+			2097120 => Some(176)
+			2097121 => Some(177)
+			2097122 => Some(179)
+			2097123 => Some(209)
+			2097124 => Some(216)
+			2097125 => Some(217)
+			2097126 => Some(227)
+			2097127 => Some(229)
+			2097128 => Some(230)
+			_ => None
+		end
+		22 => match code
+			4194258 => Some(129)
+			4194259 => Some(132)
+			4194260 => Some(133)
+			4194261 => Some(134)
+			4194262 => Some(136)
+			4194263 => Some(146)
+			4194264 => Some(154)
+			4194265 => Some(156)
+			4194266 => Some(160)
+			4194267 => Some(163)
+			4194268 => Some(164)
+			4194269 => Some(169)
+			4194270 => Some(170)
+			4194271 => Some(173)
+			4194272 => Some(178)
+			4194273 => Some(181)
+			4194274 => Some(185)
+			4194275 => Some(186)
+			4194276 => Some(187)
+			4194277 => Some(189)
+			4194278 => Some(190)
+			4194279 => Some(196)
+			4194280 => Some(198)
+			4194281 => Some(228)
+			4194282 => Some(232)
+			4194283 => Some(233)
+			_ => None
+		end
+		23 => match code
+			8388568 => Some(1)
+			8388569 => Some(135)
+			8388570 => Some(137)
+			8388571 => Some(138)
+			8388572 => Some(139)
+			8388573 => Some(140)
+			8388574 => Some(141)
+			8388575 => Some(143)
+			8388576 => Some(147)
+			8388577 => Some(149)
+			8388578 => Some(150)
+			8388579 => Some(151)
+			8388580 => Some(152)
+			8388581 => Some(155)
+			8388582 => Some(157)
+			8388583 => Some(158)
+			8388584 => Some(165)
+			8388585 => Some(166)
+			8388586 => Some(168)
+			8388587 => Some(174)
+			8388588 => Some(175)
+			8388589 => Some(180)
+			8388590 => Some(182)
+			8388591 => Some(183)
+			8388592 => Some(188)
+			8388593 => Some(191)
+			8388594 => Some(197)
+			8388595 => Some(231)
+			8388596 => Some(239)
+			_ => None
+		end
+		24 => match code
+			16777194 => Some(9)
+			16777195 => Some(142)
+			16777196 => Some(144)
+			16777197 => Some(145)
+			16777198 => Some(148)
+			16777199 => Some(159)
+			16777200 => Some(171)
+			16777201 => Some(206)
+			16777202 => Some(215)
+			16777203 => Some(225)
+			16777204 => Some(236)
+			16777205 => Some(237)
+			_ => None
+		end
+		25 => match code
+			33554412 => Some(199)
+			33554413 => Some(207)
+			33554414 => Some(234)
+			33554415 => Some(235)
+			_ => None
+		end
+		26 => match code
+			67108832 => Some(192)
+			67108833 => Some(193)
+			67108834 => Some(200)
+			67108835 => Some(201)
+			67108836 => Some(202)
+			67108837 => Some(205)
+			67108838 => Some(210)
+			67108839 => Some(213)
+			67108840 => Some(218)
+			67108841 => Some(219)
+			67108842 => Some(238)
+			67108843 => Some(240)
+			67108844 => Some(242)
+			67108845 => Some(243)
+			67108846 => Some(255)
+			_ => None
+		end
+		27 => match code
+			134217694 => Some(203)
+			134217695 => Some(204)
+			134217696 => Some(211)
+			134217697 => Some(212)
+			134217698 => Some(214)
+			134217699 => Some(221)
+			134217700 => Some(222)
+			134217701 => Some(223)
+			134217702 => Some(241)
+			134217703 => Some(244)
+			134217704 => Some(245)
+			134217705 => Some(246)
+			134217706 => Some(247)
+			134217707 => Some(248)
+			134217708 => Some(250)
+			134217709 => Some(251)
+			134217710 => Some(252)
+			134217711 => Some(253)
+			134217712 => Some(254)
+			_ => None
+		end
+		28 => match code
+			268435426 => Some(2)
+			268435427 => Some(3)
+			268435428 => Some(4)
+			268435429 => Some(5)
+			268435430 => Some(6)
+			268435431 => Some(7)
+			268435432 => Some(8)
+			268435433 => Some(11)
+			268435434 => Some(12)
+			268435435 => Some(14)
+			268435436 => Some(15)
+			268435437 => Some(16)
+			268435438 => Some(17)
+			268435439 => Some(18)
+			268435440 => Some(19)
+			268435441 => Some(20)
+			268435442 => Some(21)
+			268435443 => Some(23)
+			268435444 => Some(24)
+			268435445 => Some(25)
+			268435446 => Some(26)
+			268435447 => Some(27)
+			268435448 => Some(28)
+			268435449 => Some(29)
+			268435450 => Some(30)
+			268435451 => Some(31)
+			268435452 => Some(127)
+			268435453 => Some(220)
+			268435454 => Some(249)
+			_ => None
+		end
+		30 => match code
+			1073741820 => Some(10)
+			1073741821 => Some(13)
+			1073741822 => Some(22)
+			1073741823 => Some(256)
+			_ => None
 		end
 		_ => None
 	end
+end
+
+fn hpack_static_huffman_padding_valid(code: Int, length: Int) -> Bool
+	length == 0 or (length <= 7 and code == hpack_static_huffman_pow2(length) - 1)
+end
+
+fn hpack_static_huffman_append_symbol(decoded: ByteChunk, symbol: Int) -> Option<ByteChunk>
+	match symbol
+		256 => None
+		_ => match byte_write_u8_be(symbol)
+			Ok(symbol_chunk) => Some(byte_append(decoded, symbol_chunk))
+			Err(_) => None
+		end
+	end
+end
+
+fn hpack_static_huffman_single_byte_label(symbol: Int) -> Option<String>
+	match symbol
+		0 => Some("hpack-byte-00")
+		1 => Some("hpack-byte-01")
+		2 => Some("hpack-byte-02")
+		3 => Some("hpack-byte-03")
+		4 => Some("hpack-byte-04")
+		5 => Some("hpack-byte-05")
+		6 => Some("hpack-byte-06")
+		7 => Some("hpack-byte-07")
+		8 => Some("hpack-byte-08")
+		9 => Some("hpack-byte-09")
+		10 => Some("hpack-byte-0a")
+		11 => Some("hpack-byte-0b")
+		12 => Some("hpack-byte-0c")
+		13 => Some("hpack-byte-0d")
+		14 => Some("hpack-byte-0e")
+		15 => Some("hpack-byte-0f")
+		16 => Some("hpack-byte-10")
+		17 => Some("hpack-byte-11")
+		18 => Some("hpack-byte-12")
+		19 => Some("hpack-byte-13")
+		20 => Some("hpack-byte-14")
+		21 => Some("hpack-byte-15")
+		22 => Some("hpack-byte-16")
+		23 => Some("hpack-byte-17")
+		24 => Some("hpack-byte-18")
+		25 => Some("hpack-byte-19")
+		26 => Some("hpack-byte-1a")
+		27 => Some("hpack-byte-1b")
+		28 => Some("hpack-byte-1c")
+		29 => Some("hpack-byte-1d")
+		30 => Some("hpack-byte-1e")
+		31 => Some("hpack-byte-1f")
+		32 => Some("hpack-byte-20")
+		33 => Some("hpack-byte-21")
+		34 => Some("hpack-byte-22")
+		35 => Some("hpack-byte-23")
+		36 => Some("hpack-byte-24")
+		37 => Some("hpack-byte-25")
+		38 => Some("hpack-byte-26")
+		39 => Some("hpack-byte-27")
+		40 => Some("hpack-byte-28")
+		41 => Some("hpack-byte-29")
+		42 => Some("hpack-byte-2a")
+		43 => Some("hpack-byte-2b")
+		44 => Some("hpack-byte-2c")
+		45 => Some("hpack-byte-2d")
+		46 => Some("hpack-byte-2e")
+		47 => Some("hpack-byte-2f")
+		48 => Some("hpack-byte-30")
+		49 => Some("hpack-byte-31")
+		50 => Some("hpack-byte-32")
+		51 => Some("hpack-byte-33")
+		52 => Some("hpack-byte-34")
+		53 => Some("hpack-byte-35")
+		54 => Some("hpack-byte-36")
+		55 => Some("hpack-byte-37")
+		56 => Some("hpack-byte-38")
+		57 => Some("hpack-byte-39")
+		58 => Some("hpack-byte-3a")
+		59 => Some("hpack-byte-3b")
+		60 => Some("hpack-byte-3c")
+		61 => Some("hpack-byte-3d")
+		62 => Some("hpack-byte-3e")
+		63 => Some("hpack-byte-3f")
+		64 => Some("hpack-byte-40")
+		65 => Some("hpack-byte-41")
+		66 => Some("hpack-byte-42")
+		67 => Some("hpack-byte-43")
+		68 => Some("hpack-byte-44")
+		69 => Some("hpack-byte-45")
+		70 => Some("hpack-byte-46")
+		71 => Some("hpack-byte-47")
+		72 => Some("hpack-byte-48")
+		73 => Some("hpack-byte-49")
+		74 => Some("hpack-byte-4a")
+		75 => Some("hpack-byte-4b")
+		76 => Some("hpack-byte-4c")
+		77 => Some("hpack-byte-4d")
+		78 => Some("hpack-byte-4e")
+		79 => Some("hpack-byte-4f")
+		80 => Some("hpack-byte-50")
+		81 => Some("hpack-byte-51")
+		82 => Some("hpack-byte-52")
+		83 => Some("hpack-byte-53")
+		84 => Some("hpack-byte-54")
+		85 => Some("hpack-byte-55")
+		86 => Some("hpack-byte-56")
+		87 => Some("hpack-byte-57")
+		88 => Some("hpack-byte-58")
+		89 => Some("hpack-byte-59")
+		90 => Some("hpack-byte-5a")
+		91 => Some("hpack-byte-5b")
+		92 => Some("hpack-byte-5c")
+		93 => Some("hpack-byte-5d")
+		94 => Some("hpack-byte-5e")
+		95 => Some("hpack-byte-5f")
+		96 => Some("hpack-byte-60")
+		97 => Some("hpack-byte-61")
+		98 => Some("hpack-byte-62")
+		99 => Some("hpack-byte-63")
+		100 => Some("hpack-byte-64")
+		101 => Some("hpack-byte-65")
+		102 => Some("hpack-byte-66")
+		103 => Some("hpack-byte-67")
+		104 => Some("hpack-byte-68")
+		105 => Some("hpack-byte-69")
+		106 => Some("hpack-byte-6a")
+		107 => Some("hpack-byte-6b")
+		108 => Some("hpack-byte-6c")
+		109 => Some("hpack-byte-6d")
+		110 => Some("hpack-byte-6e")
+		111 => Some("hpack-byte-6f")
+		112 => Some("hpack-byte-70")
+		113 => Some("hpack-byte-71")
+		114 => Some("hpack-byte-72")
+		115 => Some("hpack-byte-73")
+		116 => Some("hpack-byte-74")
+		117 => Some("hpack-byte-75")
+		118 => Some("hpack-byte-76")
+		119 => Some("hpack-byte-77")
+		120 => Some("hpack-byte-78")
+		121 => Some("hpack-byte-79")
+		122 => Some("hpack-byte-7a")
+		123 => Some("hpack-byte-7b")
+		124 => Some("hpack-byte-7c")
+		125 => Some("hpack-byte-7d")
+		126 => Some("hpack-byte-7e")
+		127 => Some("hpack-byte-7f")
+		128 => Some("hpack-byte-80")
+		129 => Some("hpack-byte-81")
+		130 => Some("hpack-byte-82")
+		131 => Some("hpack-byte-83")
+		132 => Some("hpack-byte-84")
+		133 => Some("hpack-byte-85")
+		134 => Some("hpack-byte-86")
+		135 => Some("hpack-byte-87")
+		136 => Some("hpack-byte-88")
+		137 => Some("hpack-byte-89")
+		138 => Some("hpack-byte-8a")
+		139 => Some("hpack-byte-8b")
+		140 => Some("hpack-byte-8c")
+		141 => Some("hpack-byte-8d")
+		142 => Some("hpack-byte-8e")
+		143 => Some("hpack-byte-8f")
+		144 => Some("hpack-byte-90")
+		145 => Some("hpack-byte-91")
+		146 => Some("hpack-byte-92")
+		147 => Some("hpack-byte-93")
+		148 => Some("hpack-byte-94")
+		149 => Some("hpack-byte-95")
+		150 => Some("hpack-byte-96")
+		151 => Some("hpack-byte-97")
+		152 => Some("hpack-byte-98")
+		153 => Some("hpack-byte-99")
+		154 => Some("hpack-byte-9a")
+		155 => Some("hpack-byte-9b")
+		156 => Some("hpack-byte-9c")
+		157 => Some("hpack-byte-9d")
+		158 => Some("hpack-byte-9e")
+		159 => Some("hpack-byte-9f")
+		160 => Some("hpack-byte-a0")
+		161 => Some("hpack-byte-a1")
+		162 => Some("hpack-byte-a2")
+		163 => Some("hpack-byte-a3")
+		164 => Some("hpack-byte-a4")
+		165 => Some("hpack-byte-a5")
+		166 => Some("hpack-byte-a6")
+		167 => Some("hpack-byte-a7")
+		168 => Some("hpack-byte-a8")
+		169 => Some("hpack-byte-a9")
+		170 => Some("hpack-byte-aa")
+		171 => Some("hpack-byte-ab")
+		172 => Some("hpack-byte-ac")
+		173 => Some("hpack-byte-ad")
+		174 => Some("hpack-byte-ae")
+		175 => Some("hpack-byte-af")
+		176 => Some("hpack-byte-b0")
+		177 => Some("hpack-byte-b1")
+		178 => Some("hpack-byte-b2")
+		179 => Some("hpack-byte-b3")
+		180 => Some("hpack-byte-b4")
+		181 => Some("hpack-byte-b5")
+		182 => Some("hpack-byte-b6")
+		183 => Some("hpack-byte-b7")
+		184 => Some("hpack-byte-b8")
+		185 => Some("hpack-byte-b9")
+		186 => Some("hpack-byte-ba")
+		187 => Some("hpack-byte-bb")
+		188 => Some("hpack-byte-bc")
+		189 => Some("hpack-byte-bd")
+		190 => Some("hpack-byte-be")
+		191 => Some("hpack-byte-bf")
+		192 => Some("hpack-byte-c0")
+		193 => Some("hpack-byte-c1")
+		194 => Some("hpack-byte-c2")
+		195 => Some("hpack-byte-c3")
+		196 => Some("hpack-byte-c4")
+		197 => Some("hpack-byte-c5")
+		198 => Some("hpack-byte-c6")
+		199 => Some("hpack-byte-c7")
+		200 => Some("hpack-byte-c8")
+		201 => Some("hpack-byte-c9")
+		202 => Some("hpack-byte-ca")
+		203 => Some("hpack-byte-cb")
+		204 => Some("hpack-byte-cc")
+		205 => Some("hpack-byte-cd")
+		206 => Some("hpack-byte-ce")
+		207 => Some("hpack-byte-cf")
+		208 => Some("hpack-byte-d0")
+		209 => Some("hpack-byte-d1")
+		210 => Some("hpack-byte-d2")
+		211 => Some("hpack-byte-d3")
+		212 => Some("hpack-byte-d4")
+		213 => Some("hpack-byte-d5")
+		214 => Some("hpack-byte-d6")
+		215 => Some("hpack-byte-d7")
+		216 => Some("hpack-byte-d8")
+		217 => Some("hpack-byte-d9")
+		218 => Some("hpack-byte-da")
+		219 => Some("hpack-byte-db")
+		220 => Some("hpack-byte-dc")
+		221 => Some("hpack-byte-dd")
+		222 => Some("hpack-byte-de")
+		223 => Some("hpack-byte-df")
+		224 => Some("hpack-byte-e0")
+		225 => Some("hpack-byte-e1")
+		226 => Some("hpack-byte-e2")
+		227 => Some("hpack-byte-e3")
+		228 => Some("hpack-byte-e4")
+		229 => Some("hpack-byte-e5")
+		230 => Some("hpack-byte-e6")
+		231 => Some("hpack-byte-e7")
+		232 => Some("hpack-byte-e8")
+		233 => Some("hpack-byte-e9")
+		234 => Some("hpack-byte-ea")
+		235 => Some("hpack-byte-eb")
+		236 => Some("hpack-byte-ec")
+		237 => Some("hpack-byte-ed")
+		238 => Some("hpack-byte-ee")
+		239 => Some("hpack-byte-ef")
+		240 => Some("hpack-byte-f0")
+		241 => Some("hpack-byte-f1")
+		242 => Some("hpack-byte-f2")
+		243 => Some("hpack-byte-f3")
+		244 => Some("hpack-byte-f4")
+		245 => Some("hpack-byte-f5")
+		246 => Some("hpack-byte-f6")
+		247 => Some("hpack-byte-f7")
+		248 => Some("hpack-byte-f8")
+		249 => Some("hpack-byte-f9")
+		250 => Some("hpack-byte-fa")
+		251 => Some("hpack-byte-fb")
+		252 => Some("hpack-byte-fc")
+		253 => Some("hpack-byte-fd")
+		254 => Some("hpack-byte-fe")
+		255 => Some("hpack-byte-ff")
+		_ => None
+	end
+end
+
+fn hpack_static_huffman_decoded_string(decoded: ByteChunk) -> Option<String>
+	match byte_chunk_to_visible_ascii_string(decoded)
+		Ok(value) => Some(value)
+		Err(_) => match byte_count_to_int(byte_chunk_count(decoded)) == 1 and hpack_fixture_byte_at_or_missing(decoded, 0) == 10
+			true => Some("\n")
+			false => match byte_count_to_int(byte_chunk_count(decoded)) == 1
+				true => hpack_static_huffman_single_byte_label(hpack_fixture_byte_at_or_missing(decoded, 0))
+				false => Some(hpack_fixture_huffman_bytes_label(decoded))
+			end
+		end
+	end
+end
+
+fn hpack_static_huffman_done(decoded: ByteChunk, code: Int, length: Int) -> Option<String>
+	match hpack_static_huffman_padding_valid(code, length)
+		true => hpack_static_huffman_decoded_string(decoded)
+		false => None
+	end
+end
+
+fn hpack_static_huffman_decode_bit(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Option<String>
+	let source_byte: Int = hpack_fixture_byte_at_or_missing(encoded, bit_index / 8)
+	let bit: Int = hpack_static_huffman_byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code: Int = code * 2 + bit
+	let next_length: Int = length + 1
+	match hpack_static_huffman_symbol(next_code, next_length)
+		Some(symbol) => match hpack_static_huffman_append_symbol(decoded, symbol)
+			Some(next_decoded) => hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, next_decoded, 0, 0)
+			None => None
+		end
+		None => match next_length > 30
+			true => None
+			false => hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, decoded, next_code, next_length)
+		end
+	end
+end
+
+fn hpack_static_huffman_decode_bits(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Option<String>
+	match bit_index == total_bits
+		true => hpack_static_huffman_done(decoded, code, length)
+		false => hpack_static_huffman_decode_bit(encoded, bit_index, total_bits, decoded, code, length)
+	end
+end
+
+pub fn checked_hpack_huffman_value(encoded: ByteChunk) -> Option<String>
+	hpack_static_huffman_decode_bits(encoded, 0, byte_count_to_int(byte_chunk_count(encoded)) * 8, byte_chunk([]), 0, 0)
 end
 
 pub fn header_list_first_name(headers: HpackHeaderList) -> String

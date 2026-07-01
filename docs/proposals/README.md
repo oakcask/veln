@@ -426,8 +426,10 @@ compare it with `../specification/` before changing behavior.
   source-visible
   literal-without-indexing, literal-with-indexing, and
   literal-never-indexed static-name decoding of names resolved through the
-  HPACK static table metadata with raw visible-ASCII values and checked
-  bounded Huffman-marked literal values, plus the narrowed request
+  HPACK static table metadata with raw visible-ASCII values and bounded
+  Huffman-marked literal values decoded through the HPACK static Huffman
+  table, including line feed, single-byte `hpack-byte-*` labels, and
+  multi-byte `hpack-bytes-*` labels, plus the narrowed request
   `content-length` static-name path for accepted visible ASCII decimal values
   on literal-without-indexing, literal-with-indexing, and
   literal-never-indexed forms that do not observe later fixture dynamic-table
@@ -439,6 +441,9 @@ compare it with `../specification/` before changing behavior.
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
+  The completed source-visible static-name Huffman literal slice is archived
+  under
+  [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

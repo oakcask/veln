@@ -2,6 +2,13 @@ use hpack_fixture
 use hpack_static
 use stdio
 
+fn display_header_value(value: String) -> String
+	match value
+		"\n" => "<lf>"
+		_ => value
+	end
+end
+
 fn print_decoded(label: String, headers: HpackHeaderList) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" decoded ")
@@ -9,7 +16,7 @@ fn print_decoded(label: String, headers: HpackHeaderList) -> () effects [stdio]
 	stdio::print(" first ")
 	stdio::print(hpack_fixture::header_list_first_name(headers))
 	stdio::print(" ")
-	stdio::print(hpack_fixture::header_list_first_value(headers))
+	stdio::print(display_header_value(hpack_fixture::header_list_first_value(headers)))
 	stdio::print(" wire_size ")
 	stdio::println(int_to_string(hpack_fixture::header_list_wire_size(headers)))
 end
@@ -80,8 +87,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_literal_indexed_method: () = print_static_block("literal-indexed-method", "4203505554", 41)?
 	let ignored_literal_never_indexed_method: () = print_static_block("literal-never-indexed-method", "1203505554", 42)?
 	let ignored_literal_huffman_path_test: () = print_static_block("literal-huffman-path-test", "048349509f", 43)?
+	let ignored_literal_huffman_path_linefeed: () = print_static_block("literal-huffman-path-linefeed", "0484fffffff3", 44)?
+	let ignored_literal_huffman_path_byte_ff: () = print_static_block("literal-huffman-path-byte-ff", "0484fffffbbf", 45)?
+	let ignored_literal_huffman_path_bytes: () = print_static_block("literal-huffman-path-bytes", "0485ffc7ffffdd", 46)?
 	let ignored_literal_indexed_huffman_method_put: () = print_static_block("literal-indexed-huffman-method-put", "4283d7c37f", 44)?
+	let ignored_literal_indexed_huffman_path_bytes: () = print_static_block("literal-indexed-huffman-path-bytes", "4485ffc7ffffdd", 47)?
 	let ignored_literal_never_indexed_huffman_status_200: () = print_static_block("literal-never-indexed-huffman-status-200", "18821001", 45)?
+	let ignored_literal_never_indexed_huffman_path_byte_ff: () = print_static_block("literal-never-indexed-huffman-path-byte-ff", "1484fffffbbf", 48)?
 	let ignored_literal_malformed_length_falls_through: () = print_static_block("literal-malformed-length-falls-through", "0804323031", 46)?
 	let ignored_literal_indexed_malformed_length_falls_through: () = print_static_block("literal-indexed-malformed-length-falls-through", "4804323031", 47)?
 	let ignored_literal_never_indexed_malformed_length_falls_through: () = print_static_block("literal-never-indexed-malformed-length-falls-through", "1804323031", 48)?

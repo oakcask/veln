@@ -103,8 +103,11 @@ enough.
   bounded static-name literal-without-indexing fields, bounded static-name
   literal-with-indexing fields, and bounded static-name literal-never-indexed
   fields for names resolved through the HPACK static table metadata, including
-  raw visible-ASCII values and checked bounded Huffman-marked literal values
-  under `examples/specification/run/hpack-static-codec-boundary/`. Stateful
+  raw visible-ASCII values and bounded Huffman-marked literal values decoded
+  through the HPACK static Huffman table. The checked static boundary includes
+  visible ASCII, line feed, single-byte `hpack-byte-*` labels, and multi-byte
+  `hpack-bytes-*` labels across the static-name literal forms under
+  `examples/specification/run/hpack-static-codec-boundary/`. Stateful
   HTTP/2 request decoding also accepts `content-length` through the static-name
   literal forms checked by `examples/specification/run/http2-protocol-core/`
   when no later fixture dynamic-table reuse is observed. Stateful HTTP/2
