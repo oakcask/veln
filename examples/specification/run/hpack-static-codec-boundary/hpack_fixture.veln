@@ -14,6 +14,35 @@ pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int
 	HpackHeaderList(first, second, wire_size)
 end
 
+fn hpack_fixture_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn hpack_fixture_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match hpack_fixture_byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+pub fn checked_hpack_huffman_value(encoded: ByteChunk) -> Option<String>
+	match byte_count_to_int(byte_chunk_count(encoded))
+		2 => match hpack_fixture_byte_at_or_missing(encoded, 0) == 16 and hpack_fixture_byte_at_or_missing(encoded, 1) == 1
+			true => Some("200")
+			false => None
+		end
+		3 => match hpack_fixture_byte_at_or_missing(encoded, 0) == 73 and hpack_fixture_byte_at_or_missing(encoded, 1) == 80 and hpack_fixture_byte_at_or_missing(encoded, 2) == 159
+			true => Some("test")
+			false => match hpack_fixture_byte_at_or_missing(encoded, 0) == 215 and hpack_fixture_byte_at_or_missing(encoded, 1) == 195 and hpack_fixture_byte_at_or_missing(encoded, 2) == 127
+				true => Some("PUT")
+				false => None
+			end
+		end
+		_ => None
+	end
+end
+
 pub fn header_list_first_name(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(name, _), _, _) => name

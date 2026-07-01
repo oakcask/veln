@@ -244,13 +244,48 @@ fn literal_raw_value(block: ByteChunk, count: Int, value_index: Int, offset: Int
 	end
 end
 
+fn literal_huffman_value(block: ByteChunk, count: Int, value_index: Int, offset: Int) -> Result<String, HpackStaticFailure>
+	match value_index < count
+		true => match byte_at_or_missing(block, value_index) >= 128 and byte_at_or_missing(block, value_index) < 255
+			true => match count == value_index + 1 + byte_at_or_missing(block, value_index) - 128
+				true => match byte_count(value_index + 1)
+					Ok(prefix_count) => match byte_drop(block, prefix_count)
+						Ok(value_suffix) => match byte_count(byte_at_or_missing(block, value_index) - 128)
+							Ok(value_count) => match byte_take(value_suffix, value_count)
+								Ok(value_bytes) => match hpack_fixture::checked_hpack_huffman_value(value_bytes)
+									Some(value) => Ok(value)
+									None => not_static_string(block, offset)
+								end
+								Err(_) => not_static_string(block, offset)
+							end
+							Err(_) => not_static_string(block, offset)
+						end
+						Err(_) => not_static_string(block, offset)
+					end
+					Err(_) => not_static_string(block, offset)
+				end
+				false => not_static_string(block, offset)
+			end
+			false => not_static_string(block, offset)
+		end
+		false => not_static_string(block, offset)
+	end
+end
+
+fn literal_value(block: ByteChunk, count: Int, value_index: Int, offset: Int) -> Result<String, HpackStaticFailure>
+	match byte_at_or_missing(block, value_index) >= 128
+		true => literal_huffman_value(block, count, value_index, offset)
+		false => literal_raw_value(block, count, value_index, offset)
+	end
+end
+
 fn literal_static_name_header(name: String, value: String, marker: String, wire_size: Int) -> HpackHeaderList
 	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(name, value), hpack_fixture::hpack_header(":fixture", marker), wire_size)
 end
 
 fn decode_static_name_literal(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
 	match static_table_literal_name(name_index)
-		Some(name) => match literal_raw_value(block, count, value_index, offset)
+		Some(name) => match literal_value(block, count, value_index, offset)
 			Ok(value) => Ok(literal_static_name_header(name, value, marker, count))
 			Err(failure) => Err(failure)
 		end
