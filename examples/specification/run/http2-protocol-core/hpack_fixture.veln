@@ -3515,6 +3515,26 @@ fn content_length_value_is_mismatched(value: String) -> Bool
 	end
 end
 
+fn content_length_single_accepted_value(value: String) -> Int
+	match content_length_value_is_decimal(value)
+		true => match string_parse_int(value)
+			Ok(parsed) => parsed
+			Err(_) => -1
+		end
+		false => -1
+	end
+end
+
+fn content_length_accepted_value(value: String) -> Int
+	match string_split_once(value, ",")
+		Some(parts) => match content_length_value_is_decimal(parts.left) and content_length_value_is_decimal(parts.right) and parts.left == parts.right
+			true => content_length_single_accepted_value(parts.left)
+			false => -1
+		end
+		None => content_length_single_accepted_value(value)
+	end
+end
+
 fn request_content_length_header_value(headers: HpackHeaderList) -> Option<String>
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => Some(value)
@@ -3792,6 +3812,7 @@ end
 
 pub fn header_list_accepted_content_length(headers: HpackHeaderList) -> Int
 	match headers
+		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => content_length_accepted_value(value)
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5"), _) => 5
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,content-length:5,content-length:5"), _) => 5
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":response", "ok,content-length:5"), _) => 5

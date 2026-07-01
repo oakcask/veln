@@ -912,8 +912,9 @@ The source-visible HPACK static decoder uses
 unsupported static-table index; it reuses the same public fields with
 `codec_module: "hpack_static"`. It also accepts the static-table
 `content-length` name in a literal-without-indexing request block when the
-raw value is visible ASCII, then leaves decimal validity to the existing
-request header-list rules.
+raw value is an accepted visible ASCII decimal string, and that value feeds
+the existing content-length body-accounting state. Non-decimal visible values
+on the same decoded path still use the existing request header-list rules.
 These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a

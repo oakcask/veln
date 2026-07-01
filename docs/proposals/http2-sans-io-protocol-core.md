@@ -1001,10 +1001,12 @@ successfully parse and leave trailing header-block bytes through
 `hpack.fixture.table_size_update_trailing_bytes`.
 The source-visible HPACK static decoder also accepts the `content-length`
 static-table name in a literal-without-indexing request header block when the
-raw value is visible ASCII. Decimal values feed the existing request
-header-list validation and content-length body-accounting paths, while
-non-decimal visible values are rejected by the existing request header-list
-validation diagnostic.
+raw value is an accepted visible ASCII decimal string. The decoded value feeds
+the existing request header-list validation and content-length body-accounting
+paths, while non-decimal visible values are rejected by the existing request
+header-list validation diagnostic. Current behavior is specified by
+`../specification/run-json.md` and checked by
+`../../examples/specification/run/http2-protocol-core/`.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

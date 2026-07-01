@@ -403,7 +403,8 @@ compare it with `../specification/` before changing behavior.
   source-visible
   literal-without-indexing static-name decoding for raw visible-ASCII values
   on `:authority`, `:path`, `:status`, `server`, `content-type`, and
-  `user-agent`,
+  `user-agent`, plus the narrowed request `content-length` static-name path
+  for accepted visible ASCII decimal values,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
