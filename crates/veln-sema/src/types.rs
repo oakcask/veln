@@ -3029,7 +3029,7 @@ fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
             matches!(name.as_str(), "Int" | "Bool" | "Float" | "String")
         }
         Type::Named { name, args } if name == "List" && args.len() == 1 => {
-            matches!(&args[0], Type::Named { name, args } if name == "Int" && args.is_empty())
+            format_neutral_schema_list_element_type_is_supported(&args[0])
         }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => {
             format_neutral_schema_non_option_type_is_supported(&args[0])
@@ -3039,6 +3039,14 @@ fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
             .all(|(_, field_ty)| format_neutral_schema_non_option_type_is_supported(field_ty)),
         _ => false,
     }
+}
+
+fn format_neutral_schema_list_element_type_is_supported(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if matches!(name.as_str(), "Int" | "String") && args.is_empty()
+    )
 }
 
 fn format_neutral_schema_non_option_type_is_supported(ty: &Type) -> bool {

@@ -208,7 +208,7 @@ behavior.
   [schema-helper-public-surface-cleanup.md](schema-helper-public-surface-cleanup.md).
 - Format-neutral schema `Option` helpers:
   [format-neutral-schema-option-helpers.md](format-neutral-schema-option-helpers.md).
-- Format-neutral schema `List<Int>` helpers:
+- Format-neutral schema top-level list helpers:
   [format-neutral-schema-list-helpers.md](format-neutral-schema-list-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).

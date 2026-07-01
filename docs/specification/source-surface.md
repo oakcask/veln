@@ -27,11 +27,12 @@ is not enough.
 Top-level `schema Name` and `pub schema Name` declarations are source module
 items. A schema body may omit its `format` clause when every field uses
 format-neutral type text. Format-neutral generated decode helpers are exposed
-only when every field is `Int`, `Bool`, `Float`, `String`, `List<Int>`, a
-nested record shape made from scalar field types, or `Option<T>` where `T` is
-one of those scalar or nested record shapes. Unsupported format-neutral helper
-fields are declaration diagnostics. When present, the single `format binary`
-clause must appear before schema fields.
+only when every field is `Int`, `Bool`, `Float`, `String`, top-level
+`List<Int>` or `List<String>`, a nested record shape made from scalar field
+types, or `Option<T>` where `T` is one of those scalar or nested record
+shapes. Unsupported format-neutral helper fields are declaration diagnostics.
+When present, the single `format binary` clause must appear before schema
+fields.
 
 Schema field lines contain a field name, `:`, type text, and an optional
 field-local `where` predicate. One schema-level `validate` predicate may
