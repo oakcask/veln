@@ -219,7 +219,8 @@ compiler-known calls.
   `Dict<String, String>` values, supported top-level `Option` values
   including `Option<List<scalar>>` and `Option<Dict<String, scalar>>`, or
   nested record-shaped values made from scalar, `List<scalar>`,
-  `Option<scalar>`, `Option<Dict<String, scalar>>`, or
+  `Option<scalar>`, `Option<List<scalar>>`,
+  `Option<Dict<String, scalar>>`, or
   `Dict<String, scalar>` fields.
   Explicit
   `decode Schema from view at base` expressions are the public source surface

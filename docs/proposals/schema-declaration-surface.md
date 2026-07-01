@@ -70,9 +70,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   without a `format` clause when every field is `Int`, `Bool`, `Float`,
   `String`, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
   `List<String>`, a top-level string-keyed dictionary with scalar values, a
-  nested record shape made from scalar, `List<scalar>`, `Option<scalar>`, or
-  `Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types, or
-  `Option<T>` where `T` is one of those scalar, string-keyed scalar
+  nested record shape made from scalar, `List<scalar>`, `Option<scalar>`,
+  `Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
+  `Dict<String, scalar>` field types, or `Option<T>` where `T` is one of
+  those scalar, string-keyed scalar
   dictionary, or nested record shapes, with declaration diagnostics for
   unsupported helper field types
 - generated encode-time field-local validation for eligible
@@ -101,6 +102,10 @@ archived under
 
 The completed format-neutral nested record list helper slice is archived under
 [Format-Neutral Schema Nested List Helpers](../reference/implemented-proposals/format-neutral-schema-nested-list-helpers.md).
+
+The completed format-neutral nested record `Option<List<scalar>>` helper slice
+is archived under
+[Format-Neutral Schema Nested Option List Helpers](../reference/implemented-proposals/format-neutral-schema-nested-option-list-helpers.md).
 
 The completed format-neutral nested record dictionary helper slice is archived
 under
@@ -378,11 +383,12 @@ Implemented:
   `Bool`, `Float`, `String`, top-level `List<Int>`, `List<Bool>`,
   `List<Float>`, or `List<String>`, top-level string-keyed scalar
   dictionaries, nested record shapes made from scalar, `List<scalar>`,
-  `Option<scalar>`, `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>` field types, or `Option<T>` where `T` is one of
-  those scalar, string-keyed scalar dictionary, or nested record shapes,
-  expose generated `byte_decode_<schema>` helper bindings that accept and
-  return the schema-local visible record through
+  `Option<scalar>`, `Option<List<scalar>>`,
+  `Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types, or
+  `Option<T>` where `T` is one of those scalar, string-keyed scalar
+  dictionary, or nested record shapes, expose generated
+  `byte_decode_<schema>` helper bindings that accept and return the
+  schema-local visible record through
   `Result<T, String>`.
   Unsupported format-neutral helper fields report
   `schema.format_neutral_decode_helper` at the field declaration with a
