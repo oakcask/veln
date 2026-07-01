@@ -144,6 +144,18 @@ enough.
   ACK flag and clears the pending ACK state without mutating peer-advertised
   settings. The checked case is
   `examples/specification/run/http2-protocol-core/`.
+- The same checked HTTP/2 protocol core accepts received `PRIORITY` frames on
+  nonzero client-initiated streams when the frame has the fixed five-byte
+  payload and does not depend on itself. The decoded frame exposes dependency
+  stream id, exclusive flag, and weight. For tracked open and
+  half-closed-local streams, accepted `PRIORITY` updates the stream priority
+  facts and later accepted `PRIORITY` frames replace those facts without
+  changing receive-window, content-length, HPACK, or shutdown state. Idle
+  stream `PRIORITY` frames are decoded without opening a peer-created request
+  stream or increasing concurrent-stream receive count. A tracked
+  half-closed-local stream remains half-closed-local and can still receive
+  DATA after the priority update. The checked case is
+  `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core emits local SETTINGS send-intents as
   one frame-header-plus-payload chunk whose payload preserves caller item
   order. Supported local batch items are
