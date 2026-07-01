@@ -114,8 +114,10 @@ enough.
   case is
   `examples/specification/run/binary-schema-local-projection-boundary/`.
 - Schema-level `map to` clauses are rejected by the parser before execution.
-  The checked rejection case is
-  `examples/specification/check/schema-map-to-rejected/`.
+  The checked rejection cases are
+  `examples/specification/check/schema-map-to-rejected/`,
+  `examples/specification/check/schema-map-to-selector-rejected/`, and
+  `examples/specification/check/schema-map-to-inverse-rejected/`.
 
 ## Codecs
 

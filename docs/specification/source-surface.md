@@ -110,9 +110,12 @@ expressions.
 ## Diagnostics
 
 The parser rejects schema-level `map to` with
-`parse.schema_mapping_removed` at the `map` token. Mapping-only semantic and
-runtime diagnostics are not current behavior. The parser rejects top-level
-codec declarations with `parse.codec_declaration_removed`. Current schema diagnostics cover
+`parse.schema_mapping_removed` at the `map` token. The checked cases cover
+plain mapping clauses, selected mapping clauses, and inverse projection
+annotations under `examples/specification/check/schema-map-to-*-rejected/`.
+Mapping-only semantic and runtime diagnostics are not current behavior. The
+parser rejects top-level codec declarations with
+`parse.codec_declaration_removed`. Current schema diagnostics cover
 format placement, field references, primitive kind checks, field-local and
 schema-level validation predicates, dispatch payload eligibility, explicit
 schema decode expression schema-path resolution, and helper availability.
