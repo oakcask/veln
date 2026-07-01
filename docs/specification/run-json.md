@@ -573,8 +573,13 @@ their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including checked Huffman-marked string literal
 fixtures for outbound HEADERS and `PUSH_PROMISE`, and including the checked
 stateful `PUSH_PROMISE` path where the returned fixture encode state lets a
-later promised header list use the dynamic indexed byte `0xbe`. Outbound
-HPACK dynamic table-size update requests use the same result boundary: an
+later promised header list use the dynamic indexed byte `0xbe`. The outbound
+HEADERS fixture path also checks a raw ordinary new-name
+literal-never-indexed header block: it emits deterministic HPACK bytes
+without inserting `x-never: no` into the dynamic table, a later dynamic-index
+probe for that field fails at the fixture boundary, and the earlier
+`:path: /target` dynamic entry remains reusable as `0xbe`. Outbound HPACK
+dynamic table-size update requests use the same result boundary: an
 accepted update returns a fixture encode state that later HEADERS and
 `PUSH_PROMISE` encodes consume before frame splitting, while an over-limit
 update remains a typed HPACK fixture encode failure and produces no HTTP/2
