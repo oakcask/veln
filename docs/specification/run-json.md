@@ -914,8 +914,9 @@ The source-visible HPACK static decoder uses
 unsupported static-table index; it reuses the same public fields with
 `codec_module: "hpack_static"`. It accepts bounded static-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
-source-visible HPACK inputs with raw single-byte-length visible-ASCII values
-for names resolved through the HPACK static table metadata. Huffman-marked
+source-visible HPACK inputs for names resolved through the HPACK static table
+metadata when their values are raw single-byte-length visible ASCII or a
+checked bounded Huffman-marked literal value. Unsupported Huffman-marked
 values and malformed raw lengths stay on the unsupported static header-block
 fallback path. It also accepts the static-table
 `content-length` name in literal-without-indexing, literal-with-indexing, and

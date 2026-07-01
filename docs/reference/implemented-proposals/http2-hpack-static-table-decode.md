@@ -20,7 +20,8 @@ from `0x81` `:authority` through `0xbd` `www-authenticate:` through one
 source-visible static table lookup. It also accepts literal-without-indexing,
 literal-with-indexing, and literal-never-indexed header fields whose name
 resolves through the same HPACK static table metadata and whose value is a raw
-single-byte-length visible-ASCII string. The HTTP/2 request path also accepts
+single-byte-length visible-ASCII string or a checked bounded Huffman-marked
+literal value. The HTTP/2 request path also accepts
 static-name `content-length` after static request pseudo-headers through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 forms when no later fixture dynamic-table reuse is observed, and passes
@@ -28,10 +29,10 @@ decoded values to the existing request header-list validation and
 content-length body-accounting paths.
 
 The slice remains limited to static indexed fields and bounded static-name
-literal fields. Huffman strings, malformed literal lengths, dynamic-table
-indexes, table-size updates, and other fixture-owned bytes fall back to the
-HPACK fixture boundary. Stateful HTTP/2 header-block decoding still routes
-literal-with-indexing blocks through the fixture decoder
+literal fields. Unsupported Huffman strings, malformed literal lengths,
+dynamic-table indexes, table-size updates, and other fixture-owned bytes fall
+back to the HPACK fixture boundary. Stateful HTTP/2 header-block decoding still
+routes literal-with-indexing blocks through the fixture decoder
 when fixture dynamic-table state must be updated.
 Static-table boundary failures remain focused: static-only header blocks whose
 bytes name no static-table entry fail with `hpack.static.unsupported_index`,
@@ -51,8 +52,10 @@ block size, first byte, expected static header description, decoder module
   static table boundary, supported literal-without-indexing,
   literal-with-indexing, and literal-never-indexed values for static-table
   pseudo-header and ordinary-header names beyond the earlier checked subset,
+  accepted checked Huffman-marked `:path: test`, `:method: PUT`, and
+  `:status: 200` values across the three static-name literal forms,
   unsupported static index classification, malformed literal length fallback,
-  Huffman-marked value fallback, and saturated length prefix fallback.
+  and saturated length prefix fallback.
 - `../../../examples/specification/run/http2-protocol-core/` checks accepted
   request HEADERS, accepted final CONTINUATION completion, accepted response
   HEADERS, accepted source-visible literal-without-indexing response HEADERS,
