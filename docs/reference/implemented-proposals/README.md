@@ -98,6 +98,8 @@ behavior.
   [local-inference-hole-expected-type-flow.md](local-inference-hole-expected-type-flow.md).
 - Local inference examples cleanup:
   [local-inference-examples-cleanup.md](local-inference-examples-cleanup.md).
+- Local inference diagnostic details:
+  [local-inference-diagnostic-details.md](local-inference-diagnostic-details.md).
 - If else expression syntax:
   [if-else-expression-syntax.md](if-else-expression-syntax.md).
 - Public member alias re-exports:

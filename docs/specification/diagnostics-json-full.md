@@ -13,3 +13,28 @@ references, validation predicates, dispatch payload eligibility, explicit
 schema operation path resolution, and generated helper availability.
 Schema-level mapping diagnostics are not current behavior because mapping
 clauses are rejected by the parser.
+
+## Type Inference Diagnostics
+
+`type.local_inference_incomplete` details identify the failed slot with
+`slot_kind = "local_binding"` and `binding`, and report the current
+`inferred_type` even when it still contains `unknown`.
+
+`type.private_inference_incomplete` details identify the private function
+boundary with `boundary = "private_function"`, identify the failed slot with
+`slot_kind = "private_parameter"` and `parameter` or
+`slot_kind = "private_return"`, report `missing_fact`, and report the current
+`inferred_type` known at the failure point.
+
+`type.inference_ambiguous` details identify the ambiguity slot with
+`slot_kind`. Constructor type-context ambiguity uses
+`slot_kind = "constructor_type"`, `constructor`, `inferred_type`, and
+`constraint = "constructor_type_context"`. Empty collection ambiguity uses
+`slot_kind = "empty_collection"`, `collection`, `inferred_type`, and
+`constraint = "empty_collection_type_context"`. Match scrutinee domain
+ambiguity uses `slot_kind = "match_scrutinee"`, `candidates`, and
+`constraint = "match_constructor_pattern_domain"`.
+
+Checked examples under `examples/specification/check/` pin these shapes for
+local bindings, private helper parameters and returns, constructor ambiguity,
+empty collection ambiguity, and match scrutinee ambiguity.

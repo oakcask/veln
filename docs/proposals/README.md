@@ -28,8 +28,9 @@ compare it with `../specification/` before changing behavior.
   local callback binding annotation elision, direct return callback, match-arm
   callback, if-branch callback, callback return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
-  collection callback element, and examples cleanup slices specified in
-  `../specification/types.md`.
+  collection callback element, examples cleanup, and diagnostic-details slices
+  specified in `../specification/types.md` and
+  `../specification/diagnostics-json.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
   declared helper callback argument inference, source-backed prelude callback
@@ -40,7 +41,7 @@ compare it with `../specification/` before changing behavior.
   collection initializer inference, ADT constructor payload inference, match
   scrutinee constructor-pattern inference, local pattern `let` inference,
   nested initializer expected-type propagation, hole expected-type flow, and
-  examples cleanup slices are archived under
+  examples cleanup, and diagnostic-details slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
@@ -62,8 +63,9 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
   [local-inference-nested-initializer-expected-type.md](../reference/implemented-proposals/local-inference-nested-initializer-expected-type.md),
   `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`,
+  `../reference/implemented-proposals/local-inference-examples-cleanup.md`,
   and
-  `../reference/implemented-proposals/local-inference-examples-cleanup.md`.
+  `../reference/implemented-proposals/local-inference-diagnostic-details.md`.
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.

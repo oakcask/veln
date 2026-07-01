@@ -71,6 +71,25 @@ fn private_function_reports_incomplete_annotation_inference() {
 }
 
 #[test]
+fn private_function_reports_partial_unknown_return_inference() {
+    let source = SourceFile::new("main.veln", "fn helper()\n  []\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.private_inference_incomplete");
+    assert_eq!(
+        diagnostics[0].message,
+        "private function has no inferred return type"
+    );
+    assert!(diagnostics[0].details.to_json().contains(
+        "\"slot_kind\":\"private_return\",\"missing_fact\":\"return_type\",\"inferred_type\":\"Vec<unknown>\""
+    ));
+}
+
+#[test]
 fn private_helper_signature_infers_from_same_module_call_site() {
     let source = SourceFile::new(
         "main.veln",

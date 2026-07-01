@@ -83,7 +83,9 @@ Public functions must annotate every parameter, annotate the return type, and
 provide an explicit `effects [...]` clause. Private functions may omit a
 parameter or return annotation only when local inference produces a concrete
 type for the omitted fact. If the checker still has `unknown`, it reports
-`type.private_inference_incomplete`.
+`type.private_inference_incomplete`. The JSON details identify whether the
+missing slot is a private parameter or private return, name private parameters,
+report the missing fact, and include the current inferred type.
 
 The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.
@@ -124,7 +126,8 @@ tail expressions checked against a declared return type. The binding remains
 monomorphic: after one concrete type is fixed, a later incompatible use reports
 `type.mismatch`. If no same-function use fixes every `unknown` part of the
 binding type, checking reports `type.local_inference_incomplete` at the
-omitted binding.
+omitted binding. The JSON details identify the local binding slot and include
+the current inferred type.
 
 Non-empty `Vec<T>` literal initializers infer an omitted local binding as
 `Vec<T>` from the first element when all later elements are assignable to the
@@ -156,6 +159,9 @@ is `Dict<K, V>`; a later same-function use may fix an omitted local `{}`
 binding to that dictionary type. Without a dictionary expectation, `{}`
 remains an empty record literal. An expected collection type that still
 contains `unknown` is not concrete enough for an empty collection literal.
+When an empty collection literal still lacks concrete context, its
+`type.inference_ambiguous` JSON details identify the empty collection slot,
+current inferred type, and empty collection type-context constraint.
 Record field and constructor payload expected types propagate recursively
 through nested initializer expressions when every enclosing field or payload
 type is concrete. This lets empty collection literals and nullary
@@ -168,7 +174,9 @@ name must resolve to one visible variant, and every type argument must become
 concrete from the payloads. Repeated uses of the same type parameter must agree;
 an incompatible later payload reports `type.mismatch` at that payload
 expression. If payloads leave a constructor type argument as `unknown`, the
-constructor reports `type.inference_ambiguous`. Bare, type-qualified,
+constructor reports `type.inference_ambiguous` with a constructor slot kind,
+current inferred type, and constructor type-context constraint. Bare,
+type-qualified,
 import-alias-qualified, and import-alias-and-type-qualified constructor forms
 use the same visibility and descriptor resolution rules as constructor calls
 with expected type context. Nullary generic constructors still require
@@ -345,6 +353,8 @@ nested constructor subpatterns contribute concrete descriptor type arguments
 when they determine them. A catch-all arm alone does not infer the scrutinee
 type. Ambiguous constructor-pattern domains leave the scrutinee unknown and
 report `type.inference_ambiguous` when a concrete scrutinee type is required.
+The JSON details identify the match scrutinee slot, candidate domains, and
+constructor-pattern domain constraint.
 
 A binding pattern has the scrutinee type. `Some(value)`,
 `Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`, `Err(error)`,
