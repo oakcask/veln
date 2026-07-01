@@ -915,10 +915,9 @@ unsupported static-table index; it reuses the same public fields with
 `codec_module: "hpack_static"`. It accepts bounded static-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 source-visible HPACK inputs with raw single-byte-length visible-ASCII values
-for the checked static names `:authority`, `:path`, `:status`, `server`,
-`content-length`, `content-type`, and `user-agent`; unsupported names,
-Huffman-marked values, and malformed raw lengths stay on the unsupported
-static header-block fallback path. It also accepts the static-table
+for names resolved through the HPACK static table metadata. Huffman-marked
+values and malformed raw lengths stay on the unsupported static header-block
+fallback path. It also accepts the static-table
 `content-length` name in literal-without-indexing, literal-with-indexing, and
 literal-never-indexed request blocks when the raw value is an accepted visible
 ASCII decimal string and the block does not require later fixture

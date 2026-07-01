@@ -402,11 +402,10 @@ compare it with `../specification/` before changing behavior.
   diagnostics for indexes outside the static table boundary, plus
   source-visible
   literal-without-indexing, literal-with-indexing, and
-  literal-never-indexed static-name decoding for raw visible-ASCII values on
-  `:authority`, `:path`, `:status`, `server`, `content-length`,
-  `content-type`, and `user-agent`, plus the narrowed request
-  `content-length` static-name path for accepted visible ASCII decimal values
-  on literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed static-name decoding of names resolved through the
+  HPACK static table metadata with raw visible-ASCII values, plus the
+  narrowed request `content-length` static-name path for accepted visible
+  ASCII decimal values on literal-without-indexing, literal-with-indexing, and
   literal-never-indexed forms that do not observe later fixture dynamic-table
   reuse,
   recorded under `../specification/` and
