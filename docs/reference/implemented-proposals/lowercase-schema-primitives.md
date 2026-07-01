@@ -48,6 +48,9 @@ text while preserving ordinary format-neutral schema type names.
   `examples/specification/check/schema-repeat-canonical-syntax-diagnostics/`
   and
   `examples/specification/run/binary-schema-canonical-repeat-decode-encode/`.
+- Legacy `Repeat(count, Payload)` lowercase payload execution:
+  `examples/specification/run/binary-schema-repeat-decode/` and
+  `examples/specification/run/binary-schema-repeat-encode/`.
 - Dispatch payload execution:
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-extension-dispatch-decode/`,

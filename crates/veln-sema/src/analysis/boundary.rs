@@ -16,7 +16,8 @@ use crate::types::{
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_name_last_segment,
     schema_payload_name_path, schema_recursive_dispatch_helper_payload_type,
-    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
+    schema_recursive_dispatch_payload_type, schema_repeat_payload_accepts_lowercase_primitive,
+    supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
@@ -752,6 +753,12 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     if format_name == Some("binary")
                         && reason == "dispatch_payload"
                         && schema_dispatch_payload_accepts_lowercase_primitive(primitive)
+                    {
+                        continue;
+                    }
+                    if format_name == Some("binary")
+                        && reason == "repeat_payload"
+                        && schema_repeat_payload_accepts_lowercase_primitive(primitive)
                     {
                         continue;
                     }

@@ -54,6 +54,9 @@ count expression may name an earlier visible count field or use implemented
 arithmetic forms over earlier count fields, and the payload may use an
 exact-width primitive, a lowercase exact-width primitive, a nested binary
 schema, or `ByteView(length)`.
+Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
+primitive payload spellings that are accepted by canonical repeated-field
+syntax.
 Closed and extension dispatch payload cases accept the same lowercase
 exact-width `uint...` and `flag...` spelling wherever the compatible
 upper-case exact-width primitive payload spelling is accepted. Byte-aligned
