@@ -349,8 +349,7 @@ compare it with `../specification/` before changing behavior.
   reason details, codec-owned version mismatch projection with expected
   version, actual version, and failure reason details, codec-owned tag
   mismatch projection with expected tag, actual tag, and failure reason
-  details, generated binary schema decode
-  integer range failures,
+  details, generated binary schema decode integer range failures,
   generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
   output, plus hand-written codec decode consumed-count failures and their

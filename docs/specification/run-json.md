@@ -435,6 +435,12 @@ When a `veln run` entry returns a source-visible
 - `actual_tag`: the actual tag string when the id is
   `codec.tag_mismatch` and the source-visible reason carries tag mismatch
   fields
+- `expected_magic`: the expected magic string when the id is
+  `codec.magic_mismatch` and the source-visible reason carries magic
+  mismatch fields
+- `actual_magic`: the actual magic string when the id is
+  `codec.magic_mismatch` and the source-visible reason carries magic
+  mismatch fields
 - `local_byte_offset`: the byte offset reported by helper context carried by
   the reason when present
 - `expected_count`: the byte count expected by helper context carried by the
@@ -494,6 +500,13 @@ strings still keep only `reason` and do not invent tag facts. The checked
 direct result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-tag-mismatch-direct-json/` and
 `examples/specification/run/codec-tag-mismatch-step-json/`.
+For `codec.magic_mismatch`, a source-visible reason written as
+`expected_magic=<value>; actual_magic=<value>; reason=<text>` is projected as
+separate `expected_magic`, `actual_magic`, and `reason` fields. Plain reason
+strings still keep only `reason` and do not invent magic facts. The checked
+direct result and `DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-magic-mismatch-direct-json/` and
+`examples/specification/run/codec-magic-mismatch-step-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice comes from an
 ordinary decode function whose returned `Decoded` consumed count is outside

@@ -1,0 +1,8 @@
+# DecodeStep Invalid magic mismatch failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(18)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.magic_mismatch", offset, "ManualPacketWire.magic", "expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
