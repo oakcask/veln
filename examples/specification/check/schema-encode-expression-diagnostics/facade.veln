@@ -1,0 +1,7 @@
+use wire
+
+pub schema MissingAlias = wire::MissingPacket
+pub schema PrivateAlias = wire::PrivatePacket
+pub schema FunctionAlias = wire::make_packet
+pub schema TypeAlias = wire::PacketShape
+pub schema CodecAlias = wire::PacketCodec

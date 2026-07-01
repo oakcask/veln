@@ -1,9 +1,9 @@
-command = ["check", "--json", "main.veln", "wire.veln"]
+command = ["check", "--json", "main.veln", "wire.veln", "facade.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.decode_expression\"", "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema", "schema decode expression schema `wire::PrivatePacket` is private", "schema decode expression target `wire::make_packet` is a function, not a schema", "schema decode expression target `wire::PacketShape` is a type, not a schema", "schema decode expression cannot resolve `wire::PacketCodec` as an eligible binary schema", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\""]
+contains = ["\"id\":\"schema.decode_expression\"", "\"id\":\"name.unresolved\"", "\"id\":\"name.visibility\"", "\"id\":\"name.kind_mismatch\"", "schema decode expression cannot resolve `MissingPacket` as an eligible binary schema", "schema decode expression schema `wire::PrivatePacket` is private", "schema decode expression target `wire::make_packet` is a function, not a schema", "schema decode expression target `wire::PacketShape` is a type, not a schema", "schema decode expression cannot resolve `wire::PacketCodec` as an eligible binary schema", "unresolved schema alias target `wire::MissingPacket`", "schema alias target `wire::PrivatePacket` is private", "public alias target `wire::make_packet` is a function, not a schema", "public alias target `wire::PacketShape` is a type, not a schema", "unresolved schema alias target `wire::PacketCodec`", "schema decode expression cannot resolve `facade::MissingAlias` as an eligible binary schema", "schema decode expression schema `facade::PrivateAlias` is private", "schema decode expression target `facade::FunctionAlias` is a function, not a schema", "schema decode expression target `facade::TypeAlias` is a type, not a schema", "schema decode expression cannot resolve `facade::CodecAlias` as an eligible binary schema", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\""]
 
 [stderr]
 format = "empty"

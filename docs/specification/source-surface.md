@@ -69,7 +69,7 @@ returns a `DecodeStep<T>` for the schema-local visible record shape. The
 expression `encode SchemaName from value` accepts the schema-local visible
 record shape for eligible binary schemas and returns
 `Result<ByteChunk, EncodeError>`. Qualified public schema paths are accepted
-when the imported schema is visible. The
+when the imported schema or public schema alias is visible. The
 executable coverage is
 `examples/specification/run/schema-decode-expression/` and
 `examples/specification/run/schema-encode-expression/`; encode expression

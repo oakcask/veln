@@ -1,5 +1,6 @@
 # Explicit schema decode expressions produce DecodeStep values for local and imported schemas.
 use stdio
+use facade
 use wire
 
 schema PacketWire
@@ -34,7 +35,7 @@ fn consumed_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("05030702")?
+	let bytes: ByteChunk = byte_chunk_from_hex("050307020904")?
 	let local_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
 	let local_base: ByteOffset = byte_offset(11)?
 	let local_explicit: DecodeStep<{length: Int, kind: Int}> = decode PacketWire from local_view at local_base
@@ -48,5 +49,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(decoded_length(imported_explicit)))
 	stdio::println(int_to_string(decoded_kind(imported_explicit)))
 	stdio::println(int_to_string(consumed_count(imported_explicit)))
+
+	let alias_view: ByteView = byte_view(bytes, byte_offset(4)?, byte_count(2)?)?
+	let alias_base: ByteOffset = byte_offset(23)?
+	let alias_explicit: DecodeStep<{length: Int, kind: Int}> = decode facade::AliasWire from alias_view at alias_base
+	stdio::println(int_to_string(decoded_length(alias_explicit)))
+	stdio::println(int_to_string(decoded_kind(alias_explicit)))
+	stdio::println(int_to_string(consumed_count(alias_explicit)))
 	Ok(())
 end

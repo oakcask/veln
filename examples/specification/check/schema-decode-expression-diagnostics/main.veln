@@ -1,3 +1,4 @@
+use facade
 use wire
 
 fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
@@ -18,4 +19,24 @@ end
 
 fn wrong_codec(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
 	decode wire::PacketCodec from view at base
+end
+
+fn missing_alias_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode facade::MissingAlias from view at base
+end
+
+fn private_alias_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode facade::PrivateAlias from view at base
+end
+
+fn function_alias_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode facade::FunctionAlias from view at base
+end
+
+fn type_alias_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode facade::TypeAlias from view at base
+end
+
+fn codec_alias_target(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode facade::CodecAlias from view at base
 end

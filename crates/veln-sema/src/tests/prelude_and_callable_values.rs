@@ -423,6 +423,125 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
 }
 
 #[test]
+fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use facade\n",
+            "\n",
+            "pub fn decode_alias(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
+            "  decode facade::AliasPacket from view at base\n",
+            "end\n",
+            "\n",
+            "pub fn encode_alias(packet: {wire_length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode facade::AliasPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let facade_source = SourceFile::new(
+        "facade.veln",
+        concat!(
+            "mod facade\n",
+            "use wire\n",
+            "\n",
+            "pub schema AliasPacket = wire::PublicPacket\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub schema PublicPacket\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let facade = lower_surface_ast(&parse(&facade_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: [app.uses, facade.uses].concat(),
+        aliases: facade.aliases,
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let decode_alias = core
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_alias")
+        .expect("decode_alias should be lowered");
+    let CoreStmtKind::Return { expr } = &decode_alias.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PublicPacket"
+    ));
+    let encode_alias = core
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_alias")
+        .expect("encode_alias should be lowered");
+    let CoreStmtKind::Return { expr } = &encode_alias.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PublicPacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let decode_alias = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "decode_alias")
+        .expect("decode_alias should be in IR");
+    let IrStmtKind::Return { value } = &decode_alias.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PublicPacket"
+    ));
+    let encode_alias = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "encode_alias")
+        .expect("encode_alias should be in IR");
+    let IrStmtKind::Return { value } = &encode_alias.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PublicPacket"
+    ));
+}
+
+#[test]
 fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_schema_paths() {
     let app_source = SourceFile::new(
         "app.veln",

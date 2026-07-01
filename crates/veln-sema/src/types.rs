@@ -41,6 +41,16 @@ struct SchemaAliasSymbol {
     target: Vec<String>,
 }
 
+struct ResolvedSchemaSymbol {
+    name: String,
+    module_name: Option<String>,
+}
+
+struct SchemaAliasTarget {
+    target: Vec<String>,
+    module_name: Option<String>,
+}
+
 #[derive(Clone)]
 struct NamedSymbol {
     name: String,
@@ -511,19 +521,18 @@ impl TypeEnvironment {
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        let (schema_name, module_path) = schema_path.split_last()?;
-        let helper_name = schema_decode_step_function_name(schema_name);
-        if module_path.is_empty() {
-            return self
-                .unqualified_function(&helper_name, current_module)
-                .found();
-        }
-        let use_decl = imported_use_for_path(&self.uses, module_path, current_module)?;
-        let module_name = use_decl.name.as_str();
+        let schema = self.schema_symbols.schema_target_path(
+            schema_path,
+            current_module,
+            &self.uses,
+            true,
+            &mut Vec::new(),
+        )?;
+        let helper_name = schema_decode_step_function_name(&schema.name);
         self.functions.iter().find(|function| {
             function.name == helper_name
-                && function.module_name.as_deref() == Some(module_name)
-                && function.visibility == Visibility::Public
+                && function.module_name == schema.module_name
+                && self.symbol_is_visible(*function, schema.module_name.as_deref(), current_module)
         })
     }
 
@@ -532,19 +541,18 @@ impl TypeEnvironment {
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        let (schema_name, module_path) = schema_path.split_last()?;
-        let helper_name = schema_encode_function_name(schema_name);
-        if module_path.is_empty() {
-            return self
-                .unqualified_function(&helper_name, current_module)
-                .found();
-        }
-        let use_decl = imported_use_for_path(&self.uses, module_path, current_module)?;
-        let module_name = use_decl.name.as_str();
+        let schema = self.schema_symbols.schema_target_path(
+            schema_path,
+            current_module,
+            &self.uses,
+            true,
+            &mut Vec::new(),
+        )?;
+        let helper_name = schema_encode_function_name(&schema.name);
         self.functions.iter().find(|function| {
             function.name == helper_name
-                && function.module_name.as_deref() == Some(module_name)
-                && function.visibility == Visibility::Public
+                && function.module_name == schema.module_name
+                && self.symbol_is_visible(*function, schema.module_name.as_deref(), current_module)
         })
     }
 
@@ -560,6 +568,19 @@ impl TypeEnvironment {
             return SchemaReferenceError {
                 kind: SchemaReferenceErrorKind::Private,
                 resolved_kind: Some("schema"),
+            };
+        }
+        if let Some(alias_target) =
+            self.schema_symbols
+                .schema_alias_target(schema_path, current_module, &self.uses)
+            && let Some(kind) = self.wrong_schema_reference_kind(
+                &alias_target.target,
+                alias_target.module_name.as_deref(),
+            )
+        {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::WrongKind,
+                resolved_kind: Some(kind),
             };
         }
         if let Some(kind) = self.wrong_schema_reference_kind(schema_path, current_module) {
@@ -5059,6 +5080,109 @@ impl SchemaSymbolTable {
     ) -> bool {
         self.schema_path(segments, current_module, uses, true, &mut Vec::new())
             == SchemaPathLookup::Private
+    }
+
+    fn schema_alias_target(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<SchemaAliasTarget> {
+        match segments {
+            [name] => self.schema_alias_target_in_module(current_module, name),
+            [_, .., name] => {
+                let use_decl =
+                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+                self.schema_alias_target_in_module(Some(&use_decl.name), name)
+            }
+            _ => None,
+        }
+    }
+
+    fn schema_alias_target_in_module(
+        &self,
+        module_name: Option<&str>,
+        name: &str,
+    ) -> Option<SchemaAliasTarget> {
+        let alias = self
+            .aliases
+            .iter()
+            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)?;
+        Some(SchemaAliasTarget {
+            target: alias.target.clone(),
+            module_name: alias.module_name.clone(),
+        })
+    }
+
+    fn schema_target_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        allow_private_local_schema: bool,
+        visited_aliases: &mut Vec<(Option<String>, String)>,
+    ) -> Option<ResolvedSchemaSymbol> {
+        match segments {
+            [name] => self.schema_target_in_module(
+                current_module,
+                name,
+                allow_private_local_schema,
+                uses,
+                visited_aliases,
+            ),
+            [_, .., name] => {
+                let use_decl =
+                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+                self.schema_target_in_module(
+                    Some(&use_decl.name),
+                    name,
+                    false,
+                    uses,
+                    visited_aliases,
+                )
+            }
+            _ => None,
+        }
+    }
+
+    fn schema_target_in_module(
+        &self,
+        module_name: Option<&str>,
+        name: &str,
+        allow_private_schema: bool,
+        uses: &[UseDecl],
+        visited_aliases: &mut Vec<(Option<String>, String)>,
+    ) -> Option<ResolvedSchemaSymbol> {
+        if let Some(schema) = self
+            .schemas
+            .iter()
+            .find(|schema| schema.name == name && schema.module_name.as_deref() == module_name)
+        {
+            return (allow_private_schema || schema.visibility == Visibility::Public).then(|| {
+                ResolvedSchemaSymbol {
+                    name: schema.name.clone(),
+                    module_name: schema.module_name.clone(),
+                }
+            });
+        }
+        let alias = self
+            .aliases
+            .iter()
+            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)?;
+        let key = (alias.module_name.clone(), alias.name.clone());
+        if visited_aliases.contains(&key) {
+            return None;
+        }
+        visited_aliases.push(key);
+        let result = self.schema_target_path(
+            &alias.target,
+            alias.module_name.as_deref(),
+            uses,
+            false,
+            visited_aliases,
+        );
+        visited_aliases.pop();
+        result
     }
 
     fn schema_path(

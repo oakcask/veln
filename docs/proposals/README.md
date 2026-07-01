@@ -89,8 +89,9 @@ compare it with `../specification/` before changing behavior.
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
-  lookup. The completed documentation-comment schema reference slice is
-  archived under
+  lookup, and explicit schema operations resolve imported public schema aliases
+  through the aliased schema helper boundary. The completed
+  documentation-comment schema reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
   The completed format-neutral `Option` helper slice is archived under
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).

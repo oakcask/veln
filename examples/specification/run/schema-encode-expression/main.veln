@@ -1,5 +1,6 @@
 # Explicit schema encode expressions produce ByteChunk results for local and imported schemas.
 use stdio
+use facade
 use wire
 
 schema PacketWire
@@ -45,4 +46,7 @@ pub fn main() -> () effects [stdio]
 
 	let imported_explicit: Result<ByteChunk, EncodeError> = encode wire::ImportedWire from {length: 7, kind: 2}
 	emit_encoded("schema-encode-imported", imported_explicit, "0702")
+
+	let alias_explicit: Result<ByteChunk, EncodeError> = encode facade::AliasWire from {length: 9, kind: 4}
+	emit_encoded("schema-encode-alias", alias_explicit, "0904")
 end
