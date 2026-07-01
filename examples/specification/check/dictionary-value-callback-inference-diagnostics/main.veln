@@ -1,0 +1,21 @@
+fn missing_context(value)
+	"ok"
+end
+
+type GenericGroup<A>
+	GenericHandlers(callbacks: Dict<String, fn(A, Int) -> String>)
+end
+
+fn missing_generic_context(value, fixed) -> String
+	"ok"
+end
+
+pub fn unconstrained_value() -> String
+	let callbacks = {"missing": missing_context}
+	"ok"
+end
+
+pub fn non_concrete_value() -> String
+	let group = GenericHandlers({"missing": missing_generic_context})
+	"ok"
+end

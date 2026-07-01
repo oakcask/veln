@@ -1,0 +1,56 @@
+type CallbackGroup
+	Handlers(callbacks: Dict<String, fn(Int) -> Option<Vec<String>>>)
+end
+
+fn direct_value(value)
+	let checked: Int = value
+	Some(["direct"])
+end
+
+fn returned_value(value)
+	let checked: Int = value
+	Some(["return"])
+end
+
+fn local_value(value)
+	let checked: Int = value
+	Some(["local"])
+end
+
+fn alias_value(value)
+	let checked: Int = value
+	Some(["alias"])
+end
+
+fn nested_value(value)
+	let checked: Int = value
+	Some(["nested"])
+end
+
+fn returned_callbacks() -> Dict<String, fn(Int) -> Option<Vec<String>>>
+	{"returned": returned_value}
+end
+
+fn local_callbacks() -> Dict<String, fn(Int) -> Option<Vec<String>>>
+	let callbacks: Dict<String, fn(Int) -> Option<Vec<String>>> = {"local": local_value}
+	callbacks
+end
+
+fn alias_callbacks() -> Dict<String, fn(Int) -> Option<Vec<String>>>
+	let callback = alias_value
+	{"alias": callback}
+end
+
+fn nested_callbacks() -> CallbackGroup
+	Handlers({"nested": nested_value})
+end
+
+pub fn main() -> {direct: Dict<String, fn(Int) -> Option<Vec<String>>>, returned: Dict<String, fn(Int) -> Option<Vec<String>>>, local: Dict<String, fn(Int) -> Option<Vec<String>>>, alias: Dict<String, fn(Int) -> Option<Vec<String>>>, nested: CallbackGroup}
+	{
+		direct: {"direct": direct_value},
+		returned: returned_callbacks(),
+		local: local_callbacks(),
+		alias: alias_callbacks(),
+		nested: nested_callbacks()
+	}
+end

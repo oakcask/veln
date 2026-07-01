@@ -1,0 +1,128 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private parameter `fixed` has no inferred type", "\"id\":\"type.local_inference_incomplete\"", "constructor `GenericHandlers` needs type context"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.2.details.parameter"
+equals = "fixed"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.3.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.3.details.inferred_type"
+equals = "Dict<String, fn(unknown) -> String>"
+
+[[json_assert]]
+path = "diagnostics.4.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.4.details.inferred_type"
+equals = "GenericGroup<unknown>"
+
+[[json_assert]]
+path = "diagnostics.4.details.constraint"
+equals = "constructor_type_context"
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 20
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 28
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `fixed` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 35
+
+[[diagnostics]]
+id = "type.local_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "omitted local binding `callbacks` has no concrete inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 14
+column = 6
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `GenericHandlers` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 19
+column = 14
