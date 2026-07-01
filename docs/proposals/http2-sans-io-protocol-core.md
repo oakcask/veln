@@ -541,9 +541,9 @@ slice. Ordinary source builds record-shaped frame descriptions with `length`,
 helper for the HTTP/2 wire header layout, and checks one nine-byte output
 chunk for a SETTINGS header on the connection stream, a DATA header on a
 nonzero stream, and the maximum valid `UInt31be` stream id. It also keeps the
-generated helper's `schema.encode_value_unrepresentable` error visible for an
-out-of-range stream id instead of projecting that representation failure into
-a protocol diagnostic.
+generated schema encode `schema.encode_value_unrepresentable` error visible
+for an out-of-range stream id instead of projecting that representation
+failure into a protocol diagnostic.
 It also includes the outbound SETTINGS ACK send-intent slice. After a valid
 non-ACK SETTINGS receive, ordinary source constructs exactly one immutable
 nine-byte output chunk through the same frame-header encode path, with length
