@@ -1,0 +1,10 @@
+schema HeaderWireInverse
+  format binary
+
+  length: UInt16be
+  kind: UInt8
+
+  map to Header
+    length = length inverse header_length_to_wire
+    kind = kind
+end

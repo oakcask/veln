@@ -130,29 +130,30 @@ projection when the conversion is part of a public decode or encode boundary.
 ## Diagnostics
 
 After parser removal, `map to` inside a schema is ordinary invalid syntax. The
-primary parse diagnostic should report that schema mapping clauses are no
-longer accepted and point at the `map` token.
+primary parse diagnostic reports that schema mapping clauses are no longer
+accepted and points at the `map` token.
 
 Mapping-specific diagnostics such as selection ambiguity, unsupported mapping
 expressions, and mapping encode projection failures should disappear from
 current behavior. Historical references may remain only in implemented
 proposal records or compatibility notes.
 
-## Specification Work
+## Specification Evidence
 
-Implementation should update the executable grammar first, then current
-specification prose and examples:
+The implemented removal is pinned by current specification prose and
+executable examples:
 
-- remove `SchemaMapping`, `SchemaMappingSelector`,
-  `SchemaMappingAssignment`, and mapping inverse grammar from
-  `source-surface-executable.pl`
-- update `source-surface.md` and `execution.md` so schemas return
-  schema-local visible records
-- remove or rewrite mapping-only examples under `examples/specification/`
-- add one executable check that `map to` in a schema is rejected with the new
-  parse diagnostic
-- update codec examples that used mapped target shapes to call ordinary
-  projection functions explicitly
+- `source-surface-executable.pl` contains no `SchemaMapping`,
+  `SchemaMappingSelector`, `SchemaMappingAssignment`, or mapping inverse
+  grammar.
+- `source-surface.md` and `execution.md` describe schema operations over
+  schema-local visible records.
+- `examples/specification/check/schema-map-to-rejected/`,
+  `examples/specification/check/schema-map-to-selector-rejected/`, and
+  `examples/specification/check/schema-map-to-inverse-rejected/` check the
+  parser diagnostic for plain, selected, and inverse mapping clauses.
+- `examples/specification/run/binary-schema-local-projection-boundary/` shows
+  ordinary projection functions at the schema-operation boundary.
 
 ## Compatibility
 

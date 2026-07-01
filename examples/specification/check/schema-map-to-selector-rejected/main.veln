@@ -1,0 +1,10 @@
+schema HeaderWireSelected
+  format binary
+
+  length: UInt16be
+  kind: UInt8
+
+  map to Header when kind == 1
+    length = length
+    kind = kind
+end

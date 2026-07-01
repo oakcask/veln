@@ -43,8 +43,10 @@ against the built `veln` binary.
 - Schema operations use the schema-local visible record shape.
 - Use ordinary Veln functions to project between schema-local records and
   domain records at schema-operation boundaries.
-- `check/schema-map-to-rejected/` pins parser rejection for schema-level
-  `map to`.
+- `check/schema-map-to-rejected/`,
+  `check/schema-map-to-selector-rejected/`, and
+  `check/schema-map-to-inverse-rejected/` pin parser rejection for plain,
+  selected, and inverse schema-level `map to` forms.
 - `run/schema-decode-expression/`, `run/schema-encode-expression/`, and
   `run/binary-schema-local-projection-boundary/` pin explicit schema
   operations combined with ordinary projection functions.
