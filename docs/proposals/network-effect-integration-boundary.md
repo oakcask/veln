@@ -60,7 +60,9 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, the production multi-chunk
   routing `net::write_chunks` projection slice, the adapter-owned outbound
-  write-failure boundary, plus the source-visible ordered chunk-list boundary,
+  write-failure boundary, the HTTP/2 adapter/core ordered
+  `net::write_chunks` projection slice, plus the source-visible ordered
+  chunk-list boundary,
   deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
@@ -98,7 +100,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware stream read, `time::cancel_owner`,
   `time::cancel_token_from`, `time::cancel_owned`, and
   `time::is_cancelled_owner`
-- ownership of frame ordering, flow control, and transport writes
+- richer production socket APIs beyond the checked deterministic fixture and
+  loopback adapter shapes
 
 ## Discussion Result: Network Effect Labels
 
@@ -393,6 +396,18 @@ handler route continues. The matching effect-checking case requires `net`,
 `time`, and `concurrency` at the adapter boundary while keeping the handler
 free of transport, time, and concurrency effects.
 
+Implemented HTTP/2 adapter/core write boundary slice: an executable
+specification case calls a pure handler that returns ordinary response action
+values, routes those values through pure HTTP/2 outbound HEADERS and DATA
+send-intent helpers, preserves the accepted core-produced output chunk order,
+and writes only accepted chunks through `net::write_chunks`. The DATA action
+uses the outbound credit and frame-size path that splits output into ordered
+DATA frames. A later rejected DATA action after local end-stream remains an
+ordinary protocol decision and records no transport write for that rejected
+action. The matching effect-checking case keeps the handler and pure core
+path transport-free while requiring the adapter write boundary to declare the
+existing coarse `net` effect.
+
 The adapter-owned listener-to-clean-stream-end lifecycle slice is recorded as
 implemented in
 `../reference/implemented-proposals/network-adapter-ownership-boundary.md`.
@@ -443,6 +458,9 @@ as implemented in
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
 including runtime and static effect-boundary evidence.
+
+The HTTP/2 adapter/core write boundary slice is recorded as implemented in
+`../reference/implemented-proposals/network-http2-adapter-core-write-boundary.md`.
 
 The receiver-list select-many, timeout, timeout-result, and cancellable
 timeout-result channel-first stream routing slices are recorded as implemented

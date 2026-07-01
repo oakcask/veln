@@ -571,6 +571,9 @@ Veln's channel-first concurrency model is a good fit for HTTP/2 multiplexing.
 One connection task can decode frames and route stream events through typed
 channels. Stream handlers can return response events to the connection task,
 which owns frame ordering, flow control, and transport writes.
+The network integration boundary now has a checked narrow slice for pure
+handler response actions flowing through HTTP/2 core send-intents into ordered
+adapter writes; richer connection-task integration remains proposal work here.
 
 ## Standard-Library Pressure
 

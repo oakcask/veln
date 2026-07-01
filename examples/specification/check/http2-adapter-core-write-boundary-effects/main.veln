@@ -1,0 +1,51 @@
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
+
+type ResponseAction
+	SendHeaders(header_block: ByteChunk, end_stream: Bool)
+	SendData(payload: ByteChunk, end_stream: Bool)
+end
+
+fn encode_frame_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_frame_header_wire({length: length, kind: kind, flags: flags, stream_id: stream_id})
+end
+
+fn require_frame_header(result: Result<ByteChunk, EncodeError>) -> Result<ByteChunk, String>
+	match result
+		Ok(chunk) => Ok(chunk)
+		Err(_) => Err("expected HTTP/2 frame header")
+	end
+end
+
+pub fn handler_response() -> Result<List<ResponseAction>, String>
+	let headers: ByteChunk = byte_chunk_from_hex("828486")?
+	let body: ByteChunk = byte_chunk_from_hex("aabbccdd")?
+	Ok(list_cons(SendHeaders(headers, false), list_cons(SendData(body, true), list_nil())))
+end
+
+fn write_core_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
+	net::write_chunks(stream, chunks)
+end
+
+fn core_headers_and_data() -> Result<List<ByteChunk>, String>
+	let headers: ByteChunk = byte_append(require_frame_header(encode_frame_header(3, 1, 4, 1))?, byte_chunk_from_hex("828486")?)
+	let data: ByteChunk = byte_append(require_frame_header(encode_frame_header(4, 0, 1, 1))?, byte_chunk_from_hex("aabbccdd")?)
+	Ok(list_cons(headers, list_cons(data, list_nil())))
+end
+
+fn adapter_project_and_write(stream: NetStream) -> Result<(), String> effects [net]
+	let ignored_actions: List<ResponseAction> = handler_response()?
+	write_core_chunks(stream, core_headers_and_data()?)
+	Ok(())
+end
+
+pub fn adapter_missing_net(stream: NetStream) -> Result<(), String>
+	adapter_project_and_write(stream)
+end

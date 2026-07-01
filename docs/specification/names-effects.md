@@ -164,6 +164,12 @@ compiler-known calls.
   routing and before response writes or stream close. Forced production accept
   or read failures through the deadline-aware calls remain runtime transport
   failures under the same coarse effect labels.
+  The HTTP/2 adapter/core write boundary keeps the handler and pure core
+  send-intent path free of transport effects, while the adapter that accepts a
+  `NetStream` and projects accepted HEADERS and DATA chunks through
+  `net::write_chunks` requires the existing coarse `net` effect. The matching
+  effect fixture rejects an adapter entry point that omits `net` and adds no
+  new effect label.
   The channel-first stream routing examples use two, three, and four typed
   `StreamInput` channels plus existing channel selection. The general
   receiver-list example uses `channel::select_many_priority` on a non-empty

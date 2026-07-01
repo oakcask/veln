@@ -536,6 +536,7 @@ compare it with `../specification/` before changing behavior.
   `net::write_chunks_until_cancellable` chunk-list writes,
   adapter-owned multi-handler outbound write ordering through
   `net::write_chunks`, adapter-owned outbound write-failure boundary,
+  HTTP/2 adapter/core write projection through ordered `net::write_chunks`,
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
@@ -581,6 +582,8 @@ compare it with `../specification/` before changing behavior.
   The completed adapter-owned multi-handler outbound write-ordering and
   outbound write-failure slices are archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).
+  The completed HTTP/2 adapter/core write boundary is archived under
+  [Network HTTP/2 Adapter Core Write Boundary](../reference/implemented-proposals/network-http2-adapter-core-write-boundary.md).
   The completed adapter-owned clean shutdown slice is archived under
   [Network Adapter Clean Shutdown](../reference/implemented-proposals/network-adapter-clean-shutdown.md).
   The completed adapter-owned cancellation owner slice is archived under
