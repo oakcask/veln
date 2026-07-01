@@ -15,7 +15,8 @@ compare it with `../specification/` before changing behavior.
   expected-type, concrete local-binding expected-type, and concrete
   direct return-position expected-type, concrete match-arm expected-type, and
   concrete if-branch expected-type, concrete constructor-payload
-  expected-type, and concrete collection element expected-type paths, and
+  expected-type, concrete collection element expected-type, and concrete
+  dictionary value expected-type paths, and
   other paths beyond the implemented same-function local `let`, non-empty
   collection initializer, empty collection expected-type,
   nested initializer expected-type
@@ -28,8 +29,8 @@ compare it with `../specification/` before changing behavior.
   local callback binding annotation elision, direct return callback, match-arm
   callback, if-branch callback, callback return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
-  collection callback element, examples cleanup, and diagnostic-details slices
-  specified in `../specification/types.md` and
+  collection callback element, dictionary value callback, examples cleanup,
+  and diagnostic-details slices specified in `../specification/types.md` and
   `../specification/diagnostics-json.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
@@ -56,6 +57,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
   `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
   `../reference/implemented-proposals/local-inference-collection-callback-element.md`,
+  `../reference/implemented-proposals/local-inference-dictionary-value-callback.md`,
   [local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md),
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
   `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,

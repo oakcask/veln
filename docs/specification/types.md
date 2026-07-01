@@ -67,11 +67,12 @@ full type reference.
   constrains a named private callback placed in that payload position. This
   includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
   and `Err` and `Result::Err` payloads. Concrete `Vec<fn(...) -> ...>`
-  element positions and concrete `List` `Cons` head positions also constrain
-  named private callbacks placed at that element position, including nested
-  initializer positions reached through concrete record fields or constructor
-  payloads. When such a concrete helper, record-field, local-binding, direct
-  return, match arm, `if` branch, constructor payload, collection element, or
+  element positions, concrete `List` `Cons` head positions, and concrete
+  `Dict<K, fn(...) -> ...>` value positions also constrain named private
+  callbacks placed at that position, including nested initializer positions
+  reached through concrete record fields or constructor payloads. When such a
+  concrete helper, record-field, local-binding, direct return, match arm, `if`
+  branch, constructor payload, collection element, dictionary value, or
   prelude helper result context fixes a named private callback return type,
   that expected return type propagates into non-empty callback tail
   expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
