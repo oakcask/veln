@@ -441,7 +441,8 @@ as implemented in
 `../reference/implemented-proposals/network-production-owner-drain-lifecycle.md`.
 
 The production multi-chunk event routing slice is recorded as implemented in
-`../reference/implemented-proposals/network-production-multi-chunk-routing.md`.
+`../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
+including runtime and static effect-boundary evidence.
 
 The receiver-list select-many, timeout, timeout-result, and cancellable
 timeout-result channel-first stream routing slices are recorded as implemented

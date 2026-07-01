@@ -6,8 +6,10 @@ This record preserves the completed production multi-chunk event routing slice
 from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
-checked example under
-`../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`.
+checked examples under
+`../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`
+and
+`../../../examples/specification/check/socket-stream-adapter-production-multi-chunk-routing-effects/case.toml`.
 
 ## Outcome
 
@@ -23,8 +25,10 @@ Clean stream end is translated into `StreamInput.End` for the same handler
 boundary. The adapter then projects only ordered `SendBytes` response actions
 through `net::write_chunks`, closes the stream, and observes clean listener
 end. The adapter declares the existing `net` and `concurrency` effects; the
-handler remains free of transport and channel effects. The slice adds no
-effect label, socket handle type, service interface, or HTTP protocol
+handler remains free of transport and channel effects. The matching static
+effect case rejects adapter entry points that omit either `net` or
+`concurrency` while leaving the public handler boundary effect-free. The slice
+adds no effect label, socket handle type, service interface, or HTTP protocol
 behavior.
 
 ## Remaining Work

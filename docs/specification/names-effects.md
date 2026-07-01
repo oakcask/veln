@@ -152,7 +152,9 @@ compiler-known calls.
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an
   existing channel to a pure handler, and projects ordered `SendBytes` actions
   through `net::write_chunks` while requiring the same `net` and
-  `concurrency` adapter boundary. The
+  `concurrency` adapter boundary; the matching effect fixture rejects adapter
+  entry points that omit either label while keeping the handler boundary
+  effect-free. The
   listener-drain adapter uses the same public calls and effect declarations
   while recursively accepting configured production streams until
   `net::accept_or_end` reports clean listener end; forced production read
