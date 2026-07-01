@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `items` cannot expose a generated decode helper", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `items` cannot expose a generated decode helper", "\"field_type\":\"Option<List<Int>>\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "Generated format-neutral decode helpers for schema `BadPacket`"]
 
 [stderr]
 format = "empty"
@@ -20,4 +20,4 @@ equals = 1
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `items` cannot expose a generated decode helper because `List<Int>` is not a supported scalar or record-shaped field type"
+message = "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, Option, or record-shaped field type"

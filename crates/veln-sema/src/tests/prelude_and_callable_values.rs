@@ -93,9 +93,11 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
             "  code: Int\n",
             "  label: String\n",
             "  metadata: {ready: Bool, score: Float}\n",
+            "  optional_code: Option<Int>\n",
+            "  optional_metadata: Option<{ready: Bool, score: Float}>\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {code: Int, label: String, metadata: {ready: Bool, score: Float}}) -> Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}}, String>\n",
+            "pub fn main(packet: {code: Int, label: String, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}) -> Result<{code: Int, label: String, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>\n",
             "  byte_decode_plain_packet(packet)\n",
             "end\n",
         ),
@@ -134,7 +136,13 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
             .iter()
             .map(|field| (field.name.as_str(), field.width))
             .collect::<Vec<_>>(),
-        vec![("code", 0), ("label", 0), ("metadata", 0)]
+        vec![
+            ("code", 0),
+            ("label", 0),
+            ("metadata", 0),
+            ("optional_code", 0),
+            ("optional_metadata", 0),
+        ]
     );
 }
 
@@ -145,7 +153,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         concat!(
             "schema BadPacket\n",
             "  code: Int\n",
-            "  items: List<Int>\n",
+            "  items: Option<List<Int>>\n",
             "end\n",
         ),
     );
@@ -160,13 +168,38 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         .expect("unsupported field should be reported");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `items` cannot expose a generated decode helper because `List<Int>` is not a supported scalar or record-shaped field type"
+        "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<Int>>` is not a supported scalar, Option, or record-shaped field type"
     );
     assert!(diagnostic.related.iter().any(|related| {
         related
             .to_json()
             .contains("Generated format-neutral decode helpers for schema `BadPacket`")
     }));
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_reject_option_inside_record_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BadPacket\n",
+            "  metadata: {maybe_code: Option<Int>}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
+        .expect("nested option field should be reported");
+    assert_eq!(
+        diagnostic.message,
+        "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ maybe_code : Option<Int> }` is not a supported scalar, Option, or record-shaped field type"
+    );
 }
 
 #[test]

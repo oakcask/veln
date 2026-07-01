@@ -28,8 +28,8 @@ upper-case exact-width primitive payload spelling. They also accept
 byte-aligned lowercase `uint... reserves <value>` spelling in direct
 reserved-bit dispatch payload positions. Format-neutral schemas reject
 binary-only primitive vocabulary in dispatch payload positions. Format-neutral
-generated decode helpers are limited to scalar fields and nested record-shaped
-fields made from those scalar field types.
+generated decode helpers are limited to scalar fields, supported `Option`
+fields, and nested record-shaped fields made from those scalar field types.
 
 ## Executable Grammar
 

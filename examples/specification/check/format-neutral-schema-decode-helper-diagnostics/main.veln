@@ -1,4 +1,4 @@
 schema BadPacket
 	code: Int
-	items: List<Int>
+	items: Option<List<Int>>
 end

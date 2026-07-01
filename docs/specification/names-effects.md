@@ -213,8 +213,8 @@ compiler-known calls.
   fields; compatibility generated decode-step helpers expose the same value
   shape through `DecodeStep<T>` for open input. Format-neutral schema decode
   helpers accept and return schema-local visible records through
-  `Result<T, String>` when all fields are scalar or nested record-shaped
-  values. Explicit
+  `Result<T, String>` when all fields are scalar values, supported `Option`
+  values, or nested record-shaped values. Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the
   generated helper in source; imported public schemas may be cited through
