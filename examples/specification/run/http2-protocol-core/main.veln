@@ -784,13 +784,28 @@ fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 end
 
 fn decode_completed_static_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
-	match hpack_static::decode_header_block(completed_header_block, offset)
-		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_state, headers)
-		Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
-			true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
-			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
+	match hpack_block_updates_fixture_dynamic_table(completed_header_block)
+		true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+		false => match hpack_static::decode_header_block(completed_header_block, offset)
+			Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_state, headers)
+			Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
+				true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
+			end
 		end
 	end
+end
+
+fn hpack_block_first_byte_or_missing(block: ByteChunk) -> Int
+	match read_byte(block, 0)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn hpack_block_updates_fixture_dynamic_table(block: ByteChunk) -> Bool
+	let first_byte: Int = hpack_block_first_byte_or_missing(block)
+	first_byte >= 64 and first_byte < 128
 end
 
 fn decode_completed_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
