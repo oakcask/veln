@@ -60,7 +60,9 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware lifecycle slices, the adapter-owned multi-handler
   ordered `net::write_chunks` projection slice, the production multi-chunk
   routing `net::write_chunks` projection slice, the adapter-owned outbound
-  write-failure boundary, plus the source-visible ordered chunk-list boundary,
+  write-failure boundary, the HTTP/2 adapter/core ordered
+  `net::write_chunks` projection slice, plus the source-visible ordered
+  chunk-list boundary,
   deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
@@ -98,7 +100,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware stream read, `time::cancel_owner`,
   `time::cancel_token_from`, `time::cancel_owned`, and
   `time::is_cancelled_owner`
-- ownership of frame ordering, flow control, and transport writes
+- richer production socket APIs beyond the checked deterministic fixture and
+  loopback adapter shapes
 
 ## Discussion Result: Network Effect Labels
 
@@ -443,6 +446,9 @@ as implemented in
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
 including runtime and static effect-boundary evidence.
+
+The HTTP/2 adapter/core write boundary slice is recorded as implemented in
+`../reference/implemented-proposals/network-http2-adapter-core-write-boundary.md`.
 
 The receiver-list select-many, timeout, timeout-result, and cancellable
 timeout-result channel-first stream routing slices are recorded as implemented

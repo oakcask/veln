@@ -615,7 +615,11 @@ HEADERS and CONTINUATION frames and server-side outbound `PUSH_PROMISE`
 output split across `PUSH_PROMISE` and CONTINUATION frames, remain ordinary
 program stdout in the
 aggregate protocol-core run case; they do not populate `error` or
-`details.protocol_diagnostic`. The same applies when those send-intents build
+`details.protocol_diagnostic`. The HTTP/2 adapter/core write boundary likewise
+prints its adapter summary as ordinary stdout, records accepted HEADERS and
+split DATA chunks in the fixture transport log, and leaves rejected send
+actions out of `error` unless adapter code explicitly reports them. The same
+applies when those send-intents build
 their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including checked Huffman-marked string literal
 fixtures for outbound HEADERS and `PUSH_PROMISE`, and including the checked

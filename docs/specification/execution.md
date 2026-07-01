@@ -188,6 +188,14 @@ enough.
   batches pending. The checked case also fixes the no-output
   `local_settings` range-diagnostic path for an invalid item inside a larger
   batch.
+- The checked HTTP/2 adapter/core write boundary composes ordinary pure
+  response actions with pure HTTP/2 outbound HEADERS and DATA send-intents,
+  then writes only accepted core-produced chunks through `net::write_chunks`.
+  Adapter code preserves the core chunk order, including DATA frame splitting
+  from the outbound credit and frame-size path. A rejected later DATA action
+  remains an ordinary protocol decision and records no transport write for
+  that action. The checked case is
+  `examples/specification/run/http2-adapter-core-write-boundary/`.
 
 ## Runtime Output
 

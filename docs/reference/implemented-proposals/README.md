@@ -268,6 +268,8 @@ behavior.
   [network-deadline-at-boundary.md](network-deadline-at-boundary.md).
 - Network adapter outbound write ordering:
   [network-adapter-outbound-write-ordering.md](network-adapter-outbound-write-ordering.md).
+- Network HTTP/2 adapter core write boundary:
+  [network-http2-adapter-core-write-boundary.md](network-http2-adapter-core-write-boundary.md).
 - Network adapter clean shutdown:
   [network-adapter-clean-shutdown.md](network-adapter-clean-shutdown.md).
 - Network cancel owner boundary:
