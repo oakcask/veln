@@ -137,6 +137,16 @@ length mismatch at the byte offset, and is checked by
 `../../examples/specification/run/codec-payload-length-mismatch-step-json/`,
 and
 `../../examples/specification/run/codec-payload-length-mismatch-step-human/`.
+The codec-owned integer out-of-range diagnostic slice is implemented for
+`codec.integer_out_of_range` direct `DecodeErrorWithReason(...)` failures and
+`DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries field
+path, byte width, expected integer range, actual decoded value, and failure
+reason in `details.byte_diagnostic`, keeps the human primary focused on the
+integer range failure at the byte offset, and is checked by
+`../../examples/specification/run/codec-integer-out-of-range-direct-json/`,
+`../../examples/specification/run/codec-integer-out-of-range-direct-human/`,
+`../../examples/specification/run/codec-integer-out-of-range-step-json/`, and
+`../../examples/specification/run/codec-integer-out-of-range-step-human/`.
 The codec-owned sequence mismatch diagnostic slice is implemented for
 `codec.sequence_mismatch` direct `DecodeErrorWithReason(...)` failures and
 `DecodeStep::Invalid(DecodeErrorWithReason(...))` failures. It carries field
@@ -183,6 +193,8 @@ The completed codec-owned sequence mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
 The completed codec-owned payload length mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-payload-length-mismatch-diagnostics.md).
+The completed codec-owned integer out-of-range slice is archived under the
+[implemented proposal record](../reference/implemented-proposals/codec-integer-out-of-range-diagnostics.md).
 The completed codec-owned version mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-version-mismatch-diagnostics.md).
 The completed codec-owned tag mismatch slice is archived under the

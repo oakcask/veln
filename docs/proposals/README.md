@@ -364,9 +364,11 @@ compare it with `../specification/` before changing behavior.
   reason details, codec-owned length mismatch projection with expected
   length, actual length, and failure reason details, codec-owned payload
   length mismatch projection with expected payload length, actual payload
-  length, and failure reason details, codec-owned sequence mismatch
-  projection with expected sequence, actual sequence, and failure reason
-  details, codec-owned version mismatch projection with expected
+  length, and failure reason details, codec-owned integer out-of-range
+  projection with byte width, accepted integer range, actual decoded value,
+  and failure reason details, codec-owned sequence mismatch projection with
+  expected sequence, actual sequence, and failure reason details,
+  codec-owned version mismatch projection with expected
   version, actual version, and failure reason details, codec-owned tag
   mismatch projection with expected tag, actual tag, and failure reason
   details, codec-owned magic mismatch projection with expected magic, actual

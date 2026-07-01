@@ -423,6 +423,18 @@ When a `veln run` entry returns a source-visible
 - `actual_payload_length`: the actual payload length number when the id is
   `codec.payload_length_mismatch` and the source-visible reason carries
   payload length mismatch fields
+- `byte_width`: the integer byte width number when the id is
+  `codec.integer_out_of_range` and the source-visible reason carries integer
+  range fields
+- `min_value`: the accepted minimum integer value when the id is
+  `codec.integer_out_of_range` and the source-visible reason carries integer
+  range fields
+- `max_value`: the accepted maximum integer value when the id is
+  `codec.integer_out_of_range` and the source-visible reason carries integer
+  range fields
+- `actual_value`: the decoded integer value when the id is
+  `codec.integer_out_of_range` and the source-visible reason carries integer
+  range fields
 - `expected_sequence`: the expected sequence string when the id is
   `codec.sequence_mismatch` and the source-visible reason carries sequence
   mismatch fields
@@ -491,6 +503,14 @@ only `reason` and do not invent payload length facts. The checked direct
 result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-payload-length-mismatch-direct-json/` and
 `examples/specification/run/codec-payload-length-mismatch-step-json/`.
+For `codec.integer_out_of_range`, a source-visible reason written as
+`byte_width=<n>; min_value=<n>; max_value=<n>; actual_value=<n>; reason=<text>`
+is projected as separate numeric `byte_width`, `min_value`, `max_value`,
+`actual_value`, and `reason` fields. Plain reason strings still keep only
+`reason` and do not invent integer range facts. The checked direct result and
+`DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-integer-out-of-range-direct-json/` and
+`examples/specification/run/codec-integer-out-of-range-step-json/`.
 For `codec.sequence_mismatch`, a source-visible reason written as
 `expected_sequence=<value>; actual_sequence=<value>; reason=<text>` is
 projected as separate `expected_sequence`, `actual_sequence`, and `reason`

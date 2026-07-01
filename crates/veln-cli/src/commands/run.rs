@@ -536,6 +536,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.integer_out_of_range" {
+        return integer_out_of_range_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     if id == "codec.sequence_mismatch" {
         return sequence_mismatch_result_failure_diagnostic(
             failure,
@@ -739,6 +748,56 @@ fn payload_length_mismatch_result_failure_diagnostic(
         diagnostic.related.push(note_json(format!(
             "Payload length mismatch reason: {reason}."
         )));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn integer_out_of_range_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("integer out of range at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(byte_width), Some(min_value), Some(max_value), Some(actual_value)) = (
+        json_number(byte_entries, "byte_width"),
+        json_number(byte_entries, "min_value"),
+        json_number(byte_entries, "max_value"),
+        json_number(byte_entries, "actual_value"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "{byte_width}-byte integer expected value between {min_value} and {max_value}; actual value was {actual_value}."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Integer conversion reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -2651,6 +2710,71 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.payload_length_mismatch, ByteOffset(21), ManualPacketWire.payload, expected_payload_length=8; actual_payload_length=5; reason=payload length did not match frame header).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_integer_out_of_range_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.integer_out_of_range")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(17)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("stream_id")),
+                    ]),
+                ]),
+            ),
+            ("byte_width", JsonValue::Number(4)),
+            ("min_value", JsonValue::Number(0)),
+            ("max_value", JsonValue::Number(2147483647)),
+            ("actual_value", JsonValue::Number(2147483648)),
+            (
+                "reason",
+                JsonValue::string("decoded value exceeds signed integer range"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.stream_id"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.integer_out_of_range");
+        assert_eq!(diagnostic.message, "integer out of range at byte offset 17");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"4-byte integer expected value between 0 and 2147483647; actual value was 2147483648.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Integer conversion reason: decoded value exceeds signed integer range.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.integer_out_of_range, ByteOffset(17), ManualPacketWire.stream_id, byte_width=4; min_value=0; max_value=2147483647; actual_value=2147483648; reason=decoded value exceeds signed integer range).\"}"
         );
     }
 
