@@ -251,7 +251,10 @@ requiring the full command reference on the first read.
   indexed decode for multiple carried bounded entries, decode-count
   advancement after accepted reads, and the focused
   `hpack.fixture.dynamic_index_out_of_range` failure facts when an indexed
-  byte asks past the carried table without advancing state.
+  byte asks past the carried table without advancing state. It also checks
+  source-visible HPACK dynamic-table accounting helpers for entry-size
+  calculation, newest-first insertion, retained older entries, table-size
+  reduction eviction, insertion-caused eviction, and over-limit insertion.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

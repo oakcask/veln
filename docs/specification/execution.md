@@ -204,7 +204,12 @@ enough.
   advances the dynamic-core decode count after each accepted decode and
   reports `hpack.fixture.dynamic_index_out_of_range` with requested dynamic
   index and entry-count facts when an indexed field asks past the carried
-  table without advancing state. The checked case is
+  table without advancing state. The same ordinary-source boundary exposes
+  HPACK dynamic entry size as header-name byte count plus header-value byte
+  count plus `32`, preserves immutable state while inserting newest-first
+  dynamic entries, evicts oldest entries after insertion or table-size
+  reduction, and clears the table when an inserted entry is larger than the
+  supplied table-size limit. The checked case is
   `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under

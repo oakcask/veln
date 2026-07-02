@@ -484,12 +484,15 @@ compare it with `../specification/` before changing behavior.
   literal-with-indexing, and literal-never-indexed forms that do not observe
   later fixture dynamic-table reuse, and the source-visible dynamic indexed
   HPACK core boundary for multiple carried bounded dynamic-table entries and
-  saturated seven-bit indexed representation `0xff 0x00`,
+  saturated seven-bit indexed representation `0xff 0x00`, plus the
+  source-visible HPACK dynamic-table accounting core for the entry-size
+  formula, newest-first insertion, table-size reduction, insertion-caused
+  eviction, and over-limit insertion,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented source-visible static and dynamic-index
-  core decoders,
+  fixture boundary and implemented source-visible static, dynamic-index, and
+  dynamic-table accounting core decoders,
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
@@ -498,6 +501,9 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
   The completed source-visible dynamic indexed core slice is archived under
   [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
+  The completed source-visible dynamic-table accounting core slice is archived
+  under
+  [HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).
   The completed `content-length` header-list validation and body-accounting
   slices, including source-visible static-name `content-length`, are archived
   under
