@@ -246,7 +246,11 @@ requiring the full command reference on the first read.
   forms that do not require later fixture dynamic-table reuse; accepted
   visible ASCII decimal values update the existing content-length
   body-accounting state, while non-decimal visible values use the existing
-  request header-list validation diagnostic.
+  request header-list validation diagnostic. The same HPACK fixture boundary
+  case also checks a standalone source-visible `hpack_dynamic_core` dynamic
+  indexed decode for a carried bounded entry and the focused
+  `hpack.fixture.dynamic_index_out_of_range` failure facts when no entry is
+  carried.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

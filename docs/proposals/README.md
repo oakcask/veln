@@ -476,17 +476,21 @@ compare it with `../specification/` before changing behavior.
   values, plus narrowed request and response `content-length` static-name paths
   for accepted visible ASCII decimal values on literal-without-indexing,
   literal-with-indexing, and literal-never-indexed forms that do not observe
-  later fixture dynamic-table reuse,
+  later fixture dynamic-table reuse, and the source-visible dynamic indexed
+  HPACK core boundary for one carried bounded dynamic-table entry,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented source-visible static decoder,
+  fixture boundary and implemented source-visible static and dynamic-index
+  core decoders,
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
   The completed source-visible static-name Huffman literal slice is archived
   under
   [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
+  The completed source-visible dynamic indexed core slice is archived under
+  [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
   The completed `content-length` header-list validation and body-accounting
   slices, including source-visible static-name `content-length`, are archived
   under

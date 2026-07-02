@@ -1,4 +1,5 @@
 use hpack_fixture
+use hpack_dynamic_core
 use stdio
 
 fn display_header_value(value: String) -> String
@@ -194,6 +195,40 @@ fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFi
 		Ok(transition) => print_decoded_transition(label, transition)
 		Err(failure) => print_decode_failure(label, failure)
 	end
+end
+
+fn print_dynamic_core_transition(label: String, result: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>) -> () effects [stdio]
+	match result
+		Ok(transition) => print_dynamic_core_decoded_transition(label, transition)
+		Err(failure) => print_dynamic_core_failure(label, failure)
+	end
+end
+
+fn print_dynamic_core_decoded_transition(label: String, transition: HpackDynamicCoreDecodeTransition) -> () effects [stdio]
+	let headers: HpackDynamicCoreHeaderList = hpack_dynamic_core::dynamic_core_transition_headers(transition)
+	stdio::print(label)
+	stdio::print(" decoded ")
+	stdio::print(hpack_dynamic_core::dynamic_core_header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(hpack_dynamic_core::dynamic_core_header_list_first_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_state_decode_count(hpack_dynamic_core::dynamic_core_transition_state(transition))))
+end
+
+fn print_dynamic_core_failure(label: String, failure: HpackDynamicCoreFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failed id ")
+	stdio::print(hpack_dynamic_core::dynamic_core_failure_diagnostic_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_offset(failure)))
+	stdio::print(" requested_dynamic_index ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_requested_dynamic_index(failure)))
+	stdio::print(" dynamic_table_entry_count ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_dynamic_table_entry_count(failure)))
+	stdio::print(" codec_module ")
+	stdio::println(hpack_dynamic_core::dynamic_core_failure_decoder_module(failure))
 end
 
 fn print_two_header_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
@@ -562,6 +597,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
 	let dynamic_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, dynamic_state, 69)
 	print_transition("dynamic-indexed-path", dynamic_indexed_path)
+	let dynamic_core_state: HpackDynamicCoreState = hpack_dynamic_core::carried_single_dynamic_entry_state(4096, 1, ":path", "/target")
+	print_dynamic_core_transition("dynamic-core-indexed-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_state, 69))
+	print_dynamic_core_transition("dynamic-core-indexed-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, hpack_dynamic_core::initial_dynamic_core_state(), 70))
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
 	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
 	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)
