@@ -90,8 +90,9 @@ compiler-known calls.
   ordinary `ResponseAction` values into one adapter-owned order, and projects
   only `SendBytes` actions to ordered `net::write_chunks` calls while
   declaring `net` and `concurrency`; the handlers stay free of transport
-  effects. The cancellable channel-first routing case uses
-  receiver-list selection before the wait outcome and keeps the same adapter
+  effects. The cancellable channel-first routing case uses receiver-list
+  cancellable timeout selection to map routed, timed-out, and cancelled
+  outcomes into ordinary adapter action values while keeping the same adapter
   effect boundary.
   Malformed receive fixtures, failed send, write, stream close, or listener
   close recording, forced accept, read, write, or close failures, forced
@@ -204,7 +205,7 @@ compiler-known calls.
   same selected value shape, left/right indexes, timeout behavior, and token
   cancellation boundary. A cancellable channel-first adapter composes
   receiver-list routes with
-  `time::wait_until_cancellable_outcome`; these cancellable adapter paths
+  `channel::select_many_timeout_cancellable`; these cancellable adapter paths
   declare `time` and `concurrency` while the handler boundary remains free of
   transport effects. Other routing adapters require `concurrency`, and socket
   wrappers around them require both `net` and `concurrency`.

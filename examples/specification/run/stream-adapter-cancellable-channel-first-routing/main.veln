@@ -1,4 +1,4 @@
-# Cancellable stream routing composes receiver-list selection with wait outcomes.
+# Cancellable stream routing maps receiver-list selection outcomes to actions.
 use stdio
 
 type ResponseAction
@@ -24,20 +24,24 @@ fn stream_id_for_index(index: Int) -> Int
 	end
 end
 
-fn handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+fn handle_selected(selected: { index : Int, value : StreamInput }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id_for_index(selected.index), selected.value, state)
+end
+
+fn with_outcome(outcome: String, handled: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	{ outcome: outcome, actions: handled.actions, next_state: handled.next_state }
+end
+
+fn handle_selection_result(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>, state: { chunks : Int, ended : Bool }) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match selected
-		Some(route) => handle_stream_input(stream_id_for_index(route.index), route.value, state)
-		None => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+		Ok(Some(route)) => with_outcome("routed", handle_selected(route, state))
+		Ok(None) => { outcome: "timed-out", actions: list_cons(Decline(0), list_nil()), next_state: state }
+		Err(_) => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(17), list_nil()), next_state: state }
 	end
 end
 
-fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
-	let handled = handle_selected(channel::select_many_timeout(receivers, 25), state)
-	match time::wait_until_cancellable_outcome(deadline, token)
-		WaitCompleted => { outcome: "completed", actions: handled.actions, next_state: handled.next_state }
-		WaitDeadlineExpired => { outcome: "deadline-expired", actions: list_cons(RetryAfterDeadline(11), handled.actions), next_state: handled.next_state }
-		WaitCancelled => { outcome: "cancelled", actions: list_cons(CleanupAfterCancel(17), handled.actions), next_state: handled.next_state }
-	end
+fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, timeout_ms: Int, token: CancelToken) -> { outcome : String, actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	handle_selection_result(channel::select_many_timeout_cancellable(receivers, timeout_ms, token), state)
 end
 
 fn action_score(actions: List<ResponseAction>) -> Int
@@ -66,40 +70,41 @@ pub fn main() -> Result<(), String> effects [time, concurrency, stdio]
 	let ready_first = channel::bounded<StreamInput>(1)
 	let ready_second = channel::bounded<StreamInput>(1)
 	let ready_third = channel::bounded<StreamInput>(1)
-	let _ = channel::send(ready_second.tx, Chunk(payload))
-	let ready_receivers: List<Receiver<StreamInput>> = list_cons(ready_first.rx, list_cons(ready_second.rx, list_cons(ready_third.rx, list_nil())))
-	let ready_deadline: Deadline = time::deadline_after_ms(0)
+	let ready_fourth = channel::bounded<StreamInput>(1)
+	let ready_fifth = channel::bounded<StreamInput>(1)
+	let _ = channel::send(ready_fourth.tx, Chunk(payload))
+	let ready_receivers: List<Receiver<StreamInput>> = list_cons(ready_first.rx, list_cons(ready_second.rx, list_cons(ready_third.rx, list_cons(ready_fourth.rx, list_cons(ready_fifth.rx, list_nil())))))
 	let ready_token: CancelToken = time::cancel_token()
-	let ready = route_with_cancellable_channel_first(ready_receivers, { chunks: 0, ended: false }, ready_deadline, ready_token)
+	let ready = route_with_cancellable_channel_first(ready_receivers, { chunks: 0, ended: false }, 25, ready_token)
 	stdio::print(ready.outcome)
 	stdio::print(" score ")
 	stdio::print(int_to_string(action_score(ready.actions)))
 	stdio::print(" chunks ")
 	stdio::println(int_to_string(ready.next_state.chunks))
 
-	let deadline_first = channel::bounded<StreamInput>(1)
-	let deadline_second = channel::bounded<StreamInput>(1)
-	let deadline_third = channel::bounded<StreamInput>(1)
-	let _ = channel::send(deadline_first.tx, Chunk(payload))
-	let deadline_receivers: List<Receiver<StreamInput>> = list_cons(deadline_first.rx, list_cons(deadline_second.rx, list_cons(deadline_third.rx, list_nil())))
-	let deadline_expired_deadline: Deadline = time::deadline_after_ms(0)
-	let deadline_expired_token: CancelToken = time::cancel_token()
-	let deadline_expired = route_with_cancellable_channel_first(deadline_receivers, ready.next_state, deadline_expired_deadline, deadline_expired_token)
-	stdio::print(deadline_expired.outcome)
+	let timeout_first = channel::bounded<StreamInput>(1)
+	let timeout_second = channel::bounded<StreamInput>(1)
+	let timeout_third = channel::bounded<StreamInput>(1)
+	let timeout_fourth = channel::bounded<StreamInput>(1)
+	let timeout_fifth = channel::bounded<StreamInput>(1)
+	let timeout_receivers: List<Receiver<StreamInput>> = list_cons(timeout_first.rx, list_cons(timeout_second.rx, list_cons(timeout_third.rx, list_cons(timeout_fourth.rx, list_cons(timeout_fifth.rx, list_nil())))))
+	let timeout_token: CancelToken = time::cancel_token()
+	let timed_out = route_with_cancellable_channel_first(timeout_receivers, ready.next_state, 0, timeout_token)
+	stdio::print(timed_out.outcome)
 	stdio::print(" score ")
-	stdio::print(int_to_string(action_score(deadline_expired.actions)))
+	stdio::print(int_to_string(action_score(timed_out.actions)))
 	stdio::print(" chunks ")
-	stdio::println(int_to_string(deadline_expired.next_state.chunks))
+	stdio::println(int_to_string(timed_out.next_state.chunks))
 
 	let cancel_first = channel::bounded<StreamInput>(1)
 	let cancel_second = channel::bounded<StreamInput>(1)
 	let cancel_third = channel::bounded<StreamInput>(1)
-	let _ = channel::send(cancel_third.tx, End)
-	let cancel_receivers: List<Receiver<StreamInput>> = list_cons(cancel_first.rx, list_cons(cancel_second.rx, list_cons(cancel_third.rx, list_nil())))
-	let cancel_deadline: Deadline = time::deadline_after_ms(0)
+	let cancel_fourth = channel::bounded<StreamInput>(1)
+	let cancel_fifth = channel::bounded<StreamInput>(1)
+	let cancel_receivers: List<Receiver<StreamInput>> = list_cons(cancel_first.rx, list_cons(cancel_second.rx, list_cons(cancel_third.rx, list_cons(cancel_fourth.rx, list_cons(cancel_fifth.rx, list_nil())))))
 	let cancel_token: CancelToken = time::cancel_token()
 	time::cancel(cancel_token)
-	let cancelled = route_with_cancellable_channel_first(cancel_receivers, deadline_expired.next_state, cancel_deadline, cancel_token)
+	let cancelled = route_with_cancellable_channel_first(cancel_receivers, timed_out.next_state, 25, cancel_token)
 	stdio::print(cancelled.outcome)
 	stdio::print(" score ")
 	stdio::print(int_to_string(action_score(cancelled.actions)))

@@ -568,12 +568,12 @@ requesting cancellation.
 `CancellableWaitOutcome` so adapter code can translate completed waits,
 deadline expiry, and cancellation into ordinary source decisions. Executable
 stream adapter cases compose that outcome with channel-routed `StreamInput`
-values and ordinary response action values: one fixture output shows completed
-waits keeping handler-produced actions, deadline expiry becoming a retry
-action, and cancellation becoming a cleanup action. The receiver-list
-cancellable channel-first fixture routes ordinary `StreamInput` values through
-`channel::select_many_timeout` before applying the same wait-outcome
-translation. The receiver-list cancellable timeout-result helper
+values and ordinary response action values for adapter-owned wait decisions.
+The receiver-list cancellable channel-first fixture instead routes ordinary
+`StreamInput` values through `channel::select_many_timeout_cancellable`, then
+maps routed, timed-out, and cancelled selection results into ordinary adapter
+action values without adding another fixed route-count fixture. The
+receiver-list cancellable timeout-result helper
 `channel::select_many_timeout_cancellable` combines receiver-list priority,
 timeout, and `CancelToken` observation in one `channel` boundary that returns
 `Ok(Some(selected))`, `Ok(None)`, or `Err(SelectError)`. Host fixtures can force

@@ -13,11 +13,15 @@ and
 and
 `../../../examples/specification/run/channel-select-many-timeout-cancellable-forced-cancel/`
 and
+`../../../examples/specification/run/stream-adapter-cancellable-channel-first-routing/`
+and
 `../../../examples/specification/check/channel-first-stream-routing-general-list-effects/case.toml`
 and
 `../../../examples/specification/check/channel-select-many-timeout-effects/`
 and
-`../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`.
+`../../../examples/specification/check/channel-select-many-timeout-cancellable-effects/`
+and
+`../../../examples/specification/check/stream-adapter-cancellable-channel-first-routing-effects/`.
 The general-list examples are the primary scalable evidence for receiver-list
 routing beyond the canonical two-, three-, and four-route fixtures.
 
@@ -57,7 +61,10 @@ task, timer, cancellation, or network-specific effect labels. The checked run
 examples route ordinary `StreamInput` values through typed channels, select
 them by receiver-list priority, timeout, timeout-result, or cancellable
 timeout-result, and only then invoke the same pure handler shape used by the
-smaller routing examples.
+smaller routing examples. The cancellable channel-first adapter example uses
+the receiver-list helper directly rather than adding another fixed route-count
+fixture, and maps routed, timed-out, and cancelled helper results into
+ordinary adapter action values.
 
 The checked effect examples keep the adapter boundary explicit: source that
 owns channel routing declares `concurrency`, and source that owns cancellable

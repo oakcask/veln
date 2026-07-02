@@ -1,4 +1,4 @@
-# Cancellable receiver-list routing keeps handlers pure and adapter effects explicit.
+# Cancellable receiver-list selection keeps handlers pure and adapter effects explicit.
 type ResponseAction
 	SendBytes {stream_id: Int, bytes: ByteChunk}
 	EndStream {stream_id: Int}
@@ -22,30 +22,30 @@ fn stream_id_for_index(index: Int) -> Int
 	end
 end
 
-fn handle_selected(selected: Option<{ index : Int, value : StreamInput }>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+fn handle_selected(selected: { index : Int, value : StreamInput }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(stream_id_for_index(selected.index), selected.value, state)
+end
+
+fn handle_selection_result(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match selected
-		Some(route) => handle_stream_input(stream_id_for_index(route.index), route.value, state)
-		None => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+		Ok(Some(route)) => handle_selected(route, state)
+		Ok(None) => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+		Err(_) => { actions: list_cons(CleanupAfterCancel(17), list_nil()), next_state: state }
 	end
 end
 
-fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
-	let handled = handle_selected(channel::select_many_timeout(receivers, 25), state)
-	match time::wait_until_cancellable_outcome(deadline, token)
-		WaitCompleted => handled
-		WaitDeadlineExpired => { actions: list_cons(RetryAfterDeadline(11), handled.actions), next_state: handled.next_state }
-		WaitCancelled => { actions: list_cons(CleanupAfterCancel(17), handled.actions), next_state: handled.next_state }
-	end
+fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	handle_selection_result(channel::select_many_timeout_cancellable(receivers, 25, token), state)
 end
 
 pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	handle_stream_input(stream_id, input, state)
 end
 
-pub fn adapter_missing_time(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
-	route_with_cancellable_channel_first(receivers, state, deadline, token)
+pub fn adapter_missing_time(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	route_with_cancellable_channel_first(receivers, state, token)
 end
 
-pub fn adapter_missing_concurrency(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time]
-	route_with_cancellable_channel_first(receivers, state, deadline, token)
+pub fn adapter_missing_concurrency(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time]
+	route_with_cancellable_channel_first(receivers, state, token)
 end
