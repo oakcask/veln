@@ -304,6 +304,8 @@ behavior.
   the production multi-chunk read-failure runtime boundary.
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
+- Network stream address metadata:
+  [network-stream-address-metadata.md](network-stream-address-metadata.md).
 - Network channel select-many routing:
   [network-channel-select-many-routing.md](network-channel-select-many-routing.md).
 - Network channel select timeout result:

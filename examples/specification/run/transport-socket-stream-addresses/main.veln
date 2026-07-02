@@ -1,0 +1,16 @@
+# Accepted fixture-backed streams expose local and peer endpoint text.
+use stdio
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let local: String = net::stream_local_addr(stream)
+	let peer: String = net::stream_peer_addr(stream)
+	stdio::print("local ")
+	stdio::print(local)
+	stdio::print(" peer ")
+	stdio::println(peer)
+	net::close_stream(stream)
+	net::close_listener(listener)
+	Ok(())
+end

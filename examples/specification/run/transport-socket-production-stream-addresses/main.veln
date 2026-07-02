@@ -1,0 +1,19 @@
+# Production loopback streams expose accepted socket endpoint text.
+use stdio
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let local: String = net::stream_local_addr(stream)
+	let peer: String = net::stream_peer_addr(stream)
+	let incoming: ByteChunk = net::read_chunk(stream)
+	stdio::print("local ")
+	stdio::print(local)
+	stdio::print(" peer ")
+	stdio::print(peer)
+	stdio::print(" bytes ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	net::close_stream(stream)
+	net::close_listener(listener)
+	Ok(())
+end

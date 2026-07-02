@@ -397,6 +397,26 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "net",
+        "stream_local_addr",
+        NET_EFFECTS,
+        "runtime.net.stream_local_addr",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::String,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "stream_peer_addr",
+        NET_EFFECTS,
+        "runtime.net.stream_peer_addr",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::String,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
         "read_chunk_until",
         NET_TIME_EFFECTS,
         "runtime.net.read_chunk_until",

@@ -32,8 +32,9 @@ compiler-known calls.
   values, deadline-aware stream writes that return `WriteCompleted` or
   `WriteDeadlineExpired`, cancellable deadline-aware stream writes that
   return `WriteCompleted`, `WriteDeadlineExpired`, or `WriteCancelled`
-  values, fixture-backed stream writes, stream close recording, and listener
-  close recording,
+  values, `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
+  inspection for accepted `NetStream` handles, fixture-backed stream writes,
+  stream close recording, and listener close recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
   reads, writes, clean listener end, stream close, and listener close under
   the same public calls,

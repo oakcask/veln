@@ -84,6 +84,8 @@
 
     private static final class NetStream {
         private final String id;
+        private final String localAddress;
+        private final String peerAddress;
         private final java.net.Socket socket;
         private final LoopbackClient loopbackClient;
         private final InMemoryLoopback inMemoryLoopback;
@@ -94,23 +96,47 @@
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
         private NetStream(String id) {
-            this(id, null, null, null, false, null, null);
+            this(id, id, id, null, null, null, false, null, null);
+        }
+
+        private NetStream(String id, String localAddress, String peerAddress) {
+            this(id, localAddress, peerAddress, null, null, null, false, null, null);
         }
 
         private NetStream(
             String id,
+            String localAddress,
+            String peerAddress,
             java.net.Socket socket,
             LoopbackClient loopbackClient,
             boolean lastProductionStream,
             java.io.InputStream input,
             java.io.OutputStream output
         ) {
-            this(id, socket, loopbackClient, null, lastProductionStream, input, output);
-        }
-
-        private NetStream(String id, InMemoryLoopback inMemoryLoopback, boolean lastProductionStream) {
             this(
                 id,
+                localAddress,
+                peerAddress,
+                socket,
+                loopbackClient,
+                null,
+                lastProductionStream,
+                input,
+                output
+            );
+        }
+
+        private NetStream(
+            String id,
+            String localAddress,
+            String peerAddress,
+            InMemoryLoopback inMemoryLoopback,
+            boolean lastProductionStream
+        ) {
+            this(
+                id,
+                localAddress,
+                peerAddress,
                 null,
                 null,
                 inMemoryLoopback,
@@ -122,6 +148,8 @@
 
         private NetStream(
             String id,
+            String localAddress,
+            String peerAddress,
             java.net.Socket socket,
             LoopbackClient loopbackClient,
             InMemoryLoopback inMemoryLoopback,
@@ -130,6 +158,8 @@
             java.io.OutputStream output
         ) {
             this.id = id;
+            this.localAddress = localAddress;
+            this.peerAddress = peerAddress;
             this.socket = socket;
             this.loopbackClient = loopbackClient;
             this.inMemoryLoopback = inMemoryLoopback;
@@ -530,7 +560,7 @@
                 error
             );
         }
-        return new NetStream(streamId);
+        return new NetStream(streamId, value.address, streamId);
     }
 
     public static Object netAcceptOrEnd(Object listener) {
@@ -563,7 +593,7 @@
                 error
             );
         }
-        return some(new NetStream(streamId));
+        return some(new NetStream(streamId, value.address, streamId));
     }
 
     public static Object netAcceptUntil(Object listener, Object deadline) {
@@ -607,7 +637,7 @@
                 error
             );
         }
-        return some(new NetStream(streamId));
+        return some(new NetStream(streamId, value.address, streamId));
     }
 
     public static Object netAcceptUntilCancellable(Object listener, Object deadline, Object token) {
@@ -657,7 +687,7 @@
             }
             return acceptOutcome("AcceptEnd");
         }
-        NetStream stream = new NetStream(streamId);
+        NetStream stream = new NetStream(streamId, value.address, streamId);
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
@@ -698,7 +728,13 @@
                     error
                 );
             }
-            return new NetStream(streamId, listener.inMemoryLoopbacks.get(index), last);
+            return new NetStream(
+                streamId,
+                listener.address,
+                loopbackPeerAddress(index),
+                listener.inMemoryLoopbacks.get(index),
+                last
+            );
         }
         try {
             java.net.Socket socket = listener.server.accept();
@@ -707,8 +743,12 @@
                 closeQuietly(listener.server);
             }
             writeNetEvent("accept-production " + listener.address + " " + streamId);
+            String localAddress = formatSocketAddress(socket.getLocalSocketAddress());
+            String peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
             return new NetStream(
                 streamId,
+                localAddress,
+                peerAddress,
                 socket,
                 listener.loopbackClient,
                 last,
@@ -772,6 +812,22 @@
             );
         }
         return unwrapOk(chunk);
+    }
+
+    public static Object netStreamLocalAddr(Object stream) {
+        if (forced("VELN_NET_ADDR_FAILED")) {
+            throw new RuntimeFailure("transport address failed: VELN_NET_ADDR_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        return checkedStreamAddress(value.localAddress, "local");
+    }
+
+    public static Object netStreamPeerAddr(Object stream) {
+        if (forced("VELN_NET_ADDR_FAILED")) {
+            throw new RuntimeFailure("transport address failed: VELN_NET_ADDR_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        return checkedStreamAddress(value.peerAddress, "peer");
     }
 
     public static Object netReadChunkOrEnd(Object stream) {
@@ -1557,6 +1613,27 @@
             return "production-stream";
         }
         return "production-stream-" + (index + 1);
+    }
+
+    private static String loopbackPeerAddress(int index) {
+        return "127.0.0.1:" + (index + 1);
+    }
+
+    private static String checkedStreamAddress(String address, String side) {
+        if (address == null || address.isEmpty()) {
+            throw new RuntimeFailure("transport address failed: missing " + side + " stream address");
+        }
+        return address;
+    }
+
+    private static String formatSocketAddress(java.net.SocketAddress value) {
+        if (value instanceof java.net.InetSocketAddress) {
+            java.net.InetSocketAddress address = (java.net.InetSocketAddress) value;
+            java.net.InetAddress inetAddress = address.getAddress();
+            String host = inetAddress == null ? address.getHostString() : inetAddress.getHostAddress();
+            return host + ":" + address.getPort();
+        }
+        return value == null ? null : value.toString();
     }
 
     private static byte[] byteChunkToByteArray(Object chunk) {
