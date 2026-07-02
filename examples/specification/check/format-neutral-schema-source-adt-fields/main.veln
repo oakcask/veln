@@ -1,0 +1,19 @@
+# Format-neutral schema decode helpers accept same-module source ADT fields.
+type Payload
+	Empty
+	Scalar(value: Int)
+	Metadata(value: {label: String, scores: Dict<String, List<Option<Int>>>})
+end
+
+schema Packet
+	payload: Payload
+	nested: {payload: Payload}
+	optional_payload: Option<Payload>
+	payloads: List<Payload>
+	payload_by_name: Dict<String, Payload>
+	result_payload: Result<Payload, Payload>
+end
+
+pub fn main(packet: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}) -> Result<{payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}, String>
+	byte_decode_packet(packet)
+end

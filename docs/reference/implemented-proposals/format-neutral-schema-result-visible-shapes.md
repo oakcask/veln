@@ -20,9 +20,11 @@ anonymous record shapes. The helper remains a validation/pass-through boundary
 over the schema-local visible record shape and returns `Result<TRecord,
 String>`.
 
-The slice does not add general support for source-declared ADTs, function
+The slice did not add general support for source-declared ADTs, function
 values, `Vec<T>`, unsupported named types, or dictionaries with non-string
-keys.
+keys. Later work accepts same-module source ADTs when their constructor
+payloads are recursive visible shapes, as recorded in
+[Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
 
 ## Evidence
 
@@ -32,7 +34,8 @@ keys.
   result shapes, and an `Option<Result<List<Int>, String>>` wrapper.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported adjacent result payload shapes, including
-  non-string dictionary keys, source-declared ADTs, callbacks, and `Vec<T>`.
+  non-string dictionary keys, unsupported source ADT payloads, callbacks, and
+  `Vec<T>`.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for recursive result payloads and
   rejection of non-visible result payloads.

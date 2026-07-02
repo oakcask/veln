@@ -2962,7 +2962,7 @@ fn schema_decode_function_signatures_for_schema(
         return Vec::new();
     };
     if schema.format.is_none() {
-        return format_neutral_schema_decode_function_signature_for_schema(schema)
+        return format_neutral_schema_decode_function_signature_for_schema(module, schema)
             .into_iter()
             .collect();
     }
@@ -3006,10 +3006,11 @@ fn schema_decode_function_signatures_for_schema(
 }
 
 fn format_neutral_schema_decode_function_signature_for_schema(
+    module: &SurfaceModule,
     schema: &SchemaDecl,
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
-    let decoded_type = Type::Record(format_neutral_schema_decode_record_fields(schema)?);
+    let decoded_type = Type::Record(format_neutral_schema_decode_record_fields(module, schema)?);
     Some(FunctionSignature {
         name: schema_decode_function_name(schema_name),
         target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
@@ -3025,27 +3026,37 @@ fn format_neutral_schema_decode_function_signature_for_schema(
 }
 
 pub(crate) fn format_neutral_schema_decode_record_fields(
+    module: &SurfaceModule,
     schema: &SchemaDecl,
 ) -> Option<Vec<(String, Type)>> {
+    let adts = AdtRegistry::from_module(module);
     schema
         .fields
         .iter()
         .map(|field| {
             Some((
                 field.name.clone(),
-                format_neutral_schema_field_type(&field.ty)?,
+                format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?,
             ))
         })
         .collect()
 }
 
-pub(crate) fn format_neutral_schema_field_type(text: &str) -> Option<Type> {
+pub(crate) fn format_neutral_schema_field_type_for_schema(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_type_is_supported(&ty).then_some(ty)
-}
-
-fn format_neutral_schema_type_is_supported(ty: &Type) -> bool {
-    format_neutral_schema_visible_shape_is_supported(ty)
+    format_neutral_schema_visible_shape_is_supported_for_schema(
+        module,
+        schema,
+        adts,
+        &ty,
+        &mut Vec::new(),
+    )
+    .then_some(ty)
 }
 
 fn format_neutral_schema_scalar_type_is_supported(name: &str, args: &[Type]) -> bool {
@@ -3060,46 +3071,104 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     )
 }
 
-fn format_neutral_schema_result_type_is_supported(ok: &Type, err: &Type) -> bool {
-    format_neutral_schema_visible_shape_is_supported(ok)
-        && format_neutral_schema_visible_shape_is_supported(err)
-}
-
-fn format_neutral_schema_visible_shape_is_supported(ty: &Type) -> bool {
+fn format_neutral_schema_visible_shape_is_supported_for_schema(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    ty: &Type,
+    stack: &mut Vec<(Option<String>, String, usize)>,
+) -> bool {
     match ty {
-        Type::Named { name, .. } if name == "List" => {
-            format_neutral_schema_unary_container_payload_is_supported(ty, "List")
+        Type::Named { name, args } if name == "List" && args.len() == 1 => {
+            format_neutral_schema_visible_shape_is_supported_for_schema(
+                module, schema, adts, &args[0], stack,
+            )
         }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => {
-            format_neutral_schema_visible_shape_is_supported(&args[0])
+            format_neutral_schema_visible_shape_is_supported_for_schema(
+                module, schema, adts, &args[0], stack,
+            )
         }
         Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
-            format_neutral_schema_dict_type_is_supported(&args[0], &args[1])
+            matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
+                && format_neutral_schema_visible_shape_is_supported_for_schema(
+                    module, schema, adts, &args[1], stack,
+                )
         }
         Type::Named { name, args } if name == "Result" && args.len() == 2 => {
-            format_neutral_schema_result_type_is_supported(&args[0], &args[1])
+            format_neutral_schema_visible_shape_is_supported_for_schema(
+                module, schema, adts, &args[0], stack,
+            ) && format_neutral_schema_visible_shape_is_supported_for_schema(
+                module, schema, adts, &args[1], stack,
+            )
         }
-        Type::Named { .. } => format_neutral_schema_scalar_type(ty),
-        Type::Record(fields) => fields
-            .iter()
-            .all(|(_, field_ty)| format_neutral_schema_visible_shape_is_supported(field_ty)),
+        Type::Named { .. } if format_neutral_schema_scalar_type(ty) => true,
+        Type::Named { .. } => {
+            format_neutral_schema_source_adt_is_supported(module, schema, adts, ty, stack)
+        }
+        Type::Record(fields) => fields.iter().all(|(_, field_ty)| {
+            format_neutral_schema_visible_shape_is_supported_for_schema(
+                module, schema, adts, field_ty, stack,
+            )
+        }),
         _ => false,
     }
 }
 
-fn format_neutral_schema_unary_container_payload_is_supported(ty: &Type, container: &str) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == container
-                && args.len() == 1
-                && format_neutral_schema_visible_shape_is_supported(&args[0])
-    )
-}
-
-fn format_neutral_schema_dict_type_is_supported(key: &Type, value: &Type) -> bool {
-    matches!(key, Type::Named { name, args } if name == "String" && args.is_empty())
-        && format_neutral_schema_visible_shape_is_supported(value)
+fn format_neutral_schema_source_adt_is_supported(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    ty: &Type,
+    stack: &mut Vec<(Option<String>, String, usize)>,
+) -> bool {
+    let Some(descriptor) = adts.descriptor_for_type_in_module(ty, schema.module_name.as_deref())
+    else {
+        return false;
+    };
+    if !module.types.iter().any(|decl| {
+        decl.name.as_deref() == Some(descriptor.type_name.as_str())
+            && decl.module_name == descriptor.module_name
+            && decl.params.len() == descriptor.type_parameters.len()
+    }) {
+        return false;
+    }
+    let key = (
+        descriptor.module_name.clone(),
+        descriptor.type_name.clone(),
+        descriptor.type_parameters.len(),
+    );
+    if stack.contains(&key) {
+        return true;
+    }
+    stack.push(key);
+    let supported = descriptor.variants.iter().all(|variant| {
+        variant
+            .payload_fields
+            .iter()
+            .enumerate()
+            .all(|(index, _field)| {
+                let Some(payload_ty) = adt::payload_type(
+                    ty,
+                    adt::AdtConstructor {
+                        descriptor,
+                        variant,
+                    },
+                    index,
+                ) else {
+                    return false;
+                };
+                format_neutral_schema_visible_shape_is_supported_for_schema(
+                    module,
+                    schema,
+                    adts,
+                    &payload_ty,
+                    stack,
+                )
+            })
+    });
+    stack.pop();
+    supported
 }
 
 pub(crate) fn schema_decode_record_fields(
@@ -3130,7 +3199,7 @@ fn schema_decode_record_fields_inner_after_push(
     stack: &mut Vec<String>,
 ) -> Option<Vec<(String, Type, u8)>> {
     if schema.format.is_none() {
-        return format_neutral_schema_decode_record_fields(schema)
+        return format_neutral_schema_decode_record_fields(module, schema)
             .map(|fields| fields.into_iter().map(|(name, ty)| (name, ty, 0)).collect());
     }
     let mut decoded_fields = BTreeMap::<String, Type>::new();

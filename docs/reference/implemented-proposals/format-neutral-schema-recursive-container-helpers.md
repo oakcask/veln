@@ -19,9 +19,11 @@ boundary over the schema-local visible record shape and returns
 
 This slice did not extend `Result<Ok, Err>` beyond scalar payloads. Later
 work extended `Result` payload eligibility to recursive visible shapes.
-Non-string dictionary keys, source-declared ADTs, function types, and
-unsupported named types remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family.
+Non-string dictionary keys, function types, and unsupported named types remain
+unsupported helper fields and keep the `schema.format_neutral_decode_helper`
+diagnostic family. Later work accepts same-module source ADTs when their
+constructor payloads are recursive visible shapes, as recorded in
+[Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
 
 ## Evidence
 
@@ -31,8 +33,8 @@ unsupported named types remain unsupported helper fields and keep the
   the top level and inside an anonymous record shape.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported adjacent shapes, including non-string
-  dictionary keys, source-declared ADTs, function types, unsupported named
-  types, and recursive result payloads.
+  dictionary keys, function types, unsupported named types, and unsupported
+  recursive result payloads.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for accepted recursive containers and
   rejection of unsupported adjacent shapes.

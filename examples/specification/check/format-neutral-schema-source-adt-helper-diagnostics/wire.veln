@@ -1,0 +1,3 @@
+pub type WirePayload
+	WirePayload(value: Int)
+end

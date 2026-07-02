@@ -83,7 +83,8 @@ compare it with `../specification/` before changing behavior.
   without a `format` clause, generated format-neutral decode helpers for
   recursive visible shapes made from scalar leaves, anonymous record fields,
   `Option<T>`, `List<T>`, `Dict<String, T>`, and supported recursive
-  `Result<Ok, Err>` visible-shape fields, plus
+  `Result<Ok, Err>` visible-shape fields, same-module source ADT
+  visible-shape fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -125,6 +126,9 @@ compare it with `../specification/` before changing behavior.
   The completed recursive format-neutral container helper slice is archived
   under
   [Format-Neutral Schema Recursive Container Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-container-helpers.md).
+  The completed format-neutral source ADT visible-shape helper slice is
+  archived under
+  [Format-Neutral Schema Source ADT Helpers](../reference/implemented-proposals/format-neutral-schema-source-adt-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
   under `../specification/source-surface.md` and

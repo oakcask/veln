@@ -1,11 +1,12 @@
 use super::*;
+use crate::adt::AdtRegistry;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
     SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, format_neutral_schema_field_type,
+    flag_schema_primitive, format_neutral_schema_field_type_for_schema,
     lowercase_reserved_bits_schema_primitive, lowercase_schema_primitive,
     lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
@@ -612,6 +613,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     for schema in &module.schemas {
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         let mut decoded_fields = BTreeMap::<String, Type>::new();
+        let adts = AdtRegistry::from_module(module);
         for field in &schema.fields {
             if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
                 match (format_name, reserved) {
@@ -866,7 +868,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name.is_none() {
-                if let Some(field_ty) = format_neutral_schema_field_type(&field.ty) {
+                if let Some(field_ty) =
+                    format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
+                {
                     decoded_fields.insert(field.name.clone(), field_ty);
                 } else {
                     diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
@@ -889,9 +893,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
     let schema_name = schema.name.as_deref().unwrap_or("<missing>");
-    let supported = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<recursive visible shape, recursive visible shape>";
+    let supported = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes";
     let boundary_message = format!(
-        "Generated format-neutral decode helpers for schema `{schema_name}` accept recursive visible shapes made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, and Result<Ok, Err> when both payloads are recursive visible shapes."
+        "Generated format-neutral decode helpers for schema `{schema_name}` accept recursive visible shapes made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<Ok, Err> when both payloads are recursive visible shapes, and same-module source ADTs whose constructor payloads are recursive visible shapes."
     );
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_decode_helper",

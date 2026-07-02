@@ -1,0 +1,90 @@
+# Format-neutral schema decode helpers preserve source ADT visible shapes.
+use stdio
+
+type Payload
+	Empty
+	Scalar(value: Int)
+	Metadata(value: {label: String, scores: Dict<String, List<Option<Int>>>})
+end
+
+schema Packet
+	payload: Payload
+	nested: {payload: Payload}
+	optional_payload: Option<Payload>
+	payloads: List<Payload>
+	payload_by_name: Dict<String, Payload>
+	result_payload: Result<Payload, Payload>
+end
+
+fn optional_sum(items: List<Option<Int>>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(value) => value + optional_sum(tail)
+			None => optional_sum(tail)
+		end
+	end
+end
+
+fn metadata_score(value: {label: String, scores: Dict<String, List<Option<Int>>>}) -> Int
+	match dict_get(value.scores, "math")
+		Some(items) => optional_sum(items)
+		None => -1
+	end
+end
+
+fn payload_text(payload: Payload) -> String
+	match payload
+		Empty => "empty"
+		Scalar(value) => int_to_string(value)
+		Metadata(value) => value.label
+	end
+end
+
+fn payload_score(payload: Payload) -> Int
+	match payload
+		Empty => 0
+		Scalar(value) => value
+		Metadata(value) => metadata_score(value)
+	end
+end
+
+fn payload_list_score(payloads: List<Payload>) -> Int
+	match payloads
+		Nil => 0
+		Cons(head, tail) => payload_score(head) + payload_list_score(tail)
+	end
+end
+
+fn optional_payload_text(payload: Option<Payload>) -> String
+	match payload
+		Some(value) => payload_text(value)
+		None => "missing"
+	end
+end
+
+fn named_payload_score(payloads: Dict<String, Payload>, key: String) -> Int
+	match dict_get(payloads, key)
+		Some(value) => payload_score(value)
+		None => -1
+	end
+end
+
+fn result_payload_text(payload: Result<Payload, Payload>) -> String
+	match payload
+		Ok(value) => payload_text(value)
+		Err(value) => payload_text(value)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let decoded: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>} = byte_decode_packet({payload: Scalar(7), nested: {payload: Metadata({label: "nested", scores: {"math": list_cons(Some(3), list_cons(None, list_cons(Some(5), list_nil())))}})}, optional_payload: Some(Empty), payloads: list_cons(Scalar(2), list_cons(Metadata({label: "items", scores: {"math": list_cons(Some(11), list_nil())}}), list_nil())), payload_by_name: {"primary": Metadata({label: "named", scores: {"math": list_cons(Some(13), list_cons(Some(17), list_nil()))}})}, result_payload: Ok(Metadata({label: "result", scores: {"math": list_cons(Some(19), list_nil())}}))})?
+	stdio::println(payload_text(decoded.payload))
+	stdio::println(payload_text(decoded.nested.payload))
+	stdio::println(int_to_string(payload_score(decoded.nested.payload)))
+	stdio::println(optional_payload_text(decoded.optional_payload))
+	stdio::println(int_to_string(payload_list_score(decoded.payloads)))
+	stdio::println(int_to_string(named_payload_score(decoded.payload_by_name, "primary")))
+	stdio::println(result_payload_text(decoded.result_payload))
+	Ok(())
+end
