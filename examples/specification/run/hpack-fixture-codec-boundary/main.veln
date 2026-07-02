@@ -239,6 +239,18 @@ fn print_dynamic_core_state(label: String, state: HpackDynamicCoreState) -> () e
 	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_state_dynamic_table_entry_count(state)))
 end
 
+fn print_dynamic_core_accounting_state(label: String, state: HpackDynamicCoreState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" dynamic_core_accounting table_size ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_state_table_size(state)))
+	stdio::print(" decode_count ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_state_decode_count(state)))
+	stdio::print(" dynamic_table_entry_count ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_state_dynamic_table_entry_count(state)))
+	stdio::print(" dynamic_table_size ")
+	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_state_dynamic_table_size(state)))
+end
+
 fn dynamic_core_next_state_or(result: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>, fallback: HpackDynamicCoreState) -> HpackDynamicCoreState
 	match result
 		Ok(transition) => hpack_dynamic_core::dynamic_core_transition_state(transition)
@@ -646,6 +658,26 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_core_deep_state: HpackDynamicCoreState = build_deep_dynamic_core_path_state(66, hpack_dynamic_core::initial_dynamic_core_state())
 	print_dynamic_core_transition("dynamic-core-indexed-wide-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_deep_state, 74))
 	print_dynamic_core_transition("dynamic-core-indexed-wide-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_two_entry_state, 75))
+	stdio::print("dynamic-core-entry-size-path-target ")
+	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_header_entry_size(":path", "/target")))
+	let dynamic_core_accounting_initial: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(hpack_dynamic_core::initial_dynamic_core_state(), 86)
+	let dynamic_core_accounting_path: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_initial, ":path", "/target")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-path", dynamic_core_accounting_path)
+	let dynamic_core_accounting_two: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_path, ":method", "PUT")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-two", dynamic_core_accounting_two)
+	print_dynamic_core_transition("dynamic-core-accounting-newest-method", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_two, 120))
+	print_dynamic_core_transition("dynamic-core-accounting-older-path", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_two, 121))
+	let dynamic_core_accounting_reduced: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 42)
+	print_dynamic_core_accounting_state("dynamic-core-accounting-reduced", dynamic_core_accounting_reduced)
+	print_dynamic_core_transition("dynamic-core-accounting-reduced-newest-method", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_reduced, 122))
+	print_dynamic_core_transition("dynamic-core-accounting-reduced-older-missing", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_reduced, 123))
+	let dynamic_core_accounting_insert_eviction: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_two, ":path", "/target")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-insert-eviction", dynamic_core_accounting_insert_eviction)
+	print_dynamic_core_transition("dynamic-core-accounting-insert-newest-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_insert_eviction, 124))
+	print_dynamic_core_transition("dynamic-core-accounting-insert-retained-method", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_insert_eviction, 125))
+	print_dynamic_core_transition("dynamic-core-accounting-insert-evicted-path", hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_accounting_insert_eviction, 126))
+	let dynamic_core_accounting_over_limit: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 30), ":method", "PUT")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-over-limit", dynamic_core_accounting_over_limit)
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
 	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
 	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)

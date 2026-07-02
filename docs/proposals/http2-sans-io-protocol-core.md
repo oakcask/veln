@@ -356,8 +356,9 @@ visible-ASCII string or a bounded Huffman-marked literal value decoded by
 scanning the HPACK static Huffman table. The standalone static boundary checks
 visible ASCII, line feed, single-byte `hpack-byte-*` labels, and multi-byte
 `hpack-bytes-*` labels across the static-name literal forms.
-Unsupported Huffman-marked strings, malformed lengths, dynamic-table behavior,
-and table-size-update behavior remain fixture-owned. The broader HPACK fixture
+Unsupported Huffman-marked strings, malformed lengths, and static-decoder
+paths that need fixture dynamic-table mutation or table-size-update behavior
+remain fixture-owned. The broader HPACK fixture
 literal paths share the HPACK string literal decoder for
 visible-ASCII raw values and Huffman-marked values decoded by scanning
 the HPACK static Huffman table across the full byte symbol range rather than
@@ -886,6 +887,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
+`../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md`,
@@ -1090,11 +1092,18 @@ bounded dynamic-table entries, accepts saturated seven-bit indexed
 representation `0xff 0x00` for dynamic table index `65`, advances its decode
 count after accepted reads, and keeps the focused
 `hpack.fixture.dynamic_index_out_of_range` facts without advancing state when
-an indexed field asks past the carried table.
-The completed slice is checked by
+an indexed field asks past the carried table. The same source-visible boundary
+now exposes the dynamic-table accounting core: dynamic entry size is
+header-name byte count plus header-value byte count plus `32`; entries insert
+newest-first into immutable states; oldest entries are evicted after insertion
+or table-size reduction; and inserting an entry larger than the supplied
+table-size limit clears the carried table.
+The completed slices are checked by
 `../../examples/specification/run/hpack-fixture-codec-boundary/` and archived
 under
-[HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
+[HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md)
+and
+[HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.

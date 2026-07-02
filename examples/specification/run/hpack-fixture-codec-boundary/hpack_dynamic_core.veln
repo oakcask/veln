@@ -71,6 +71,27 @@ fn dynamic_core_entries_size(dynamic_entry: HpackDynamicCoreEntry) -> Int
 	end
 end
 
+fn dynamic_core_evict_for_table_size(table_size: Int, dynamic_entry: HpackDynamicCoreEntry) -> HpackDynamicCoreEntry
+	dynamic_core_evict_for_remaining_table_size(table_size, dynamic_entry)
+end
+
+fn dynamic_core_evict_for_remaining_table_size(remaining_table_size: Int, dynamic_entry: HpackDynamicCoreEntry) -> HpackDynamicCoreEntry
+	match dynamic_entry
+		NoDynamicCoreEntry => NoDynamicCoreEntry
+		DynamicCoreEntry(name, value, older) => match dynamic_core_entry_size(name, value) <= remaining_table_size
+			true => DynamicCoreEntry(name, value, dynamic_core_evict_for_remaining_table_size(remaining_table_size - dynamic_core_entry_size(name, value), older))
+			false => NoDynamicCoreEntry
+		end
+	end
+end
+
+fn dynamic_core_bounded_entry(table_size: Int, name: String, value: String, dynamic_entry: HpackDynamicCoreEntry) -> HpackDynamicCoreEntry
+	match dynamic_core_entry_size(name, value) > table_size
+		true => NoDynamicCoreEntry
+		false => dynamic_core_evict_for_table_size(table_size, DynamicCoreEntry(name, value, dynamic_entry))
+	end
+end
+
 fn dynamic_core_entry_at(dynamic_entry: HpackDynamicCoreEntry, table_index: Int) -> Option<HpackDynamicCoreHeader>
 	match dynamic_entry
 		NoDynamicCoreEntry => None
@@ -167,11 +188,22 @@ end
 
 pub fn prepend_carried_dynamic_entry_state(state: HpackDynamicCoreState, name: String, value: String) -> HpackDynamicCoreState
 	match state
-		HpackDynamicCoreState(table_size, decode_count, dynamic_entry) => match dynamic_core_entry_size(name, value) + dynamic_core_entries_size(dynamic_entry) <= table_size
-			true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, dynamic_entry))
-			false => HpackDynamicCoreState(table_size, decode_count, dynamic_entry)
-		end
+		HpackDynamicCoreState(table_size, decode_count, dynamic_entry) => HpackDynamicCoreState(table_size, decode_count, dynamic_core_bounded_entry(table_size, name, value, dynamic_entry))
 	end
+end
+
+pub fn dynamic_core_insert_entry_state(state: HpackDynamicCoreState, name: String, value: String) -> HpackDynamicCoreState
+	prepend_carried_dynamic_entry_state(state, name, value)
+end
+
+pub fn dynamic_core_with_table_size(state: HpackDynamicCoreState, table_size: Int) -> HpackDynamicCoreState
+	match state
+		HpackDynamicCoreState(_, decode_count, dynamic_entry) => HpackDynamicCoreState(table_size, decode_count, dynamic_core_evict_for_table_size(table_size, dynamic_entry))
+	end
+end
+
+pub fn dynamic_core_header_entry_size(name: String, value: String) -> Int
+	dynamic_core_entry_size(name, value)
 end
 
 pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
@@ -225,9 +257,21 @@ pub fn dynamic_core_state_decode_count(state: HpackDynamicCoreState) -> Int
 	end
 end
 
+pub fn dynamic_core_state_table_size(state: HpackDynamicCoreState) -> Int
+	match state
+		HpackDynamicCoreState(table_size, _, _) => table_size
+	end
+end
+
 pub fn dynamic_core_state_dynamic_table_entry_count(state: HpackDynamicCoreState) -> Int
 	match state
 		HpackDynamicCoreState(_, _, dynamic_entry) => dynamic_core_entry_count(dynamic_entry)
+	end
+end
+
+pub fn dynamic_core_state_dynamic_table_size(state: HpackDynamicCoreState) -> Int
+	match state
+		HpackDynamicCoreState(_, _, dynamic_entry) => dynamic_core_entries_size(dynamic_entry)
 	end
 end
 

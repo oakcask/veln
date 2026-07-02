@@ -1049,9 +1049,12 @@ advancement after each accepted decode, saturated seven-bit indexed
 representation `0xff 0x00` resolving HPACK index `127` to dynamic table index
 `65`, and the same focused dynamic-index failure facts without state
 advancement in
-`examples/specification/run/hpack-fixture-codec-boundary/`; those boundary
-checks are ordinary program stdout, not `details.protocol_diagnostic`, because
-they do not return a `RuntimeDiagnostic(...)` payload.
+`examples/specification/run/hpack-fixture-codec-boundary/`. The same boundary
+case checks source-visible dynamic-table accounting stdout for the HPACK entry
+size formula, newest-first insertion, retained older entries, table-size
+reduction eviction, insertion-caused eviction, and over-limit insertion; those
+boundary checks are ordinary program stdout, not `details.protocol_diagnostic`,
+because they do not return a `RuntimeDiagnostic(...)` payload.
 Missing, malformed, and out-of-range dynamic-name continuations use ids
 `hpack.fixture.dynamic_name_continuation_missing`,
 `hpack.fixture.dynamic_name_continuation_malformed`, and

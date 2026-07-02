@@ -27,9 +27,11 @@ and the `hpack_dynamic_core` module name without advancing state. It does not
 fall back to a generic unsupported-header-block failure for this checked
 out-of-range dynamic index.
 
-Unsupported HPACK forms, table-size behavior, dynamic-name continuations,
-literal insertion into the broader fixture table, and full HPACK compression
-remain outside this core slice.
+Unsupported HPACK forms, dynamic-name continuations, literal insertion into
+the broader fixture table, and full HPACK compression remain outside this
+dynamic-index slice. Later source-visible dynamic-table accounting behavior is
+recorded in
+[HTTP/2 HPACK Dynamic Table Accounting Core](http2-hpack-dynamic-table-accounting-core.md).
 
 ## Evidence
 
