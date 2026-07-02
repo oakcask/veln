@@ -1027,8 +1027,10 @@ Dynamic indexed lookup failures use id
 expected fixture, codec module, and bounded byte-preview fields. Source-visible
 payloads for this id carry those fields in
 `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`.
-The standalone `hpack_dynamic_core` boundary checks the accepted carried-entry
-dynamic indexed path and the same focused dynamic-index failure facts in
+The standalone `hpack_dynamic_core` boundary checks accepted dynamic indexed
+paths for multiple carried bounded-table entries, dynamic-core decode-count
+advancement after each accepted decode, and the same focused dynamic-index
+failure facts without state advancement in
 `examples/specification/run/hpack-fixture-codec-boundary/`; those boundary
 checks are ordinary program stdout, not `details.protocol_diagnostic`, because
 they do not return a `RuntimeDiagnostic(...)` payload.

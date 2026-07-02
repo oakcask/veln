@@ -161,11 +161,12 @@ enough.
   dynamic-table state must be updated.
 - The source-visible `hpack_dynamic_core` boundary accepts the checked dynamic
   indexed header-field representation when the caller supplies a bounded
-  dynamic table carrying the referenced entry. The checked boundary decodes
-  `0xbe` to the carried `:path: /target` entry, advances the dynamic-core
-  decode count, and reports `hpack.fixture.dynamic_index_out_of_range` with
-  requested dynamic index and entry-count facts when the same indexed byte is
-  used without a carried entry. The checked case is
+  dynamic table carrying the referenced entries. The checked boundary decodes
+  `0xbe` to the newest carried entry and `0xbf` to the next older carried
+  entry, advances the dynamic-core decode count after each accepted decode,
+  and reports `hpack.fixture.dynamic_index_out_of_range` with requested
+  dynamic index and entry-count facts when an indexed byte asks past the
+  carried table without advancing state. The checked case is
   `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under
