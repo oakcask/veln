@@ -10,6 +10,14 @@ schema Http2FrameHeaderWire
 	stream_id: UInt31be
 end
 
+fn decode_http2_frame_header(view: ByteView, base_offset: ByteOffset) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
+	match decode Http2FrameHeaderWire from view at base_offset
+		Decoded(header, _) => Ok(header)
+		NeedMore(_) => Err("unexpected incomplete HTTP/2 frame header")
+		Invalid(_) => Err("unexpected invalid HTTP/2 frame header")
+	end
+end
+
 type Http2ProtocolFailure
 	InvalidFrameKind {offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, preview: ByteView}
 end
@@ -36,7 +44,7 @@ fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
 	let zero: ByteOffset = byte_offset(0)?
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, zero, header_count)?
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = decode_http2_frame_header(view, zero)?
 	validate_server_receive_frame_kind(0, header.kind, header.stream_id, view)
 end
 

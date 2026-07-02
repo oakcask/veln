@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "truncated schema field `stream_id` at byte offset 6"
+equals = "DecodeError(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
@@ -35,33 +35,9 @@ path = "error.details.byte_diagnostic.field_path"
 equals = [{"kind":"schema","name":"Http2FrameHeaderWire"},{"kind":"field","name":"stream_id"}]
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.expected_count"
-equals = 4
+path = "error.details.byte_diagnostic.field_path_display"
+equals = "Http2FrameHeaderWire.stream_id"
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.available_count"
-equals = 1
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.readiness"
-equals = "need_bytes"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.encoding"
-equals = "hex"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "000005010400"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
-equals = 6
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
-equals = 6
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.truncated"
-equals = false
+path = "stderr"
+equals = "Err(DecodeError(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id))\n"

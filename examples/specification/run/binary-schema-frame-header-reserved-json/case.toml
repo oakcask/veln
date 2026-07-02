@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "reserved bits mismatch at byte offset 5"
+equals = "DecodeError(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved)"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
@@ -35,33 +35,9 @@ path = "error.details.byte_diagnostic.field_path"
 equals = [{"kind":"schema","name":"Http2FrameHeaderWire"},{"kind":"field","name":"stream_reserved"}]
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.bit_width"
-equals = 1
+path = "error.details.byte_diagnostic.field_path_display"
+equals = "Http2FrameHeaderWire.stream_reserved"
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.expected_value"
-equals = 0
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.actual_value"
-equals = 1
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.encoding"
-equals = "hex"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "0000050104800000"
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
-equals = 8
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
-equals = 9
-
-[[json_assert]]
-path = "error.details.byte_diagnostic.byte_preview.truncated"
-equals = true
+path = "stderr"
+equals = "Err(DecodeError(schema.reserved_bits_mismatch, ByteOffset(5), Http2FrameHeaderWire.stream_reserved))\n"

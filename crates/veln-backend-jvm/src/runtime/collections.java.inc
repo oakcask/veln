@@ -6719,7 +6719,12 @@
         }
 
         long totalWidth = schemaTotalWidth(schema);
+        long diagnosticBaseOffset = byteOffsetLong(baseOffset);
         if (byteViewCountLong(view) < totalWidth) {
+            Object partial = partialFieldDecodeStep(view, baseOffset, schema, diagnosticBaseOffset);
+            if (partial != null) {
+                return partial;
+            }
             return adt(
                 "DecodeStep::NeedMore",
                 new Object[] {
@@ -6728,7 +6733,6 @@
             );
         }
 
-        long diagnosticBaseOffset = byteOffsetLong(baseOffset);
         Object decoded = byteDecodeBinarySchemaWithBase(view, schema, diagnosticBaseOffset);
         if (isErr(decoded)) {
             return invalidDecodeStepFromSchemaDecodeError(decoded, baseOffset, schema.name);
@@ -6738,6 +6742,41 @@
             "DecodeStep::Decoded",
             new Object[] { unwrapOk(decoded), byteCountObject(consumedWidth) }
         );
+    }
+
+    private static Object partialFieldDecodeStep(
+        Object view,
+        Object baseOffset,
+        BinarySchemaSpec schema,
+        long diagnosticBaseOffset
+    ) {
+        Object decoded = byteDecodeBinarySchemaWithBase(view, schema, diagnosticBaseOffset);
+        if (!isErr(decoded)) {
+            return null;
+        }
+        DiagnosticResultValue carried = carriedDiagnosticValue(resultValue(decoded));
+        ByteDiagnostic diagnostic = carried == null ? null : carried.byteDiagnostic;
+        if (diagnostic == null || !"schema.truncated_field".equals(diagnostic.id)) {
+            return null;
+        }
+        Long availableCount = byteDiagnosticNumberDetail(diagnostic, "available_count");
+        if (availableCount == null || availableCount.longValue() <= 0L) {
+            return null;
+        }
+        return invalidDecodeStepFromSchemaDecodeError(decoded, baseOffset, schema.name);
+    }
+
+    private static Long byteDiagnosticNumberDetail(ByteDiagnostic diagnostic, String key) {
+        for (DiagnosticDetail detail : diagnostic.details) {
+            if (key.equals(detail.key) && "number".equals(detail.valueKind)) {
+                try {
+                    return Long.valueOf(Long.parseLong(detail.encodedValue));
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     private static long schemaConsumedWidth(
