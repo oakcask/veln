@@ -53,6 +53,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_status_500: () = print_static_block("status-500", "8e", 17)?
 	let ignored_accept_encoding: () = print_static_block("accept-encoding", "90", 18)?
 	let ignored_status_404: () = print_static_block("status-404", "8d", 17)?
+	let ignored_response_cache_control: () = print_static_block("response-cache-control", "8898", 17)?
+	let ignored_response_content_type: () = print_static_block("response-content-type", "889f", 17)?
 	let ignored_www_authenticate: () = print_static_block("www-authenticate", "bd", 18)?
 	let ignored_request_get_https_root: () = print_static_block("request-get-https-root", "828784", 18)?
 	let ignored_request_post_http_root: () = print_static_block("request-post-http-root", "838684", 19)?
