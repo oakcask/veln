@@ -331,7 +331,10 @@ boundary, calls a pure handler for each chunk and clean end, and projects the
 ordered `SendBytes` response actions through `net::write_chunks` under the
 same coarse `net` and `concurrency` effects. Its matching static effect case
 rejects adapter entry points that omit either label while leaving the public
-handler boundary effect-free. The deadline-aware production adapter
+handler boundary effect-free. A forced production read failure on that same
+multi-chunk routing path remains a runtime transport failure after production
+accept and before any chunk routing, response writes, stream close, or clean
+listener end is recorded. The deadline-aware production adapter
 uses the same handler/action boundary through `net::accept_until` and
 `net::read_chunk_until`, adds only the existing coarse `time` effect label,
 writes ordered response bytes, closes the stream, and then observes clean
@@ -411,7 +414,9 @@ turn more than one host-owned read chunk from one accepted stream into
 ordinary `StreamInput.Chunk` values before clean end, then writes only ordered
 `SendBytes` response actions through `net::write_chunks`. Its matching effect
 case rejects adapter paths that omit either `net` or `concurrency` while
-leaving the handler boundary effect-free.
+leaving the handler boundary effect-free. Forced read failure on the same
+optional-read routing path remains a runtime transport failure before any
+ordinary `StreamInput.Chunk` is routed or response bytes are written.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and

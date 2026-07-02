@@ -7,7 +7,8 @@ from `../../proposals/network-effect-integration-boundary.md`. Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
-`../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`
+`../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`,
+`../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-read-failure-json/case.toml`,
 and
 `../../../examples/specification/check/socket-stream-adapter-production-multi-chunk-routing-effects/case.toml`.
 
@@ -31,6 +32,12 @@ effect case rejects adapter entry points that omit either `net` or
 adds no effect label, socket handle type, service interface, or HTTP protocol
 behavior.
 
+The matching read-failure case configures the same multi-chunk production
+input path and forces `net::read_chunk_or_end` to fail. The failure remains a
+runtime transport failure owned by the adapter boundary. The recorded event
+sequence stops after production listen and accept, before any chunk routing,
+response write, stream close, or clean listener end event.
+
 ## Remaining Work
 
 The broader network integration proposal remains open for richer production
@@ -43,7 +50,7 @@ slices.
 - Auditing why production multi-chunk stream event routing is no longer active
   proposal work.
 - Checking completion evidence before changing production transport chunk
-  routing or ordered response projection.
+  routing, forced read-failure ordering, or ordered response projection.
 
 ## Skip Unless Needed
 

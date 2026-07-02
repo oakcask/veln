@@ -298,6 +298,7 @@ behavior.
   [network-production-owner-drain-lifecycle.md](network-production-owner-drain-lifecycle.md).
 - Network production multi-chunk routing:
   [network-production-multi-chunk-routing.md](network-production-multi-chunk-routing.md).
+  Includes the production multi-chunk read-failure runtime boundary.
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
 - Network channel select-many routing:

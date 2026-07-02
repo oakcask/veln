@@ -154,7 +154,11 @@ compiler-known calls.
   through `net::write_chunks` while requiring the same `net` and
   `concurrency` adapter boundary; the matching effect fixture rejects adapter
   entry points that omit either label while keeping the handler boundary
-  effect-free. The two-stream multi-cycle routing case combines the same
+  effect-free. A forced production read failure on the same multi-chunk
+  routing path remains a runtime transport failure after the stream is
+  accepted and before any chunk routing, response writes, stream close, or
+  clean listener end is recorded. The two-stream multi-cycle routing case
+  combines the same
   adapter-owned socket and channel boundary with more than one accepted
   production stream and repeated per-stream read/route/write cycles; handlers
   still receive only ordinary `StreamInput` values and no `NetStream`. The
