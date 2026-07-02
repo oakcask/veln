@@ -27,6 +27,7 @@ pub struct IrSchemaDecodeField {
     pub length_field: Option<String>,
     pub length_multiple: Option<String>,
     pub repeat: Option<IrSchemaRepeat>,
+    pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,
 }

@@ -819,6 +819,15 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name == Some("binary")
+                && let Some(payload_schema) =
+                    schema_dispatch_payload_schema(module, schema, &field.ty)
+                && let Some(field_ty) = schema_decode_value_type(module, payload_schema)
+            {
+                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
+                decoded_fields.insert(field.name.clone(), field_ty);
+                continue;
+            }
+            if format_name == Some("binary")
                 && let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
                     .or_else(|| extension_dispatch_schema_primitive(&field.ty))
             {

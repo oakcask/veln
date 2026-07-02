@@ -79,6 +79,7 @@ fn format_neutral_schema_decode_spec(
                 length_field: None,
                 length_multiple: None,
                 repeat: None,
+                payload_schema: None,
                 dispatch: None,
                 reserved_bits: None,
             })
@@ -138,6 +139,9 @@ fn ir_schema_field(
     {
         return Some(Some(decoded?));
     }
+    if let Some(decoded) = ir_schema_nested_schema_field(module, schema, field, stack) {
+        return Some(Some(decoded?));
+    }
     ir_schema_dispatch_field(module, schema, field, decoded_field_types, stack).map(Some)
 }
 
@@ -162,6 +166,7 @@ fn ir_schema_reserved_bits_field(
         length_field: None,
         length_multiple: None,
         repeat: None,
+        payload_schema: None,
         dispatch: None,
         reserved_bits: Some(IrSchemaReservedBits {
             bit_width,
@@ -185,6 +190,7 @@ fn ir_schema_exact_width_field(field: &SchemaField) -> Option<Option<IrSchemaDec
         length_field: None,
         length_multiple: None,
         repeat: None,
+        payload_schema: None,
         dispatch: None,
         reserved_bits: None,
     }))
@@ -216,6 +222,7 @@ fn ir_schema_byte_view_field(
             .and_then(|where_clause| byte_view_multiple_constraint(&where_clause.predicate))
             .map(|constraint| constraint.render()),
         repeat: None,
+        payload_schema: None,
         dispatch: None,
         reserved_bits: None,
     }))
@@ -255,6 +262,35 @@ fn ir_schema_repeat_field(
             length_field: None,
             length_multiple: None,
             repeat: Some(ir_repeat),
+            payload_schema: None,
+            dispatch: None,
+            reserved_bits: None,
+        },
+    )))
+}
+
+fn ir_schema_nested_schema_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    stack: &mut Vec<String>,
+) -> Option<Option<(Option<Type>, IrSchemaDecodeField)>> {
+    let nested_schema = schema_dispatch_payload_schema(module, schema, &field.ty)?;
+    let field_ty = schema_decode_value_type(module, nested_schema)?;
+    let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
+    Some(Some((
+        Some(field_ty),
+        IrSchemaDecodeField {
+            name: field.name.clone(),
+            width: 0,
+            max_value: 0,
+            little_endian: false,
+            flag_type: String::new(),
+            predicate: None,
+            length_field: None,
+            length_multiple: None,
+            repeat: None,
+            payload_schema: Some(Box::new(payload_schema)),
             dispatch: None,
             reserved_bits: None,
         },
@@ -291,6 +327,7 @@ fn ir_schema_dispatch_field(
             length_field: None,
             length_multiple: None,
             repeat: None,
+            payload_schema: None,
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,
                 length_field: dispatch.length_field,
