@@ -62,11 +62,12 @@ Closed and extension dispatch payload cases accept the same lowercase
 exact-width `uint...` and `flag...` spelling wherever the compatible
 upper-case exact-width primitive payload spelling is accepted. Byte-aligned
 lowercase `uint... reserves <value>` payloads are accepted wherever direct
-reserved-bit dispatch payloads are supported. Binary-only primitive vocabulary
-remains gated by `format binary`. In `format binary` schemas, `veln fmt`
-writes supported compatibility primitive spellings as the canonical lowercase
-schema vocabulary, including direct fields, supported reserved fields,
-repeated fields, and dispatch payload field text.
+reserved-bit dispatch payloads are supported; direct dispatch payloads also
+accept the checked subbyte spelling `uint1 reserves 0`. Binary-only primitive
+vocabulary remains gated by `format binary`. In `format binary` schemas,
+`veln fmt` writes supported compatibility primitive spellings as the canonical
+lowercase schema vocabulary, including direct fields, supported reserved
+fields, repeated fields, and dispatch payload field text.
 
 Schema declarations return and accept schema-local visible record shapes
 through explicit schema operation expressions. The expression

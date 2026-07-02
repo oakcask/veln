@@ -232,6 +232,8 @@ compare it with `../specification/` before changing behavior.
   reserved byte prefixes `ReservedBits(2, 0)` and
   `ReservedBits(9, 0)` followed by `UInt8`
   ([Binary Schema Dispatch Reserved Byte Prefix Payload Helpers](../reference/implemented-proposals/binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md)),
+  direct lowercase dispatch payloads written as `uint1 reserves 0`
+  ([Binary Schema Dispatch Lowercase One-Bit Reserved Payload](../reference/implemented-proposals/binary-schema-dispatch-lowercase-one-bit-reserved-payload.md)),
   declaration-time missing, forward, and wrong-role schema-local field
   reference diagnostics for repeat count fields and count expressions,
   byte-view lengths, byte-view payload multiple operands, dispatch tags, and

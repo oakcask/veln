@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "closed 1\noutput_chunk_list closed-reserved-dispatch count 1\noutput_chunk closed-reserved-dispatch index 0 hex \"01abcd\" count 3\ncompat 1\noutput_chunk_list closed-compat-reserved-dispatch count 1\noutput_chunk closed-compat-reserved-dispatch index 0 hex \"01abcd\" count 3\nextension 2 1\nextension-known\noutput_chunk_list extension-reserved-dispatch count 1\noutput_chunk extension-reserved-dispatch index 0 hex \"0201abcd\" count 4\n"
+equals = "closed 1\noutput_chunk_list closed-reserved-dispatch count 1\noutput_chunk closed-reserved-dispatch index 0 hex \"01abcd\" count 3\ncompat 1\noutput_chunk_list closed-compat-reserved-dispatch count 1\noutput_chunk closed-compat-reserved-dispatch index 0 hex \"01abcd\" count 3\nextension 2 1\nextension-known\noutput_chunk_list extension-reserved-dispatch count 1\noutput_chunk extension-reserved-dispatch index 0 hex \"0201abcd\" count 4\nclosed-subbyte 1\noutput_chunk_list closed-subbyte-reserved-dispatch count 1\noutput_chunk closed-subbyte-reserved-dispatch index 0 hex \"0100\" count 2\nextension-subbyte 1 1\nextension-known\noutput_chunk_list extension-subbyte-reserved-dispatch count 1\noutput_chunk extension-subbyte-reserved-dispatch index 0 hex \"010100\" count 3\n"
 
 [[output_chunk_list]]
 name = "closed-reserved-dispatch"
@@ -33,3 +33,11 @@ chunks = ["01abcd"]
 [[output_chunk_list]]
 name = "extension-reserved-dispatch"
 chunks = ["0201abcd"]
+
+[[output_chunk_list]]
+name = "closed-subbyte-reserved-dispatch"
+chunks = ["0100"]
+
+[[output_chunk_list]]
+name = "extension-subbyte-reserved-dispatch"
+chunks = ["010100"]
