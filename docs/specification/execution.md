@@ -50,16 +50,10 @@ enough.
 - Format-neutral generated decode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
   `Result<T, String>`. The helper returns the supplied record on success and
-  is limited to scalar fields, top-level `List<Int>`, `List<Bool>`,
-  `List<Float>`, or `List<String>` fields, top-level `Dict<String, Int>`,
-  `Dict<String, Bool>`, `Dict<String, Float>`, or `Dict<String, String>`
-  fields, nested record-shaped fields that use scalar, `List<scalar>`,
-  `Option<scalar>`, `Option<List<scalar>>`,
-  `Option<Dict<String, scalar>>`, `Dict<String, scalar>`, or
-  `Result<scalar, scalar>` field types, `Result<Ok, Err>` fields whose
-  payloads are scalars, and `Option<T>` fields whose payload is a scalar,
-  `List<scalar>`, `Dict<String, scalar>`, or one of those nested record
-  shapes.
+  is limited to recursive format-neutral visible shapes made from scalar
+  leaves, anonymous record fields, `Option<T>`, `List<T>`, and
+  `Dict<String, T>`. `Result<Ok, Err>` remains supported only when both
+  payloads are scalars.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

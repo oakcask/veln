@@ -81,14 +81,9 @@ compare it with `../specification/` before changing behavior.
   helper bindings, generated encode-time field-local validation for eligible
   schema helpers, derived encode boundary support, format-neutral schema bodies
   without a `format` clause, generated format-neutral decode helpers for
-  scalar, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
-  `List<String>`, top-level string-keyed scalar dictionary, supported
-  `Option`, top-level `Option<List<scalar>>`, top-level
-  `Option<Dict<String, scalar>>`, and nested record-shaped fields with
-  scalar, `List<scalar>`, `Option<scalar>`,
-  `Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>` fields, and supported `Result<scalar, scalar>`
-  fields, plus
+  recursive visible shapes made from scalar leaves, anonymous record fields,
+  `Option<T>`, `List<T>`, and `Dict<String, T>`, plus supported
+  `Result<scalar, scalar>` fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -124,6 +119,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral top-level string-keyed scalar dictionary helper
   slice is archived under
   [Format-Neutral Schema Dict Helpers](../reference/implemented-proposals/format-neutral-schema-dict-helpers.md).
+  The completed recursive format-neutral container helper slice is archived
+  under
+  [Format-Neutral Schema Recursive Container Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-container-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
   under `../specification/source-surface.md` and

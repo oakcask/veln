@@ -15,23 +15,18 @@ Format-neutral schemas without a `format` clause may expose generated
 helper remains a validation/pass-through boundary over the schema-local
 visible record shape and returns `Result<TRecord, String>`.
 
-The slice does not add arbitrary nested collection eligibility. Nested
-dictionaries, recursive option-list payloads such as
-`Option<List<List<T>>>`, nested `List<Option<T>>`, and nested lists of records
-remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family.
+The slice did not add arbitrary nested collection eligibility. Broader
+container recursion was completed by the recursive container helper slice.
 
 ## Evidence
 
 - `../../../examples/specification/run/format-neutral-schema-decode/` checks
   successful nested record-shaped fields containing `List<Int>`, `List<Bool>`,
   `List<Float>`, and `List<String>` fields.
-- `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  keeps diagnostics for unsupported nested collection shapes, including nested
-  record fields containing nested lists and recursive option-list payloads.
+- `format-neutral-schema-recursive-container-helpers.md` carries the current
+  adjacent negative evidence for unsupported format-neutral helper shapes.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary format-neutral containers,
-and later schema composition surfaces.
+outside the implemented helper slices and later schema composition surfaces.

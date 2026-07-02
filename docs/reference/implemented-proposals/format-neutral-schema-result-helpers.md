@@ -37,5 +37,4 @@ shapes remain unsupported helper fields and keep the
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-containers, and later schema composition surfaces.
+outside the implemented helper slices and later schema composition surfaces.

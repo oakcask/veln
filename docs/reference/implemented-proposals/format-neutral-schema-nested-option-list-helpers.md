@@ -17,10 +17,10 @@ Format-neutral schemas without a `format` clause may expose generated
 boundary over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
-The slice does not add arbitrary recursive container eligibility. Deeper
-payloads such as `Option<List<List<T>>>`, nested `List<Option<T>>`, nested
-lists of records, `Vec<T>`, non-string-keyed dictionaries, and binary schema
-helper behavior remain outside this slice.
+The slice did not add arbitrary recursive container eligibility. Broader
+container recursion was completed by the recursive container helper slice.
+`Vec<T>`, non-string-keyed dictionaries, and binary schema helper behavior
+remain outside this slice.
 
 ## Evidence
 
@@ -28,14 +28,12 @@ helper behavior remain outside this slice.
   checks successful nested record-shaped fields containing
   `Option<List<Int>>`, `Option<List<Bool>>`, `Option<List<Float>>`, and
   `Option<List<String>>` fields, including present and absent option payloads.
-- `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  keeps diagnostics for deeper recursive option-list payloads.
+- `format-neutral-schema-recursive-container-helpers.md` carries the current
+  adjacent negative evidence for unsupported format-neutral helper shapes.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
-  checks generated helper resolution for accepted nested option-list shapes
-  and rejection of deeper option-list nesting.
+  checks generated helper resolution for accepted nested option-list shapes.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-containers, and later schema composition surfaces.
+outside the implemented helper slices and later schema composition surfaces.

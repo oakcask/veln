@@ -219,16 +219,10 @@ compiler-known calls.
   fields; compatibility generated decode-step helpers expose the same value
   shape through `DecodeStep<T>` for open input. Format-neutral schema decode
   helpers accept and return schema-local visible records through
-  `Result<T, String>` when all fields are scalar values, top-level `List<Int>`
-  `List<Bool>`, `List<Float>`, or `List<String>` values, top-level
-  `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
-  `Dict<String, String>` values, supported top-level `Option` values
-  including `Option<List<scalar>>` and `Option<Dict<String, scalar>>`,
-  top-level `Result<scalar, scalar>` values, or
-  nested record-shaped values made from scalar, `List<scalar>`,
-  `Option<scalar>`, `Option<List<scalar>>`,
-  `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>`, or `Result<scalar, scalar>` fields.
+  `Result<T, String>` when all fields are recursive visible shapes made from
+  scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
+  `Dict<String, T>`. `Result<Ok, Err>` remains supported only when both
+  payloads are scalars.
   Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the

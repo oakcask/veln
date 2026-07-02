@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
-const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "supported scalar, top-level List<Int>, List<Bool>, List<Float>, or List<String>, top-level Dict<String, Int>, Dict<String, Bool>, Dict<String, Float>, or Dict<String, String>, top-level Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, or Option record shape, top-level Result<scalar, scalar>, or record-shaped field type with scalar, List<scalar>, Option<scalar>, Option<List<scalar>>, Option<Dict<String, scalar>>, Dict<String, scalar>, or Result<scalar, scalar> fields";
+const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<scalar, scalar>";
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -222,6 +222,34 @@ fn generated_format_neutral_schema_decode_helpers_accept_option_dicts() {
 }
 
 #[test]
+fn generated_format_neutral_schema_decode_helpers_accept_recursive_containers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  maybe_items: List<Option<Int>>\n",
+            "  maybe_names: Option<List<Option<String>>>\n",
+            "  maybe_scores: Dict<String, Option<Int>>\n",
+            "  metadata: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>}\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>, metadata: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>}}) -> Result<{maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>, metadata: {maybe_items: List<Option<Int>>, maybe_names: Option<List<Option<String>>>, maybe_scores: Dict<String, Option<Int>>}}, String>\n",
+            "  byte_decode_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    assert_eq!(ir.schema_decoders[0].schema_name, "Packet");
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_accept_result_scalars() {
     let source = SourceFile::new(
         "main.veln",
@@ -257,7 +285,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         concat!(
             "schema BadPacket\n",
             "  code: Int\n",
-            "  items: Option<List<List<Int>>>\n",
+            "  items: Vec<Int>\n",
             "end\n",
         ),
     );
@@ -273,7 +301,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
     assert_eq!(
         diagnostic.message,
         format!(
-            "format-neutral schema field `items` cannot expose a generated decode helper because `Option<List<List<Int>>>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            "format-neutral schema field `items` cannot expose a generated decode helper because `Vec<Int>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
         )
     );
     assert!(diagnostic.related.iter().any(|related| {
@@ -291,8 +319,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_dict_shapes
             "schema BadPacket\n",
             "  numeric_scores: Dict<Int, Int>\n",
             "  optional_scores: Option<Dict<Int, Int>>\n",
-            "  nested_scores: Dict<String, Dict<String, Int>>\n",
-            "  nested_record_scores: {scores: Dict<String, Dict<String, Int>>}\n",
+            "  nested_record_scores: {scores: Dict<Int, Option<Int>>}\n",
             "end\n",
         ),
     );
@@ -316,10 +343,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_dict_shapes
                 "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<Int, Int>>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
-                "format-neutral schema field `nested_scores` cannot expose a generated decode helper because `Dict<String, Dict<String, Int>>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
-            ),
-            format!(
-                "format-neutral schema field `nested_record_scores` cannot expose a generated decode helper because `{{ scores : Dict<String, Dict<String, Int>> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+                "format-neutral schema field `nested_record_scores` cannot expose a generated decode helper because `{{ scores : Dict<Int, Option<Int>> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
         ]
     );
@@ -439,12 +463,16 @@ fn generated_format_neutral_schema_decode_helpers_accept_dicts_inside_record_fie
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_reject_nested_recursive_option_lists() {
+fn generated_format_neutral_schema_decode_helpers_reject_source_adts_and_functions() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
+            "type LocalPayload\n",
+            "  LocalPayload(value: Int)\n",
+            "end\n",
+            "\n",
             "schema BadPacket\n",
-            "  metadata: {items: Option<List<List<Int>>>}\n",
+            "  metadata: {payload: LocalPayload, callback: fn(Int) -> String}\n",
             "end\n",
         ),
     );
@@ -456,11 +484,11 @@ fn generated_format_neutral_schema_decode_helpers_reject_nested_recursive_option
     let diagnostic = diagnostics
         .iter()
         .find(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
-        .expect("unsupported recursive option-list field should be reported");
+        .expect("unsupported source ADT and function field should be reported");
     assert_eq!(
         diagnostic.message,
         format!(
-            "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ items : Option<List<List<Int>>> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ payload : LocalPayload, callback : fn(Int) -> String }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
         )
     );
 }
