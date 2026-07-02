@@ -90,9 +90,10 @@ compiler-known calls.
   ordinary `ResponseAction` values into one adapter-owned order, and projects
   only `SendBytes` actions to ordered `net::write_chunks` calls while
   declaring `net` and `concurrency`; the handlers stay free of transport
-  effects. The cancellable channel-first routing case uses
-  receiver-list selection before the wait outcome and keeps the same adapter
-  effect boundary.
+  effects. The cancellable channel-first routing case uses receiver-list
+  cancellable timeout selection to map routed, timed-out, and cancelled
+  outcomes into ordinary adapter completion values before producing adapter
+  action values while keeping the same adapter effect boundary.
   Malformed receive fixtures, failed send, write, stream close, or listener
   close recording, forced accept, read, write, or close failures, forced
   timeout or deadline expiry through runtime-failure waits, and forced
@@ -204,10 +205,14 @@ compiler-known calls.
   same selected value shape, left/right indexes, timeout behavior, and token
   cancellation boundary. A cancellable channel-first adapter composes
   receiver-list routes with
-  `time::wait_until_cancellable_outcome`; these cancellable adapter paths
-  declare `time` and `concurrency` while the handler boundary remains free of
-  transport effects. Other routing adapters require `concurrency`, and socket
-  wrappers around them require both `net` and `concurrency`.
+  `channel::select_many_timeout_cancellable`, translates its routed,
+  timed-out, and cancelled results into ordinary source outcome values, and
+  then calls the handler only for ordinary stream events; these cancellable
+  adapter paths declare `time` and `concurrency` while the handler boundary
+  remains free of transport effects. Other routing adapters require
+  `concurrency`, socket wrappers around them require both `net` and
+  `concurrency`, and cancellable socket wrappers require `net`, `time`, and
+  `concurrency`.
 - Receiver-list channel-first routing effect coverage includes the general
   helper shape over `List<Receiver<StreamInput>>`: channel selection carries
   `concurrency`, while the selected stream handler remains effect-free.

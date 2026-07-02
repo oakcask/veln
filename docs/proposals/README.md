@@ -587,7 +587,7 @@ compare it with `../specification/` before changing behavior.
   general
   receiver-list channel-first routing through the
   current checked select-many boundary including stale route-count fixture
-  cleanup, receiver-list cancellable channel-first routing,
+  cleanup, receiver-list cancellable channel-first completion routing,
   timeout-result selection, receiver-list cancellable timeout-result
   selection, two-receiver timeout-result selection, and two-receiver
   cancellable timeout-result selection slices
@@ -644,8 +644,8 @@ compare it with `../specification/` before changing behavior.
   cancellation status-query, cancellable wait-outcome, cancellable
   deadline-aware listener accept, stream read, stream write, accepted-stream
   lifecycle, and cancellation owner/token/status boundary.
-  The completed receiver-list select-many routing and stale route-count
-  fixture cleanup slice is archived under
+  The completed receiver-list select-many routing, cancellable completion
+  routing, and stale route-count fixture cleanup slice is archived under
   [Network Channel Select-Many Routing](../reference/implemented-proposals/network-channel-select-many-routing.md).
 
 ## Update When

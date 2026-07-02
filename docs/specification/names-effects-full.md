@@ -396,11 +396,14 @@ These calls do not define stream routing, richer timer handles beyond
 The checked stream adapter cancellable routing cases use
 `time::wait_until_cancellable_outcome` before returning ordinary response
 action values from channel-routed `StreamInput` handling. The receiver-list
-cancellable channel-first case selects ordinary `StreamInput` values with
-`channel::select_many_timeout` before translating completed wait,
-deadline-expired, and cancelled outcomes into response actions. The adapter
-declares both `time` and `concurrency`; the pure handler it calls remains free
-of transport effects.
+cancellable channel-first case uses
+`channel::select_many_timeout_cancellable` over a
+`List<Receiver<StreamInput>>`, translating `Ok(Some(selected))`,
+`Ok(None)`, and `Err(SelectError)` into routed, timed-out, and cancelled
+source outcome values before producing adapter actions. The adapter declares
+both `time` and `concurrency`; a socket-owning wrapper around the same helper
+declares `net`, `time`, and `concurrency`; and the pure handler it calls
+remains free of transport effects.
 The cancellation-owner lifecycle case uses `time::cancel_owner`,
 `time::cancel_token_from`, and `time::cancel_owned` so adapter cleanup keeps
 the cancellation owner while routing and socket code receive only the
@@ -466,10 +469,10 @@ the selected route index plus value. The receiver-list priority routes use
 order. The timeout route uses `channel::select_many_timeout` with the same
 list priority and returns `None` when no receiver is ready before the timeout.
 The routing adapter declares `concurrency`; the cancellable channel-first
-adapter declares both `time` and `concurrency`; and a socket wrapper that
-reads `NetStream` input, calls the channel-first route, and projects response
-actions back to `net::write_chunk` declares both `net` and `concurrency`. The
-handler itself remains free of transport effects.
+adapter calls `channel::select_many_timeout_cancellable` and declares both
+`time` and `concurrency`; and socket wrappers around cancellable routing
+declare `net`, `time`, and `concurrency`. The handler itself remains free of
+transport effects.
 
 ## Process Calls
 
@@ -569,7 +572,10 @@ shape as `channel::select_many_timeout_result`. It returns
 `Ok(Some(selected))` for the first ready receiver in supplied list order,
 `Ok(None)` when the timeout elapses or all supplied receivers close before a
 value is selected, and `Err(SelectError)` when the supplied `CancelToken`
-is already cancelled or becomes cancelled before a ready receiver wins.
+is already cancelled or becomes cancelled before a ready receiver wins. The
+checked cancellable channel-first adapter maps that result into an ordinary
+source route outcome so cancellation is a visible adapter completion case
+instead of another fixed route-count fixture.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative

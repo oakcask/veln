@@ -32,6 +32,10 @@ enough.
   stream ownership. Production-loopback cases can preserve more than one
   configured read chunk for one accepted stream; each chunk is observed by
   source as a separate read result before clean end. The
+  cancellable receiver-list channel-first adapter observes cancellation as an
+  ordinary routed, timed-out, or cancelled source outcome before producing
+  adapter actions, instead of adding another fixed route-count execution
+  shape. The
   multi-event adapter task-helper routing case preserves adapter-owned trace
   identity and event sequence while routing those source-visible stream events
   through channel and an adapter-owned task helper before ordered chunk-list
