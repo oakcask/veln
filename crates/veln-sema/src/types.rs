@@ -4940,7 +4940,13 @@ pub(crate) fn schema_dispatch_payload_accepts_lowercase_primitive(text: &str) ->
 }
 
 fn dispatch_reserved_bits_width(bit_width: i64, expected_value: i64) -> Option<u8> {
-    if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
+    if bit_width <= 0 || bit_width > 32 {
+        return None;
+    }
+    if bit_width == 1 && expected_value == 0 {
+        return Some(1);
+    }
+    if bit_width % 8 != 0 {
         return None;
     }
     let max_value = if bit_width == 32 {
@@ -6580,6 +6586,22 @@ mod tests {
             assert_eq!(reserved_bits_schema_primitive(text), Some(reserved));
             assert_eq!(canonical_schema_primitive_name(text), None);
         }
+    }
+
+    #[test]
+    fn accepts_only_checked_lowercase_reserved_dispatch_payloads() {
+        assert!(schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint1 reserves 0"
+        ));
+        assert!(schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint16be reserves 0"
+        ));
+        assert!(!schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint1 reserves 1"
+        ));
+        assert!(!schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint2 reserves 0"
+        ));
     }
 
     #[test]

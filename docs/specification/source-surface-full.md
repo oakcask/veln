@@ -25,9 +25,10 @@ and encode entry points.
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 and `flag...` primitive spelling in the same positions as compatible
 upper-case exact-width primitive payload spelling. They also accept
-byte-aligned lowercase `uint... reserves <value>` spelling in direct
-reserved-bit dispatch payload positions. Format-neutral schemas reject
-binary-only primitive vocabulary in dispatch payload positions. Format-neutral
+byte-aligned lowercase `uint... reserves <value>` spelling and the checked
+`uint1 reserves 0` spelling in direct reserved-bit dispatch payload positions.
+Format-neutral schemas reject binary-only primitive vocabulary in dispatch
+payload positions. Format-neutral
 generated decode helpers are limited to scalar fields, top-level `List<Int>`,
 `List<Bool>`, `List<Float>`, or `List<String>` fields, top-level
 `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or

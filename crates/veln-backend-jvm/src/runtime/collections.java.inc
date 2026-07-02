@@ -424,6 +424,14 @@
         return 0;
     }
 
+    private static int reservedDispatchPayloadStorageByteWidth(int bitWidth) {
+        int byteWidth = reservedByteWidth(bitWidth);
+        if (byteWidth > 0) {
+            return byteWidth;
+        }
+        return packedReservedStorageByteWidth(bitWidth);
+    }
+
     private static int suffixPackedReservedStorageByteWidth(int bitWidth) {
         int storageByteWidth = packedReservedStorageByteWidth(bitWidth);
         if (storageByteWidth > 0) {
@@ -813,6 +821,7 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
+        final int reservedBitWidth;
         final long reservedValue;
         final BinarySchemaSpec payloadSchema;
         final String payloadSchemaName;
@@ -825,6 +834,7 @@
             this.tag = tag;
             this.width = width;
             this.littleEndian = littleEndian;
+            this.reservedBitWidth = 0;
             this.reservedValue = -1L;
             this.payloadSchema = null;
             this.payloadSchemaName = "";
@@ -835,14 +845,15 @@
             this.maxValue = value;
         }
 
-        SchemaDispatchCaseSpec(long tag, int width, long reservedValue) {
+        SchemaDispatchCaseSpec(long tag, int reservedBitWidth, long reservedValue) {
             this.tag = tag;
-            this.width = width;
+            this.width = reservedDispatchPayloadStorageByteWidth(reservedBitWidth);
             this.littleEndian = false;
+            this.reservedBitWidth = reservedBitWidth;
             this.reservedValue = reservedValue;
             this.payloadSchema = null;
             this.payloadSchemaName = "";
-            this.maxValue = reservedMaxValue(width * 8);
+            this.maxValue = reservedMaxValue(reservedBitWidth);
         }
 
         SchemaDispatchCaseSpec(long tag, BinarySchemaSpec payloadSchema) {
@@ -850,6 +861,7 @@
             this.width = 0;
             this.maxValue = 0L;
             this.littleEndian = false;
+            this.reservedBitWidth = 0;
             this.reservedValue = -1L;
             this.payloadSchema = payloadSchema;
             this.payloadSchemaName = "";
@@ -860,6 +872,7 @@
             this.width = 0;
             this.maxValue = 0L;
             this.littleEndian = false;
+            this.reservedBitWidth = 0;
             this.reservedValue = -1L;
             this.payloadSchema = null;
             this.payloadSchemaName = payloadSchemaName;
@@ -6443,7 +6456,7 @@
                         readView,
                         readBaseOffset,
                         readRelativeOffset,
-                        dispatchCase.width * 8,
+                        dispatchCase.reservedBitWidth,
                         dispatchCase.reservedValue,
                         schema.name,
                         field.name
@@ -7714,9 +7727,9 @@
                             + "`"
                     );
                 }
-                int bitWidth = (int) width * 8;
+                int bitWidth = (int) width;
                 if (width < 1L
-                    || width > 4L
+                    || width > 32L
                     || !supportedReservedBits(bitWidth, expectedValue)) {
                     return err(
                         "unsupported reserved dispatch payload width "
@@ -7730,7 +7743,7 @@
                 }
                 cases[index] = new SchemaDispatchCaseSpec(
                     asLong(tagValues.get(index)),
-                    (int) width,
+                    bitWidth,
                     expectedValue
                 );
                 continue;
@@ -8032,14 +8045,7 @@
             if (payloadSchema != null) {
                 encoded = byteEncodeBinarySchema(fields.get(fieldName), payloadSchema);
             } else if (dispatchCase.isReserved()) {
-                encoded = schemaWriteUnsigned(
-                    Long.valueOf(dispatchCase.reservedValue),
-                    dispatchCase.width,
-                    dispatchCase.maxValue,
-                    false,
-                    schema.name,
-                    fieldName
-                );
+                encoded = schemaWriteReservedDispatchPayload(dispatchCase, schema.name, fieldName);
             } else {
                 encoded = schemaWriteUnsigned(
                     fields.get(fieldName),
@@ -8119,14 +8125,8 @@
                 );
             }
             if (selectedCase.isReserved()) {
-                Object encoded = schemaWriteUnsigned(
-                    Long.valueOf(selectedCase.reservedValue),
-                    selectedCase.width,
-                    selectedCase.maxValue,
-                    false,
-                    schema.name,
-                    fieldName
-                );
+                Object encoded =
+                    schemaWriteReservedDispatchPayload(selectedCase, schema.name, fieldName);
                 if (isErr(encoded)) {
                     return encoded;
                 }
@@ -8740,6 +8740,41 @@
         for (int index = width - 1; index >= 0; index -= 1) {
             int shiftIndex = littleEndian ? width - 1 - index : index;
             bytes.add(byteObject((unsigned >> (shiftIndex * 8)) & 0xffL));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
+    private static Object schemaWriteReservedDispatchPayload(
+        SchemaDispatchCaseSpec dispatchCase,
+        String schemaName,
+        String fieldName
+    ) {
+        if (!supportedReservedBits(dispatchCase.reservedBitWidth, dispatchCase.reservedValue)) {
+            return err(encodeError(
+                "codec.metadata",
+                schemaName + "." + fieldName,
+                "unsupported reserved dispatch payload"
+            ));
+        }
+        int byteWidth = reservedByteWidth(dispatchCase.reservedBitWidth);
+        if (byteWidth > 0) {
+            return schemaWriteUnsigned(
+                Long.valueOf(dispatchCase.reservedValue),
+                byteWidth,
+                dispatchCase.maxValue,
+                false,
+                schemaName,
+                fieldName
+            );
+        }
+        int storageByteWidth =
+            reservedDispatchPayloadStorageByteWidth(dispatchCase.reservedBitWidth);
+        long combined =
+            dispatchCase.reservedValue
+                << (storageByteWidth * 8 - dispatchCase.reservedBitWidth);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(storageByteWidth);
+        for (int byteIndex = storageByteWidth - 1; byteIndex >= 0; byteIndex -= 1) {
+            bytes.add(byteObject((combined >> (byteIndex * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
     }

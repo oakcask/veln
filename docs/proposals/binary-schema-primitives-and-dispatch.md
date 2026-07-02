@@ -10,6 +10,9 @@ checked examples under `../../examples/specification/`.
 Completed primitive, flag, reserved-bit, repeat, byte-view, dispatch, and
 recursive dispatch helper slices are archived under
 `../reference/implemented-proposals/`.
+The completed direct dispatch payload slice for `uint1 reserves 0` is archived
+under
+[Binary Schema Dispatch Lowercase One-Bit Reserved Payload](../reference/implemented-proposals/binary-schema-dispatch-lowercase-one-bit-reserved-payload.md).
 Schema-level value projection is no longer part of this proposal: `map to` in
 schema bodies is removed as recorded in
 [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).

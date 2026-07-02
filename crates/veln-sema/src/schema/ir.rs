@@ -315,7 +315,7 @@ fn ir_schema_dispatch_case(
 ) -> Option<IrSchemaDecodeDispatchCase> {
     let width = match &case.payload {
         SchemaDispatchCasePayload::Primitive { width, .. } => *width,
-        SchemaDispatchCasePayload::ReservedBits { bit_width, .. } => bit_width / 8,
+        SchemaDispatchCasePayload::ReservedBits { bit_width, .. } => *bit_width,
         SchemaDispatchCasePayload::Schema { .. } => 0,
     };
     let little_endian = match &case.payload {
