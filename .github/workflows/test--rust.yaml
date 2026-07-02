@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/test--rust.yaml
+      - .config/nextest.toml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
+      - .config/nextest.toml
       - Cargo.lock
       - Cargo.toml
       - crates/**/Cargo.toml
@@ -23,11 +25,109 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
+  NEXTEST_VERSION: "0.9.138"
+  NEXTEST_SHARDS: "4"
 
 jobs:
-  test:
+  seed-cache:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Restore cargo-nextest cache
+        id: cargo-nextest-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/cargo-nextest
+          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
+      - name: Restore Rust build cache
+        id: rust-build-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
+      - name: Compile Rust tests for nextest
+        run: cargo nextest run --locked --workspace --profile ci --no-run
+      - name: Save cargo-nextest cache
+        if: steps.cargo-nextest-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/cargo-nextest
+          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
+      - name: Save Rust build cache
+        if: steps.rust-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+
+  test:
+    name: test shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Restore cargo-nextest cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/cargo-nextest
+          key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
+      - name: Restore Rust build cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
+        with:
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
       - name: Run Rust tests
-        run: cargo test --locked --workspace
+        run: cargo nextest run --locked --workspace --profile ci --partition count:${{ matrix.shard }}/${{ env.NEXTEST_SHARDS }}
+      - name: Upload nextest JUnit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nextest-junit-${{ matrix.shard }}
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
+
+  doc-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Restore Rust build cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-
+            rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-
+      - name: Run Rust doctests
+        run: cargo test --locked --workspace --doc
