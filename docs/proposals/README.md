@@ -556,7 +556,7 @@ compare it with `../specification/` before changing behavior.
   cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
-  stream write, adapter-owned
+  stream write, accepted-stream endpoint text inspection, adapter-owned
   listener-to-clean-stream-end lifecycle, context-based adapter
   `task::spawn_with<Result, Context>` helper routing,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
@@ -636,6 +636,9 @@ compare it with `../specification/` before changing behavior.
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).
+  The completed accepted-stream endpoint text inspection slice is archived
+  under
+  [Network Stream Address Metadata](../reference/implemented-proposals/network-stream-address-metadata.md).
   Deadline and cancellation behavior is complete for this proposal at the
   current relative and absolute monotonic `Deadline`, `CancelToken`,
   cancellation status-query, cancellable wait-outcome, cancellable

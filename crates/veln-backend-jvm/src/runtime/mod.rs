@@ -259,6 +259,8 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "net::accept_until" => "netAcceptUntil",
         "net::accept_until_cancellable" => "netAcceptUntilCancellable",
         "net::read_chunk" => "netReadChunk",
+        "net::stream_local_addr" => "netStreamLocalAddr",
+        "net::stream_peer_addr" => "netStreamPeerAddr",
         "net::read_chunk_until" => "netReadChunkUntil",
         "net::read_chunk_until_cancellable" => "netReadChunkUntilCancellable",
         "net::read_chunk_or_end" => "netReadChunkOrEnd",

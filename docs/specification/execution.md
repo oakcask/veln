@@ -26,9 +26,12 @@ enough.
 - `net` and `time` calls are host runtime boundaries. Fixture-backed and
   production-loopback transport paths preserve the same source-visible result
   shapes while keeping socket, deadline, cancellation, and monotonic-clock
-  work outside pure protocol code. Production-loopback cases can preserve more
-  than one configured read chunk for one accepted stream; each chunk is
-  observed by source as a separate read result before clean end. The
+  work outside pure protocol code. Accepted `NetStream` handles expose local
+  and peer endpoint text through `net::stream_local_addr` and
+  `net::stream_peer_addr` without exposing host socket handles or changing
+  stream ownership. Production-loopback cases can preserve more than one
+  configured read chunk for one accepted stream; each chunk is observed by
+  source as a separate read result before clean end. The
   multi-event adapter task-helper routing case preserves adapter-owned trace
   identity and event sequence while routing those source-visible stream events
   through channel and an adapter-owned task helper before ordered chunk-list
