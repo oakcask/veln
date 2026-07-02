@@ -5,7 +5,7 @@ type CallbackPayload
 end
 
 type VecPayload
-	VecPayload(items: Vec<Int>)
+	VecPayload(items: Vec<fn(Int) -> String>)
 end
 
 schema BadPacket

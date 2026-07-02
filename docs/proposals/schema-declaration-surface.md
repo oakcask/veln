@@ -70,7 +70,7 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
-  `List<T>`, `Dict<String, T>`, `Result<Ok, Err>` where both payloads are
+  `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>` where both payloads are
   recursive visible shapes, and same-module or public imported source ADTs
   whose constructor payloads are recursive visible shapes, with declaration
   diagnostics for unsupported helper field types
@@ -132,6 +132,9 @@ under
 The completed format-neutral source ADT visible-shape helper slice is archived
 under
 [Format-Neutral Schema Source ADT Helpers](../reference/implemented-proposals/format-neutral-schema-source-adt-helpers.md).
+
+The completed format-neutral `Vec<T>` helper slice is archived under
+[Format-Neutral Schema Vec Helpers](../reference/implemented-proposals/format-neutral-schema-vec-helpers.md).
 
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
@@ -398,7 +401,7 @@ Implemented:
   `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are recursive
   visible shapes made from scalar leaves, anonymous record fields,
-  `Option<T>`, `List<T>`, `Dict<String, T>`, and
+  `Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, and
   `Result<Ok, Err>` where both payloads are recursive visible shapes, plus
   same-module or public imported source ADTs whose constructor payloads are
   recursive visible shapes, expose generated `byte_decode_<schema>` helper

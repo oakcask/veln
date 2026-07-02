@@ -1,0 +1,10 @@
+# Format-neutral schema decode helpers accept recursive Vec fields.
+
+schema VecPacket
+	items: Vec<Int>
+	nested: {labels: Vec<Option<String>>, scores: Result<Vec<Int>, Vec<String>>}
+end
+
+pub fn main(packet: {items: Vec<Int>, nested: {labels: Vec<Option<String>>, scores: Result<Vec<Int>, Vec<String>>}}) -> Result<{items: Vec<Int>, nested: {labels: Vec<Option<String>>, scores: Result<Vec<Int>, Vec<String>>}}, String>
+	byte_decode_vec_packet(packet)
+end

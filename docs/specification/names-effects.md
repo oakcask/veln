@@ -227,8 +227,8 @@ compiler-known calls.
   shape through `DecodeStep<T>` for open input. Format-neutral schema decode
   helpers accept and return schema-local visible records through
   `Result<T, String>` when all fields are recursive visible shapes made from
-  scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
-  `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
+  scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, `Vec<T>`,
+  and `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
   recursive format-neutral visible shapes. Same-module source ADTs and public
   imported source ADTs referenced through written `use` paths are supported in
   those positions when every constructor payload is a recursive

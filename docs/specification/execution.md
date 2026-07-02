@@ -57,7 +57,7 @@ enough.
   clause accept a schema-local visible record shape and return
   `Result<T, String>`. The helper returns the supplied record on success and
   is limited to recursive format-neutral visible shapes made from scalar
-  leaves, anonymous record fields, `Option<T>`, `List<T>`, and
+  leaves, anonymous record fields, `Option<T>`, `List<T>`, `Vec<T>`, and
   `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
   recursive format-neutral visible shapes. Same-module source ADTs and public
   imported source ADTs referenced through written `use` paths are supported in
