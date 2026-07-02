@@ -809,8 +809,12 @@ case later DATA remains blocked by
 `WINDOW_UPDATE` restores enough credit on that stream.
 The implemented slice also admits peer-created streams narrowly. HEADERS
 frames on idle, nonzero streams open tracked peer-created streams when the
-active concurrent-stream receive limit allows them. A HEADERS frame that
-would open another peer-created stream beyond that receive limit fails as
+active concurrent-stream receive limit allows them. The checked receive state
+tracks at least three concurrent peer-created open streams with separate
+receive-window and priority facts; DATA on one tracked stream and
+stream-level `WINDOW_UPDATE` on another leave the remaining tracked streams'
+facts unchanged. A HEADERS frame that would open another peer-created stream
+beyond the active receive limit fails as
 `http2.peer_limit.concurrent_streams_exceeded`, with byte offset, stream
 reference, current open peer-created stream count, attempted and allowed
 concurrent-stream counts, endpoint role, active protocol state,
