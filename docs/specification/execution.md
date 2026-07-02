@@ -239,11 +239,13 @@ enough.
   `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_ENABLE_PUSH`,
   `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
   `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE`. Accepted
-  batches are recorded as one outstanding local batch; one valid peer
-  SETTINGS ACK clears exactly the oldest outstanding batch and leaves later
-  batches pending. The checked case also fixes the no-output
-  `local_settings` range-diagnostic path for an invalid item inside a larger
-  batch.
+  `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
+  `SETTINGS_MAX_HEADER_LIST_SIZE` local values must fit the HTTP/2 four-byte
+  unsigned SETTINGS value field. Accepted batches are recorded as one
+  outstanding local batch; one valid peer SETTINGS ACK clears exactly the
+  oldest outstanding batch and leaves later batches pending. The checked case
+  also fixes the no-output `local_settings` range-diagnostic path for an
+  invalid item inside a larger batch.
 - The checked HTTP/2 adapter/core write boundary composes ordinary pure
   response actions with pure HTTP/2 outbound HEADERS and DATA send-intents,
   then writes only accepted core-produced chunks through `net::write_chunks`.

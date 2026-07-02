@@ -513,15 +513,16 @@ frame-header-plus-payload chunk with length `6 * item_count`, kind `4`, flags
 `0`, stream id `0`, and the selected identifier and four-byte unsigned value
 pairs in order. The local `SETTINGS_MAX_FRAME_SIZE` send-intent accepts
 `16384..16777215`, `SETTINGS_INITIAL_WINDOW_SIZE` accepts `0..2147483647`,
-and `SETTINGS_ENABLE_PUSH` accepts `0..1`; values outside those ranges are
-rejected before output bytes are emitted using the SETTINGS value range
-failure shape and `local_settings` provenance, including when the invalid
-value appears in a batch. The checked example leaves
+and `SETTINGS_ENABLE_PUSH` accepts `0..1`. Local
 `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
-`SETTINGS_MAX_HEADER_LIST_SIZE` as accepted non-negative local integer
-settings. A valid SETTINGS ACK clears exactly the oldest outstanding batch,
-including a multi-item batch, while later pending batches remain outstanding;
-a valid SETTINGS ACK with no outstanding local SETTINGS is rejected as
+`SETTINGS_MAX_HEADER_LIST_SIZE` send-intents accept only values representable
+in the HTTP/2 four-byte unsigned SETTINGS value field. Values outside those
+ranges are rejected before output bytes are emitted using the SETTINGS value
+range failure shape and `local_settings` provenance, including when the
+invalid value appears in a batch. A valid SETTINGS ACK clears exactly the
+oldest outstanding batch, including a multi-item batch, while later pending
+batches remain outstanding; a valid SETTINGS ACK with no outstanding local
+SETTINGS is rejected as
 `http2.protocol.unexpected_settings_ack` in ordinary output, human diagnostics,
 and JSON details.
 It also accepts structurally complete unknown extension frames after the
