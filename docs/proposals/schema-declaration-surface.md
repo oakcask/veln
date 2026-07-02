@@ -69,9 +69,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
-  `List<T>`, and `Dict<String, T>`, plus `Result<Ok, Err>` where both
-  payloads are scalars, with declaration diagnostics for unsupported helper
-  field types
+  `List<T>`, `Dict<String, T>`, and `Result<Ok, Err>` where both payloads are
+  recursive visible shapes, with declaration diagnostics for unsupported
+  helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -115,6 +115,10 @@ The completed format-neutral `Result<scalar, scalar>` helper slice is archived
 under
 [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
 
+The completed format-neutral recursive `Result` visible-shape helper slice is
+archived under
+[Format-Neutral Schema Result Visible Shapes](../reference/implemented-proposals/format-neutral-schema-result-visible-shapes.md).
+
 The completed recursive format-neutral container helper slice is archived
 under
 [Format-Neutral Schema Recursive Container Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-container-helpers.md).
@@ -129,8 +133,8 @@ This proposal remains open for:
 - generated runtime decode bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices, and format-neutral fields outside the implemented
-  recursive visible-shape helper boundary and scalar `Result` boundary
+  dispatch slices, and format-neutral fields outside the implemented recursive
+  visible-shape helper boundary
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -383,8 +387,9 @@ Implemented:
   payloads expose generated `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are recursive
   visible shapes made from scalar leaves, anonymous record fields,
-  `Option<T>`, `List<T>`, and `Dict<String, T>`, plus
-  `Result<Ok, Err>` where both payloads are scalars, expose generated
+  `Option<T>`, `List<T>`, `Dict<String, T>`, and
+  `Result<Ok, Err>` where both payloads are recursive visible shapes, expose
+  generated
   `byte_decode_<schema>` helper bindings that accept and return the
   schema-local visible record through `Result<T, String>`.
   Unsupported format-neutral helper fields report
@@ -401,7 +406,6 @@ Remaining:
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
-  dispatch, recursive format-neutral visible-shape helper boundary, and
-  scalar `Result` boundary.
+  dispatch, and recursive format-neutral visible-shape helper boundary.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

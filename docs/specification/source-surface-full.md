@@ -30,8 +30,8 @@ byte-aligned lowercase `uint... reserves <value>` spelling and the checked
 Format-neutral schemas reject binary-only primitive vocabulary in dispatch
 payload positions. Format-neutral generated decode helpers are limited to
 recursive visible shapes made from scalar leaves, anonymous record fields,
-`Option<T>`, `List<T>`, and `Dict<String, T>`. `Result<Ok, Err>` remains
-supported only when both payloads are scalars.
+`Option<T>`, `List<T>`, `Dict<String, T>`, and `Result<Ok, Err>` when both
+payloads are recursive visible shapes.
 
 ## Executable Grammar
 

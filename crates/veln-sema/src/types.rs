@@ -3061,7 +3061,8 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
 }
 
 fn format_neutral_schema_result_type_is_supported(ok: &Type, err: &Type) -> bool {
-    format_neutral_schema_scalar_type(ok) && format_neutral_schema_scalar_type(err)
+    format_neutral_schema_visible_shape_is_supported(ok)
+        && format_neutral_schema_visible_shape_is_supported(err)
 }
 
 fn format_neutral_schema_visible_shape_is_supported(ty: &Type) -> bool {

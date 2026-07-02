@@ -221,8 +221,8 @@ compiler-known calls.
   helpers accept and return schema-local visible records through
   `Result<T, String>` when all fields are recursive visible shapes made from
   scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
-  `Dict<String, T>`. `Result<Ok, Err>` remains supported only when both
-  payloads are scalars.
+  `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
+  recursive format-neutral visible shapes.
   Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the

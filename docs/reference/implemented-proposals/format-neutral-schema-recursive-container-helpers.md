@@ -17,10 +17,11 @@ inside anonymous record shapes. The helper remains a validation/pass-through
 boundary over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
-`Result<Ok, Err>` remains limited to scalar payloads. Non-string dictionary
-keys, source-declared ADTs, function types, unsupported named types, and
-result payloads containing recursive containers remain unsupported helper
-fields and keep the `schema.format_neutral_decode_helper` diagnostic family.
+This slice did not extend `Result<Ok, Err>` beyond scalar payloads. Later
+work extended `Result` payload eligibility to recursive visible shapes.
+Non-string dictionary keys, source-declared ADTs, function types, and
+unsupported named types remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
 
