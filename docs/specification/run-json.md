@@ -914,9 +914,12 @@ promised stream remains unreserved.
 That checked stdout also records local SETTINGS batches as ordered
 frame-header-plus-payload chunks. It covers a three-item batch whose emitted
 identifier/value pairs remain in caller order, a peer SETTINGS ACK that clears
-that multi-item batch while preserving a later outstanding batch, and an
-invalid item inside a larger local batch that emits no output chunk and keeps
-`local_settings` provenance on
+that multi-item batch while preserving a later outstanding batch. Local
+`SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
+`SETTINGS_MAX_HEADER_LIST_SIZE` values must be representable in the HTTP/2
+four-byte unsigned SETTINGS value field. Invalid items inside larger local
+batches emit no output chunk, record no outstanding local SETTINGS batch, and
+keep `local_settings` provenance on
 `http2.peer_limit.settings_value_out_of_range`.
 It validates the decoded promised request header list before reservation,
 including accepted ordinary request headers and rejected `:status` and invalid

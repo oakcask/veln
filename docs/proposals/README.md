@@ -541,7 +541,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound PUSH_PROMISE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-push-promise-goaway-boundary.md).
   The completed outbound SETTINGS ACK send-intent slice is archived under
   [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
-  The completed ordered local SETTINGS batch send-intent slice is archived
+  The completed ordered local SETTINGS batch send-intent slice, including
+  local four-byte SETTINGS value-field representability checks, is archived
   under
   [HTTP/2 Local SETTINGS Batch Send](../reference/implemented-proposals/http2-local-settings-batch-send.md).
   The completed inbound dynamic-table fixture slice is archived under
