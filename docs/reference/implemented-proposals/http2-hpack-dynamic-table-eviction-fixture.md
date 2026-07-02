@@ -61,14 +61,16 @@ value, and insert the decoded header as the newest dynamic entry without
 discarding older entries while the bounded table has room. A deeper bounded
 table with retained `:path: /a` entries also accepts dynamic index `127`
 through `0x7f 0x40 0x05 "/deep"` for literal-with-indexing, proves the older
-retained entry remains addressable through `0xff`, and keeps the next newest
-dynamic indexed read pointed at the inserted `:path: /deep` entry. The HTTP/2
-protocol-core example carries the same deep dynamic state through a completed
-HEADERS block and through a final CONTINUATION block before later dynamic
-indexed reads observe the inserted value. It also prints the carried fixture
-decode count before and after a split header block, showing that HPACK state
-does not advance while the CONTINUATION block is still pending and advances
-only after the final accepted header-block decode.
+retained entry remains addressable through the legacy fixture byte `0xff`,
+also accepts saturated seven-bit indexed representation `0xff 0x00` for the
+same retained entry, and keeps the next newest dynamic indexed read pointed at
+the inserted `:path: /deep` entry. The HTTP/2 protocol-core example carries
+the same deep dynamic state through completed HEADERS blocks and through a
+final CONTINUATION block before later dynamic indexed reads observe the
+inserted value. It also prints the carried fixture decode count before and
+after a split header block, showing that HPACK state does not advance while
+the CONTINUATION block is still pending and advances only after the final
+accepted header-block decode.
 
 Literal-without-indexing and literal-never-indexed dynamic-name forms reuse
 the same dynamic-table name lookup through saturated four-bit indexed-name
@@ -119,11 +121,12 @@ covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
   reads, dynamic-name literal-with-indexing insertion, dynamic-name
   literal-without-indexing and literal-never-indexed decode without dynamic
   insertion, dynamic index `127` continuation coverage for all three
-  dynamic-name literal forms, malformed and out-of-range dynamic-name
-  literals, missing dynamic state, accepted-entry-size eviction, full and
-  partial reduced-table-size eviction failure paths, insertion-caused
-  eviction, oldest-first eviction after a three-entry table-size reduction,
-  and the fixture-boundary table-size update slice.
+  dynamic-name literal forms, saturated seven-bit dynamic indexed reads for
+  the same retained entry, malformed and out-of-range dynamic-name literals,
+  missing dynamic state, accepted-entry-size eviction, full and partial
+  reduced-table-size eviction failure paths, insertion-caused eviction,
+  oldest-first eviction after a three-entry table-size reduction, and the
+  fixture-boundary table-size update slice.
 - `../../../examples/specification/run/hpack-fixture-dynamic-index-json/` and
   `../../../examples/specification/run/hpack-fixture-dynamic-index-human/`
   check the focused dynamic-index lookup slice: a literal-with-indexing block
@@ -138,7 +141,8 @@ covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
   indexes `63`, `64`, and `127`, dynamic-index `63`
   literal-without-indexing and literal-never-indexed forms without
   replacement insertion, dynamic-index `127` literal-without-indexing and
-  literal-never-indexed forms without replacement insertion,
+  literal-never-indexed forms without replacement insertion, saturated
+  seven-bit dynamic indexed reads for retained dynamic index `127`,
   generalized dynamic indexed lookup, ordinary raw new-name
   literal-with-indexing insertion and dynamic-indexed reuse, oldest-first
   table-size eviction of that ordinary entry, raw new-name

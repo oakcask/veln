@@ -191,10 +191,13 @@ enough.
   indexed header-field representation when the caller supplies a bounded
   dynamic table carrying the referenced entries. The checked boundary decodes
   `0xbe` to the newest carried entry and `0xbf` to the next older carried
-  entry, advances the dynamic-core decode count after each accepted decode,
-  and reports `hpack.fixture.dynamic_index_out_of_range` with requested
-  dynamic index and entry-count facts when an indexed byte asks past the
-  carried table without advancing state. The checked case is
+  entry. It also decodes saturated seven-bit indexed representation
+  `0xff 0x00` as HPACK index `127`, resolving dynamic table index `65` when
+  the bounded carried table contains that retained entry. The boundary
+  advances the dynamic-core decode count after each accepted decode and
+  reports `hpack.fixture.dynamic_index_out_of_range` with requested dynamic
+  index and entry-count facts when an indexed field asks past the carried
+  table without advancing state. The checked case is
   `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under

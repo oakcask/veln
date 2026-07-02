@@ -483,7 +483,8 @@ compare it with `../specification/` before changing behavior.
   for accepted visible ASCII decimal values on literal-without-indexing,
   literal-with-indexing, and literal-never-indexed forms that do not observe
   later fixture dynamic-table reuse, and the source-visible dynamic indexed
-  HPACK core boundary for multiple carried bounded dynamic-table entries,
+  HPACK core boundary for multiple carried bounded dynamic-table entries and
+  saturated seven-bit indexed representation `0xff 0x00`,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

@@ -8051,6 +8051,11 @@ fn print_hpack_wide_dynamic_name_cases() -> Result<(), String> effects [stdio]
 	print_step("hpack-stateful-dynamic-name-wide-retained-older-path", retained_older)
 	print_hpack_transition_from_state("hpack-stateful-dynamic-name-wide-retained-older-path", retained_older, deep_state)
 	let ignored_retained_older: () = require_hpack_transition_header(retained_older, deep_state, ":path", "/a")?
+	let retained_older_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002010400000001ff00")?), deep_state)?
+	print_step("hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path", retained_older_continuation)
+	let ignored_retained_older_continuation_chunk: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path", retained_older_continuation, "ff00")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path", retained_older_continuation, deep_state)
+	let ignored_retained_older_continuation: () = require_hpack_transition_header(retained_older_continuation, deep_state, ":path", "/a")?
 	let literal_indexed_wide: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037f40052f64656570")?), deep_state)?
 	print_step("hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide)
 	let ignored_literal_indexed_wide: () = emit_header_block("http2-hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide, "7f40052f64656570")?

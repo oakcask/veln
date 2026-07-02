@@ -1045,8 +1045,10 @@ the focused out-of-range payload after a bounded-table eviction removes the
 entry.
 The standalone `hpack_dynamic_core` boundary checks accepted dynamic indexed
 paths for multiple carried bounded-table entries, dynamic-core decode-count
-advancement after each accepted decode, and the same focused dynamic-index
-failure facts without state advancement in
+advancement after each accepted decode, saturated seven-bit indexed
+representation `0xff 0x00` resolving HPACK index `127` to dynamic table index
+`65`, and the same focused dynamic-index failure facts without state
+advancement in
 `examples/specification/run/hpack-fixture-codec-boundary/`; those boundary
 checks are ordinary program stdout, not `details.protocol_diagnostic`, because
 they do not return a `RuntimeDiagnostic(...)` payload.

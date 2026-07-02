@@ -706,6 +706,26 @@ fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState,
 	end
 end
 
+fn decode_dynamic_indexed_header_block(first_byte: Int, observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 1
+		true => decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
+		false => match first_byte == 255
+			true => decode_saturated_dynamic_indexed_header_block(observed_size, state, block, offset)
+			false => unsupported(block, offset)
+		end
+	end
+end
+
+fn decode_saturated_dynamic_indexed_header_block(observed_size: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match decode_hpack_prefixed_integer(127, 127, block, observed_size, 1, offset)
+		Ok(prefix) => match integer_prefix_size(prefix) == observed_size
+			true => decoded_dynamic_indexed_header_at(integer_prefix_value(prefix) - 62, state, block, offset)
+			false => unsupported(block, offset)
+		end
+		Err(_) => unsupported(block, offset)
+	end
+end
+
 fn dynamic_header_name_at(table_index: Int, state: HpackFixtureState) -> Option<String>
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
@@ -3485,10 +3505,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				false => decode_static_indexed_header_block(first_byte, observed_size, state, block, offset)
 			end
 			_ => match first_byte >= 190
-				true => match observed_size == 1
-					true => decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
-					false => unsupported(block, offset)
-				end
+				true => decode_dynamic_indexed_header_block(first_byte, observed_size, state, block, offset)
 				false => match first_byte == 0
 					true => decode_raw_name_literal_header_block(LiteralWithoutIndexing, observed_size, state, block, offset)
 					false => match first_byte > 0 and first_byte < 16
