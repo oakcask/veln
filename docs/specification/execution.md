@@ -32,6 +32,9 @@ enough.
   multi-cycle routing case accepts more than one production stream from one
   listener and preserves repeated read, route, ordered write, close, and clean
   listener-end observations without exposing socket handles to handlers.
+  Forced production read failure on the multi-chunk routing path stops after
+  production accept and before later routing, response writes, stream close,
+  or clean listener end.
 
 ## Binary Schemas
 

@@ -39,7 +39,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   adapter lifecycle and outcome boundary, explicit listener-close boundary,
   adapter-owned cancellation owner lifecycle boundary, and production
   owner-drain cancellable deadline lifecycle boundary, production
-  two-stream multi-cycle routing boundary, the
+  two-stream multi-cycle routing boundary, production multi-chunk routing
+  read-failure boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -381,7 +382,10 @@ each read chunk into an ordinary `StreamInput.Chunk`, routes those values
 through an existing channel to a pure handler, observes clean end as
 `StreamInput.End`, and projects only ordered `SendBytes` actions back to the
 stream through `net::write_chunks`. The adapter owns `net` and `concurrency`;
-the handler receives no `NetStream` and calls no transport functions.
+the handler receives no `NetStream` and calls no transport functions. A
+matching read-failure case forces the same multi-chunk adapter path to fail as
+a runtime transport failure after production accept and before any chunk
+routing, response writes, stream close, or clean listener end is recorded.
 
 Implemented production two-stream multi-cycle routing slice: an executable
 specification case accepts two deterministic production-loopback streams from
@@ -455,7 +459,7 @@ as implemented in
 
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
-including runtime and static effect-boundary evidence.
+including runtime success, read-failure, and static effect-boundary evidence.
 
 The production two-stream multi-cycle routing slice is recorded as implemented
 in
