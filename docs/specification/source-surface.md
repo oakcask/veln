@@ -32,8 +32,9 @@ only when every field is `Int`, `Bool`, `Float`, `String`, top-level
 `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
 `Dict<String, String>`, a nested record shape made from scalar,
 `List<scalar>`, `Option<scalar>`, `Option<List<scalar>>`,
-`Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types, or
-`Option<T>` where `T` is a scalar, `List<scalar>`,
+`Option<Dict<String, scalar>>`, `Dict<String, scalar>`, or
+`Result<scalar, scalar>` field types, `Result<Ok, Err>` where both payloads
+are scalars, or `Option<T>` where `T` is a scalar, `List<scalar>`,
 `Dict<String, scalar>`, or one of those nested record shapes.
 Unsupported format-neutral helper fields are declaration diagnostics.
 When present, the single `format binary` clause must appear before schema
@@ -92,6 +93,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-decode/`,
 `examples/specification/run/format-neutral-schema-option-list-decode/`,
 `examples/specification/run/format-neutral-schema-nested-option-list-decode/`,
+`examples/specification/run/format-neutral-schema-result-decode/`,
 and
 `examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`.
 Schema-level `map to` clauses, selected
