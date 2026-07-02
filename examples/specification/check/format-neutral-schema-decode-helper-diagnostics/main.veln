@@ -12,8 +12,8 @@ schema BadPacket
 	result_bad_dict_key: Result<Dict<Int, Int>, String>
 	result_local: Result<LocalPayload, String>
 	result_callback: Result<Int, fn(Int) -> String>
-	result_vec: Result<Vec<Int>, String>
-	vec_items: Vec<Int>
+	unsupported_callback_vec: Vec<fn(Int) -> String>
+	nested_unsupported_vec: {callbacks: Vec<fn(Int) -> String>}
 	local_payload: LocalPayload
 	callback: fn(Int) -> String
 	metadata: {payload: LocalPayload, callback: fn(Int) -> String}

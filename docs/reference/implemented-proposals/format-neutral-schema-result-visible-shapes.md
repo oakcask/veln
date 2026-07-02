@@ -24,7 +24,9 @@ The slice did not add general support for source-declared ADTs, function
 values, `Vec<T>`, unsupported named types, or dictionaries with non-string
 keys. Later work accepts same-module and public imported source ADTs when their
 constructor payloads are recursive visible shapes, as recorded in
-[Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
+[Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md),
+and accepts `Vec<T>` when its element is a recursive visible shape, as recorded
+in [Format-Neutral Schema Vec Helpers](format-neutral-schema-vec-helpers.md).
 
 ## Evidence
 
@@ -35,7 +37,7 @@ constructor payloads are recursive visible shapes, as recorded in
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported adjacent result payload shapes, including
   non-string dictionary keys, unsupported source ADT payloads, callbacks, and
-  `Vec<T>`.
+  unsupported `Vec<T>` element shapes.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for recursive result payloads and
   rejection of non-visible result payloads.

@@ -15,14 +15,13 @@ public imported source ADT types referenced through written `use` paths whose
 constructor payloads are recursive format-neutral visible shapes. Source ADT
 fields are accepted anywhere other recursive visible shapes are accepted:
 top-level schema fields, anonymous record fields, `Option<T>`, `List<T>`,
-`Dict<String, T>`, and `Result<Ok, Err>` payloads.
+`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>` payloads.
 
 The helper remains a schema-local visible record pass-through boundary. It
 accepts and returns the record shape containing the source ADT values.
-Unsupported ADT payloads, function types, `Vec<T>`, non-string dictionary
-keys, unresolved types, private imported source ADTs, missing paths, and
-non-ADT targets keep the `schema.format_neutral_decode_helper` diagnostic
-family.
+Unsupported ADT payloads, function types, non-string dictionary keys,
+unresolved types, private imported source ADTs, missing paths, and non-ADT
+targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
 

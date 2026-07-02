@@ -238,6 +238,8 @@ behavior.
   [format-neutral-schema-recursive-container-helpers.md](format-neutral-schema-recursive-container-helpers.md).
 - Format-neutral schema source ADT helpers:
   [format-neutral-schema-source-adt-helpers.md](format-neutral-schema-source-adt-helpers.md).
+- Format-neutral schema vec helpers:
+  [format-neutral-schema-vec-helpers.md](format-neutral-schema-vec-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

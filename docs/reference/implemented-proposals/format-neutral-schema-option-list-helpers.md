@@ -18,9 +18,11 @@ over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
 The slice did not add recursive container eligibility. Nested record fields
-were completed by the later nested option-list slice, and broader container
-recursion was completed by the recursive container helper slice. `Vec<T>` and
-binary schema helper behavior remain outside this slice.
+were completed by the later nested option-list slice, broader container
+recursion was completed by the recursive container helper slice, and `Vec<T>`
+support was completed by
+[Format-Neutral Schema Vec Helpers](format-neutral-schema-vec-helpers.md).
+Binary schema helper behavior remains outside this slice.
 
 ## Evidence
 

@@ -28,7 +28,7 @@ Top-level `schema Name` and `pub schema Name` declarations are source module
 items. A schema body may omit its `format` clause when every field uses
 format-neutral type text. Format-neutral generated decode helpers are exposed
 only when every field is a recursive format-neutral visible shape made from
-scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
+scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, `Vec<T>`, and
 `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
 recursive format-neutral visible shapes. Same-module source ADT fields and
 public imported source ADT fields referenced through written `use` paths are
@@ -99,6 +99,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-recursive-containers-decode/`,
 `examples/specification/run/format-neutral-schema-result-decode/`,
 `examples/specification/run/format-neutral-schema-source-adt-decode/`,
+`examples/specification/check/format-neutral-schema-vec-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics/`,
 and

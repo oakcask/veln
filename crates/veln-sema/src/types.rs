@@ -3078,16 +3078,20 @@ fn format_neutral_schema_visible_shape_type_for_schema(
     stack: &mut Vec<(Option<String>, String, usize)>,
 ) -> Option<Type> {
     match ty {
-        Type::Named { name, args } if name == "List" && args.len() == 1 => Some(Type::named(
-            "List",
-            vec![format_neutral_schema_visible_shape_type_for_schema(
-                module,
-                current_module,
-                adts,
-                &args[0],
-                stack,
-            )?],
-        )),
+        Type::Named { name, args }
+            if matches!(name.as_str(), "List" | "Vec") && args.len() == 1 =>
+        {
+            Some(Type::named(
+                name.clone(),
+                vec![format_neutral_schema_visible_shape_type_for_schema(
+                    module,
+                    current_module,
+                    adts,
+                    &args[0],
+                    stack,
+                )?],
+            ))
+        }
         Type::Named { name, args } if name == "Option" && args.len() == 1 => Some(Type::named(
             "Option",
             vec![format_neutral_schema_visible_shape_type_for_schema(

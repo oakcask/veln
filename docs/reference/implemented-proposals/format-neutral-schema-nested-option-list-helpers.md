@@ -18,9 +18,11 @@ boundary over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
 The slice did not add arbitrary recursive container eligibility. Broader
-container recursion was completed by the recursive container helper slice.
-`Vec<T>`, non-string-keyed dictionaries, and binary schema helper behavior
-remain outside this slice.
+container recursion was completed by the recursive container helper slice, and
+`Vec<T>` support was completed by
+[Format-Neutral Schema Vec Helpers](format-neutral-schema-vec-helpers.md).
+Non-string-keyed dictionaries and binary schema helper behavior remain outside
+this slice.
 
 ## Evidence
 

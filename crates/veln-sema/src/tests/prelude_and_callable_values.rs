@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
-const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
+const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -378,7 +378,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
         concat!(
             "schema BadPacket\n",
             "  code: Int\n",
-            "  items: Vec<Int>\n",
+            "  callbacks: Vec<fn(Int) -> String>\n",
             "end\n",
         ),
     );
@@ -394,7 +394,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types
     assert_eq!(
         diagnostic.message,
         format!(
-            "format-neutral schema field `items` cannot expose a generated decode helper because `Vec<Int>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            "format-neutral schema field `callbacks` cannot expose a generated decode helper because `Vec<fn(Int) -> String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
         )
     );
     assert!(diagnostic.related.iter().any(|related| {
@@ -454,7 +454,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payl
             "schema BadPacket\n",
             "  result_bad_dict_key: Result<Dict<Int, Int>, String>\n",
             "  result_callback: Result<Int, fn(Int) -> String>\n",
-            "  result_vec: Result<Vec<Int>, String>\n",
+            "  result_vec: Result<Vec<fn(Int) -> String>, String>\n",
             "  metadata: {payload: Result<LocalPayload, String>, callback: Result<Int, fn(Int) -> String>}\n",
             "end\n",
         ),
@@ -479,7 +479,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payl
                 "format-neutral schema field `result_callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
-                "format-neutral schema field `result_vec` cannot expose a generated decode helper because `Result<Vec<Int>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+                "format-neutral schema field `result_vec` cannot expose a generated decode helper because `Result<Vec<fn(Int) -> String>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
                 "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ payload : Result<LocalPayload, String>, callback : Result<Int, fn(Int) -> String> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
@@ -498,7 +498,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_source_adts_with_unsupp
             "end\n",
             "\n",
             "type VecPayload\n",
-            "  VecPayload(items: Vec<Int>)\n",
+            "  VecPayload(items: Vec<fn(Int) -> String>)\n",
             "end\n",
             "\n",
             "schema BadPacket\n",
@@ -544,6 +544,32 @@ fn generated_format_neutral_schema_decode_helpers_accept_lists_inside_record_fie
             "end\n",
             "\n",
             "pub fn main(packet: {metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}) -> Result<{metadata: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}}, String>\n",
+            "  byte_decode_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    assert_eq!(ir.schema_decoders[0].schema_name, "Packet");
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_accept_vecs_recursively() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  items: Vec<Int>\n",
+            "  metadata: {items: Vec<Option<String>>, results: Result<Vec<Int>, Vec<String>>}\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {items: Vec<Int>, metadata: {items: Vec<Option<String>>, results: Result<Vec<Int>, Vec<String>>}}) -> Result<{items: Vec<Int>, metadata: {items: Vec<Option<String>>, results: Result<Vec<Int>, Vec<String>>}}, String>\n",
             "  byte_decode_packet(packet)\n",
             "end\n",
         ),

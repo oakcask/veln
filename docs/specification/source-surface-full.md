@@ -33,7 +33,7 @@ record at that field.
 Format-neutral schemas reject binary-only primitive vocabulary in dispatch
 payload positions. Format-neutral generated decode helpers are limited to
 recursive visible shapes made from scalar leaves, anonymous record fields,
-`Option<T>`, `List<T>`, `Dict<String, T>`, and `Result<Ok, Err>` when both
+`Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>` when both
 payloads are recursive visible shapes. Same-module source ADTs and public
 imported source ADTs referenced through written `use` paths are supported in
 those positions when every constructor payload is a recursive visible shape.
