@@ -423,6 +423,12 @@ When a `veln run` entry returns a source-visible
 - `actual_payload_length`: the actual payload length number when the id is
   `codec.payload_length_mismatch` and the source-visible reason carries
   payload length mismatch fields
+- `expected_padding_length`: the expected padding length number when the id is
+  `codec.padding_mismatch` and the source-visible reason carries padding
+  mismatch fields
+- `actual_padding_length`: the actual padding length number when the id is
+  `codec.padding_mismatch` and the source-visible reason carries padding
+  mismatch fields
 - `byte_width`: the integer byte width number when the id is
   `codec.integer_out_of_range` and the source-visible reason carries integer
   range fields
@@ -503,6 +509,14 @@ only `reason` and do not invent payload length facts. The checked direct
 result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-payload-length-mismatch-direct-json/` and
 `examples/specification/run/codec-payload-length-mismatch-step-json/`.
+For `codec.padding_mismatch`, a source-visible reason written as
+`expected_padding_length=<n>; actual_padding_length=<n>; reason=<text>` is
+projected as separate numeric `expected_padding_length`, numeric
+`actual_padding_length`, and `reason` fields. Plain reason strings still keep
+only `reason` and do not invent padding facts. The checked direct result and
+`DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-padding-mismatch-direct-json/` and
+`examples/specification/run/codec-padding-mismatch-step-json/`.
 For `codec.integer_out_of_range`, a source-visible reason written as
 `byte_width=<n>; min_value=<n>; max_value=<n>; actual_value=<n>; reason=<text>`
 is projected as separate numeric `byte_width`, `min_value`, `max_value`,

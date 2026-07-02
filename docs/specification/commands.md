@@ -155,6 +155,15 @@ requiring the full command reference on the first read.
   `examples/specification/run/codec-payload-length-mismatch-direct-human/`
   and
   `examples/specification/run/codec-payload-length-mismatch-step-human/`.
+  Codec-owned padding mismatch failures with id `codec.padding_mismatch` use
+  `padding mismatch at byte offset ...` as the primary human message and put
+  field path, expected padding length, actual padding length, failure reason,
+  and the source-visible `DecodeError` value in related notes when the
+  source-visible reason uses the narrow
+  `expected_padding_length=<n>; actual_padding_length=<n>; reason=<text>`
+  form; the checked direct result and `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-padding-mismatch-direct-human/` and
+  `examples/specification/run/codec-padding-mismatch-step-human/`.
   Codec-owned integer range failures with id `codec.integer_out_of_range`
   use `integer out of range at byte offset ...` as the primary human message
   and put field path, byte width, expected integer range, actual decoded

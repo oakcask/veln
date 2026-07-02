@@ -165,6 +165,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPayloadLengthMismatch));
 
+        Object paddingMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.padding_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(24) }),
+                "Packet.padding",
+                "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(paddingMismatch));
+
+        Object plainPaddingMismatch = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.padding_mismatch",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(25) }),
+                "Packet.padding",
+                "plain padding mismatch"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainPaddingMismatch));
+
         Object integerOutOfRange = VelnRuntime.adt(
             "DecodeError::DecodeErrorWithReason",
             new Object[] {
@@ -1773,6 +1795,33 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_payload_length_line.contains("\texpected_payload_length\t"));
     assert!(!plain_payload_length_line.contains("\tactual_payload_length\t"));
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.padding_mismatch\t24\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\texpected_padding_length\tnumber\t2"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\tactual_padding_length\tnumber\t5"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t444154412070616464696e6720646964206e6f74206d61746368207061796c6f616420626f756e64617279"),
+        "{trace}"
+    );
+    let plain_padding_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.padding_mismatch\t25\t"))
+        .expect("plain padding mismatch should be recorded");
+    assert!(
+        plain_padding_line
+            .contains("\treason\tstring\t706c61696e2070616464696e67206d69736d61746368"),
+        "{plain_padding_line}"
+    );
+    assert!(!plain_padding_line.contains("\texpected_padding_length\t"));
+    assert!(!plain_padding_line.contains("\tactual_padding_length\t"));
     let integer_range_line = trace
         .lines()
         .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.integer_out_of_range\t17\t"))

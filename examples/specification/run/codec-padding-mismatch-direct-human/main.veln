@@ -1,0 +1,17 @@
+# Direct padding mismatch decode failures render focused human diagnostics.
+
+schema ManualPacketWire
+	format binary
+
+	length: UInt16be
+	payload: ByteView(length)
+	padding: ByteView(2)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.padding_mismatch", offset(24), "ManualPacketWire.padding", "expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary"))
+end
