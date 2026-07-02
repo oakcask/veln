@@ -897,8 +897,9 @@ fixture encoder boundary, outbound table-size behavior beyond the checked
 fixture encoder update and reduced-capacity insertion boundaries, and
 production header validation beyond ordinary request,
 response,
-and trailer header-name shape, the source-visible `te` value rule, request
-and response `content-length` decoded header values, and the fixture-marked
+and trailer header-name shape, the source-visible `te` value rule, the
+source-visible response `:status` value shape, request and response
+`content-length` decoded header values, and the fixture-marked
 `content-length` consistency rule.
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
@@ -908,8 +909,8 @@ current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-content-length-header-validation.md`:
 the HTTP/2 core validates request and response header lists after HPACK
 fixture decode, and validates the completed source-visible HPACK static-name
-literal request `:scheme` slice, on completed HEADERS and final CONTINUATION
-paths.
+literal request `:scheme` and response `:status` slices, on completed HEADERS
+and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
@@ -928,7 +929,11 @@ rejects missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,
 uppercase ordinary header names, and ordinary header names outside the HTTP
 field-name token shape through
-`http2.protocol.invalid_response_header_list`.
+`http2.protocol.invalid_response_header_list`. Response validation also
+rejects fixture-marked and source-visible HPACK static-name literal `:status`
+values that are empty, too short, too long, or contain a non-decimal
+character with failed fact `status_value_invalid` on completed HEADERS and
+final CONTINUATION paths.
 Both request and response validation accept `te: trailers` and reject any
 other fixture-marked `te` value through the same request or response
 header-list diagnostic with failed fact `te_header_value_not_trailers`. They

@@ -837,9 +837,12 @@ checked projections cover a missing required `:status`, duplicate
 `:status`, request-only pseudo-headers, and a response pseudo-header after a
 regular header, an uppercase ordinary header name, and an ordinary header
 name outside the HTTP field-name token shape, plus invalid `te` value human
-output and invalid and mismatched `content-length` values; the larger
-protocol-core fixture also checks `:authority` as request-only and checks
-completed HEADERS and final CONTINUATION paths. The focused response
+output and invalid and mismatched `content-length` values. The larger
+protocol-core fixture also checks `:authority` as request-only, and rejects
+empty, short, long, and non-decimal `:status` values with
+`status_value_invalid` after fixture decode and source-visible HPACK
+static-name literal decode on completed HEADERS and final CONTINUATION paths.
+The focused response
 header-list human and JSON examples return source-visible
 `RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
