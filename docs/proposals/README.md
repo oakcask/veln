@@ -91,8 +91,9 @@ compare it with `../specification/` before changing behavior.
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
-  lookup, and explicit schema operations resolve imported public schema aliases
-  through the aliased schema helper boundary. The completed
+  lookup, explicit schema operations resolve imported public schema aliases
+  through the aliased schema helper boundary, and the HTTP/2 frame-header
+  boundary decodes through explicit schema operations. The completed
   documentation-comment schema reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
   The completed direct nested binary schema decode binding slice is archived
@@ -165,8 +166,8 @@ compare it with `../specification/` before changing behavior.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
-  `ReservedBits(width, value)` declarations, generated `Http2FrameHeaderWire`
-  helper decode used by the HTTP/2 protocol-core frame-header path,
+  `ReservedBits(width, value)` declarations, explicit `Http2FrameHeaderWire`
+  decode used by the HTTP/2 protocol-core frame-header path,
   width-sample primitive decode, `UInt16le`, `UInt24le`,
   `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
   little-endian primitive decode and encode, `UInt40be` five-byte,

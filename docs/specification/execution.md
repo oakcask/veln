@@ -49,7 +49,16 @@ enough.
   `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count
   and diagnostic offset accounting, returning `DecodeStep<T>` for the
   schema-local visible record shape. Public schema aliases lower through the
-  same generated boundary as the aliased schema.
+  same generated boundary as the aliased schema. The HTTP/2 frame header
+  schema exposes the visible record fields `length`, `kind`, `flags`, and
+  `stream_id` through this path; its representation-only reserved bit is
+  omitted from the decoded record and still reports
+  `schema.reserved_bits_mismatch` at `Http2FrameHeaderWire.stream_reserved`
+  when set. When bounded input ends at a field boundary before the next field
+  starts, explicit decode returns `NeedMore(NeedBytes(total_schema_width))`;
+  when bounded input ends after at least one byte of the current field has
+  been consumed, explicit decode returns `Invalid(DecodeError(...))` with
+  `schema.truncated_field`, the field path, and the explicit base offset.
 - Explicit schema encode expressions lower to the generated encode boundary
   for the referenced eligible binary schema. They typecheck the supplied value
   against the schema-local visible record shape and return

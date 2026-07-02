@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.truncated_field]: truncated schema field at byte offset 6", "note: pending readiness is `need_bytes` because input is closed.", "note: Schema field expected 4 byte(s); 1 byte(s) were available.", "note: Nearby bytes: 00 00 05 01 04 00 (showing 6 of 6 byte(s), complete).", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_id`."]
+contains = ["error[schema.truncated_field]: decode error at byte offset 6", "note: Field path: schema `Http2FrameHeaderWire` / field `stream_id`.", "note: DecodeError value: DecodeError(schema.truncated_field, ByteOffset(6), Http2FrameHeaderWire.stream_id)."]

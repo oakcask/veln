@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "first decoded value 258 consumed 2 pending 2 base 102 suffix16 772\nsecond decoded value 772 consumed 2 pending 0 base 104\nwaiting need_more expected 2 consumed 0 pending 1 base 200 first8 5\n"
+equals = "first decoded value 258 consumed 2 pending 2 base 102 suffix16 772\nsecond decoded value 772 consumed 2 pending 0 base 104\nwaiting schema.truncated_field expected 0 consumed 0 pending 1 base 200 first8 5\n"
 
 [[json_assert]]
 path = "error"

@@ -158,6 +158,15 @@ fn emit_need_bytes(count: ByteCount) -> () effects [stdio]
 	stdio::println(" consumed 0")
 end
 
+fn emit_invalid_decode(id: String, offset: ByteOffset, path: String) -> () effects [stdio]
+	stdio::print("invalid ")
+	stdio::print(id)
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_offset_to_int(offset)))
+	stdio::print(" ")
+	stdio::println(path)
+end
+
 fn emit_invalid_encode(id: String, path: String, reason: String) -> () effects [stdio]
 	stdio::print("invalid ")
 	stdio::print(id)
@@ -191,7 +200,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 		NeedMore(NeedBytes(count)) => emit_need_bytes(count)
 		NeedMore(NeedEnd) => stdio::println("need_more need_end 0 consumed 0")
 		Decoded(_, _) => stdio::println("unexpected short decode")
-		Invalid(_) => stdio::println("unexpected short decode failure")
+		Invalid(DecodeError(id, offset, path)) => emit_invalid_decode(id, offset, path)
+		Invalid(DecodeErrorWithReason(id, offset, path, _)) => emit_invalid_decode(id, offset, path)
 	end
 
 	let samples: List<Int> = list_cons(258, list_cons(772, list_nil()))

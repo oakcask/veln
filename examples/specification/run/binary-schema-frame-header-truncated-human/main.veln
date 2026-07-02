@@ -1,4 +1,4 @@
-# Generated binary schema frame-header decode reports human context for a truncated field.
+# Explicit binary schema frame-header decode reports human context for a truncated field.
 schema Http2FrameHeaderWire
 	format binary
 
@@ -9,11 +9,17 @@ schema Http2FrameHeaderWire
 	stream_id: UInt31be
 end
 
-pub fn main() -> Result<(), String>
+fn invalid_step() -> Result<DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}>, String>
 	let bytes: ByteChunk = byte_chunk_from_hex("000005010400")?
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(6)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let ignored: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
-	Ok(())
+	Ok(decode Http2FrameHeaderWire from view at offset)
+end
+
+pub fn main() -> DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}>
+	match invalid_step()
+		Ok(step) => step
+		Err(_) => NeedMore(NeedEnd)
+	end
 end

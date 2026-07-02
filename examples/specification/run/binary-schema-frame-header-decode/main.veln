@@ -1,4 +1,4 @@
-# Generated binary schema frame-header helpers decode mapped Int fields.
+# Explicit binary schema frame-header operations decode mapped Int fields.
 use stdio
 
 schema Http2FrameHeaderWire
@@ -9,6 +9,22 @@ schema Http2FrameHeaderWire
 	flags: UInt8
 	stream_reserved: ReservedBits(1, 0)
 	stream_id: UInt31be
+end
+
+fn decoded_header(step: DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}>) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
+	match step
+		Decoded(header, _) => Ok(header)
+		NeedMore(_) => Err("unexpected incomplete frame header")
+		Invalid(_) => Err("unexpected invalid frame header")
+	end
+end
+
+fn consumed_count(step: DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
 end
 
 fn emit_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> () effects [stdio]
@@ -26,7 +42,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header_wire(view)?
+	let step: DecodeStep<{length: Int, kind: Int, flags: Int, stream_id: Int}> = decode Http2FrameHeaderWire from view at offset
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = decoded_header(step)?
 	emit_header(header)
+	stdio::println(int_to_string(consumed_count(step)))
 	Ok(())
 end

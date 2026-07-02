@@ -82,8 +82,14 @@ record shape for eligible binary schemas and returns
 when the imported schema or public schema alias is visible. The
 executable coverage is
 `examples/specification/run/schema-decode-expression/` and
-`examples/specification/run/schema-encode-expression/`; encode expression
-diagnostics are checked by
+`examples/specification/run/schema-encode-expression/`. The HTTP/2 frame
+header schema boundary is checked through explicit decode operations under
+`examples/specification/run/binary-schema-frame-header-decode/`,
+`examples/specification/run/binary-schema-frame-header-reserved-human/`,
+`examples/specification/run/binary-schema-frame-header-reserved-json/`,
+`examples/specification/run/binary-schema-frame-header-truncated-human/`, and
+`examples/specification/run/binary-schema-frame-header-truncated-json/`.
+Encode expression diagnostics are checked by
 `examples/specification/check/schema-encode-expression-diagnostics/` and
 runtime value failures by
 `examples/specification/run/schema-encode-expression-unrepresentable-human/`

@@ -52,6 +52,9 @@ The implemented first slice covers:
 - explicit schema decode and encode expressions that resolve imported public
   schema aliases through the same eligible binary helper boundary as the
   aliased public schema
+- HTTP/2 frame-header decoding through explicit schema operation expressions,
+  preserving the visible `length`, `kind`, `flags`, and `stream_id` record
+  fields while keeping the reserved stream-id bit representation-only
 - executable field-local validation helper slices that decode binary schema
   fields in declaration order and evaluate supported `where` predicates after
   the owning field is decoded
@@ -423,5 +426,3 @@ Remaining:
   direct nested binary schema, bounded repeat, length-bounded `ByteView`,
   closed dispatch, extension dispatch, and recursive format-neutral
   visible-shape helper boundary.
-- The HTTP/2 design driver can express its full frame header boundary without
-  placeholder text syntax.
