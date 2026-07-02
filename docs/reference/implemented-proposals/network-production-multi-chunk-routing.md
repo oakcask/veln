@@ -8,6 +8,7 @@ behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`,
+`../../../examples/specification/run/socket-stream-adapter-production-multi-event-task-context/case.toml`,
 `../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-read-failure-json/case.toml`,
 and
 `../../../examples/specification/check/socket-stream-adapter-production-multi-chunk-routing-effects/case.toml`.
@@ -32,6 +33,14 @@ effect case rejects adapter entry points that omit either `net` or
 adds no effect label, socket handle type, service interface, or HTTP protocol
 behavior.
 
+A companion run case strengthens the same slice by routing each accepted
+stream event through the channel boundary and then through
+`task::spawn_with<Result, Context>`. The context carries adapter-owned route
+and trace metadata plus a sequence value. The checked output confirms that two
+chunk events and the clean-end event preserve the same trace identity, ordered
+sequences, ordered `net::write_chunks` projection, stream close, and clean
+listener end.
+
 The matching read-failure case configures the same multi-chunk production
 input path and forces `net::read_chunk_or_end` to fail. The failure remains a
 runtime transport failure owned by the adapter boundary. The recorded event
@@ -50,7 +59,8 @@ slices.
 - Auditing why production multi-chunk stream event routing is no longer active
   proposal work.
 - Checking completion evidence before changing production transport chunk
-  routing, forced read-failure ordering, or ordered response projection.
+  routing, task-context trace propagation, forced read-failure ordering, or
+  ordered response projection.
 
 ## Skip Unless Needed
 

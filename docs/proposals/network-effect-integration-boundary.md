@@ -40,7 +40,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   adapter-owned cancellation owner lifecycle boundary, and production
   owner-drain cancellable deadline lifecycle boundary, production
   two-stream multi-cycle routing boundary, production multi-chunk routing
-  read-failure boundary, the
+  read-failure boundary, production multi-event task-context routing boundary,
+  the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -383,9 +384,13 @@ through an existing channel to a pure handler, observes clean end as
 `StreamInput.End`, and projects only ordered `SendBytes` actions back to the
 stream through `net::write_chunks`. The adapter owns `net` and `concurrency`;
 the handler receives no `NetStream` and calls no transport functions. A
-matching read-failure case forces the same multi-chunk adapter path to fail as
-a runtime transport failure after production accept and before any chunk
-routing, response writes, stream close, or clean listener end is recorded.
+companion task-context case routes each accepted stream event through the same
+channel boundary and then through `task::spawn_with<Result, Context>`, carrying
+adapter-owned route and trace metadata while preserving event sequence before
+ordered `net::write_chunks` projection. A matching read-failure case forces
+the same multi-chunk adapter path to fail as a runtime transport failure after
+production accept and before any chunk routing, response writes, stream close,
+or clean listener end is recorded.
 
 Implemented production two-stream multi-cycle routing slice: an executable
 specification case accepts two deterministic production-loopback streams from
@@ -459,7 +464,8 @@ as implemented in
 
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
-including runtime success, read-failure, and static effect-boundary evidence.
+including runtime success, task-context trace/order, read-failure, and static
+effect-boundary evidence.
 
 The production two-stream multi-cycle routing slice is recorded as implemented
 in
@@ -646,8 +652,8 @@ standard-library surface.
   two-receiver cancellable timeout-result selection, and receiver-list
   cancellable channel-first stream routing, deadline-aware accepted-stream
   lifecycle, cancellable accepted-stream lifecycle,
-  cancellable deadline-aware accepted-stream lifecycle, context-based spawned
-  handler task and adapter-level cancellable stream routing;
+  cancellable deadline-aware accepted-stream lifecycle, and adapter-level
+  cancellable stream routing;
   remaining examples still need richer production socket APIs. Deadline and
   cancellation behavior is complete for this proposal at the current relative
   and absolute monotonic `Deadline`, `CancelToken`, cancellation status-query,

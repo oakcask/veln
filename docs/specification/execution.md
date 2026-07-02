@@ -29,6 +29,9 @@ enough.
   work outside pure protocol code. Production-loopback cases can preserve more
   than one configured read chunk for one accepted stream; each chunk is
   observed by source as a separate read result before clean end. The
+  multi-event task-context routing case preserves adapter-owned trace identity
+  and event sequence while routing those source-visible stream events through
+  channel and task boundaries before ordered chunk-list writes. The
   multi-cycle routing case accepts more than one production stream from one
   listener and preserves repeated read, route, ordered write, close, and clean
   listener-end observations without exposing socket handles to handlers.

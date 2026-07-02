@@ -1,0 +1,159 @@
+# Production loopback adapter routes repeated stream events through task context.
+use stdio
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	Ignore
+end
+
+fn handle_stream_context(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } } effects [concurrency]
+	match context.input
+		Chunk(bytes) => { action: SendBytes(bytes), next_state: { chunks: context.state.chunks + 1, ended: context.state.ended }, event_kind: "chunk", byte_count: byte_count_to_int(byte_chunk_count(bytes)), route: context.route, trace: context.trace }
+		End => { action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace }
+	end
+end
+
+fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
+	let _ = channel::send(route.tx, input)
+	match channel::recv(route.rx)
+		Some(value) => value
+		None => End
+	end
+end
+
+fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
+	match net::read_chunk_or_end(stream)
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+end
+
+fn handle_routed_input(input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } } effects [concurrency]
+	let context = { input: input, state: state, route: route, trace: trace }
+	let worker = task::spawn_with<{ action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }, { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }>(handle_stream_context, context)
+	match task::join(worker)
+		Ok(value) => value
+		Err(_) => { action: Ignore, next_state: state, event_kind: "join-failed", byte_count: 0, route: route, trace: trace }
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => 1 + write_count(tail)
+			EndStream => write_count(tail)
+			Ignore => write_count(tail)
+		end
+	end
+end
+
+fn end_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => end_count(tail)
+			EndStream => 1 + end_count(tail)
+			Ignore => end_count(tail)
+		end
+	end
+end
+
+fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
+	match actions
+		Nil => list_nil()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => list_cons(bytes, ordered_send_chunks(tail))
+			EndStream => ordered_send_chunks(tail)
+			Ignore => ordered_send_chunks(tail)
+		end
+	end
+end
+
+fn summary_from_result(result: { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String }
+	{ actions: list_cons(result.action, list_nil()), next_state: result.next_state, routed_events: 1, total_bytes: result.byte_count, first_sequence: result.trace.sequence, last_sequence: result.trace.sequence, trace_id: result.trace.trace_id, route_stream: result.route.stream, route_lane: result.route.lane }
+end
+
+fn append_summary(result: { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }, tail: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String }
+	{ actions: list_cons(result.action, tail.actions), next_state: tail.next_state, routed_events: 1 + tail.routed_events, total_bytes: result.byte_count + tail.total_bytes, first_sequence: result.trace.sequence, last_sequence: tail.last_sequence, trace_id: result.trace.trace_id, route_stream: result.route.stream, route_lane: result.route.lane }
+end
+
+fn collect_until_end(stream: NetStream, channel_route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, adapter_route: { stream : String, lane : String }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String } effects [net, concurrency]
+	let input = route_input(channel_route, read_stream_input(stream))
+	let result = handle_routed_input(input, state, adapter_route, { trace_id: "trace-prod", sequence: state.chunks + 1 })
+	match input
+		Chunk(_) => append_summary(result, collect_until_end(stream, channel_route, adapter_route, result.next_state))
+		End => summary_from_result(result)
+	end
+end
+
+fn collect_stream_actions(stream: NetStream, adapter_route: { stream : String, lane : String }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String } effects [net, concurrency]
+	let channel_route = channel::bounded<StreamInput>(1)
+	collect_until_end(stream, channel_route, adapter_route, { chunks: 0, ended: false })
+end
+
+fn accepted_lifecycle(stream: NetStream, adapter_route: { stream : String, lane : String }) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String }, String> effects [net, concurrency]
+	let summary = collect_stream_actions(stream, adapter_route)
+	net::write_chunks(stream, ordered_send_chunks(summary.actions))
+	net::close_stream(stream)
+	Ok(summary)
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let summary: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String } = accepted_lifecycle(stream, { stream: "production-stream", lane: "ingress" })?
+	let clean_end: Bool = listener_ended(listener)
+	stdio::print("events ")
+	stdio::print(int_to_string(summary.routed_events))
+	stdio::print(" chunks ")
+	stdio::print(int_to_string(summary.next_state.chunks))
+	stdio::print(" bytes ")
+	stdio::print(int_to_string(summary.total_bytes))
+	stdio::print(" first-seq ")
+	stdio::print(int_to_string(summary.first_sequence))
+	stdio::print(" last-seq ")
+	stdio::print(int_to_string(summary.last_sequence))
+	stdio::print(" trace ")
+	stdio::print(summary.trace_id)
+	stdio::print(" route ")
+	stdio::print(summary.route_stream)
+	stdio::print("/")
+	stdio::print(summary.route_lane)
+	stdio::print(" writes ")
+	stdio::print(int_to_string(write_count(summary.actions)))
+	stdio::print(" end-actions ")
+	stdio::print(int_to_string(end_count(summary.actions)))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end

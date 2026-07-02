@@ -624,8 +624,8 @@ compare it with `../specification/` before changing behavior.
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
   The completed production multi-chunk event routing slice is archived under
   [Network Production Multi-Chunk Routing](../reference/implemented-proposals/network-production-multi-chunk-routing.md).
-  The same record includes the completed production multi-chunk read-failure
-  runtime boundary.
+  The same record includes the completed production multi-event task-context
+  routing evidence and production multi-chunk read-failure runtime boundary.
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).
