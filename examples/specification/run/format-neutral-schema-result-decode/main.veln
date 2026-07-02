@@ -1,4 +1,4 @@
-# Format-neutral schema decode helpers accept Result<scalar, scalar> fields.
+# Format-neutral schema decode helpers accept Result fields with recursive visible payloads.
 use stdio
 
 schema ResultPacket
@@ -6,10 +6,13 @@ schema ResultPacket
 	enabled: Result<Bool, String>
 	ratio: Result<Float, String>
 	label: Result<String, Int>
+	result_items: Result<List<Int>, String>
+	result_labels: Result<Int, Dict<String, String>>
+	optional_items: Option<Result<List<Int>, String>>
 end
 
 schema NestedResultPacket
-	metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}
+	metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}
 end
 
 fn result_int_text(result: Result<Int, String>) -> String
@@ -46,21 +49,60 @@ fn result_string_text(result: Result<String, Int>) -> String
 	end
 end
 
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn result_list_text(result: Result<List<Int>, String>) -> String
+	match result
+		Ok(items) => int_to_string(list_sum(items))
+		Err(message) => message
+	end
+end
+
+fn result_dict_text(result: Result<Int, Dict<String, String>>) -> String
+	match result
+		Ok(value) => int_to_string(value)
+		Err(labels) => match dict_get(labels, "owner")
+			Some(owner) => owner
+			None => "missing-owner"
+		end
+	end
+end
+
+fn optional_result_list_text(result: Option<Result<List<Int>, String>>) -> String
+	match result
+		Some(items) => result_list_text(items)
+		None => "missing-option"
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
-	let top_ok: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = byte_decode_result_packet({status: Ok(7), enabled: Ok(true), ratio: Ok(1.25), label: Ok("alpha")})?
-	let top_err: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = byte_decode_result_packet({status: Err("blocked"), enabled: Err("unknown"), ratio: Err("missing-ratio"), label: Err(404)})?
-	let nested: {metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}} = byte_decode_nested_result_packet({metadata: {status: Ok(11), enabled: Ok(false), ratio: Ok(0.75), label: Err(503)}})?
+	let top_ok: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>} = byte_decode_result_packet({status: Ok(7), enabled: Ok(true), ratio: Ok(1.25), label: Ok("alpha"), result_items: Ok(list_cons(2, list_cons(3, list_cons(5, list_nil())))), result_labels: Ok(19), optional_items: Some(Ok(list_cons(11, list_cons(13, list_nil()))))})?
+	let top_err: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>} = byte_decode_result_packet({status: Err("blocked"), enabled: Err("unknown"), ratio: Err("missing-ratio"), label: Err(404), result_items: Err("missing-items"), result_labels: Err({"owner": "core"}), optional_items: None})?
+	let nested: {metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}} = byte_decode_nested_result_packet({metadata: {status: Ok(11), enabled: Ok(false), ratio: Ok(0.75), label: Err(503), result_items: Ok(list_cons(17, list_cons(19, list_nil()))), result_labels: Err({"owner": "nested-core"})}})?
 	stdio::println(result_int_text(top_ok.status))
 	stdio::println(result_bool_text(top_ok.enabled))
 	stdio::println(result_float_text(top_ok.ratio))
 	stdio::println(result_string_text(top_ok.label))
+	stdio::println(result_list_text(top_ok.result_items))
+	stdio::println(result_dict_text(top_ok.result_labels))
+	stdio::println(optional_result_list_text(top_ok.optional_items))
 	stdio::println(result_int_text(top_err.status))
 	stdio::println(result_bool_text(top_err.enabled))
 	stdio::println(result_float_text(top_err.ratio))
 	stdio::println(result_string_text(top_err.label))
+	stdio::println(result_list_text(top_err.result_items))
+	stdio::println(result_dict_text(top_err.result_labels))
+	stdio::println(optional_result_list_text(top_err.optional_items))
 	stdio::println(result_int_text(nested.metadata.status))
 	stdio::println(result_bool_text(nested.metadata.enabled))
 	stdio::println(result_float_text(nested.metadata.ratio))
 	stdio::println(result_string_text(nested.metadata.label))
+	stdio::println(result_list_text(nested.metadata.result_items))
+	stdio::println(result_dict_text(nested.metadata.result_labels))
 	Ok(())
 end

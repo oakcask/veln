@@ -889,9 +889,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
     let schema_name = schema.name.as_deref().unwrap_or("<missing>");
-    let supported = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<scalar, scalar>";
+    let supported = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<recursive visible shape, recursive visible shape>";
     let boundary_message = format!(
-        "Generated format-neutral decode helpers for schema `{schema_name}` accept recursive visible shapes made from scalar leaves, anonymous record fields, Option<T>, List<T>, and Dict<String, T>; Result<Ok, Err> remains limited to scalar payloads."
+        "Generated format-neutral decode helpers for schema `{schema_name}` accept recursive visible shapes made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, and Result<Ok, Err> when both payloads are recursive visible shapes."
     );
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_decode_helper",

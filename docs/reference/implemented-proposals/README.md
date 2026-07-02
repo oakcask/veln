@@ -220,6 +220,8 @@ behavior.
   [format-neutral-schema-option-dict-helpers.md](format-neutral-schema-option-dict-helpers.md).
 - Format-neutral schema result helpers:
   [format-neutral-schema-result-helpers.md](format-neutral-schema-result-helpers.md).
+- Format-neutral schema recursive result visible-shape helpers:
+  [format-neutral-schema-result-visible-shapes.md](format-neutral-schema-result-visible-shapes.md).
 - Format-neutral schema top-level list helpers:
   [format-neutral-schema-list-helpers.md](format-neutral-schema-list-helpers.md).
 - Format-neutral schema nested record list helpers:

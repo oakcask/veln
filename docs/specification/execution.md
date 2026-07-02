@@ -52,8 +52,8 @@ enough.
   `Result<T, String>`. The helper returns the supplied record on success and
   is limited to recursive format-neutral visible shapes made from scalar
   leaves, anonymous record fields, `Option<T>`, `List<T>`, and
-  `Dict<String, T>`. `Result<Ok, Err>` remains supported only when both
-  payloads are scalars.
+  `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
+  recursive format-neutral visible shapes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

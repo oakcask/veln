@@ -82,8 +82,8 @@ compare it with `../specification/` before changing behavior.
   schema helpers, derived encode boundary support, format-neutral schema bodies
   without a `format` clause, generated format-neutral decode helpers for
   recursive visible shapes made from scalar leaves, anonymous record fields,
-  `Option<T>`, `List<T>`, and `Dict<String, T>`, plus supported
-  `Result<scalar, scalar>` fields, plus
+  `Option<T>`, `List<T>`, `Dict<String, T>`, and supported recursive
+  `Result<Ok, Err>` visible-shape fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -105,6 +105,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Result<scalar, scalar>` helper slice is
   archived under
   [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
+  The completed format-neutral recursive `Result` visible-shape helper slice
+  is archived under
+  [Format-Neutral Schema Result Visible Shapes](../reference/implemented-proposals/format-neutral-schema-result-visible-shapes.md).
   The completed format-neutral top-level list helper slice is archived under
   [Format-Neutral Schema List Helpers](../reference/implemented-proposals/format-neutral-schema-list-helpers.md).
   The completed format-neutral nested record list helper slice is archived

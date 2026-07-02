@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "7\nenabled\nratio-high\nalpha\nblocked\nunknown\nmissing-ratio\n404\n11\ndisabled\nratio-low\n503\n"
+equals = "7\nenabled\nratio-high\nalpha\n10\n19\n24\nblocked\nunknown\nmissing-ratio\n404\nmissing-items\ncore\nmissing-option\n11\ndisabled\nratio-low\n503\n36\nnested-core\n"
 
 [[json_assert]]
 path = "error"

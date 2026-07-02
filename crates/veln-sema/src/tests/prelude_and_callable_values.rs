@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
-const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<scalar, scalar>";
+const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<recursive visible shape, recursive visible shape>";
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -250,7 +250,7 @@ fn generated_format_neutral_schema_decode_helpers_accept_recursive_containers() 
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_accept_result_scalars() {
+fn generated_format_neutral_schema_decode_helpers_accept_recursive_result_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -259,10 +259,13 @@ fn generated_format_neutral_schema_decode_helpers_accept_result_scalars() {
             "  enabled: Result<Bool, String>\n",
             "  ratio: Result<Float, String>\n",
             "  label: Result<String, Int>\n",
-            "  metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}\n",
+            "  result_items: Result<List<Int>, String>\n",
+            "  result_labels: Result<Int, Dict<String, String>>\n",
+            "  optional_items: Option<Result<List<Int>, String>>\n",
+            "  metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}}) -> Result<{status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}}, String>\n",
+            "pub fn main(packet: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>, metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}}) -> Result<{status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>, optional_items: Option<Result<List<Int>, String>>, metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>, result_items: Result<List<Int>, String>, result_labels: Result<Int, Dict<String, String>>}}, String>\n",
             "  byte_decode_packet(packet)\n",
             "end\n",
         ),
@@ -350,14 +353,20 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_dict_shapes
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_reject_unsupported_result_payloads() {
+fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
+            "type LocalPayload\n",
+            "  LocalPayload(value: Int)\n",
+            "end\n",
+            "\n",
             "schema BadPacket\n",
-            "  result_items: Result<List<Int>, String>\n",
-            "  result_labels: Result<Int, Dict<String, String>>\n",
-            "  metadata: {items: Result<List<Int>, String>, labels: Result<Int, Dict<String, String>>}\n",
+            "  result_bad_dict_key: Result<Dict<Int, Int>, String>\n",
+            "  result_local: Result<LocalPayload, String>\n",
+            "  result_callback: Result<Int, fn(Int) -> String>\n",
+            "  result_vec: Result<Vec<Int>, String>\n",
+            "  metadata: {payload: Result<LocalPayload, String>, callback: Result<Int, fn(Int) -> String>}\n",
             "end\n",
         ),
     );
@@ -375,13 +384,19 @@ fn generated_format_neutral_schema_decode_helpers_reject_unsupported_result_payl
         messages,
         vec![
             format!(
-                "format-neutral schema field `result_items` cannot expose a generated decode helper because `Result<List<Int>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+                "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper because `Result<Dict<Int, Int>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
-                "format-neutral schema field `result_labels` cannot expose a generated decode helper because `Result<Int, Dict<String, String>>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+                "format-neutral schema field `result_local` cannot expose a generated decode helper because `Result<LocalPayload, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
-                "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ items : Result<List<Int>, String>, labels : Result<Int, Dict<String, String>> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+                "format-neutral schema field `result_callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            ),
+            format!(
+                "format-neutral schema field `result_vec` cannot expose a generated decode helper because `Result<Vec<Int>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            ),
+            format!(
+                "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ payload : Result<LocalPayload, String>, callback : Result<Int, fn(Int) -> String> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
         ]
     );

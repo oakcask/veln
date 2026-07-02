@@ -29,9 +29,9 @@ items. A schema body may omit its `format` clause when every field uses
 format-neutral type text. Format-neutral generated decode helpers are exposed
 only when every field is a recursive format-neutral visible shape made from
 scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
-`Dict<String, T>`. `Result<Ok, Err>` remains a supported boundary only when
-both payloads are scalars. Unsupported format-neutral helper fields are
-declaration diagnostics.
+`Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
+recursive format-neutral visible shapes. Unsupported format-neutral helper
+fields are declaration diagnostics.
 When present, the single `format binary` clause must appear before schema
 fields.
 
