@@ -43,7 +43,10 @@ when fixture dynamic-table state must be updated.
 Static-table boundary failures remain focused: static-only header blocks whose
 bytes name no static-table entry fail with `hpack.static.unsupported_index`,
 including the checked standalone source-visible boundary for static table
-index `62`.
+index `62`. Static-name raw literal values that decode to non-visible bytes
+now fail before fixture fallback with the same
+`hpack.fixture.malformed_raw_string_value` id and HPACK fixture detail shape,
+but with `hpack_static` as the decoder module.
 
 The later static-name Huffman literal promotion is recorded separately in
 [http2-hpack-static-name-huffman-literals.md](http2-hpack-static-name-huffman-literals.md).
@@ -74,8 +77,11 @@ block size, first byte, expected static header description, decoder module
   later dynamic-table reuse, non-decimal `content-length` request and response
   validation, accepted request `:scheme` static-name literal values, rejected
   request `:scheme` static-name literal values across the three static-name
-  literal forms and final CONTINUATION completion, and the focused unsupported
-  static-index failure through the protocol core.
+  literal forms and final CONTINUATION completion, a printed accepted
+  literal-without-indexing `:scheme: https` request HEADERS block, a focused
+  non-visible raw literal value failure owned by the source-visible static
+  decoder, and the focused unsupported static-index failure through the
+  protocol core.
 - `../../../examples/specification/run/hpack-static-core-index-unsupported-human/`
   checks the human diagnostic projection for
   `hpack.static.unsupported_index`.

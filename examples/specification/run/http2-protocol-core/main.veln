@@ -10376,6 +10376,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
 	let ignored_hpack_static_request_continuation: () = emit_header_block("http2-hpack-static-request-continuation", hpack_static_request_continuation_done, "828784")?
 	print_hpack_static_transition("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
+	let hpack_static_request_scheme_https: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001820605687474707384")?), state)?
+	print_step("hpack-static-request-scheme-https", hpack_static_request_scheme_https)
+	let ignored_hpack_static_request_scheme_https: () = emit_header_block("http2-hpack-static-request-scheme-https", hpack_static_request_scheme_https, "820605687474707384")?
+	print_hpack_static_transition("hpack-static-request-scheme-https", hpack_static_request_scheme_https)
 	let ignored_hpack_static_request_scheme_validation: () = require_hpack_static_request_scheme_validation(state)?
 	let hpack_static_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?
 	print_step("hpack-static-response-headers", hpack_static_response_headers)
@@ -10472,6 +10476,8 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_request_header_failure("hpack-static-request-content-length-never-indexed-invalid", hpack_static_request_content_length_never_indexed_invalid)
 	let hpack_static_unsupported_index: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000180")?), state)?
 	print_failure("hpack-static-unsupported-index", hpack_static_unsupported_index)
+	let hpack_static_literal_non_visible: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010103611f62")?), state)?
+	print_failure("hpack-static-literal-non-visible", hpack_static_literal_non_visible)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000011102030405")?), state)?
 	print_step("header-list-start", header_list_start)
 	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009090400000001060708090a0b0c0d0e")?), step_state(header_list_start))?

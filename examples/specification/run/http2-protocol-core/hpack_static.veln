@@ -3,6 +3,7 @@ use hpack_fixture
 pub type HpackStaticFailure
 	NotStaticHeaderBlock(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 	UnsupportedStaticIndex(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	MalformedRawStringValue(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 end
 
 fn hpack_static_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
@@ -176,6 +177,10 @@ fn hpack_static_not_static_string(block: ByteChunk, offset: Int) -> Result<Strin
 	Err(NotStaticHeaderBlock(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "HPACK static indexed header block", "hpack_static", block))
 end
 
+fn hpack_static_malformed_raw_string_value(block: ByteChunk, offset: Int) -> Result<String, HpackStaticFailure>
+	Err(MalformedRawStringValue(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "fixture HPACK raw string value", "hpack_static", block))
+end
+
 fn hpack_static_literal_without_indexing_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = hpack_static_byte_at_or_missing(block, 0)
 	match first_byte
@@ -243,7 +248,7 @@ fn hpack_static_literal_raw_value(block: ByteChunk, count: Int, value_index: Int
 							Ok(value_count) => match byte_take(value_suffix, value_count)
 								Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
 									Ok(value) => Ok(value)
-									Err(_) => hpack_static_not_static_string(block, offset)
+									Err(_) => hpack_static_malformed_raw_string_value(block, offset)
 								end
 								Err(_) => hpack_static_not_static_string(block, offset)
 							end
@@ -271,7 +276,7 @@ fn hpack_static_literal_raw_value_until(block: ByteChunk, end_index: Int, value_
 							Ok(value_count) => match byte_take(value_suffix, value_count)
 								Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
 									Ok(value) => Ok(value)
-									Err(_) => hpack_static_not_static_string(block, offset)
+									Err(_) => hpack_static_malformed_raw_string_value(block, offset)
 								end
 								Err(_) => hpack_static_not_static_string(block, offset)
 							end
@@ -450,6 +455,7 @@ pub fn hpack_static_failure_is_not_static(failure: HpackStaticFailure) -> Bool
 	match failure
 		NotStaticHeaderBlock(_, _, _, _, _, _) => true
 		UnsupportedStaticIndex(_, _, _, _, _, _) => false
+		MalformedRawStringValue(_, _, _, _, _, _) => false
 	end
 end
 
@@ -457,6 +463,7 @@ pub fn hpack_static_failure_offset(failure: HpackStaticFailure) -> Int
 	match failure
 		NotStaticHeaderBlock(offset, _, _, _, _, _) => offset
 		UnsupportedStaticIndex(offset, _, _, _, _, _) => offset
+		MalformedRawStringValue(offset, _, _, _, _, _) => offset
 	end
 end
 
@@ -464,6 +471,7 @@ pub fn hpack_static_failure_observed_size(failure: HpackStaticFailure) -> Int
 	match failure
 		NotStaticHeaderBlock(_, size, _, _, _, _) => size
 		UnsupportedStaticIndex(_, size, _, _, _, _) => size
+		MalformedRawStringValue(_, size, _, _, _, _) => size
 	end
 end
 
@@ -471,6 +479,7 @@ pub fn hpack_static_failure_observed_first_byte(failure: HpackStaticFailure) -> 
 	match failure
 		NotStaticHeaderBlock(_, _, first_byte, _, _, _) => first_byte
 		UnsupportedStaticIndex(_, _, first_byte, _, _, _) => first_byte
+		MalformedRawStringValue(_, _, first_byte, _, _, _) => first_byte
 	end
 end
 
@@ -478,6 +487,7 @@ pub fn hpack_static_failure_expected_header(failure: HpackStaticFailure) -> Stri
 	match failure
 		NotStaticHeaderBlock(_, _, _, expected_header, _, _) => expected_header
 		UnsupportedStaticIndex(_, _, _, expected_header, _, _) => expected_header
+		MalformedRawStringValue(_, _, _, expected_header, _, _) => expected_header
 	end
 end
 
@@ -485,6 +495,7 @@ pub fn hpack_static_failure_decoder_module(failure: HpackStaticFailure) -> Strin
 	match failure
 		NotStaticHeaderBlock(_, _, _, _, decoder_module, _) => decoder_module
 		UnsupportedStaticIndex(_, _, _, _, decoder_module, _) => decoder_module
+		MalformedRawStringValue(_, _, _, _, decoder_module, _) => decoder_module
 	end
 end
 
@@ -492,5 +503,6 @@ pub fn hpack_static_failure_preview(failure: HpackStaticFailure) -> ByteChunk
 	match failure
 		NotStaticHeaderBlock(_, _, _, _, _, preview) => preview
 		UnsupportedStaticIndex(_, _, _, _, _, preview) => preview
+		MalformedRawStringValue(_, _, _, _, _, preview) => preview
 	end
 end
