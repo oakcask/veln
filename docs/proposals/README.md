@@ -487,7 +487,7 @@ compare it with `../specification/` before changing behavior.
   saturated seven-bit indexed representation `0xff 0x00`, plus the
   source-visible HPACK dynamic-table accounting core for the entry-size
   formula, newest-first insertion, table-size reduction, insertion-caused
-  eviction, and over-limit insertion,
+  eviction, over-limit insertion, and zero-size table reduction,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

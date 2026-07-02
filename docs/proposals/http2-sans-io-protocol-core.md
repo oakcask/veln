@@ -897,12 +897,15 @@ and
 The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
 table state in ordinary Veln values.
-The remaining HPACK work in this proposal starts after that fixture boundary:
+The remaining HPACK work in this proposal starts after the fixture boundary
+and the source-visible static decoder boundary archived under
+[HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md):
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal, outbound behavior beyond the checked
-fixture encoder boundary, outbound table-size behavior beyond the checked
-fixture encoder update and reduced-capacity insertion boundaries, and
-production header validation beyond ordinary request,
+the checked fixture string literal and bounded source-visible static-name
+literals, outbound behavior beyond the checked fixture encoder boundary,
+outbound table-size behavior beyond the checked fixture encoder update and
+reduced-capacity insertion boundaries, and production header validation beyond
+ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, the
 source-visible response `:status` value shape, request and response
@@ -1058,34 +1061,15 @@ integers through `hpack.fixture.table_size_update_malformed`. The completed
 trailing-byte slice reports saturated-prefix table-size update integers that
 successfully parse and leave trailing header-block bytes through
 `hpack.fixture.table_size_update_trailing_bytes`.
-The source-visible HPACK static decoder also accepts the `content-length`
-static-table name in literal-without-indexing, literal-with-indexing, and
-literal-never-indexed request header blocks after static request
-pseudo-headers, and response header blocks after a static response `:status`
-pseudo-header, when no later fixture dynamic-table reuse is observed and the
-raw value is an accepted visible ASCII decimal string. The decoded value feeds
-the existing matching request or response header-list validation and
-content-length body-accounting paths, while non-decimal visible values are
-rejected by the existing matching header-list validation diagnostic. Current
-behavior is specified by `../specification/run-json.md` and checked by
-`../../examples/specification/run/http2-protocol-core/`.
-The standalone source-visible HPACK static boundary also accepts bounded
-literal-without-indexing, literal-with-indexing, and literal-never-indexed
-fields for names resolved through the HPACK static table metadata when their
-values are raw single-byte-length visible ASCII strings or bounded
-Huffman-marked literal values decoded by scanning the HPACK static Huffman
-table, including line feed, single-byte `hpack-byte-*` labels, and multi-byte
-`hpack-bytes-*` labels in the standalone static boundary. Unsupported
-Huffman-marked values and malformed raw lengths stay on the unsupported
-static header-block fallback path.
-Stateful HTTP/2 header-block decoding keeps
-literal-with-indexing on the fixture decoder when dynamic-table state must be
-updated. Current behavior is checked by
-`../../examples/specification/run/hpack-static-codec-boundary/` and archived
-under
-[HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md)
+Completed source-visible HPACK static decode slices are archived under
+[HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md)
 and
-[HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
+[HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
+Those records cover static-name literal-without-indexing request and response
+header-list validation, focused malformed raw literal value diagnostics, and
+the standalone static-name literal boundary. Stateful HTTP/2 header-block
+decoding still keeps literal-with-indexing on the fixture decoder when
+dynamic-table state must be updated.
 The narrow source-visible dynamic indexed HPACK core slice is also current
 behavior: `hpack_dynamic_core` accepts indexed bytes against multiple carried
 bounded dynamic-table entries, accepts saturated seven-bit indexed
@@ -1097,7 +1081,7 @@ now exposes the dynamic-table accounting core: dynamic entry size is
 header-name byte count plus header-value byte count plus `32`; entries insert
 newest-first into immutable states; oldest entries are evicted after insertion
 or table-size reduction; and inserting an entry larger than the supplied
-table-size limit clears the carried table.
+table-size limit, or reducing the table size to zero, clears the carried table.
 The completed slices are checked by
 `../../examples/specification/run/hpack-fixture-codec-boundary/` and archived
 under

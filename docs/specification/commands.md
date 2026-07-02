@@ -254,7 +254,8 @@ requiring the full command reference on the first read.
   byte asks past the carried table without advancing state. It also checks
   source-visible HPACK dynamic-table accounting helpers for entry-size
   calculation, newest-first insertion, retained older entries, table-size
-  reduction eviction, insertion-caused eviction, and over-limit insertion.
+  reduction eviction including a zero-size table, insertion-caused eviction,
+  and over-limit insertion.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

@@ -20,11 +20,13 @@ table-size reduction.
 
 When a table-size reduction leaves room for only the newest retained entry, the
 next dynamic indexed read still resolves that newest entry while the next older
-index reports the focused dynamic-index out-of-range fact. When insertion of a
-new entry would exceed the supplied table-size limit, the new entry is retained
-and older entries are evicted oldest-first until the table fits. When the
-inserted entry itself is larger than the supplied limit, the carried dynamic
-table becomes empty.
+index reports the focused dynamic-index out-of-range fact. Reducing the table
+to zero entries empties the carried table, and later dynamic-index reads still
+report the focused out-of-range fact. When insertion of a new entry would
+exceed the supplied table-size limit, the new entry is retained and older
+entries are evicted oldest-first until the table fits. When the inserted entry
+itself is larger than the supplied limit, the carried dynamic table becomes
+empty.
 
 This remains a bounded source-visible accounting core. It does not add full
 HPACK string decoding, Huffman behavior, integer parsing beyond the existing
@@ -36,7 +38,7 @@ compression, or unbounded dynamic-table behavior.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the `:path: /target` entry size, accepted insertion into a bounded table,
   retained newest and older entries, table-size reduction eviction,
-  insertion-caused eviction, and over-limit insertion.
+  zero-size reduction, insertion-caused eviction, and over-limit insertion.
 - The same case keeps the existing dynamic indexed decode evidence for
   multiple carried bounded entries, saturated seven-bit indexed representation,
   decode-count advancement, and focused dynamic-index lookup failures.
