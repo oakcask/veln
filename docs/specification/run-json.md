@@ -652,6 +652,11 @@ table-size update requests use the same result boundary: an accepted update
 returns a fixture encode state that later HEADERS and `PUSH_PROMISE` encodes
 consume before frame splitting, while an over-limit update remains a typed
 HPACK fixture encode failure and produces no HTTP/2 output chunk list.
+The aggregate HEADERS path also checks reduced-capacity insertion: after a
+table-size update to `30`, a later literal-with-indexing `:method: PUT` block
+is emitted as a literal again on the next encode because it does not fit the
+current fixture table, while a table-size update to `42` lets the same entry
+fit and be reused as `0xbe` on the following HEADERS encode.
 Received peer `SETTINGS_HEADER_TABLE_SIZE` values provide the outbound HPACK
 fixture capacity for those update requests without changing the local inbound
 HPACK table-size receive limit.

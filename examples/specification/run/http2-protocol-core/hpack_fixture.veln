@@ -390,6 +390,10 @@ pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-with-indexing"), 9)
 end
 
+pub fn outbound_literal_indexed_method_put_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "PUT"), HpackHeader(":fixture", "literal-with-indexing"), 5)
+end
+
 pub fn outbound_literal_never_indexed_ordinary_x_never_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("x-never", "no"), HpackHeader(":fixture", "literal-never-indexed"), 12)
 end

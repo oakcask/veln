@@ -883,6 +883,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-name-continuation-diagnostics.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
 and
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`.
@@ -892,9 +893,9 @@ table state in ordinary Veln values.
 The remaining HPACK work in this proposal starts after that fixture boundary:
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal, outbound behavior beyond the checked
-fixture encoder boundary, outbound table-size behavior beyond
-the checked fixture encoder update boundary, and production header validation
-beyond ordinary request,
+fixture encoder boundary, outbound table-size behavior beyond the checked
+fixture encoder update and reduced-capacity insertion boundaries, and
+production header validation beyond ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, request
 and response `content-length` decoded header values, and the fixture-marked
@@ -1001,6 +1002,10 @@ requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
 encode failures before emitting header-block bytes. The checked
+reduced-capacity eviction slice emits `:method: PUT` as a literal again after
+a table-size update to `30`, because it does not fit that table, and reuses
+the same entry as `0xbe` after a table-size update to `42`, because it exactly
+fits that table. The checked
 protocol-core example now derives that outbound HPACK fixture capacity from
 received peer `SETTINGS_HEADER_TABLE_SIZE` frames: lower accepted peer limits
 drive smaller later outbound updates and prevent dynamic-index reuse while

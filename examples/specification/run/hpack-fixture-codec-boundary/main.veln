@@ -406,6 +406,12 @@ fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
 	let _ = print_encode_transition_failure("encode-literal-invalid-name", encode_header_list_with_state(outbound_literal_invalid_name_headers(), initial_encode, 128))?
 	let reduced_state: HpackFixtureState = print_encode_transition("encode-table-size-update-30", encode_table_size_update_with_state(30, 4096, dynamic_state, 123), "3e")?
 	let ignored_reduced_literal_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30", encode_header_list_with_state(literal_headers, reduced_state, 124), "44072f746172676574")?
+	let method_put_headers: HpackHeaderList = outbound_literal_indexed_method_put_headers()
+	let reduced_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put", encode_header_list_with_state(method_put_headers, reduced_state, 140), "4203505554")?
+	let ignored_reduced_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put-again", encode_header_list_with_state(method_put_headers, reduced_method_state, 141), "4203505554")?
+	let retained_update_state: HpackFixtureState = print_encode_transition("encode-table-size-update-42", encode_table_size_update_with_state(42, 4096, dynamic_state, 142), "3f0b")?
+	let retained_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-42-method-put", encode_header_list_with_state(method_put_headers, retained_update_state, 143), "4203505554")?
+	let ignored_retained_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-42-method-put-again", encode_header_list_with_state(method_put_headers, retained_method_state, 144), "be")?
 	let ignored_update_160_state: HpackFixtureState = print_encode_transition("encode-table-size-update-160", encode_table_size_update_with_state(160, 4096, initial_encode_state(), 125), "3f8101")?
 	let _ = print_encode_transition_failure("encode-table-size-update-over-peer-limit", encode_table_size_update_with_state(33, 32, initial_encode_state(), 126))?
 	Ok(())

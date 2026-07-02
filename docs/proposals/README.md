@@ -457,7 +457,8 @@ compare it with `../specification/` before changing behavior.
   inbound table-size update placement, malformed-integer, and trailing-byte
   diagnostics, checked outbound
   dynamic table-size update encoding and state handoff into later HEADERS
-  and server-side `PUSH_PROMISE`, received peer
+  and server-side `PUSH_PROMISE`, checked outbound dynamic-table eviction
+  after reduced table-size updates, received peer
   `SETTINGS_HEADER_TABLE_SIZE` values driving later outbound HPACK fixture
   capacity, checked outbound dynamic-name literal-without-indexing and
   literal-with-indexing fixture encoding, and checked outbound `PUSH_PROMISE`
@@ -527,6 +528,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound HPACK Dynamic-Name Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md).
   The completed outbound HPACK fixture encoder slice is archived under
   [HTTP/2 Outbound HPACK Fixture Encoder](../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md).
+  The completed outbound HPACK dynamic-table eviction slice is archived under
+  [HTTP/2 Outbound HPACK Dynamic Table Eviction](../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md).
   The completed outbound `PUSH_PROMISE` peer enable-push setting slice is
   archived under
   [HTTP/2 Outbound PUSH_PROMISE Enable-Push Setting](../reference/implemented-proposals/http2-outbound-push-promise-enable-push-setting.md).

@@ -420,6 +420,8 @@ behavior.
   [http2-hpack-decoder-foundation.md](http2-hpack-decoder-foundation.md).
 - HTTP/2 outbound HPACK fixture encoder:
   [http2-outbound-hpack-fixture-encoder.md](http2-outbound-hpack-fixture-encoder.md).
+- HTTP/2 outbound HPACK dynamic table eviction:
+  [http2-outbound-hpack-dynamic-table-eviction.md](http2-outbound-hpack-dynamic-table-eviction.md).
 - HTTP/2 outbound HPACK dynamic-name literal:
   [http2-outbound-hpack-dynamic-name-literal.md](http2-outbound-hpack-dynamic-name-literal.md).
 - HTTP/2 outbound HPACK dynamic-name indexed literal:
