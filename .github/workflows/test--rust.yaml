@@ -30,8 +30,8 @@ env:
   NEXTEST_SHARDS: "4"
 
 jobs:
-  prebuild:
-    name: prebuild Rust tests
+  seed-cache:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -59,28 +59,14 @@ jobs:
           tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
       - name: Compile Rust tests for nextest
         run: cargo nextest run --locked --workspace --profile ci --no-run
-      - name: Upload prebuilt Rust target for shards
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: prebuilt-rust-target
-          path: target
-          if-no-files-found: error
-          retention-days: 1
       - name: Save cargo-nextest cache
-        if: >-
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/main' &&
-          steps.cargo-nextest-cache.outputs.cache-hit != 'true'
+        if: steps.cargo-nextest-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cargo/bin/cargo-nextest
           key: cargo-nextest-${{ runner.os }}-${{ env.NEXTEST_VERSION }}
       - name: Save Rust build cache
-        if: >-
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/main' &&
-          steps.rust-build-cache.outputs.cache-hit != 'true'
+        if: steps.rust-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
@@ -91,7 +77,6 @@ jobs:
 
   test:
     name: test shard ${{ matrix.shard }}
-    needs: prebuild
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -115,12 +100,6 @@ jobs:
           restore-keys: |
             rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-${{ hashFiles('Cargo.lock') }}-
             rust-build-${{ runner.os }}-nextest-${{ env.NEXTEST_VERSION }}-
-      - name: Download prebuilt Rust target
-        if: github.event_name == 'pull_request'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: prebuilt-rust-target
-          path: target
       - name: Install cargo-nextest
         uses: taiki-e/install-action@16b05812d776ae1dfaabc8277e421fb6d2506419 # v2
         with:
