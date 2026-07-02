@@ -144,7 +144,12 @@ enough.
   `examples/specification/run/http2-protocol-core/` when no later fixture
   dynamic-table reuse is observed. The decoded values feed the same
   header-list validation and content-length body-accounting paths as fixture
-  header lists. Stateful HTTP/2 response decoding also accepts static-indexed
+  header lists. Stateful HTTP/2 request decoding also validates static-name
+  `:scheme` literal values against the same request header-list rule as
+  fixture-marked values, accepting `http` and `https` and rejecting other
+  visible ASCII values with `scheme_value_not_http_or_https` on completed
+  HEADERS and final CONTINUATION paths.
+  Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked
   protocol-core case. Stateful HTTP/2 header-block decoding still routes

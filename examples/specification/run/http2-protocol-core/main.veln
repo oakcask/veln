@@ -7877,6 +7877,43 @@ fn require_request_header_failure_fact(label: String, step: Http2Step, expected_
 	end
 end
 
+fn require_request_header_failure_detail(label: String, step: Http2Step, expected_fact: String, expected_header_name: String, expected_rule: String) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err(label)
+		Waiting(_) => Err(label)
+		Failed(_, failure) => match failure
+			InvalidRequestHeaderList(_, _, _, failed_header_fact, header_name, _, _) => match failed_header_fact == expected_fact and header_name == expected_header_name and request_header_rule_provenance(failed_header_fact) == expected_rule
+				true => Ok(())
+				false => Err(label)
+			end
+			_ => Err(label)
+		end
+	end
+end
+
+fn require_hpack_static_request_scheme_validation(state: Http2DecodeState) -> Result<(), String>
+	let scheme_http: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000018206046874747084")?), state)?
+	let ignored_scheme_http: () = require_frame_decoded("hpack-static-request-scheme-http", scheme_http)?
+	let scheme_https: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001820605687474707384")?), state)?
+	let ignored_scheme_https: () = require_frame_decoded("hpack-static-request-scheme-https", scheme_https)?
+	let scheme_indexed_https: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001824605687474707384")?), state)?
+	let ignored_scheme_indexed_https: () = require_frame_decoded("hpack-static-request-scheme-indexed-https", scheme_indexed_https)?
+	let scheme_never_indexed_http: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000018216046874747084")?), state)?
+	let ignored_scheme_never_indexed_http: () = require_frame_decoded("hpack-static-request-scheme-never-indexed-http", scheme_never_indexed_http)?
+	let scheme_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000701040000000182060366747084")?), state)?
+	let ignored_scheme_invalid: () = require_request_header_failure_detail("hpack-static-request-scheme-invalid", scheme_invalid, "scheme_value_not_http_or_https", ":scheme", "rfc9113_request_scheme")?
+	let scheme_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000701040000000182460366747084")?), state)?
+	let ignored_scheme_indexed_invalid: () = require_request_header_failure_detail("hpack-static-request-scheme-indexed-invalid", scheme_indexed_invalid, "scheme_value_not_http_or_https", ":scheme", "rfc9113_request_scheme")?
+	let scheme_never_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000701040000000182160366747084")?), state)?
+	let ignored_scheme_never_indexed_invalid: () = require_request_header_failure_detail("hpack-static-request-scheme-never-indexed-invalid", scheme_never_indexed_invalid, "scheme_value_not_http_or_https", ":scheme", "rfc9113_request_scheme")?
+	let scheme_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401000000000182060366")?), state)?
+	let scheme_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000001747084")?), step_state(scheme_continuation_start))?
+	let ignored_scheme_continuation_invalid: () = require_request_header_failure_detail("hpack-static-request-scheme-continuation-invalid", scheme_continuation_done, "scheme_value_not_http_or_https", ":scheme", "rfc9113_request_scheme")?
+	let scheme_continuation_accepted_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000018206056874")?), state)?
+	let scheme_continuation_accepted_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000174707384")?), step_state(scheme_continuation_accepted_start))?
+	require_frame_decoded("hpack-static-request-scheme-continuation-https", scheme_continuation_accepted_done)
+end
+
 fn require_production_request_content_length_validation(state: Http2DecodeState) -> Result<(), String>
 	let production_single: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000016768696a")?), state)?
 	let ignored_production_single_decoded: () = require_frame_decoded("production-single", production_single)?
@@ -9933,6 +9970,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
 	let ignored_hpack_static_request_continuation: () = emit_header_block("http2-hpack-static-request-continuation", hpack_static_request_continuation_done, "828784")?
 	print_hpack_static_transition("hpack-static-request-continuation-done", hpack_static_request_continuation_done)
+	let ignored_hpack_static_request_scheme_validation: () = require_hpack_static_request_scheme_validation(state)?
 	let hpack_static_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?
 	print_step("hpack-static-response-headers", hpack_static_response_headers)
 	let ignored_hpack_static_response_headers: () = emit_header_block("http2-hpack-static-response-headers", hpack_static_response_headers, "88")?

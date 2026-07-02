@@ -804,12 +804,18 @@ protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
 accepted `te: trailers`, and accepted `content-length` values. The aggregate
 protocol-core run case also checks source-visible HPACK static-name
-`content-length` literals after static request pseudo-headers and after a
-static response `:status` pseudo-header across the literal-without-indexing,
-literal-with-indexing, and literal-never-indexed forms that do not require
-later fixture dynamic-table reuse; the decoded values feed the same matching
-request or response header-list validation and content-length body accounting
-paths, including rejection of non-decimal values. The focused request
+`:scheme` literals after a static request `:method` and before a static
+request `:path`: decoded values `http` and `https` are accepted, while other
+visible ASCII values use the existing
+`scheme_value_not_http_or_https` request header-list fact across completed
+HEADERS and final CONTINUATION paths. It also checks source-visible HPACK
+static-name `content-length` literals after static request pseudo-headers and
+after a static response `:status` pseudo-header across the
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+forms that do not require later fixture dynamic-table reuse; the decoded
+values feed the same matching request or response header-list validation and
+content-length body accounting paths, including rejection of non-decimal
+values. The focused request
 header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
