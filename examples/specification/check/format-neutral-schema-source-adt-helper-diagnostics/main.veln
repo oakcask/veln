@@ -9,9 +9,13 @@ type VecPayload
 end
 
 schema BadPacket
+	public_imported_payload: wire::WirePayload
 	callback_payload: CallbackPayload
 	optional_vec_payload: Option<VecPayload>
 	bad_dict_payload: Dict<Int, CallbackPayload>
-	imported_payload: wire::WirePayload
+	private_imported_payload: wire::PrivateWirePayload
+	imported_callback_payload: wire::WireCallbackPayload
+	missing_imported_payload: missing::WirePayload
+	imported_schema_target: wire::WireSchema
 	metadata: {payload: CallbackPayload}
 end

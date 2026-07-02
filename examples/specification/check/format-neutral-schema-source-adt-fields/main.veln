@@ -1,4 +1,6 @@
-# Format-neutral schema decode helpers accept same-module source ADT fields.
+# Format-neutral schema decode helpers accept source ADT fields.
+use wire
+
 type Payload
 	Empty
 	Scalar(value: Int)
@@ -7,6 +9,7 @@ end
 
 schema Packet
 	payload: Payload
+	imported_payload: wire::WirePayload
 	nested: {payload: Payload}
 	optional_payload: Option<Payload>
 	payloads: List<Payload>
@@ -14,6 +17,6 @@ schema Packet
 	result_payload: Result<Payload, Payload>
 end
 
-pub fn main(packet: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}) -> Result<{payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}, String>
+pub fn main(packet: {payload: Payload, imported_payload: WirePayload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}) -> Result<{payload: Payload, imported_payload: WirePayload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}, String>
 	byte_decode_packet(packet)
 end

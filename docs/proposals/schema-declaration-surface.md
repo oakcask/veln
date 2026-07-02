@@ -71,9 +71,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
   `List<T>`, `Dict<String, T>`, `Result<Ok, Err>` where both payloads are
-  recursive visible shapes, and same-module source ADTs whose constructor
-  payloads are recursive visible shapes, with declaration diagnostics for
-  unsupported helper field types
+  recursive visible shapes, and same-module or public imported source ADTs
+  whose constructor payloads are recursive visible shapes, with declaration
+  diagnostics for unsupported helper field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -400,10 +400,10 @@ Implemented:
   visible shapes made from scalar leaves, anonymous record fields,
   `Option<T>`, `List<T>`, `Dict<String, T>`, and
   `Result<Ok, Err>` where both payloads are recursive visible shapes, plus
-  same-module source ADTs whose constructor payloads are recursive visible
-  shapes, expose generated
-  `byte_decode_<schema>` helper bindings that accept and return the
-  schema-local visible record through `Result<T, String>`.
+  same-module or public imported source ADTs whose constructor payloads are
+  recursive visible shapes, expose generated `byte_decode_<schema>` helper
+  bindings that accept and return the schema-local visible record through
+  `Result<T, String>`.
   Unsupported format-neutral helper fields report
   `schema.format_neutral_decode_helper` at the field declaration with a
   related note for the generated helper boundary.

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `numeric_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, Int>\"", "format-neutral schema field `optional_scores` cannot expose a generated decode helper", "\"field_type\":\"Option<Dict<Int, Int>>\"", "format-neutral schema field `nested_optional_scores` cannot expose a generated decode helper", "\"field_type\":\"{ scores : Option<Dict<Int, Int>> }\"", "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper", "\"field_type\":\"Result<Dict<Int, Int>, String>\"", "format-neutral schema field `result_callback` cannot expose a generated decode helper", "\"field_type\":\"Result<Int, fn(Int) -> String>\"", "format-neutral schema field `result_vec` cannot expose a generated decode helper", "\"field_type\":\"Result<Vec<Int>, String>\"", "format-neutral schema field `vec_items` cannot expose a generated decode helper", "\"field_type\":\"Vec<Int>\"", "format-neutral schema field `callback` cannot expose a generated decode helper", "\"field_type\":\"fn(Int) -> String\"", "format-neutral schema field `metadata` cannot expose a generated decode helper", "\"field_type\":\"{ payload : LocalPayload, callback : fn(Int) -> String }\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "recursive format-neutral visible shape", "same-module source ADTs whose constructor payloads are recursive visible shapes", "Generated format-neutral decode helpers for schema `BadPacket`"]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "format-neutral schema field `numeric_scores` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, Int>\"", "format-neutral schema field `optional_scores` cannot expose a generated decode helper", "\"field_type\":\"Option<Dict<Int, Int>>\"", "format-neutral schema field `nested_optional_scores` cannot expose a generated decode helper", "\"field_type\":\"{ scores : Option<Dict<Int, Int>> }\"", "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper", "\"field_type\":\"Result<Dict<Int, Int>, String>\"", "format-neutral schema field `result_callback` cannot expose a generated decode helper", "\"field_type\":\"Result<Int, fn(Int) -> String>\"", "format-neutral schema field `result_vec` cannot expose a generated decode helper", "\"field_type\":\"Result<Vec<Int>, String>\"", "format-neutral schema field `vec_items` cannot expose a generated decode helper", "\"field_type\":\"Vec<Int>\"", "format-neutral schema field `callback` cannot expose a generated decode helper", "\"field_type\":\"fn(Int) -> String\"", "format-neutral schema field `metadata` cannot expose a generated decode helper", "\"field_type\":\"{ payload : LocalPayload, callback : fn(Int) -> String }\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "recursive format-neutral visible shape", "same-module or public imported source ADTs whose constructor payloads are recursive visible shapes", "Generated format-neutral decode helpers for schema `BadPacket`"]
 
 [stderr]
 format = "empty"
@@ -20,52 +20,52 @@ equals = 9
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `numeric_scores` cannot expose a generated decode helper because `Dict<Int, Int>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<Int, Int>>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `optional_scores` cannot expose a generated decode helper because `Option<Dict<Int, Int>>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `nested_optional_scores` cannot expose a generated decode helper because `{ scores : Option<Dict<Int, Int>> }` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `nested_optional_scores` cannot expose a generated decode helper because `{ scores : Option<Dict<Int, Int>> }` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper because `Result<Dict<Int, Int>, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper because `Result<Dict<Int, Int>, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `result_callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `result_callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `result_vec` cannot expose a generated decode helper because `Result<Vec<Int>, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `result_vec` cannot expose a generated decode helper because `Result<Vec<Int>, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `vec_items` cannot expose a generated decode helper because `Vec<Int>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `vec_items` cannot expose a generated decode helper because `Vec<Int>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `callback` cannot expose a generated decode helper because `fn(Int) -> String` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `callback` cannot expose a generated decode helper because `fn(Int) -> String` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ payload : LocalPayload, callback : fn(Int) -> String }` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes"
+message = "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ payload : LocalPayload, callback : fn(Int) -> String }` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"

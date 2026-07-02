@@ -1,3 +1,15 @@
 pub type WirePayload
-	WirePayload(value: Int)
+	pub WirePayload(value: Int)
+end
+
+type PrivateWirePayload
+	PrivateWirePayload(value: Int)
+end
+
+pub type WireCallbackPayload
+	pub WireCallbackPayload(callback: fn(Int) -> String)
+end
+
+pub schema WireSchema
+	value: Int
 end

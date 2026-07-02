@@ -86,6 +86,10 @@ impl AdtRegistry {
         Self { descriptors }
     }
 
+    pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {
+        &self.descriptors
+    }
+
     pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
         let Type::Named { name, args } = ty else {
             return None;

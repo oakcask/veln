@@ -1,5 +1,6 @@
 # Format-neutral schema decode helpers preserve source ADT visible shapes.
 use stdio
+use wire
 
 type Payload
 	Empty
@@ -9,6 +10,7 @@ end
 
 schema Packet
 	payload: Payload
+	imported_payload: wire::WirePayload
 	nested: {payload: Payload}
 	optional_payload: Option<Payload>
 	payloads: List<Payload>
@@ -49,6 +51,12 @@ fn payload_score(payload: Payload) -> Int
 	end
 end
 
+fn imported_payload_score(payload: WirePayload) -> Int
+	match payload
+		wire::WirePayload(value) => value
+	end
+end
+
 fn payload_list_score(payloads: List<Payload>) -> Int
 	match payloads
 		Nil => 0
@@ -78,8 +86,9 @@ fn result_payload_text(payload: Result<Payload, Payload>) -> String
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let decoded: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>} = byte_decode_packet({payload: Scalar(7), nested: {payload: Metadata({label: "nested", scores: {"math": list_cons(Some(3), list_cons(None, list_cons(Some(5), list_nil())))}})}, optional_payload: Some(Empty), payloads: list_cons(Scalar(2), list_cons(Metadata({label: "items", scores: {"math": list_cons(Some(11), list_nil())}}), list_nil())), payload_by_name: {"primary": Metadata({label: "named", scores: {"math": list_cons(Some(13), list_cons(Some(17), list_nil()))}})}, result_payload: Ok(Metadata({label: "result", scores: {"math": list_cons(Some(19), list_nil())}}))})?
+	let decoded: {payload: Payload, imported_payload: WirePayload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>} = byte_decode_packet({payload: Scalar(7), imported_payload: wire::WirePayload(23), nested: {payload: Metadata({label: "nested", scores: {"math": list_cons(Some(3), list_cons(None, list_cons(Some(5), list_nil())))}})}, optional_payload: Some(Empty), payloads: list_cons(Scalar(2), list_cons(Metadata({label: "items", scores: {"math": list_cons(Some(11), list_nil())}}), list_nil())), payload_by_name: {"primary": Metadata({label: "named", scores: {"math": list_cons(Some(13), list_cons(Some(17), list_nil()))}})}, result_payload: Ok(Metadata({label: "result", scores: {"math": list_cons(Some(19), list_nil())}}))})?
 	stdio::println(payload_text(decoded.payload))
+	stdio::println(int_to_string(imported_payload_score(decoded.imported_payload)))
 	stdio::println(payload_text(decoded.nested.payload))
 	stdio::println(int_to_string(payload_score(decoded.nested.payload)))
 	stdio::println(optional_payload_text(decoded.optional_payload))
