@@ -208,8 +208,9 @@ enough.
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first
   dynamic entries, evicts oldest entries after insertion or table-size
-  reduction, and clears the table when an inserted entry is larger than the
-  supplied table-size limit. The checked case is
+  reduction including reduction to a zero-size table, and clears the table when
+  an inserted entry is larger than the supplied table-size limit. The checked
+  case is
   `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under

@@ -676,6 +676,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_dynamic_core_transition("dynamic-core-accounting-insert-newest-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_insert_eviction, 124))
 	print_dynamic_core_transition("dynamic-core-accounting-insert-retained-method", hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_accounting_insert_eviction, 125))
 	print_dynamic_core_transition("dynamic-core-accounting-insert-evicted-path", hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_accounting_insert_eviction, 126))
+	let dynamic_core_accounting_zero: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 0)
+	print_dynamic_core_accounting_state("dynamic-core-accounting-zero", dynamic_core_accounting_zero)
+	print_dynamic_core_transition("dynamic-core-accounting-zero-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero, 127))
+	let dynamic_core_accounting_zero_insert: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero, ":method", "PUT")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-insert", dynamic_core_accounting_zero_insert)
 	let dynamic_core_accounting_over_limit: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 30), ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-over-limit", dynamic_core_accounting_over_limit)
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
