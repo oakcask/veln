@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "routed score 1702 chunks 1\ntimed-out score 0 chunks 1\ncancelled score 2017 ended false\n"
+equals = "receiver-list cancellable outcome\nrouted score 1702 chunks 1\ntimed-out score 0 chunks 1\ncancelled score 2017 ended false\n"
 
 [[json_assert]]
 path = "error"

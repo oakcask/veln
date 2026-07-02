@@ -7,6 +7,12 @@ type ResponseAction
 	Decline {stream_id: Int}
 end
 
+type CancellableRouteOutcome
+	Routed {index: Int, value: StreamInput}
+	TimedOut
+	Cancelled
+end
+
 fn handle_stream_input(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	match input
 		Chunk(bytes) => { actions: list_cons(SendBytes(stream_id, bytes), list_nil()), next_state: { chunks: state.chunks + 1, ended: state.ended } }
@@ -22,20 +28,29 @@ fn stream_id_for_index(index: Int) -> Int
 	end
 end
 
-fn handle_selected(selected: { index : Int, value : StreamInput }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
-	handle_stream_input(stream_id_for_index(selected.index), selected.value, state)
+fn route_outcome(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>) -> CancellableRouteOutcome
+	match selected
+		Ok(Some(route)) => Routed(route.index, route.value)
+		Ok(None) => TimedOut
+		Err(_) => Cancelled
+	end
 end
 
-fn handle_selection_result(selected: Result<Option<{ index : Int, value : StreamInput }>, SelectError>, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
-	match selected
-		Ok(Some(route)) => handle_selected(route, state)
-		Ok(None) => { actions: list_cons(Decline(0), list_nil()), next_state: state }
-		Err(_) => { actions: list_cons(CleanupAfterCancel(17), list_nil()), next_state: state }
+fn handle_route_outcome(outcome: CancellableRouteOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	match outcome
+		Routed(index, value) => handle_stream_input(stream_id_for_index(index), value, state)
+		TimedOut => { actions: list_cons(Decline(0), list_nil()), next_state: state }
+		Cancelled => { actions: list_cons(CleanupAfterCancel(17), list_nil()), next_state: state }
 	end
 end
 
 fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
-	handle_selection_result(channel::select_many_timeout_cancellable(receivers, 25, token), state)
+	handle_route_outcome(route_outcome(channel::select_many_timeout_cancellable(receivers, 25, token)), state)
+end
+
+fn socket_route_with_cancellable_channel_first(stream: NetStream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+	let _ = net::read_chunk(stream)
+	route_with_cancellable_channel_first(receivers, state, token)
 end
 
 pub fn handler_boundary(stream_id: Int, input: StreamInput, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
@@ -48,4 +63,8 @@ end
 
 pub fn adapter_missing_concurrency(receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time]
 	route_with_cancellable_channel_first(receivers, state, token)
+end
+
+pub fn socket_adapter_missing_net(stream: NetStream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+	socket_route_with_cancellable_channel_first(stream, receivers, state, token)
 end

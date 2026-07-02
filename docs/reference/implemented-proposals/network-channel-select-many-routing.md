@@ -53,7 +53,10 @@ The completed cancellable timeout-result slice adds
 the same receiver list, priority rule, timeout behavior, and selected result
 shape, plus source-visible `CancelToken` observation. It returns
 `Err(SelectError)` when the token is already cancelled or becomes cancelled
-before a receiver wins.
+before a receiver wins. The adapter-owned helper in the checked
+cancellable channel-first fixture maps the helper result into an ordinary
+source route outcome with routed, timed-out, and cancelled cases before
+producing response actions.
 
 These helpers use the existing `concurrency` effect, and the cancellable
 helper also uses the existing `time` effect. They do not add channel, socket,
@@ -64,12 +67,13 @@ timeout-result, and only then invoke the same pure handler shape used by the
 smaller routing examples. The cancellable channel-first adapter example uses
 the receiver-list helper directly rather than adding another fixed route-count
 fixture, and maps routed, timed-out, and cancelled helper results into
-ordinary adapter action values.
+ordinary adapter completion values and then action values.
 
 The checked effect examples keep the adapter boundary explicit: source that
 owns channel routing declares `concurrency`, and source that owns cancellable
 channel routing declares both `time` and `concurrency`, while the handler
 receives only ordinary stream input and state values and remains effect-free.
+Socket wrappers around the same cancellable helper also declare `net`.
 Missing effects on the adapter path are rejected by static checking.
 
 ## Remaining Work

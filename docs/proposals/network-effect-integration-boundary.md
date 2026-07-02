@@ -85,10 +85,10 @@ checked task slices, and narrow deadline and cancellation slices, for:
   receiver-list timeout-result selection,
   receiver-list cancellable timeout-result selection, two-receiver
   timeout-result selection, two-receiver cancellable timeout-result selection,
-  and receiver-list cancellable channel-first fixture shapes. Additional work
-  should improve routing ownership, lifecycle, cancellation, transport
-  integration, or adapter APIs; adding another same-shaped route-count fixture
-  is not remaining proposal work.
+  and receiver-list cancellable channel-first completion-outcome fixture
+  shapes. Additional work should improve routing ownership, lifecycle,
+  cancellation, transport integration, or adapter APIs; adding another
+  same-shaped route-count fixture is not remaining proposal work.
 - richer per-stream task handling beyond the context-based
   `task::spawn_with<Result, Context>` handler boundary. Additional work should
   improve task ownership, lifecycle, cancellation, or adapter APIs, not add
@@ -572,7 +572,8 @@ values and ordinary response action values for adapter-owned wait decisions.
 The receiver-list cancellable channel-first fixture instead routes ordinary
 `StreamInput` values through `channel::select_many_timeout_cancellable`, then
 maps routed, timed-out, and cancelled selection results into ordinary adapter
-action values without adding another fixed route-count fixture. The
+completion values and then action values without adding another fixed
+route-count fixture. The
 receiver-list cancellable timeout-result helper
 `channel::select_many_timeout_cancellable` combines receiver-list priority,
 timeout, and `CancelToken` observation in one `channel` boundary that returns
@@ -648,21 +649,12 @@ standard-library surface.
   adapter-owned cancellation owner lifecycle, and clean listener end, remains
   current evidence for
   deterministic host-owned loopback streams. Remaining examples still need
-  richer production adapter
-  socket ownership beyond those deterministic loopback lifecycle slices, first
-  fixture-backed listener/stream handles,
-  stream-task handler, clean
+  richer production adapter socket ownership beyond the checked
+  fixture-backed listener/stream handles, stream-task handler, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
-  lifecycle, two-route, three-route, four-route, general receiver-list
-  routing through the current checked boundary, receiver-list timeout,
-  receiver-list timeout-result selection, receiver-list cancellable
-  timeout-result selection, two-receiver timeout-result selection,
-  two-receiver cancellable timeout-result selection, and receiver-list
-  cancellable channel-first stream routing, deadline-aware accepted-stream
-  lifecycle, cancellable accepted-stream lifecycle,
-  cancellable deadline-aware accepted-stream lifecycle, and adapter-level
-  cancellable stream routing;
-  remaining examples still need richer production socket APIs. Deadline and
+  lifecycle, channel-first routing, cancellable routing, accepted-stream
+  lifecycle, and cancellable channel-first completion slices; remaining
+  examples still need richer production socket APIs. Deadline and
   cancellation behavior is complete for this proposal at the current relative
   and absolute monotonic `Deadline`, `CancelToken`, cancellation status-query,
   cancellable wait-outcome, cancellable deadline-aware listener accept, stream
