@@ -182,7 +182,11 @@ enough.
   through completed HEADERS and final CONTINUATION paths in the same checked
   protocol-core case. Stateful HTTP/2 header-block decoding still routes
   literal-with-indexing blocks through the HPACK fixture decoder when fixture
-  dynamic-table state must be updated.
+  dynamic-table state must be updated. The checked receive path inserts a
+  literal-with-indexing `:path: /target` entry, resolves a following `0xbe`
+  dynamic indexed field from the carried fixture table, and preserves the
+  focused dynamic-index failure after the carried table no longer contains a
+  matching entry.
 - The source-visible `hpack_dynamic_core` boundary accepts the checked dynamic
   indexed header-field representation when the caller supplies a bounded
   dynamic table carrying the referenced entries. The checked boundary decodes

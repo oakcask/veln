@@ -128,8 +128,9 @@ covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
   `../../../examples/specification/run/hpack-fixture-dynamic-index-human/`
   check the focused dynamic-index lookup slice: a literal-with-indexing block
   inserts `:path: /target`, a later `0xbe` indexed block reads it through the
-  returned state, and a missing dynamic entry projects the focused
-  dynamic-index diagnostic without relying on full HPACK compression.
+  returned state, and an out-of-range lookup after the bounded table no longer
+  contains that entry projects the focused dynamic-index diagnostic without
+  relying on full HPACK compression.
 - `../../../examples/specification/run/http2-protocol-core/` checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,

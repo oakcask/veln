@@ -44,9 +44,11 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let literal_block: ByteChunk = fixture_bytes("44072f746172676574")?
-	let literal_state: HpackFixtureState = require_state(decode_header_block(literal_block, initial_state(), 9))?
+	let literal_state: HpackFixtureState = require_state(decode_header_block(literal_block, initial_state(), 27))?
 	let dynamic_block: ByteChunk = fixture_bytes("be")?
-	let ignored_dynamic_state: HpackFixtureState = require_header(decode_header_block(dynamic_block, literal_state, 18), ":path", "/target", 2)?
+	let indexed_state: HpackFixtureState = require_header(decode_header_block(dynamic_block, literal_state, 28), ":path", "/target", 2)?
+	let evict_block: ByteChunk = fixture_bytes("3e")?
+	let evicted_state: HpackFixtureState = require_state(decode_header_block(evict_block, indexed_state, 28))?
 	let bad_block: ByteChunk = fixture_bytes("be")?
-	project_decode_result(decode_header_block(bad_block, initial_state(), 27))
+	project_decode_result(decode_header_block(bad_block, evicted_state, 29))
 end
