@@ -9214,6 +9214,43 @@ fn print_outbound_headers_dynamic_name_indexed_cases(outbound_dynamic_encode_sta
 	Ok(())
 end
 
+fn print_outbound_headers_table_size_eviction_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision, outbound_table_size_update_state: HpackFixtureState, outbound_after_table_size_update: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let outbound_reduced_method_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_method_put_headers(), outbound_table_size_update_state, 0)
+	let outbound_reduced_method_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-after-table-size-update-method-put", outbound_reduced_method_encode, "4203505554")?
+	let outbound_reduced_method_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_reduced_method_encode)?
+	let outbound_reduced_method: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_reduced_method_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_after_table_size_update))?
+	print_outbound_headers("outbound-headers-hpack-after-table-size-update-method-put", outbound_reduced_method)
+	let ignored_reduced_method_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-after-table-size-update-method-put", outbound_reduced_method, "0000050104000000014203505554")?
+	let outbound_reduced_method_again_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_method_put_headers(), outbound_reduced_method_state, 0)
+	let outbound_reduced_method_again_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-after-table-size-update-method-put-again", outbound_reduced_method_again_encode, "4203505554")?
+	let outbound_reduced_method_again_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_reduced_method_again_encode)?
+	let outbound_reduced_method_again: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_reduced_method_again_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_reduced_method))?
+	print_outbound_headers("outbound-headers-hpack-after-table-size-update-method-put-again", outbound_reduced_method_again)
+	let ignored_reduced_method_again_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-after-table-size-update-method-put-again", outbound_reduced_method_again, "0000050104000000014203505554")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-after-table-size-update-method-put-again-state", outbound_reduced_method_again_state)
+	let outbound_table_size_update_42_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(42, empty_peer_settings(), outbound_dynamic_encode_state)
+	let outbound_table_size_update_42_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-table-size-update-42", outbound_table_size_update_42_encode, "3f0b")?
+	let outbound_table_size_update_42_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_table_size_update_42_encode)?
+	let outbound_table_size_update_42: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_table_size_update_42_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_dynamic))?
+	print_outbound_headers("outbound-headers-hpack-table-size-update-42", outbound_table_size_update_42)
+	let ignored_headers_hpack_table_size_update_42_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-table-size-update-42", outbound_table_size_update_42, "0000020104000000013f0b")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-table-size-update-42-state", outbound_table_size_update_42_state)
+	let outbound_after_table_size_update_42_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_method_put_headers(), outbound_table_size_update_42_state, 0)
+	let outbound_after_table_size_update_42_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-after-table-size-update-42-method-put", outbound_after_table_size_update_42_encode, "4203505554")?
+	let outbound_after_table_size_update_42_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_after_table_size_update_42_encode)?
+	let outbound_after_table_size_update_42: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_after_table_size_update_42_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_table_size_update_42))?
+	print_outbound_headers("outbound-headers-hpack-after-table-size-update-42-method-put", outbound_after_table_size_update_42)
+	let ignored_headers_hpack_after_table_size_update_42_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-after-table-size-update-42-method-put", outbound_after_table_size_update_42, "0000050104000000014203505554")?
+	let outbound_after_table_size_update_42_again_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_method_put_headers(), outbound_after_table_size_update_42_state, 0)
+	let outbound_after_table_size_update_42_again_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-after-table-size-update-42-method-put-again", outbound_after_table_size_update_42_again_encode, "be")?
+	let outbound_after_table_size_update_42_again_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_after_table_size_update_42_again_encode)?
+	let outbound_after_table_size_update_42_again: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_after_table_size_update_42_again_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_after_table_size_update_42))?
+	print_outbound_headers("outbound-headers-hpack-after-table-size-update-42-method-put-again", outbound_after_table_size_update_42_again)
+	let ignored_headers_hpack_after_table_size_update_42_again_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-after-table-size-update-42-method-put-again", outbound_after_table_size_update_42_again, "000001010400000001be")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-after-table-size-update-42-method-put-again-state", outbound_after_table_size_update_42_again_state)
+	Ok(())
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -9282,6 +9319,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	print_outbound_headers("outbound-headers-hpack-after-table-size-update", outbound_after_table_size_update)
 	let ignored_headers_hpack_after_table_size_update_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-after-table-size-update", outbound_after_table_size_update, "00000901040000000144072f746172676574")?
 	print_outbound_hpack_encode_state("outbound-headers-hpack-after-table-size-update-state", outbound_after_table_size_update_state)
+	let ignored_outbound_table_size_eviction_cases: () = print_outbound_headers_table_size_eviction_cases(outbound_dynamic_encode_state, outbound_headers_hpack_stateful_dynamic, outbound_table_size_update_state, outbound_after_table_size_update)?
 	let outbound_table_size_update_160_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = encode_hpack_table_size_update(160, empty_peer_settings(), hpack_fixture::initial_encode_state())
 	let outbound_table_size_update_160_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-table-size-update-160", outbound_table_size_update_160_encode, "3f8101")?
 	let outbound_table_size_update_160_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_table_size_update_160_encode)?
