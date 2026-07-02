@@ -602,6 +602,9 @@ compare it with `../specification/` before changing behavior.
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
   The completed production multi-chunk event routing slice is archived under
   [Network Production Multi-Chunk Routing](../reference/implemented-proposals/network-production-multi-chunk-routing.md).
+  The completed production two-stream multi-cycle routing slice is archived
+  under
+  [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).
   Deadline and cancellation behavior is complete for this proposal at the
   current relative and absolute monotonic `Deadline`, `CancelToken`,
   cancellation status-query, cancellable wait-outcome, cancellable

@@ -154,7 +154,10 @@ compiler-known calls.
   through `net::write_chunks` while requiring the same `net` and
   `concurrency` adapter boundary; the matching effect fixture rejects adapter
   entry points that omit either label while keeping the handler boundary
-  effect-free. The
+  effect-free. The two-stream multi-cycle routing case combines the same
+  adapter-owned socket and channel boundary with more than one accepted
+  production stream and repeated per-stream read/route/write cycles; handlers
+  still receive only ordinary `StreamInput` values and no `NetStream`. The
   listener-drain adapter uses the same public calls and effect declarations
   while recursively accepting configured production streams until
   `net::accept_or_end` reports clean listener end; forced production read

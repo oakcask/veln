@@ -38,7 +38,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   deadline-aware read-failure boundary, production cancellable deadline-aware
   adapter lifecycle and outcome boundary, explicit listener-close boundary,
   adapter-owned cancellation owner lifecycle boundary, and production
-  owner-drain cancellable deadline lifecycle boundary, the
+  owner-drain cancellable deadline lifecycle boundary, production
+  two-stream multi-cycle routing boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -52,8 +53,9 @@ checked task slices, and narrow deadline and cancellation slices, for:
   and production multi-chunk event routing slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, production multi-chunk
-  routing, deadline-aware lifecycle, cancellable lifecycle, and cancellable
-  deadline-aware lifecycle fixtures
+  routing, production two-stream multi-cycle routing, deadline-aware
+  lifecycle, cancellable lifecycle, and cancellable deadline-aware lifecycle
+  fixtures
 - general mapping of outgoing chunks back to host transport writes beyond the
   checked ordered `SendBytes` projection paths in the socket routing,
   owned-lifecycle, deadline-aware lifecycle, cancellable lifecycle, and
@@ -381,6 +383,14 @@ through an existing channel to a pure handler, observes clean end as
 stream through `net::write_chunks`. The adapter owns `net` and `concurrency`;
 the handler receives no `NetStream` and calls no transport functions.
 
+Implemented production two-stream multi-cycle routing slice: an executable
+specification case accepts two deterministic production-loopback streams from
+one listener, reads multiple chunks from each stream, routes the ordinary
+stream values through the same handler/action boundary, writes only
+adapter-owned response chunks through `net::write_chunks`, closes each stream,
+and observes clean listener end. The adapter owns `net` and `concurrency`; the
+handler receives no `NetStream` and calls no transport functions.
+
 Implemented production owner-drain cancellable deadline lifecycle slice: an
 executable specification case creates a `CancelOwner` in adapter code, passes
 only observer `CancelToken` values to cancellable deadline-aware accept/read
@@ -446,6 +456,10 @@ as implemented in
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
 including runtime and static effect-boundary evidence.
+
+The production two-stream multi-cycle routing slice is recorded as implemented
+in
+`../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md`.
 
 The HTTP/2 adapter/core write boundary slice is recorded as implemented in
 `../reference/implemented-proposals/network-http2-adapter-core-write-boundary.md`.
