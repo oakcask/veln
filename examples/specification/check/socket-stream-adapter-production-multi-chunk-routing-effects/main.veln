@@ -12,6 +12,14 @@ fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }
 	end
 end
 
+fn handle_stream_context(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
+	handle_stream_input(context.input, context.state)
+end
+
+fn run_adapter_handler_task(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	handle_stream_context(context)
+end
+
 fn append_actions(left: List<ResponseAction>, right: List<ResponseAction>) -> List<ResponseAction>
 	match left
 		Nil => right
@@ -45,13 +53,22 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
+fn handle_routed_input(input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+	let context = { input: input, state: state, route: route, trace: trace }
+	let worker = task::spawn_with<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }>(run_adapter_handler_task, context)
+	match task::join(worker)
+		Ok(value) => value
+		Err(_) => { actions: list_cons(Ignore, list_nil()), next_state: state }
+	end
+end
+
 fn append_collected_actions(left: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, right: { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }
 	{ actions: append_actions(left.actions, right.actions), next_state: right.next_state }
 end
 
 fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
 	let input = route_input(route, read_stream_input(stream))
-	let handled = handle_stream_input(input, state)
+	let handled = handle_routed_input(input, state, { stream: "production-stream", lane: "ingress" }, { trace_id: "trace-prod", sequence: state.chunks + 1 })
 	match input
 		Chunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state))
 		End => handled

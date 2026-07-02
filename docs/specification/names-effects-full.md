@@ -329,9 +329,14 @@ keeps configured read chunk boundaries within one accepted stream, exposes
 each read as an ordinary `StreamInput.Chunk` routed through the same channel
 boundary, calls a pure handler for each chunk and clean end, and projects the
 ordered `SendBytes` response actions through `net::write_chunks` under the
-same coarse `net` and `concurrency` effects. Its matching static effect case
-rejects adapter entry points that omit either label while leaving the public
-handler boundary effect-free. A forced production read failure on that same
+same coarse `net` and `concurrency` effects. The multi-event adapter
+task-helper variant routes those stream events through the same channel
+boundary and an adapter-owned task helper. That helper carries adapter-owned
+route and trace metadata through `task::spawn_with<Result, Context>`,
+preserves event sequence, and calls the pure handler without exposing
+`NetStream` access. Its matching static effect case rejects adapter entry
+points that omit either label while leaving the public handler boundary
+effect-free. A forced production read failure on that same
 multi-chunk routing path remains a runtime transport failure after production
 accept and before any chunk routing, response writes, stream close, or clean
 listener end is recorded. The deadline-aware production adapter
@@ -412,9 +417,14 @@ case uses `net::read_chunk_or_end` so adapter-owned source can translate
 The production multi-chunk routing case uses the same optional read surface to
 turn more than one host-owned read chunk from one accepted stream into
 ordinary `StreamInput.Chunk` values before clean end, then writes only ordered
-`SendBytes` response actions through `net::write_chunks`. Its matching effect
-case rejects adapter paths that omit either `net` or `concurrency` while
-leaving the handler boundary effect-free. Forced read failure on the same
+`SendBytes` response actions through `net::write_chunks`. A companion
+multi-event adapter task-helper case sends each routed event through an
+adapter-owned task helper using `task::spawn_with<Result, Context>` with
+adapter-owned route and trace metadata, preserving trace identity and sequence
+across multiple events from the same accepted stream while the pure handler
+stays outside the task and channel effect boundary. Its matching effect case
+rejects adapter paths that omit either `net` or `concurrency` while leaving
+the handler boundary effect-free. Forced read failure on the same
 optional-read routing path remains a runtime transport failure before any
 ordinary `StreamInput.Chunk` is routed or response bytes are written.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the

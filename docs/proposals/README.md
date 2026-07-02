@@ -552,8 +552,8 @@ compare it with `../specification/` before changing behavior.
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
   stream write, adapter-owned
-  listener-to-clean-stream-end lifecycle, context-based
-  `task::spawn_with<Result, Context>` handler spawn,
+  listener-to-clean-stream-end lifecycle, context-based adapter
+  `task::spawn_with<Result, Context>` helper routing,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
   adapter-owned clean shutdown after cancellation and deadline expiry,
@@ -574,7 +574,8 @@ compare it with `../specification/` before changing behavior.
   explicit listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
   boundary, production multi-chunk adapter event routing, production
-  multi-chunk read-failure runtime boundary, cancellation owner status query,
+  multi-event adapter task-helper routing, production multi-chunk
+  read-failure runtime boundary, cancellation owner status query,
   absolute monotonic deadline
   construction
   ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
@@ -624,8 +625,9 @@ compare it with `../specification/` before changing behavior.
   [Network Production Owner-Drain Lifecycle](../reference/implemented-proposals/network-production-owner-drain-lifecycle.md).
   The completed production multi-chunk event routing slice is archived under
   [Network Production Multi-Chunk Routing](../reference/implemented-proposals/network-production-multi-chunk-routing.md).
-  The same record includes the completed production multi-chunk read-failure
-  runtime boundary.
+  The same record includes the completed production multi-event adapter
+  task-helper routing evidence and production multi-chunk read-failure runtime
+  boundary.
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).
