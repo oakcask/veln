@@ -231,6 +231,21 @@ fn print_dynamic_core_failure(label: String, failure: HpackDynamicCoreFailure) -
 	stdio::println(hpack_dynamic_core::dynamic_core_failure_decoder_module(failure))
 end
 
+fn print_dynamic_core_state(label: String, state: HpackDynamicCoreState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" dynamic_core_state decode_count ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_state_decode_count(state)))
+	stdio::print(" dynamic_table_entry_count ")
+	stdio::println(int_to_string(hpack_dynamic_core::dynamic_core_state_dynamic_table_entry_count(state)))
+end
+
+fn dynamic_core_next_state_or(result: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>, fallback: HpackDynamicCoreState) -> HpackDynamicCoreState
+	match result
+		Ok(transition) => hpack_dynamic_core::dynamic_core_transition_state(transition)
+		Err(_) => fallback
+	end
+end
+
 fn print_two_header_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
 	match result
 		Ok(transition) => print_decoded_two_header_transition(label, transition)
@@ -595,17 +610,28 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_transition("literal-indexed-path", literal_indexed_path)
 	let dynamic_state: HpackFixtureState = next_state_or(literal_indexed_path, literal_indexed_state)
 	let dynamic_indexed_block: ByteChunk = byte_chunk_from_hex("be")?
+	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
+	let third_indexed_block: ByteChunk = byte_chunk_from_hex("c0")?
 	let dynamic_indexed_path: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(dynamic_indexed_block, dynamic_state, 69)
 	print_transition("dynamic-indexed-path", dynamic_indexed_path)
 	let dynamic_core_state: HpackDynamicCoreState = hpack_dynamic_core::carried_single_dynamic_entry_state(4096, 1, ":path", "/target")
 	print_dynamic_core_transition("dynamic-core-indexed-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_state, 69))
 	print_dynamic_core_transition("dynamic-core-indexed-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, hpack_dynamic_core::initial_dynamic_core_state(), 70))
+	let dynamic_core_two_entry_state: HpackDynamicCoreState = hpack_dynamic_core::prepend_carried_dynamic_entry_state(dynamic_core_state, ":method", "PUT")
+	let dynamic_core_newest_method: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_two_entry_state, 71)
+	print_dynamic_core_transition("dynamic-core-indexed-newest-method", dynamic_core_newest_method)
+	let dynamic_core_after_newest: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_newest_method, dynamic_core_two_entry_state)
+	let dynamic_core_second_path: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(evicted_indexed_block, dynamic_core_after_newest, 72)
+	print_dynamic_core_transition("dynamic-core-indexed-second-path", dynamic_core_second_path)
+	let dynamic_core_after_second: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_second_path, dynamic_core_after_newest)
+	let dynamic_core_third_missing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_after_second, 73)
+	print_dynamic_core_transition("dynamic-core-indexed-third-missing", dynamic_core_third_missing)
+	print_dynamic_core_state("dynamic-core-after-third-missing", dynamic_core_next_state_or(dynamic_core_third_missing, dynamic_core_after_second))
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
 	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
 	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)
 	let literal_indexed_dynamic_name_state: HpackFixtureState = require_decoded_header(literal_indexed_dynamic_name, ":path", "/again")?
 	let ignored_dynamic_indexed_dynamic_name: HpackFixtureState = print_required_header("dynamic-indexed-dynamic-name-path-again", decode_header_block(dynamic_indexed_block, literal_indexed_dynamic_name_state, 74), ":path", "/again")?
-	let evicted_indexed_block: ByteChunk = byte_chunk_from_hex("bf")?
 	let ignored_dynamic_name_retained_older_path: HpackFixtureState = print_required_header("dynamic-name-retained-older-path", decode_header_block(evicted_indexed_block, literal_indexed_dynamic_name_state, 75), ":path", "/target")?
 	let ignored_dynamic_name_literal_cases: () = print_dynamic_name_literal_cases(dynamic_state, dynamic_indexed_block)?
 	let ignored_indexed_dynamic_name_missing: () = print_required_unsupported("literal-indexed-dynamic-name-missing", decode_header_block(literal_indexed_dynamic_name_block, initial, 76))?
@@ -622,7 +648,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let literal_indexed_scheme: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_scheme_block, replaced_state, 85)
 	print_transition("literal-indexed-scheme-https-retained", literal_indexed_scheme)
 	let three_entry_state: HpackFixtureState = require_decoded_header(literal_indexed_scheme, ":scheme", "https")?
-	let third_indexed_block: ByteChunk = byte_chunk_from_hex("c0")?
 	let ignored_dynamic_three_newest_scheme: HpackFixtureState = print_required_header("dynamic-three-newest-scheme", decode_header_block(dynamic_indexed_block, three_entry_state, 86), ":scheme", "https")?
 	let ignored_dynamic_three_second_method: HpackFixtureState = print_required_header("dynamic-three-second-method", decode_header_block(evicted_indexed_block, three_entry_state, 87), ":method", "PUT")?
 	let ignored_dynamic_three_third_path: HpackFixtureState = print_required_header("dynamic-three-third-path", decode_header_block(third_indexed_block, three_entry_state, 88), ":path", "/target")?

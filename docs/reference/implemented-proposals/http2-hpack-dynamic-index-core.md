@@ -12,15 +12,17 @@ checked executable cases under `../../../examples/specification/run/`.
 
 The `hpack_dynamic_core` boundary owns the narrow dynamic indexed
 header-field decode path for a bounded dynamic table supplied by the caller.
-For the checked slice, a carried single-entry dynamic table containing
-`:path: /target` lets the indexed byte `0xbe` resolve to that header field and
-advance the dynamic-core decode count.
+For the checked slice, a carried bounded dynamic table can contain multiple
+entries. The indexed byte `0xbe` resolves to the newest carried entry,
+`0xbf` resolves to the next older carried entry, and each accepted decode
+advances the dynamic-core decode count.
 
-The same indexed byte without a carried entry reports the focused
+An indexed byte that asks past the carried table reports the focused
 `hpack.fixture.dynamic_index_out_of_range` fact shape with the requested
 dynamic index, the bounded dynamic table entry count, the inspected offset,
-and the `hpack_dynamic_core` module name. It does not fall back to a generic
-unsupported-header-block failure for this checked out-of-range dynamic index.
+and the `hpack_dynamic_core` module name without advancing state. It does not
+fall back to a generic unsupported-header-block failure for this checked
+out-of-range dynamic index.
 
 Unsupported HPACK forms, table-size behavior, dynamic-name continuations,
 literal insertion into the broader fixture table, and full HPACK compression
@@ -30,8 +32,9 @@ remain outside this core slice.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the accepted source-visible `hpack_dynamic_core` dynamic indexed decode for
-  a carried bounded entry and the focused out-of-range dynamic index failure
-  facts when no dynamic entry is carried.
+  multiple carried bounded entries, decode-count advancement after each
+  accepted decode, and the focused out-of-range dynamic index failure facts
+  without state advancement when the requested entry is not carried.
 - The same case keeps the existing fixture-owned dynamic-table behavior and
   outbound HPACK fixture encoder coverage around the new source-visible core
   boundary.

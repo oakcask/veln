@@ -1070,9 +1070,10 @@ under
 and
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
 The narrow source-visible dynamic indexed HPACK core slice is also current
-behavior: `hpack_dynamic_core` accepts `0xbe` against a carried bounded
-`:path: /target` dynamic entry and keeps the focused
-`hpack.fixture.dynamic_index_out_of_range` facts when that entry is absent.
+behavior: `hpack_dynamic_core` accepts indexed bytes against multiple carried
+bounded dynamic-table entries, advances its decode count after accepted
+reads, and keeps the focused `hpack.fixture.dynamic_index_out_of_range` facts
+without advancing state when an indexed byte asks past the carried table.
 The completed slice is checked by
 `../../examples/specification/run/hpack-fixture-codec-boundary/` and archived
 under

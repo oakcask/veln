@@ -60,6 +60,13 @@ fn dynamic_core_entry_count(dynamic_entry: HpackDynamicCoreEntry) -> Int
 	end
 end
 
+fn dynamic_core_entries_size(dynamic_entry: HpackDynamicCoreEntry) -> Int
+	match dynamic_entry
+		NoDynamicCoreEntry => 0
+		DynamicCoreEntry(name, value, older) => dynamic_core_entry_size(name, value) + dynamic_core_entries_size(older)
+	end
+end
+
 fn dynamic_core_entry_at(dynamic_entry: HpackDynamicCoreEntry, table_index: Int) -> Option<HpackDynamicCoreHeader>
 	match dynamic_entry
 		NoDynamicCoreEntry => None
@@ -90,6 +97,15 @@ pub fn carried_single_dynamic_entry_state(table_size: Int, decode_count: Int, na
 	match dynamic_core_entry_size(name, value) <= table_size
 		true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, NoDynamicCoreEntry))
 		false => HpackDynamicCoreState(table_size, decode_count, NoDynamicCoreEntry)
+	end
+end
+
+pub fn prepend_carried_dynamic_entry_state(state: HpackDynamicCoreState, name: String, value: String) -> HpackDynamicCoreState
+	match state
+		HpackDynamicCoreState(table_size, decode_count, dynamic_entry) => match dynamic_core_entry_size(name, value) + dynamic_core_entries_size(dynamic_entry) <= table_size
+			true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, dynamic_entry))
+			false => HpackDynamicCoreState(table_size, decode_count, dynamic_entry)
+		end
 	end
 end
 
@@ -140,6 +156,12 @@ end
 pub fn dynamic_core_state_decode_count(state: HpackDynamicCoreState) -> Int
 	match state
 		HpackDynamicCoreState(_, decode_count, _) => decode_count
+	end
+end
+
+pub fn dynamic_core_state_dynamic_table_entry_count(state: HpackDynamicCoreState) -> Int
+	match state
+		HpackDynamicCoreState(_, _, dynamic_entry) => dynamic_core_entry_count(dynamic_entry)
 	end
 end
 
