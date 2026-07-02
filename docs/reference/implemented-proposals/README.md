@@ -246,6 +246,8 @@ behavior.
   [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
 - Codec payload length mismatch diagnostics:
   [codec-payload-length-mismatch-diagnostics.md](codec-payload-length-mismatch-diagnostics.md).
+- Codec padding mismatch diagnostics:
+  [codec-padding-mismatch-diagnostics.md](codec-padding-mismatch-diagnostics.md).
 - Codec integer out-of-range diagnostics:
   [codec-integer-out-of-range-diagnostics.md](codec-integer-out-of-range-diagnostics.md).
 - Codec version mismatch diagnostics:

@@ -1747,6 +1747,8 @@
                 mergeLengthMismatchReason(details, reason);
             } else if (id.equals("codec.payload_length_mismatch")) {
                 mergePayloadLengthMismatchReason(details, reason);
+            } else if (id.equals("codec.padding_mismatch")) {
+                mergePaddingMismatchReason(details, reason);
             } else if (id.equals("codec.integer_out_of_range")) {
                 mergeIntegerOutOfRangeReason(details, reason);
             } else if (id.equals("codec.sequence_mismatch")) {
@@ -1982,6 +1984,72 @@
         ) {
             this.expectedPayloadLength = expectedPayloadLength;
             this.actualPayloadLength = actualPayloadLength;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergePaddingMismatchReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        PaddingMismatchReason parsed = parsePaddingMismatchReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number(
+            "expected_padding_length",
+            parsed.expectedPaddingLength
+        ));
+        details.add(DiagnosticDetail.number("actual_padding_length", parsed.actualPaddingLength));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static PaddingMismatchReason parsePaddingMismatchReason(String reason) {
+        Long expectedPaddingLength = null;
+        Long actualPaddingLength = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("expected_padding_length")) {
+                expectedPaddingLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("actual_padding_length")) {
+                actualPaddingLength = parseNonNegativeDecimal(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (expectedPaddingLength == null
+            || actualPaddingLength == null
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new PaddingMismatchReason(
+            expectedPaddingLength.longValue(),
+            actualPaddingLength.longValue(),
+            failureReason
+        );
+    }
+
+    private static final class PaddingMismatchReason {
+        final long expectedPaddingLength;
+        final long actualPaddingLength;
+        final String reason;
+
+        PaddingMismatchReason(
+            long expectedPaddingLength,
+            long actualPaddingLength,
+            String reason
+        ) {
+            this.expectedPaddingLength = expectedPaddingLength;
+            this.actualPaddingLength = actualPaddingLength;
             this.reason = reason;
         }
     }

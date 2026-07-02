@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.padding_mismatch]: padding mismatch at byte offset 24", "note: Field path: schema `ManualPacketWire` / field `padding`.", "note: Expected padding length 2; actual padding length was 5.", "note: Padding mismatch reason: DATA padding did not match payload boundary.", "note: DecodeError value: DecodeErrorWithReason(codec.padding_mismatch, ByteOffset(24), ManualPacketWire.padding, expected_padding_length=2; actual_padding_length=5; reason=DATA padding did not match payload boundary)."]
