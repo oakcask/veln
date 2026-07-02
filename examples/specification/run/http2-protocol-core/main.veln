@@ -9937,6 +9937,26 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-response-headers", hpack_static_response_headers)
 	let ignored_hpack_static_response_headers: () = emit_header_block("http2-hpack-static-response-headers", hpack_static_response_headers, "88")?
 	print_hpack_static_transition("hpack-static-response-headers", hpack_static_response_headers)
+	let hpack_static_response_cache_control: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000018898")?), state)?
+	print_step("hpack-static-response-cache-control", hpack_static_response_cache_control)
+	let ignored_hpack_static_response_cache_control: () = emit_header_block("http2-hpack-static-response-cache-control", hpack_static_response_cache_control, "8898")?
+	print_hpack_static_transition("hpack-static-response-cache-control", hpack_static_response_cache_control)
+	let hpack_static_response_content_type: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002010400000001889f")?), state)?
+	print_step("hpack-static-response-content-type", hpack_static_response_content_type)
+	let ignored_hpack_static_response_content_type: () = emit_header_block("http2-hpack-static-response-content-type", hpack_static_response_content_type, "889f")?
+	print_hpack_static_transition("hpack-static-response-content-type", hpack_static_response_content_type)
+	let hpack_static_response_cache_control_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000188")?), state)?
+	print_step("hpack-static-response-cache-control-continuation-start", hpack_static_response_cache_control_start)
+	let hpack_static_response_cache_control_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000198")?), step_state(hpack_static_response_cache_control_start))?
+	print_step("hpack-static-response-cache-control-continuation-done", hpack_static_response_cache_control_done)
+	let ignored_hpack_static_response_cache_control_continuation: () = emit_header_block("http2-hpack-static-response-cache-control-continuation", hpack_static_response_cache_control_done, "8898")?
+	print_hpack_static_transition("hpack-static-response-cache-control-continuation-done", hpack_static_response_cache_control_done)
+	let hpack_static_response_content_type_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000188")?), state)?
+	print_step("hpack-static-response-content-type-continuation-start", hpack_static_response_content_type_start)
+	let hpack_static_response_content_type_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010904000000019f")?), step_state(hpack_static_response_content_type_start))?
+	print_step("hpack-static-response-content-type-continuation-done", hpack_static_response_content_type_done)
+	let ignored_hpack_static_response_content_type_continuation: () = emit_header_block("http2-hpack-static-response-content-type-continuation", hpack_static_response_content_type_done, "889f")?
+	print_hpack_static_transition("hpack-static-response-content-type-continuation-done", hpack_static_response_content_type_done)
 	let hpack_static_literal_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010803323031")?), state)?
 	print_step("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
 	let ignored_hpack_static_literal_response_headers: () = emit_header_block("http2-hpack-static-literal-response-headers", hpack_static_literal_response_headers, "0803323031")?

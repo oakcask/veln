@@ -3666,6 +3666,8 @@ end
 pub fn header_list_is_response(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", _), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("cache-control", _), _) => true
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-type", _), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "static-indexed"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-without-indexing"), _) => true
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", "literal-with-indexing"), _) => true
@@ -3994,6 +3996,8 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => production_request_content_length_decoded_names(value)
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => production_response_content_length_decoded_names(value)
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("cache-control", _), _) => ":status,cache-control"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-type", _), _) => ":status,content-type"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => ":method,:scheme,:path,:authority"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"

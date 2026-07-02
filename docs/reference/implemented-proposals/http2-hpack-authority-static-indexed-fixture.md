@@ -33,12 +33,20 @@ multi-byte indexed forms outside the checked two-header static indexed slice
 still project through
 `hpack.fixture.unsupported_header_block`.
 
+The static decoder also accepts response-side two-entry blocks that pair a
+static indexed `:status` with static indexed `cache-control` or `content-type`.
+The HTTP/2 protocol-core fixture routes those blocks through completed HEADERS
+and final CONTINUATION paths as ordinary response header-list data.
+
 ## Evidence
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the focused `authority` decode, the two-header `method-path` decode, the
   complete static indexed table from `0x81` through `0xbd`, and the later
   dynamic-table interactions after those decodes.
+- `../../../examples/specification/run/hpack-static-codec-boundary/` checks
+  the response `:status,cache-control` and `:status,content-type` static
+  indexed blocks at the standalone static decoder boundary.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks
   direct JSON-command decode of static indexed `0x85` as
   `:path: /index.html` while preserving the unsupported header-block
@@ -47,9 +55,11 @@ still project through
   completed HEADERS frame cases named `hpack-static-indexed-authority`,
   `hpack-static-indexed-method-path`, the full static table through
   `hpack-static-indexed-www-authenticate`, and a final CONTINUATION path for
-  `hpack-static-indexed-path-index-continuation`; the checked output emits
-  `8284` for the two-header block, `85` for the continuation block, and `bd`
-  for `www-authenticate`.
+  `hpack-static-indexed-path-index-continuation`; it also checks response
+  completed HEADERS and final CONTINUATION cases for static indexed
+  `cache-control` and `content-type`. The checked output emits `8284` for the
+  two-header request block, `8898` and `889f` for the response blocks, `85`
+  for the continuation block, and `bd` for `www-authenticate`.
 - `../../specification/execution.md` and `../../specification/examples.md`
   summarize the implemented HPACK fixture boundary and route readers to the
   checked examples.

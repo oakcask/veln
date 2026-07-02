@@ -721,6 +721,8 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":path", _), HpackHeader(":fixture", _), _) => ":path,:fixture"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":fixture", _), _) => ":scheme,:fixture"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader(":fixture", _), _) => ":status,:fixture"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("cache-control", _), _) => ":status,cache-control"
+		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-type", _), _) => ":status,content-type"
 		HpackHeaderList(HpackHeader("accept-encoding", _), HpackHeader(":fixture", _), _) => "accept-encoding,:fixture"
 		HpackHeaderList(HpackHeader("authorization", _), HpackHeader(":fixture", _), _) => "authorization,:fixture"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":fixture", _), _) => "server,:fixture"

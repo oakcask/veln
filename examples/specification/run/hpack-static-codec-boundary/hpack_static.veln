@@ -148,10 +148,24 @@ fn supported_request_block(first: Int, second: Int, third: Int) -> Bool
 	(first == 130 or first == 131) and (second == 134 or second == 135) and third == 132
 end
 
+fn supported_response_block(first: Int, second: Int) -> Bool
+	(first >= 136 and first <= 142) and (second == 152 or second == 159)
+end
+
 fn request_method(byte: Int) -> String
 	match byte
 		131 => "POST"
 		_ => "GET"
+	end
+end
+
+fn response_block(block: ByteChunk, offset: Int, first: Int, second: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match static_table_header_from_indexed_byte(first)
+		Some(status_header) => match static_table_header_from_indexed_byte(second)
+			Some(field_header) => Ok(hpack_fixture::hpack_header_list(status_header, field_header, 9))
+			None => not_static(block, offset)
+		end
+		None => not_static(block, offset)
 	end
 end
 
@@ -322,7 +336,10 @@ fn decode_supported_block(block: ByteChunk, count: Int, offset: Int) -> Result<H
 			true => Ok(single_header(byte_at_or_missing(block, 0)))
 			false => match count == 3 and supported_request_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1), byte_at_or_missing(block, 2))
 				true => Ok(request_marker(request_method(byte_at_or_missing(block, 0)), 9))
-				false => not_static(block, offset)
+				false => match count == 2 and supported_response_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
+					true => response_block(block, offset, byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
+					false => not_static(block, offset)
+				end
 			end
 		end
 	end

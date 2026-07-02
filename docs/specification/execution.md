@@ -138,7 +138,10 @@ enough.
   `examples/specification/run/http2-protocol-core/` when no later fixture
   dynamic-table reuse is observed. The decoded values feed the same
   header-list validation and content-length body-accounting paths as fixture
-  header lists. Stateful HTTP/2 header-block decoding still routes
+  header lists. Stateful HTTP/2 response decoding also accepts static-indexed
+  `cache-control` and `content-type` entries after a static-indexed `:status`
+  through completed HEADERS and final CONTINUATION paths in the same checked
+  protocol-core case. Stateful HTTP/2 header-block decoding still routes
   literal-with-indexing blocks through the HPACK fixture decoder when fixture
   dynamic-table state must be updated.
 - The source-visible HPACK fixture encoder accepts the checked outbound
