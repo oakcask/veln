@@ -162,6 +162,12 @@ enough.
   fixture-marked values, accepting `http` and `https` and rejecting other
   visible ASCII values with `scheme_value_not_http_or_https` on completed
   HEADERS and final CONTINUATION paths.
+  Stateful HTTP/2 response decoding validates `:status` pseudo-header values
+  after fixture decode and after source-visible HPACK static-name literal
+  decode. Accepted response lists keep exactly three ASCII decimal digits, and
+  empty, short, long, or non-decimal values fail with
+  `status_value_invalid` through the response header-list diagnostic on
+  completed HEADERS and final CONTINUATION paths.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked

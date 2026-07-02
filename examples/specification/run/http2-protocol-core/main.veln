@@ -1012,17 +1012,20 @@ fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: In
 							true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
 							false => match hpack_fixture::header_list_has_status(headers)
 								false => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-								true => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-									false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-										false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-											false => match hpack_fixture::header_list_has_invalid_content_length(headers)
-												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-												false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
-													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-													false => ResponseHeaderListOk
+								true => match hpack_fixture::header_list_has_invalid_status_value(headers)
+									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "status_value_invalid", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+									false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
+										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+										false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
+											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+											false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
+												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+												false => match hpack_fixture::header_list_has_invalid_content_length(headers)
+													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+													false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
+														true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+														false => ResponseHeaderListOk
+													end
 												end
 											end
 										end
@@ -5982,6 +5985,7 @@ fn response_header_rule_provenance(failed_header_fact: String) -> String
 		"te_header_value_not_trailers" => "rfc9113_te_trailers_only"
 		"content_length_invalid" => "rfc9113_content_length"
 		"content_length_mismatch" => "rfc9113_content_length"
+		"status_value_invalid" => "rfc9113_response_pseudo_headers"
 		"trailer_pseudo_header" => "rfc9113_trailer_pseudo_headers"
 		_ => "rfc9113_response_pseudo_headers"
 	end
@@ -9942,6 +9946,18 @@ fn print_response_header_validation_cases(state: Http2DecodeState) -> Result<(),
 	print_request_header_failure("response-headers-content-length-whitespace", response_headers_content_length_whitespace)
 	let response_headers_content_length_negative: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000015e5f6061")?), state)?
 	print_request_header_failure("response-headers-content-length-negative", response_headers_content_length_negative)
+	let response_headers_status_empty: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000166676869")?), state)?
+	print_request_header_failure("response-headers-status-empty", response_headers_status_empty)
+	let response_headers_status_short: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000173747576")?), state)?
+	print_request_header_failure("response-headers-status-short", response_headers_status_short)
+	let response_headers_status_long: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000174757677")?), state)?
+	print_request_header_failure("response-headers-status-long", response_headers_status_long)
+	let response_headers_status_non_decimal: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000175767778")?), state)?
+	print_request_header_failure("response-headers-status-non-decimal", response_headers_status_non_decimal)
+	let response_headers_status_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000017576")?), state)?
+	print_step("response-headers-status-continuation-start", response_headers_status_continuation_start)
+	let response_headers_status_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000017778")?), step_state(response_headers_status_continuation_start))?
+	print_request_header_failure("response-headers-status-continuation-done", response_headers_status_continuation_done)
 	let ignored_response_trailing_headers_cases: () = print_response_trailing_headers_cases()?
 	Ok(())
 end
@@ -10037,6 +10053,18 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
 	let ignored_hpack_static_literal_response_headers: () = emit_header_block("http2-hpack-static-literal-response-headers", hpack_static_literal_response_headers, "0803323031")?
 	print_hpack_static_transition("hpack-static-literal-response-headers", hpack_static_literal_response_headers)
+	let hpack_static_response_status_empty: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000010800")?), state)?
+	print_request_header_failure("hpack-static-response-status-empty", hpack_static_response_status_empty)
+	let hpack_static_response_status_short: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000108023230")?), state)?
+	print_request_header_failure("hpack-static-response-status-short", hpack_static_response_status_short)
+	let hpack_static_response_status_long: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001080432303030")?), state)?
+	print_request_header_failure("hpack-static-response-status-long", hpack_static_response_status_long)
+	let hpack_static_response_status_non_decimal: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010803323061")?), state)?
+	print_request_header_failure("hpack-static-response-status-non-decimal", hpack_static_response_status_non_decimal)
+	let hpack_static_response_status_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000010804")?), state)?
+	print_step("hpack-static-response-status-continuation-start", hpack_static_response_status_continuation_start)
+	let hpack_static_response_status_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000132303030")?), step_state(hpack_static_response_status_continuation_start))?
+	print_request_header_failure("hpack-static-response-status-continuation-done", hpack_static_response_status_continuation_done)
 	let hpack_static_response_content_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001880f0d023132")?), state)?
 	print_step("hpack-static-response-content-length", hpack_static_response_content_length)
 	let ignored_hpack_static_response_content_length: () = emit_header_block("http2-hpack-static-response-content-length", hpack_static_response_content_length, "880f0d023132")?

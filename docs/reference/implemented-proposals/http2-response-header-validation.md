@@ -16,7 +16,8 @@ running response-header validation for fixture-marked response header lists.
 The validation rejects response header lists that omit `:status`, duplicate
 `:status`, carry request-only `:authority`, `:method`, `:scheme`, or `:path`,
 place `:status` after a regular header, carry uppercase ordinary header
-names, or carry ordinary header names outside the HTTP field-name token shape.
+names, carry ordinary header names outside the HTTP field-name token shape,
+or carry a `:status` value that is not exactly three ASCII decimal digits.
 Failures use the protocol-owned
 `http2.protocol.invalid_response_header_list` diagnostic rather than schema
 or HPACK fixture diagnostics.
@@ -29,7 +30,10 @@ or HPACK fixture diagnostics.
   fixture through a final CONTINUATION path, a final CONTINUATION path missing
   `:status`, duplicate `:status`, request-only `:method` and `:authority`,
   `:status` after a regular `server` header, plus uppercase and token-invalid
-  ordinary response header names.
+  ordinary response header names. It also checks empty, short, long, and
+  non-decimal `:status` values through fixture-marked response header lists
+  and source-visible HPACK static-name literal values, with completed HEADERS
+  and final CONTINUATION coverage.
 - `../../../examples/specification/run/http2-protocol-core-response-headers-json/`
   checks the JSON projection for a missing required pseudo-header.
 - `../../../examples/specification/run/http2-protocol-core-response-headers-human/`
@@ -46,6 +50,6 @@ or HPACK fixture diagnostics.
 
 ## Remaining Work
 
-Full HPACK compression, response-header rules beyond ordinary header-name
-shape, dynamic-table policy, and socket integration remain outside this
-completed slice.
+Full HPACK compression, response-header rules beyond the checked pseudo-header
+value and ordinary header-name shape, dynamic-table policy, and socket
+integration remain outside this completed slice.
