@@ -21,8 +21,9 @@ This slice did not extend `Result<Ok, Err>` beyond scalar payloads. Later
 work extended `Result` payload eligibility to recursive visible shapes.
 Non-string dictionary keys, function types, and unsupported named types remain
 unsupported helper fields and keep the `schema.format_neutral_decode_helper`
-diagnostic family. Later work accepts same-module source ADTs when their
-constructor payloads are recursive visible shapes, as recorded in
+diagnostic family. Later work accepts same-module and public imported source
+ADTs when their constructor payloads are recursive visible shapes, as recorded
+in
 [Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
 
 ## Evidence

@@ -56,10 +56,11 @@ enough.
   is limited to recursive format-neutral visible shapes made from scalar
   leaves, anonymous record fields, `Option<T>`, `List<T>`, and
   `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
-  recursive format-neutral visible shapes. Same-module source ADTs are
-  supported in the same positions when every constructor payload is a
-  recursive format-neutral visible shape; the helper preserves the source ADT
-  value shape through the pass-through boundary.
+  recursive format-neutral visible shapes. Same-module source ADTs and public
+  imported source ADTs referenced through written `use` paths are supported in
+  the same positions when every constructor payload is a recursive
+  format-neutral visible shape; the helper preserves the source ADT value
+  shape through the pass-through boundary.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

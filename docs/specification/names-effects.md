@@ -225,8 +225,9 @@ compiler-known calls.
   `Result<T, String>` when all fields are recursive visible shapes made from
   scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
   `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
-  recursive format-neutral visible shapes. Same-module source ADTs are
-  supported in those positions when every constructor payload is a recursive
+  recursive format-neutral visible shapes. Same-module source ADTs and public
+  imported source ADTs referenced through written `use` paths are supported in
+  those positions when every constructor payload is a recursive
   format-neutral visible shape.
   Explicit
   `decode Schema from view at base` expressions are the public source surface

@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
-const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes";
+const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -308,6 +308,60 @@ fn generated_format_neutral_schema_decode_helpers_accept_same_module_source_adts
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    assert_eq!(ir.schema_decoders[0].schema_name, "Packet");
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_accept_public_imported_source_adts() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: wire::Payload\n",
+            "  nested: {payload: wire::Payload}\n",
+            "  optional_payload: Option<wire::Payload>\n",
+            "  payloads: List<wire::Payload>\n",
+            "  payload_by_name: Dict<String, wire::Payload>\n",
+            "  result_payload: Result<wire::Payload, wire::Payload>\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}) -> Result<{payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}, String>\n",
+            "  byte_decode_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub type Payload\n",
+            "  pub Empty\n",
+            "  pub Scalar(value: Int)\n",
+            "  pub Metadata(value: {label: String, scores: Dict<String, List<Option<Int>>>})\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        functions: app.functions,
+    };
 
     let lowered = lower_checked_surface_module(&module);
 

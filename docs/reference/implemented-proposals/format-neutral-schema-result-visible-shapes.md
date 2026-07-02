@@ -22,8 +22,8 @@ String>`.
 
 The slice did not add general support for source-declared ADTs, function
 values, `Vec<T>`, unsupported named types, or dictionaries with non-string
-keys. Later work accepts same-module source ADTs when their constructor
-payloads are recursive visible shapes, as recorded in
+keys. Later work accepts same-module and public imported source ADTs when their
+constructor payloads are recursive visible shapes, as recorded in
 [Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
 
 ## Evidence

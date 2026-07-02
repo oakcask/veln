@@ -30,10 +30,12 @@ format-neutral type text. Format-neutral generated decode helpers are exposed
 only when every field is a recursive format-neutral visible shape made from
 scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
 `Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
-recursive format-neutral visible shapes. Same-module source ADT fields are
+recursive format-neutral visible shapes. Same-module source ADT fields and
+public imported source ADT fields referenced through written `use` paths are
 supported when every constructor payload is a recursive format-neutral visible
-shape; imported source ADTs and source ADTs with unsupported payloads remain
-unsupported helper fields and are declaration diagnostics.
+shape; private imported source ADTs, missing paths, non-ADT targets, and source
+ADTs with unsupported payloads remain unsupported helper fields and are
+declaration diagnostics.
 When present, the single `format binary` clause must appear before schema
 fields.
 
