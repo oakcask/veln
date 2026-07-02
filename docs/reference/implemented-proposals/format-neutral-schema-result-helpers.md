@@ -19,9 +19,12 @@ and returns `Result<TRecord, String>`.
 
 This slice did not add arbitrary result eligibility beyond scalar payloads.
 Later work extended `Result` payload eligibility to recursive visible shapes.
-Source-declared ADTs, functions, unsupported named types, and shapes such as
-non-string dictionary keys remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family.
+Functions, unsupported named types, and shapes such as non-string dictionary
+keys remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family. Later work accepts
+same-module source ADTs when their constructor payloads are recursive visible
+shapes, as recorded in
+[Format-Neutral Schema Source ADT Helpers](format-neutral-schema-source-adt-helpers.md).
 
 ## Evidence
 
@@ -30,7 +33,8 @@ non-string dictionary keys remain unsupported helper fields and keep the
   fields, including source-visible `Ok` and `Err` payloads.
 - `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
   keeps diagnostics for unsupported adjacent result payload shapes, including
-  non-string dictionary keys, source-declared ADTs, callbacks, and `Vec<T>`.
+  non-string dictionary keys, unsupported source ADT payloads, callbacks, and
+  `Vec<T>`.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for accepted top-level and record-shaped
   result fields, plus rejection of unsupported result payloads.

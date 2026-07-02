@@ -6,12 +6,14 @@ use veln_ir::{
     IrSchemaRepeat, IrSchemaReservedBits,
 };
 
+use crate::adt::AdtRegistry;
 use crate::types::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     SchemaRepeatSpec, Type, byte_view_multiple_constraint, byte_view_schema_primitive,
     closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, flag_schema_primitive, format_neutral_schema_field_type,
+    extension_dispatch_schema_primitive, flag_schema_primitive,
+    format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
@@ -39,7 +41,7 @@ fn schema_decode_spec_inner(
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
     if schema.format.is_none() {
-        return format_neutral_schema_decode_spec(schema);
+        return format_neutral_schema_decode_spec(module, schema);
     }
     if schema.format.as_ref()?.name != "binary" {
         return None;
@@ -53,13 +55,17 @@ fn schema_decode_spec_inner(
     spec
 }
 
-fn format_neutral_schema_decode_spec(schema: &SchemaDecl) -> Option<IrSchemaDecodeSpec> {
+fn format_neutral_schema_decode_spec(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
+    let adts = AdtRegistry::from_module(module);
     let fields = schema
         .fields
         .iter()
         .map(|field| {
-            format_neutral_schema_field_type(&field.ty)?;
+            format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?;
             Some(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,

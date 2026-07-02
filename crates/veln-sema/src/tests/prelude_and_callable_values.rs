@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 
-const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, or Result<recursive visible shape, recursive visible shape>";
+const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module source ADTs whose constructor payloads are recursive visible shapes";
 
 #[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
@@ -282,6 +282,42 @@ fn generated_format_neutral_schema_decode_helpers_accept_recursive_result_payloa
 }
 
 #[test]
+fn generated_format_neutral_schema_decode_helpers_accept_same_module_source_adts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Payload\n",
+            "  Empty\n",
+            "  Scalar(value: Int)\n",
+            "  Metadata(value: {label: String, scores: Dict<String, List<Option<Int>>>})\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: Payload\n",
+            "  nested: {payload: Payload}\n",
+            "  optional_payload: Option<Payload>\n",
+            "  payloads: List<Payload>\n",
+            "  payload_by_name: Dict<String, Payload>\n",
+            "  result_payload: Result<Payload, Payload>\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}) -> Result<{payload: Payload, nested: {payload: Payload}, optional_payload: Option<Payload>, payloads: List<Payload>, payload_by_name: Dict<String, Payload>, result_payload: Result<Payload, Payload>}, String>\n",
+            "  byte_decode_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    assert_eq!(ir.schema_decoders[0].schema_name, "Packet");
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types() {
     let source = SourceFile::new(
         "main.veln",
@@ -363,7 +399,6 @@ fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payl
             "\n",
             "schema BadPacket\n",
             "  result_bad_dict_key: Result<Dict<Int, Int>, String>\n",
-            "  result_local: Result<LocalPayload, String>\n",
             "  result_callback: Result<Int, fn(Int) -> String>\n",
             "  result_vec: Result<Vec<Int>, String>\n",
             "  metadata: {payload: Result<LocalPayload, String>, callback: Result<Int, fn(Int) -> String>}\n",
@@ -387,9 +422,6 @@ fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payl
                 "format-neutral schema field `result_bad_dict_key` cannot expose a generated decode helper because `Result<Dict<Int, Int>, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
-                "format-neutral schema field `result_local` cannot expose a generated decode helper because `Result<LocalPayload, String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
-            ),
-            format!(
                 "format-neutral schema field `result_callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
             format!(
@@ -397,6 +429,52 @@ fn generated_format_neutral_schema_decode_helpers_reject_non_visible_result_payl
             ),
             format!(
                 "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ payload : Result<LocalPayload, String>, callback : Result<Int, fn(Int) -> String> }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            ),
+        ]
+    );
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_reject_source_adts_with_unsupported_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type CallbackPayload\n",
+            "  CallbackPayload(callback: fn(Int) -> String)\n",
+            "end\n",
+            "\n",
+            "type VecPayload\n",
+            "  VecPayload(items: Vec<Int>)\n",
+            "end\n",
+            "\n",
+            "schema BadPacket\n",
+            "  callback_payload: CallbackPayload\n",
+            "  optional_vec_payload: Option<VecPayload>\n",
+            "  metadata: {payload: CallbackPayload}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let messages = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        messages,
+        vec![
+            format!(
+                "format-neutral schema field `callback_payload` cannot expose a generated decode helper because `CallbackPayload` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            ),
+            format!(
+                "format-neutral schema field `optional_vec_payload` cannot expose a generated decode helper because `Option<VecPayload>` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
+            ),
+            format!(
+                "format-neutral schema field `metadata` cannot expose a generated decode helper because `{{ payload : CallbackPayload }}` is not a {FORMAT_NEUTRAL_HELPER_SUPPORTED}"
             ),
         ]
     );
@@ -478,7 +556,7 @@ fn generated_format_neutral_schema_decode_helpers_accept_dicts_inside_record_fie
 }
 
 #[test]
-fn generated_format_neutral_schema_decode_helpers_reject_source_adts_and_functions() {
+fn generated_format_neutral_schema_decode_helpers_reject_functions_inside_record_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -499,7 +577,7 @@ fn generated_format_neutral_schema_decode_helpers_reject_source_adts_and_functio
     let diagnostic = diagnostics
         .iter()
         .find(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper")
-        .expect("unsupported source ADT and function field should be reported");
+        .expect("unsupported function field should be reported");
     assert_eq!(
         diagnostic.message,
         format!(

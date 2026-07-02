@@ -234,6 +234,8 @@ behavior.
   [format-neutral-schema-nested-dict-helpers.md](format-neutral-schema-nested-dict-helpers.md).
 - Format-neutral schema recursive container helpers:
   [format-neutral-schema-recursive-container-helpers.md](format-neutral-schema-recursive-container-helpers.md).
+- Format-neutral schema source ADT helpers:
+  [format-neutral-schema-source-adt-helpers.md](format-neutral-schema-source-adt-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

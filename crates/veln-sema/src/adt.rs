@@ -95,6 +95,24 @@ impl AdtRegistry {
         })
     }
 
+    pub(crate) fn descriptor_for_type_in_module(
+        &self,
+        ty: &Type,
+        module_name: Option<&str>,
+    ) -> Option<&AdtDescriptor> {
+        let Type::Named { name, args } = ty else {
+            return None;
+        };
+        if name.contains("::") {
+            return None;
+        }
+        self.descriptors.iter().rev().find(|descriptor| {
+            descriptor.type_name == *name
+                && descriptor.module_name.as_deref() == module_name
+                && descriptor.type_parameters.len() == args.len()
+        })
+    }
+
     pub(crate) fn descriptor_for_core_type(&self, ty: &CoreType) -> Option<&AdtDescriptor> {
         let CoreType::Named { name, args } = ty else {
             return None;
