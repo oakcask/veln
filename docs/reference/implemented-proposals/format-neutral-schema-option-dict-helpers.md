@@ -18,11 +18,11 @@ Record-shaped fields may contain the same option dictionary field shapes. The
 helper remains a validation/pass-through boundary over the schema-local
 visible record shape and returns `Result<TRecord, String>`.
 
-The slice does not add arbitrary dictionary eligibility. Non-string dictionary
-keys, dictionary values that are records, dictionaries, lists, options, ADTs,
-functions, or other non-scalar shapes, and recursive container shapes remain
-unsupported helper fields and keep the `schema.format_neutral_decode_helper`
-diagnostic family.
+The slice did not add arbitrary dictionary eligibility. Later work generalized
+string-keyed dictionary values through the recursive container helper slice.
+Non-string dictionary keys, ADTs, functions, and other unsupported named
+shapes remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
 
@@ -31,16 +31,13 @@ diagnostic family.
   `Option<Dict<String, Bool>>`, `Option<Dict<String, Float>>`, and
   `Option<Dict<String, String>>` fields, including present and absent option
   payloads.
-- `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  keeps diagnostics for unsupported adjacent dictionary shapes, including
-  non-string dictionary keys and nested dictionaries such as
-  `Dict<String, Dict<String, Int>>`.
+- `format-neutral-schema-recursive-container-helpers.md` carries the current
+  adjacent negative evidence for unsupported format-neutral helper shapes.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for accepted top-level and record-shaped
-  option-dictionary fields, plus rejection of unsupported dictionary shapes.
+  option-dictionary fields.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-containers, and later schema composition surfaces.
+outside the implemented helper slices and later schema composition surfaces.

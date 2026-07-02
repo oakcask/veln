@@ -67,16 +67,11 @@ schemas whose fields use implemented exact-width unsigned primitives,
   fields over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads, or the implemented dispatch payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
-  without a `format` clause when every field is `Int`, `Bool`, `Float`,
-  `String`, top-level `List<Int>`, `List<Bool>`, `List<Float>`, or
-  `List<String>`, a top-level string-keyed dictionary with scalar values, a
-  nested record shape made from scalar, `List<scalar>`, `Option<scalar>`,
-  `Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>`, or `Result<scalar, scalar>` field types,
-  `Result<Ok, Err>` where both payloads are scalars, or `Option<T>` where
-  `T` is one of those scalar, string-keyed scalar
-  dictionary, or nested record shapes, with declaration diagnostics for
-  unsupported helper field types
+  without a `format` clause when every field is a recursive format-neutral
+  visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
+  `List<T>`, and `Dict<String, T>`, plus `Result<Ok, Err>` where both
+  payloads are scalars, with declaration diagnostics for unsupported helper
+  field types
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -120,6 +115,10 @@ The completed format-neutral `Result<scalar, scalar>` helper slice is archived
 under
 [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
 
+The completed recursive format-neutral container helper slice is archived
+under
+[Format-Neutral Schema Recursive Container Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-container-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -130,11 +129,8 @@ This proposal remains open for:
 - generated runtime decode bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices, and format-neutral fields outside the implemented scalar,
-  top-level scalar list, top-level string-keyed scalar dictionary, supported
-  `Option`, top-level `Option<List<scalar>>`, top-level
-  `Option<Dict<String, scalar>>`, supported `Result<scalar, scalar>`, and
-  nested record-shaped helper slices
+  dispatch slices, and format-neutral fields outside the implemented
+  recursive visible-shape helper boundary and scalar `Result` boundary
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -385,18 +381,12 @@ Implemented:
   unsigned primitives, visible flag bitset fields, or bounded repeat fields
   over implemented primitive, nested schema, or `ByteView(length_field)`
   payloads expose generated `byte_decode_<schema>` helper bindings.
-- Format-neutral schemas without a `format` clause whose fields are `Int`,
-  `Bool`, `Float`, `String`, top-level `List<Int>`, `List<Bool>`,
-  `List<Float>`, or `List<String>`, top-level string-keyed scalar
-  dictionaries, nested record shapes made from scalar, `List<scalar>`,
-  `Option<scalar>`, `Option<List<scalar>>`,
-  `Option<Dict<String, scalar>>`, `Dict<String, scalar>`, or
-  `Result<scalar, scalar>` field types, `Result<Ok, Err>` where both
-  payloads are scalars, or `Option<T>` where `T` is one of those scalar,
-  string-keyed scalar dictionary, or nested record shapes, expose generated
+- Format-neutral schemas without a `format` clause whose fields are recursive
+  visible shapes made from scalar leaves, anonymous record fields,
+  `Option<T>`, `List<T>`, and `Dict<String, T>`, plus
+  `Result<Ok, Err>` where both payloads are scalars, expose generated
   `byte_decode_<schema>` helper bindings that accept and return the
-  schema-local visible record through
-  `Result<T, String>`.
+  schema-local visible record through `Result<T, String>`.
   Unsupported format-neutral helper fields report
   `schema.format_neutral_decode_helper` at the field declaration with a
   related note for the generated helper boundary.
@@ -411,9 +401,7 @@ Remaining:
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
-  dispatch, and format-neutral scalar, top-level scalar list,
-  top-level string-keyed scalar dictionary, supported `Option`, top-level
-  `Option<List<scalar>>`, top-level `Option<Dict<String, scalar>>`,
-  supported `Result<scalar, scalar>`, or nested record-shaped slices.
+  dispatch, recursive format-neutral visible-shape helper boundary, and
+  scalar `Result` boundary.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

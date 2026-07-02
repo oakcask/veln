@@ -27,16 +27,11 @@ is not enough.
 Top-level `schema Name` and `pub schema Name` declarations are source module
 items. A schema body may omit its `format` clause when every field uses
 format-neutral type text. Format-neutral generated decode helpers are exposed
-only when every field is `Int`, `Bool`, `Float`, `String`, top-level
-`List<Int>`, `List<Bool>`, `List<Float>`, or `List<String>`, top-level
-`Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
-`Dict<String, String>`, a nested record shape made from scalar,
-`List<scalar>`, `Option<scalar>`, `Option<List<scalar>>`,
-`Option<Dict<String, scalar>>`, `Dict<String, scalar>`, or
-`Result<scalar, scalar>` field types, `Result<Ok, Err>` where both payloads
-are scalars, or `Option<T>` where `T` is a scalar, `List<scalar>`,
-`Dict<String, scalar>`, or one of those nested record shapes.
-Unsupported format-neutral helper fields are declaration diagnostics.
+only when every field is a recursive format-neutral visible shape made from
+scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, and
+`Dict<String, T>`. `Result<Ok, Err>` remains a supported boundary only when
+both payloads are scalars. Unsupported format-neutral helper fields are
+declaration diagnostics.
 When present, the single `format binary` clause must appear before schema
 fields.
 
@@ -94,6 +89,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-decode/`,
 `examples/specification/run/format-neutral-schema-option-list-decode/`,
 `examples/specification/run/format-neutral-schema-nested-option-list-decode/`,
+`examples/specification/run/format-neutral-schema-recursive-containers-decode/`,
 `examples/specification/run/format-neutral-schema-result-decode/`,
 and
 `examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`.

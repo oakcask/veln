@@ -16,11 +16,11 @@ Format-neutral schemas without a `format` clause may expose generated
 boundary over the schema-local visible record shape and returns
 `Result<TRecord, String>`.
 
-The slice does not add arbitrary nested dictionary eligibility. Nested
-dictionaries, dictionaries inside lists, lists of dictionaries, and non-string
-dictionary keys remain unsupported helper fields and keep the
-`schema.format_neutral_decode_helper` diagnostic family. Later work added
-`Option<Dict<String, scalar>>` fields.
+The slice did not add arbitrary nested dictionary eligibility. Later work
+added `Option<Dict<String, scalar>>` fields and then generalized
+string-keyed dictionary values through the recursive container helper slice.
+Non-string dictionary keys remain unsupported helper fields and keep the
+`schema.format_neutral_decode_helper` diagnostic family.
 
 ## Evidence
 
@@ -28,13 +28,10 @@ dictionary keys remain unsupported helper fields and keep the
   successful nested record-shaped fields containing `Dict<String, Int>`,
   `Dict<String, Bool>`, `Dict<String, Float>`, and `Dict<String, String>`
   fields.
-- `../../../examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`
-  keeps diagnostics for unsupported adjacent dictionary shapes, including
-  non-string dictionary keys, `Dict<String, Dict<String, Int>>`, and nested
-  record fields containing `Dict<String, Dict<String, Int>>`.
+- `format-neutral-schema-recursive-container-helpers.md` carries the current
+  adjacent negative evidence for unsupported format-neutral helper shapes.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary format-neutral containers,
-and later schema composition surfaces.
+outside the implemented helper slices and later schema composition surfaces.

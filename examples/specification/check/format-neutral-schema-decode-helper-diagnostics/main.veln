@@ -1,16 +1,18 @@
+type LocalPayload
+	LocalPayload(value: Int)
+end
+
 schema BadPacket
 	code: Int
 	names: List<String>
 	supported_metadata: {label: Option<String>, retries: Option<Int>}
-	nested_lists: List<List<Int>>
-	nested_item_lists: {items: List<List<Int>>}
-	nested_recursive_optional_items: {items: Option<List<List<Int>>>}
 	numeric_scores: Dict<Int, Int>
-	nested_scores: Dict<String, Dict<String, Int>>
 	optional_scores: Option<Dict<Int, Int>>
 	nested_optional_scores: {scores: Option<Dict<Int, Int>>}
-	record_nested_scores: {scores: Dict<String, Dict<String, Int>>}
 	result_items: Result<List<Int>, String>
 	result_labels: Result<Int, Dict<String, String>>
 	vec_items: Vec<Int>
+	local_payload: LocalPayload
+	callback: fn(Int) -> String
+	metadata: {payload: LocalPayload, callback: fn(Int) -> String}
 end

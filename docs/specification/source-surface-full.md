@@ -28,16 +28,10 @@ upper-case exact-width primitive payload spelling. They also accept
 byte-aligned lowercase `uint... reserves <value>` spelling and the checked
 `uint1 reserves 0` spelling in direct reserved-bit dispatch payload positions.
 Format-neutral schemas reject binary-only primitive vocabulary in dispatch
-payload positions. Format-neutral
-generated decode helpers are limited to scalar fields, top-level `List<Int>`,
-`List<Bool>`, `List<Float>`, or `List<String>` fields, top-level
-`Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
-`Dict<String, String>` fields, supported top-level `Option` fields including
-`Option<List<scalar>>` and `Option<Dict<String, scalar>>`, top-level
-`Result<scalar, scalar>` fields, and nested
-record-shaped fields made from scalar, `List<scalar>`, `Option<scalar>`,
-`Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
-`Dict<String, scalar>`, or `Result<scalar, scalar>` field types.
+payload positions. Format-neutral generated decode helpers are limited to
+recursive visible shapes made from scalar leaves, anonymous record fields,
+`Option<T>`, `List<T>`, and `Dict<String, T>`. `Result<Ok, Err>` remains
+supported only when both payloads are scalars.
 
 ## Executable Grammar
 
