@@ -40,7 +40,7 @@ checked task slices, and narrow deadline and cancellation slices, for:
   adapter-owned cancellation owner lifecycle boundary, and production
   owner-drain cancellable deadline lifecycle boundary, production
   two-stream multi-cycle routing boundary, production multi-chunk routing
-  read-failure boundary, production multi-event task-context routing boundary,
+  read-failure boundary, production multi-event adapter task-helper boundary,
   the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
@@ -385,11 +385,13 @@ through an existing channel to a pure handler, observes clean end as
 stream through `net::write_chunks`. The adapter owns `net` and `concurrency`;
 the handler receives no `NetStream` and calls no transport functions. A
 companion task-context case routes each accepted stream event through the same
-channel boundary and then through `task::spawn_with<Result, Context>`, carrying
-adapter-owned route and trace metadata while preserving event sequence before
-ordered `net::write_chunks` projection. A matching read-failure case forces
-the same multi-chunk adapter path to fail as a runtime transport failure after
-production accept and before any chunk routing, response writes, stream close,
+channel boundary and then through an adapter-owned task helper using
+`task::spawn_with<Result, Context>`. The helper carries adapter-owned route and
+trace metadata, preserves event sequence before ordered `net::write_chunks`
+projection, and calls a pure handler that receives no `NetStream`. A matching
+read-failure case forces the same multi-chunk adapter path to fail as a runtime
+transport failure after production accept and before any chunk routing,
+response writes, stream close,
 or clean listener end is recorded.
 
 Implemented production two-stream multi-cycle routing slice: an executable

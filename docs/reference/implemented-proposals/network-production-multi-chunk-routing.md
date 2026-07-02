@@ -34,12 +34,13 @@ adds no effect label, socket handle type, service interface, or HTTP protocol
 behavior.
 
 A companion run case strengthens the same slice by routing each accepted
-stream event through the channel boundary and then through
-`task::spawn_with<Result, Context>`. The context carries adapter-owned route
-and trace metadata plus a sequence value. The checked output confirms that two
-chunk events and the clean-end event preserve the same trace identity, ordered
-sequences, ordered `net::write_chunks` projection, stream close, and clean
-listener end.
+stream event through the channel boundary and then through an adapter-owned
+task helper using `task::spawn_with<Result, Context>`. The context carries
+adapter-owned route and trace metadata plus a sequence value. The task helper
+owns the `concurrency` boundary and calls a pure event/action handler that
+receives no `NetStream`. The checked output confirms that two chunk events and
+the clean-end event preserve the same trace identity, ordered sequences,
+ordered `net::write_chunks` projection, stream close, and clean listener end.
 
 The matching read-failure case configures the same multi-chunk production
 input path and forces `net::read_chunk_or_end` to fail. The failure remains a

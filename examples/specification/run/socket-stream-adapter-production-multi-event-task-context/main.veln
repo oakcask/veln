@@ -1,4 +1,4 @@
-# Production loopback adapter routes repeated stream events through task context.
+# Production loopback adapter routes repeated stream events through an adapter task helper.
 use stdio
 
 type ResponseAction
@@ -7,11 +7,15 @@ type ResponseAction
 	Ignore
 end
 
-fn handle_stream_context(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } } effects [concurrency]
+fn handle_stream_event(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }
 	match context.input
 		Chunk(bytes) => { action: SendBytes(bytes), next_state: { chunks: context.state.chunks + 1, ended: context.state.ended }, event_kind: "chunk", byte_count: byte_count_to_int(byte_chunk_count(bytes)), route: context.route, trace: context.trace }
 		End => { action: EndStream, next_state: { chunks: context.state.chunks, ended: true }, event_kind: "end", byte_count: 0, route: context.route, trace: context.trace }
 	end
+end
+
+fn run_adapter_handler_task(context: { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } } effects [concurrency]
+	handle_stream_event(context)
 end
 
 fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, input: StreamInput) -> StreamInput effects [concurrency]
@@ -31,7 +35,7 @@ end
 
 fn handle_routed_input(input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int }) -> { action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } } effects [concurrency]
 	let context = { input: input, state: state, route: route, trace: trace }
-	let worker = task::spawn_with<{ action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }, { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }>(handle_stream_context, context)
+	let worker = task::spawn_with<{ action : ResponseAction, next_state : { chunks : Int, ended : Bool }, event_kind : String, byte_count : Int, route : { stream : String, lane : String }, trace : { trace_id : String, sequence : Int } }, { input: StreamInput, state: { chunks : Int, ended : Bool }, route: { stream : String, lane : String }, trace: { trace_id : String, sequence : Int } }>(run_adapter_handler_task, context)
 	match task::join(worker)
 		Ok(value) => value
 		Err(_) => { action: Ignore, next_state: state, event_kind: "join-failed", byte_count: 0, route: route, trace: trace }

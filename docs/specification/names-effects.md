@@ -152,13 +152,14 @@ compiler-known calls.
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an
   existing channel to a pure handler, and projects ordered `SendBytes` actions
   through `net::write_chunks` while requiring the same `net` and
-  `concurrency` adapter boundary. The multi-event task-context variant routes
-  each accepted stream event through the same channel boundary and then through
-  `task::spawn_with<Result, Context>` with adapter-owned route and trace
-  metadata, preserving event sequence before projecting ordered
-  `SendBytes` actions through `net::write_chunks`; the handler still receives
-  no `NetStream`. The matching effect fixture rejects adapter entry points
-  that omit either label while keeping the handler boundary effect-free. A
+  `concurrency` adapter boundary. The multi-event adapter task-helper variant
+  routes each accepted stream event through the same channel boundary and then
+  through `task::spawn_with<Result, Context>` via an adapter-owned task helper.
+  The helper carries adapter-owned route and trace metadata, preserves event
+  sequence before projecting ordered `SendBytes` actions through
+  `net::write_chunks`, and calls a pure event/action handler that receives no
+  `NetStream`. The matching effect fixture rejects adapter entry points
+  that omit either label while keeping that handler boundary effect-free. A
   forced production read failure on the same multi-chunk
   routing path remains a runtime transport failure after the stream is
   accepted and before any chunk routing, response writes, stream close, or
