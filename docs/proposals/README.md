@@ -78,9 +78,10 @@ compare it with `../specification/` before changing behavior.
   compatibility schema import/reference visibility checks, generated
   field-local validation, generated `validate_<schema>` decoded-record
   validation, visible flag bitset decode bindings, bounded repeat generated
-  helper bindings, generated encode-time field-local validation for eligible
-  schema helpers, derived encode boundary support, format-neutral schema bodies
-  without a `format` clause, generated format-neutral decode helpers for
+  helper bindings, direct nested binary schema helper bindings, generated
+  encode-time field-local validation for eligible schema helpers, derived
+  encode boundary support, format-neutral schema bodies without a `format`
+  clause, generated format-neutral decode helpers for
   recursive visible shapes made from scalar leaves, anonymous record fields,
   `Option<T>`, `List<T>`, `Dict<String, T>`, and supported recursive
   `Result<Ok, Err>` visible-shape fields, same-module source ADT
@@ -94,6 +95,9 @@ compare it with `../specification/` before changing behavior.
   through the aliased schema helper boundary. The completed
   documentation-comment schema reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
+  The completed direct nested binary schema decode binding slice is archived
+  under
+  [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
   The completed format-neutral `Option` helper slice, including
   `Option<scalar>` fields inside nested record-shaped fields, is archived under
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).

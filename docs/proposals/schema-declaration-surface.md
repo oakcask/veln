@@ -65,7 +65,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, or `ByteView(length_field)`
-  payloads, or the implemented dispatch payload slices
+  payloads, direct nested binary schema fields, or the implemented dispatch
+  payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
@@ -88,6 +89,10 @@ The completed visible flag bitset decode binding slice is archived under
 
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+
+The completed direct nested binary schema decode binding slice is archived
+under
+[Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
 
 The completed format-neutral `Option` helper slice, including
 `Option<scalar>` fields inside nested record-shaped fields, is archived under
@@ -137,9 +142,9 @@ This proposal remains open for:
 
 - generated runtime decode bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
-  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices, and format-neutral fields outside the implemented recursive
-  visible-shape helper boundary
+  direct nested binary schema, bounded repeat, length-bounded `ByteView`,
+  closed dispatch, and extension dispatch slices, and format-neutral fields
+  outside the implemented recursive visible-shape helper boundary
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -387,9 +392,10 @@ Implemented:
   field path, predicate text, owning supplied field value, and supplied decoded
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
-  unsigned primitives, visible flag bitset fields, or bounded repeat fields
-  over implemented primitive, nested schema, or `ByteView(length_field)`
-  payloads expose generated `byte_decode_<schema>` helper bindings.
+  unsigned primitives, visible flag bitset fields, direct nested binary schema
+  fields, or bounded repeat fields over implemented primitive, nested schema,
+  or `ByteView(length_field)` payloads expose generated
+  `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are recursive
   visible shapes made from scalar leaves, anonymous record fields,
   `Option<T>`, `List<T>`, `Dict<String, T>`, and
@@ -411,7 +417,8 @@ Remaining:
 
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
-  bounded repeat, length-bounded `ByteView`, closed dispatch, extension
-  dispatch, and recursive format-neutral visible-shape helper boundary.
+  direct nested binary schema, bounded repeat, length-bounded `ByteView`,
+  closed dispatch, extension dispatch, and recursive format-neutral
+  visible-shape helper boundary.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

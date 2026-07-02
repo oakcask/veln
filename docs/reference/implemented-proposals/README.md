@@ -170,6 +170,8 @@ behavior.
   [binary-schema-reserved-bit-mapping-exposure.md](binary-schema-reserved-bit-mapping-exposure.md).
 - Binary schema repeat helper bindings:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
+- Binary schema direct nested decode bindings:
+  [binary-schema-direct-nested-decode-bindings.md](binary-schema-direct-nested-decode-bindings.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length + right_length)` payload helpers:

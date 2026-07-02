@@ -3241,6 +3241,8 @@ fn schema_decode_record_fields_inner_after_push(
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
             (0, Type::named("List", vec![element_ty]))
+        } else if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
+            (0, schema_decode_value_type_inner(module, nested, stack)?)
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
@@ -3769,6 +3771,13 @@ fn schema_encode_schema_fields(
                 return None;
             }
             fields.push((field.name.clone(), Type::named("ByteView", Vec::new())));
+            continue;
+        }
+        if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
+            fields.push((
+                field.name.clone(),
+                schema_encode_value_type(module, nested)?,
+            ));
             continue;
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)

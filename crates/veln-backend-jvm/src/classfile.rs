@@ -1300,6 +1300,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 .repeat
                 .as_ref()
                 .and_then(|repeat| repeat.payload_schema.as_ref())
+                .or(schema.fields[index].payload_schema.as_ref())
             {
                 this.emit_schema_metadata(code, payload_schema);
             } else {

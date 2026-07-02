@@ -67,6 +67,9 @@ enough.
   Lowercase exact-width `uint...` payloads written in legacy
   `Repeat(count, Payload)` fields normalize to the same generated decode and
   encode helper behavior as the matching canonical repeated-field payload.
+- Direct nested binary schema fields name an eligible same-module or public
+  imported nested binary schema, consume that nested schema in place, and
+  expose the nested schema-local visible record at the field.
 - Dispatch payload cases written with lowercase exact-width `uint...` and
   `flag...` primitive spelling normalize to the same generated decode and
   encode helper behavior as compatible upper-case exact-width payload spelling.

@@ -165,6 +165,7 @@
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
         final SchemaRepeatSpec repeat;
+        final BinarySchemaSpec payloadSchema;
         final String lengthField;
         final String lengthMultiple;
         final int reservedBitWidth;
@@ -172,7 +173,7 @@
         final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, "", predicate, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, null, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -182,7 +183,7 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -193,7 +194,7 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, "", "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, "", predicate, null, null, null, "", "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -211,6 +212,7 @@
                 littleEndian,
                 flag8 ? "Flag8" : "",
                 predicate,
+                null,
                 null,
                 null,
                 "",
@@ -229,7 +231,7 @@
             String flagType,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -248,6 +250,7 @@
                 littleEndian,
                 flag8 ? "Flag8" : "",
                 predicate,
+                null,
                 null,
                 null,
                 "",
@@ -267,7 +270,7 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, "", "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, null, "", "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -277,7 +280,7 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, "", predicate, dispatch, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, false, "", predicate, dispatch, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
@@ -285,15 +288,19 @@
         }
 
         SchemaFieldSpec(String name, String lengthField, String lengthMultiple) {
-            this(name, 0, 0L, false, "", null, null, null, lengthField, lengthMultiple, 0, 0L, null);
+            this(name, 0, 0L, false, "", null, null, null, null, lengthField, lengthMultiple, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, SchemaRepeatSpec repeat) {
-            this(name, 0, 0L, false, "", null, null, repeat, "", "", 0, 0L, null);
+            this(name, 0, 0L, false, "", null, null, repeat, null, "", "", 0, 0L, null);
+        }
+
+        SchemaFieldSpec(String name, BinarySchemaSpec payloadSchema) {
+            this(name, 0, 0L, false, "", null, null, null, payloadSchema, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, "", null, null, null, "", "", reservedBitWidth, reservedValue, null);
+            this(name, 0, 0L, false, "", null, null, null, null, "", "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -305,6 +312,7 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch,
             SchemaRepeatSpec repeat,
+            BinarySchemaSpec payloadSchema,
             String lengthField,
             String lengthMultiple,
             int reservedBitWidth,
@@ -319,6 +327,7 @@
             this.predicate = predicate;
             this.dispatch = dispatch;
             this.repeat = repeat;
+            this.payloadSchema = payloadSchema;
             this.lengthField = lengthField;
             this.lengthMultiple = lengthMultiple;
             this.reservedBitWidth = reservedBitWidth;
@@ -338,9 +347,14 @@
             return repeat != null;
         }
 
+        boolean isNestedSchema() {
+            return payloadSchema != null;
+        }
+
         boolean isFlagBitset() {
             return dispatch == null
                 && repeat == null
+                && payloadSchema == null
                 && lengthField.isEmpty()
                 && reservedBitWidth == 0
                 && !flagType.isEmpty();
@@ -2921,6 +2935,7 @@
             String repeatCountField = asString(repeatCountFieldValues.get(index));
             String repeatByteViewLengthField =
                 asString(repeatByteViewLengthFieldValues.get(index));
+            Object schemaSpecValue = repeatSchemaSpecValues.get(index);
             if (!predicateText.isEmpty()) {
                 fixedValue = schemaFixedFieldValue(fieldName, predicateText, maxValue);
                 if (fixedValue == null) {
@@ -2944,10 +2959,9 @@
                 continue;
             }
             if (!repeatCountField.isEmpty()) {
-                Object repeatPayloadSchema = repeatSchemaSpecValues.get(index);
                 BinarySchemaSpec payloadSchema = null;
-                if (repeatPayloadSchema instanceof java.util.List<?>) {
-                    Object parsedSchema = declaredBinarySchemaSpecFromMetadata(repeatPayloadSchema);
+                if (schemaSpecValue instanceof java.util.List<?>) {
+                    Object parsedSchema = declaredBinarySchemaSpecFromMetadata(schemaSpecValue);
                     if (isErr(parsedSchema)) {
                         return err(encodeError(
                             "codec.metadata",
@@ -2967,6 +2981,21 @@
                         repeatByteViewLengthField,
                         payloadSchema
                     )
+                );
+                continue;
+            }
+            if (schemaSpecValue instanceof java.util.List<?>) {
+                Object parsedSchema = declaredBinarySchemaSpecFromMetadata(schemaSpecValue);
+                if (isErr(parsedSchema)) {
+                    return err(encodeError(
+                        "codec.metadata",
+                        name + "." + fieldName,
+                        asString(resultValue(parsedSchema))
+                    ));
+                }
+                schemaFields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    (BinarySchemaSpec) unwrapOk(parsedSchema)
                 );
                 continue;
             }
@@ -3299,6 +3328,14 @@
                 );
                 if (isErr(encoded)) {
                     return encoded;
+                }
+                bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
+                continue;
+            }
+            if (field.isNestedSchema()) {
+                Object encoded = byteEncodeBinarySchema(fields.get(field.name), field.payloadSchema);
+                if (isErr(encoded)) {
+                    return rebaseEncodeErrorPath(encoded, schema.name + "." + field.name);
                 }
                 bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
                 continue;
@@ -6323,6 +6360,28 @@
                 relativeOffset = repeatRelativeOffset;
                 continue;
             }
+            if (field.isNestedSchema()) {
+                pendingPackedReserved = null;
+                Object payloadView = byteViewDerivedObject(
+                    view,
+                    relativeOffset,
+                    Math.max(0L, byteViewCountLong(view) - relativeOffset)
+                );
+                Object nestedRead = byteDecodeBinarySchemaAtPath(
+                    payloadView,
+                    field.payloadSchema,
+                    diagnosticBaseOffset + relativeOffset,
+                    schemaFieldPathWithPrefix(fieldPathPrefix, schema.name, field.name)
+                );
+                if (isErr(nestedRead)) {
+                    return nestedRead;
+                }
+                java.util.Map<Object, Object> nestedValue = asMap(unwrapOk(nestedRead));
+                values.put(field.name, nestedValue.get("value"));
+                decoded.put(field.name, Long.valueOf(0L));
+                relativeOffset += asLong(nestedValue.get("consumed"));
+                continue;
+            }
             if (field.dispatch != null) {
                 pendingPackedReserved = null;
                 SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
@@ -6929,6 +6988,25 @@
                 decoded.put(field.name, Long.valueOf(0L));
                 continue;
             }
+            if (field.isNestedSchema()) {
+                pendingPackedReserved = null;
+                Object payloadView = byteViewDerivedObject(
+                    view,
+                    relativeOffset,
+                    Math.max(0L, byteViewCountLong(view) - relativeOffset)
+                );
+                long consumed = schemaConsumedWidth(
+                    payloadView,
+                    field.payloadSchema,
+                    diagnosticBaseOffset + relativeOffset
+                );
+                if (consumed <= 0L) {
+                    return relativeOffset;
+                }
+                decoded.put(field.name, Long.valueOf(0L));
+                relativeOffset += consumed;
+                continue;
+            }
             if (field.dispatch != null) {
                 pendingPackedReserved = null;
                 SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
@@ -7103,6 +7181,10 @@
                 continue;
             } else if (field.isRepeat()) {
                 pendingPackedReserved = null;
+                continue;
+            } else if (field.isNestedSchema()) {
+                pendingPackedReserved = null;
+                total += schemaTotalWidth(field.payloadSchema);
                 continue;
             } else if (field.dispatch == null) {
                 SchemaFieldSpec suffixReserved =
@@ -7505,6 +7587,9 @@
                 repeatByteViewLengthFieldValues == null
                     ? ""
                     : asString(repeatByteViewLengthFieldValues.get(index));
+            Object schemaSpecValue = repeatSchemaSpecValues == null
+                ? ""
+                : repeatSchemaSpecValues.get(index);
             boolean littleEndian =
                 littleEndianValueList != null && asBool(littleEndianValueList.get(index));
             String flagType = flag8ValueList == null
@@ -7536,11 +7621,8 @@
                 }
                 long repeatWidth = asLong(repeatWidthValues.get(index));
                 if (repeatWidth < 1L || repeatWidth > 8L) {
-                    Object repeatPayloadSchema = repeatSchemaSpecValues == null
-                        ? ""
-                        : repeatSchemaSpecValues.get(index);
                     if (repeatByteViewLengthField.isEmpty()
-                        && !(repeatPayloadSchema instanceof java.util.List<?>)) {
+                        && !(schemaSpecValue instanceof java.util.List<?>)) {
                         return err(
                             "unsupported repeat field width "
                                 + repeatWidth
@@ -7552,12 +7634,9 @@
                         );
                     }
                 }
-                Object repeatPayloadSchema = repeatSchemaSpecValues == null
-                    ? ""
-                    : repeatSchemaSpecValues.get(index);
                 BinarySchemaSpec payloadSchema = null;
-                if (repeatPayloadSchema instanceof java.util.List<?>) {
-                    Object parsedSchema = declaredBinarySchemaSpecFromMetadata(repeatPayloadSchema);
+                if (schemaSpecValue instanceof java.util.List<?>) {
+                    Object parsedSchema = declaredBinarySchemaSpecFromMetadata(schemaSpecValue);
                     if (isErr(parsedSchema)) {
                         return parsedSchema;
                     }
@@ -7573,6 +7652,17 @@
                         repeatByteViewLengthField,
                         payloadSchema
                     )
+                );
+                continue;
+            }
+            if (schemaSpecValue instanceof java.util.List<?>) {
+                Object parsedSchema = declaredBinarySchemaSpecFromMetadata(schemaSpecValue);
+                if (isErr(parsedSchema)) {
+                    return parsedSchema;
+                }
+                fields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    (BinarySchemaSpec) unwrapOk(parsedSchema)
                 );
                 continue;
             }

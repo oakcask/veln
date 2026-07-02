@@ -1,0 +1,23 @@
+# Binary schema direct nested decode failures include the parent field path.
+
+schema NestedHeader
+	format binary
+
+	kind: UInt8
+	code: UInt16be
+end
+
+schema NestedPacket
+	format binary
+
+	prefix: UInt8
+	header: NestedHeader
+	tail: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010203")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let _: {prefix: Int, header: {kind: Int, code: Int}, tail: Int} = byte_decode_nested_packet(view)?
+	Ok(())
+end

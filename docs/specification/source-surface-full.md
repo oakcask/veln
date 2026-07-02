@@ -27,6 +27,9 @@ and `flag...` primitive spelling in the same positions as compatible
 upper-case exact-width primitive payload spelling. They also accept
 byte-aligned lowercase `uint... reserves <value>` spelling and the checked
 `uint1 reserves 0` spelling in direct reserved-bit dispatch payload positions.
+`format binary` direct nested schema fields may name an eligible same-module
+schema or public imported schema and expose the nested schema-local visible
+record at that field.
 Format-neutral schemas reject binary-only primitive vocabulary in dispatch
 payload positions. Format-neutral generated decode helpers are limited to
 recursive visible shapes made from scalar leaves, anonymous record fields,
