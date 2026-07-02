@@ -905,9 +905,10 @@ current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-response-header-validation.md` plus
 `../reference/implemented-proposals/http2-te-header-validation.md` plus
 `../reference/implemented-proposals/http2-content-length-header-validation.md`:
-the HTTP/2
-core validates request and response header lists after HPACK fixture decode on
-both completed HEADERS and final CONTINUATION paths.
+the HTTP/2 core validates request and response header lists after HPACK
+fixture decode, and validates the completed source-visible HPACK static-name
+literal request `:scheme` slice, on completed HEADERS and final CONTINUATION
+paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
@@ -915,8 +916,9 @@ ordinary header names outside the HTTP field-name token shape, plus
 connection-specific ordinary header names `connection`, `keep-alive`,
 `proxy-connection`, `transfer-encoding`, and `upgrade`, through
 `http2.protocol.invalid_request_header_list`. Request validation also accepts
-`:scheme` values `http` and `https`, and rejects any other fixture-marked
-value with failed fact `scheme_value_not_http_or_https`; it rejects empty
+`:scheme` values `http` and `https`, and rejects any other fixture-marked or
+source-visible HPACK static-name literal value with failed fact
+`scheme_value_not_http_or_https`; it rejects empty
 fixture-marked `:method` values with failed fact `method_value_empty`, empty
 fixture-marked `:path` values with failed fact `path_value_empty` after
 `:path` presence has been confirmed, and fixture-marked invalid `:authority`

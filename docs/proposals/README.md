@@ -428,7 +428,8 @@ compare it with `../specification/` before changing behavior.
   half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, request-trailer, and response-trailer
   header-list validation,
-  the source-visible request `:path` value rule, the source-visible `te`
+  the source-visible request `:path` value rule, the source-visible request
+  `:scheme` HPACK static-name literal value rule, the source-visible `te`
   header value rule, response-side production `content-length`
   header-list consistency beyond the checked fixture boundary,
   accepted `content-length` body-length
@@ -470,11 +471,12 @@ compare it with `../specification/` before changing behavior.
   HPACK static table metadata with raw visible-ASCII values and bounded
   Huffman-marked literal values decoded through the HPACK static Huffman
   table, including line feed, single-byte `hpack-byte-*` labels, and
-  multi-byte `hpack-bytes-*` labels, plus narrowed request and response
-  `content-length` static-name paths for accepted visible ASCII decimal
-  values on literal-without-indexing, literal-with-indexing, and
-  literal-never-indexed forms that do not observe later fixture dynamic-table
-  reuse,
+  multi-byte `hpack-bytes-*` labels, narrowed request `:scheme` static-name
+  paths for accepted `http` and `https` values and rejected visible ASCII
+  values, plus narrowed request and response `content-length` static-name paths
+  for accepted visible ASCII decimal values on literal-without-indexing,
+  literal-with-indexing, and literal-never-indexed forms that do not observe
+  later fixture dynamic-table reuse,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked

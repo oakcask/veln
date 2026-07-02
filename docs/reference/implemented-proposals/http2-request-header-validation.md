@@ -10,8 +10,9 @@ the checked examples under `../../../examples/specification/run/`.
 ## Implemented Behavior
 
 The HTTP/2 protocol-core example decodes completed inbound HEADERS and final
-CONTINUATION header blocks through the imported HPACK fixture module before
-running request-header validation for fixture-marked request header lists.
+CONTINUATION header blocks through the imported HPACK fixture module and the
+source-visible static decoder before running request-header validation for
+decoded request header lists.
 
 The validation rejects request header lists that duplicate a request
 pseudo-header, place a request pseudo-header after a regular header, omit
@@ -21,8 +22,9 @@ names outside the HTTP field-name token shape. The follow-up connection-specific
 header slice also rejects `connection`, `keep-alive`, `proxy-connection`,
 `transfer-encoding`, and `upgrade` as ordinary request headers. The
 request `:scheme` value slice accepts `http` and `https`, and rejects any
-other fixture-marked value with failed fact
-`scheme_value_not_http_or_https`. The request `:method` value slice rejects
+other fixture-marked value or source-visible HPACK static-name literal value
+with failed fact `scheme_value_not_http_or_https`. The request `:method`
+value slice rejects
 fixture-marked empty values with failed fact `method_value_empty`, and the
 request `:path` value slice rejects fixture-marked empty values with failed
 fact `path_value_empty` after `:path` presence has been confirmed. The
@@ -37,10 +39,13 @@ HPACK fixture diagnostics.
   integrated protocol-core path, including one accepted request fixture, a
   request fixture with a lowercase ordinary `host` header, accepted
   `:scheme` values `http` and `https` through completed HEADERS and final
-  CONTINUATION paths, an unsupported `:scheme` value, an empty `:method`
-  value, an empty `:path` value after method and scheme presence are
-  satisfied, an invalid `:authority` value, a final CONTINUATION path
-  missing `:method`, a HEADERS path containing
+  CONTINUATION paths, an unsupported fixture-marked `:scheme` value,
+  accepted source-visible HPACK static-name literal `:scheme` values, and
+  rejected source-visible HPACK static-name literal `:scheme` values across
+  literal-without-indexing, literal-with-indexing, literal-never-indexed, and
+  final CONTINUATION paths, an empty `:method` value, an empty `:path` value
+  after method and scheme presence are satisfied, an invalid `:authority`
+  value, a final CONTINUATION path missing `:method`, a HEADERS path containing
   response-only `:status`, a duplicate `:method`, and a `:method` after a
   regular `host` header, plus uppercase and token-invalid ordinary request
   header names and the checked connection-specific ordinary request header

@@ -236,7 +236,11 @@ requiring the full command reference on the first read.
   literal-never-indexed inputs, accepted Huffman-marked literal values decoded
   through the HPACK static Huffman table for the three static-name forms, and
   malformed raw-length fallback for those forms. The aggregate HTTP/2
-  protocol-core run case also checks a source-visible HPACK static-name
+  protocol-core run case also checks source-visible HPACK static-name
+  `:scheme` literal values in request header blocks through the existing
+  request header-list validation path, including accepted `http` and `https`
+  and rejected visible ASCII values on completed HEADERS and final
+  CONTINUATION paths. It also checks a source-visible HPACK static-name
   `content-length` literal in request header blocks across the
   literal-without-indexing, literal-with-indexing, and literal-never-indexed
   forms that do not require later fixture dynamic-table reuse; accepted

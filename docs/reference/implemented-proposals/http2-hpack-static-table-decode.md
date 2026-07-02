@@ -27,7 +27,12 @@ pseudo-headers or a static response `:status` pseudo-header through
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 forms when no later fixture dynamic-table reuse is observed, and pass decoded
 values to the existing matching header-list validation and content-length
-body-accounting paths.
+body-accounting paths. The request path also validates static-name `:scheme`
+literal values after a static `:method` and before a static `:path` through
+the existing request header-list rule, accepting `http` and `https` and
+rejecting other visible ASCII values with
+`scheme_value_not_http_or_https` on completed HEADERS and final CONTINUATION
+paths.
 
 The slice remains limited to static indexed fields and bounded static-name
 literal fields. Unsupported Huffman strings, malformed literal lengths,
@@ -67,8 +72,10 @@ block size, first byte, expected static header description, decoder module
   accepted request and response `content-length` literal-without-indexing,
   literal-with-indexing, and literal-never-indexed forms that do not observe
   later dynamic-table reuse, non-decimal `content-length` request and response
-  validation, and the focused unsupported static-index failure through the
-  protocol core.
+  validation, accepted request `:scheme` static-name literal values, rejected
+  request `:scheme` static-name literal values across the three static-name
+  literal forms and final CONTINUATION completion, and the focused unsupported
+  static-index failure through the protocol core.
 - `../../../examples/specification/run/hpack-static-core-index-unsupported-human/`
   checks the human diagnostic projection for
   `hpack.static.unsupported_index`.
