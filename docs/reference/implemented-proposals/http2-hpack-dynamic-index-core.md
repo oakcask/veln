@@ -15,7 +15,10 @@ header-field decode path for a bounded dynamic table supplied by the caller.
 For the checked slice, a carried bounded dynamic table can contain multiple
 entries. The indexed byte `0xbe` resolves to the newest carried entry,
 `0xbf` resolves to the next older carried entry, and each accepted decode
-advances the dynamic-core decode count.
+advances the dynamic-core decode count. The boundary also accepts saturated
+seven-bit indexed representation `0xff 0x00` as HPACK index `127`, resolving
+dynamic table index `65` when the supplied bounded table carries that retained
+entry.
 
 An indexed byte that asks past the carried table reports the focused
 `hpack.fixture.dynamic_index_out_of_range` fact shape with the requested
@@ -32,9 +35,10 @@ remain outside this core slice.
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the accepted source-visible `hpack_dynamic_core` dynamic indexed decode for
-  multiple carried bounded entries, decode-count advancement after each
-  accepted decode, and the focused out-of-range dynamic index failure facts
-  without state advancement when the requested entry is not carried.
+  multiple carried bounded entries, the saturated seven-bit `0xff 0x00`
+  indexed representation, decode-count advancement after each accepted decode,
+  and the focused out-of-range dynamic index failure facts without state
+  advancement when the requested entry is not carried.
 - The same case keeps the existing fixture-owned dynamic-table behavior and
   outbound HPACK fixture encoder coverage around the new source-visible core
   boundary.

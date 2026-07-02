@@ -246,6 +246,13 @@ fn dynamic_core_next_state_or(result: Result<HpackDynamicCoreDecodeTransition, H
 	end
 end
 
+fn build_deep_dynamic_core_path_state(remaining: Int, state: HpackDynamicCoreState) -> HpackDynamicCoreState
+	match remaining
+		0 => state
+		_ => build_deep_dynamic_core_path_state(remaining - 1, hpack_dynamic_core::prepend_carried_dynamic_entry_state(state, ":path", "/a"))
+	end
+end
+
 fn print_two_header_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
 	match result
 		Ok(transition) => print_decoded_two_header_transition(label, transition)
@@ -449,6 +456,7 @@ end
 fn print_dynamic_name_wide_continuation_cases() -> Result<(), String> effects [stdio]
 	let deep_dynamic_state: HpackFixtureState = build_deep_dynamic_path_state(66, initial_state())?
 	print_transition("dynamic-name-wide-index-retained-older-path", decode_header_block(byte_chunk_from_hex("ff")?, deep_dynamic_state, 109))
+	print_transition("dynamic-indexed-wide-continuation-retained-older-path", decode_header_block(byte_chunk_from_hex("ff00")?, deep_dynamic_state, 117))
 	let literal_indexed_deep_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(byte_chunk_from_hex("7f40052f64656570")?, deep_dynamic_state, 110)
 	print_transition("literal-indexed-dynamic-name-wide-path-deep", literal_indexed_deep_name)
 	let literal_indexed_deep_name_state: HpackFixtureState = require_decoded_header(literal_indexed_deep_name, ":path", "/deep")?
@@ -462,6 +470,7 @@ fn print_dynamic_name_wide_continuation_cases() -> Result<(), String> effects [s
 	let literal_never_indexed_deep_name_state: HpackFixtureState = require_decoded_header(literal_never_indexed_deep_name, ":path", "/secret")?
 	print_transition("dynamic-name-wide-never-indexed-retains-older-path", decode_header_block(byte_chunk_from_hex("ff")?, literal_never_indexed_deep_name_state, 115))
 	let ignored_dynamic_name_wide_out_of_range: () = print_required_unsupported_with_id("literal-indexed-dynamic-name-wide-out-of-range", decode_header_block(byte_chunk_from_hex("7f41052f64656570")?, deep_dynamic_state, 116))?
+	let ignored_dynamic_indexed_wide_out_of_range: () = print_required_unsupported_with_id("dynamic-indexed-wide-continuation-out-of-range", decode_header_block(byte_chunk_from_hex("ff00")?, initial_state(), 118))?
 	Ok(())
 end
 
@@ -633,6 +642,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_core_third_missing: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_indexed_header_field(third_indexed_block, dynamic_core_after_second, 73)
 	print_dynamic_core_transition("dynamic-core-indexed-third-missing", dynamic_core_third_missing)
 	print_dynamic_core_state("dynamic-core-after-third-missing", dynamic_core_next_state_or(dynamic_core_third_missing, dynamic_core_after_second))
+	let dynamic_core_wide_block: ByteChunk = byte_chunk_from_hex("ff00")?
+	let dynamic_core_deep_state: HpackDynamicCoreState = build_deep_dynamic_core_path_state(66, hpack_dynamic_core::initial_dynamic_core_state())
+	print_dynamic_core_transition("dynamic-core-indexed-wide-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_deep_state, 74))
+	print_dynamic_core_transition("dynamic-core-indexed-wide-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_wide_block, dynamic_core_two_entry_state, 75))
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
 	let literal_indexed_dynamic_name: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(literal_indexed_dynamic_name_block, dynamic_state, 73)
 	print_transition("literal-indexed-dynamic-name-path-again", literal_indexed_dynamic_name)

@@ -24,6 +24,10 @@ pub type HpackDynamicCoreFailure
 	DynamicCoreIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 end
 
+type HpackDynamicCoreIntegerPrefix
+	HpackDynamicCoreIntegerPrefix(value: Int, prefix_size: Int)
+end
+
 fn dynamic_core_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
 	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
 	byte_read_u8_be(view)
@@ -77,6 +81,48 @@ fn dynamic_core_entry_at(dynamic_entry: HpackDynamicCoreEntry, table_index: Int)
 	end
 end
 
+fn dynamic_core_low_seven_bits(byte: Int) -> Int
+	byte - (byte / 128) * 128
+end
+
+fn dynamic_core_decode_integer_tail(block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
+	match index < observed_size
+		false => dynamic_core_unsupported_integer_prefix(block, offset)
+		true => dynamic_core_decode_integer_tail_byte(dynamic_core_byte_at_or_missing(block, index), block, observed_size, index, multiplier, value, offset)
+	end
+end
+
+fn dynamic_core_decode_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
+	let next_value: Int = value + dynamic_core_low_seven_bits(current) * multiplier
+	match current < 128
+		true => Ok(HpackDynamicCoreIntegerPrefix(next_value, index + 1))
+		false => dynamic_core_decode_integer_tail(block, observed_size, index + 1, multiplier * 128, next_value, offset)
+	end
+end
+
+fn dynamic_core_decode_prefixed_integer(prefix_value: Int, prefix_max: Int, block: ByteChunk, observed_size: Int, next_index: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
+	match prefix_value < prefix_max
+		true => Ok(HpackDynamicCoreIntegerPrefix(prefix_value, next_index))
+		false => dynamic_core_decode_integer_tail(block, observed_size, next_index, 1, prefix_max, offset)
+	end
+end
+
+fn dynamic_core_integer_prefix_value(prefix: HpackDynamicCoreIntegerPrefix) -> Int
+	match prefix
+		HpackDynamicCoreIntegerPrefix(value, _) => value
+	end
+end
+
+fn dynamic_core_integer_prefix_size(prefix: HpackDynamicCoreIntegerPrefix) -> Int
+	match prefix
+		HpackDynamicCoreIntegerPrefix(_, prefix_size) => prefix_size
+	end
+end
+
+fn dynamic_core_unsupported_integer_prefix(block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
+	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible dynamic indexed header", "hpack_dynamic_core", block))
+end
+
 fn dynamic_core_indexed_header(name: String, value: String) -> HpackDynamicCoreHeaderList
 	HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(name, value), HpackDynamicCoreHeader(":fixture", "dynamic-indexed"), 9)
 end
@@ -87,6 +133,25 @@ end
 
 fn dynamic_core_unsupported_indexed_header(block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible dynamic indexed header", "hpack_dynamic_core", block))
+end
+
+fn dynamic_core_decode_indexed_at(table_index: Int, block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	match state
+		HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, table_index)
+			Some(HpackDynamicCoreHeader(name, value)) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_indexed_header(name, value), dynamic_core_next_state(state)))
+			None => dynamic_core_index_out_of_range(block, offset, table_index, dynamic_core_entry_count(dynamic_entry))
+		end
+	end
+end
+
+fn dynamic_core_decode_saturated_indexed_header(block: ByteChunk, state: HpackDynamicCoreState, observed_size: Int, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	match dynamic_core_decode_prefixed_integer(127, 127, block, observed_size, 1, offset)
+		Ok(prefix) => match dynamic_core_integer_prefix_size(prefix) == observed_size
+			true => dynamic_core_decode_indexed_at(dynamic_core_integer_prefix_value(prefix) - 62, block, state, offset)
+			false => dynamic_core_unsupported_indexed_header(block, offset)
+		end
+		Err(failure) => Err(failure)
+	end
 end
 
 pub fn initial_dynamic_core_state() -> HpackDynamicCoreState
@@ -112,11 +177,12 @@ end
 pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
-	match observed_size == 1 and first_byte >= 190
-		true => match state
-			HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, first_byte - 190)
-				Some(HpackDynamicCoreHeader(name, value)) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_indexed_header(name, value), dynamic_core_next_state(state)))
-				None => dynamic_core_index_out_of_range(block, offset, first_byte - 190, dynamic_core_entry_count(dynamic_entry))
+	match first_byte >= 190
+		true => match observed_size == 1
+			true => dynamic_core_decode_indexed_at(first_byte - 190, block, state, offset)
+			false => match first_byte == 255
+				true => dynamic_core_decode_saturated_indexed_header(block, state, observed_size, offset)
+				false => dynamic_core_unsupported_indexed_header(block, offset)
 			end
 		end
 		false => dynamic_core_unsupported_indexed_header(block, offset)
