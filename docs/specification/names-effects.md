@@ -223,11 +223,12 @@ compiler-known calls.
   `List<Bool>`, `List<Float>`, or `List<String>` values, top-level
   `Dict<String, Int>`, `Dict<String, Bool>`, `Dict<String, Float>`, or
   `Dict<String, String>` values, supported top-level `Option` values
-  including `Option<List<scalar>>` and `Option<Dict<String, scalar>>`, or
+  including `Option<List<scalar>>` and `Option<Dict<String, scalar>>`,
+  top-level `Result<scalar, scalar>` values, or
   nested record-shaped values made from scalar, `List<scalar>`,
   `Option<scalar>`, `Option<List<scalar>>`,
   `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>` fields.
+  `Dict<String, scalar>`, or `Result<scalar, scalar>` fields.
   Explicit
   `decode Schema from view at base` expressions are the public source surface
   for applying schemas and expose that decode-step shape without naming the

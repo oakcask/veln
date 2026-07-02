@@ -1,0 +1,66 @@
+# Format-neutral schema decode helpers accept Result<scalar, scalar> fields.
+use stdio
+
+schema ResultPacket
+	status: Result<Int, String>
+	enabled: Result<Bool, String>
+	ratio: Result<Float, String>
+	label: Result<String, Int>
+end
+
+schema NestedResultPacket
+	metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}
+end
+
+fn result_int_text(result: Result<Int, String>) -> String
+	match result
+		Ok(value) => int_to_string(value)
+		Err(message) => message
+	end
+end
+
+fn result_bool_text(result: Result<Bool, String>) -> String
+	match result
+		Ok(value) => match value
+			true => "enabled"
+			false => "disabled"
+		end
+		Err(message) => message
+	end
+end
+
+fn result_float_text(result: Result<Float, String>) -> String
+	match result
+		Ok(value) => match value > 1.0
+			true => "ratio-high"
+			false => "ratio-low"
+		end
+		Err(message) => message
+	end
+end
+
+fn result_string_text(result: Result<String, Int>) -> String
+	match result
+		Ok(value) => value
+		Err(code) => int_to_string(code)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let top_ok: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = byte_decode_result_packet({status: Ok(7), enabled: Ok(true), ratio: Ok(1.25), label: Ok("alpha")})?
+	let top_err: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>} = byte_decode_result_packet({status: Err("blocked"), enabled: Err("unknown"), ratio: Err("missing-ratio"), label: Err(404)})?
+	let nested: {metadata: {status: Result<Int, String>, enabled: Result<Bool, String>, ratio: Result<Float, String>, label: Result<String, Int>}} = byte_decode_nested_result_packet({metadata: {status: Ok(11), enabled: Ok(false), ratio: Ok(0.75), label: Err(503)}})?
+	stdio::println(result_int_text(top_ok.status))
+	stdio::println(result_bool_text(top_ok.enabled))
+	stdio::println(result_float_text(top_ok.ratio))
+	stdio::println(result_string_text(top_ok.label))
+	stdio::println(result_int_text(top_err.status))
+	stdio::println(result_bool_text(top_err.enabled))
+	stdio::println(result_float_text(top_err.ratio))
+	stdio::println(result_string_text(top_err.label))
+	stdio::println(result_int_text(nested.metadata.status))
+	stdio::println(result_bool_text(nested.metadata.enabled))
+	stdio::println(result_float_text(nested.metadata.ratio))
+	stdio::println(result_string_text(nested.metadata.label))
+	Ok(())
+end

@@ -87,7 +87,8 @@ compare it with `../specification/` before changing behavior.
   `Option<Dict<String, scalar>>`, and nested record-shaped fields with
   scalar, `List<scalar>`, `Option<scalar>`,
   `Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>` fields, and
+  `Dict<String, scalar>` fields, and supported `Result<scalar, scalar>`
+  fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -106,6 +107,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Option<Dict<String, scalar>>` helper slice is
   archived under
   [Format-Neutral Schema Option Dict Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-helpers.md).
+  The completed format-neutral `Result<scalar, scalar>` helper slice is
+  archived under
+  [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
   The completed format-neutral top-level list helper slice is archived under
   [Format-Neutral Schema List Helpers](../reference/implemented-proposals/format-neutral-schema-list-helpers.md).
   The completed format-neutral nested record list helper slice is archived

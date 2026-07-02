@@ -72,8 +72,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `List<String>`, a top-level string-keyed dictionary with scalar values, a
   nested record shape made from scalar, `List<scalar>`, `Option<scalar>`,
   `Option<List<scalar>>`, `Option<Dict<String, scalar>>`, or
-  `Dict<String, scalar>` field types, or `Option<T>` where `T` is one of
-  those scalar, string-keyed scalar
+  `Dict<String, scalar>`, or `Result<scalar, scalar>` field types,
+  `Result<Ok, Err>` where both payloads are scalars, or `Option<T>` where
+  `T` is one of those scalar, string-keyed scalar
   dictionary, or nested record shapes, with declaration diagnostics for
   unsupported helper field types
 - generated encode-time field-local validation for eligible
@@ -115,6 +116,10 @@ The completed format-neutral `Option<Dict<String, scalar>>` helper slice is
 archived under
 [Format-Neutral Schema Option Dict Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-helpers.md).
 
+The completed format-neutral `Result<scalar, scalar>` helper slice is archived
+under
+[Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -128,7 +133,8 @@ This proposal remains open for:
   dispatch slices, and format-neutral fields outside the implemented scalar,
   top-level scalar list, top-level string-keyed scalar dictionary, supported
   `Option`, top-level `Option<List<scalar>>`, top-level
-  `Option<Dict<String, scalar>>`, and nested record-shaped helper slices
+  `Option<Dict<String, scalar>>`, supported `Result<scalar, scalar>`, and
+  nested record-shaped helper slices
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -384,9 +390,10 @@ Implemented:
   `List<Float>`, or `List<String>`, top-level string-keyed scalar
   dictionaries, nested record shapes made from scalar, `List<scalar>`,
   `Option<scalar>`, `Option<List<scalar>>`,
-  `Option<Dict<String, scalar>>`, or `Dict<String, scalar>` field types, or
-  `Option<T>` where `T` is one of those scalar, string-keyed scalar
-  dictionary, or nested record shapes, expose generated
+  `Option<Dict<String, scalar>>`, `Dict<String, scalar>`, or
+  `Result<scalar, scalar>` field types, `Result<Ok, Err>` where both
+  payloads are scalars, or `Option<T>` where `T` is one of those scalar,
+  string-keyed scalar dictionary, or nested record shapes, expose generated
   `byte_decode_<schema>` helper bindings that accept and return the
   schema-local visible record through
   `Result<T, String>`.
@@ -406,7 +413,7 @@ Remaining:
   bounded repeat, length-bounded `ByteView`, closed dispatch, extension
   dispatch, and format-neutral scalar, top-level scalar list,
   top-level string-keyed scalar dictionary, supported `Option`, top-level
-  `Option<List<scalar>>`, top-level `Option<Dict<String, scalar>>`, or
-  nested record-shaped slices.
+  `Option<List<scalar>>`, top-level `Option<Dict<String, scalar>>`,
+  supported `Result<scalar, scalar>`, or nested record-shaped slices.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.
