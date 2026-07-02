@@ -155,6 +155,14 @@ enough.
   protocol-core case. Stateful HTTP/2 header-block decoding still routes
   literal-with-indexing blocks through the HPACK fixture decoder when fixture
   dynamic-table state must be updated.
+- The source-visible `hpack_dynamic_core` boundary accepts the checked dynamic
+  indexed header-field representation when the caller supplies a bounded
+  dynamic table carrying the referenced entry. The checked boundary decodes
+  `0xbe` to the carried `:path: /target` entry, advances the dynamic-core
+  decode count, and reports `hpack.fixture.dynamic_index_out_of_range` with
+  requested dynamic index and entry-count facts when the same indexed byte is
+  used without a carried entry. The checked case is
+  `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the

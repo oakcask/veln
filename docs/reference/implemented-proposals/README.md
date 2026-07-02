@@ -316,6 +316,8 @@ behavior.
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
 - HTTP/2 HPACK dynamic table fixture:
   [http2-hpack-dynamic-table-eviction-fixture.md](http2-hpack-dynamic-table-eviction-fixture.md).
+- HTTP/2 HPACK dynamic index core:
+  [http2-hpack-dynamic-index-core.md](http2-hpack-dynamic-index-core.md).
 - HTTP/2 HPACK table-size receive policy:
   [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
 - HTTP/2 HPACK Huffman fixture:

@@ -1,0 +1,179 @@
+pub type HpackDynamicCoreEntry
+	NoDynamicCoreEntry
+	DynamicCoreEntry(name: String, value: String, older: HpackDynamicCoreEntry)
+end
+
+pub type HpackDynamicCoreState
+	HpackDynamicCoreState(table_size: Int, decode_count: Int, dynamic_entry: HpackDynamicCoreEntry)
+end
+
+pub type HpackDynamicCoreHeader
+	HpackDynamicCoreHeader(name: String, value: String)
+end
+
+pub type HpackDynamicCoreHeaderList
+	HpackDynamicCoreHeaderList(first: HpackDynamicCoreHeader, second: HpackDynamicCoreHeader, wire_size: Int)
+end
+
+pub type HpackDynamicCoreDecodeTransition
+	HpackDynamicCoreDecodeTransition(headers: HpackDynamicCoreHeaderList, state: HpackDynamicCoreState)
+end
+
+pub type HpackDynamicCoreFailure
+	DynamicCoreUnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	DynamicCoreIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+end
+
+fn dynamic_core_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn dynamic_core_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match dynamic_core_byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn dynamic_core_string_byte_count(value: String) -> Int
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		Err(_) => 0
+	end
+end
+
+fn dynamic_core_entry_size(name: String, value: String) -> Int
+	dynamic_core_string_byte_count(name) + dynamic_core_string_byte_count(value) + 32
+end
+
+fn dynamic_core_next_state(state: HpackDynamicCoreState) -> HpackDynamicCoreState
+	match state
+		HpackDynamicCoreState(table_size, decode_count, dynamic_entry) => HpackDynamicCoreState(table_size, decode_count + 1, dynamic_entry)
+	end
+end
+
+fn dynamic_core_entry_count(dynamic_entry: HpackDynamicCoreEntry) -> Int
+	match dynamic_entry
+		NoDynamicCoreEntry => 0
+		DynamicCoreEntry(_, _, older) => 1 + dynamic_core_entry_count(older)
+	end
+end
+
+fn dynamic_core_entry_at(dynamic_entry: HpackDynamicCoreEntry, table_index: Int) -> Option<HpackDynamicCoreHeader>
+	match dynamic_entry
+		NoDynamicCoreEntry => None
+		DynamicCoreEntry(name, value, older) => match table_index
+			0 => Some(HpackDynamicCoreHeader(name, value))
+			_ => dynamic_core_entry_at(older, table_index - 1)
+		end
+	end
+end
+
+fn dynamic_core_indexed_header(name: String, value: String) -> HpackDynamicCoreHeaderList
+	HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(name, value), HpackDynamicCoreHeader(":fixture", "dynamic-indexed"), 9)
+end
+
+fn dynamic_core_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	Err(DynamicCoreIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "source-visible dynamic indexed header", "hpack_dynamic_core", block))
+end
+
+fn dynamic_core_unsupported_indexed_header(block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible dynamic indexed header", "hpack_dynamic_core", block))
+end
+
+pub fn initial_dynamic_core_state() -> HpackDynamicCoreState
+	HpackDynamicCoreState(4096, 0, NoDynamicCoreEntry)
+end
+
+pub fn carried_single_dynamic_entry_state(table_size: Int, decode_count: Int, name: String, value: String) -> HpackDynamicCoreState
+	match dynamic_core_entry_size(name, value) <= table_size
+		true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, NoDynamicCoreEntry))
+		false => HpackDynamicCoreState(table_size, decode_count, NoDynamicCoreEntry)
+	end
+end
+
+pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	match observed_size == 1 and first_byte >= 190
+		true => match state
+			HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, first_byte - 190)
+				Some(HpackDynamicCoreHeader(name, value)) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_indexed_header(name, value), dynamic_core_next_state(state)))
+				None => dynamic_core_index_out_of_range(block, offset, first_byte - 190, dynamic_core_entry_count(dynamic_entry))
+			end
+		end
+		false => dynamic_core_unsupported_indexed_header(block, offset)
+	end
+end
+
+pub fn dynamic_core_transition_headers(transition: HpackDynamicCoreDecodeTransition) -> HpackDynamicCoreHeaderList
+	match transition
+		HpackDynamicCoreDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn dynamic_core_transition_state(transition: HpackDynamicCoreDecodeTransition) -> HpackDynamicCoreState
+	match transition
+		HpackDynamicCoreDecodeTransition(_, state) => state
+	end
+end
+
+pub fn dynamic_core_header_list_wire_size(headers: HpackDynamicCoreHeaderList) -> Int
+	match headers
+		HpackDynamicCoreHeaderList(_, _, wire_size) => wire_size
+	end
+end
+
+pub fn dynamic_core_header_list_first_name(headers: HpackDynamicCoreHeaderList) -> String
+	match headers
+		HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(name, _), _, _) => name
+	end
+end
+
+pub fn dynamic_core_header_list_first_value(headers: HpackDynamicCoreHeaderList) -> String
+	match headers
+		HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(_, value), _, _) => value
+	end
+end
+
+pub fn dynamic_core_state_decode_count(state: HpackDynamicCoreState) -> Int
+	match state
+		HpackDynamicCoreState(_, decode_count, _) => decode_count
+	end
+end
+
+pub fn dynamic_core_failure_diagnostic_id(failure: HpackDynamicCoreFailure) -> String
+	match failure
+		DynamicCoreUnsupportedHeaderBlock(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
+		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_index_out_of_range"
+	end
+end
+
+pub fn dynamic_core_failure_offset(failure: HpackDynamicCoreFailure) -> Int
+	match failure
+		DynamicCoreUnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
+		DynamicCoreIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn dynamic_core_failure_requested_dynamic_index(failure: HpackDynamicCoreFailure) -> Int
+	match failure
+		DynamicCoreIndexOutOfRange(_, _, _, requested_dynamic_index, _, _, _, _) => requested_dynamic_index
+		_ => 0
+	end
+end
+
+pub fn dynamic_core_failure_dynamic_table_entry_count(failure: HpackDynamicCoreFailure) -> Int
+	match failure
+		DynamicCoreIndexOutOfRange(_, _, _, _, dynamic_table_entry_count, _, _, _) => dynamic_table_entry_count
+		_ => 0
+	end
+end
+
+pub fn dynamic_core_failure_decoder_module(failure: HpackDynamicCoreFailure) -> String
+	match failure
+		DynamicCoreUnsupportedHeaderBlock(_, _, _, _, decoder_module, _) => decoder_module
+		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, decoder_module, _) => decoder_module
+	end
+end
