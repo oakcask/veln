@@ -742,7 +742,14 @@ stream id `0`, missing or non-open streams, already closed or reset streams,
 mismatched open streams, and self-dependency before accepted bytes are
 produced. Generated encode-helper representation failures for the frame
 stream id or dependency payload remain `schema.encode_value_unrepresentable`
-encode errors instead of protocol diagnostics.
+encode errors instead of protocol diagnostics. After received or locally sent
+GOAWAY, the same send-intent accepts an open stream at the recorded last
+stream id and rejects an above-boundary open stream with
+`http2.protocol.stream_after_goaway` before frame header encoding, priority
+payload encoding, output chunk emission, or stream state mutation.
+The completed outbound `PRIORITY` post-GOAWAY send-intent boundary is
+archived under
+[HTTP/2 Outbound PRIORITY GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-priority-goaway-boundary.md).
 The implemented slice also includes the narrow outbound HEADERS send-intent.
 Ordinary source accepts a nonzero currently open stream and an already-encoded
 opaque header-block `ByteChunk`, or builds that chunk from fixture-owned
@@ -794,9 +801,9 @@ length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
 GOAWAY payload, and records local graceful-shutdown state. A later
 peer-created HEADERS stream greater than the sent last stream id uses the
 same post-GOAWAY stream rejection boundary as received GOAWAY state, and a
-later local outbound HEADERS, DATA, or server-side `PUSH_PROMISE` send-intent
-above the sent last stream id is rejected before frame splitting or encode
-checks.
+later local outbound HEADERS, DATA, `PRIORITY`, or server-side `PUSH_PROMISE`
+send-intent above the sent last stream id is rejected before frame splitting
+or encode checks.
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.

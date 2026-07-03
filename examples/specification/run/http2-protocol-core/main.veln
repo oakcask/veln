@@ -2064,21 +2064,25 @@ fn encode_rst_stream_payload_intent(stream_id: Int, error_code: Int, connection_
 end
 
 fn send_priority(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundPriorityDecision, String>
+	send_priority_with_shutdown(stream_id, dependency_stream_id, exclusive, weight, OpenConnection, receive_credit)
+end
+
+fn send_priority_with_shutdown(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPriorityDecision, String>
 	match stream_id
 		0 => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidStreamId(0, 2, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_priority_requires_open_stream")))
-		_ => send_nonzero_priority(stream_id, dependency_stream_id, exclusive, weight, receive_credit)
+		_ => send_nonzero_priority(stream_id, dependency_stream_id, exclusive, weight, shutdown_state, receive_credit)
 	end
 end
 
-fn send_nonzero_priority(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundPriorityDecision, String>
+fn send_nonzero_priority(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPriorityDecision, String>
 	match receive_credit
 		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidFrameKind(0, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
-			true => validate_outbound_priority_dependency(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+			true => validate_outbound_priority_dependency(stream_id, dependency_stream_id, exclusive, weight, shutdown_state, connection_window, stream_window)
 			false => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidFrameKind(0, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window, _, _)) => match stream_id == open_stream_id
-			true => validate_outbound_priority_dependency(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+			true => validate_outbound_priority_dependency(stream_id, dependency_stream_id, exclusive, weight, shutdown_state, connection_window, stream_window)
 			false => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidFrameKind(0, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
@@ -2092,10 +2096,20 @@ fn send_nonzero_priority(stream_id: Int, dependency_stream_id: Int, exclusive: B
 	end
 end
 
-fn validate_outbound_priority_dependency(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, connection_window: Int, stream_window: Int) -> Result<OutboundPriorityDecision, String>
+fn validate_outbound_priority_dependency(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, shutdown_state: ConnectionShutdownState, connection_window: Int, stream_window: Int) -> Result<OutboundPriorityDecision, String>
 	match stream_id == dependency_stream_id
 		true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, InvalidPriorityDependency(0, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency", empty_byte_preview()?)))
-		false => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+		false => validate_outbound_priority_after_goaway(stream_id, dependency_stream_id, exclusive, weight, shutdown_state, connection_window, stream_window)
+	end
+end
+
+fn validate_outbound_priority_after_goaway(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, shutdown_state: ConnectionShutdownState, connection_window: Int, stream_window: Int) -> Result<OutboundPriorityDecision, String>
+	match shutdown_state
+		OpenConnection => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+		end
 	end
 end
 
@@ -5380,6 +5394,14 @@ fn outbound_priority_encode_detail(decision: OutboundPriorityDecision) -> String
 	end
 end
 
+fn outbound_priority_failure(decision: OutboundPriorityDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundPriorityAccepted(_, _, _, _, _, _) => InvalidFrameKind(0, 2, 0, 1, "none", "none")
+		OutboundPriorityRejected(_, _, _, _, error) => error
+		OutboundPriorityEncodeFailed(_, _, _, _, _) => InvalidFrameKind(0, 2, 0, 1, "codec", "schema_encode")
+	end
+end
+
 fn outbound_headers_status(decision: OutboundHeadersDecision) -> String
 	match decision
 		OutboundHeadersAccepted(_, _, _, _, _) => "accepted"
@@ -7485,7 +7507,11 @@ fn print_outbound_priority(label: String, decision: OutboundPriorityDecision) ->
 end
 
 fn print_outbound_priority_chunk(label: String, decision: OutboundPriorityDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	emit_encoded_header(label, outbound_priority_chunk(decision), expected_hex)
+	match decision
+		OutboundPriorityAccepted(_, _, _, _, _, _) => emit_encoded_header(label, outbound_priority_chunk(decision), expected_hex)
+		OutboundPriorityRejected(_, _, _, _, _) => print_empty_output_chunks(label)
+		OutboundPriorityEncodeFailed(_, _, _, _, _) => print_empty_output_chunks(label)
+	end
 end
 
 fn print_outbound_headers(label: String, decision: OutboundHeadersDecision) -> () effects [stdio]
@@ -9403,6 +9429,26 @@ fn print_outbound_priority_cases() -> Result<(), String> effects [stdio]
 	let outbound_priority_replacement: OutboundPriorityDecision = send_priority(1, 5, false, 32, outbound_receive_credit)?
 	print_outbound_priority("outbound-priority-replacement-values", outbound_priority_replacement)
 	let ignored_priority_replacement_chunk: () = print_outbound_priority_chunk("http2-priority-replacement-values", outbound_priority_replacement, "000005020000000001000000051f")?
+	let received_goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
+	let received_shutdown: ConnectionShutdownState = state_shutdown_state_value(step_state(received_goaway))
+	let outbound_priority_after_goaway_allowed: OutboundPriorityDecision = send_priority_with_shutdown(5, 3, true, 16, received_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_priority("outbound-priority-after-goaway-allowed", outbound_priority_after_goaway_allowed)
+	let ignored_priority_after_goaway_allowed_chunk: () = print_outbound_priority_chunk("http2-priority-after-goaway-allowed", outbound_priority_after_goaway_allowed, "000005020000000005800000030f")?
+	let outbound_priority_after_goaway_late: OutboundPriorityDecision = send_priority_with_shutdown(7, 3, true, 16, received_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_priority("outbound-priority-after-goaway-late", outbound_priority_after_goaway_late)
+	let ignored_priority_after_goaway_late_chunk: () = print_outbound_priority_chunk("http2-priority-after-goaway-late", outbound_priority_after_goaway_late, "")?
+	print_goaway_stream_failure("outbound-priority-after-goaway-late", Failed(frame_state(), outbound_priority_failure(outbound_priority_after_goaway_late)))
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
+	let outbound_priority_after_local_goaway_allowed: OutboundPriorityDecision = send_priority_with_shutdown(5, 3, true, 16, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_priority("outbound-priority-after-local-goaway-allowed", outbound_priority_after_local_goaway_allowed)
+	let ignored_priority_after_local_goaway_allowed_chunk: () = print_outbound_priority_chunk("http2-priority-after-local-goaway-allowed", outbound_priority_after_local_goaway_allowed, "000005020000000005800000030f")?
+	let outbound_priority_after_local_goaway_late: OutboundPriorityDecision = send_priority_with_shutdown(7, 3, true, 16, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_priority("outbound-priority-after-local-goaway-late", outbound_priority_after_local_goaway_late)
+	let ignored_priority_after_local_goaway_late_chunk: () = print_outbound_priority_chunk("http2-priority-after-local-goaway-late", outbound_priority_after_local_goaway_late, "")?
+	print_goaway_stream_failure("outbound-priority-after-local-goaway-late", Failed(frame_state(), outbound_priority_failure(outbound_priority_after_local_goaway_late)))
+	let outbound_priority_after_goaway_self_dependency: OutboundPriorityDecision = send_priority_with_shutdown(7, 7, false, 16, received_shutdown, outbound_receive_credit_with_open_stream(10, 7, 20))?
+	print_outbound_priority("outbound-priority-after-goaway-self-dependency", outbound_priority_after_goaway_self_dependency)
 	let outbound_priority_zero: OutboundPriorityDecision = send_priority(0, 1, false, 16, outbound_receive_credit)?
 	print_outbound_priority("outbound-priority-zero", outbound_priority_zero)
 	let outbound_priority_missing: OutboundPriorityDecision = send_priority(1, 3, true, 16, outbound_receive_credit_without_stream(10))?

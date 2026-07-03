@@ -426,6 +426,7 @@ compare it with `../specification/` before changing behavior.
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, HEADERS with the PRIORITY flag, PING, GOAWAY, local
   GOAWAY outbound HEADERS boundary, server-side `PUSH_PROMISE` rejection,
+  outbound `PRIORITY` post-GOAWAY send-intent boundary,
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
   promised response HEADERS admission including local disable-push receive
@@ -546,6 +547,9 @@ compare it with `../specification/` before changing behavior.
   The completed outbound `PUSH_PROMISE` post-GOAWAY send-intent boundary is
   archived under
   [HTTP/2 Outbound PUSH_PROMISE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-push-promise-goaway-boundary.md).
+  The completed outbound `PRIORITY` post-GOAWAY send-intent boundary is
+  archived under
+  [HTTP/2 Outbound PRIORITY GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-priority-goaway-boundary.md).
   The completed outbound SETTINGS ACK send-intent slice is archived under
   [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
   The completed ordered local SETTINGS batch send-intent slice, including

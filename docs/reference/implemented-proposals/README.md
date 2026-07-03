@@ -438,6 +438,8 @@ behavior.
   [http2-outbound-push-promise-enable-push-setting.md](http2-outbound-push-promise-enable-push-setting.md).
 - HTTP/2 outbound PUSH_PROMISE GOAWAY boundary:
   [http2-outbound-push-promise-goaway-boundary.md](http2-outbound-push-promise-goaway-boundary.md).
+- HTTP/2 outbound PRIORITY GOAWAY boundary:
+  [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
 - HTTP/2 local SETTINGS batch send:
