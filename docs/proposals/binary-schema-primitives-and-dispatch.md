@@ -16,6 +16,8 @@ payloads from `uint1 reserves 0` through `uint7 reserves 0` is archived under
 The completed `UInt48be` and `UInt48le` exact-width primitive slice is archived
 under
 [Binary Schema UInt48 Primitives](../reference/implemented-proposals/binary-schema-u48-primitives.md).
+The completed schema-local field reference diagnostics slice is archived under
+[Binary Schema Field Reference Diagnostics](../reference/implemented-proposals/binary-schema-field-reference-diagnostics.md).
 Schema-level value projection is no longer part of this proposal: `map to` in
 schema bodies is removed as recorded in
 [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -40,8 +42,6 @@ for:
 - bounded `Repeat` fields
 - nested schema payload helpers
 - closed and extension dispatch payload helpers
-- declaration-time diagnostics for schema-local field references used by
-  binary primitives
 - runtime diagnostics for byte offsets, field paths, truncation,
   representability, dispatch mismatch, and schema validation failures
 
@@ -63,9 +63,9 @@ do not create visible value fields unless the primitive explicitly defines a
 visible source shape.
 
 `ByteView` and `Repeat` forms may depend only on eligible earlier visible
-fields or supported literal constraints. Invalid, forward, missing, or
-wrong-role field references should be rejected at declaration time when the
-relationship is statically visible.
+fields or supported literal constraints. Completed declaration-time diagnostics
+for invalid, forward, missing, or wrong-role schema-local field references are
+archived in the implemented proposal record.
 
 ## Discussion Result: Dispatch Boundaries
 
@@ -92,7 +92,7 @@ base case so helper derivation remains finite.
 - Current specification pages describe only schema-local visible record helper
   shapes for binary schema decode and encode.
 - Executable examples cover any newly added primitive or dispatch behavior.
-- Runtime and declaration diagnostics report the failed binary-layout fact at
-  the relevant source span or byte offset.
+- Runtime diagnostics and any remaining declaration diagnostics report the
+  failed binary-layout fact at the relevant source span or byte offset.
 - Completed slices are promoted to implemented proposal records and removed
   from this active proposal route.
