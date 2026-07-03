@@ -248,10 +248,10 @@ compare it with `../specification/` before changing behavior.
   direct lowercase dispatch payloads written as zero-reserved subbyte payloads
   from `uint1 reserves 0` through `uint7 reserves 0`
   ([Binary Schema Dispatch Lowercase Subbyte Reserved Payloads](../reference/implemented-proposals/binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md)),
-  declaration-time missing, forward, and wrong-role schema-local field
-  reference diagnostics for repeat count fields and count expressions,
-  byte-view lengths, byte-view payload multiple operands, dispatch tags, and
-  extension-dispatch tags and lengths,
+  schema-local field reference diagnostics for repeat count fields and count
+  expressions, byte-view lengths, byte-view payload multiple operands,
+  dispatch tags, and extension-dispatch tags and lengths
+  ([Binary Schema Field Reference Diagnostics](../reference/implemented-proposals/binary-schema-field-reference-diagnostics.md)),
   schema-level structural validation for decoded `Int` fields,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the HTTP/2 GOAWAY payload

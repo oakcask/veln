@@ -133,9 +133,16 @@ annotations under `examples/specification/check/schema-map-to-*-rejected/`.
 Mapping-only semantic and runtime diagnostics are not current behavior. The
 parser rejects top-level codec declarations with
 `parse.codec_declaration_removed`. Current schema diagnostics cover
-format placement, field references, primitive kind checks, field-local and
-schema-level validation predicates, dispatch payload eligibility, explicit
-schema decode expression schema-path resolution, and helper availability.
+format placement, primitive kind checks, field-local and schema-level
+validation predicates, dispatch payload eligibility, explicit schema decode
+expression schema-path resolution, and helper availability. Binary schema
+field references for repeat counts, `ByteView` lengths and multiple
+constraints, dispatch tags, and extension-dispatch tags and lengths must name
+earlier decoded visible `Int` fields in the same schema. Invalid references
+use `schema.repeat_reference`, `schema.byte_view_reference`, or
+`schema.dispatch_reference`, with checked JSON and human output under
+`examples/specification/check/binary-schema-field-reference-diagnostics/` and
+`examples/specification/check/binary-schema-field-reference-human/`.
 
 ## Read When
 

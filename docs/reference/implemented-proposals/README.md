@@ -200,6 +200,8 @@ behavior.
   [binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md](binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md).
 - Binary schema `ByteView` payload multiple validation:
   [binary-schema-byteview-payload-multiple.md](binary-schema-byteview-payload-multiple.md).
+- Binary schema field reference diagnostics:
+  [binary-schema-field-reference-diagnostics.md](binary-schema-field-reference-diagnostics.md).
 - Binary schema dispatch payload helper boundary diagnostics:
   [binary-schema-dispatch-payload-helper-boundary-diagnostics.md](binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
 - Binary schema direction-specific dispatch payload helpers:
