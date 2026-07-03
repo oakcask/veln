@@ -122,5 +122,15 @@ equals = 136
 
 [[result_value_assert]]
 value_path = "error.details.value"
+path = "value.detail.active_state"
+equals = "response-trailers"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.rule_provenance"
+equals = "rfc9113_trailer_pseudo_headers"
+
+[[result_value_assert]]
+value_path = "error.details.value"
 path = "value.detail.unexpected"
 missing = true
