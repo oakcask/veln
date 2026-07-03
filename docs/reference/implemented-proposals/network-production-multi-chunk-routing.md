@@ -9,6 +9,7 @@ behavior is specified by `../../specification/names-effects.md`,
 checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-routing/case.toml`,
 `../../../examples/specification/run/socket-stream-adapter-production-multi-event-task-context/case.toml`,
+`../../../examples/specification/run/socket-stream-adapter-production-task-handler-failure/case.toml`,
 `../../../examples/specification/run/socket-stream-adapter-production-multi-chunk-read-failure-json/case.toml`,
 and
 `../../../examples/specification/check/socket-stream-adapter-production-multi-chunk-routing-effects/case.toml`.
@@ -48,6 +49,14 @@ runtime transport failure owned by the adapter boundary. The recorded event
 sequence stops after production listen and accept, before any chunk routing,
 response write, stream close, or clean listener end event.
 
+A companion handler-failure case keeps the failure inside the source-visible
+handler boundary instead of the host transport boundary. The per-stream task
+returns `Err` through `task::spawn_with<Result, Context>`, adapter code turns
+that result into an ordinary `HandlerFailed` action value, skips
+`net::write_chunks` for the failed stream, closes the accepted stream, and
+then observes clean listener end. The recorded transport events contain no
+response write for that stream.
+
 ## Remaining Work
 
 The broader network integration proposal remains open for richer production
@@ -60,8 +69,8 @@ slices.
 - Auditing why production multi-chunk stream event routing is no longer active
   proposal work.
 - Checking completion evidence before changing production transport chunk
-  routing, task-context trace propagation, forced read-failure ordering, or
-  ordered response projection.
+  routing, task-context trace propagation, handler-failure lifecycle cleanup,
+  forced read-failure ordering, or ordered response projection.
 
 ## Skip Unless Needed
 

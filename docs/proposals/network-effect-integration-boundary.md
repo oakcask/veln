@@ -41,7 +41,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   owner-drain cancellable deadline lifecycle boundary, production
   two-stream multi-cycle routing boundary, production multi-chunk routing
   read-failure boundary, production multi-event adapter task-helper boundary,
-  accepted-stream address metadata boundary, the
+  per-stream task handler-failure lifecycle boundary, accepted-stream address
+  metadata boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -400,6 +401,16 @@ transport failure after production accept and before any chunk routing,
 response writes, stream close,
 or clean listener end is recorded.
 
+Implemented per-stream task handler-failure lifecycle slice: an executable
+specification case accepts one deterministic production-loopback stream,
+routes a `StreamInput.Chunk` through the existing channel and
+`task::spawn_with<Result, Context>` helper boundary, observes the handler
+returning `Err` as an ordinary source-visible adapter action, skips later
+response-byte projection for that failed stream, closes the accepted stream,
+and then observes clean listener end. The case records no response write for
+the failed stream and keeps host transport failures separate from
+handler-owned failure outcomes.
+
 Implemented production two-stream multi-cycle routing slice: an executable
 specification case accepts two deterministic production-loopback streams from
 one listener, reads multiple chunks from each stream, routes the ordinary
@@ -472,8 +483,8 @@ as implemented in
 
 The production multi-chunk event routing slice is recorded as implemented in
 `../reference/implemented-proposals/network-production-multi-chunk-routing.md`,
-including runtime success, task-context trace/order, read-failure, and static
-effect-boundary evidence.
+including runtime success, task-context trace/order, handler-failure
+lifecycle, read-failure, and static effect-boundary evidence.
 
 The production two-stream multi-cycle routing slice is recorded as implemented
 in

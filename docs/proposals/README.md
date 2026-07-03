@@ -590,7 +590,8 @@ compare it with `../specification/` before changing behavior.
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
   boundary, production multi-chunk adapter event routing, production
   multi-event adapter task-helper routing, production multi-chunk
-  read-failure runtime boundary, cancellation owner status query,
+  read-failure runtime boundary, per-stream task handler-failure lifecycle
+  boundary, cancellation owner status query,
   absolute monotonic deadline
   construction
   ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
@@ -641,8 +642,8 @@ compare it with `../specification/` before changing behavior.
   The completed production multi-chunk event routing slice is archived under
   [Network Production Multi-Chunk Routing](../reference/implemented-proposals/network-production-multi-chunk-routing.md).
   The same record includes the completed production multi-event adapter
-  task-helper routing evidence and production multi-chunk read-failure runtime
-  boundary.
+  task-helper routing evidence, production multi-chunk read-failure runtime
+  boundary, and per-stream task handler-failure lifecycle cleanup boundary.
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).

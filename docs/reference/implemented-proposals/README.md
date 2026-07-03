@@ -301,7 +301,8 @@ behavior.
 - Network production multi-chunk routing:
   [network-production-multi-chunk-routing.md](network-production-multi-chunk-routing.md).
   Includes the production multi-event adapter task-helper routing evidence and
-  the production multi-chunk read-failure runtime boundary.
+  the production multi-chunk read-failure runtime boundary plus the
+  per-stream task handler-failure lifecycle cleanup boundary.
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
 - Network stream address metadata:

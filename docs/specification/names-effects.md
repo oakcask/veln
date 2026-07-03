@@ -160,8 +160,12 @@ compiler-known calls.
   The helper carries adapter-owned route and trace metadata, preserves event
   sequence before projecting ordered `SendBytes` actions through
   `net::write_chunks`, and calls a pure event/action handler that receives no
-  `NetStream`. The matching effect fixture rejects adapter entry points
-  that omit either label while keeping that handler boundary effect-free. A
+  `NetStream`. A per-stream handler failure returned from that task boundary
+  can be represented as an ordinary adapter-owned action value; the adapter
+  closes the accepted stream, observes deterministic listener end, and does
+  not project later response bytes for the failed stream. The matching effect
+  fixture rejects adapter entry points that omit either label while keeping
+  that handler boundary effect-free. A
   forced production read failure on the same multi-chunk
   routing path remains a runtime transport failure after the stream is
   accepted and before any chunk routing, response writes, stream close, or
