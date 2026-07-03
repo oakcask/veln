@@ -586,6 +586,33 @@ fn net_calls_require_net_effect_with_descriptor_provenance() {
 }
 
 #[test]
+fn connect_requires_net_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> NetStream\n",
+            "  net::connect(\"127.0.0.1:0\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `net`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"net\""));
+    assert!(details.contains("\"inferred_effects\":[\"net\"]"));
+    assert!(details.contains("\"symbol\":\"net::connect\""));
+}
+
+#[test]
 fn stream_address_calls_require_net_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
@@ -1199,6 +1226,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  time::cancel(token)\n",
             "  let cancelled: Bool = time::is_cancelled(token)\n",
             "  let elapsed: Int = time::monotonic_ms()\n",
+            "  let connected_stream: NetStream = net::connect(\"127.0.0.1:0\")\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -1635,7 +1663,17 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::monotonic_ms"
     ));
-    let IrStmtKind::Return { value } = &main.body[43].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[43].kind else {
+        panic!("net connect call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::connect"
+    ));
+    let IrStmtKind::Return { value } = &main.body[44].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

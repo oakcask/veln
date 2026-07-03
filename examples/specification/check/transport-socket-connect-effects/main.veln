@@ -1,0 +1,4 @@
+# Client connect infers net for public effect checking.
+pub fn open_client() -> NetStream
+	net::connect("127.0.0.1:443")
+end

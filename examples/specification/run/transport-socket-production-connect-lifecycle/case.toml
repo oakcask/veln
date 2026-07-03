@@ -1,0 +1,26 @@
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READ_HEX = "0102ff"
+VELN_NET_PRODUCTION_CLIENT_WRITES = "client-writes.log"
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "text"
+contains = ["local 127.0.0.1:1 peer 127.0.0.1:0 bytes 3\n"]
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "net-events.log"
+equals = "connect-production 127.0.0.1:0 production-stream\nwrite-production production-stream ByteChunk([Byte(10), Byte(11)])\nread-production production-stream 0102ff\nclose-production production-stream\n"
+
+[[file_assert]]
+path = "client-writes.log"
+equals = "0a0b"

@@ -192,6 +192,7 @@ the standard symbol table:
 net::receive_chunk() -> ByteChunk effects [net]
 net::send_chunk(bytes: ByteChunk) -> () effects [net]
 net::listen(address: String) -> NetListener effects [net]
+net::connect(address: String) -> NetStream effects [net]
 net::accept(listener: NetListener) -> NetStream effects [net]
 net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
 net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
@@ -228,7 +229,7 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 ```
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `net::listen`, `net::accept`,
+effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
 `net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
 `net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
 `net::close_stream`, and `net::close_listener` also infer the same coarse
@@ -257,8 +258,11 @@ must declare the matching effect in its `effects [...]` list.
 This boundary is intentionally narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
-`NetListener`; `net::accept` returns a distinct source-visible `NetStream`.
-The default runtime path remains fixture-backed: `net::accept_or_end`
+`NetListener`; `net::connect` and `net::accept` return distinct
+source-visible `NetStream` handles.
+The default runtime path remains fixture-backed: `net::connect(address)`
+records a client connection attempt and returns an owned stream whose peer
+endpoint text is the requested address; `net::accept_or_end`
 returns `Some(stream)` for a fixture-accepted stream and `None` when the
 fixture listener reaches a clean end; `net::accept_until`
 returns `Some(stream)` when a fixture accepts before the deadline and `None`
@@ -305,9 +309,14 @@ listener cleanup and returns `()`; after that close, `net::accept`,
 `net::accept_or_end`, `net::accept_until`, and
 `net::accept_until_cancellable` fail as runtime transport failures instead of
 reporting clean end, deadline expiry, or cancellation.
+Connected and accepted streams expose endpoint text through
+`net::stream_local_addr` and `net::stream_peer_addr`, and use the same
+read, write, write-side shutdown, and close helpers. Forced connection
+failure remains a runtime transport failure.
 When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
 host loopback listener and deterministic loopback stream sequence:
-`net::listen` binds the requested host and port, `net::accept` and
+`net::listen` binds the requested host and port, `net::connect` returns a
+deterministic client-side loopback stream, `net::accept` and
 `net::accept_or_end` accept a loopback client as a `NetStream`,
 `net::accept_until` accepts before the supplied deadline or reports clean
 listener end as `None`, `net::read_chunk` and `net::read_chunk_or_end` read
@@ -321,7 +330,9 @@ clean listener end.
 `net::close_listener` closes the owned production listener or in-memory
 loopback listener state without closing already accepted `NetStream` handles;
 any later accept call on that listener fails through the same runtime
-transport boundary.
+transport boundary. Production-loopback connected streams use the same
+endpoint, read, write, shutdown, and close lifecycle as accepted production
+streams.
 Adapter-owned production loopback examples can handle multiple accepted
 streams independently through ordinary `StreamInput` and response-action
 values, route them through the existing `concurrency` boundary, project only

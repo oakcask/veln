@@ -272,6 +272,8 @@ behavior.
   [network-stream-shutdown-write-boundary.md](network-stream-shutdown-write-boundary.md).
 - Network listener close boundary:
   [network-listener-close-boundary.md](network-listener-close-boundary.md).
+- Network client connect boundary:
+  [network-client-connect-boundary.md](network-client-connect-boundary.md).
 - Network write chunks boundary:
   [network-write-chunks-boundary.md](network-write-chunks-boundary.md).
 - Network write until boundary:

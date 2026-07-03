@@ -1,0 +1,5 @@
+# Client connect host failures stay runtime transport failures in run JSON.
+pub fn main() -> Result<(), String> effects [net]
+	let stream: NetStream = net::connect("127.0.0.1:443")
+	Ok(())
+end

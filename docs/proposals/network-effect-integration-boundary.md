@@ -42,7 +42,7 @@ checked task slices, and narrow deadline and cancellation slices, for:
   two-stream multi-cycle routing boundary, production multi-chunk routing
   read-failure boundary, production multi-event adapter task-helper boundary,
   per-stream task handler-failure lifecycle boundary, accepted-stream address
-  metadata boundary, the
+  metadata boundary, source-visible client connect boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -105,25 +105,28 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware stream read, `time::cancel_owner`,
   `time::cancel_token_from`, `time::cancel_owned`, and
   `time::is_cancelled_owner`
-- richer production socket APIs beyond the checked deterministic fixture and
-  loopback adapter shapes
+- richer production socket APIs beyond the checked deterministic fixture,
+  source-visible client connect, and loopback adapter shapes
 
 ## Discussion Result: Network Effect Labels
 
 Implemented first socket slices are specified by
 `../specification/names-effects.md` and `../specification/execution.md`.
-Completed fixture-backed listen, accept, read, write, and close operations use
-the existing coarse `net` effect label and remain runtime boundaries.
-Accepted-stream endpoint text is current behavior for fixture-backed streams
-and production-loopback streams through `net::stream_local_addr` and
-`net::stream_peer_addr`; the helpers preserve stream ownership, expose only
-strings, and keep the same coarse `net` effect boundary.
+Completed fixture-backed listen, accept, client connect, read, write, and
+close operations use the existing coarse `net` effect label and remain
+runtime boundaries. Accepted-stream and connected-stream endpoint text is
+current behavior for fixture-backed streams and production-loopback streams
+through `net::stream_local_addr` and `net::stream_peer_addr`; the helpers
+preserve stream ownership, expose only strings, and keep the same coarse
+`net` effect boundary.
 The completed endpoint text inspection slice is archived under
 `../reference/implemented-proposals/network-stream-address-metadata.md`.
+The completed source-visible client connect slice is archived under
+[Network Client Connect Boundary](../reference/implemented-proposals/network-client-connect-boundary.md).
 
 The remaining transport surface should keep the existing coarse `net` effect
 label until effect handlers or an equivalent runtime permission mechanism are
-implemented. Listen, accept, read, write, and close operations should be
+implemented. Listen, connect, accept, read, write, and close operations should be
 distinguished by standard-library function names, typed values, and
 diagnostics rather than by separate effect labels.
 
