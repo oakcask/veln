@@ -190,6 +190,8 @@ behavior.
   [binary-schema-dispatch-one-bit-reserved-payload-helpers.md](binary-schema-dispatch-one-bit-reserved-payload-helpers.md).
 - Binary schema dispatch lowercase one-bit reserved payload:
   [binary-schema-dispatch-lowercase-one-bit-reserved-payload.md](binary-schema-dispatch-lowercase-one-bit-reserved-payload.md).
+- Binary schema dispatch lowercase two-bit reserved payload:
+  [binary-schema-dispatch-lowercase-two-bit-reserved-payload.md](binary-schema-dispatch-lowercase-two-bit-reserved-payload.md).
 - Binary schema dispatch reserved byte prefix payload helpers:
   [binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md](binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md).
 - Binary schema `ByteView` payload multiple validation:
