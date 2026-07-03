@@ -336,9 +336,13 @@ task-helper variant routes those stream events through the same channel
 boundary and an adapter-owned task helper. That helper carries adapter-owned
 route and trace metadata through `task::spawn_with<Result, Context>`,
 preserves event sequence, and calls the pure handler without exposing
-`NetStream` access. Its matching static effect case rejects adapter entry
-points that omit either label while leaving the public handler boundary
-effect-free. A forced production read failure on that same
+`NetStream` access. A companion per-stream handler-failure case treats a
+handler-returned `Err` from that task boundary as an ordinary
+adapter-owned action value, closes the accepted stream, observes clean
+listener end, and does not call `net::write_chunks` for that failed stream.
+Its matching static effect case rejects adapter entry points that omit either
+label while leaving the public handler boundary effect-free. A forced
+production read failure on that same
 multi-chunk routing path remains a runtime transport failure after production
 accept and before any chunk routing, response writes, stream close, or clean
 listener end is recorded. The deadline-aware production adapter
@@ -427,9 +431,13 @@ multi-event adapter task-helper case sends each routed event through an
 adapter-owned task helper using `task::spawn_with<Result, Context>` with
 adapter-owned route and trace metadata, preserving trace identity and sequence
 across multiple events from the same accepted stream while the pure handler
-stays outside the task and channel effect boundary. Its matching effect case
-rejects adapter paths that omit either `net` or `concurrency` while leaving
-the handler boundary effect-free. Forced read failure on the same
+stays outside the task and channel effect boundary. A per-stream
+handler-failure companion case returns `Err` from that task-owned handler,
+converts it to an ordinary source-visible adapter action, performs
+adapter-owned stream cleanup, and skips response-byte projection for the
+failed stream. Its matching effect case rejects adapter paths that omit either
+`net` or `concurrency` while leaving the handler boundary effect-free. Forced
+read failure on the same
 optional-read routing path remains a runtime transport failure before any
 ordinary `StreamInput.Chunk` is routed or response bytes are written.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the

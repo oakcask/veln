@@ -39,7 +39,10 @@ enough.
   multi-event adapter task-helper routing case preserves adapter-owned trace
   identity and event sequence while routing those source-visible stream events
   through channel and an adapter-owned task helper before ordered chunk-list
-  writes.
+  writes. A companion per-stream handler-failure case returns an ordinary
+  handler failure value from the task boundary, skips later response writes
+  for that stream, closes the accepted stream, and then observes deterministic
+  listener end.
   That helper owns the `concurrency` boundary and calls a pure event/action
   handler. The
   multi-cycle routing case accepts more than one production stream from one
