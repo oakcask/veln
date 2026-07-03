@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"reserves_on_flag\"", "\"reason\":\"reserves_value\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"primitive\":\"flag8 reserves 0\"", "\"primitive\":\"uint8 reserves\"", "\"primitive\":\"uint8 reserves expected\"", "\"primitive\":\"uint8 reserves - 1\"", "\"primitive\":\"uint16be reserves 0\"", "\"primitive\":\"uint24be reserves 0\"", "\"primitive\":\"uint2 reserves 0\""]
+contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"reserves_on_flag\"", "\"reason\":\"reserves_value\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"primitive\":\"flag8 reserves 0\"", "\"primitive\":\"uint8 reserves\"", "\"primitive\":\"uint8 reserves expected\"", "\"primitive\":\"uint8 reserves - 1\"", "\"primitive\":\"uint16be reserves 0\"", "\"primitive\":\"uint24be reserves 0\"", "\"primitive\":\"uint3 reserves 0\""]
 
 [stderr]
 format = "empty"
@@ -66,4 +66,4 @@ message = "binary schema primitive `uint16be reserves 0` is not yet supported in
 id = "schema.lowercase_primitive"
 severity = "error"
 kind = "type"
-message = "binary schema primitive `uint2 reserves 0` is not yet supported in dispatch payload positions"
+message = "binary schema primitive `uint3 reserves 0` is not yet supported in dispatch payload positions"

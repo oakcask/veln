@@ -26,7 +26,8 @@ and encode entry points.
 and `flag...` primitive spelling in the same positions as compatible
 upper-case exact-width primitive payload spelling. They also accept
 byte-aligned lowercase `uint... reserves <value>` spelling and the checked
-`uint1 reserves 0` spelling in direct reserved-bit dispatch payload positions.
+`uint1 reserves 0` and `uint2 reserves 0` spellings in direct reserved-bit
+dispatch payload positions.
 `format binary` direct nested schema fields may name an eligible same-module
 schema or public imported schema and expose the nested schema-local visible
 record at that field.

@@ -32,11 +32,11 @@ equals = 1
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"ClosedSubbyteReservedDispatch"},{"kind":"field","name":"payload"}]
+equals = [{"kind":"schema","name":"ClosedTwoBitReservedDispatch"},{"kind":"field","name":"payload"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.bit_width"
-equals = 1
+equals = 2
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_value"
@@ -44,7 +44,7 @@ equals = 0
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.actual_value"
-equals = 1
+equals = 2
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.encoding"

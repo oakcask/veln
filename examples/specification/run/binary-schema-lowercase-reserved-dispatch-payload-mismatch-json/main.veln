@@ -1,15 +1,15 @@
-# Subbyte lowercase reserved dispatch payloads report the failed payload bit.
+# Subbyte lowercase reserved dispatch payloads report failed payload bits.
 
-schema ClosedSubbyteReservedDispatch
+schema ClosedTwoBitReservedDispatch
 	format binary
 
 	kind: uint8
-	payload: Dispatch(kind, 1 => uint1 reserves 0)
+	payload: Dispatch(kind, 1 => uint2 reserves 0)
 end
 
 pub fn main() -> Result<(), String>
 	let bytes: ByteChunk = byte_chunk_from_hex("0180")?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
-	let packet: {kind: Int, payload: ()} = byte_decode_closed_subbyte_reserved_dispatch(view)?
+	let packet: {kind: Int, payload: ()} = byte_decode_closed_two_bit_reserved_dispatch(view)?
 	Ok(())
 end
