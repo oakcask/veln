@@ -94,9 +94,9 @@ full type reference.
   `AcceptOutcome`, `StreamReadOutcome`, `StreamWriteOutcome`,
   `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`,
   and `EncodeError` named types for small immutable byte values, bounded byte
-  views, byte-counted helper APIs, outgoing chunk lists, listener accept
-  decisions, stream read and write decisions, and incremental codec boundary
-  values.
+  views, byte-counted helper APIs, outgoing chunk lists and whole-chunk
+  production results, listener accept decisions, stream read and write
+  decisions, and incremental codec boundary values.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
   `if` expressions require a final `else`; `if` and `else if` conditions

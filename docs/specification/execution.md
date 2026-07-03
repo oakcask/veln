@@ -23,6 +23,10 @@ enough.
 - `ByteView`, `ByteChunk`, `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
   values execute as ordinary immutable source-visible values.
+- `byte_chunks_produce(chunks, budget)` is a pure outgoing chunk helper. It
+  produces only whole `ByteChunk` values that fit within the supplied
+  `ByteCount`, reports the produced byte count, preserves chunk order, and
+  returns the unproduced suffix for a later call.
 - `net` and `time` calls are host runtime boundaries. Fixture-backed and
   production-loopback transport paths preserve the same source-visible result
   shapes while keeping socket, deadline, cancellation, and monotonic-clock

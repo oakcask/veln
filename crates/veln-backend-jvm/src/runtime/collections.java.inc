@@ -2422,6 +2422,32 @@
         return appended;
     }
 
+    public static Object byteChunksProduce(Object chunks, Object budget) {
+        long budgetCount = byteCountLong(budget);
+        long produced = 0L;
+        Object reversed = listNil();
+        Object remaining = chunks;
+        ListValue current = asListValue(remaining);
+        while (current.cons) {
+            long chunkCount = byteChunkBytes(current.head).size();
+            if (chunkCount > budgetCount - produced) {
+                break;
+            }
+            produced += chunkCount;
+            reversed = listCons(current.head, reversed);
+            remaining = current.tail;
+            current = asListValue(remaining);
+        }
+        return record(
+            "chunks",
+            listReverse(reversed),
+            "produced",
+            byteCountObject(produced),
+            "remaining",
+            remaining
+        );
+    }
+
     public static Object byteReadU8Be(Object view) {
         return byteReadUnsignedBe(view, 1, 0xffL, "byte_read_u8_be");
     }

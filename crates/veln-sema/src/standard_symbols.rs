@@ -813,6 +813,7 @@ source_prelude_symbol_set! {
     "byte_chunks_empty" => veln_stdlib::prelude_source("byte_chunks_empty"),
     "byte_chunks_one" => veln_stdlib::prelude_source("byte_chunks_one"),
     "byte_chunks_append" => veln_stdlib::prelude_source("byte_chunks_append"),
+    "byte_chunks_produce" => veln_stdlib::prelude_source("byte_chunks_produce"),
     "byte_read_u8_be" => veln_stdlib::prelude_source("byte_read_u8_be"),
     "byte_expect_fixed_u8_be" => veln_stdlib::prelude_source("byte_expect_fixed_u8_be"),
     "byte_decode_http2_frame" => veln_stdlib::prelude_source("byte_decode_http2_frame"),

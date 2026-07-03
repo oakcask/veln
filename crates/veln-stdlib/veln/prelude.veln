@@ -531,6 +531,29 @@ pub fn byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List
 	end
 end
 
+pub fn byte_chunks_produce(chunks: List<ByteChunk>, budget: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
+	byte_chunks_produce_from(chunks, budget, ByteCount(0))
+end
+
+fn byte_chunks_produce_from(chunks: List<ByteChunk>, budget: ByteCount, produced: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
+	match chunks
+		Nil => {chunks: Nil, produced: produced, remaining: Nil}
+		Cons(head, tail) => byte_chunks_produce_cons(chunks, head, tail, budget, produced)
+	end
+end
+
+fn byte_chunks_produce_cons(chunks: List<ByteChunk>, head: ByteChunk, tail: List<ByteChunk>, budget: ByteCount, produced: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
+	let next = byte_count_to_int(produced) + byte_count_to_int(byte_chunk_count(head))
+	match next > byte_count_to_int(budget)
+		true => {chunks: Nil, produced: produced, remaining: chunks}
+		false => byte_chunks_prepend_produced(head, byte_chunks_produce_from(tail, budget, ByteCount(next)))
+	end
+end
+
+fn byte_chunks_prepend_produced(head: ByteChunk, rest: {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
+	{chunks: Cons(head, rest.chunks), produced: rest.produced, remaining: rest.remaining}
+end
+
 pub fn byte_read_u8_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u8_be(view)
 end
