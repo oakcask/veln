@@ -180,7 +180,11 @@ enough.
   `:scheme` literal values against the same request header-list rule as
   fixture-marked values, accepting `http` and `https` and rejecting other
   visible ASCII values with `scheme_value_not_http_or_https` on completed
-  HEADERS and final CONTINUATION paths.
+  HEADERS and final CONTINUATION paths. It also validates source-visible
+  static-name `:authority` literal values through the existing request
+  header-list path, accepting checked visible ASCII authority values and
+  rejecting the checked invalid visible ASCII value with
+  `authority_value_invalid` on completed HEADERS and final CONTINUATION paths.
   Stateful HTTP/2 response decoding validates `:status` pseudo-header values
   after fixture decode and after source-visible HPACK static-name literal
   decode. Accepted response lists keep exactly three ASCII decimal digits, and

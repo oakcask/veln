@@ -3703,6 +3703,7 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => true
@@ -3768,6 +3769,7 @@ pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
@@ -3789,6 +3791,7 @@ pub fn header_list_has_scheme(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":scheme", _), _, _) => true
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path,host"), _) => true
@@ -3815,6 +3818,7 @@ pub fn header_list_has_path(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":path", _), _, _) => true
 		HpackHeaderList(_, HpackHeader(":path", _), _) => true
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "method,path"), _) => true
 		HpackHeaderList(_, HpackHeader(":request", "scheme,path"), _) => true
@@ -4062,6 +4066,7 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("cache-control", _), _) => ":status,cache-control"
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-type", _), _) => ":status,content-type"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => ":method,:scheme,:path"
+		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => ":method,:scheme,:path,:authority"
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority:invalid"), _) => ":method,:scheme,:path,:authority"
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,host"), _) => ":method,:scheme,:path,host"
 		HpackHeaderList(HpackHeader(":scheme", _), HpackHeader(":request", "method,path"), _) => ":method,:scheme,:path"

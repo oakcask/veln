@@ -480,7 +480,9 @@ compare it with `../specification/` before changing behavior.
   table, including line feed, single-byte `hpack-byte-*` labels, and
   multi-byte `hpack-bytes-*` labels, narrowed request `:scheme` static-name
   paths for accepted `http` and `https` values and rejected visible ASCII
-  values, plus narrowed request and response `content-length` static-name paths
+  values, narrowed request `:authority` static-name paths for accepted and
+  rejected visible ASCII values, plus narrowed request and response
+  `content-length` static-name paths
   for accepted visible ASCII decimal values on literal-without-indexing,
   literal-with-indexing, and literal-never-indexed forms that do not observe
   later fixture dynamic-table reuse, and the source-visible dynamic indexed
