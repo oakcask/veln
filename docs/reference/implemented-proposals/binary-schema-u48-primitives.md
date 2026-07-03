@@ -28,7 +28,8 @@ value positions continue to reject the primitive names with
 ## Evidence
 
 - `../../../examples/specification/run/binary-schema-u48-widths-encode/`
-  checks six-byte big-endian and little-endian encode output.
+  checks six-byte big-endian and little-endian encode output and generated
+  decode helper `Int` values.
 - `../../../examples/specification/run/binary-schema-u48-widths-encode-out-of-range/`
   checks exact-width encode range failures.
 - `../../../examples/specification/run/binary-schema-u48-widths-truncated-json/`

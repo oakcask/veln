@@ -26,15 +26,31 @@ fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
 	stdio::println(int_to_string(count))
 end
 
-fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
-	emit_output_chunk_list_header("u48-widths", 1)
-	emit_output_chunk("u48-widths", 0, bytes, "010203040506060504030201")
+fn emit_decoded(bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(12)?)?
+	let decoded: {big_value: Int, little_value: Int} = byte_decode_uint48_widths(view)?
+	stdio::print("decoded ")
+	stdio::print(int_to_string(decoded.big_value))
+	stdio::print(" ")
+	stdio::println(int_to_string(decoded.little_value))
+	Ok(())
 end
 
-pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint48_widths({big_value: 1108152157446, little_value: 1108152157446})
+fn emit_encoded_bytes(bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header("u48-widths", 1)
+	emit_output_chunk("u48-widths", 0, bytes, "010203040506060504030201")
+	emit_decoded(bytes)
+end
+
+fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
 	match encoded
-		Ok(bytes) => emit_encoded(bytes)
-		Err(_) => stdio::println("unexpected encode failure")
+		Ok(bytes) => emit_encoded_bytes(bytes)
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
 	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint48_widths({big_value: 1108152157446, little_value: 1108152157446})
+	let ignored: () = emit_encoded(encoded)?
+	Ok(())
 end
