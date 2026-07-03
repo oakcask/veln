@@ -819,28 +819,20 @@ fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 end
 
 fn decode_completed_static_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
-	match hpack_block_updates_fixture_dynamic_table(completed_header_block)
-		true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
-		false => match hpack_static::decode_header_block(completed_header_block, offset)
-			Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_state, headers)
-			Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
-				true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
-				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
-			end
+	match hpack_static::decode_header_block(completed_header_block, offset)
+		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_static_next_hpack_state(headers, hpack_state), headers)
+		Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
+			true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
 		end
 	end
 end
 
-fn hpack_block_first_byte_or_missing(block: ByteChunk) -> Int
-	match read_byte(block, 0)
-		Ok(value) => value
-		Err(_) => -1
+fn hpack_static_next_hpack_state(headers: HpackHeaderList, hpack_state: HpackFixtureState) -> HpackFixtureState
+	match hpack_fixture::header_list_second_name(headers) == ":fixture" and hpack_fixture::header_list_second_value(headers) == "literal-with-indexing"
+		true => hpack_fixture::state_with_indexed_literal_entry(hpack_state, hpack_fixture::header_list_first_name(headers), hpack_fixture::header_list_first_value(headers))
+		false => hpack_state
 	end
-end
-
-fn hpack_block_updates_fixture_dynamic_table(block: ByteChunk) -> Bool
-	let first_byte: Int = hpack_block_first_byte_or_missing(block)
-	first_byte >= 64 and first_byte < 128
 end
 
 fn decode_completed_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
@@ -10413,6 +10405,12 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target)
 	let ignored_hpack_stateful_dynamic_indexed_path_target: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-path-target", hpack_stateful_dynamic_indexed_path_target, step_state(hpack_stateful_literal_indexed_path_target))
+	let hpack_stateful_literal_indexed_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401000000000144072f74")?), state)?
+	let hpack_stateful_literal_indexed_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000016172676574")?), step_state(hpack_stateful_literal_indexed_continuation_start))?
+	let ignored_hpack_stateful_literal_indexed_continuation: () = require_frame_decoded("hpack-stateful-literal-indexed-continuation", hpack_stateful_literal_indexed_continuation_done)?
+	let hpack_stateful_literal_indexed_continuation_reuse: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001be")?), step_state(hpack_stateful_literal_indexed_continuation_done))?
+	let ignored_hpack_stateful_literal_indexed_continuation_reuse: () = require_frame_decoded("hpack-stateful-literal-indexed-continuation-reuse", hpack_stateful_literal_indexed_continuation_reuse)?
+	let ignored_hpack_stateful_literal_indexed_continuation_header: () = require_hpack_transition_header(hpack_stateful_literal_indexed_continuation_reuse, step_state(hpack_stateful_literal_indexed_continuation_done), ":path", "/target")?
 	let ignored_hpack_stateful_replacement_cases: () = print_hpack_stateful_replacement_cases(hpack_stateful_dynamic_indexed_path_target)?
 	let ignored_hpack_wide_dynamic_name_cases: () = print_hpack_wide_dynamic_name_cases()?
 	let ignored_hpack_dynamic_table_cases: () = print_hpack_dynamic_table_cases()?

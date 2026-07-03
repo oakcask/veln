@@ -493,12 +493,14 @@ compare it with `../specification/` before changing behavior.
   saturated seven-bit indexed representation `0xff 0x00`, plus the
   source-visible HPACK dynamic-table accounting core for the entry-size
   formula, newest-first insertion, table-size reduction, insertion-caused
-  eviction, over-limit insertion, and zero-size table reduction,
+  eviction, over-limit insertion, and zero-size table reduction, plus the
+  source-visible static-name literal-with-indexing receive core for checked
+  dynamic-state insertion and `0xbe` dynamic-indexed reuse,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented source-visible static, dynamic-index, and
-  dynamic-table accounting core decoders,
+  fixture boundary and implemented source-visible static, static-name
+  indexing, dynamic-index, and dynamic-table accounting core decoders,
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
@@ -510,6 +512,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible dynamic-table accounting core slice is archived
   under
   [HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).
+  The completed source-visible static-name indexing core slice is archived
+  under
+  [HTTP/2 HPACK Static-Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).
   The completed `content-length` header-list validation and body-accounting
   slices, including source-visible static-name `content-length`, are archived
   under

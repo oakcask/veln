@@ -329,6 +329,8 @@ behavior.
   [http2-hpack-dynamic-table-eviction-fixture.md](http2-hpack-dynamic-table-eviction-fixture.md).
 - HTTP/2 HPACK dynamic table accounting core:
   [http2-hpack-dynamic-table-accounting-core.md](http2-hpack-dynamic-table-accounting-core.md).
+- HTTP/2 HPACK static-name indexing core:
+  [http2-hpack-static-name-indexing-core.md](http2-hpack-static-name-indexing-core.md).
 - HTTP/2 HPACK dynamic index core:
   [http2-hpack-dynamic-index-core.md](http2-hpack-dynamic-index-core.md).
 - HTTP/2 HPACK table-size receive policy:

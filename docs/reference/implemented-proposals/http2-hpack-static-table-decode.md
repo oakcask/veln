@@ -12,9 +12,10 @@ checked executable cases under `../../../examples/specification/run/`.
 
 The HTTP/2 protocol core routes complete HEADERS blocks and completed final
 CONTINUATION header blocks through the source-visible `hpack_static` decoder
-before falling back to the HPACK fixture codec, except for literal-with-indexing
-forms that must update fixture dynamic-table state. The implemented
-source-visible path accepts
+before falling back to the HPACK fixture codec. At the time of this slice,
+literal-with-indexing forms that needed fixture dynamic-table state still fell
+back to the fixture path; the later static-name indexing core record narrows
+that fallback. The implemented source-visible path accepts
 single-byte static indexed representations for every HPACK static table entry
 from `0x81` `:authority` through `0xbd` `www-authenticate:` through one
 source-visible static table lookup. It also accepts literal-without-indexing,
@@ -40,9 +41,9 @@ covered on completed HEADERS and final CONTINUATION paths.
 The slice remains limited to static indexed fields and bounded static-name
 literal fields. Unsupported Huffman strings, malformed literal lengths,
 dynamic-table indexes, table-size updates, and other fixture-owned bytes fall
-back to the HPACK fixture boundary. Stateful HTTP/2 header-block decoding still
-routes literal-with-indexing blocks through the fixture decoder
-when fixture dynamic-table state must be updated.
+back to the HPACK fixture boundary. Later static-name literal-with-indexing
+dynamic-state behavior is recorded separately in
+[http2-hpack-static-name-indexing-core.md](http2-hpack-static-name-indexing-core.md).
 Static-table boundary failures remain focused: static-only header blocks whose
 bytes name no static-table entry fail with `hpack.static.unsupported_index`,
 including the checked standalone source-visible boundary for static table

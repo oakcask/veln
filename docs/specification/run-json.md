@@ -1036,8 +1036,11 @@ accepted visible ASCII decimal string and the block does not require later
 fixture dynamic-table reuse; that value feeds the existing content-length
 body-accounting state. Non-decimal visible values on the same decoded request
 or response path still use the existing header-list rules. Stateful HTTP/2
-header-block decoding still routes literal-with-indexing blocks through the
-HPACK fixture decoder when fixture dynamic-table state must be updated.
+header-block decoding routes supported static-name literal-with-indexing
+blocks through the source-visible static decoder and updates carried HPACK
+dynamic state for later dynamic-indexed reuse. Unsupported
+literal-with-indexing forms still fall back to the HPACK fixture decoder when
+the checked source-visible decoders do not own the form.
 These diagnostics record
 `byte_offset.value`, `observed_header_block_size`,
 `observed_first_byte`, `expected_fixture`, and `codec_module`, plus a
@@ -1063,7 +1066,10 @@ advancement in
 case checks source-visible dynamic-table accounting stdout for the HPACK entry
 size formula, newest-first insertion, retained older entries, table-size
 reduction eviction including a zero-size table, insertion-caused eviction, and
-over-limit insertion; those boundary checks are ordinary program stdout, not
+over-limit insertion. It also checks source-visible static-name
+literal-with-indexing `content-type: text`, immutable dynamic-core insertion,
+and dynamic-indexed reuse through `0xbe`; those boundary checks are ordinary
+program stdout, not
 `details.protocol_diagnostic`, because they do not return a
 `RuntimeDiagnostic(...)` payload.
 Missing, malformed, and out-of-range dynamic-name continuations use ids
