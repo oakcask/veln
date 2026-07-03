@@ -1,0 +1,119 @@
+# Bounded outgoing chunk production preserves chunk boundaries.
+use stdio
+
+fn chunk_list_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_list_count(tail)
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_empty(name: String, chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
+	match chunks
+		Nil => emit_empty_ok(name)
+		Cons(_, _) => Err("expected empty chunk list")
+	end
+end
+
+fn emit_empty_ok(name: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 0)
+	Ok(())
+end
+
+fn emit_one(name: String, chunks: List<ByteChunk>, expected_hex: String) -> Result<(), String> effects [stdio]
+	match chunks
+		Cons(first, Nil) => emit_one_ok(name, first, expected_hex)
+		_ => Err("expected one chunk")
+	end
+end
+
+fn emit_one_ok(name: String, first: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, first, expected_hex)
+	Ok(())
+end
+
+fn emit_two(name: String, chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
+	match chunks
+		Cons(first, Cons(second, Nil)) => emit_two_ok(name, first, second)
+		_ => Err("expected two chunks")
+	end
+end
+
+fn emit_two_ok(name: String, first: ByteChunk, second: ByteChunk) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 2)
+	emit_output_chunk(name, 0, first, "0102")
+	emit_output_chunk(name, 1, second, "030405")
+	Ok(())
+end
+
+fn emit_three(name: String, chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
+	match chunks
+		Cons(first, Cons(second, Cons(third, Nil))) => emit_three_ok(name, first, second, third)
+		_ => Err("expected three chunks")
+	end
+end
+
+fn emit_three_ok(name: String, first: ByteChunk, second: ByteChunk, third: ByteChunk) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 3)
+	emit_output_chunk(name, 0, first, "0102")
+	emit_output_chunk(name, 1, second, "030405")
+	emit_output_chunk(name, 2, third, "06")
+	Ok(())
+end
+
+fn print_summary(label: String, result: {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" produced ")
+	stdio::print(int_to_string(byte_count_to_int(result.produced)))
+	stdio::print(" chunks ")
+	stdio::print(int_to_string(chunk_list_count(result.chunks)))
+	stdio::print(" remaining ")
+	stdio::println(int_to_string(chunk_list_count(result.remaining)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0102")?
+	let second: ByteChunk = byte_chunk_from_hex("030405")?
+	let third: ByteChunk = byte_chunk_from_hex("06")?
+	let chunks: List<ByteChunk> = byte_chunks_append(byte_chunks_one(first), byte_chunks_append(byte_chunks_one(second), byte_chunks_one(third)))
+
+	let full = byte_chunks_produce(chunks, byte_count(6)?)
+	print_summary("full-fit", full)
+	let _ = emit_three("full-produced", full.chunks)?
+	let _ = emit_empty("full-remaining", full.remaining)?
+
+	let partial = byte_chunks_produce(chunks, byte_count(5)?)
+	print_summary("partial-fit", partial)
+	let _ = emit_two("partial-produced", partial.chunks)?
+	let _ = emit_one("partial-remaining", partial.remaining, "06")?
+
+	let first_too_large = byte_chunks_produce(chunks, byte_count(1)?)
+	print_summary("first-too-large", first_too_large)
+	let _ = emit_empty("first-too-large-produced", first_too_large.chunks)?
+	let _ = emit_three("first-too-large-remaining", first_too_large.remaining)?
+
+	let zero = byte_chunks_produce(chunks, byte_count(0)?)
+	print_summary("zero-budget", zero)
+	let _ = emit_empty("zero-produced", zero.chunks)?
+	let _ = emit_three("zero-remaining", zero.remaining)?
+	Ok(())
+end

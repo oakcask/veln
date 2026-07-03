@@ -624,6 +624,17 @@ fn byte_chunk_list_signature<T: BytePreludeType>(
             ],
             T::list(types.byte_chunk.clone()),
         )),
+        "byte_chunks_produce" => {
+            let chunk_list = T::list(types.byte_chunk.clone());
+            Some((
+                vec![chunk_list.clone(), types.byte_count.clone()],
+                T::record(vec![
+                    ("chunks", chunk_list.clone()),
+                    ("produced", types.byte_count.clone()),
+                    ("remaining", chunk_list),
+                ]),
+            ))
+        }
         _ => None,
     }
 }

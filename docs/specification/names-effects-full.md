@@ -826,6 +826,7 @@ byte_view_slice(view: ByteView, offset: ByteCount, count: ByteCount) -> Result<B
 byte_chunks_empty() -> List<ByteChunk>
 byte_chunks_one(chunk: ByteChunk) -> List<ByteChunk>
 byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteChunk>
+byte_chunks_produce(chunks: List<ByteChunk>, budget: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
@@ -1044,6 +1045,11 @@ as bounded `ByteView` values while keeping the absolute `ByteOffset` carried by
 the view. `byte_chunks_empty()`, `byte_chunks_one(chunk)`, and
 `byte_chunks_append(left, right)` construct and combine `List<ByteChunk>`
 values for outgoing chunks without introducing an output-only byte type.
+`byte_chunks_produce(chunks, budget)` returns the prefix chunks that fit within
+the supplied `ByteCount` budget, the produced byte count, and the remaining
+suffix. It preserves chunk order, never splits a `ByteChunk`, returns no
+produced chunks for a zero budget, and leaves the remaining suffix unchanged
+when the first chunk does not fit.
 The fixed-width unsigned big-endian and little-endian read helpers read from
 the start of the view and return `Err(String)` when the view is too short.
 The `u31` and `u64` reads also return `Err(String)` when the decoded value
@@ -1175,6 +1181,7 @@ helpers, rather than the public schema application surface.
   `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
   `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
   `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
+  `byte_chunks_produce`,
   `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`,
   `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,

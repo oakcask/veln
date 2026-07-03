@@ -148,6 +148,7 @@ compare it with `../specification/` before changing behavior.
   helper width set, bounded view buffer helper,
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
   input and outgoing immutable chunk collection for protocol examples,
+  budgeted outgoing whole-chunk production,
   byte-view freeze preservation across task and channel boundaries,
   source-visible `ByteView` range diagnostics with byte previews, checked byte
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
@@ -163,6 +164,8 @@ compare it with `../specification/` before changing behavior.
   stream-after-GOAWAY protocol byte previews, and HTTP/2 request, response,
   request-trailer, and response-trailer header-list validation protocol byte
   previews.
+  The outgoing chunk production slice is archived under
+  [Binary Data Outgoing Chunk Production](../reference/implemented-proposals/binary-data-outgoing-chunk-production.md).
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and

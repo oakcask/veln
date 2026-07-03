@@ -228,9 +228,10 @@ compiler-known calls.
   vocabulary helpers for `Byte`, `ByteChunk`, `ByteView`, `ByteCount`,
   `ByteOffset`, compact hex fixture decoding, visible ASCII conversion between
   strings and immutable chunks, bounded `ByteView` slicing, outgoing
-  `List<ByteChunk>` construction, fixed-width unsigned big-endian and
-  little-endian reads and writes, fixed U8 field checks, and the narrow schema
-  width-sample decode helper. The implemented pending-input slice
+  `List<ByteChunk>` construction and budgeted chunk production, fixed-width
+  unsigned big-endian and little-endian reads and writes, fixed U8 field
+  checks, and the narrow schema width-sample decode helper. The implemented
+  pending-input slice
   appends incoming `StreamInput.Chunk` bytes into immutable retained
   `ByteChunk` values, bounds retention with `ByteCount`, uses `ByteView`
   prefixes for parsing, tracks absolute `ByteOffset` separately, and collects
