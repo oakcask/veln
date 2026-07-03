@@ -20,9 +20,10 @@ Encode writes the fixed zero bits as a one-byte payload. Extension dispatch
 length checks continue to compare the supplied length against that one-byte
 encoded payload.
 
-The slice is intentionally bounded to the direct `uint2 reserves 0` payload
-spelling. Wider non-byte-aligned reserved payloads remain outside this record
-until there is a protocol need and a broader direct payload bit-layout model.
+This historical slice was intentionally bounded to the direct
+`uint2 reserves 0` payload spelling. The later bounded zero-reserved subbyte
+slice is recorded in
+[Binary Schema Dispatch Lowercase Subbyte Reserved Payloads](binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md).
 
 ## Evidence
 
@@ -34,11 +35,10 @@ until there is a protocol need and a broader direct payload bit-layout model.
   path, bit width, expected value, actual value, and byte preview.
 - `../../../examples/specification/check/lowercase-schema-reserves-diagnostics/`
   no longer rejects `uint2 reserves 0` solely because it appears in a binary
-  dispatch payload position, while preserving `uint3 reserves 0` as the
-  checked unsupported subbyte boundary.
+  dispatch payload position.
 
 ## Remaining Work
 
 The broader binary schema primitives and dispatch proposal remains open for
 reserved-bit payload layouts, dispatch forms, primitive shapes, and behavior
-outside the implemented direct two-bit reserved payload slice.
+outside the implemented bounded zero-reserved subbyte payload slice.
