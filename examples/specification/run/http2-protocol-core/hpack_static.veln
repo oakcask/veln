@@ -321,6 +321,13 @@ fn hpack_static_literal_scheme_request_header(value: String, wire_size: Int) -> 
 	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":scheme", value), hpack_fixture::hpack_header(":request", "method,path"), wire_size)
 end
 
+fn hpack_static_literal_authority_request_header(value: String, wire_size: Int) -> HpackHeaderList
+	match value == "bad@"
+		true => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":authority", value), hpack_fixture::hpack_header(":request", "method,scheme,path,authority:invalid"), wire_size)
+		false => hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(":authority", value), hpack_fixture::hpack_header(":request", "method,scheme,path,authority"), wire_size)
+	end
+end
+
 fn hpack_static_decode_literal_indexing_form(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
 	match hpack_static_table_literal_name(name_index)
 		Some(name) => match hpack_static_literal_raw_value(block, count, value_index, offset)
@@ -418,6 +425,16 @@ fn hpack_static_decode_request_with_scheme(block: ByteChunk, count: Int, offset:
 	match count > 3 and (hpack_static_byte_at_or_missing(block, 0) == 130 or hpack_static_byte_at_or_missing(block, 0) == 131) and hpack_static_byte_at_or_missing(block, count - 1) == 132 and hpack_static_literal_tail_name_index(block, 1) == 6
 		true => match hpack_static_literal_raw_value_until(block, count - 1, hpack_static_literal_tail_value_index(block, 1), offset)
 			Ok(value) => Ok(hpack_static_literal_scheme_request_header(value, count))
+			Err(failure) => Err(failure)
+		end
+		false => hpack_static_decode_request_with_authority(block, count, offset)
+	end
+end
+
+fn hpack_static_decode_request_with_authority(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
+	match count > 4 and (hpack_static_byte_at_or_missing(block, 0) == 130 or hpack_static_byte_at_or_missing(block, 0) == 131) and (hpack_static_byte_at_or_missing(block, 1) == 134 or hpack_static_byte_at_or_missing(block, 1) == 135) and hpack_static_byte_at_or_missing(block, count - 1) == 132 and hpack_static_literal_tail_name_index(block, 2) == 1
+		true => match hpack_static_literal_raw_value_until(block, count - 1, hpack_static_literal_tail_value_index(block, 2), offset)
+			Ok(value) => Ok(hpack_static_literal_authority_request_header(value, count))
 			Err(failure) => Err(failure)
 		end
 		false => hpack_static_decode_request_with_content_length(block, count, offset)

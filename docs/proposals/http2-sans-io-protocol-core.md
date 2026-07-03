@@ -926,8 +926,8 @@ current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-content-length-header-validation.md`:
 the HTTP/2 core validates request and response header lists after HPACK
 fixture decode, and validates the completed source-visible HPACK static-name
-literal request `:scheme` and response `:status` slices, on completed HEADERS
-and final CONTINUATION paths.
+literal request `:scheme`, request `:authority`, and response `:status`
+slices, on completed HEADERS and final CONTINUATION paths.
 Request validation rejects duplicate request pseudo-headers, request
 pseudo-headers after regular headers, missing `:method`, `:scheme`, or
 `:path`, response-only `:status`, uppercase ordinary header names, and
@@ -940,8 +940,9 @@ source-visible HPACK static-name literal value with failed fact
 `scheme_value_not_http_or_https`; it rejects empty
 fixture-marked `:method` values with failed fact `method_value_empty`, empty
 fixture-marked `:path` values with failed fact `path_value_empty` after
-`:path` presence has been confirmed, and fixture-marked invalid `:authority`
-values with failed fact `authority_value_invalid`. Response validation
+`:path` presence has been confirmed, and fixture-marked or source-visible
+HPACK static-name literal invalid `:authority` values with failed fact
+`authority_value_invalid`. Response validation
 rejects missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,
 uppercase ordinary header names, and ordinary header names outside the HTTP

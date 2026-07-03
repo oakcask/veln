@@ -8273,6 +8273,27 @@ fn require_hpack_static_request_scheme_validation(state: Http2DecodeState) -> Re
 	require_frame_decoded("hpack-static-request-scheme-continuation-https", scheme_continuation_accepted_done)
 end
 
+fn require_hpack_static_request_authority_validation(state: Http2DecodeState) -> Result<(), String>
+	let authority_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d010400000001828701086162632e7465737484")?), state)?
+	let ignored_authority_accepted: () = require_frame_decoded("hpack-static-request-authority-accepted", authority_accepted)?
+	let authority_indexed_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d010400000001828741086162632e7465737484")?), state)?
+	let ignored_authority_indexed_accepted: () = require_frame_decoded("hpack-static-request-authority-indexed-accepted", authority_indexed_accepted)?
+	let authority_never_indexed_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d010400000001828711086162632e7465737484")?), state)?
+	let ignored_authority_never_indexed_accepted: () = require_frame_decoded("hpack-static-request-authority-never-indexed-accepted", authority_never_indexed_accepted)?
+	let authority_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001828701046261644084")?), state)?
+	let ignored_authority_invalid: () = require_request_header_failure_detail("hpack-static-request-authority-invalid", authority_invalid, "authority_value_invalid", ":authority", "rfc9113_request_authority")?
+	let authority_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001828741046261644084")?), state)?
+	let ignored_authority_indexed_invalid: () = require_request_header_failure_detail("hpack-static-request-authority-indexed-invalid", authority_indexed_invalid, "authority_value_invalid", ":authority", "rfc9113_request_authority")?
+	let authority_never_indexed_invalid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001828711046261644084")?), state)?
+	let ignored_authority_never_indexed_invalid: () = require_request_header_failure_detail("hpack-static-request-authority-never-indexed-invalid", authority_never_indexed_invalid, "authority_value_invalid", ":authority", "rfc9113_request_authority")?
+	let authority_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010000000001828701046261")?), state)?
+	let authority_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000001644084")?), step_state(authority_continuation_start))?
+	let ignored_authority_continuation_invalid: () = require_request_header_failure_detail("hpack-static-request-authority-continuation-invalid", authority_continuation_done, "authority_value_invalid", ":authority", "rfc9113_request_authority")?
+	let authority_continuation_accepted_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010000000001828701086162")?), state)?
+	let authority_continuation_accepted_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007090400000001632e7465737484")?), step_state(authority_continuation_accepted_start))?
+	require_frame_decoded("hpack-static-request-authority-continuation-accepted", authority_continuation_accepted_done)
+end
+
 fn require_production_request_content_length_validation(state: Http2DecodeState) -> Result<(), String>
 	let production_single: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000016768696a")?), state)?
 	let ignored_production_single_decoded: () = require_frame_decoded("production-single", production_single)?
@@ -10427,6 +10448,7 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let ignored_hpack_static_request_scheme_https: () = emit_header_block("http2-hpack-static-request-scheme-https", hpack_static_request_scheme_https, "820605687474707384")?
 	print_hpack_static_transition("hpack-static-request-scheme-https", hpack_static_request_scheme_https)
 	let ignored_hpack_static_request_scheme_validation: () = require_hpack_static_request_scheme_validation(state)?
+	let ignored_hpack_static_request_authority_validation: () = require_hpack_static_request_authority_validation(state)?
 	let hpack_static_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?
 	print_step("hpack-static-response-headers", hpack_static_response_headers)
 	let ignored_hpack_static_response_headers: () = emit_header_block("http2-hpack-static-response-headers", hpack_static_response_headers, "88")?

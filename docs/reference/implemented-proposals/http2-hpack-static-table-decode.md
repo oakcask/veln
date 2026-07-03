@@ -28,11 +28,14 @@ literal-without-indexing, literal-with-indexing, and literal-never-indexed
 forms when no later fixture dynamic-table reuse is observed, and pass decoded
 values to the existing matching header-list validation and content-length
 body-accounting paths. The request path also validates static-name `:scheme`
-literal values after a static `:method` and before a static `:path` through
-the existing request header-list rule, accepting `http` and `https` and
-rejecting other visible ASCII values with
-`scheme_value_not_http_or_https` on completed HEADERS and final CONTINUATION
-paths.
+literal values after a static `:method` and before a static `:path`, and
+static-name `:authority` literal values after static `:method` and `:scheme`
+and before a static `:path`, through the existing request header-list rules.
+The checked `:scheme` values accept `http` and `https` and reject other
+visible ASCII values with `scheme_value_not_http_or_https`. The checked
+`:authority` values accept valid visible ASCII values and reject the checked
+invalid visible ASCII value with `authority_value_invalid`. Both paths are
+covered on completed HEADERS and final CONTINUATION paths.
 
 The slice remains limited to static indexed fields and bounded static-name
 literal fields. Unsupported Huffman strings, malformed literal lengths,
@@ -77,7 +80,10 @@ block size, first byte, expected static header description, decoder module
   later dynamic-table reuse, non-decimal `content-length` request and response
   validation, accepted request `:scheme` static-name literal values, rejected
   request `:scheme` static-name literal values across the three static-name
-  literal forms and final CONTINUATION completion, a printed accepted
+  literal forms and final CONTINUATION completion, accepted request
+  `:authority` static-name literal values, rejected request `:authority`
+  static-name literal values across the three static-name literal forms and
+  final CONTINUATION completion, a printed accepted
   literal-without-indexing `:scheme: https` request HEADERS block, a focused
   non-visible raw literal value failure owned by the source-visible static
   decoder, and the focused unsupported static-index failure through the

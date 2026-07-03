@@ -813,9 +813,15 @@ protocol-core run case also checks source-visible HPACK static-name
 request `:path`: decoded values `http` and `https` are accepted, while other
 visible ASCII values use the existing
 `scheme_value_not_http_or_https` request header-list fact across completed
-HEADERS and final CONTINUATION paths. It also checks source-visible HPACK
-static-name `content-length` literals after static request pseudo-headers and
-after a static response `:status` pseudo-header across the
+HEADERS and final CONTINUATION paths. The same aggregate case checks
+source-visible HPACK static-name `:authority` literals after static request
+`:method` and `:scheme` pseudo-headers and before a static request `:path`;
+accepted visible ASCII values pass, while the checked invalid visible ASCII
+value uses the existing `authority_value_invalid` request header-list fact on
+completed HEADERS and final CONTINUATION paths. It also checks
+source-visible HPACK static-name `content-length` literals after static
+request pseudo-headers and after a static response `:status` pseudo-header
+across the
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 forms that do not require later fixture dynamic-table reuse; the decoded
 values feed the same matching request or response header-list validation and

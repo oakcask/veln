@@ -28,8 +28,9 @@ value slice rejects
 fixture-marked empty values with failed fact `method_value_empty`, and the
 request `:path` value slice rejects fixture-marked empty values with failed
 fact `path_value_empty` after `:path` presence has been confirmed. The
-request `:authority` value slice rejects fixture-marked invalid values with
-failed fact `authority_value_invalid`. Failures use the protocol-owned
+request `:authority` value slice rejects fixture-marked invalid values and
+checked source-visible HPACK static-name literal values with failed fact
+`authority_value_invalid`. Failures use the protocol-owned
 `http2.protocol.invalid_request_header_list` diagnostic rather than schema or
 HPACK fixture diagnostics.
 
@@ -44,12 +45,15 @@ HPACK fixture diagnostics.
   rejected source-visible HPACK static-name literal `:scheme` values across
   literal-without-indexing, literal-with-indexing, literal-never-indexed, and
   final CONTINUATION paths, an empty `:method` value, an empty `:path` value
-  after method and scheme presence are satisfied, an invalid `:authority`
-  value, a final CONTINUATION path missing `:method`, a HEADERS path containing
-  response-only `:status`, a duplicate `:method`, and a `:method` after a
-  regular `host` header, plus uppercase and token-invalid ordinary request
-  header names and the checked connection-specific ordinary request header
-  names.
+  after method and scheme presence are satisfied, an invalid fixture-marked
+  `:authority` value, accepted source-visible HPACK static-name literal
+  `:authority` values, and rejected source-visible HPACK static-name literal
+  `:authority` values across literal-without-indexing, literal-with-indexing,
+  literal-never-indexed, and final CONTINUATION paths, a final CONTINUATION
+  path missing `:method`, a HEADERS path containing response-only `:status`, a
+  duplicate `:method`, and a `:method` after a regular `host` header, plus
+  uppercase and token-invalid ordinary request header names and the checked
+  connection-specific ordinary request header names.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-json/`
   checks the JSON projection for a missing required pseudo-header.
 - `../../../examples/specification/run/http2-protocol-core-request-headers-human/`
