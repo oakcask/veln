@@ -122,6 +122,8 @@ behavior.
   [schema-documentation-references.md](schema-documentation-references.md).
 - Remove schema map-to:
   [remove-schema-map-to.md](remove-schema-map-to.md).
+- Binary schema `UInt48be` and `UInt48le` primitives:
+  [binary-schema-u48-primitives.md](binary-schema-u48-primitives.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
 - Lowercase schema primitives:

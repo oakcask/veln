@@ -1,0 +1,16 @@
+# Binary schema UInt48le truncation reports schema field byte details.
+schema UInt48Widths
+	format binary
+
+	big_value: UInt48be
+	little_value: UInt48le
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0102030405060605040302")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(11)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {big_value: Int, little_value: Int} = byte_decode_uint48_widths(view)?
+	Ok(())
+end
