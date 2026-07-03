@@ -198,13 +198,16 @@ enough.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked
-  protocol-core case. Stateful HTTP/2 header-block decoding still routes
-  literal-with-indexing blocks through the HPACK fixture decoder when fixture
-  dynamic-table state must be updated. The checked receive path inserts a
-  literal-with-indexing `:path: /target` entry, resolves a following `0xbe`
-  dynamic indexed field from the carried fixture table, and preserves the
-  focused dynamic-index failure after the carried table no longer contains a
-  matching entry.
+  protocol-core case. Stateful HTTP/2 header-block decoding routes supported
+  static-name literal-with-indexing fields through the source-visible static
+  decoder, inserts the decoded name/value pair into the carried HPACK dynamic
+  state, and resolves a following `0xbe` dynamic indexed field from that
+  state. Unsupported literal-with-indexing forms still fall back to the HPACK
+  fixture boundary when the checked source-visible decoders do not own the
+  form. The checked receive path inserts a literal-with-indexing
+  `:path: /target` entry, resolves a following `0xbe` dynamic indexed field,
+  and preserves the focused dynamic-index failure after the carried table no
+  longer contains a matching entry.
 - The source-visible `hpack_dynamic_core` boundary accepts the checked dynamic
   indexed header-field representation when the caller supplies a bounded
   dynamic table carrying the referenced entries. The checked boundary decodes
@@ -220,8 +223,12 @@ enough.
   count plus `32`, preserves immutable state while inserting newest-first
   dynamic entries, evicts oldest entries after insertion or table-size
   reduction including reduction to a zero-size table, and clears the table when
-  an inserted entry is larger than the supplied table-size limit. The checked
-  case is
+  an inserted entry is larger than the supplied table-size limit. The same
+  boundary accepts the checked static-name literal-with-indexing block
+  `content-type: text`, returns the decoded header entry and wire size, inserts
+  it into the immutable dynamic-core state using the same accounting rule, and
+  resolves a following `0xbe` dynamic indexed field from the inserted entry.
+  The checked case is
   `examples/specification/run/hpack-fixture-codec-boundary/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under

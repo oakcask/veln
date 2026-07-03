@@ -148,6 +148,10 @@ fn dynamic_core_indexed_header(name: String, value: String) -> HpackDynamicCoreH
 	HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(name, value), HpackDynamicCoreHeader(":fixture", "dynamic-indexed"), 9)
 end
 
+fn dynamic_core_literal_with_indexing_header(name: String, value: String, wire_size: Int) -> HpackDynamicCoreHeaderList
+	HpackDynamicCoreHeaderList(HpackDynamicCoreHeader(name, value), HpackDynamicCoreHeader(":fixture", "literal-with-indexing"), wire_size)
+end
+
 fn dynamic_core_index_out_of_range(block: ByteChunk, offset: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	Err(DynamicCoreIndexOutOfRange(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), requested_dynamic_index, dynamic_table_entry_count, "source-visible dynamic indexed header", "hpack_dynamic_core", block))
 end
@@ -156,12 +160,115 @@ fn dynamic_core_unsupported_indexed_header(block: ByteChunk, offset: Int) -> Res
 	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible dynamic indexed header", "hpack_dynamic_core", block))
 end
 
+fn dynamic_core_unsupported_static_name_literal(block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible static-name literal-with-indexing", "hpack_dynamic_core", block))
+end
+
+fn dynamic_core_unsupported_static_name_literal_string(block: ByteChunk, offset: Int) -> Result<String, HpackDynamicCoreFailure>
+	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible static-name literal-with-indexing", "hpack_dynamic_core", block))
+end
+
 fn dynamic_core_decode_indexed_at(table_index: Int, block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	match state
 		HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, table_index)
 			Some(HpackDynamicCoreHeader(name, value)) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_indexed_header(name, value), dynamic_core_next_state(state)))
 			None => dynamic_core_index_out_of_range(block, offset, table_index, dynamic_core_entry_count(dynamic_entry))
 		end
+	end
+end
+
+fn dynamic_core_static_table_name(name_index: Int) -> Option<String>
+	match name_index
+		1 => Some(":authority")
+		2 => Some(":method")
+		3 => Some(":method")
+		4 => Some(":path")
+		5 => Some(":path")
+		6 => Some(":scheme")
+		7 => Some(":scheme")
+		8 => Some(":status")
+		9 => Some(":status")
+		10 => Some(":status")
+		11 => Some(":status")
+		12 => Some(":status")
+		13 => Some(":status")
+		14 => Some(":status")
+		15 => Some("accept-charset")
+		16 => Some("accept-encoding")
+		17 => Some("accept-language")
+		18 => Some("accept-ranges")
+		19 => Some("accept")
+		20 => Some("access-control-allow-origin")
+		21 => Some("age")
+		22 => Some("allow")
+		23 => Some("authorization")
+		24 => Some("cache-control")
+		25 => Some("content-disposition")
+		26 => Some("content-encoding")
+		27 => Some("content-language")
+		28 => Some("content-length")
+		29 => Some("content-location")
+		30 => Some("content-range")
+		31 => Some("content-type")
+		32 => Some("cookie")
+		33 => Some("date")
+		34 => Some("etag")
+		35 => Some("expect")
+		36 => Some("expires")
+		37 => Some("from")
+		38 => Some("host")
+		39 => Some("if-match")
+		40 => Some("if-modified-since")
+		41 => Some("if-none-match")
+		42 => Some("if-range")
+		43 => Some("if-unmodified-since")
+		44 => Some("last-modified")
+		45 => Some("link")
+		46 => Some("location")
+		47 => Some("max-forwards")
+		48 => Some("proxy-authenticate")
+		49 => Some("proxy-authorization")
+		50 => Some("range")
+		51 => Some("referer")
+		52 => Some("refresh")
+		53 => Some("retry-after")
+		54 => Some("server")
+		55 => Some("set-cookie")
+		56 => Some("strict-transport-security")
+		57 => Some("transfer-encoding")
+		58 => Some("user-agent")
+		59 => Some("vary")
+		60 => Some("via")
+		61 => Some("www-authenticate")
+		_ => None
+	end
+end
+
+fn dynamic_core_static_name_literal_value(block: ByteChunk, observed_size: Int, offset: Int) -> Result<String, HpackDynamicCoreFailure>
+	match observed_size > 1
+		true => match dynamic_core_byte_at_or_missing(block, 1) >= 0 and dynamic_core_byte_at_or_missing(block, 1) < 127
+			true => match observed_size == 2 + dynamic_core_byte_at_or_missing(block, 1)
+				true => match byte_count(2)
+					Ok(prefix_count) => match byte_drop(block, prefix_count)
+						Ok(value_suffix) => match byte_count(dynamic_core_byte_at_or_missing(block, 1))
+							Ok(value_count) => match byte_take(value_suffix, value_count)
+								Ok(value_bytes) => match byte_chunk_to_visible_ascii_string(value_bytes)
+									Ok(value) => Ok(value)
+									Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
+								end
+								Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
+							end
+							Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
+						end
+						Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
+					end
+					Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
+				end
+				false => dynamic_core_unsupported_static_name_literal_string(block, offset)
+			end
+			false => dynamic_core_unsupported_static_name_literal_string(block, offset)
+		end
+		false => dynamic_core_unsupported_static_name_literal_string(block, offset)
 	end
 end
 
@@ -218,6 +325,21 @@ pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreStat
 			end
 		end
 		false => dynamic_core_unsupported_indexed_header(block, offset)
+	end
+end
+
+pub fn decode_static_name_literal_with_indexing_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	match first_byte > 64 and first_byte < 127
+		true => match dynamic_core_static_table_name(first_byte - 64)
+			Some(name) => match dynamic_core_static_name_literal_value(block, observed_size, offset)
+				Ok(value) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_literal_with_indexing_header(name, value, observed_size), dynamic_core_next_state(dynamic_core_insert_entry_state(state, name, value))))
+				Err(failure) => Err(failure)
+			end
+			None => dynamic_core_unsupported_static_name_literal(block, offset)
+		end
+		false => dynamic_core_unsupported_static_name_literal(block, offset)
 	end
 end
 

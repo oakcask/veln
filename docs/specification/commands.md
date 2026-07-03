@@ -257,7 +257,8 @@ requiring the full command reference on the first read.
   source-visible HPACK dynamic-table accounting helpers for entry-size
   calculation, newest-first insertion, retained older entries, table-size
   reduction eviction including a zero-size table, insertion-caused eviction,
-  and over-limit insertion.
+  over-limit insertion, static-name literal-with-indexing insertion for
+  `content-type: text`, and later dynamic-indexed reuse through `0xbe`.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

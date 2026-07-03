@@ -344,8 +344,10 @@ static-indexed fixture set, including ordinary names such as `server`,
 Complete HEADERS and final CONTINUATION paths also attempt the implemented
 source-visible `hpack_static` decoder before fixture fallback for every
 single-byte static indexed entry from `0x81` `:authority` through `0xbd`
-`www-authenticate:`, using one static-table lookup path, except for
-literal-with-indexing forms that must update fixture dynamic-table state.
+`www-authenticate:`, using one static-table lookup path. Supported
+static-name literal-with-indexing forms now decode through that source-visible
+path and insert the decoded name/value pair into carried HPACK dynamic state;
+unsupported forms still fall back to the HPACK fixture boundary.
 Static-only header blocks with unsupported static-table indexes now project
 `hpack.static.unsupported_index`, including the standalone source-visible
 boundary case for static table index `62`. The source-visible decoder also
@@ -432,12 +434,15 @@ immutable HPACK state carried by the HTTP/2 decode state, a later `0xbe`
 indexed representation decodes through that carried state, and the same
 indexed representation without prior state reports
 `hpack.fixture.dynamic_index_out_of_range` without advancing the carried
-fixture decode count. The same completed HEADERS path also inserts raw
-new-name literal-with-indexing `x-trace: ok`, reuses it through a later
-`0xbe`, and evicts it with a table-size `40` reduction so the following
-dynamic indexed reference reports the same focused diagnostic. The state
-output also shows that a split header block leaves the HPACK fixture state
-unchanged until the final CONTINUATION block is accepted. A later
+fixture decode count. The source-visible `hpack_dynamic_core` boundary also
+checks static-name literal-with-indexing `content-type: text`, inserts it
+using the existing dynamic-table accounting rule, and reuses it through a
+following `0xbe`. The same completed HEADERS path also inserts raw new-name
+literal-with-indexing `x-trace: ok`, reuses it through a later `0xbe`, and
+evicts it with a table-size `40` reduction so the following dynamic indexed
+reference reports the same focused diagnostic. The state output also shows
+that a split header block leaves the HPACK fixture state unchanged until the
+final CONTINUATION block is accepted. A later
 literal-with-indexing `:method: PUT` block and a later
 literal-with-indexing `:scheme: https` block are inserted as newest-first
 bounded fixture dynamic-table entries while older entries remain addressable
@@ -1075,9 +1080,9 @@ and
 [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
 Those records cover static-name literal-without-indexing request and response
 header-list validation, focused malformed raw literal value diagnostics, and
-the standalone static-name literal boundary. Stateful HTTP/2 header-block
-decoding still keeps literal-with-indexing on the fixture decoder when
-dynamic-table state must be updated.
+the standalone static-name literal boundary. The later source-visible
+static-name literal-with-indexing dynamic-state slice is archived under
+[HTTP/2 HPACK Static-Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).
 The narrow source-visible dynamic indexed HPACK core slice is also current
 behavior: `hpack_dynamic_core` accepts indexed bytes against multiple carried
 bounded dynamic-table entries, accepts saturated seven-bit indexed
