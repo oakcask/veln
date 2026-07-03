@@ -32,12 +32,14 @@ compiler-known calls.
   values, deadline-aware stream writes that return `WriteCompleted` or
   `WriteDeadlineExpired`, cancellable deadline-aware stream writes that
   return `WriteCompleted`, `WriteDeadlineExpired`, or `WriteCancelled`
-  values, `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
-  inspection for accepted `NetStream` handles, fixture-backed stream writes,
+  values, source-visible `net::connect` client streams,
+  `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
+  inspection for accepted and connected `NetStream` handles,
+  fixture-backed stream writes,
   stream close recording, and listener close recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
-  reads, writes, clean listener end, stream close, and listener close under
-  the same public calls,
+  client connects, reads, writes, clean listener end, stream close, and
+  listener close under the same public calls,
   relative and absolute monotonic deadline calls, and cancellable deadline
   waits through
   source-visible `CancelToken` handles. `time::cancel_owner` creates a
@@ -95,7 +97,7 @@ compiler-known calls.
   outcomes into ordinary adapter completion values before producing adapter
   action values while keeping the same adapter effect boundary.
   Malformed receive fixtures, failed send, write, stream close, or listener
-  close recording, forced accept, read, write, or close failures, forced
+  close recording, forced connect, accept, read, write, or close failures, forced
   timeout or deadline expiry through runtime-failure waits, and forced
   cancellable-wait cancellation through the runtime-failure wait are runtime
   failures. Explicit listener close keeps already accepted streams owned by

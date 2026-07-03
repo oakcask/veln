@@ -1,0 +1,19 @@
+# Production loopback connect returns an owned stream with endpoint text.
+use stdio
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let stream: NetStream = net::connect("127.0.0.1:0")
+	let local: String = net::stream_local_addr(stream)
+	let peer: String = net::stream_peer_addr(stream)
+	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	net::write_chunk(stream, outgoing)
+	let incoming: ByteChunk = net::read_chunk(stream)
+	net::close_stream(stream)
+	stdio::print("local ")
+	stdio::print(local)
+	stdio::print(" peer ")
+	stdio::print(peer)
+	stdio::print(" bytes ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	Ok(())
+end

@@ -579,7 +579,8 @@ compare it with `../specification/` before changing behavior.
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
   stream write, accepted-stream endpoint text inspection, adapter-owned
-  listener-to-clean-stream-end lifecycle, context-based adapter
+  source-visible client connect, listener-to-clean-stream-end lifecycle,
+  context-based adapter
   `task::spawn_with<Result, Context>` helper routing,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
   cancellable deadline-aware adapters, stream close lifecycle,
@@ -637,6 +638,8 @@ compare it with `../specification/` before changing behavior.
   [Network Stream Shutdown Write Boundary](../reference/implemented-proposals/network-stream-shutdown-write-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
+  The completed source-visible client connect boundary is archived under
+  [Network Client Connect Boundary](../reference/implemented-proposals/network-client-connect-boundary.md).
   The completed adapter-owned multi-handler outbound write-ordering and
   outbound write-failure slices are archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).

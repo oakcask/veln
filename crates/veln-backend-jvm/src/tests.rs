@@ -2720,6 +2720,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::receive_chunk", "netReceiveChunk"),
         ("net::send_chunk", "netSendChunk"),
         ("net::listen", "netListen"),
+        ("net::connect", "netConnect"),
         ("net::accept", "netAccept"),
         ("net::accept_or_end", "netAcceptOrEnd"),
         ("net::accept_until", "netAcceptUntil"),

@@ -347,6 +347,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "net",
+        "connect",
+        NET_EFFECTS,
+        "runtime.net.connect",
+        StandardSignature {
+            params: PARAM_STRING,
+            return_type: StandardType::NetStream,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
         "accept",
         NET_EFFECTS,
         "runtime.net.accept",

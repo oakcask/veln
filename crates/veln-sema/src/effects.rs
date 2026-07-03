@@ -878,6 +878,11 @@ mod tests {
         assert_eq!(return_type, Type::unit());
 
         let (params, return_type) =
+            standard_library_signature(&path("net", "connect")).expect("net signature");
+        assert_eq!(params, vec![Type::string()]);
+        assert_eq!(return_type, net_stream_type());
+
+        let (params, return_type) =
             standard_library_signature(&path("net", "accept_until")).expect("net signature");
         assert_eq!(
             params,

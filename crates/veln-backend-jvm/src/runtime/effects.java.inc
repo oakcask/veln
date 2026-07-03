@@ -481,6 +481,47 @@
         return new NetListener(value);
     }
 
+    public static Object netConnect(Object address) {
+        if (forced("VELN_NET_CONNECT_FAILED")) {
+            throw new RuntimeFailure("transport connect failed: VELN_NET_CONNECT_FAILED");
+        }
+        String value = asString(address);
+        if (productionSocketRuntime()) {
+            return netConnectProduction(value);
+        }
+        String streamId = connectedNetStreamId();
+        try {
+            writeNetEvent("connect " + value + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport connect failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return new NetStream(streamId, streamId, value);
+    }
+
+    private static Object netConnectProduction(String address) {
+        java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
+        if (inputs.isEmpty()) {
+            inputs = java.util.Collections.singletonList(
+                java.util.Collections.<byte[]>emptyList()
+            );
+        }
+        ProductionWriteCapture capture = new ProductionWriteCapture(1);
+        InMemoryLoopback loopback = new InMemoryLoopback(inputs.get(0), 0, capture);
+        String streamId = productionStreamId(0, 1);
+        try {
+            writeNetEvent("connect-production " + address + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport connect failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return new NetStream(streamId, loopbackPeerAddress(0), address, loopback, true);
+    }
+
     private static Object netListenProduction(String address) {
         java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
         if (productionReadInputsRequireChunkBoundaries(inputs)) {
@@ -782,6 +823,14 @@
         String streamId = System.getenv("VELN_NET_ACCEPT_STREAM");
         if (streamId == null || streamId.isEmpty()) {
             streamId = "stream-1";
+        }
+        return streamId;
+    }
+
+    private static String connectedNetStreamId() {
+        String streamId = System.getenv("VELN_NET_CONNECT_STREAM");
+        if (streamId == null || streamId.isEmpty()) {
+            streamId = "client-stream";
         }
         return streamId;
     }
