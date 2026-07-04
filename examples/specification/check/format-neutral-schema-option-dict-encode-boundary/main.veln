@@ -1,0 +1,23 @@
+schema UnsupportedOptionDictKeyPacket
+	items: Option<Dict<Int, String>>
+end
+
+schema UnsupportedOptionDictValuePacket
+	items: Option<Dict<String, Option<Int>>>
+end
+
+fn direct_key(packet: {items: Option<Dict<Int, String>>}) -> Result<{items: Option<Dict<Int, String>>}, String>
+	byte_encode_unsupported_option_dict_key_packet(packet)
+end
+
+fn explicit_key(packet: {items: Option<Dict<Int, String>>}) -> Result<{items: Option<Dict<Int, String>>}, String>
+	encode UnsupportedOptionDictKeyPacket from packet
+end
+
+fn direct_value(packet: {items: Option<Dict<String, Option<Int>>>}) -> Result<{items: Option<Dict<String, Option<Int>>>}, String>
+	byte_encode_unsupported_option_dict_value_packet(packet)
+end
+
+fn explicit_value(packet: {items: Option<Dict<String, Option<Int>>>}) -> Result<{items: Option<Dict<String, Option<Int>>>}, String>
+	encode UnsupportedOptionDictValuePacket from packet
+end

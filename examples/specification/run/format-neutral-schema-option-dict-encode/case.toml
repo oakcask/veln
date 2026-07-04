@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "17\nenabled\nweight-high\ncore\n23\nnested-core\n-2\nmissing-states\nmissing-weights\nmissing-names\n-2\nmissing-nested-names\n"
+
+[[json_assert]]
+path = "error"
+equals = null
