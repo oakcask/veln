@@ -303,6 +303,40 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainDecodeError));
 
+        Object oversizedDecoded = VelnRuntime.adt(
+            "DecodeStep::Decoded",
+            new Object[] {
+                Long.valueOf(7),
+                VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(5) })
+            }
+        );
+        Object oversizedInvalidStep = VelnRuntime.validateCodecDecodeStep(
+            view,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(21) }),
+            oversizedDecoded,
+            "Packet.count"
+        );
+        VelnRuntime.recordResultFailure(
+            VelnRuntime.Result.err(VelnRuntime.adtPayload(oversizedInvalidStep, 0))
+        );
+
+        Object negativeDecoded = VelnRuntime.adt(
+            "DecodeStep::Decoded",
+            new Object[] {
+                Long.valueOf(7),
+                VelnRuntime.adt("ByteCount", new Object[] { Long.valueOf(-1) })
+            }
+        );
+        Object negativeInvalidStep = VelnRuntime.validateCodecDecodeStep(
+            view,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(22) }),
+            negativeDecoded,
+            "Packet.count"
+        );
+        VelnRuntime.recordResultFailure(
+            VelnRuntime.Result.err(VelnRuntime.adtPayload(negativeInvalidStep, 0))
+        );
+
         Object needMore = VelnRuntime.adt(
             "DecodeStep::NeedMore",
             new Object[] {
@@ -1954,6 +1988,34 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t11\t"),
         "{trace}"
+    );
+    let oversized_consumed_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t21\t"))
+        .expect("oversized consumed count should be recorded");
+    assert!(
+        oversized_consumed_line.contains("\tavailable_count\tnumber\t3"),
+        "{oversized_consumed_line}"
+    );
+    assert!(
+        oversized_consumed_line.contains("\tactual_consumed_count\tnumber\t5"),
+        "{oversized_consumed_line}"
+    );
+    assert!(
+        oversized_consumed_line.contains("\treason\tstring\t6465636f64656420636f6e73756d656420636f756e74206973206f75747369646520737570706c696564204279746556696577"),
+        "{oversized_consumed_line}"
+    );
+    let negative_consumed_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t22\t"))
+        .expect("negative consumed count should be recorded");
+    assert!(
+        negative_consumed_line.contains("\tavailable_count\tnumber\t3"),
+        "{negative_consumed_line}"
+    );
+    assert!(
+        negative_consumed_line.contains("\tactual_consumed_count\tnumber\t-1"),
+        "{negative_consumed_line}"
     );
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.incomplete_input\t5\t"),

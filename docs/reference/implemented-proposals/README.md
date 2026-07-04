@@ -287,6 +287,8 @@ behavior.
   [codec-imported-hand-written-boundary.md](codec-imported-hand-written-boundary.md).
 - Codec imported derived boundary:
   [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
+- Codec consumed-count invalid diagnostics:
+  [codec-consumed-count-invalid-diagnostics.md](codec-consumed-count-invalid-diagnostics.md).
 - Codec sequence mismatch diagnostics:
   [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
 - Codec payload length mismatch diagnostics:

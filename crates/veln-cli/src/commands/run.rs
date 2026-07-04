@@ -591,6 +591,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.consumed_count_invalid" {
+        return consumed_count_invalid_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -1050,6 +1059,53 @@ fn version_mismatch_result_failure_diagnostic(
             .push(note_json(format!("Version mismatch reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn consumed_count_invalid_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("invalid decoded consumed count at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(available_count), Some(actual_consumed_count)) = (
+        json_number(byte_entries, "available_count"),
+        json_number(byte_entries, "actual_consumed_count"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Decoder consumed {actual_consumed_count} byte(s); supplied view length was {available_count} byte(s)."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Consumed count reason: {reason}.")));
+    }
     if let Some(value) = result_failure_value(failure) {
         diagnostic
             .related

@@ -1805,6 +1805,8 @@
                 mergeTagMismatchReason(details, reason);
             } else if (id.equals("codec.magic_mismatch")) {
                 mergeMagicMismatchReason(details, reason);
+            } else if (id.equals("codec.consumed_count_invalid")) {
+                mergeConsumedCountInvalidReason(details, reason);
             } else {
                 details.add(DiagnosticDetail.string("reason", reason));
             }
@@ -2405,6 +2407,73 @@
         MagicMismatchReason(String expectedMagic, String actualMagic, String reason) {
             this.expectedMagic = expectedMagic;
             this.actualMagic = actualMagic;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeConsumedCountInvalidReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        ConsumedCountInvalidReason parsed = parseConsumedCountInvalidReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number("available_count", parsed.availableCount));
+        details.add(DiagnosticDetail.number("actual_consumed_count", parsed.actualConsumedCount));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static ConsumedCountInvalidReason parseConsumedCountInvalidReason(String reason) {
+        Long availableCount = null;
+        Long actualConsumedCount = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("available_count")) {
+                availableCount = parseDiagnosticLong(value);
+            } else if (key.equals("actual_consumed_count")) {
+                actualConsumedCount = parseDiagnosticLong(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (availableCount == null
+            || actualConsumedCount == null
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new ConsumedCountInvalidReason(
+            availableCount.longValue(),
+            actualConsumedCount.longValue(),
+            failureReason
+        );
+    }
+
+    private static Long parseDiagnosticLong(String value) {
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException error) {
+            return null;
+        }
+    }
+
+    private static final class ConsumedCountInvalidReason {
+        final long availableCount;
+        final long actualConsumedCount;
+        final String reason;
+
+        ConsumedCountInvalidReason(long availableCount, long actualConsumedCount, String reason) {
+            this.availableCount = availableCount;
+            this.actualConsumedCount = actualConsumedCount;
             this.reason = reason;
         }
     }

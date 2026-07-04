@@ -1,0 +1,47 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.consumed_count_invalid"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 22
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ManualPacketWire"},{"kind":"field","name":"count"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.actual_consumed_count"
+equals = -1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.reason"
+equals = "decoded consumed count is outside supplied ByteView"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+missing = true
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(22), ManualPacketWire.count, available_count=3; actual_consumed_count=-1; reason=decoded consumed count is outside supplied ByteView))\n"
