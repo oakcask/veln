@@ -3093,6 +3093,12 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
             if name == "Option"
                 && args.len() == 1
                 && format_neutral_schema_scalar_type(&args[0])
+    ) || matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "List"
+                && args.len() == 1
+                && format_neutral_schema_scalar_type(&args[0])
     )
 }
 

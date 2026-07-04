@@ -82,7 +82,8 @@ compare it with `../specification/` before changing behavior.
   compatibility schema import/reference visibility checks, generated
   field-local validation, generated `validate_<schema>` decoded-record
   validation, visible flag bitset decode bindings, bounded repeat generated
-  helper bindings including subtractive `ByteView` payloads, direct nested
+  helper bindings including subtractive `ByteView` payloads, supported
+  representation-only reserved-bit generated helper bindings, direct nested
   binary schema helper bindings, generated
   encode-time field-local validation for eligible schema helpers, derived
   encode boundary support, format-neutral schema bodies without a `format`
@@ -90,8 +91,8 @@ compare it with `../specification/` before changing behavior.
   recursive visible shapes made from scalar leaves, anonymous record fields,
   `Option<T>`, `List<T>`, `Dict<String, T>`, and supported recursive
   `Result<Ok, Err>` visible-shape fields, same-module and public imported
-  source ADT visible-shape fields, scalar-only format-neutral encode helpers,
-  plus
+  source ADT visible-shape fields, scalar-only, `Option<scalar>`, and
+  `List<scalar>` format-neutral encode helpers, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -107,6 +108,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
   The completed dispatch nested repeat helper slice is archived under
   [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
+  The completed general representation-only reserved-bit generated helper
+  slice is archived under
+  [Binary Schema General Reserved Bitfield Layouts](../reference/implemented-proposals/binary-schema-general-reserved-bitfield-layouts.md).
   The completed format-neutral `Option` helper slice, including
   `Option<scalar>` fields inside nested record-shaped fields, is archived under
   [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
@@ -145,6 +149,9 @@ compare it with `../specification/` before changing behavior.
   The completed scalar-only format-neutral encode helper slice is archived
   under
   [Format-Neutral Schema Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-scalar-encode-helpers.md).
+  The completed format-neutral `List<scalar>` encode helper slice is archived
+  under
+  [Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
   under `../specification/source-surface.md` and

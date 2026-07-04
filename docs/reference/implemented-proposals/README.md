@@ -260,6 +260,8 @@ behavior.
   [format-neutral-schema-scalar-encode-helpers.md](format-neutral-schema-scalar-encode-helpers.md).
 - Format-neutral schema `Option<scalar>` encode helpers:
   [format-neutral-schema-option-scalar-encode-helpers.md](format-neutral-schema-option-scalar-encode-helpers.md).
+- Format-neutral schema `List<scalar>` encode helpers:
+  [format-neutral-schema-list-scalar-encode-helpers.md](format-neutral-schema-list-scalar-encode-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

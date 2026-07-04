@@ -1,0 +1,78 @@
+# Format-neutral schema encode helpers accept List<scalar> fields.
+use stdio
+
+schema ListScalarPacket
+	items: List<Int>
+	flags: List<Bool>
+	ratios: List<Float>
+	names: List<String>
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn bool_list_score(flags: List<Bool>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			true => 1 + bool_list_score(tail)
+			false => bool_list_score(tail)
+		end
+	end
+end
+
+fn encoded_item_sum(result: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String>) -> Int
+	match result
+		Ok(packet) => list_sum(packet.items)
+		Err(_) => -1
+	end
+end
+
+fn encoded_flag_count(result: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String>) -> Int
+	match result
+		Ok(packet) => bool_list_score(packet.flags)
+		Err(_) => -1
+	end
+end
+
+fn encoded_ratio_status(result: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.ratios
+			Cons(head, _) => match head > 1.0
+				true => "ratio-high"
+				false => "ratio-low"
+			end
+			Nil => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_first_name(result: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.names
+			Cons(head, _) => head
+			Nil => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>} = {items: list_cons(2, list_cons(3, list_cons(5, list_nil()))), flags: list_cons(true, list_cons(false, list_cons(true, list_nil()))), ratios: list_cons(1.25, list_nil()), names: list_cons("alpha", list_nil())}
+	let empty_packet: {items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>} = {items: list_nil(), flags: list_nil(), ratios: list_nil(), names: list_nil()}
+	let encoded: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String> = byte_encode_list_scalar_packet(packet)
+	let explicit: Result<{items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>}, String> = encode ListScalarPacket from empty_packet
+	stdio::println(int_to_string(encoded_item_sum(encoded)))
+	stdio::println(int_to_string(encoded_flag_count(encoded)))
+	stdio::println(encoded_ratio_status(encoded))
+	stdio::println(encoded_first_name(encoded))
+	stdio::println(int_to_string(encoded_item_sum(explicit)))
+	stdio::println(int_to_string(encoded_flag_count(explicit)))
+	stdio::println(encoded_ratio_status(explicit))
+	stdio::println(encoded_first_name(explicit))
+end

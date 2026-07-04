@@ -64,7 +64,8 @@ The implemented first slice covers:
   generated binary decode helpers
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
 schemas whose fields use implemented exact-width unsigned primitives,
-  visible flag bitset fields,
+  visible flag bitset fields, supported representation-only
+  `ReservedBits(width, value)` fields,
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, `ByteView(length_field)`,
@@ -79,8 +80,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   diagnostics for unsupported helper field types
 - generated `byte_encode_<schema>` helper bindings and explicit schema encode
   expressions for format-neutral schemas without a `format` clause when every
-  field is a scalar leaf or `Option<scalar>` field: `Int`, `Bool`, `Float`,
-  or `String`, optionally wrapped in `Option<T>`
+  field is a scalar leaf, `Option<scalar>` field, or `List<scalar>` field:
+  `Int`, `Bool`, `Float`, or `String`, optionally wrapped in `Option<T>` or
+  `List<T>`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -107,6 +109,10 @@ under
 
 The completed dispatch nested repeat helper slice is archived under
 [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
+
+The completed general representation-only `ReservedBits(width, value)`
+generated helper slice is archived under
+[Binary Schema General Reserved Bitfield Layouts](../reference/implemented-proposals/binary-schema-general-reserved-bitfield-layouts.md).
 
 The completed format-neutral `Option` helper slice, including
 `Option<scalar>` fields inside nested record-shaped fields, is archived under
@@ -157,6 +163,10 @@ The completed format-neutral `Option<scalar>` encode helper slice is archived
 under
 [Format-Neutral Schema Option Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-scalar-encode-helpers.md).
 
+The completed format-neutral `List<scalar>` encode helper slice is archived
+under
+[Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -166,9 +176,10 @@ This proposal remains open for:
 
 - generated runtime helper bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
-  direct nested binary schema, bounded repeat, length-bounded `ByteView`,
-  closed dispatch, and extension dispatch slices, and format-neutral encode
-  helper fields beyond scalar leaves and `Option<scalar>` fields
+  supported representation-only reserved-bit, direct nested binary schema,
+  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
+  dispatch slices, and format-neutral encode helper fields beyond scalar
+  leaves, `Option<scalar>` fields, and `List<scalar>` fields
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -417,8 +428,9 @@ Implemented:
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives, visible flag bitset fields, direct nested binary schema
-  fields, or bounded repeat fields over implemented primitive, nested schema,
-  or `ByteView(length_field)` payloads expose generated
+  fields, supported representation-only `ReservedBits(width, value)` fields,
+  or bounded repeat fields over implemented primitive, nested schema, or
+  `ByteView(length_field)` payloads expose generated
   `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are recursive
   visible shapes made from scalar leaves, anonymous record fields,
@@ -441,6 +453,6 @@ Remaining:
 
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
-  direct nested binary schema, bounded repeat, length-bounded `ByteView`,
-  closed dispatch, extension dispatch, and recursive format-neutral
-  visible-shape helper boundary.
+  supported representation-only reserved-bit, direct nested binary schema,
+  bounded repeat, length-bounded `ByteView`, closed dispatch, extension
+  dispatch, and recursive format-neutral visible-shape helper boundary.

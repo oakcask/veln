@@ -165,7 +165,7 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
 }
 
 #[test]
-fn generated_schema_encode_helpers_resolve_from_scalar_format_neutral_schema_declarations() {
+fn generated_schema_encode_helpers_resolve_from_supported_format_neutral_encode_declarations() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -178,13 +178,17 @@ fn generated_schema_encode_helpers_resolve_from_scalar_format_neutral_schema_dec
             "  optional_ready: Option<Bool>\n",
             "  optional_ratio: Option<Float>\n",
             "  optional_label: Option<String>\n",
+            "  items: List<Int>\n",
+            "  flags: List<Bool>\n",
+            "  ratios: List<Float>\n",
+            "  labels: List<String>\n",
             "end\n",
             "\n",
-            "pub fn direct(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>}, String>\n",
+            "pub fn direct(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}, String>\n",
             "  byte_encode_scalar_packet(packet)\n",
             "end\n",
             "\n",
-            "pub fn explicit(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>}, String>\n",
+            "pub fn explicit(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}, String>\n",
             "  encode ScalarPacket from packet\n",
             "end\n",
         ),
@@ -235,15 +239,15 @@ fn generated_schema_encode_helpers_resolve_from_scalar_format_neutral_schema_dec
 }
 
 #[test]
-fn generated_format_neutral_schema_encode_helpers_reject_container_fields() {
+fn generated_format_neutral_schema_encode_helpers_reject_recursive_container_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "schema Packet\n",
-            "  items: List<Int>\n",
+            "  items: Option<List<Int>>\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {items: List<Int>}) -> Result<{items: List<Int>}, String>\n",
+            "pub fn main(packet: {items: Option<List<Int>>}) -> Result<{items: Option<List<Int>>}, String>\n",
             "  encode Packet from packet\n",
             "end\n",
         ),
