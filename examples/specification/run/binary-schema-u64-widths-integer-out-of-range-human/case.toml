@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.integer_out_of_range]: schema integer out of range at byte offset 0", "note: 8-byte schema integer expected value between 0 and 9223372036854775807; actual value was 9223372036854775808.", "note: Nearby bytes: 80 00 00 00 00 00 00 00 (showing 8 of 8 byte(s), complete).", "note: Field path: schema `UInt64Width` / field `value`."]

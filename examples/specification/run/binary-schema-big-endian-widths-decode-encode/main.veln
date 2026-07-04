@@ -1,11 +1,13 @@
-# Binary schema UInt64be and UInt64le primitives encode ordinary Int fields.
+# Binary schema UInt16be, UInt24be, UInt31be, and UInt32be primitives decode and encode ordinary Int fields.
 use stdio
 
-schema UInt64Widths
+schema BigEndianWidthsWire
 	format binary
 
-	big_value: UInt64be
-	little_value: UInt64le
+	short_value: UInt16be
+	length_value: UInt24be
+	stream_value: UInt31be
+	wide_value: UInt32be
 end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
@@ -27,17 +29,21 @@ fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
 end
 
 fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
-	emit_output_chunk_list_header("u64-widths", 1)
-	emit_output_chunk("u64-widths", 0, bytes, "01020304050607080807060504030201")
+	emit_output_chunk_list_header("big-endian-widths", 1)
+	emit_output_chunk("big-endian-widths", 0, bytes, "12341234567fffffffdeadbeef")
 end
 
 fn emit_decoded(bytes: ByteChunk) -> Result<(), String> effects [stdio]
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(16)?)?
-	let decoded: {big_value: Int, little_value: Int} = byte_decode_uint64_widths(view)?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(13)?)?
+	let decoded: {short_value: Int, length_value: Int, stream_value: Int, wide_value: Int} = byte_decode_big_endian_widths_wire(view)?
 	stdio::print("decoded ")
-	stdio::print(int_to_string(decoded.big_value))
+	stdio::print(int_to_string(decoded.short_value))
 	stdio::print(" ")
-	stdio::println(int_to_string(decoded.little_value))
+	stdio::print(int_to_string(decoded.length_value))
+	stdio::print(" ")
+	stdio::print(int_to_string(decoded.stream_value))
+	stdio::print(" ")
+	stdio::println(int_to_string(decoded.wide_value))
 	Ok(())
 end
 
@@ -54,7 +60,7 @@ fn emit_encoded_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), St
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_widths({big_value: 72623859790382856, little_value: 72623859790382856})
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_big_endian_widths_wire({short_value: 4660, length_value: 1193046, stream_value: 2147483647, wide_value: 3735928559})
 	let ignored: () = emit_encoded_result(encoded)?
 	Ok(())
 end

@@ -31,10 +31,30 @@ fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
 	emit_output_chunk("u56-widths", 0, bytes, "0102030405060707060504030201")
 end
 
-pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint56_widths({big_value: 283686952306183, little_value: 283686952306183})
+fn emit_decoded(bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(14)?)?
+	let decoded: {big_value: Int, little_value: Int} = byte_decode_uint56_widths(view)?
+	stdio::print("decoded ")
+	stdio::print(int_to_string(decoded.big_value))
+	stdio::print(" ")
+	stdio::println(int_to_string(decoded.little_value))
+	Ok(())
+end
+
+fn emit_encoded_bytes(bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	emit_encoded(bytes)
+	emit_decoded(bytes)
+end
+
+fn emit_encoded_result(encoded: Result<ByteChunk, EncodeError>) -> Result<(), String> effects [stdio]
 	match encoded
-		Ok(bytes) => emit_encoded(bytes)
-		Err(_) => stdio::println("unexpected encode failure")
+		Ok(bytes) => emit_encoded_bytes(bytes)
+		Err(_) => Ok(stdio::println("unexpected encode failure"))
 	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint56_widths({big_value: 283686952306183, little_value: 283686952306183})
+	let ignored: () = emit_encoded_result(encoded)?
+	Ok(())
 end

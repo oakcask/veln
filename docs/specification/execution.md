@@ -167,6 +167,11 @@ enough.
   bytes through the declared schema layout. Lowercase reserved-bit fields emit
   their declared values and are omitted from the input record like compatible
   `ReservedBits(width, value)` fields.
+- Direct visible big-endian `UInt16be`, `UInt24be`, `UInt31be`, and
+  `UInt32be` compatibility helper parity is checked by
+  `examples/specification/run/binary-schema-big-endian-widths-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-big-endian-widths-encode-out-of-range/`.
 - Five-byte `UInt40be` and `UInt40le` compatibility helper coverage is
   checked by
   `examples/specification/run/binary-schema-u40-widths-encode/`,
@@ -178,6 +183,15 @@ enough.
   `examples/specification/run/binary-schema-u48-widths-encode-out-of-range/`,
   and
   `examples/specification/run/binary-schema-u48-widths-truncated-json/`.
+  Seven-byte `UInt56be` and eight-byte `UInt64be` compatibility helper parity
+  is checked by `examples/specification/run/binary-schema-u56-widths-encode/`,
+  `examples/specification/run/binary-schema-u56-widths-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-u56-widths-truncated-json/`,
+  `examples/specification/run/binary-schema-u64-widths-encode/`,
+  `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-human/`,
+  `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-json/`,
+  and `examples/specification/run/binary-schema-u64-widths-truncated-json/`.
 - Representation-local generated schema encode failures that cannot write a
   supplied value, repeat count, or length-bounded `ByteView` use
   `schema.encode_value_unrepresentable` while preserving the existing

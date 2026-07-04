@@ -18,6 +18,10 @@ equals = "passed"
 path = "error"
 equals = null
 
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list u64-widths count 1\noutput_chunk u64-widths index 0 hex \"01020304050607080807060504030201\" count 16\ndecoded 72623859790382856 72623859790382856\n"
+
 [[output_chunk_list]]
 name = "u64-widths"
 chunks = ["01020304050607080807060504030201"]

@@ -1446,19 +1446,48 @@
         long actualValue,
         String nearbyContext
     ) {
+        return schemaIntegerOutOfRangePathDiagnostic(
+            message,
+            byteOffset,
+            fieldPath,
+            byteWidth,
+            minValue,
+            maxValue,
+            actualValue,
+            null,
+            nearbyContext
+        );
+    }
+
+    private static Object schemaIntegerOutOfRangePathDiagnostic(
+        String message,
+        long byteOffset,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
+        long byteWidth,
+        long minValue,
+        long maxValue,
+        long actualValue,
+        String actualValueText,
+        String nearbyContext
+    ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.number("byte_width", byteWidth));
+        details.add(DiagnosticDetail.number("min_value", minValue));
+        details.add(DiagnosticDetail.number("max_value", maxValue));
+        if (actualValueText == null) {
+            details.add(DiagnosticDetail.number("actual_value", actualValue));
+        } else {
+            details.add(DiagnosticDetail.string("actual_value_text", actualValueText));
+        }
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
         return diagnosticErr(
             message,
             new ByteDiagnostic(
                 "schema.integer_out_of_range",
                 byteOffset,
                 fieldPath,
-                java.util.Arrays.asList(
-                    DiagnosticDetail.number("byte_width", byteWidth),
-                    DiagnosticDetail.number("min_value", minValue),
-                    DiagnosticDetail.number("max_value", maxValue),
-                    DiagnosticDetail.number("actual_value", actualValue),
-                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
-                )
+                details
             )
         );
     }

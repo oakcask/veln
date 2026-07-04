@@ -20,8 +20,8 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "output_chunk_list u56-widths count 1\noutput_chunk u56-widths index 0 hex \"0102030405060707060504030201\" count 14\ndecoded 283686952306183 283686952306183\n"
+equals = "output_chunk_list big-endian-widths count 1\noutput_chunk big-endian-widths index 0 hex \"12341234567fffffffdeadbeef\" count 13\ndecoded 4660 1193046 2147483647 3735928559\n"
 
 [[output_chunk_list]]
-name = "u56-widths"
-chunks = ["0102030405060707060504030201"]
+name = "big-endian-widths"
+chunks = ["12341234567fffffffdeadbeef"]

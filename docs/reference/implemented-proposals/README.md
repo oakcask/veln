@@ -130,6 +130,9 @@ behavior.
   [binary-schema-u40-primitives.md](binary-schema-u40-primitives.md).
 - Binary schema `UInt48be` and `UInt48le` primitives:
   [binary-schema-u48-primitives.md](binary-schema-u48-primitives.md).
+- Binary schema direct visible big-endian width parity for `UInt16be`,
+  `UInt24be`, `UInt31be`, `UInt32be`, `UInt56be`, and `UInt64be`:
+  [binary-schema-big-endian-width-parity.md](binary-schema-big-endian-width-parity.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
 - Lowercase schema primitives:

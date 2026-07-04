@@ -293,7 +293,11 @@ When the result value is a binary schema integer range failure,
 - `byte_width`: the decoded field byte width
 - `min_value`: the smallest representable value for the schema field
 - `max_value`: the largest representable value for the schema field
-- `actual_value`: the decoded integer value that was present
+- `actual_value`: the decoded integer value that was present when it fits a
+  signed JSON number
+- `actual_value_text`: the decoded integer value as decimal text when the
+  value is too large for a signed JSON number; this replaces `actual_value`
+  for that diagnostic instance
 - `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema reserved-bit mismatch,
