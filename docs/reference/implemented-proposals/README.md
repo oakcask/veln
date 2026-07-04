@@ -176,6 +176,8 @@ behavior.
   [binary-schema-reserved-bit-mapping-exposure.md](binary-schema-reserved-bit-mapping-exposure.md).
 - Binary schema repeat helper bindings:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
+- Binary schema repeat `ByteView(left_length - right_length)` helpers:
+  [binary-schema-repeat-byteview-subtract-helpers.md](binary-schema-repeat-byteview-subtract-helpers.md).
 - Binary schema direct nested decode bindings:
   [binary-schema-direct-nested-decode-bindings.md](binary-schema-direct-nested-decode-bindings.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
@@ -256,6 +258,8 @@ behavior.
   [format-neutral-schema-vec-helpers.md](format-neutral-schema-vec-helpers.md).
 - Format-neutral schema scalar encode helpers:
   [format-neutral-schema-scalar-encode-helpers.md](format-neutral-schema-scalar-encode-helpers.md).
+- Format-neutral schema `Option<scalar>` encode helpers:
+  [format-neutral-schema-option-scalar-encode-helpers.md](format-neutral-schema-option-scalar-encode-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

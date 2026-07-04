@@ -20,18 +20,19 @@ Generated binary schema decode and encode helpers accept
 `Repeat(left_count / right_count, Payload)` when each count operand names an
 earlier visible `Int` field. Payloads may be implemented byte-aligned unsigned
 primitives, `ByteView(length_field)` with an earlier visible `Int` length
-field, `ByteView(left_length + right_length)` with both operands naming
-earlier visible `Int` fields, or eligible same-module or public imported
-nested binary schemas resolved through written schema-aware paths.
+field, `ByteView(left_length + right_length)` or
+`ByteView(left_length - right_length)` with both operands naming earlier
+visible `Int` fields, or eligible same-module or public imported nested binary
+schemas resolved through written schema-aware paths.
 
 Decode exposes repeated primitive fields as `List<Int>`, repeated
-`ByteView(length_field)` and `ByteView(left_length + right_length)` fields as
-`List<ByteView>`, and repeated nested schema fields as a list of the nested
-schema's decoded record shape. Encode accepts the same list shapes and writes
-each element through the generated helper path. Runtime failures keep the
-repeated field path, append the repeated element index when the failed element
-is known, and then append the nested schema field path for nested payload
-failures.
+`ByteView(length_field)`, `ByteView(left_length + right_length)`, and
+`ByteView(left_length - right_length)` fields as `List<ByteView>`, and
+repeated nested schema fields as a list of the nested schema's decoded record
+shape. Encode accepts the same list shapes and writes each element through the
+generated helper path. Runtime failures keep the repeated field path, append
+the repeated element index when the failed element is known, and then append
+the nested schema field path for nested payload failures.
 
 ## Evidence
 
@@ -46,6 +47,8 @@ failures.
   checks repeated bounded `ByteView` decode.
 - `../../../examples/specification/run/binary-schema-repeat-byteview-add-decode/`
   checks repeated additive-length `ByteView` decode.
+- `../../../examples/specification/run/binary-schema-repeat-byteview-subtract-decode/`
+  checks repeated subtractive-length `ByteView` decode.
 - `../../../examples/specification/run/binary-schema-repeat-nested-decode/`
   checks same-module nested repeat decode.
 - `../../../examples/specification/run/binary-schema-imported-repeat-nested-decode/`
@@ -53,6 +56,7 @@ failures.
 - `../../../examples/specification/run/binary-schema-repeat-truncated-json/`,
   `../../../examples/specification/run/binary-schema-repeat-truncated-human/`,
   `../../../examples/specification/run/binary-schema-repeat-byteview-truncated-json/`,
+  `../../../examples/specification/run/binary-schema-repeat-byteview-subtract-truncated-json/`,
   `../../../examples/specification/run/binary-schema-repeat-subtract-negative-json/`,
   `../../../examples/specification/run/binary-schema-repeat-product-negative-json/`,
   and

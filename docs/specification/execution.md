@@ -101,9 +101,10 @@ enough.
   shape through the pass-through boundary.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
-  `Result<T, String>` for scalar-only fields: `Int`, `Bool`, `Float`, and
-  `String`. The helper returns the supplied record on success and does not
-  produce binary bytes.
+  `Result<T, String>` for scalar leaves and `Option<scalar>` fields:
+  `Int`, `Bool`, `Float`, and `String`, optionally wrapped in `Option<T>`.
+  The helper returns the supplied record on success and does not produce binary
+  bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression
@@ -111,6 +112,8 @@ enough.
   Lowercase exact-width `uint...` payloads written in legacy
   `Repeat(count, Payload)` fields normalize to the same generated decode and
   encode helper behavior as the matching canonical repeated-field payload.
+  Repeated `ByteView(left_length - right_length)` payloads expose
+  `List<ByteView>` and report truncation with the repeated element index.
 - Direct nested binary schema fields name an eligible same-module or public
   imported nested binary schema, consume that nested schema in place, and
   expose the nested schema-local visible record at the field.

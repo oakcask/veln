@@ -1,0 +1,16 @@
+# Binary schema Repeat subtractive ByteView payload truncation reports element paths.
+schema CountedViews
+	format binary
+
+	count: UInt8
+	total_length: UInt8
+	padding_length: UInt8
+	items: Repeat(count, ByteView(total_length - padding_length))
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("020502aabbccddee")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let ignored: {count: Int, total_length: Int, padding_length: Int, items: List<ByteView>} = byte_decode_counted_views(view)?
+	Ok(())
+end
