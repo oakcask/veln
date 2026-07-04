@@ -327,6 +327,16 @@ source list order, `net::shutdown_write` shuts down the stream write side
 without replacing the read clean-end path, `net::close_stream` closes the
 owned stream, and a following optional or deadline-aware accept can observe
 clean listener end.
+When a source program opens a production-loopback listener and then calls
+`net::connect` with the same source-visible address value while that listener
+is still open, the client stream is paired with that listener. A following
+`net::accept` or `net::accept_or_end` returns the server-side `NetStream`;
+both handles are source-owned, both use the same read, write, endpoint,
+write-side shutdown, and close helpers, and both must be closed explicitly by
+source code that owns them. The runtime records the listener, client connect,
+accept, byte reads and writes, stream closes, clean listener end, and listener
+close on the same production event path. Connection, accept, read, write, and
+close failures remain runtime transport failures.
 `net::close_listener` closes the owned production listener or in-memory
 loopback listener state without closing already accepted `NetStream` handles;
 any later accept call on that listener fails through the same runtime

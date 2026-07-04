@@ -1,0 +1,48 @@
+# Production loopback connects a source-owned client stream to a source-owned listener.
+use stdio
+
+fn expect_stream(maybe_stream: Option<NetStream>) -> Result<NetStream, String>
+	match maybe_stream
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let address: String = "127.0.0.1:0"
+	let listener: NetListener = net::listen(address)
+	let client: NetStream = net::connect(address)
+	let server: NetStream = expect_stream(net::accept_or_end(listener))?
+	let outgoing: ByteChunk = byte_chunk_from_hex("7f")?
+	net::write_chunk(client, outgoing)
+	let server_read: ByteChunk = net::read_chunk(server)
+	net::write_chunk(server, server_read)
+	let client_read: ByteChunk = net::read_chunk(client)
+	let server_count: Int = byte_count_to_int(byte_chunk_count(server_read))
+	let client_count: Int = byte_count_to_int(byte_chunk_count(client_read))
+	net::close_stream(server)
+	net::close_stream(client)
+	let clean_end: Bool = listener_ended(listener)
+	net::close_listener(listener)
+	stdio::print("server ")
+	stdio::print(int_to_string(server_count))
+	stdio::print(" client ")
+	stdio::print(int_to_string(client_count))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end
