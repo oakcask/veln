@@ -1485,6 +1485,23 @@
         );
     }
 
+    private static java.util.List<ByteDiagnosticFieldPathSegment> schemaRepeatedFieldPathWithPrefix(
+        java.util.List<ByteDiagnosticFieldPathSegment> prefix,
+        String schemaName,
+        String fieldName,
+        long index
+    ) {
+        if (prefix == null) {
+            return schemaRepeatedFieldPath(schemaName, fieldName, index);
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(prefix);
+        path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
+        path.add(new ByteDiagnosticFieldPathSegment("index", Long.toString(index)));
+        return path;
+    }
+
     private static java.util.List<ByteDiagnosticFieldPathSegment> schemaFieldPathWithPrefix(
         java.util.List<ByteDiagnosticFieldPathSegment> prefix,
         String schemaName,

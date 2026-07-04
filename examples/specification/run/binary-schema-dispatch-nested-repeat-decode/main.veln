@@ -1,0 +1,55 @@
+# Nested dispatch payload decode accepts bounded repeat fields.
+use stdio
+
+schema ItemRecord
+	format binary
+
+	code: UInt8
+	value: UInt16be
+end
+
+schema RepeatedPayload
+	format binary
+
+	count: UInt8
+	items: Repeat(count, ItemRecord)
+end
+
+schema ClosedRepeatedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => RepeatedPayload)
+end
+
+fn list_count(items: List<{code: Int, value: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn list_sum(items: List<{code: Int, value: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head.value + list_sum(tail)
+	end
+end
+
+fn emit_packet(packet: {kind: Int, payload: {count: Int, items: List<{code: Int, value: Int}>}}) -> () effects [stdio]
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.payload.count))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(packet.payload.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(list_sum(packet.payload.items)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("010207012c09000a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let packet: {kind: Int, payload: {count: Int, items: List<{code: Int, value: Int}>}} = byte_decode_closed_repeated_packet(view)?
+	emit_packet(packet)
+	Ok(())
+end

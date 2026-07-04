@@ -71,6 +71,11 @@ vocabulary remains gated by `format binary`. In `format binary` schemas,
 `veln fmt` writes supported compatibility primitive spellings as the canonical
 lowercase schema vocabulary, including direct fields, supported reserved
 fields, repeated fields, and dispatch payload field text.
+Closed dispatch payload schemas may contain bounded repeated fields whose
+payload is an eligible nested binary schema; checked decode coverage is
+`examples/specification/run/binary-schema-dispatch-nested-repeat-decode/` and
+checked nested truncation output is
+`examples/specification/run/binary-schema-dispatch-nested-repeat-truncated-json/`.
 
 Schema declarations return and accept schema-local visible record shapes
 through explicit schema operation expressions. The expression

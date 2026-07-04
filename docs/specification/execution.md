@@ -124,6 +124,14 @@ enough.
   encode helper boundary as ordinary nested schema fields, including
   length-bounded `ByteView(left_length / right_length)` fields whose operands
   are earlier visible `Int` fields in the nested payload schema.
+- Closed dispatch payload schemas may decode bounded repeated fields whose
+  payload is an eligible nested binary schema. Truncation inside a repeated
+  nested payload preserves the parent dispatch field path, the selected nested
+  payload schema, the repeated element index, and the nested field path. The
+  checked cases are
+  `examples/specification/run/binary-schema-dispatch-nested-repeat-decode/`
+  and
+  `examples/specification/run/binary-schema-dispatch-nested-repeat-truncated-json/`.
 - Same-module recursive dispatch payload cases expose a finite primitive
   payload shape when the recursive dispatch field is length-bounded and has a
   non-recursive primitive base case. Decode helpers collapse recursive known
