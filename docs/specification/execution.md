@@ -160,7 +160,13 @@ enough.
   bytes through the declared schema layout. Lowercase reserved-bit fields emit
   their declared values and are omitted from the input record like compatible
   `ReservedBits(width, value)` fields.
-- Six-byte `UInt48be` and `UInt48le` compatibility helper coverage is checked
+- Five-byte `UInt40be` and `UInt40le` compatibility helper coverage is
+  checked by
+  `examples/specification/run/binary-schema-u40-widths-encode/`,
+  `examples/specification/run/binary-schema-u40-widths-encode-out-of-range/`,
+  and
+  `examples/specification/run/binary-schema-u40-widths-truncated-json/`.
+  Six-byte `UInt48be` and `UInt48le` compatibility helper coverage is checked
   by `examples/specification/run/binary-schema-u48-widths-encode/`,
   `examples/specification/run/binary-schema-u48-widths-encode-out-of-range/`,
   and

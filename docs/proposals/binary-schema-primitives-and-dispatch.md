@@ -13,6 +13,9 @@ recursive dispatch helper slices are archived under
 The completed bounded direct dispatch payload slice for zero-reserved subbyte
 payloads from `uint1 reserves 0` through `uint7 reserves 0` is archived under
 [Binary Schema Dispatch Lowercase Subbyte Reserved Payloads](../reference/implemented-proposals/binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md).
+The completed `UInt40be` and `UInt40le` exact-width primitive slice is archived
+under
+[Binary Schema UInt40 Primitives](../reference/implemented-proposals/binary-schema-u40-primitives.md).
 The completed `UInt48be` and `UInt48le` exact-width primitive slice is archived
 under
 [Binary Schema UInt48 Primitives](../reference/implemented-proposals/binary-schema-u48-primitives.md).
