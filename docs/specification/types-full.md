@@ -210,9 +210,10 @@ callback body remains monomorphic: incompatible payload, field, element, key,
 or value facts report the ordinary `type.mismatch` at the incompatible
 expression.
 
-Ordinary same-module helpers and visible imported public helpers can provide
-the same expected-type context when their declared parameter type is already a
-concrete function type such as `fn(Int) -> String`,
+Ordinary same-module helpers, visible imported public helpers, and helpers
+reached through visible public function aliases can provide the same
+expected-type context when their declared parameter type is already a concrete
+function type such as `fn(Int) -> String`,
 `fn(String, Int) -> Bool`, `fn(String, ...String) -> List<String>`, or
 `fn(String) -> () effects [stdio]`. A named private callback function value
 passed at that argument position receives the declared fixed parameter types
@@ -225,7 +226,9 @@ collection expected-type rules as prelude helper callback returns. Function
 effect assignment keeps the usual pure and effectful compatibility checks.
 This rule does not infer public callback signatures, exported aliases, or
 helper signatures whose function parameter type still contains `unknown`,
-including an unknown variadic element type.
+including an unknown variadic element type. A public function alias reached by
+a call re-exports the resolved target signature; it does not make an
+`unknown`-containing helper signature concrete.
 Source-backed prelude helpers that do not have a compiler-known callback rule
 use the same declared-helper fallback for bare and `prelude::` calls when the
 embedded source signature contains a concrete function-typed callback

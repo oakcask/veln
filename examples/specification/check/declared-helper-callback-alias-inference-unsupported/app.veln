@@ -1,0 +1,9 @@
+use api
+
+fn collect(label, values: ...)
+	label
+end
+
+pub fn main() -> List<String>
+	api::apply_variadic_unknown(collect)
+end

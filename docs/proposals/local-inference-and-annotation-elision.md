@@ -139,6 +139,9 @@ The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 The completed declared helper callback argument slice is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
+The completed public member alias boundary for declared helper callback
+arguments is archived under
+`../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md`.
 The completed source-backed prelude callback fallback slice is archived under
 `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`.
 The completed record-field callback expected-type slice is archived under
@@ -180,11 +183,12 @@ Implemented current behavior is specified in
 key, value, success, or error types into named private callback function
 parameters. The dictionary `_with` aliases accept a context argument before the
 dictionary and pass that context as the first callback argument.
-Same-module helpers and visible imported public helpers whose declared
-parameter type is a concrete function type also push that function parameter
-list into named private callbacks passed at the matching argument position,
-including fixed parameter types and variadic element types for concrete
-variadic function types.
+Same-module helpers, visible imported public helpers, and helpers reached
+through visible public function aliases whose declared parameter type is a
+concrete function type also push that function parameter list into named
+private callbacks passed at the matching argument position, including fixed
+parameter types and variadic element types for concrete variadic function
+types.
 Bare and `prelude::` calls to source-backed prelude helpers without a
 compiler-known callback rule use the same fallback when the embedded source
 signature contains a concrete function-typed callback parameter.
@@ -228,12 +232,13 @@ positions where an outer concrete expected type reaches the dictionary value.
 
 Remaining planned work in this section covers callback inputs outside the
 implemented compiler-known, concrete source-backed prelude signature fallback,
-concrete declared-helper signature, concrete record-field expected-type,
-concrete local-binding expected-type including omitted direct local callback
-binding hops, direct return-position expected-type, concrete match-arm
-expected-type, concrete if-branch expected-type, and concrete
-constructor-payload expected-type, concrete collection element expected-type,
-and concrete dictionary value expected-type paths.
+concrete declared-helper signature including visible public function aliases,
+concrete record-field expected-type, concrete local-binding expected-type
+including omitted direct local callback binding hops, direct return-position
+expected-type, concrete match-arm expected-type, concrete if-branch
+expected-type, and concrete constructor-payload expected-type, concrete
+collection element expected-type, and concrete dictionary value expected-type
+paths.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a

@@ -1,0 +1,94 @@
+command = ["check", "--json", "app.veln", "api.veln", "impl.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "private parameter `label` has no inferred type", "private parameter `values` has no inferred type", "private function has no inferred return type"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "label"
+
+[[json_assert]]
+path = "diagnostics.0.details.missing_fact"
+equals = "parameter_type"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.1.details.parameter"
+equals = "values"
+
+[[json_assert]]
+path = "diagnostics.1.details.missing_fact"
+equals = "parameter_type"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "private_return"
+
+[[json_assert]]
+path = "diagnostics.2.details.missing_fact"
+equals = "return_type"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "unknown"
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `label` has no inferred type"
+
+[diagnostics.span]
+file = "app.veln"
+line = 3
+column = 12
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `values` has no inferred type"
+
+[diagnostics.span]
+file = "app.veln"
+line = 3
+column = 19
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private function has no inferred return type"
+
+[diagnostics.span]
+file = "app.veln"
+line = 3
+column = 1

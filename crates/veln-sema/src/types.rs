@@ -833,7 +833,7 @@ fn infer_private_function_call_site_signature_types(
     let mut changed = true;
     while changed {
         changed = false;
-        let signatures_by_path = signatures_by_path(functions);
+        let signatures_by_path = signatures_by_path_with_aliases(module, functions);
         let returns_by_path = returns_by_path(functions);
         for function in &module.functions {
             collect_private_call_site_constraints(
@@ -863,6 +863,18 @@ fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
             )
         })
         .collect()
+}
+
+fn signatures_by_path_with_aliases(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+) -> FunctionSignatureMap {
+    let mut signatures = signatures_by_path(functions);
+    for alias in function_alias_signatures(module, functions) {
+        let key = (alias.module_name.clone(), alias.name.clone());
+        signatures.entry(key).or_insert(alias);
+    }
+    signatures
 }
 
 fn returns_by_path(functions: &[FunctionSignature]) -> FunctionReturnMap {
