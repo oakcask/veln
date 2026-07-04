@@ -1,0 +1,71 @@
+# Format-neutral schema encode helpers accept Option<List<scalar>> fields.
+use stdio
+
+schema OptionListPacket
+	items: Option<List<Int>>
+	flags: Option<List<Bool>>
+	names: Option<List<String>>
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn bool_count(flags: List<Bool>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			true => 1 + bool_count(tail)
+			false => bool_count(tail)
+		end
+	end
+end
+
+fn item_text(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.items
+			Some(items) => int_to_string(list_sum(items))
+			None => "missing-items"
+		end
+		Err(message) => message
+	end
+end
+
+fn flag_text(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.flags
+			Some(flags) => int_to_string(bool_count(flags))
+			None => "missing-flags"
+		end
+		Err(message) => message
+	end
+end
+
+fn name_text(result: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match packet.names
+			Some(names) => match names
+				Cons(head, _) => head
+				Nil => "empty-names"
+			end
+			None => "missing-names"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>} = {items: Some(list_cons(2, list_cons(5, list_nil()))), flags: Some(list_cons(true, list_cons(false, list_cons(true, list_nil())))), names: Some(list_cons("alpha", list_nil()))}
+	let empty_packet: {items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>} = {items: None, flags: None, names: None}
+	let encoded: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String> = byte_encode_option_list_packet(packet)
+	let explicit: Result<{items: Option<List<Int>>, flags: Option<List<Bool>>, names: Option<List<String>>}, String> = encode OptionListPacket from empty_packet
+	stdio::println(item_text(encoded))
+	stdio::println(flag_text(encoded))
+	stdio::println(name_text(encoded))
+	stdio::println(item_text(explicit))
+	stdio::println(flag_text(explicit))
+	stdio::println(name_text(explicit))
+end

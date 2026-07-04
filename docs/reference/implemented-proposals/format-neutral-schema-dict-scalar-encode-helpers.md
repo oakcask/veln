@@ -19,10 +19,11 @@ format-neutral decode helper and returns `Result<T, String>`, preserving the
 supplied record on success without producing binary bytes. Explicit
 `encode Schema from value` expressions use the same helper boundary.
 
-Recursive format-neutral encode helper shapes beyond the supported dictionary
-slice, such as `Dict<String, Option<Int>>`, remain unsupported and do not
-expose a generated helper. Dictionaries with non-`String` keys also remain
-unsupported.
+At this slice, recursive format-neutral encode helper shapes beyond the
+supported dictionary slice, such as `Dict<String, Option<Int>>`, remained
+unsupported and did not expose a generated helper. Dictionaries with
+non-`String` keys remain unsupported. The later first container encode helper
+slice is tracked in a sibling implemented proposal record.
 
 ## Evidence
 
@@ -38,6 +39,6 @@ unsupported.
 ## Remaining Work
 
 The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond scalar leaves, `Option<scalar>` fields, `List<scalar>` fields,
-and `Dict<String, scalar>` fields, binary schema fields outside the implemented
+helpers beyond the implemented scalar, supported container, scalar-result,
+and anonymous record shapes, binary schema fields outside the implemented
 helper slices, and later schema composition surfaces.

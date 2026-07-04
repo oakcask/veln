@@ -1,0 +1,63 @@
+# Format-neutral schema encode helpers accept nested record container fields.
+use stdio
+
+schema NestedContainerPacket
+	metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}
+end
+
+fn list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + list_sum(tail)
+	end
+end
+
+fn bool_count(flags: List<Bool>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			true => 1 + bool_count(tail)
+			false => bool_count(tail)
+		end
+	end
+end
+
+fn item_text(result: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(list_sum(packet.metadata.items))
+		Err(message) => message
+	end
+end
+
+fn name_text(result: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.names
+			Cons(head, _) => head
+			Nil => "missing-name"
+		end
+		Err(message) => message
+	end
+end
+
+fn flag_text(result: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.flags
+			Some(flags) => int_to_string(bool_count(flags))
+			None => "missing-flags"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}} = {metadata: {items: list_cons(3, list_cons(4, list_nil())), names: list_cons("nested", list_nil()), flags: Some(list_cons(true, list_cons(true, list_nil())))}}
+	let empty_packet: {metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}} = {metadata: {items: list_nil(), names: list_nil(), flags: None}}
+	let encoded: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String> = byte_encode_nested_container_packet(packet)
+	let explicit: Result<{metadata: {items: List<Int>, names: List<String>, flags: Option<List<Bool>>}}, String> = encode NestedContainerPacket from empty_packet
+	stdio::println(item_text(encoded))
+	stdio::println(name_text(encoded))
+	stdio::println(flag_text(encoded))
+	stdio::println(item_text(explicit))
+	stdio::println(name_text(explicit))
+	stdio::println(flag_text(explicit))
+end
