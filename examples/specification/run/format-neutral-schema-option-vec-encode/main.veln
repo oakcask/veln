@@ -1,0 +1,83 @@
+# Format-neutral schema encode helpers accept Vec<Option<scalar>> fields.
+use stdio
+
+schema OptionVecPacket
+	items: Vec<Option<Int>>
+	flags: Vec<Option<Bool>>
+	ratios: Vec<Option<Float>>
+	labels: Vec<Option<String>>
+end
+
+fn add_optional_int(total: Int, item: Option<Int>) -> Int
+	match item
+		Some(value) => total + value
+		None => total
+	end
+end
+
+fn count_optional_true(total: Int, item: Option<Bool>) -> Int
+	match item
+		Some(value) => match value
+			true => total + 1
+			false => total
+		end
+		None => total
+	end
+end
+
+fn count_optional_float(total: Int, item: Option<Float>) -> Int
+	match item
+		Some(_) => total + 1
+		None => total
+	end
+end
+
+fn count_optional_label(total: Int, item: Option<String>) -> Int
+	match item
+		Some(_) => total + 1
+		None => total
+	end
+end
+
+fn encoded_item_sum(result: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.items, 0, add_optional_int)
+		Err(_) => -1
+	end
+end
+
+fn encoded_flag_count(result: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.flags, 0, count_optional_true)
+		Err(_) => -1
+	end
+end
+
+fn encoded_ratio_count(result: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.ratios, 0, count_optional_float)
+		Err(_) => -1
+	end
+end
+
+fn encoded_label_count(result: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.labels, 0, count_optional_label)
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>} = {items: [Some(2), None, Some(5)], flags: [Some(true), None, Some(false), Some(true)], ratios: [Some(1.25), None], labels: [Some("alpha"), None, Some("beta")]}
+	let empty_packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>} = {items: [], flags: [], ratios: [], labels: []}
+	let encoded: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String> = byte_encode_option_vec_packet(packet)
+	let explicit: Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String> = encode OptionVecPacket from empty_packet
+	stdio::println(int_to_string(encoded_item_sum(encoded)))
+	stdio::println(int_to_string(encoded_flag_count(encoded)))
+	stdio::println(int_to_string(encoded_ratio_count(encoded)))
+	stdio::println(int_to_string(encoded_label_count(encoded)))
+	stdio::println(int_to_string(encoded_item_sum(explicit)))
+	stdio::println(int_to_string(encoded_flag_count(explicit)))
+	stdio::println(int_to_string(encoded_ratio_count(explicit)))
+	stdio::println(int_to_string(encoded_label_count(explicit)))
+end

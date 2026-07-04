@@ -82,10 +82,10 @@ schemas whose fields use implemented exact-width unsigned primitives,
   expressions for format-neutral schemas without a `format` clause when every
   field is a scalar leaf, `Option<scalar>` field,
   `Option<List<scalar>>` field, `List<scalar>` field,
-  `Vec<scalar>` field, `Dict<String, scalar>` field,
-  `Result<scalar, scalar>` field, or anonymous record field whose fields are
-  supported format-neutral encode shapes. The supported scalar leaves are
-  `Int`, `Bool`, `Float`, and `String`
+  `Vec<scalar>` field, `Vec<Option<scalar>>` field,
+  `Dict<String, scalar>` field, `Result<scalar, scalar>` field, or anonymous
+  record field whose fields are supported format-neutral encode shapes. The
+  supported scalar leaves are `Int`, `Bool`, `Float`, and `String`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -173,6 +173,10 @@ under
 The completed format-neutral `Vec<scalar>` encode helper slice is archived
 under
 [Format-Neutral Schema Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-vec-scalar-encode-helpers.md).
+
+The completed format-neutral `Vec<Option<scalar>>` encode helper slice is
+archived under
+[Format-Neutral Schema Option Vec Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-vec-encode-helpers.md).
 
 The completed format-neutral `Dict<String, scalar>` encode helper slice is
 archived under

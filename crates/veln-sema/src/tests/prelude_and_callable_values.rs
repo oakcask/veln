@@ -312,6 +312,72 @@ fn generated_schema_encode_helpers_resolve_from_format_neutral_container_declara
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_from_option_vec_encode_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema OptionVecPacket\n",
+            "  items: Vec<Option<Int>>\n",
+            "  flags: Vec<Option<Bool>>\n",
+            "  ratios: Vec<Option<Float>>\n",
+            "  labels: Vec<Option<String>>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}) -> Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>\n",
+            "  byte_encode_option_vec_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}) -> Result<{items: Vec<Option<Int>>, flags: Vec<Option<Bool>>, ratios: Vec<Option<Float>>, labels: Vec<Option<String>>}, String>\n",
+            "  encode OptionVecPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "OptionVecPacket" && args.len() == 1
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "OptionVecPacket" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
 fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_container_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -321,6 +387,36 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_containe
             "end\n",
             "\n",
             "pub fn main(packet: {items: Option<List<List<Int>>>}) -> Result<{items: Option<List<List<Int>>>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.encode_expression")
+        .expect("unsupported format-neutral encode helper should be rejected");
+    assert_eq!(
+        diagnostic.message,
+        "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
+    );
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_deep_vec_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  items: Vec<Vec<Int>>\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {items: Vec<Vec<Int>>}) -> Result<{items: Vec<Vec<Int>>}, String>\n",
             "  encode Packet from packet\n",
             "end\n",
         ),

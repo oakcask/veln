@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "unresolved call_target `byte_encode_unsupported_option_vec_packet`", "schema encode expression cannot resolve `UnsupportedOptionVecPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+contains = ["\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "unresolved call_target `byte_encode_unsupported_nested_vec_packet`", "schema encode expression cannot resolve `UnsupportedNestedVecPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
 
 [stderr]
 format = "empty"
@@ -20,10 +20,10 @@ equals = 2
 id = "name.unresolved"
 severity = "error"
 kind = "name"
-message = "unresolved call_target `byte_encode_unsupported_option_vec_packet`"
+message = "unresolved call_target `byte_encode_unsupported_nested_vec_packet`"
 
 [[diagnostics]]
 id = "schema.encode_expression"
 severity = "error"
 kind = "type"
-message = "schema encode expression cannot resolve `UnsupportedOptionVecPacket` as an eligible schema encode helper"
+message = "schema encode expression cannot resolve `UnsupportedNestedVecPacket` as an eligible schema encode helper"
