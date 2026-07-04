@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.encode_expression\"", "\"id\":\"name.unresolved\"", "\"id\":\"name.visibility\"", "\"id\":\"name.kind_mismatch\"", "schema encode expression cannot resolve `MissingPacket` as an eligible binary schema", "schema encode expression schema `wire::PrivatePacket` is private", "schema encode expression target `wire::make_packet` is a function, not a schema", "schema encode expression target `wire::PacketShape` is a type, not a schema", "unresolved schema alias target `wire::MissingPacket`", "schema alias target `wire::PrivatePacket` is private", "public alias target `wire::make_packet` is a function, not a schema", "public alias target `wire::PacketShape` is a type, not a schema", "unresolved schema alias target `wire::PacketCodec`", "schema encode expression cannot resolve `facade::MissingAlias` as an eligible binary schema", "schema encode expression schema `facade::PrivateAlias` is private", "schema encode expression target `facade::FunctionAlias` is a function, not a schema", "schema encode expression target `facade::TypeAlias` is a type, not a schema", "schema encode expression cannot resolve `facade::CodecAlias` as an eligible binary schema", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\""]
+contains = ["\"id\":\"schema.encode_expression\"", "\"id\":\"name.unresolved\"", "\"id\":\"name.visibility\"", "\"id\":\"name.kind_mismatch\"", "schema encode expression cannot resolve `MissingPacket` as an eligible schema encode helper", "schema encode expression schema `wire::PrivatePacket` is private", "schema encode expression target `wire::make_packet` is a function, not a schema", "schema encode expression target `wire::PacketShape` is a type, not a schema", "unresolved schema alias target `wire::MissingPacket`", "schema alias target `wire::PrivatePacket` is private", "public alias target `wire::make_packet` is a function, not a schema", "public alias target `wire::PacketShape` is a type, not a schema", "unresolved schema alias target `wire::PacketCodec`", "schema encode expression cannot resolve `facade::MissingAlias` as an eligible schema encode helper", "schema encode expression schema `facade::PrivateAlias` is private", "schema encode expression target `facade::FunctionAlias` is a function, not a schema", "schema encode expression target `facade::TypeAlias` is a type, not a schema", "schema encode expression cannot resolve `facade::CodecAlias` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\"", "\"reason\":\"private_schema\"", "\"reason\":\"wrong_kind\"", "\"resolved_kind\":\"function\"", "\"resolved_kind\":\"type\""]
 
 [stderr]
 format = "empty"
@@ -16,7 +16,7 @@ equals = "error"
 id = "schema.encode_expression"
 severity = "error"
 kind = "type"
-message = "schema encode expression cannot resolve `MissingPacket` as an eligible binary schema"
+message = "schema encode expression cannot resolve `MissingPacket` as an eligible schema encode helper"
 
 [[diagnostics]]
 id = "schema.encode_expression"

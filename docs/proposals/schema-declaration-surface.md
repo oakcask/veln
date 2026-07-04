@@ -77,6 +77,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   recursive visible shapes, and same-module or public imported source ADTs
   whose constructor payloads are recursive visible shapes, with declaration
   diagnostics for unsupported helper field types
+- generated `byte_encode_<schema>` helper bindings and explicit schema encode
+  expressions for format-neutral schemas without a `format` clause when every
+  field is a scalar leaf: `Int`, `Bool`, `Float`, or `String`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -142,6 +145,9 @@ under
 The completed format-neutral `Vec<T>` helper slice is archived under
 [Format-Neutral Schema Vec Helpers](../reference/implemented-proposals/format-neutral-schema-vec-helpers.md).
 
+The completed scalar-only format-neutral encode helper slice is archived under
+[Format-Neutral Schema Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-scalar-encode-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -149,11 +155,11 @@ schema-level `map to` clauses as recorded in
 
 This proposal remains open for:
 
-- generated runtime decode bindings for binary schema fields outside the
+- generated runtime helper bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   direct nested binary schema, bounded repeat, length-bounded `ByteView`,
-  closed dispatch, and extension dispatch slices, and format-neutral fields
-  outside the implemented recursive visible-shape helper boundary
+  closed dispatch, and extension dispatch slices, and format-neutral encode
+  helper fields beyond scalar leaves
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations

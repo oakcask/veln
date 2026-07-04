@@ -18,8 +18,9 @@ use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
 use crate::types::{
-    FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX, TypeEnvironment,
-    core_type, parse_type_annotation, parse_type_or_unknown,
+    FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
+    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment, core_type, parse_type_annotation,
+    parse_type_or_unknown,
 };
 
 #[derive(Clone)]
@@ -1122,16 +1123,30 @@ impl<'a> CoreLowerer<'a> {
             });
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
-        let schema_name = signature
+        let target = if let Some(schema_name) = signature
             .target_name
             .strip_prefix(SCHEMA_ENCODE_TARGET_PREFIX)
-            .unwrap_or_else(|| schema.last().map(String::as_str).unwrap_or("<missing>"))
-            .to_string();
+        {
+            CoreCallTarget::SchemaEncode(schema_name.to_string())
+        } else if let Some(schema_name) = signature
+            .target_name
+            .strip_prefix(SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX)
+        {
+            CoreCallTarget::SchemaNeutralEncode(schema_name.to_string())
+        } else {
+            CoreCallTarget::SchemaEncode(
+                schema
+                    .last()
+                    .map(String::as_str)
+                    .unwrap_or("<missing>")
+                    .to_string(),
+            )
+        };
         self.core_expr(
             expr,
             core_type(&signature.return_type),
             CoreExprKind::Call {
-                target: CoreCallTarget::SchemaEncode(schema_name),
+                target,
                 args: vec![value],
             },
         )

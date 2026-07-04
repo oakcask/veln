@@ -165,6 +165,102 @@ fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declaratio
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_from_scalar_format_neutral_schema_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ScalarPacket\n",
+            "  code: Int\n",
+            "  ready: Bool\n",
+            "  ratio: Float\n",
+            "  label: String\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {code: Int, ready: Bool, ratio: Float, label: String}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>\n",
+            "  byte_encode_scalar_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {code: Int, ready: Bool, ratio: Float, label: String}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>\n",
+            "  encode ScalarPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "ScalarPacket" && args.len() == 1
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "ScalarPacket" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_container_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  items: List<Int>\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {items: List<Int>}) -> Result<{items: List<Int>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.encode_expression")
+        .expect("unsupported format-neutral encode helper should be rejected");
+    assert_eq!(
+        diagnostic.message,
+        "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
+    );
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_accept_top_level_option_lists() {
     let source = SourceFile::new(
         "main.veln",

@@ -99,6 +99,11 @@ enough.
   the same positions when every constructor payload is a recursive
   format-neutral visible shape; the helper preserves the source ADT value
   shape through the pass-through boundary.
+- Format-neutral generated encode helpers for schemas without a `format`
+  clause accept a schema-local visible record shape and return
+  `Result<T, String>` for scalar-only fields: `Int`, `Bool`, `Float`, and
+  `String`. The helper returns the supplied record on success and does not
+  produce binary bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

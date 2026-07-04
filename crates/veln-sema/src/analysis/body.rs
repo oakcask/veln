@@ -1419,8 +1419,13 @@ impl<'a> FunctionChecker<'a> {
                 format!("schema {operation} expression target `{symbol}` is a {kind}, not a schema")
             }
             _ => {
+                let eligibility = if operation == "encode" {
+                    "eligible schema encode helper"
+                } else {
+                    "eligible binary schema"
+                };
                 format!(
-                    "schema {operation} expression cannot resolve `{symbol}` as an eligible binary schema"
+                    "schema {operation} expression cannot resolve `{symbol}` as an {eligibility}"
                 )
             }
         };

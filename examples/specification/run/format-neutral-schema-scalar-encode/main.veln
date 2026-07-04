@@ -1,0 +1,57 @@
+# Format-neutral scalar schema encode helpers pass through visible records.
+use stdio
+
+schema ScalarPacket
+	code: Int
+	ready: Bool
+	ratio: Float
+	label: String
+end
+
+fn encoded_code(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> Int
+	match result
+		Ok(packet) => packet.code
+		Err(_) => -1
+	end
+end
+
+fn encoded_ready(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> String
+	match result
+		Ok(packet) => match packet.ready
+			true => "ready"
+			false => "blocked"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_ratio(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> String
+	match result
+		Ok(packet) => match packet.ratio > 1.0
+			true => "ratio-high"
+			false => "ratio-low"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_label(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> String
+	match result
+		Ok(packet) => packet.label
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {code: Int, ready: Bool, ratio: Float, label: String} = {code: 7, ready: true, ratio: 1.5, label: "scalar"}
+	let encoded: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String> = byte_encode_scalar_packet(packet)
+	let explicit: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String> = encode ScalarPacket from packet
+	stdio::println(int_to_string(encoded_code(encoded)))
+	stdio::println(encoded_ready(encoded))
+	stdio::println(encoded_ratio(encoded))
+	stdio::println(encoded_label(encoded))
+	stdio::println(int_to_string(encoded_code(explicit)))
+	stdio::println(encoded_ready(explicit))
+	stdio::println(encoded_ratio(explicit))
+	stdio::println(encoded_label(explicit))
+end
