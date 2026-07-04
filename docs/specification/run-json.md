@@ -965,6 +965,12 @@ priority payload encoding or emitted bytes, and that above-boundary outbound
 same aggregate example keeps connection-level outbound `WINDOW_UPDATE`
 accepted after GOAWAY and keeps priority self-dependency on its narrower
 diagnostic path.
+Repeated local outbound GOAWAY send-intents in the same aggregate example
+emit normal GOAWAY bytes when the new last-stream id preserves or narrows the
+recorded local shutdown boundary. A repeated local GOAWAY that would widen
+the recorded boundary uses `http2.protocol.stream_after_goaway` with local
+endpoint context and emits no output chunk. Later local outbound stream
+send-intents continue to use the narrowed local boundary.
 The checked `run --json` protocol-core example also keeps already-admitted
 peer-created stream DATA and trailer HEADERS after received GOAWAY as passed
 stdout, not as a `protocol_diagnostic`; receive-window credit, HPACK fixture

@@ -330,6 +330,17 @@ enough.
   range, receive-window overflow, and HPACK fixture failures keep their
   narrower facts. The checked case is
   `examples/specification/run/http2-protocol-core/`.
+- The same checked HTTP/2 protocol core accepts a repeated local outbound
+  GOAWAY send-intent only when it preserves or narrows the locally recorded
+  graceful-shutdown last-stream boundary. Accepted repeated GOAWAY
+  send-intents emit the normal GOAWAY frame bytes and update the local
+  graceful-shutdown state to the sent boundary. A repeated local GOAWAY that
+  would widen the recorded boundary is rejected with
+  `http2.protocol.stream_after_goaway` before output bytes are emitted. Later
+  local outbound HEADERS, DATA, `PRIORITY`, stream-level `WINDOW_UPDATE`, and
+  server-side `PUSH_PROMISE` send-intents continue to use the recorded local
+  GOAWAY boundary. The checked case is
+  `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
   Multiple peer SETTINGS frames received before consumption coalesce to that

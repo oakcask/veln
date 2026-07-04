@@ -374,6 +374,7 @@ end
 
 type OutboundGoawayDecision
 	OutboundGoawayAccepted(Int, Int, Http2DecodeState, ByteChunk)
+	OutboundGoawayRejected(Int, Int, Http2ProtocolFailure)
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
 end
 
@@ -2053,8 +2054,18 @@ end
 fn send_goaway(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
 	let encoded_payload: Result<ByteChunk, EncodeError> = encode_goaway_payload({last_stream_id: last_stream_id, error_code: error_code})
 	match encoded_payload
-		Ok(payload) => encode_goaway_intent(last_stream_id, error_code, state, payload)
+		Ok(payload) => validate_goaway_send_boundary(last_stream_id, error_code, state, payload)
 		Err(error) => Ok(OutboundGoawayEncodeFailed(last_stream_id, error_code, error))
+	end
+end
+
+fn validate_goaway_send_boundary(last_stream_id: Int, error_code: Int, state: Http2DecodeState, payload: ByteChunk) -> Result<OutboundGoawayDecision, String>
+	match state_shutdown_state_value(state)
+		OpenConnection => encode_goaway_intent(last_stream_id, error_code, state, payload)
+		GracefulShutdown(current_last_stream_id, _) => match last_stream_id > current_last_stream_id
+			true => Ok(OutboundGoawayRejected(last_stream_id, error_code, StreamAfterGoaway(0, last_stream_id, current_last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => encode_goaway_intent(last_stream_id, error_code, state, payload)
+		end
 	end
 end
 
@@ -5750,6 +5761,7 @@ end
 fn outbound_goaway_status(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, _, _) => "accepted"
+		OutboundGoawayRejected(_, _, _) => "rejected"
 		OutboundGoawayEncodeFailed(_, _, _) => "encode_error"
 	end
 end
@@ -5757,6 +5769,7 @@ end
 fn outbound_goaway_reason(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayRejected(_, _, error) => failure_id(error)
 		OutboundGoawayEncodeFailed(_, _, error) => encode_error_id(error)
 	end
 end
@@ -5764,6 +5777,7 @@ end
 fn outbound_goaway_last_stream_id(decision: OutboundGoawayDecision) -> Int
 	match decision
 		OutboundGoawayAccepted(last_stream_id, _, _, _) => last_stream_id
+		OutboundGoawayRejected(last_stream_id, _, _) => last_stream_id
 		OutboundGoawayEncodeFailed(last_stream_id, _, _) => last_stream_id
 	end
 end
@@ -5771,6 +5785,7 @@ end
 fn outbound_goaway_error_code(decision: OutboundGoawayDecision) -> Int
 	match decision
 		OutboundGoawayAccepted(_, error_code, _, _) => error_code
+		OutboundGoawayRejected(_, error_code, _) => error_code
 		OutboundGoawayEncodeFailed(_, error_code, _) => error_code
 	end
 end
@@ -5778,6 +5793,7 @@ end
 fn outbound_goaway_state(decision: OutboundGoawayDecision) -> Http2DecodeState
 	match decision
 		OutboundGoawayAccepted(_, _, state, _) => state
+		OutboundGoawayRejected(_, _, _) => frame_state()
 		OutboundGoawayEncodeFailed(_, _, _) => frame_state()
 	end
 end
@@ -5785,13 +5801,23 @@ end
 fn outbound_goaway_shutdown_label(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, state, _) => state_shutdown_label(state)
+		OutboundGoawayRejected(_, _, _) => "none"
 		OutboundGoawayEncodeFailed(_, _, _) => "none"
+	end
+end
+
+fn outbound_goaway_failure(decision: OutboundGoawayDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
+		OutboundGoawayRejected(_, _, failure) => failure
+		OutboundGoawayEncodeFailed(_, _, _) => ClosedWithPending(0, 0, byte_chunk([]))
 	end
 end
 
 fn outbound_goaway_chunk(decision: OutboundGoawayDecision) -> ByteChunk
 	match decision
 		OutboundGoawayAccepted(_, _, _, chunk) => chunk
+		OutboundGoawayRejected(_, _, _) => byte_chunk([])
 		OutboundGoawayEncodeFailed(_, _, _) => byte_chunk([])
 	end
 end
@@ -5799,6 +5825,7 @@ end
 fn outbound_goaway_encode_path(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayRejected(_, _, _) => "none"
 		OutboundGoawayEncodeFailed(_, _, error) => encode_error_path(error)
 	end
 end
@@ -5806,6 +5833,7 @@ end
 fn outbound_goaway_encode_detail(decision: OutboundGoawayDecision) -> String
 	match decision
 		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayRejected(_, _, _) => "none"
 		OutboundGoawayEncodeFailed(_, _, error) => encode_error_reason(error)
 	end
 end
@@ -7800,7 +7828,11 @@ fn print_outbound_goaway(label: String, decision: OutboundGoawayDecision) -> () 
 end
 
 fn print_outbound_goaway_chunk(label: String, decision: OutboundGoawayDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	emit_encoded_header(label, outbound_goaway_chunk(decision), expected_hex)
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => emit_encoded_header(label, outbound_goaway_chunk(decision), expected_hex)
+		OutboundGoawayRejected(_, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+		OutboundGoawayEncodeFailed(_, _, _) => Ok(emit_output_chunk_list_header(label, 0))
+	end
 end
 
 fn print_outbound_ping_ack(label: String, decision: OutboundPingAckDecision) -> () effects [stdio]
@@ -9986,6 +10018,36 @@ fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	print_shutdown_state("outbound-goaway-state", outbound_goaway_state(outbound_goaway_accepted))
 	let outbound_goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), outbound_goaway_state(outbound_goaway_accepted))?
 	print_goaway_stream_failure("outbound-goaway-late-headers", outbound_goaway_late_headers)
+	let outbound_goaway_narrow: OutboundGoawayDecision = send_goaway(3, 22, outbound_goaway_state(outbound_goaway_accepted))?
+	print_outbound_goaway("outbound-goaway-narrow", outbound_goaway_narrow)
+	let ignored_goaway_narrow_chunk: () = print_outbound_goaway_chunk("http2-goaway-narrow", outbound_goaway_narrow, "0000080700000000000000000300000016")?
+	print_shutdown_state("outbound-goaway-narrow-state", outbound_goaway_state(outbound_goaway_narrow))
+	let outbound_goaway_same: OutboundGoawayDecision = send_goaway(5, 13, outbound_goaway_state(outbound_goaway_accepted))?
+	print_outbound_goaway("outbound-goaway-same", outbound_goaway_same)
+	let ignored_goaway_same_chunk: () = print_outbound_goaway_chunk("http2-goaway-same", outbound_goaway_same, "000008070000000000000000050000000d")?
+	print_shutdown_state("outbound-goaway-same-state", outbound_goaway_state(outbound_goaway_same))
+	let outbound_goaway_widen: OutboundGoawayDecision = send_goaway(7, 22, outbound_goaway_state(outbound_goaway_accepted))?
+	print_outbound_goaway("outbound-goaway-widen", outbound_goaway_widen)
+	let ignored_goaway_widen_chunk: () = print_outbound_goaway_chunk("http2-goaway-widen", outbound_goaway_widen, "")?
+	print_goaway_stream_failure("outbound-goaway-widen", Failed(frame_state(), outbound_goaway_failure(outbound_goaway_widen)))
+	let outbound_goaway_after_narrow_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), outbound_goaway_state(outbound_goaway_narrow))?
+	print_goaway_stream_failure("outbound-goaway-after-narrow-late-headers", outbound_goaway_after_narrow_late_headers)
+	let outbound_data_after_narrow_late: OutboundDataDecision = send_data_with_shutdown(5, byte_chunk_from_hex("0102")?, false, empty_peer_settings(), state_shutdown_state_value(outbound_goaway_state(outbound_goaway_narrow)), outbound_send_credit_with_open_stream(10, 5, 20))?
+	print_outbound_data("outbound-data-after-narrow-local-goaway-late", outbound_data_after_narrow_late)
+	let ignored_data_after_narrow_late_chunk: () = print_outbound_data_chunk("http2-data-after-narrow-local-goaway-late", outbound_data_after_narrow_late, "")?
+	print_goaway_stream_failure("outbound-data-after-narrow-local-goaway-late", Failed(frame_state(), outbound_data_failure(outbound_data_after_narrow_late)))
+	let outbound_headers_after_narrow_late: OutboundHeadersDecision = send_headers_with_shutdown(5, byte_chunk_from_hex("82")?, false, empty_peer_settings(), state_shutdown_state_value(outbound_goaway_state(outbound_goaway_narrow)), outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_headers("outbound-headers-after-narrow-local-goaway-late", outbound_headers_after_narrow_late)
+	let ignored_headers_after_narrow_late_chunk: () = print_outbound_headers_chunk("http2-headers-after-narrow-local-goaway-late", outbound_headers_after_narrow_late, "")?
+	print_goaway_stream_failure("outbound-headers-after-narrow-local-goaway-late", Failed(frame_state(), outbound_headers_failure(outbound_headers_after_narrow_late)))
+	let outbound_priority_after_narrow_late: OutboundPriorityDecision = send_priority_with_shutdown(5, 3, true, 16, state_shutdown_state_value(outbound_goaway_state(outbound_goaway_narrow)), outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_priority("outbound-priority-after-narrow-local-goaway-late", outbound_priority_after_narrow_late)
+	let ignored_priority_after_narrow_late_chunk: () = print_outbound_priority_chunk("http2-priority-after-narrow-local-goaway-late", outbound_priority_after_narrow_late, "")?
+	print_goaway_stream_failure("outbound-priority-after-narrow-local-goaway-late", Failed(frame_state(), outbound_priority_failure(outbound_priority_after_narrow_late)))
+	let outbound_push_promise_after_narrow_late: OutboundPushPromiseDecision = send_push_promise_with_shutdown(5, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), state_shutdown_state_value(outbound_goaway_state(outbound_goaway_narrow)), outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_push_promise("outbound-push-promise-after-narrow-local-goaway-late", outbound_push_promise_after_narrow_late)
+	let ignored_push_promise_after_narrow_late_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-after-narrow-local-goaway-late", outbound_push_promise_after_narrow_late, "")?
+	print_goaway_stream_failure("outbound-push-promise-after-narrow-local-goaway-late", Failed(frame_state(), outbound_push_promise_failure(outbound_push_promise_after_narrow_late)))
 	let outbound_goaway_last_stream_id_encode_error: OutboundGoawayDecision = send_goaway(2147483648, 11, frame_state())?
 	print_outbound_goaway("outbound-goaway-last-stream-id-encode-error", outbound_goaway_last_stream_id_encode_error)
 	let outbound_goaway_error_code_encode_error: OutboundGoawayDecision = send_goaway(5, 4294967296, frame_state())?
