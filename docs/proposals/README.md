@@ -638,8 +638,8 @@ compare it with `../specification/` before changing behavior.
   cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
-  stream write, accepted-stream endpoint text inspection, listener endpoint
-  text inspection, adapter-owned source-visible client connect,
+  stream write, accepted-stream endpoint text inspection,
+  adapter-owned source-visible client connect,
   listener-to-clean-stream-end lifecycle,
   context-based adapter
   `task::spawn_with<Result, Context>` helper routing,

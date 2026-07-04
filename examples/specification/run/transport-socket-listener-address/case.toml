@@ -21,7 +21,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "listener 127.0.0.1:0 bytes 3\n"
+equals = "listener 127.0.0.1:0 stream-local 127.0.0.1:0 stream-peer fixture-stream bytes 3\n"
 
 [[json_assert]]
 path = "error"

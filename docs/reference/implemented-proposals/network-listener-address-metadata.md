@@ -28,8 +28,10 @@ loopback path. The helper can be called before accept work; later accepts and
 accepted streams keep their existing ownership and lifecycle.
 
 The checked run cases pin both fixture-backed and production-loopback paths by
-reading the listener endpoint before accept and stream read work. The checked
-effect case pins the required `net` effect and descriptor provenance.
+reading the listener endpoint before accept work, then confirming accepted
+stream endpoint inspection, stream reads, stream close, and listener close
+still use the same ownership path. The checked effect case pins the required
+`net` effect and descriptor provenance.
 
 ## Remaining Work
 
