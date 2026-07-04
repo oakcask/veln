@@ -17,8 +17,10 @@ record shape as the generated format-neutral decode helper and returns
 producing binary bytes.
 
 Explicit `encode Schema from value` expressions use the same scalar-only
-format-neutral helper boundary. Unsupported format-neutral encode helper
-shapes, including container fields, do not expose the encode helper.
+format-neutral helper boundary. At this slice, unsupported format-neutral
+encode helper shapes, including container fields, did not expose the encode
+helper. Later `Option<scalar>` and `List<scalar>` encode helper slices are
+tracked in sibling implemented proposal records.
 
 ## Evidence
 
@@ -32,5 +34,6 @@ shapes, including container fields, do not expose the encode helper.
 ## Remaining Work
 
 The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond scalar leaves, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+helpers beyond scalar leaves, `Option<scalar>` fields, and `List<scalar>`
+fields, binary schema fields outside the implemented helper slices, and later
+schema composition surfaces.

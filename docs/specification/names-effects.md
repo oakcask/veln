@@ -265,6 +265,9 @@ compiler-known calls.
   qualified paths, including public schema aliases. Explicit
   `encode Schema from value` expressions are the matching public encode
   surface for schema-local values and accept the same schema-reference paths.
+  Format-neutral schema encode helpers accept and return schema-local visible
+  records through `Result<T, String>` for scalar leaves, `Option<scalar>`
+  fields, and `List<scalar>` fields without producing binary bytes.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,

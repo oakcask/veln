@@ -41,5 +41,6 @@ targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 ## Remaining Work
 
 The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond scalar leaves, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+helpers beyond scalar leaves, `Option<scalar>` fields, and `List<scalar>`
+fields, binary schema fields outside the implemented helper slices, and later
+schema composition surfaces.
