@@ -258,7 +258,11 @@ requiring the full command reference on the first read.
   calculation, newest-first insertion, retained older entries, table-size
   reduction eviction including a zero-size table, insertion-caused eviction,
   over-limit insertion, static-name literal-with-indexing insertion for
-  `content-type: text`, and later dynamic-indexed reuse through `0xbe`.
+  `content-type: text`, later dynamic-indexed reuse through `0xbe`, accepted
+  raw visible-ASCII literal-name fields across the literal-without-indexing,
+  literal-with-indexing, and literal-never-indexed forms, dynamic-table
+  mutation only for literal-with-indexing, and final CONTINUATION routing
+  through the source-visible raw literal-name boundary before fixture fallback.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

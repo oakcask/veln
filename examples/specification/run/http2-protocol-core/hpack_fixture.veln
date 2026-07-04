@@ -148,6 +148,10 @@ pub fn state_with_indexed_literal_entry(state: HpackFixtureState, name: String, 
 	state_with_dynamic_entry(state, name, value)
 end
 
+pub fn state_after_literal_read(state: HpackFixtureState) -> HpackFixtureState
+	next_state(state)
+end
+
 fn state_with_table_size(state: HpackFixtureState, table_size: Int) -> HpackFixtureState
 	match state
 		HpackFixtureState(_, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, evict_for_table_size(table_size, dynamic_entry))

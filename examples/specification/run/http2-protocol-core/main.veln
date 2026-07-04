@@ -1,6 +1,7 @@
 # A pure HTTP/2 core consumes frame headers from explicit input events and emits encoded headers.
 use hpack_fixture
 use hpack_static
+use hpack_dynamic_core
 use stdio
 
 schema Http2FrameHeaderWire
@@ -822,7 +823,7 @@ fn decode_completed_static_or_fixture_header_list(offset: Int, kind: Int, stream
 	match hpack_static::decode_header_block(completed_header_block, offset)
 		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_static_next_hpack_state(headers, hpack_state), headers)
 		Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
-			true => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+			true => decode_completed_dynamic_core_raw_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
 			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
 		end
 	end
@@ -832,6 +833,26 @@ fn hpack_static_next_hpack_state(headers: HpackHeaderList, hpack_state: HpackFix
 	match hpack_fixture::header_list_second_name(headers) == ":fixture" and hpack_fixture::header_list_second_value(headers) == "literal-with-indexing"
 		true => hpack_fixture::state_with_indexed_literal_entry(hpack_state, hpack_fixture::header_list_first_name(headers), hpack_fixture::header_list_first_value(headers))
 		false => hpack_state
+	end
+end
+
+fn decode_completed_dynamic_core_raw_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
+	match hpack_dynamic_core::decode_raw_literal_name_header_field(completed_header_block, hpack_dynamic_core::initial_dynamic_core_state(), offset)
+		Ok(transition) => match hpack_dynamic_core::dynamic_core_transition_headers(transition)
+			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_dynamic_core_next_hpack_state(headers, hpack_state), dynamic_core_header_list_to_hpack_header_list(headers))
+		end
+		Err(_) => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+	end
+end
+
+fn dynamic_core_header_list_to_hpack_header_list(headers: HpackDynamicCoreHeaderList) -> HpackHeaderList
+	hpack_fixture::hpack_header_list(hpack_fixture::hpack_header(hpack_dynamic_core::dynamic_core_header_list_first_name(headers), hpack_dynamic_core::dynamic_core_header_list_first_value(headers)), hpack_fixture::hpack_header(hpack_dynamic_core::dynamic_core_header_list_second_name(headers), hpack_dynamic_core::dynamic_core_header_list_second_value(headers)), hpack_dynamic_core::dynamic_core_header_list_wire_size(headers))
+end
+
+fn hpack_dynamic_core_next_hpack_state(headers: HpackDynamicCoreHeaderList, hpack_state: HpackFixtureState) -> HpackFixtureState
+	match hpack_dynamic_core::dynamic_core_header_list_second_name(headers) == ":fixture" and hpack_dynamic_core::dynamic_core_header_list_second_value(headers) == "literal-with-indexing"
+		true => hpack_fixture::state_with_indexed_literal_entry(hpack_state, hpack_dynamic_core::dynamic_core_header_list_first_name(headers), hpack_dynamic_core::dynamic_core_header_list_first_value(headers))
+		false => hpack_fixture::state_after_literal_read(hpack_state)
 	end
 end
 
@@ -8738,6 +8759,19 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let ignored_http2_ordinary_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, http2_ordinary_state)
 	let ignored_http2_ordinary_referenced_header: () = require_hpack_transition_header(http2_ordinary_referenced, http2_ordinary_state, "x-trace", "ok")?
+	let http2_ordinary_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000014007")?), frame_state())?
+	print_step("hpack-stateful-literal-indexed-ordinary-continuation-start", http2_ordinary_continuation_start)
+	let http2_ordinary_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a090400000001782d7472616365026f6b")?), step_state(http2_ordinary_continuation_start))?
+	print_step("hpack-stateful-literal-indexed-ordinary-continuation-done", http2_ordinary_continuation_done)
+	let ignored_http2_ordinary_continuation: () = emit_header_block("http2-hpack-stateful-literal-indexed-ordinary-continuation", http2_ordinary_continuation_done, "4007782d7472616365026f6b")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-ordinary-continuation-done", http2_ordinary_continuation_done, step_state(http2_ordinary_continuation_start))
+	let ignored_http2_ordinary_continuation_header: () = require_hpack_transition_header(http2_ordinary_continuation_done, step_state(http2_ordinary_continuation_start), "x-trace", "ok")?
+	let http2_ordinary_continuation_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_ordinary_continuation_done))
+	let http2_ordinary_continuation_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000003be")?), http2_ordinary_continuation_state)?
+	print_step("hpack-stateful-dynamic-indexed-ordinary-continuation", http2_ordinary_continuation_referenced)
+	let ignored_http2_ordinary_continuation_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-continuation", http2_ordinary_continuation_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-continuation", http2_ordinary_continuation_referenced, http2_ordinary_continuation_state)
+	let ignored_http2_ordinary_continuation_referenced_header: () = require_hpack_transition_header(http2_ordinary_continuation_referenced, http2_ordinary_continuation_state, "x-trace", "ok")?
 	let http2_ordinary_never_indexed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000011007782d6e65766572026e6f")?), frame_state())?
 	print_step("hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed)
 	let ignored_http2_ordinary_never_indexed: () = emit_header_block("http2-hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed, "1007782d6e65766572026e6f")?

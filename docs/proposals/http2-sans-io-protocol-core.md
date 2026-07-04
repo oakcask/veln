@@ -1095,12 +1095,21 @@ header-name byte count plus header-value byte count plus `32`; entries insert
 newest-first into immutable states; oldest entries are evicted after insertion
 or table-size reduction; and inserting an entry larger than the supplied
 table-size limit, or reducing the table size to zero, clears the carried table.
+The raw literal-name receive slice is now current behavior there as well:
+`hpack_dynamic_core` accepts checked visible-ASCII literal names and values
+across literal-without-indexing, literal-with-indexing, and
+literal-never-indexed receive forms; only literal-with-indexing inserts into
+the immutable dynamic table; and HTTP/2 completed HEADERS and final
+CONTINUATION paths try that source-visible boundary before fixture fallback.
 The completed slices are checked by
 `../../examples/specification/run/hpack-fixture-codec-boundary/` and archived
 under
 [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md)
 and
 [HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).
+The HTTP/2 route is checked by
+`../../examples/specification/run/http2-protocol-core/` and archived under
+[HTTP/2 HPACK Dynamic Raw Literal-Name Core](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-core.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior.
