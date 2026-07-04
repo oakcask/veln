@@ -2,8 +2,8 @@
 
 Status: implemented
 
-This record preserves the completed format-neutral source ADT visible-shape
-helper slice from `../../proposals/schema-declaration-surface.md`. Current
+This record preserves the completed format-neutral source ADT helper slice
+from `../../proposals/schema-declaration-surface.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 
@@ -23,6 +23,15 @@ Unsupported ADT payloads, function types, non-string dictionary keys,
 unresolved types, private imported source ADTs, missing paths, and non-ADT
 targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 
+Format-neutral schemas without a `format` clause may also expose generated
+`byte_encode_<schema>` helpers and explicit `encode Schema from value` support
+for same-module source ADT fields and public imported source ADT fields
+referenced through written `use` paths. Encode support is narrower than decode:
+the source ADT constructor payloads must be supported format-neutral encode
+shapes. Unsupported constructor payloads, private imported source ADTs, missing
+paths, and non-ADT targets use the `schema.format_neutral_encode_helper`
+diagnostic family when the matching decode boundary is also unsupported.
+
 ## Evidence
 
 - `../../../examples/specification/check/format-neutral-schema-source-adt-fields/`
@@ -34,12 +43,16 @@ targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 - `../../../examples/specification/run/format-neutral-schema-source-adt-decode/`
   checks that the generated helper exposes same-module and imported public
   source ADT values through the source-visible record boundary.
+- `../../../examples/specification/run/format-neutral-schema-source-adt-encode/`
+  checks that generated direct and explicit encode helpers preserve
+  same-module and imported public source ADT values through the
+  source-visible record boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks helper signature generation, IR generation, and unsupported payload
-  diagnostics for the same boundary.
+  diagnostics for the decode and encode boundaries.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for arbitrary recursive
-format-neutral encode shapes, source ADT encode fields, binary schema fields
-outside the implemented helper slices, and later schema composition surfaces.
+format-neutral encode shapes, binary schema fields outside the implemented
+helper slices, and later schema composition surfaces.

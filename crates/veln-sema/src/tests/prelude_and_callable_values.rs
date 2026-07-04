@@ -677,6 +677,154 @@ fn generated_format_neutral_schema_decode_helpers_accept_public_imported_source_
 }
 
 #[test]
+fn generated_format_neutral_schema_encode_helpers_accept_same_module_source_adts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Payload\n",
+            "  Empty\n",
+            "  Scalar(value: Int)\n",
+            "  Metadata(value: {label: String, scores: Dict<String, Int>})\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: Payload\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {payload: Payload}) -> Result<{payload: Payload}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {payload: Payload}) -> Result<{payload: Payload}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_accept_public_imported_source_adts() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: wire::Payload\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {payload: Payload}) -> Result<{payload: Payload}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {payload: Payload}) -> Result<{payload: Payload}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "pub type Payload\n",
+            "  pub Empty\n",
+            "  pub Scalar(value: Int)\n",
+            "  pub Metadata(value: {label: String, scores: Dict<String, Int>})\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: app.schemas,
+        codecs: Vec::new(),
+        functions: app.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_source_adts_with_unsupported_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type CallbackPayload\n",
+            "  CallbackPayload(callback: fn(Int) -> String)\n",
+            "end\n",
+            "\n",
+            "schema BadPacket\n",
+            "  payload: CallbackPayload\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.format_neutral_encode_helper")
+        .expect("unsupported format-neutral encode helper should be rejected");
+    assert_eq!(
+        diagnostic.message,
+        "format-neutral schema field `payload` cannot expose a generated encode helper because `CallbackPayload` is not a source ADT whose constructor payloads are supported format-neutral encode shapes"
+    );
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_reject_unsupported_field_types() {
     let source = SourceFile::new(
         "main.veln",
