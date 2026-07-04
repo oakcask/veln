@@ -247,8 +247,17 @@ enough.
   `content-type: text`, returns the decoded header entry and wire size, inserts
   it into the immutable dynamic-core state using the same accounting rule, and
   resolves a following `0xbe` dynamic indexed field from the inserted entry.
-  The checked case is
-  `examples/specification/run/hpack-fixture-codec-boundary/`.
+  It also accepts checked raw visible-ASCII literal-name fields across the
+  literal-without-indexing, literal-with-indexing, and literal-never-indexed
+  forms. Only literal-with-indexing mutates the immutable dynamic table; the
+  other two forms advance the decode count without adding an entry. The
+  checked raw literal-name insertion is then reused through the existing
+  dynamic indexed path. HTTP/2 completed HEADERS and final CONTINUATION
+  decoding route accepted raw literal-name fields through this source-visible
+  boundary before fixture fallback, while unsupported or malformed forms keep
+  the existing fixture fallback diagnostics. The checked cases are
+  `examples/specification/run/hpack-fixture-codec-boundary/` and
+  `examples/specification/run/http2-protocol-core/`.
 - The source-visible HPACK fixture encoder accepts the checked outbound
   dynamic-name literal-with-indexing slice under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the

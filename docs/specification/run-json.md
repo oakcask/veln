@@ -1068,8 +1068,13 @@ size formula, newest-first insertion, retained older entries, table-size
 reduction eviction including a zero-size table, insertion-caused eviction, and
 over-limit insertion. It also checks source-visible static-name
 literal-with-indexing `content-type: text`, immutable dynamic-core insertion,
-and dynamic-indexed reuse through `0xbe`; those boundary checks are ordinary
-program stdout, not
+and dynamic-indexed reuse through `0xbe`. It checks accepted raw visible-ASCII
+literal-name fields for literal-without-indexing, literal-with-indexing, and
+literal-never-indexed, including dynamic-table mutation only for
+literal-with-indexing and dynamic-indexed reuse of the inserted raw literal.
+The HTTP/2 aggregate case checks completed HEADERS and final CONTINUATION
+routing through that same source-visible raw literal-name boundary before
+fixture fallback. Those boundary checks are ordinary program stdout, not
 `details.protocol_diagnostic`, because they do not return a
 `RuntimeDiagnostic(...)` payload.
 Missing, malformed, and out-of-range dynamic-name continuations use ids
