@@ -39,8 +39,10 @@ payloads are recursive visible shapes. Same-module source ADTs and public
 imported source ADTs referenced through written `use` paths are supported in
 those positions when every constructor payload is a recursive visible shape.
 Format-neutral generated encode helpers are limited to scalar leaves and
-`Option<scalar>` or `List<scalar>` fields over `Int`, `Bool`, `Float`, and
-`String`.
+`Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
+`Dict<String, scalar>`, `Result<scalar, scalar>`, or anonymous record fields
+whose fields are supported format-neutral encode shapes. The supported scalar
+leaves are `Int`, `Bool`, `Float`, and `String`.
 
 ## Executable Grammar
 

@@ -3092,7 +3092,8 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
         Type::Named { name, args }
             if name == "Option"
                 && args.len() == 1
-                && format_neutral_schema_scalar_type(&args[0])
+                && (format_neutral_schema_scalar_type(&args[0])
+                    || format_neutral_schema_scalar_list_type(&args[0]))
     ) || matches!(
         ty,
         Type::Named { name, args }
@@ -3106,6 +3107,29 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
                 && args.len() == 2
                 && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
                 && format_neutral_schema_scalar_type(&args[1])
+    ) || matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Result"
+                && args.len() == 2
+                && format_neutral_schema_scalar_type(&args[0])
+                && format_neutral_schema_scalar_type(&args[1])
+    ) || matches!(
+        ty,
+        Type::Record(fields)
+            if fields
+                .iter()
+                .all(|(_, field_ty)| format_neutral_schema_encode_field_type(field_ty))
+    )
+}
+
+fn format_neutral_schema_scalar_list_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "List"
+                && args.len() == 1
+                && format_neutral_schema_scalar_type(&args[0])
     )
 }
 

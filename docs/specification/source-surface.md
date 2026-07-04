@@ -38,8 +38,10 @@ ADTs with unsupported payloads remain unsupported helper fields and are
 declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
 `format` clause whose fields are scalar leaves, `Option<scalar>` fields,
-`List<scalar>` fields, or `Dict<String, scalar>` fields. The supported scalar
-leaves are `Int`, `Bool`, `Float`, and `String`.
+`Option<List<scalar>>` fields, `List<scalar>` fields,
+`Dict<String, scalar>` fields, `Result<scalar, scalar>` fields, or anonymous
+record fields whose fields are supported format-neutral encode shapes. The
+supported scalar leaves are `Int`, `Bool`, `Float`, and `String`.
 When present, the single `format binary` clause must appear before schema
 fields.
 
@@ -89,20 +91,27 @@ accepts eligible binary schemas, `ByteView`, and `ByteOffset` operands and
 returns a `DecodeStep<T>` for the schema-local visible record shape. The
 expression `encode SchemaName from value` accepts the schema-local visible
 record shape for eligible binary schemas and returns
-`Result<ByteChunk, EncodeError>`. For scalar, `Option<scalar>`,
-`List<scalar>`, and `Dict<String, scalar>` format-neutral schemas, the same
-expression accepts and returns the schema-local visible record shape as
-`Result<T, String>` without producing binary bytes. Qualified public schema
-paths are accepted when the imported schema or public schema alias is visible.
+`Result<ByteChunk, EncodeError>`. For format-neutral schemas without a
+`format` clause, the same expression accepts and returns the schema-local
+visible record shape as `Result<T, String>` without producing binary bytes
+when every field is one of the supported format-neutral encode shapes:
+scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
+`Dict<String, scalar>`, `Result<scalar, scalar>`, or anonymous record fields
+whose fields are supported format-neutral encode shapes. Qualified public
+schema paths are accepted when the imported schema or public schema alias is
+visible.
 The executable coverage is
 `examples/specification/run/schema-decode-expression/` and
-`examples/specification/run/schema-encode-expression/`; scalar and
-`Option<scalar>`, `List<scalar>`, and `Dict<String, scalar>` format-neutral
-encode coverage is
-`examples/specification/run/format-neutral-schema-scalar-encode/` and
-`examples/specification/run/format-neutral-schema-option-scalar-encode/`, and
-`examples/specification/run/format-neutral-schema-list-scalar-encode/`, and
-`examples/specification/run/format-neutral-schema-dict-scalar-encode/`. The
+`examples/specification/run/schema-encode-expression/`. Format-neutral encode
+coverage is
+`examples/specification/run/format-neutral-schema-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-option-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-list-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-option-list-encode/`,
+`examples/specification/run/format-neutral-schema-nested-container-encode/`,
+and
+`examples/specification/run/format-neutral-schema-result-scalar-encode/`. The
 HTTP/2 frame header schema boundary is checked through explicit decode
 operations under
 `examples/specification/run/binary-schema-frame-header-decode/`,
@@ -130,6 +139,10 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-list-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-option-list-encode/`,
+`examples/specification/run/format-neutral-schema-nested-container-encode/`,
+`examples/specification/run/format-neutral-schema-result-scalar-encode/`,
+`examples/specification/check/format-neutral-schema-container-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-list-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-vec-fields/`,

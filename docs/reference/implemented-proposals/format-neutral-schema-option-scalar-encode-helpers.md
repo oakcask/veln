@@ -21,8 +21,9 @@ supplied record on success without producing binary bytes. Explicit
 
 At this slice, format-neutral encode helper shapes beyond scalar leaves and
 `Option<scalar>` fields, such as `Option<List<Int>>`, remained unsupported and
-did not expose a generated helper. The later `List<scalar>` encode helper
-slice is tracked in a sibling implemented proposal record.
+did not expose a generated helper. Later `List<scalar>`,
+`Dict<String, scalar>`, and first container encode helper slices are tracked
+in sibling implemented proposal records.
 
 ## Evidence
 
@@ -30,7 +31,7 @@ slice is tracked in a sibling implemented proposal record.
   checks direct helper calls and explicit schema encode expressions over
   `Option<scalar>` fields.
 - `../../../examples/specification/check/format-neutral-schema-option-scalar-encode-boundary/`
-  checks that `Option<List<Int>>` remains outside the generated encode helper
+  checks that `Option<Option<Int>>` remains outside the generated encode helper
   boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper signature generation plus Core and IR lowering.
@@ -38,6 +39,6 @@ slice is tracked in a sibling implemented proposal record.
 ## Remaining Work
 
 The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond scalar leaves, `Option<scalar>` fields, and `List<scalar>`
-fields, binary schema fields outside the implemented helper slices, and later
-schema composition surfaces.
+helpers beyond the implemented scalar, supported container, scalar-result,
+and anonymous record shapes, binary schema fields outside the implemented
+helper slices, and later schema composition surfaces.

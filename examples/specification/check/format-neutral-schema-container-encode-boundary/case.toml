@@ -1,0 +1,41 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "unresolved call_target `byte_encode_unsupported_deep_option_list_packet`", "unresolved call_target `byte_encode_unsupported_result_payload_packet`", "schema encode expression cannot resolve `UnsupportedDeepOptionListPacket` as an eligible schema encode helper", "schema encode expression cannot resolve `UnsupportedResultPayloadPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `byte_encode_unsupported_deep_option_list_packet`"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `UnsupportedDeepOptionListPacket` as an eligible schema encode helper"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `byte_encode_unsupported_result_payload_packet`"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `UnsupportedResultPayloadPacket` as an eligible schema encode helper"
