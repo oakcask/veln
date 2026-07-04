@@ -181,3 +181,51 @@ fn prelude_helper_callback_result_context() -> {vec: Vec<Vec<Int>>, list: List<L
 		result: result_map(Ok(1), empty_list_callback)
 	}
 end
+
+fn consume_maybe(value: Maybe<Int>) -> Int
+	1
+end
+
+fn call_context_constructor_local() -> Int
+	let value = Empty
+	consume_maybe(value)
+end
+
+fn local_annotation_context_constructor_local() -> Maybe<Int>
+	let value = Empty
+	let chosen: Maybe<Int> = value
+	chosen
+end
+
+fn return_context_constructor_local() -> Maybe<Int>
+	let value = Empty
+	value
+end
+
+fn record_field_context_constructor_local() -> {maybe: Maybe<Int>}
+	let value = Empty
+	{maybe: value}
+end
+
+fn match_arm_context_constructor_local(flag: Bool) -> Maybe<Int>
+	let value = Empty
+	match flag
+		true => value
+		false => Full(1)
+	end
+end
+
+fn constructor_payload_context_constructor_local() -> Box<Maybe<Int>>
+	let value = Empty
+	Box(value)
+end
+
+fn collection_element_context_constructor_local() -> Vec<Maybe<Int>>
+	let value = Empty
+	[value]
+end
+
+fn dictionary_value_context_constructor_local() -> Dict<String, Maybe<Int>>
+	let value = Empty
+	{"value": value}
+end
