@@ -63,10 +63,11 @@ requiring the full command reference on the first read.
   header-block byte previews,
   GOAWAY receive preserving already-admitted stream DATA and trailer HEADERS
   lifecycle while rejecting later peer-created streams above the recorded last
-  stream id with bounded frame-header byte previews, plus local outbound
-  HEADERS, stream-level outbound `WINDOW_UPDATE`, and server-side outbound
-  `PUSH_PROMISE` send-intents above received or locally sent GOAWAY
-  boundaries,
+  stream id with bounded frame-header byte previews, repeated local outbound
+  GOAWAY send-intents that preserve or narrow the locally recorded shutdown
+  boundary, plus local outbound HEADERS, stream-level outbound
+  `WINDOW_UPDATE`, and server-side outbound `PUSH_PROMISE` send-intents above
+  received or locally sent GOAWAY boundaries,
   standard helper-returned frame-size, SETTINGS value, and header-table
   runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and

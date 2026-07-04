@@ -54,9 +54,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  outbound GOAWAY send-intent state, and outbound HEADERS, DATA,
-  stream-level `WINDOW_UPDATE`, and server-side `PUSH_PROMISE` send-intent
-  rejection above received or locally sent GOAWAY boundaries
+  repeated outbound GOAWAY send-intent boundary, outbound GOAWAY send-intent
+  state, and outbound HEADERS, DATA, stream-level `WINDOW_UPDATE`, and
+  server-side `PUSH_PROMISE` send-intent rejection above received or locally
+  sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -803,12 +804,20 @@ The implemented slice also includes the outbound GOAWAY send-intent.
 Ordinary source validates the selected last stream id and error code through
 the schema-declared GOAWAY payload record, encodes a nine-byte header with
 length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
-GOAWAY payload, and records local graceful-shutdown state. A later
+GOAWAY payload, and records local graceful-shutdown state. A repeated
+outbound GOAWAY send-intent is accepted only when it preserves or narrows the
+already recorded local last-stream boundary; attempts that would widen the
+recorded boundary are rejected with `http2.protocol.stream_after_goaway`
+before output bytes are emitted. Later local outbound HEADERS, DATA,
+`PRIORITY`, stream-level `WINDOW_UPDATE`, or server-side `PUSH_PROMISE`
+send-intents continue to use the recorded local boundary. A later
 peer-created HEADERS stream greater than the sent last stream id uses the
 same post-GOAWAY stream rejection boundary as received GOAWAY state, and a
 later local outbound HEADERS, DATA, `PRIORITY`, or server-side `PUSH_PROMISE`
 send-intent above the sent last stream id is rejected before frame splitting
-or encode checks.
+or encode checks. The completed repeated outbound GOAWAY boundary is archived
+under
+[HTTP/2 Repeated Outbound GOAWAY Boundary](../reference/implemented-proposals/http2-repeated-outbound-goaway-boundary.md).
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.
