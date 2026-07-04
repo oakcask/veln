@@ -1,0 +1,3 @@
+use impl
+
+pub fn apply_variadic_unknown = impl::apply_variadic_unknown

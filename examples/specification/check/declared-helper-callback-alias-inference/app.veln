@@ -1,0 +1,13 @@
+use api
+
+fn stringify(value) -> String
+	"ok"
+end
+
+fn keep_pair(label, value) -> Bool
+	true
+end
+
+pub fn main() -> {text: String, kept: Bool}
+	{text: api::apply_text(1, stringify), kept: api::apply_pair("one", 1, keep_pair)}
+end

@@ -1,0 +1,7 @@
+fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+	callback(value)
+end
+
+fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool
+	callback(label, value)
+end

@@ -11,8 +11,9 @@ compare it with `../specification/` before changing behavior.
 
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for callback inputs outside the
-  compiler-known, concrete declared-helper signature, concrete record-field
-  expected-type, concrete local-binding expected-type, and concrete
+  compiler-known, concrete declared-helper signature including visible public
+  function aliases, concrete record-field expected-type, concrete
+  local-binding expected-type, and concrete
   direct return-position expected-type, concrete match-arm expected-type, and
   concrete if-branch expected-type, concrete constructor-payload
   expected-type, concrete collection element expected-type, and concrete
@@ -25,20 +26,22 @@ compare it with `../specification/` before changing behavior.
   constructor-pattern inference, local pattern `let` inference,
   compiler-known prelude callback argument including `vec_try_map_with`,
   dictionary callback alias, declared helper callback argument, source-backed
-  prelude callback fallback, record-field callback, local callback binding,
-  local callback binding annotation elision, direct return callback, match-arm
-  callback, if-branch callback, callback return expected-type,
+  prelude callback fallback, declared helper callback alias, record-field
+  callback, local callback binding, local callback binding annotation elision,
+  direct return callback, match-arm callback, if-branch callback, callback
+  return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
   collection callback element, dictionary value callback, examples cleanup,
   and diagnostic-details slices specified in `../specification/types.md` and
   `../specification/diagnostics-json.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
-  declared helper callback argument inference, source-backed prelude callback
-  fallback, record-field callback inference, local callback binding inference,
-  local callback binding annotation-elision inference, direct return callback
-  inference, callback return expected-type inference, constructor-payload
-  callback inference, collection callback element inference, non-empty
+  declared helper callback argument inference, declared helper callback alias
+  inference, source-backed prelude callback fallback, record-field callback
+  inference, local callback binding inference, local callback binding
+  annotation-elision inference, direct return callback inference, callback
+  return expected-type inference, constructor-payload callback inference,
+  collection callback element inference, non-empty
   collection initializer inference, ADT constructor payload inference, match
   scrutinee constructor-pattern inference, local pattern `let` inference,
   nested initializer expected-type propagation, hole expected-type flow, and
@@ -47,6 +50,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
   `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
   `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`,
+  `../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md`,
   `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`,
   `../reference/implemented-proposals/local-inference-record-field-callback.md`,
   `../reference/implemented-proposals/local-inference-local-callback-binding.md`,

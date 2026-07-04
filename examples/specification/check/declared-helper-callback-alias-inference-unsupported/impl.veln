@@ -1,0 +1,3 @@
+fn apply_variadic_unknown(callback: fn(String, ...unknown) -> List<String>) -> List<String>
+	Nil
+end

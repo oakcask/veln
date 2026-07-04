@@ -1,0 +1,4 @@
+use impl
+
+pub fn apply_text = impl::apply_int
+pub fn apply_pair = impl::apply_pair
