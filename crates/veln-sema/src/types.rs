@@ -3083,51 +3083,61 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     )
 }
 
-fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
+fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
     if format_neutral_schema_scalar_type(ty) {
-        return true;
+        return Some(ty.clone());
     }
-    matches!(
-        ty,
+    match ty {
         Type::Named { name, args }
             if name == "Option"
                 && args.len() == 1
                 && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_scalar_list_type(&args[0]))
-    ) || matches!(
-        ty,
+                    || format_neutral_schema_scalar_list_type(&args[0])) =>
+        {
+            Some(ty.clone())
+        }
         Type::Named { name, args }
-            if name == "List"
-                && args.len() == 1
-                && format_neutral_schema_scalar_type(&args[0])
-    ) || matches!(
-        ty,
+            if name == "List" && args.len() == 1 && format_neutral_schema_scalar_type(&args[0]) =>
+        {
+            Some(ty.clone())
+        }
         Type::Named { name, args }
             if name == "Vec"
                 && args.len() == 1
                 && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_type(&args[0]))
-    ) || matches!(
-        ty,
+                    || format_neutral_schema_option_scalar_type(&args[0])) =>
+        {
+            Some(ty.clone())
+        }
         Type::Named { name, args }
             if name == "Dict"
                 && args.len() == 2
                 && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && format_neutral_schema_scalar_type(&args[1])
-    ) || matches!(
-        ty,
+                && format_neutral_schema_scalar_type(&args[1]) =>
+        {
+            Some(ty.clone())
+        }
         Type::Named { name, args }
             if name == "Result"
                 && args.len() == 2
                 && format_neutral_schema_scalar_type(&args[0])
-                && format_neutral_schema_scalar_type(&args[1])
-    ) || matches!(
-        ty,
-        Type::Record(fields)
-            if fields
+                && format_neutral_schema_scalar_type(&args[1]) =>
+        {
+            Some(ty.clone())
+        }
+        Type::Record(fields) => Some(Type::Record(
+            fields
                 .iter()
-                .all(|(_, field_ty)| format_neutral_schema_encode_field_type(field_ty))
-    )
+                .map(|(name, field_ty)| {
+                    Some((
+                        name.clone(),
+                        format_neutral_schema_plain_encode_field_type(field_ty)?,
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()?,
+        )),
+        _ => None,
+    }
 }
 
 fn format_neutral_schema_option_scalar_type(ty: &Type) -> bool {
@@ -3150,13 +3160,76 @@ fn format_neutral_schema_scalar_list_type(ty: &Type) -> bool {
     )
 }
 
-fn format_neutral_schema_encode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type)>> {
+pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+) -> Option<Type> {
+    let ty = parse_type_annotation(text).ok()?;
+    format_neutral_schema_plain_encode_field_type(&ty).or_else(|| {
+        format_neutral_schema_source_adt_encode_type(
+            module,
+            schema.module_name.as_deref(),
+            adts,
+            &ty,
+        )
+    })
+}
+
+pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
+    let Ok(Type::Named { name, .. }) = parse_type_annotation(text) else {
+        return false;
+    };
+    !matches!(
+        name.as_str(),
+        "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
+    )
+}
+
+fn format_neutral_schema_source_adt_encode_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> Option<Type> {
+    let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
+    let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
+    let supported = descriptor.variants.iter().all(|variant| {
+        variant
+            .payload_fields
+            .iter()
+            .enumerate()
+            .all(|(index, _field)| {
+                let Some(payload_ty) = adt::payload_type(
+                    &descriptor_ty,
+                    adt::AdtConstructor {
+                        descriptor,
+                        variant,
+                    },
+                    index,
+                ) else {
+                    return false;
+                };
+                format_neutral_schema_plain_encode_field_type(&payload_ty).is_some()
+            })
+    });
+    supported.then_some(descriptor_ty)
+}
+
+fn format_neutral_schema_encode_record_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Vec<(String, Type)>> {
+    let adts = AdtRegistry::from_module(module);
     schema
         .fields
         .iter()
         .map(|field| {
-            let ty = parse_type_annotation(&field.ty).ok()?;
-            format_neutral_schema_encode_field_type(&ty).then_some((field.name.clone(), ty))
+            let ty = format_neutral_schema_encode_field_type_for_schema(
+                module, schema, &adts, &field.ty,
+            )?;
+            Some((field.name.clone(), ty))
         })
         .collect()
 }
@@ -3861,7 +3934,7 @@ fn schema_encode_function_signature_for_schema(
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
     if schema.format.is_none() {
-        let value_type = Type::Record(format_neutral_schema_encode_record_fields(schema)?);
+        let value_type = Type::Record(format_neutral_schema_encode_record_fields(module, schema)?);
         return Some(FunctionSignature {
             name: schema_encode_function_name(schema_name),
             target_name: format!("{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{schema_name}"),

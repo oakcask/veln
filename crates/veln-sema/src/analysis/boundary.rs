@@ -6,9 +6,10 @@ use crate::types::{
     SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, format_neutral_schema_field_type_for_schema,
-    lowercase_reserved_bits_schema_primitive, lowercase_schema_primitive,
-    lowercase_schema_primitive_nested_payloads,
+    flag_schema_primitive, format_neutral_schema_encode_field_is_source_adt_candidate,
+    format_neutral_schema_encode_field_type_for_schema,
+    format_neutral_schema_field_type_for_schema, lowercase_reserved_bits_schema_primitive,
+    lowercase_schema_primitive, lowercase_schema_primitive_nested_payloads,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
     repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
@@ -883,6 +884,16 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     decoded_fields.insert(field.name.clone(), field_ty);
                 } else {
                     diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
+                    if format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty)
+                        && format_neutral_schema_encode_field_type_for_schema(
+                            module, schema, &adts, &field.ty,
+                        )
+                        .is_none()
+                    {
+                        diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
+                            schema, field,
+                        ));
+                    }
                 }
                 continue;
             }
@@ -927,6 +938,48 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
             (
                 "reason",
                 JsonValue::string("unsupported_format_neutral_field_type"),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("schema_helper_boundary")),
+        ("span", span_json(&schema.span)),
+        ("message", JsonValue::string(boundary_message)),
+    ]));
+    diagnostic
+}
+
+fn format_neutral_schema_encode_helper_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let supported =
+        "source ADT whose constructor payloads are supported format-neutral encode shapes";
+    let boundary_message = format!(
+        "Generated format-neutral encode helpers for schema `{schema_name}` accept same-module or public imported source ADTs referenced through written use paths when every constructor payload is a supported format-neutral encode shape."
+    );
+    let mut diagnostic = Diagnostic::new(
+        "schema.format_neutral_encode_helper",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "format-neutral schema field `{}` cannot expose a generated encode helper because `{}` is not a {supported}",
+            field.name, field.ty,
+        ),
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("schema", JsonValue::string(schema_name)),
+            ("field", JsonValue::string(field.name.clone())),
+            ("field_type", JsonValue::string(field.ty.clone())),
+            (
+                "reason",
+                JsonValue::string("unsupported_format_neutral_encode_field_type"),
             ),
         ]),
     );

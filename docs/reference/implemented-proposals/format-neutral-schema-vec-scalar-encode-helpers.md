@@ -40,5 +40,4 @@ later `Vec<Option<scalar>>` encode slice is recorded in
 
 The broader schema declaration proposal remains open for binary schema fields
 outside the implemented helper slices, arbitrary recursive format-neutral
-encode shapes, source ADT encode fields, and later schema composition
-surfaces.
+encode shapes, and later schema composition surfaces.

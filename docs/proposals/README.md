@@ -94,7 +94,8 @@ compare it with `../specification/` before changing behavior.
   imported source ADT visible-shape fields, scalar-only, `Option<scalar>`,
   `List<scalar>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
   `Dict<String, scalar>`, and supported container and scalar-result
-  format-neutral encode helpers, plus
+  format-neutral encode helpers, same-module and public imported source ADT
+  encode helper fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).

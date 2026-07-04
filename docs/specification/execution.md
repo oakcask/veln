@@ -105,9 +105,12 @@ enough.
   `Option<List<scalar>>`, `List<scalar>`, `Vec<scalar>`,
   `Vec<Option<scalar>>`, `Dict<String, scalar>`,
   `Result<scalar, scalar>`, or an anonymous record whose fields are supported
-  format-neutral encode shapes. The supported scalar leaves are `Int`, `Bool`,
-  `Float`, and `String`. The helper returns the supplied record on success and
-  does not produce binary bytes.
+  format-neutral encode shapes. Same-module source ADT fields and public
+  imported source ADT fields referenced through written `use` paths are
+  supported when every constructor payload is a supported format-neutral encode
+  shape. The supported scalar leaves are `Int`, `Bool`, `Float`, and `String`.
+  The helper returns the supplied record on success and does not produce binary
+  bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

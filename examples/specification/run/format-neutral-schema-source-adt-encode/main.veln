@@ -1,0 +1,73 @@
+# Format-neutral schema encode helpers preserve source ADT visible shapes.
+use stdio
+use wire
+
+type Payload
+	Empty
+	Scalar(value: Int)
+	Metadata(value: {label: String, scores: Dict<String, Int>})
+end
+
+schema Packet
+	payload: Payload
+	imported_payload: wire::WirePayload
+end
+
+fn payload_score(payload: Payload) -> Int
+	match payload
+		Empty => 0
+		Scalar(value) => value
+		Metadata(value) => match dict_get(value.scores, value.label)
+			Some(score) => score
+			None => -1
+		end
+	end
+end
+
+fn payload_text(payload: Payload) -> String
+	match payload
+		Empty => "empty"
+		Scalar(value) => int_to_string(value)
+		Metadata(value) => value.label
+	end
+end
+
+fn imported_payload_score(payload: WirePayload) -> Int
+	match payload
+		wire::WirePayload(value) => value
+	end
+end
+
+fn encoded_payload_text(result: Result<{payload: Payload, imported_payload: WirePayload}, String>) -> String
+	match result
+		Ok(packet) => payload_text(packet.payload)
+		Err(message) => message
+	end
+end
+
+fn encoded_payload_score(result: Result<{payload: Payload, imported_payload: WirePayload}, String>) -> Int
+	match result
+		Ok(packet) => payload_score(packet.payload)
+		Err(_) => -1
+	end
+end
+
+fn encoded_imported_payload_score(result: Result<{payload: Payload, imported_payload: WirePayload}, String>) -> Int
+	match result
+		Ok(packet) => imported_payload_score(packet.imported_payload)
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let direct_packet: {payload: Payload, imported_payload: WirePayload} = {payload: Metadata({label: "math", scores: {"math": 17}}), imported_payload: wire::WirePayload(23)}
+	let explicit_packet: {payload: Payload, imported_payload: WirePayload} = {payload: Scalar(31), imported_payload: wire::WirePayload(37)}
+	let direct: Result<{payload: Payload, imported_payload: WirePayload}, String> = byte_encode_packet(direct_packet)
+	let explicit: Result<{payload: Payload, imported_payload: WirePayload}, String> = encode Packet from explicit_packet
+	stdio::println(encoded_payload_text(direct))
+	stdio::println(int_to_string(encoded_payload_score(direct)))
+	stdio::println(int_to_string(encoded_imported_payload_score(direct)))
+	stdio::println(encoded_payload_text(explicit))
+	stdio::println(int_to_string(encoded_payload_score(explicit)))
+	stdio::println(int_to_string(encoded_imported_payload_score(explicit)))
+end
