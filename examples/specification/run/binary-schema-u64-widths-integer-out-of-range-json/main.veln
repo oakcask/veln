@@ -1,0 +1,13 @@
+# Binary schema UInt64be decode reports unsigned values beyond Int range.
+schema UInt64Width
+	format binary
+
+	value: UInt64be
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("8000000000000000")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let ignored: {value: Int} = byte_decode_uint64_width(view)?
+	Ok(())
+end

@@ -5236,6 +5236,9 @@
             } else {
                 long byteOffset = diagnosticBaseOffset + relativeOffset;
                 String message = "schema integer out of range at byte offset " + byteOffset;
+                String actualValueText = width == 8 && value < 0L
+                    ? Long.toUnsignedString(value)
+                    : null;
                 return schemaIntegerOutOfRangePathDiagnostic(
                     message,
                     byteOffset,
@@ -5244,6 +5247,7 @@
                     0L,
                     maxValue,
                     value,
+                    actualValueText,
                     byteViewPreviewTrace(view, 8)
                 );
             }

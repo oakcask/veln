@@ -42,6 +42,11 @@ same generated encode error path.
   and
   `../../../examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`
   check generated encode failures for unrepresentable wide values.
+- `../../../examples/specification/run/binary-schema-u64-widths-integer-out-of-range-human/`
+  and
+  `../../../examples/specification/run/binary-schema-u64-widths-integer-out-of-range-json/`
+  check generated decode range diagnostics for eight-byte unsigned values
+  outside the visible `Int` range.
 - `../../../examples/specification/run/binary-schema-u56-widths-truncated-json/`
   and
   `../../../examples/specification/run/binary-schema-u64-widths-truncated-json/`

@@ -189,6 +189,8 @@ enough.
   `examples/specification/run/binary-schema-u56-widths-truncated-json/`,
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-human/`,
+  `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-json/`,
   and `examples/specification/run/binary-schema-u64-widths-truncated-json/`.
 - Representation-local generated schema encode failures that cannot write a
   supplied value, repeat count, or length-bounded `ByteView` use

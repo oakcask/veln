@@ -352,7 +352,8 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             let byte_width = json_number(byte_entries, "byte_width")?;
             let min_value = json_number(byte_entries, "min_value")?;
             let max_value = json_number(byte_entries, "max_value")?;
-            let actual_value = json_number(byte_entries, "actual_value")?;
+            let actual_value = json_number_display(byte_entries, "actual_value")
+                .or_else(|| json_string(byte_entries, "actual_value_text"))?;
             let mut diagnostic = Diagnostic::new(
                 id,
                 Severity::Error,
@@ -2140,6 +2141,10 @@ fn json_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {
         JsonValue::Number(value) => Some(*value),
         _ => None,
     }
+}
+
+fn json_number_display(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
+    json_number(entries, key).map(|value| value.to_string())
 }
 
 fn json_bool(entries: &[(String, JsonValue)], key: &str) -> Option<bool> {
