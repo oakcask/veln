@@ -92,7 +92,8 @@ compare it with `../specification/` before changing behavior.
   `Option<T>`, `List<T>`, `Dict<String, T>`, and supported recursive
   `Result<Ok, Err>` visible-shape fields, same-module and public imported
   source ADT visible-shape fields, scalar-only, `Option<scalar>`, and
-  `List<scalar>` format-neutral encode helpers, plus
+  `List<scalar>`, and `Dict<String, scalar>` format-neutral encode helpers,
+  plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -152,6 +153,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `List<scalar>` encode helper slice is archived
   under
   [Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
+  The completed format-neutral `Dict<String, scalar>` encode helper slice is
+  archived under
+  [Format-Neutral Schema Dict Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-scalar-encode-helpers.md).
   Binary fixture metadata in executable specification cases may also validate
   schema-aware references. Binary primitive execution is current behavior
   under `../specification/source-surface.md` and

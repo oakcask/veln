@@ -101,9 +101,9 @@ enough.
   shape through the pass-through boundary.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
-  `Result<T, String>` for scalar leaves, `Option<scalar>` fields, and
-  `List<scalar>` fields: `Int`, `Bool`, `Float`, and `String`, optionally
-  wrapped in `Option<T>` or `List<T>`. The helper returns the supplied record
+  `Result<T, String>` when every field is a scalar leaf, `Option<scalar>`,
+  `List<scalar>`, or `Dict<String, scalar>`. The supported scalar leaves are
+  `Int`, `Bool`, `Float`, and `String`. The helper returns the supplied record
   on success and does not produce binary bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the

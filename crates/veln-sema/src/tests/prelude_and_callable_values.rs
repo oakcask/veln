@@ -182,13 +182,17 @@ fn generated_schema_encode_helpers_resolve_from_supported_format_neutral_encode_
             "  flags: List<Bool>\n",
             "  ratios: List<Float>\n",
             "  labels: List<String>\n",
+            "  scores: Dict<String, Int>\n",
+            "  states: Dict<String, Bool>\n",
+            "  weights: Dict<String, Float>\n",
+            "  names: Dict<String, String>\n",
             "end\n",
             "\n",
-            "pub fn direct(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}, String>\n",
+            "pub fn direct(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>, scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>, scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String>\n",
             "  byte_encode_scalar_packet(packet)\n",
             "end\n",
             "\n",
-            "pub fn explicit(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>}, String>\n",
+            "pub fn explicit(packet: {code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>, scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}) -> Result<{code: Int, ready: Bool, ratio: Float, label: String, optional_code: Option<Int>, optional_ready: Option<Bool>, optional_ratio: Option<Float>, optional_label: Option<String>, items: List<Int>, flags: List<Bool>, ratios: List<Float>, labels: List<String>, scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String>\n",
             "  encode ScalarPacket from packet\n",
             "end\n",
         ),
@@ -266,6 +270,38 @@ fn generated_format_neutral_schema_encode_helpers_reject_recursive_container_fie
         diagnostic.message,
         "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
     );
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_dict_boundaries() {
+    for (field_type, record_type) in [
+        ("Dict<Int, String>", "{items: Dict<Int, String>}"),
+        (
+            "Dict<String, Option<Int>>",
+            "{items: Dict<String, Option<Int>>}",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "schema Packet\n  items: {field_type}\nend\n\npub fn main(packet: {record_type}) -> Result<{record_type}, String>\n  encode Packet from packet\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let lowered = lower_checked_surface_module(&module);
+
+        let diagnostic = lowered
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "schema.encode_expression")
+            .expect("unsupported format-neutral encode helper should be rejected");
+        assert_eq!(
+            diagnostic.message,
+            "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
+        );
+    }
 }
 
 #[test]

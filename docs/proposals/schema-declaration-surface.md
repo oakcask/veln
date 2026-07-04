@@ -80,9 +80,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   diagnostics for unsupported helper field types
 - generated `byte_encode_<schema>` helper bindings and explicit schema encode
   expressions for format-neutral schemas without a `format` clause when every
-  field is a scalar leaf, `Option<scalar>` field, or `List<scalar>` field:
-  `Int`, `Bool`, `Float`, or `String`, optionally wrapped in `Option<T>` or
-  `List<T>`
+  field is a scalar leaf, `Option<scalar>` field, `List<scalar>` field, or
+  `Dict<String, scalar>` field. The supported scalar leaves are `Int`,
+  `Bool`, `Float`, and `String`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -167,6 +167,10 @@ The completed format-neutral `List<scalar>` encode helper slice is archived
 under
 [Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
 
+The completed format-neutral `Dict<String, scalar>` encode helper slice is
+archived under
+[Format-Neutral Schema Dict Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-scalar-encode-helpers.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -179,7 +183,8 @@ This proposal remains open for:
   supported representation-only reserved-bit, direct nested binary schema,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral encode helper fields beyond scalar
-  leaves, `Option<scalar>` fields, and `List<scalar>` fields
+  leaves, `Option<scalar>` fields, `List<scalar>` fields, and
+  `Dict<String, scalar>` fields
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
