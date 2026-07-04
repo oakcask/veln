@@ -67,9 +67,9 @@ schemas whose fields use implemented exact-width unsigned primitives,
   visible flag bitset fields,
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload fields, bounded repeat
-  fields over implemented primitive, nested schema, or `ByteView(length_field)`
-  payloads, direct nested binary schema fields, or the implemented dispatch
-  payload slices
+  fields over implemented primitive, nested schema, `ByteView(length_field)`,
+  or `ByteView(left_length - right_length)` payloads, direct nested binary
+  schema fields, or the implemented dispatch payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
@@ -96,6 +96,10 @@ The completed visible flag bitset decode binding slice is archived under
 
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+
+The completed bounded repeat `ByteView(left_length - right_length)` payload
+helper slice is archived under
+[Binary Schema Repeat ByteView Subtract Helpers](../reference/implemented-proposals/binary-schema-repeat-byteview-subtract-helpers.md).
 
 The completed direct nested binary schema decode binding slice is archived
 under

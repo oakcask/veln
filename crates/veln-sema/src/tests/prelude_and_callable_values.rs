@@ -1785,6 +1785,54 @@ fn generated_schema_helpers_resolve_added_repeated_byte_view_lengths() {
 }
 
 #[test]
+fn generated_schema_helpers_resolve_subtracted_repeated_byte_view_lengths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema CountedViews\n",
+            "  format binary\n",
+            "\n",
+            "  count: UInt8\n",
+            "  total_length: UInt8\n",
+            "  padding_length: UInt8\n",
+            "  items: Repeat(count, ByteView(total_length - padding_length))\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{count: Int, total_length: Int, padding_length: Int, items: List<ByteView>}, String>\n",
+            "  byte_decode_counted_views(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {count: Int, total_length: Int, padding_length: Int, items: List<ByteView>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_counted_views(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "CountedViews")
+        .expect("counted schema should be emitted");
+    let repeat = schema.fields[3]
+        .repeat
+        .as_ref()
+        .expect("items should carry repeat metadata");
+    assert_eq!(repeat.count_field, "count");
+    assert_eq!(
+        repeat.byte_view_length_field.as_deref(),
+        Some("total_length - padding_length")
+    );
+    assert_eq!(repeat.width, 0);
+    assert!(repeat.payload_schema.is_none());
+}
+
+#[test]
 fn generated_schema_helpers_resolve_product_repeated_schema_and_byte_view_fields() {
     let source = SourceFile::new(
         "main.veln",

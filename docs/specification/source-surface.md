@@ -56,7 +56,8 @@ write the payload field type before `;` and the count expression after it; the
 count expression may name an earlier visible count field or use implemented
 arithmetic forms over earlier count fields, and the payload may use an
 exact-width primitive, a lowercase exact-width primitive, a nested binary
-schema, or `ByteView(length)`.
+schema, `ByteView(length_field)`, or
+`ByteView(left_length - right_length)`.
 Direct nested binary schema fields may name an eligible same-module schema or
 public imported schema and expose the nested schema-local visible record at
 that field.

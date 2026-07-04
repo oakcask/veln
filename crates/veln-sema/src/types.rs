@@ -4492,14 +4492,14 @@ fn repeat_schema_primitive_from_parts(
         }
     } else if let Some(length_expr) = byte_view_schema_primitive(primitive) {
         match length_expr {
-            ByteViewLengthExpr::Field(_) | ByteViewLengthExpr::Sum { .. } => {
-                SchemaRepeatPayload::ByteView {
-                    length_field: length_expr.render(),
-                }
+            ByteViewLengthExpr::Field(_)
+            | ByteViewLengthExpr::Sum { .. }
+            | ByteViewLengthExpr::Difference { .. } => SchemaRepeatPayload::ByteView {
+                length_field: length_expr.render(),
+            },
+            ByteViewLengthExpr::Product { .. } | ByteViewLengthExpr::Quotient { .. } => {
+                return None;
             }
-            ByteViewLengthExpr::Difference { .. }
-            | ByteViewLengthExpr::Product { .. }
-            | ByteViewLengthExpr::Quotient { .. } => return None,
         }
     } else if schema_payload_name_path(primitive).is_some() {
         SchemaRepeatPayload::Schema {

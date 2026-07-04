@@ -112,6 +112,8 @@ enough.
   Lowercase exact-width `uint...` payloads written in legacy
   `Repeat(count, Payload)` fields normalize to the same generated decode and
   encode helper behavior as the matching canonical repeated-field payload.
+  Repeated `ByteView(left_length - right_length)` payloads expose
+  `List<ByteView>` and report truncation with the repeated element index.
 - Direct nested binary schema fields name an eligible same-module or public
   imported nested binary schema, consume that nested schema in place, and
   expose the nested schema-local visible record at the field.

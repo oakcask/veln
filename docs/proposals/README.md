@@ -82,7 +82,8 @@ compare it with `../specification/` before changing behavior.
   compatibility schema import/reference visibility checks, generated
   field-local validation, generated `validate_<schema>` decoded-record
   validation, visible flag bitset decode bindings, bounded repeat generated
-  helper bindings, direct nested binary schema helper bindings, generated
+  helper bindings including subtractive `ByteView` payloads, direct nested
+  binary schema helper bindings, generated
   encode-time field-local validation for eligible schema helpers, derived
   encode boundary support, format-neutral schema bodies without a `format`
   clause, generated format-neutral decode helpers for
@@ -241,7 +242,9 @@ compare it with `../specification/` before changing behavior.
   bounded `Repeat(count_field, ByteView(length_field))` decode and encode plus
   compatibility derived codec boundary slices, bounded
   `Repeat(count_field, ByteView(left_length + right_length))` decode and
-  encode, length-bounded
+  encode, bounded
+  `Repeat(count_field, ByteView(left_length - right_length))` decode,
+  length-bounded
   `ByteView(length_field)`, `ByteView(left_length - right_length)`, and
   `ByteView(left_length + right_length)`, and
   `ByteView(left_length * right_length)`, and
@@ -319,6 +322,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Imported Dispatch ByteView Quotient Payload Helpers](../reference/implemented-proposals/binary-schema-imported-dispatch-byteview-quotient-payload-helpers.md).
   The completed bounded repeat helper binding slice is archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+  The completed bounded repeat `ByteView(left_length - right_length)` payload
+  helper slice is archived under
+  [Binary Schema Repeat ByteView Subtract Helpers](../reference/implemented-proposals/binary-schema-repeat-byteview-subtract-helpers.md).
   The completed `UInt48be` and
   `UInt48le` exact-width primitive slice is archived under
   [Binary Schema UInt48 Primitives](../reference/implemented-proposals/binary-schema-u48-primitives.md).
