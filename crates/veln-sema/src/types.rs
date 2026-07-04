@@ -3083,13 +3083,26 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     )
 }
 
+fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
+    if format_neutral_schema_scalar_type(ty) {
+        return true;
+    }
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Option"
+                && args.len() == 1
+                && format_neutral_schema_scalar_type(&args[0])
+    )
+}
+
 fn format_neutral_schema_encode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type)>> {
     schema
         .fields
         .iter()
         .map(|field| {
             let ty = parse_type_annotation(&field.ty).ok()?;
-            format_neutral_schema_scalar_type(&ty).then_some((field.name.clone(), ty))
+            format_neutral_schema_encode_field_type(&ty).then_some((field.name.clone(), ty))
         })
         .collect()
 }

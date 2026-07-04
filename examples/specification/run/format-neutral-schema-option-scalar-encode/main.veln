@@ -1,0 +1,70 @@
+# Format-neutral schema encode helpers accept Option<scalar> fields.
+use stdio
+
+schema OptionScalarPacket
+	code: Option<Int>
+	ready: Option<Bool>
+	ratio: Option<Float>
+	label: Option<String>
+end
+
+fn code_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.code
+			Some(code) => int_to_string(code)
+			None => "missing-code"
+		end
+		Err(message) => message
+	end
+end
+
+fn ready_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.ready
+			Some(ready) => match ready
+				true => "ready"
+				false => "blocked"
+			end
+			None => "missing-ready"
+		end
+		Err(message) => message
+	end
+end
+
+fn ratio_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.ratio
+			Some(ratio) => match ratio > 1.0
+				true => "ratio-high"
+				false => "ratio-low"
+			end
+			None => "missing-ratio"
+		end
+		Err(message) => message
+	end
+end
+
+fn label_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
+	match result
+		Ok(packet) => match packet.label
+			Some(label) => label
+			None => "missing-label"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>} = {code: Some(7), ready: Some(true), ratio: Some(1.5), label: Some("optional")}
+	let empty_packet: {code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>} = {code: None, ready: None, ratio: None, label: None}
+	let encoded: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String> = byte_encode_option_scalar_packet(packet)
+	let explicit: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String> = encode OptionScalarPacket from empty_packet
+	stdio::println(code_text(encoded))
+	stdio::println(ready_text(encoded))
+	stdio::println(ratio_text(encoded))
+	stdio::println(label_text(encoded))
+	stdio::println(code_text(explicit))
+	stdio::println(ready_text(explicit))
+	stdio::println(ratio_text(explicit))
+	stdio::println(label_text(explicit))
+end

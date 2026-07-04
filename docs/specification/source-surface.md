@@ -37,8 +37,8 @@ shape; private imported source ADTs, missing paths, non-ADT targets, and source
 ADTs with unsupported payloads remain unsupported helper fields and are
 declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
-`format` clause whose fields are plain scalar leaves: `Int`, `Bool`, `Float`,
-and `String`.
+`format` clause whose fields are scalar leaves or `Option<scalar>` fields:
+`Int`, `Bool`, `Float`, and `String`, optionally wrapped in `Option<T>`.
 When present, the single `format binary` clause must appear before schema
 fields.
 
@@ -87,16 +87,19 @@ accepts eligible binary schemas, `ByteView`, and `ByteOffset` operands and
 returns a `DecodeStep<T>` for the schema-local visible record shape. The
 expression `encode SchemaName from value` accepts the schema-local visible
 record shape for eligible binary schemas and returns
-`Result<ByteChunk, EncodeError>`. For scalar-only format-neutral schemas, the
-same expression accepts and returns the schema-local visible record shape as
-`Result<T, String>` without producing binary bytes. Qualified public schema
-paths are accepted when the imported schema or public schema alias is visible.
+`Result<ByteChunk, EncodeError>`. For scalar and `Option<scalar>`
+format-neutral schemas, the same expression accepts and returns the
+schema-local visible record shape as `Result<T, String>` without producing
+binary bytes. Qualified public schema paths are accepted when the imported
+schema or public schema alias is visible.
 The executable coverage is
 `examples/specification/run/schema-decode-expression/` and
-`examples/specification/run/schema-encode-expression/`; scalar-only
-format-neutral encode coverage is
-`examples/specification/run/format-neutral-schema-scalar-encode/`. The HTTP/2
-frame header schema boundary is checked through explicit decode operations under
+`examples/specification/run/schema-encode-expression/`; scalar and
+`Option<scalar>` format-neutral encode coverage is
+`examples/specification/run/format-neutral-schema-scalar-encode/` and
+`examples/specification/run/format-neutral-schema-option-scalar-encode/`. The
+HTTP/2 frame header schema boundary is checked through explicit decode
+operations under
 `examples/specification/run/binary-schema-frame-header-decode/`,
 `examples/specification/run/binary-schema-frame-header-reserved-human/`,
 `examples/specification/run/binary-schema-frame-header-reserved-json/`,
@@ -119,6 +122,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-result-decode/`,
 `examples/specification/run/format-neutral-schema-source-adt-decode/`,
 `examples/specification/run/format-neutral-schema-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/check/format-neutral-schema-vec-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics/`,
