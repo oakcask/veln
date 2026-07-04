@@ -1,0 +1,11 @@
+schema UnsupportedOptionVecPacket
+	items: Vec<Option<Int>>
+end
+
+fn direct(packet: {items: Vec<Option<Int>>}) -> Result<{items: Vec<Option<Int>>}, String>
+	byte_encode_unsupported_option_vec_packet(packet)
+end
+
+fn explicit(packet: {items: Vec<Option<Int>>}) -> Result<{items: Vec<Option<Int>>}, String>
+	encode UnsupportedOptionVecPacket from packet
+end

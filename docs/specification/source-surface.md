@@ -39,9 +39,10 @@ declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
 `format` clause whose fields are scalar leaves, `Option<scalar>` fields,
 `Option<List<scalar>>` fields, `List<scalar>` fields,
-`Dict<String, scalar>` fields, `Result<scalar, scalar>` fields, or anonymous
-record fields whose fields are supported format-neutral encode shapes. The
-supported scalar leaves are `Int`, `Bool`, `Float`, and `String`.
+`Vec<scalar>` fields, `Dict<String, scalar>` fields,
+`Result<scalar, scalar>` fields, or anonymous record fields whose fields are
+supported format-neutral encode shapes. The supported scalar leaves are `Int`,
+`Bool`, `Float`, and `String`.
 When present, the single `format binary` clause must appear before schema
 fields.
 
@@ -96,10 +97,10 @@ record shape for eligible binary schemas and returns
 visible record shape as `Result<T, String>` without producing binary bytes
 when every field is one of the supported format-neutral encode shapes:
 scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
-`Dict<String, scalar>`, `Result<scalar, scalar>`, or anonymous record fields
-whose fields are supported format-neutral encode shapes. Qualified public
-schema paths are accepted when the imported schema or public schema alias is
-visible.
+`Vec<scalar>`, `Dict<String, scalar>`, `Result<scalar, scalar>`, or anonymous
+record fields whose fields are supported format-neutral encode shapes.
+Qualified public schema paths are accepted when the imported schema or public
+schema alias is visible.
 The executable coverage is
 `examples/specification/run/schema-decode-expression/` and
 `examples/specification/run/schema-encode-expression/`. Format-neutral encode
@@ -107,6 +108,7 @@ coverage is
 `examples/specification/run/format-neutral-schema-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-list-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-list-encode/`,
 `examples/specification/run/format-neutral-schema-nested-container-encode/`,
@@ -138,12 +140,14 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-list-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-list-encode/`,
 `examples/specification/run/format-neutral-schema-nested-container-encode/`,
 `examples/specification/run/format-neutral-schema-result-scalar-encode/`,
 `examples/specification/check/format-neutral-schema-container-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-list-scalar-encode-boundary/`,
+`examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-vec-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-fields/`,

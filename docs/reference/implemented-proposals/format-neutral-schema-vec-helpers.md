@@ -35,6 +35,6 @@ Unsupported element types, such as function values inside a `Vec`, keep the
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers, binary schema fields outside the implemented helper slices, and later
-schema composition surfaces.
+The broader schema declaration proposal remains open for arbitrary recursive
+format-neutral encode shapes, source ADT encode fields, binary schema fields
+outside the implemented helper slices, and later schema composition surfaces.
