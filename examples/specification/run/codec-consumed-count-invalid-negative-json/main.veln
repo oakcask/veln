@@ -1,0 +1,8 @@
+# Negative consumed-count decode failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(22)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.consumed_count_invalid", offset, "ManualPacketWire.count", "available_count=3; actual_consumed_count=-1; reason=decoded consumed count is outside supplied ByteView"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

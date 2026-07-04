@@ -219,6 +219,8 @@ behavior is specified under `../specification/execution.md`. The command-facing
 projection for that codec-owned consumed-count failure is specified under
 `../specification/run-json.md`, `../specification/commands.md`, and
 `../specification/execution.md`.
+The completed codec-owned consumed-count invalid slice is archived under the
+[implemented proposal record](../reference/implemented-proposals/codec-consumed-count-invalid-diagnostics.md).
 Generated
 exact-width binary schema decode helpers report
 `schema.integer_out_of_range` when a structurally decoded integer exceeds the
@@ -550,6 +552,6 @@ The implemented protocol-state diagnostic projection slice covers:
 The proposal remains open for broader schema and codec diagnostics that are not
 specified as current behavior under `../specification/`, including additional
 codec diagnostic ids outside the implemented `EncodeError`,
-`codec.invalid_input`, `codec.packet_kind_invalid`, and
-`codec.consumed_count_invalid` command-facing slices and the implemented
-checksum, length, sequence, version, and tag mismatch slices.
+`codec.invalid_input`, and `codec.packet_kind_invalid` command-facing slices
+and the implemented consumed-count invalid, checksum, length, sequence,
+version, and tag mismatch slices.

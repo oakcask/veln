@@ -1,0 +1,8 @@
+# Consumed-count invalid decode failures render focused human diagnostics.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(21)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.consumed_count_invalid", offset, "ManualPacketWire.count", "available_count=3; actual_consumed_count=5; reason=decoded consumed count is outside supplied ByteView"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

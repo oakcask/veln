@@ -560,12 +560,17 @@ direct result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-magic-mismatch-direct-json/` and
 `examples/specification/run/codec-magic-mismatch-step-json/`.
 
-The checked `codec.consumed_count_invalid` command-facing slice comes from an
-ordinary decode function whose returned `Decoded` consumed count is outside
-the supplied `ByteView`. It uses the same
-`DecodeStep::Invalid(DecodeError(...))` JSON shape and does not set
-`readiness`, because the supplied bytes already prove the consumed-count fact
-false.
+The checked `codec.consumed_count_invalid` command-facing slice covers
+hand-written decode boundaries whose returned `Decoded` consumed count is
+outside the supplied `ByteView`. It uses the same `DecodeStep::Invalid(...)`
+JSON shape and does not set `readiness`, because the supplied bytes already
+prove the consumed-count fact false. When the source-visible reason is written
+as `available_count=<count>; actual_consumed_count=<count>; reason=<text>`,
+`details.byte_diagnostic` includes separate `available_count`,
+`actual_consumed_count`, and `reason` fields. JVM runtime tests cover boundary
+validation for oversized and negative counts; the checked command-facing JSON
+examples are `examples/specification/run/codec-consumed-count-invalid-json/`
+and `examples/specification/run/codec-consumed-count-invalid-negative-json/`.
 
 `DecodeStep::NeedMore(NeedBytes(count))` entry results are reported as
 closed-input codec incomplete-input failures. `details.byte_diagnostic`

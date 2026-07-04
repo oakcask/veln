@@ -320,7 +320,11 @@ requiring the full command reference on the first read.
   related notes.
   A hand-written codec boundary that projects an oversized decoded consumed
   count as `codec.consumed_count_invalid` uses this shape and is not reported
-  as retryable readiness.
+  as retryable readiness. Human output keeps the primary message focused on
+  the invalid consumed-count fact, puts field path, supplied view length,
+  actual consumed count, reason, and source-visible `DecodeErrorWithReason`
+  value in related notes, and is checked by
+  `examples/specification/run/codec-consumed-count-invalid-human/`.
   `DecodeStep::NeedMore(...)` entry diagnostics report
   `codec.incomplete_input` at the closed-input byte boundary and put
   readiness, requested count when present, and the source-visible

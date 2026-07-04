@@ -2773,13 +2773,17 @@
             return step;
         }
         long consumed = byteCountLong(adtPayload(step, 1));
-        if (consumed >= 0L && consumed <= byteViewCountLong(view)) {
+        long available = byteViewCountLong(view);
+        if (consumed >= 0L && consumed <= available) {
             return step;
         }
-        return invalidDecodeStep(
+        return invalidDecodeStepWithReason(
             "codec.consumed_count_invalid",
             baseOffset,
-            asString(codecName)
+            asString(codecName),
+            "available_count=" + Long.toString(available)
+                + "; actual_consumed_count=" + Long.toString(consumed)
+                + "; reason=decoded consumed count is outside supplied ByteView"
         );
     }
 
@@ -7350,6 +7354,23 @@
                 adt(
                     "DecodeError::DecodeError",
                     new Object[] { id, baseOffset, fieldPath }
+                )
+            }
+        );
+    }
+
+    private static Object invalidDecodeStepWithReason(
+        String id,
+        Object baseOffset,
+        String fieldPath,
+        String reason
+    ) {
+        return adt(
+            "DecodeStep::Invalid",
+            new Object[] {
+                adt(
+                    "DecodeError::DecodeErrorWithReason",
+                    new Object[] { id, baseOffset, fieldPath, reason }
                 )
             }
         );

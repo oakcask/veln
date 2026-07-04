@@ -79,6 +79,11 @@ enough.
   when bounded input ends after at least one byte of the current field has
   been consumed, explicit decode returns `Invalid(DecodeError(...))` with
   `schema.truncated_field`, the field path, and the explicit base offset.
+  Hand-written decode boundaries validate `Decoded(value, consumed)` against
+  the supplied `ByteView`; a negative consumed count or a count larger than the
+  view length returns `Invalid(DecodeErrorWithReason(...))` with
+  `codec.consumed_count_invalid`, the supplied view length, the actual
+  consumed count, and no retryable readiness.
 - Explicit schema encode expressions lower to the generated encode boundary
   for the referenced eligible binary schema. They typecheck the supplied value
   against the schema-local visible record shape and return

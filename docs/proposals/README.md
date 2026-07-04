@@ -463,10 +463,11 @@ compare it with `../specification/` before changing behavior.
   integer range failures,
   generated bounded repeated schema
   field truncation diagnostics with indexed field paths in JSON and human
-  output, plus hand-written codec decode consumed-count failures and their
-  command-facing projection.
+  output.
   The completed codec-owned decode invalid id slice is archived under
   [Codec Owned Decode Invalid Id Diagnostics](../reference/implemented-proposals/codec-owned-decode-invalid-id-diagnostics.md).
+  The completed codec-owned consumed-count invalid slice is archived under
+  [Codec Consumed Count Invalid Diagnostics](../reference/implemented-proposals/codec-consumed-count-invalid-diagnostics.md).
   The completed codec-owned sequence mismatch slice is archived under
   [Codec Sequence Mismatch Diagnostics](../reference/implemented-proposals/codec-sequence-mismatch-diagnostics.md).
   The completed codec-owned payload length mismatch slice is archived under

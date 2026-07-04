@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.consumed_count_invalid]: invalid decoded consumed count at byte offset 21", "note: Field path: schema `ManualPacketWire` / field `count`.", "note: Decoder consumed 5 byte(s); supplied view length was 3 byte(s).", "note: Consumed count reason: decoded consumed count is outside supplied ByteView.", "note: DecodeError value: DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoded consumed count is outside supplied ByteView)."]
