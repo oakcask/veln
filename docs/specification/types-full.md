@@ -122,12 +122,15 @@ queries.
 When a local `let` binding omits its annotation and its initializer leaves the
 binding type with `unknown`, later same-function uses may fix the binding to
 one concrete type. Implemented constraining uses include call arguments and
-tail expressions checked against a declared return type. The binding remains
-monomorphic: after one concrete type is fixed, a later incompatible use reports
-`type.mismatch`. If no same-function use fixes every `unknown` part of the
-binding type, checking reports `type.local_inference_incomplete` at the
-omitted binding. The JSON details identify the local binding slot and include
-the current inferred type.
+tail expressions checked against a declared return type. An `if` branch result
+may also fix the binding when the enclosing `if` expression receives one
+concrete expected type from an implemented context such as a declared return
+type, local annotation, call argument, record field, match arm, outer `if`
+branch, or constructor payload. The binding remains monomorphic: after one
+concrete type is fixed, a later incompatible use reports `type.mismatch`. If
+no same-function use fixes every `unknown` part of the binding type, checking
+reports `type.local_inference_incomplete` at the omitted binding. The JSON
+details identify the local binding slot and include the current inferred type.
 
 Non-empty `Vec<T>` literal initializers infer an omitted local binding as
 `Vec<T>` from the first element when all later elements are assignable to the
