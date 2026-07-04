@@ -16,16 +16,20 @@ For the checked slice, a carried bounded dynamic table can contain multiple
 entries. The indexed byte `0xbe` resolves to the newest carried entry,
 `0xbf` resolves to the next older carried entry, and each accepted decode
 advances the dynamic-core decode count. The boundary also accepts saturated
-seven-bit indexed representation `0xff 0x00` as HPACK index `127`, resolving
-dynamic table index `65` when the supplied bounded table carries that retained
-entry.
+seven-bit indexed representations `0xff 0x00` and `0xff 0x80 0x00` as HPACK
+index `127`, resolving dynamic table index `65` when the supplied bounded
+table carries that retained entry.
 
 An indexed byte that asks past the carried table reports the focused
 `hpack.fixture.dynamic_index_out_of_range` fact shape with the requested
 dynamic index, the bounded dynamic table entry count, the inspected offset,
 and the `hpack_dynamic_core` module name without advancing state. It does not
 fall back to a generic unsupported-header-block failure for this checked
-out-of-range dynamic index.
+out-of-range dynamic index, including the multi-continuation representation
+`0xff 0x80 0x01`.
+
+HTTP/2 completed HEADERS decoding routes accepted and out-of-range dynamic
+indexed fields through this source-visible boundary before fixture fallback.
 
 Unsupported HPACK forms, dynamic-name continuations, literal insertion into
 the broader fixture table, and full HPACK compression remain outside this
@@ -37,10 +41,14 @@ recorded in
 
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the accepted source-visible `hpack_dynamic_core` dynamic indexed decode for
-  multiple carried bounded entries, the saturated seven-bit `0xff 0x00`
-  indexed representation, decode-count advancement after each accepted decode,
-  and the focused out-of-range dynamic index failure facts without state
-  advancement when the requested entry is not carried.
+  multiple carried bounded entries, the saturated seven-bit `0xff 0x00` and
+  `0xff 0x80 0x00` indexed representations, decode-count advancement after
+  each accepted decode, and the focused out-of-range dynamic index failure
+  facts without state advancement when the requested entry is not carried.
+- `../../../examples/specification/run/http2-protocol-core/` checks completed
+  HEADERS routing through the same source-visible dynamic indexed boundary for
+  the accepted `0xff 0x80 0x00` retained older entry and rejected
+  `0xff 0x80 0x01` out-of-range entry.
 - The same case keeps the existing fixture-owned dynamic-table behavior and
   outbound HPACK fixture encoder coverage around the new source-visible core
   boundary.
