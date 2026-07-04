@@ -33,6 +33,8 @@ compiler-known calls.
   `WriteDeadlineExpired`, cancellable deadline-aware stream writes that
   return `WriteCompleted`, `WriteDeadlineExpired`, or `WriteCancelled`
   values, source-visible `net::connect` client streams,
+  `net::listener_local_addr` endpoint text inspection for `NetListener`
+  handles,
   `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
   inspection for accepted and connected `NetStream` handles,
   fixture-backed stream writes,

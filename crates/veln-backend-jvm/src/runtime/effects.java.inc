@@ -11,6 +11,7 @@
 
     private static final class NetListener {
         private final String address;
+        private final String localAddress;
         private final boolean productionSocket;
         private final java.net.ServerSocket server;
         private final LoopbackClient loopbackClient;
@@ -26,12 +27,13 @@
             new java.util.concurrent.atomic.AtomicInteger(0);
 
         private NetListener(String address) {
-            this(address, false, null, null, null, 0);
+            this(address, address, false, null, null, null, 0);
         }
 
         private NetListener(String address, java.net.ServerSocket server, LoopbackClient loopbackClient) {
             this(
                 address,
+                formatSocketAddress(server.getLocalSocketAddress()),
                 true,
                 server,
                 loopbackClient,
@@ -41,11 +43,12 @@
         }
 
         private NetListener(String address, java.util.List<InMemoryLoopback> inMemoryLoopbacks) {
-            this(address, true, null, null, inMemoryLoopbacks, inMemoryLoopbacks.size());
+            this(address, address, true, null, null, inMemoryLoopbacks, inMemoryLoopbacks.size());
         }
 
         private NetListener(
             String address,
+            String localAddress,
             boolean productionSocket,
             java.net.ServerSocket server,
             LoopbackClient loopbackClient,
@@ -53,6 +56,7 @@
             int productionStreamCount
         ) {
             this.address = address;
+            this.localAddress = localAddress;
             this.productionSocket = productionSocket;
             this.server = server;
             this.loopbackClient = loopbackClient;
@@ -1019,6 +1023,14 @@
         return unwrapOk(chunk);
     }
 
+    public static Object netListenerLocalAddr(Object listener) {
+        if (forced("VELN_NET_ADDR_FAILED")) {
+            throw new RuntimeFailure("transport address failed: VELN_NET_ADDR_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        return checkedListenerAddress(value.localAddress);
+    }
+
     public static Object netStreamLocalAddr(Object stream) {
         if (forced("VELN_NET_ADDR_FAILED")) {
             throw new RuntimeFailure("transport address failed: VELN_NET_ADDR_FAILED");
@@ -1842,6 +1854,13 @@
     private static String checkedStreamAddress(String address, String side) {
         if (address == null || address.isEmpty()) {
             throw new RuntimeFailure("transport address failed: missing " + side + " stream address");
+        }
+        return address;
+    }
+
+    private static String checkedListenerAddress(String address) {
+        if (address == null || address.isEmpty()) {
+            throw new RuntimeFailure("transport address failed: missing listener address");
         }
         return address;
     }

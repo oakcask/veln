@@ -197,6 +197,7 @@ net::accept(listener: NetListener) -> NetStream effects [net]
 net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
 net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
 net::accept_until_cancellable(listener: NetListener, deadline: Deadline, token: CancelToken) -> AcceptOutcome effects [net, time]
+net::listener_local_addr(listener: NetListener) -> String effects [net]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::stream_local_addr(stream: NetStream) -> String effects [net]
 net::stream_peer_addr(stream: NetStream) -> String effects [net]
@@ -230,7 +231,8 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
-`net::accept_or_end`, `net::read_chunk`, `net::read_chunk_or_end`, and
+`net::accept_or_end`, `net::listener_local_addr`, `net::read_chunk`,
+`net::read_chunk_or_end`, and
 `net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
 `net::close_stream`, and `net::close_listener` also infer the same coarse
 `net` effect. Direct calls
@@ -313,9 +315,14 @@ Connected and accepted streams expose endpoint text through
 `net::stream_local_addr` and `net::stream_peer_addr`, and use the same
 read, write, write-side shutdown, and close helpers. Forced connection
 failure remains a runtime transport failure.
+Fixture-backed listeners expose their local endpoint text through
+`net::listener_local_addr` before accept work without exposing host socket
+handles, closing the listener, or changing later accepted streams.
 When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
 host loopback listener and deterministic loopback stream sequence:
-`net::listen` binds the requested host and port, `net::connect` returns a
+`net::listen` binds the requested host and port,
+`net::listener_local_addr` reports the bound listener endpoint text,
+`net::connect` returns a
 deterministic client-side loopback stream, `net::accept` and
 `net::accept_or_end` accept a loopback client as a `NetStream`,
 `net::accept_until` accepts before the supplied deadline or reports clean
