@@ -109,6 +109,7 @@ pub(crate) enum CodecCallBoundary {
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
 pub(crate) const SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX: &str = "schema-neutral-decode:";
+pub(crate) const SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX: &str = "schema-neutral-encode:";
 pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
 pub(crate) const SCHEMA_ENCODE_STEP_TARGET_PREFIX: &str = "schema-encode-step:";
 pub(crate) const SCHEMA_VALIDATE_TARGET_PREFIX: &str = "schema-validate:";
@@ -3082,6 +3083,17 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     )
 }
 
+fn format_neutral_schema_encode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type)>> {
+    schema
+        .fields
+        .iter()
+        .map(|field| {
+            let ty = parse_type_annotation(&field.ty).ok()?;
+            format_neutral_schema_scalar_type(&ty).then_some((field.name.clone(), ty))
+        })
+        .collect()
+}
+
 fn format_neutral_schema_visible_shape_type_for_schema(
     module: &SurfaceModule,
     current_module: Option<&str>,
@@ -3781,6 +3793,21 @@ fn schema_encode_function_signature_for_schema(
     schema: &SchemaDecl,
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
+    if schema.format.is_none() {
+        let value_type = Type::Record(format_neutral_schema_encode_record_fields(schema)?);
+        return Some(FunctionSignature {
+            name: schema_encode_function_name(schema_name),
+            target_name: format!("{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{schema_name}"),
+            module_name: schema.module_name.clone(),
+            visibility: schema.visibility,
+            params: vec![value_type.clone()],
+            variadic: None,
+            return_type: Type::named("Result", vec![value_type, Type::string()]),
+            effects: Vec::new(),
+            node_id: schema.node_id,
+            span: schema.span.clone(),
+        });
+    }
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
     }

@@ -841,6 +841,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaNeutralDecode(name) => {
                 self.emit_schema_neutral_decode_call(code, name, args);
             }
+            IrCallTarget::SchemaNeutralEncode(name) => {
+                self.emit_schema_neutral_encode_call(code, name, args);
+            }
             IrCallTarget::SchemaEncode(name) => {
                 self.emit_schema_encode_call(code, name, args);
             }
@@ -1012,6 +1015,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_neutral_decode_call(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        args: &[IrExpr],
+    ) {
+        self.emit_schema_validate_call(code, name, args);
+    }
+
+    fn emit_schema_neutral_encode_call(
         &mut self,
         code: &mut MethodCode,
         name: &str,

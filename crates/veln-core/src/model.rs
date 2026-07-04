@@ -136,6 +136,7 @@ pub enum CoreCallTarget {
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaNeutralDecode(String),
+    SchemaNeutralEncode(String),
     SchemaEncode(String),
     SchemaEncodeStep(String),
     SchemaValidate(String),
