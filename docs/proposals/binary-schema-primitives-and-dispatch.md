@@ -19,6 +19,9 @@ under
 The completed `UInt48be` and `UInt48le` exact-width primitive slice is archived
 under
 [Binary Schema UInt48 Primitives](../reference/implemented-proposals/binary-schema-u48-primitives.md).
+The completed direct visible `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`,
+`UInt56be`, and `UInt64be` generated helper parity slices are archived under
+[Binary Schema Big-Endian Width Parity](../reference/implemented-proposals/binary-schema-big-endian-width-parity.md).
 The completed schema-local field reference diagnostics slice is archived under
 [Binary Schema Field Reference Diagnostics](../reference/implemented-proposals/binary-schema-field-reference-diagnostics.md).
 Schema-level value projection is no longer part of this proposal: `map to` in

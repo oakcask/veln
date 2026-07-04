@@ -214,11 +214,15 @@ compare it with `../specification/` before changing behavior.
   decode used by the HTTP/2 protocol-core frame-header path,
   width-sample primitive decode, `UInt16le`, `UInt24le`,
   `UInt31le`, `UInt32le`, `UInt48le`, `UInt56le`, and `UInt64le`
-  little-endian primitive decode and encode, `UInt40be` and `UInt40le`
+  little-endian primitive decode and encode,
+  `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, `UInt56be`, and `UInt64be`
+  direct visible
+  big-endian generated helper parity
+  ([Binary Schema Big-Endian Width Parity](../reference/implemented-proposals/binary-schema-big-endian-width-parity.md)),
+  `UInt40be` and `UInt40le`
   five-byte primitive decode and encode
   ([Binary Schema UInt40 Primitives](../reference/implemented-proposals/binary-schema-u40-primitives.md)),
-  `UInt48be` six-byte, `UInt56be` seven-byte, and `UInt64be` eight-byte
-  big-endian primitive decode and encode,
+  `UInt48be` six-byte big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,

@@ -1,0 +1,40 @@
+# Binary schema UInt31be encode rejects values above the visible high-bit limit.
+use stdio
+
+schema BigEndianStreamWire
+	format binary
+
+	stream_value: UInt31be
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_big_endian_stream_wire({stream_value: 2147483648})
+	match encoded
+		Ok(_) => stdio::println("unexpected UInt31be encode success")
+		Err(error) => emit_error(error)
+	end
+end
