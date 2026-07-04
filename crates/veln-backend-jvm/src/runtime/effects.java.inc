@@ -16,6 +16,10 @@
         private final LoopbackClient loopbackClient;
         private java.util.List<InMemoryLoopback> inMemoryLoopbacks;
         private final int productionStreamCount;
+        private final java.util.concurrent.atomic.AtomicInteger sourceConnectionCount =
+            new java.util.concurrent.atomic.AtomicInteger(0);
+        private final java.util.concurrent.ConcurrentLinkedQueue<NetStream> sourceAcceptedStreams =
+            new java.util.concurrent.ConcurrentLinkedQueue<NetStream>();
         private final java.util.concurrent.atomic.AtomicBoolean closed =
             new java.util.concurrent.atomic.AtomicBoolean(false);
         private final java.util.concurrent.atomic.AtomicInteger productionAcceptIndex =
@@ -62,6 +66,22 @@
 
         private int nextProductionAcceptIndex() {
             return productionAcceptIndex.getAndIncrement();
+        }
+
+        private int recordSourceConnection() {
+            return sourceConnectionCount.getAndIncrement();
+        }
+
+        private boolean hasSourceConnection() {
+            return sourceConnectionCount.get() > 0;
+        }
+
+        private void addSourceAcceptedStream(NetStream stream) {
+            sourceAcceptedStreams.add(stream);
+        }
+
+        private NetStream pollSourceAcceptedStream() {
+            return sourceAcceptedStreams.poll();
         }
 
         private boolean isClosed() {
@@ -296,6 +316,32 @@
         }
     }
 
+    private static final class ProductionListenerBinding {
+        private final NetListener listener;
+        private final String host;
+        private final int port;
+
+        private ProductionListenerBinding(NetListener listener, String host, int port) {
+            this.listener = listener;
+            this.host = host;
+            this.port = port;
+        }
+    }
+
+    private static final class SourceLoopback {
+        private final java.io.PipedInputStream serverInput;
+        private final java.io.PipedInputStream clientInput;
+        private final java.io.PipedOutputStream serverOutput;
+        private final java.io.PipedOutputStream clientOutput;
+
+        private SourceLoopback() throws java.io.IOException {
+            serverInput = new java.io.PipedInputStream();
+            clientInput = new java.io.PipedInputStream();
+            serverOutput = new java.io.PipedOutputStream(clientInput);
+            clientOutput = new java.io.PipedOutputStream(serverInput);
+        }
+    }
+
     private static final class LoopbackClient implements Runnable {
         private final String host;
         private final int port;
@@ -319,7 +365,10 @@
             return outboundStreams.size();
         }
 
-        private void start() {
+        private synchronized void start() {
+            if (thread != null) {
+                return;
+            }
             thread = new Thread(this, "veln-net-loopback-client");
             thread.setDaemon(true);
             thread.start();
@@ -372,6 +421,8 @@
 
     private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
         netReadIndexes = new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, ProductionListenerBinding>
+        productionListenerBindings = new java.util.concurrent.ConcurrentHashMap<String, ProductionListenerBinding>();
     private static final java.util.concurrent.atomic.AtomicInteger waitOutcomeIndex =
         new java.util.concurrent.atomic.AtomicInteger(0);
 
@@ -502,6 +553,10 @@
     }
 
     private static Object netConnectProduction(String address) {
+        ProductionListenerBinding binding = productionListenerBindings.get(address);
+        if (binding != null && !binding.listener.isClosed()) {
+            return netConnectProductionListener(address, binding);
+        }
         java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
         if (inputs.isEmpty()) {
             inputs = java.util.Collections.singletonList(
@@ -520,6 +575,74 @@
             );
         }
         return new NetStream(streamId, loopbackPeerAddress(0), address, loopback, true);
+    }
+
+    private static Object netConnectProductionListener(
+        String address,
+        ProductionListenerBinding binding
+    ) {
+        if (binding.host == null) {
+            return netConnectProductionInMemoryListener(address, binding.listener);
+        }
+        java.net.Socket socket = null;
+        try {
+            socket = new java.net.Socket();
+            socket.connect(
+                new java.net.InetSocketAddress(binding.host, binding.port),
+                productionTimeoutMillis()
+            );
+            socket.setSoTimeout(productionTimeoutMillis());
+            int index = binding.listener.recordSourceConnection();
+            String streamId = sourceProductionStreamId(index);
+            writeNetEvent("connect-production " + address + " " + streamId);
+            String localAddress = formatSocketAddress(socket.getLocalSocketAddress());
+            String peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
+            return new NetStream(
+                streamId,
+                localAddress,
+                peerAddress,
+                socket,
+                null,
+                false,
+                socket.getInputStream(),
+                socket.getOutputStream()
+            );
+        } catch (java.io.IOException | RuntimeException error) {
+            closeQuietly(socket);
+            throw new RuntimeFailure("transport connect failed: production socket failed", error);
+        }
+    }
+
+    private static Object netConnectProductionInMemoryListener(String address, NetListener listener) {
+        try {
+            int index = listener.recordSourceConnection();
+            SourceLoopback loopback = new SourceLoopback();
+            String clientStreamId = sourceProductionStreamId(index);
+            String serverStreamId = productionStreamId(index, listener.productionStreamCount);
+            listener.addSourceAcceptedStream(new NetStream(
+                serverStreamId,
+                address,
+                loopbackPeerAddress(index),
+                null,
+                null,
+                false,
+                loopback.serverInput,
+                loopback.serverOutput
+            ));
+            writeNetEvent("connect-production " + address + " " + clientStreamId);
+            return new NetStream(
+                clientStreamId,
+                loopbackPeerAddress(index),
+                address,
+                null,
+                null,
+                false,
+                loopback.clientInput,
+                loopback.clientOutput
+            );
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure("transport connect failed: production socket failed", error);
+        }
     }
 
     private static Object netListenProduction(String address) {
@@ -546,10 +669,18 @@
                     server.getLocalPort(),
                     inputs
                 );
-                client.start();
             }
             writeNetEvent("listen-production " + address);
-            return new NetListener(address, server, client);
+            NetListener listener = new NetListener(address, server, client);
+            productionListenerBindings.put(
+                address,
+                new ProductionListenerBinding(
+                    listener,
+                    loopbackConnectHost(server),
+                    server.getLocalPort()
+                )
+            );
+            return listener;
         } catch (java.io.IOException | RuntimeException error) {
             closeQuietly(server);
             return netListenProductionInMemory(address);
@@ -577,7 +708,12 @@
                 error
             );
         }
-        return new NetListener(address, loopbacks);
+        NetListener listener = new NetListener(address, loopbacks);
+        productionListenerBindings.put(
+            address,
+            new ProductionListenerBinding(listener, null, 0)
+        );
+        return listener;
     }
 
     public static Object netAccept(Object listener) {
@@ -745,6 +881,7 @@
         int index = listener.nextProductionAcceptIndex();
         if (index >= listener.productionStreamCount) {
             closeQuietly(listener.server);
+            removeProductionListenerBinding(listener);
             try {
                 writeNetEvent("accept-end-production " + listener.address);
             } catch (java.io.IOException | RuntimeException error) {
@@ -760,6 +897,21 @@
         }
         String streamId = productionStreamId(index, listener.productionStreamCount);
         boolean last = index + 1 >= listener.productionStreamCount;
+        NetStream sourceAcceptedStream = listener.pollSourceAcceptedStream();
+        if (sourceAcceptedStream != null) {
+            try {
+                writeNetEvent("accept-production " + listener.address + " " + sourceAcceptedStream.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport accept failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            if (last) {
+                removeProductionListenerBinding(listener);
+            }
+            return sourceAcceptedStream;
+        }
         if (listener.inMemoryLoopbacks != null) {
             try {
                 writeNetEvent("accept-production " + listener.address + " " + streamId);
@@ -778,10 +930,14 @@
             );
         }
         try {
+            if (listener.loopbackClient != null && !listener.hasSourceConnection()) {
+                listener.loopbackClient.start();
+            }
             java.net.Socket socket = listener.server.accept();
             socket.setSoTimeout(productionTimeoutMillis());
             if (last) {
                 closeQuietly(listener.server);
+                removeProductionListenerBinding(listener);
             }
             writeNetEvent("accept-production " + listener.address + " " + streamId);
             String localAddress = formatSocketAddress(socket.getLocalSocketAddress());
@@ -1248,6 +1404,7 @@
                 }
             }
             value.releaseLoopbackListenerState();
+            removeProductionListenerBinding(value);
         }
         try {
             writeNetEvent(
@@ -1664,6 +1821,20 @@
         return "production-stream-" + (index + 1);
     }
 
+    private static String sourceProductionStreamId(int index) {
+        if (index <= 0) {
+            return "production-client-stream";
+        }
+        return "production-client-stream-" + (index + 1);
+    }
+
+    private static void removeProductionListenerBinding(NetListener listener) {
+        ProductionListenerBinding binding = productionListenerBindings.get(listener.address);
+        if (binding != null && binding.listener == listener) {
+            productionListenerBindings.remove(listener.address, binding);
+        }
+    }
+
     private static String loopbackPeerAddress(int index) {
         return "127.0.0.1:" + (index + 1);
     }
@@ -1746,6 +1917,16 @@
         }
         try {
             server.close();
+        } catch (java.io.IOException error) {
+        }
+    }
+
+    private static void closeQuietly(java.net.Socket socket) {
+        if (socket == null) {
+            return;
+        }
+        try {
+            socket.close();
         } catch (java.io.IOException error) {
         }
     }

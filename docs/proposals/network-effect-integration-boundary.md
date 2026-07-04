@@ -105,8 +105,9 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable deadline-aware stream read, `time::cancel_owner`,
   `time::cancel_token_from`, `time::cancel_owned`, and
   `time::is_cancelled_owner`
-- richer production socket APIs beyond the checked deterministic fixture,
-  source-visible client connect, and loopback adapter shapes
+- richer production socket APIs not covered by the checked deterministic
+  fixture, source-visible client connect, source-visible listen/connect
+  pairing, and loopback adapter shapes
 
 ## Discussion Result: Network Effect Labels
 
@@ -123,6 +124,9 @@ The completed endpoint text inspection slice is archived under
 `../reference/implemented-proposals/network-stream-address-metadata.md`.
 The completed source-visible client connect slice is archived under
 [Network Client Connect Boundary](../reference/implemented-proposals/network-client-connect-boundary.md).
+The completed source-visible production listener/client pairing slice is
+archived under
+[Network Production Listen Connect Lifecycle](../reference/implemented-proposals/network-production-listen-connect-lifecycle.md).
 
 The remaining transport surface should keep the existing coarse `net` effect
 label until effect handlers or an equivalent runtime permission mechanism are
@@ -461,6 +465,10 @@ recorded as implemented in
 The explicit listener-close boundary is recorded as implemented in
 `../reference/implemented-proposals/network-listener-close-boundary.md`.
 
+The source-visible production listen/connect lifecycle slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-production-listen-connect-lifecycle.md`.
+
 The adapter-owned multi-handler outbound write-ordering and outbound
 write-failure slices are recorded as implemented in
 `../reference/implemented-proposals/network-adapter-outbound-write-ordering.md`.
@@ -667,8 +675,9 @@ standard-library surface.
   fixture-backed listener/stream handles, stream-task handler, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
   lifecycle, channel-first routing, cancellable routing, accepted-stream
-  lifecycle, and cancellable channel-first completion slices; remaining
-  examples still need richer production socket APIs. Deadline and
+  lifecycle, cancellable channel-first completion, and source-visible
+  listener/client pairing slices; remaining examples still need richer
+  production socket APIs. Deadline and
   cancellation behavior is complete for this proposal at the current relative
   and absolute monotonic `Deadline`, `CancelToken`, cancellation status-query,
   cancellable wait-outcome, cancellable deadline-aware listener accept, stream

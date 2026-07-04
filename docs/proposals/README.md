@@ -646,6 +646,9 @@ compare it with `../specification/` before changing behavior.
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed source-visible client connect boundary is archived under
   [Network Client Connect Boundary](../reference/implemented-proposals/network-client-connect-boundary.md).
+  The completed source-visible production listener/client pairing boundary is
+  archived under
+  [Network Production Listen Connect Lifecycle](../reference/implemented-proposals/network-production-listen-connect-lifecycle.md).
   The completed adapter-owned multi-handler outbound write-ordering and
   outbound write-failure slices are archived under
   [Network Adapter Outbound Write Ordering](../reference/implemented-proposals/network-adapter-outbound-write-ordering.md).

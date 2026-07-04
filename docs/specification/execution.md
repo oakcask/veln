@@ -37,7 +37,11 @@ enough.
   configured read chunk for one accepted stream, and `net::connect` can return
   a deterministic client-side loopback stream with the same read, write, and
   close lifecycle; each chunk is observed by source as a separate read result
-  before clean end. The
+  before clean end. A source-visible production listen/connect lifecycle can
+  also use one address value for `net::listen` and `net::connect`, accept the
+  paired server stream, exchange a byte chunk across the two owned stream
+  handles, close both handles, and then observe clean listener end before
+  closing the listener. The
   cancellable receiver-list channel-first adapter observes cancellation as an
   ordinary routed, timed-out, or cancelled source outcome before producing
   adapter actions, instead of adding another fixed route-count execution

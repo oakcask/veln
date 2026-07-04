@@ -308,6 +308,8 @@ behavior.
   [network-cancel-owner-status.md](network-cancel-owner-status.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
+- Network production listen/connect lifecycle:
+  [network-production-listen-connect-lifecycle.md](network-production-listen-connect-lifecycle.md).
 - Network production cancellable deadline lifecycle:
   [network-production-cancellable-deadline-lifecycle.md](network-production-cancellable-deadline-lifecycle.md).
 - Network production owner-drain lifecycle:

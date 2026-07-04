@@ -38,8 +38,9 @@ compiler-known calls.
   fixture-backed stream writes,
   stream close recording, and listener close recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
-  client connects, reads, writes, clean listener end, stream close, and
-  listener close under the same public calls,
+  client connects, source-visible listener/client connect pairing, reads,
+  writes, clean listener end, stream close, and listener close under the same
+  public calls,
   relative and absolute monotonic deadline calls, and cancellable deadline
   waits through
   source-visible `CancelToken` handles. `time::cancel_owner` creates a
@@ -150,8 +151,13 @@ compiler-known calls.
   lifecycle accepts two independent production streams from one listener,
   routes each stream through the same ordinary handler/action boundary, writes
   only ordered `SendBytes` actions, closes each stream, and observes clean
-  listener end without adding public calls or effect labels. The production
-  multi-chunk routing lifecycle accepts one production stream, preserves
+  listener end without adding public calls or effect labels. A source-visible
+  production listen/connect lifecycle opens one production-owned listener from
+  an address value, connects a source-owned client stream through the same
+  value, accepts the paired server stream, exchanges one byte chunk, closes
+  both stream handles, observes clean listener end, and closes the listener
+  under the existing `net` effect boundary. The production multi-chunk routing
+  lifecycle accepts one production stream, preserves
   configured read chunk boundaries as repeated `net::read_chunk_or_end`
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an
   existing channel to a pure handler, and projects ordered `SendBytes` actions
