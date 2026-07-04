@@ -9,6 +9,7 @@ specified by `../../specification/names-effects.md`,
 checked examples under
 `../../../examples/specification/run/transport-socket-listener-address/`,
 `../../../examples/specification/run/transport-socket-production-listener-address/`,
+`../../../examples/specification/run/transport-socket-listener-address-failure-json/`,
 and
 `../../../examples/specification/check/transport-socket-listener-address-effects/`.
 
@@ -30,8 +31,9 @@ accepted streams keep their existing ownership and lifecycle.
 The checked run cases pin both fixture-backed and production-loopback paths by
 reading the listener endpoint before accept work, then confirming accepted
 stream endpoint inspection, stream reads, stream close, and listener close
-still use the same ownership path. The checked effect case pins the required
-`net` effect and descriptor provenance.
+still use the same ownership path. The failure case pins listener endpoint
+metadata lookup failure as a runtime transport failure in run JSON. The checked
+effect case pins the required `net` effect and descriptor provenance.
 
 ## Remaining Work
 

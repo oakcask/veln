@@ -333,8 +333,8 @@ requiring the full command reference on the first read.
   Transport runtime
   failures from descriptor-backed
   receive/send calls, fixture-backed or production loopback socket
-  listen/accept/read/write calls, and relative timeout or deadline calls stay
-  runtime errors.
+  listen/accept/read/write and address metadata calls, and relative timeout
+  or deadline calls stay runtime errors.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement,
   `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest
