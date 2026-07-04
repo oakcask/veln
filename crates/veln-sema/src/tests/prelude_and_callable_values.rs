@@ -312,6 +312,73 @@ fn generated_schema_encode_helpers_resolve_from_format_neutral_container_declara
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_from_option_dict_encode_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema OptionDictPacket\n",
+            "  scores: Option<Dict<String, Int>>\n",
+            "  states: Option<Dict<String, Bool>>\n",
+            "  weights: Option<Dict<String, Float>>\n",
+            "  names: Option<Dict<String, String>>\n",
+            "  metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}) -> Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>\n",
+            "  byte_encode_option_dict_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}) -> Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>\n",
+            "  encode OptionDictPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "OptionDictPacket" && args.len() == 1
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "OptionDictPacket" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_from_option_vec_encode_declarations() {
     let source = SourceFile::new(
         "main.veln",
@@ -444,6 +511,14 @@ fn generated_format_neutral_schema_encode_helpers_reject_dict_boundaries() {
         (
             "Dict<String, Option<Int>>",
             "{items: Dict<String, Option<Int>>}",
+        ),
+        (
+            "Option<Dict<Int, String>>",
+            "{items: Option<Dict<Int, String>>}",
+        ),
+        (
+            "Option<Dict<String, Option<Int>>>",
+            "{items: Option<Dict<String, Option<Int>>>}",
         ),
     ] {
         let source = SourceFile::new(

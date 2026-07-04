@@ -272,6 +272,8 @@ behavior.
   [format-neutral-schema-option-vec-encode-helpers.md](format-neutral-schema-option-vec-encode-helpers.md).
 - Format-neutral schema `Dict<String, scalar>` encode helpers:
   [format-neutral-schema-dict-scalar-encode-helpers.md](format-neutral-schema-dict-scalar-encode-helpers.md).
+- Format-neutral schema `Option<Dict<String, scalar>>` encode helpers:
+  [format-neutral-schema-option-dict-encode-helpers.md](format-neutral-schema-option-dict-encode-helpers.md).
 - Format-neutral schema container encode helpers:
   [format-neutral-schema-container-encode-helpers.md](format-neutral-schema-container-encode-helpers.md).
 - Codec hand-written encode resume:

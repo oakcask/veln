@@ -1,0 +1,113 @@
+# Format-neutral schema encode helpers accept Option<Dict<String, scalar>> fields.
+use stdio
+
+schema OptionDictPacket
+	scores: Option<Dict<String, Int>>
+	states: Option<Dict<String, Bool>>
+	weights: Option<Dict<String, Float>>
+	names: Option<Dict<String, String>>
+	metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}
+end
+
+fn encoded_score(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> Int
+	match result
+		Ok(packet) => match packet.scores
+			Some(scores) => match dict_get(scores, "math")
+				Some(value) => value
+				None => -1
+			end
+			None => -2
+		end
+		Err(_) => -3
+	end
+end
+
+fn encoded_state(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.states
+			Some(states) => match dict_get(states, "enabled")
+				Some(value) => match value
+					true => "enabled"
+					false => "disabled"
+				end
+				None => "missing-state"
+			end
+			None => "missing-states"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_weight(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.weights
+			Some(weights) => match dict_get(weights, "ratio")
+				Some(value) => match value > 1.0
+					true => "weight-high"
+					false => "weight-low"
+				end
+				None => "missing-weight"
+			end
+			None => "missing-weights"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_name(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.names
+			Some(names) => match dict_get(names, "owner")
+				Some(value) => value
+				None => "missing-name"
+			end
+			None => "missing-names"
+		end
+		Err(message) => message
+	end
+end
+
+fn nested_score(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> Int
+	match result
+		Ok(packet) => match packet.metadata.scores
+			Some(scores) => match dict_get(scores, "science")
+				Some(value) => value
+				None => -1
+			end
+			None => -2
+		end
+		Err(_) => -3
+	end
+end
+
+fn nested_name(result: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.names
+			Some(names) => match dict_get(names, "owner")
+				Some(value) => value
+				None => "missing-nested-name"
+			end
+			None => "missing-nested-names"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}} = {scores: Some({"math": 17, "language": 19}), states: Some({"enabled": true, "paused": false}), weights: Some({"ratio": 1.5, "bonus": 0.25}), names: Some({"owner": "core", "lane": "stable"}), metadata: {scores: Some({"science": 23}), states: Some({"enabled": true}), weights: Some({"ratio": 2.0}), names: Some({"owner": "nested-core"})}}
+	let empty_packet: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}} = {scores: None, states: None, weights: None, names: None, metadata: {scores: None, states: None, weights: None, names: None}}
+	let encoded: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String> = byte_encode_option_dict_packet(packet)
+	let explicit: Result<{scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>, metadata: {scores: Option<Dict<String, Int>>, states: Option<Dict<String, Bool>>, weights: Option<Dict<String, Float>>, names: Option<Dict<String, String>>}}, String> = encode OptionDictPacket from empty_packet
+	stdio::println(int_to_string(encoded_score(encoded)))
+	stdio::println(encoded_state(encoded))
+	stdio::println(encoded_weight(encoded))
+	stdio::println(encoded_name(encoded))
+	stdio::println(int_to_string(nested_score(encoded)))
+	stdio::println(nested_name(encoded))
+	stdio::println(int_to_string(encoded_score(explicit)))
+	stdio::println(encoded_state(explicit))
+	stdio::println(encoded_weight(explicit))
+	stdio::println(encoded_name(explicit))
+	stdio::println(int_to_string(nested_score(explicit)))
+	stdio::println(nested_name(explicit))
+end
