@@ -247,13 +247,18 @@ enough.
   indexed header-field representation when the caller supplies a bounded
   dynamic table carrying the referenced entries. The checked boundary decodes
   `0xbe` to the newest carried entry and `0xbf` to the next older carried
-  entry. It also decodes saturated seven-bit indexed representation
-  `0xff 0x00` as HPACK index `127`, resolving dynamic table index `65` when
-  the bounded carried table contains that retained entry. The boundary
+  entry. It also decodes saturated seven-bit indexed representations
+  `0xff 0x00` and `0xff 0x80 0x00` as HPACK index `127`, resolving dynamic
+  table index `65` when the bounded carried table contains that retained
+  entry. The boundary
   advances the dynamic-core decode count after each accepted decode and
   reports `hpack.fixture.dynamic_index_out_of_range` with requested dynamic
   index and entry-count facts when an indexed field asks past the carried
-  table without advancing state. The same ordinary-source boundary exposes
+  table without advancing state, including the checked multi-continuation
+  out-of-range representation `0xff 0x80 0x01`. HTTP/2 completed HEADERS
+  decoding tries this source-visible dynamic indexed boundary before fixture
+  fallback for accepted and out-of-range dynamic indexed fields. The same
+  ordinary-source boundary exposes
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first
   dynamic entries, evicts oldest entries after insertion or table-size

@@ -433,6 +433,10 @@ pub fn initial_dynamic_core_state() -> HpackDynamicCoreState
 	HpackDynamicCoreState(4096, 0, NoDynamicCoreEntry)
 end
 
+pub fn empty_dynamic_core_state(table_size: Int, decode_count: Int) -> HpackDynamicCoreState
+	HpackDynamicCoreState(table_size, decode_count, NoDynamicCoreEntry)
+end
+
 pub fn carried_single_dynamic_entry_state(table_size: Int, decode_count: Int, name: String, value: String) -> HpackDynamicCoreState
 	match dynamic_core_entry_size(name, value) <= table_size
 		true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, NoDynamicCoreEntry))

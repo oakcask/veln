@@ -1086,10 +1086,13 @@ static-name literal-with-indexing dynamic-state slice is archived under
 The narrow source-visible dynamic indexed HPACK core slice is also current
 behavior: `hpack_dynamic_core` accepts indexed bytes against multiple carried
 bounded dynamic-table entries, accepts saturated seven-bit indexed
-representation `0xff 0x00` for dynamic table index `65`, advances its decode
-count after accepted reads, and keeps the focused
+representations `0xff 0x00` and `0xff 0x80 0x00` for dynamic table index
+`65`, advances its decode count after accepted reads, and keeps the focused
 `hpack.fixture.dynamic_index_out_of_range` facts without advancing state when
-an indexed field asks past the carried table. The same source-visible boundary
+an indexed field asks past the carried table, including out-of-range
+`0xff 0x80 0x01`. HTTP/2 completed HEADERS now routes accepted and
+out-of-range dynamic indexed fields through that source-visible boundary
+before fixture fallback. The same source-visible boundary
 now exposes the dynamic-table accounting core: dynamic entry size is
 header-name byte count plus header-value byte count plus `32`; entries insert
 newest-first into immutable states; oldest entries are evicted after insertion
@@ -1109,6 +1112,8 @@ and
 [HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).
 The HTTP/2 route is checked by
 `../../examples/specification/run/http2-protocol-core/` and archived under
+[HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md)
+and
 [HTTP/2 HPACK Dynamic Raw Literal-Name Core](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-core.md).
 
 The remaining scope below is still planned work for the full protocol core and

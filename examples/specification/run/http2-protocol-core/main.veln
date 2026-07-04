@@ -836,12 +836,53 @@ fn hpack_static_next_hpack_state(headers: HpackHeaderList, hpack_state: HpackFix
 	end
 end
 
+fn dynamic_core_state_from_hpack_state(hpack_state: HpackFixtureState) -> HpackDynamicCoreState
+	dynamic_core_state_from_hpack_entries(hpack_state, hpack_fixture::state_dynamic_table_entry_count(hpack_state), hpack_dynamic_core::empty_dynamic_core_state(hpack_fixture::state_table_size(hpack_state), hpack_fixture::state_decode_count(hpack_state)))
+end
+
+fn dynamic_core_state_from_hpack_entries(hpack_state: HpackFixtureState, remaining: Int, dynamic_core_state: HpackDynamicCoreState) -> HpackDynamicCoreState
+	match remaining
+		0 => dynamic_core_state
+		_ => match hpack_fixture::state_dynamic_header_name_at(hpack_state, remaining - 1)
+			Some(name) => match hpack_fixture::state_dynamic_header_value_at(hpack_state, remaining - 1)
+				Some(value) => dynamic_core_state_from_hpack_entries(hpack_state, remaining - 1, hpack_dynamic_core::prepend_carried_dynamic_entry_state(dynamic_core_state, name, value))
+				None => dynamic_core_state
+			end
+			None => dynamic_core_state
+		end
+	end
+end
+
+fn header_block_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn header_block_byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match header_block_byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
 fn decode_completed_dynamic_core_raw_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match hpack_dynamic_core::decode_raw_literal_name_header_field(completed_header_block, hpack_dynamic_core::initial_dynamic_core_state(), offset)
 		Ok(transition) => match hpack_dynamic_core::dynamic_core_transition_headers(transition)
 			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_dynamic_core_next_hpack_state(headers, hpack_state), dynamic_core_header_list_to_hpack_header_list(headers))
 		end
-		Err(_) => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+		Err(_) => decode_completed_dynamic_core_indexed_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+	end
+end
+
+fn decode_completed_dynamic_core_indexed_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
+	match hpack_dynamic_core::decode_indexed_header_field(completed_header_block, dynamic_core_state_from_hpack_state(hpack_state), offset)
+		Ok(transition) => match hpack_dynamic_core::dynamic_core_transition_headers(transition)
+			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_fixture::state_after_literal_read(hpack_state), dynamic_core_header_list_to_hpack_header_list(headers))
+		end
+		Err(failure) => match hpack_dynamic_core::dynamic_core_failure_diagnostic_id(failure) == "hpack.fixture.dynamic_index_out_of_range"
+			true => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_dynamic_core::dynamic_core_failure_offset(failure), byte_count_to_int(byte_chunk_count(completed_header_block)), header_block_byte_at_or_missing(completed_header_block, 0), hpack_dynamic_core::dynamic_core_failure_requested_dynamic_index(failure), hpack_dynamic_core::dynamic_core_failure_dynamic_table_entry_count(failure), "source-visible dynamic indexed header", hpack_dynamic_core::dynamic_core_failure_decoder_module(failure), completed_header_block))
+			false => decode_completed_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
+		end
 	end
 end
 
@@ -5912,6 +5953,7 @@ fn hpack_fixture_failure_id(expected_fixture: String) -> String
 		"fixture HPACK malformed table-size update integer" => "hpack.fixture.table_size_update_malformed"
 		"fixture HPACK table-size update without trailing bytes" => "hpack.fixture.table_size_update_trailing_bytes"
 		"fixture dynamic indexed header" => "hpack.fixture.dynamic_index_out_of_range"
+		"source-visible dynamic indexed header" => "hpack.fixture.dynamic_index_out_of_range"
 		"fixture dynamic-name continuation entry" => "hpack.fixture.dynamic_name_continuation_missing"
 		"fixture dynamic-name continuation integer" => "hpack.fixture.dynamic_name_continuation_malformed"
 		"fixture dynamic-name continuation range" => "hpack.fixture.dynamic_name_continuation_out_of_range"
@@ -8367,6 +8409,20 @@ fn require_projected_hpack_fixture_failure(step: Http2Step) -> Result<(), String
 	project_hpack_fixture_decode_failure(step_failure(step))
 end
 
+fn require_hpack_dynamic_core_index_failure(step: Http2Step, requested_dynamic_index: Int, dynamic_table_entry_count: Int) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err("expected source-visible HPACK dynamic-core failure")
+		Waiting(_) => Err("expected source-visible HPACK dynamic-core failure")
+		Failed(_, failure) => match failure
+			HpackFixtureDecodeFailed(_, _, _, requested, entry_count, expected_fixture, codec_module, _) => match requested == requested_dynamic_index and entry_count == dynamic_table_entry_count and expected_fixture == "source-visible dynamic indexed header" and codec_module == "hpack_dynamic_core"
+				true => Ok(())
+				false => Err("unexpected source-visible HPACK dynamic-core failure")
+			end
+			_ => Err("expected source-visible HPACK dynamic-core failure")
+		end
+	end
+end
+
 fn continue_http2_deep_dynamic_path_state(inserted: Http2Step, state: Http2DecodeState, remaining: Int) -> Result<Http2DecodeState, String>
 	let ignored_inserted: () = require_hpack_transition_header(inserted, state, ":path", "/a")?
 	build_http2_deep_dynamic_path_state(remaining - 1, hpack_carry_only_state(step_state(inserted)))
@@ -8390,6 +8446,14 @@ fn print_hpack_wide_dynamic_name_cases() -> Result<(), String> effects [stdio]
 	let ignored_retained_older_continuation_chunk: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path", retained_older_continuation, "ff00")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path", retained_older_continuation, deep_state)
 	let ignored_retained_older_continuation: () = require_hpack_transition_header(retained_older_continuation, deep_state, ":path", "/a")?
+	let retained_older_multi_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001ff8000")?), deep_state)?
+	print_step("hpack-stateful-dynamic-indexed-multi-continuation-retained-older-path", retained_older_multi_continuation)
+	let ignored_retained_older_multi_continuation_chunk: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-multi-continuation-retained-older-path", retained_older_multi_continuation, "ff8000")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-multi-continuation-retained-older-path", retained_older_multi_continuation, deep_state)
+	let ignored_retained_older_multi_continuation: () = require_hpack_transition_header(retained_older_multi_continuation, deep_state, ":path", "/a")?
+	let multi_continuation_out_of_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001ff8001")?), deep_state)?
+	print_failure("hpack-stateful-dynamic-indexed-multi-continuation-out-of-range", multi_continuation_out_of_range)
+	let ignored_multi_continuation_out_of_range: () = require_hpack_dynamic_core_index_failure(multi_continuation_out_of_range, 193, 66)?
 	let literal_indexed_wide: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000037f40052f64656570")?), deep_state)?
 	print_step("hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide)
 	let ignored_literal_indexed_wide: () = emit_header_block("http2-hpack-stateful-dynamic-name-wide-indexed", literal_indexed_wide, "7f40052f64656570")?
