@@ -42,7 +42,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   two-stream multi-cycle routing boundary, production multi-chunk routing
   read-failure boundary, production multi-event adapter task-helper boundary,
   per-stream task handler-failure lifecycle boundary, accepted-stream address
-  metadata boundary, source-visible client connect boundary, the
+  metadata boundary, listener endpoint text inspection boundary,
+  source-visible client connect boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable

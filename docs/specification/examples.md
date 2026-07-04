@@ -19,6 +19,17 @@ behavior.
 - Same-module recursive dispatch missing primitive base rejection:
   `../../examples/specification/run/binary-schema-recursive-dispatch-rejected/`.
 
+## Network Routes
+
+- Fixture-backed listener endpoint text, accepted-stream endpoint text, read,
+  stream close, and listener close:
+  `../../examples/specification/run/transport-socket-listener-address/`.
+- Production-loopback listener endpoint text, accepted-stream endpoint text,
+  read, stream close, and listener close:
+  `../../examples/specification/run/transport-socket-production-listener-address/`.
+- `net::listener_local_addr` effect checking:
+  `../../examples/specification/check/transport-socket-listener-address-effects/`.
+
 ## Read When
 
 - Updating executable specification coverage.

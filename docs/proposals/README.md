@@ -639,6 +639,7 @@ compare it with `../specification/` before changing behavior.
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
   stream write, accepted-stream endpoint text inspection,
+  listener endpoint text inspection,
   adapter-owned source-visible client connect,
   listener-to-clean-stream-end lifecycle,
   context-based adapter
@@ -665,7 +666,8 @@ compare it with `../specification/` before changing behavior.
   boundary, production multi-chunk adapter event routing, production
   multi-event adapter task-helper routing, production multi-chunk
   read-failure runtime boundary, per-stream task handler-failure lifecycle
-  boundary, cancellation owner status query,
+  boundary, accepted-stream endpoint text inspection, listener endpoint text
+  inspection, cancellation owner status query,
   absolute monotonic deadline
   construction
   ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
