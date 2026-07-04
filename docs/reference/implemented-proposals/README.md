@@ -98,6 +98,8 @@ behavior.
   [local-inference-local-pattern-let.md](local-inference-local-pattern-let.md).
 - Local inference if branch local let:
   [local-inference-if-branch-local-let.md](local-inference-if-branch-local-let.md).
+- Local inference local let expected type paths:
+  [local-inference-local-let-expected-type-paths.md](local-inference-local-let-expected-type-paths.md).
 - Local inference nested initializer expected type:
   [local-inference-nested-initializer-expected-type.md](local-inference-nested-initializer-expected-type.md).
 - Local inference hole expected-type flow:

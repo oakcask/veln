@@ -83,10 +83,20 @@ without adding a binding, unconstrained nested bindings report
 from the wrong descriptor report `type.mismatch`.
 
 Remaining planned work in this section extends omitted local annotations into
-broader expected-type paths that are not covered by the current same-function
-local `let`, `if` branch local `let`, non-empty collection initializer, empty
-collection expected-type, hole expected-type flow, nested initializer
+broader inference paths that are not covered by the current same-function
+local `let`, local `let` expected-type path, non-empty collection initializer,
+empty collection expected-type, hole expected-type flow, nested initializer
 expected-type propagation, and local pattern slices.
+
+## Completed Local Let Expected-Type Path Slice
+
+The completed ordinary omitted local `let` expected-type path slice is
+archived under
+`../reference/implemented-proposals/local-inference-local-let-expected-type-paths.md`.
+Current behavior is specified in `../specification/types.md#read-first`,
+`../specification/types-full.md#inference`, and the checked examples under
+`../../examples/specification/check/local-let-inference/` and
+`../../examples/specification/check/local-let-inference-diagnostics/`.
 
 ## Completed Hole Expected-Type Flow Slice
 

@@ -20,7 +20,7 @@ compare it with `../specification/` before changing behavior.
   dictionary value expected-type paths, and
   other paths beyond the implemented same-function local `let`, non-empty
   collection initializer, `if` branch local `let`, empty collection expected-type,
-  nested initializer expected-type
+  local `let` expected-type path, nested initializer expected-type
   propagation, hole expected-type flow, empty collection callback return,
   payload-carrying ADT constructor inference, match scrutinee
   constructor-pattern inference, local pattern `let` inference,
@@ -45,6 +45,7 @@ compare it with `../specification/` before changing behavior.
   collection initializer inference, ADT constructor payload inference, match
   scrutinee constructor-pattern inference, local pattern `let` inference,
   `if` branch local `let` inference,
+  local `let` expected-type path inference,
   nested initializer expected-type propagation, hole expected-type flow, and
   examples cleanup, and diagnostic-details slices are archived under
   `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
@@ -69,6 +70,7 @@ compare it with `../specification/` before changing behavior.
   `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
   `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
   `../reference/implemented-proposals/local-inference-if-branch-local-let.md`,
+  `../reference/implemented-proposals/local-inference-local-let-expected-type-paths.md`,
   [local-inference-nested-initializer-expected-type.md](../reference/implemented-proposals/local-inference-nested-initializer-expected-type.md),
   `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`,
   `../reference/implemented-proposals/local-inference-examples-cleanup.md`,

@@ -38,7 +38,6 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
     suppressed_diagnostic_indices: BTreeSet<usize>,
-    if_branch_result_name_depth: usize,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -146,7 +145,6 @@ impl<'a> FunctionChecker<'a> {
             inferred_return_type: None,
             diagnostics: Vec::new(),
             suppressed_diagnostic_indices: BTreeSet::new(),
-            if_branch_result_name_depth: 0,
         }
     }
 
@@ -1634,12 +1632,6 @@ impl<'a> FunctionChecker<'a> {
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
         {
-            if self.omitted_local_bindings.iter().any(|omitted| {
-                omitted.name == name && omitted.deferred_initializer_diagnostic.is_some()
-            }) && self.if_branch_result_name_depth == 0
-            {
-                return Some(current);
-            }
             self.bindings[index].ty = expected.ty.clone();
             return Some(expected.ty.clone());
         }
@@ -2367,14 +2359,7 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
-        let branch_result_is_name = matches!(branch_expr.kind, ExprKind::NamePath(_));
-        if branch_result_is_name {
-            self.if_branch_result_name_depth += 1;
-        }
         let actual = self.infer_expr(branch_expr, branch_expected.as_ref());
-        if branch_result_is_name {
-            self.if_branch_result_name_depth -= 1;
-        }
         if let Some(expected) = &branch_expected {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
         }
