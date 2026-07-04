@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::boundary::{
     duplicate_name_diagnostic, exact_width_binary_primitive_name,
     exact_width_schema_primitive_diagnostic, lowercase_schema_primitive_position_diagnostic,
@@ -17,6 +19,15 @@ pub(crate) fn check_function_body(
     checker.diagnostics
 }
 
+fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool {
+    matches!(
+        value,
+        JsonValue::Object(entries) if entries.iter().any(|(name, value)| {
+            name == field && matches!(value, JsonValue::String(actual) if actual == expected)
+        })
+    )
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
@@ -26,6 +37,8 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) inferred_effects: Vec<EffectUse>,
     pub(super) inferred_return_type: Option<Type>,
     pub(super) diagnostics: Vec<Diagnostic>,
+    suppressed_diagnostic_indices: BTreeSet<usize>,
+    if_branch_result_name_depth: usize,
 }
 
 pub(in crate::analysis) struct PatternBinding {
@@ -39,6 +52,7 @@ struct OmittedLocalBinding {
     name: String,
     node_id: NodeId,
     span: SourceSpan,
+    deferred_initializer_diagnostic: Option<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -131,6 +145,8 @@ impl<'a> FunctionChecker<'a> {
             inferred_effects: Vec::new(),
             inferred_return_type: None,
             diagnostics: Vec::new(),
+            suppressed_diagnostic_indices: BTreeSet::new(),
+            if_branch_result_name_depth: 0,
         }
     }
 
@@ -157,6 +173,16 @@ impl<'a> FunctionChecker<'a> {
                     let actual = self.infer_expr(expr, expected.as_ref());
                     let initializer_has_diagnostic =
                         self.diagnostics.len() != initializer_diagnostic_count;
+                    let deferred_initializer_diagnostic = annotation
+                        .is_none()
+                        .then(|| {
+                            self.deferred_ambiguous_initializer_diagnostic(
+                                initializer_diagnostic_count,
+                                expr,
+                                &actual,
+                            )
+                        })
+                        .flatten();
                     if let Some(expected) = &expected {
                         self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
                     }
@@ -179,7 +205,8 @@ impl<'a> FunctionChecker<'a> {
                         self.bindings
                             .push(Binding::new(binding.name.clone(), binding.ty.clone()));
                         if annotation.is_none()
-                            && !initializer_has_diagnostic
+                            && (!initializer_has_diagnostic
+                                || deferred_initializer_diagnostic.is_some())
                             && !pattern_has_diagnostic
                             && type_contains_unknown(&binding.ty)
                         {
@@ -187,6 +214,7 @@ impl<'a> FunctionChecker<'a> {
                                 name: binding.name,
                                 node_id: binding.node_id,
                                 span: binding.span,
+                                deferred_initializer_diagnostic,
                             });
                         }
                     }
@@ -213,6 +241,40 @@ impl<'a> FunctionChecker<'a> {
         self.check_omitted_local_inference_complete();
         self.check_private_inference_complete();
         self.check_effect_boundaries();
+        self.remove_suppressed_diagnostics();
+    }
+
+    fn deferred_ambiguous_initializer_diagnostic(
+        &self,
+        start_index: usize,
+        expr: &Expr,
+        actual: &Type,
+    ) -> Option<usize> {
+        if !type_contains_unknown(actual) || self.diagnostics.len() != start_index + 1 {
+            return None;
+        }
+        let diagnostic = self.diagnostics.get(start_index)?;
+        if diagnostic.id == "type.inference_ambiguous"
+            && diagnostic.span.as_ref() == Some(&expr.span)
+            && json_string_field_is(&diagnostic.details, "slot_kind", "constructor_type")
+        {
+            Some(start_index)
+        } else {
+            None
+        }
+    }
+
+    fn remove_suppressed_diagnostics(&mut self) {
+        if self.suppressed_diagnostic_indices.is_empty() {
+            return;
+        }
+        self.diagnostics = std::mem::take(&mut self.diagnostics)
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, diagnostic)| {
+                (!self.suppressed_diagnostic_indices.contains(&index)).then_some(diagnostic)
+            })
+            .collect();
     }
 
     pub(super) fn check_implicit_unit_return(&mut self) {
@@ -345,6 +407,12 @@ impl<'a> FunctionChecker<'a> {
                 .map(|binding| &binding.ty)
                 .unwrap_or(&Type::Unknown);
             if !type_contains_unknown(inferred) {
+                if let Some(index) = omitted.deferred_initializer_diagnostic {
+                    self.suppressed_diagnostic_indices.insert(index);
+                }
+                continue;
+            }
+            if omitted.deferred_initializer_diagnostic.is_some() {
                 continue;
             }
             let mut diagnostic = Diagnostic::new(
@@ -1566,6 +1634,12 @@ impl<'a> FunctionChecker<'a> {
             && let Some(expected) = expected
             && !type_contains_unknown(&expected.ty)
         {
+            if self.omitted_local_bindings.iter().any(|omitted| {
+                omitted.name == name && omitted.deferred_initializer_diagnostic.is_some()
+            }) && self.if_branch_result_name_depth == 0
+            {
+                return Some(current);
+            }
             self.bindings[index].ty = expected.ty.clone();
             return Some(expected.ty.clone());
         }
@@ -2293,7 +2367,14 @@ impl<'a> FunctionChecker<'a> {
         } else {
             None
         };
+        let branch_result_is_name = matches!(branch_expr.kind, ExprKind::NamePath(_));
+        if branch_result_is_name {
+            self.if_branch_result_name_depth += 1;
+        }
         let actual = self.infer_expr(branch_expr, branch_expected.as_ref());
+        if branch_result_is_name {
+            self.if_branch_result_name_depth -= 1;
+        }
         if let Some(expected) = &branch_expected {
             self.check_assignable(branch_expr, &expected.ty, &actual, expected, "if_branch");
         }

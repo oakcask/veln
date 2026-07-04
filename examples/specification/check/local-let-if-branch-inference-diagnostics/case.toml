@@ -1,0 +1,85 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "\"id\":\"type.local_inference_incomplete\"", "expected `Vec<String>`, but found `Vec<Int>`", "\"inferred_type\":\"Vec<unknown>\"", "constructor `Empty` needs type context", "\"inferred_type\":\"Maybe<unknown>\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.1.details.slot_kind"
+equals = "empty_collection"
+
+[[json_assert]]
+path = "diagnostics.1.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[json_assert]]
+path = "diagnostics.2.details.slot_kind"
+equals = "local_binding"
+
+[[json_assert]]
+path = "diagnostics.2.details.inferred_type"
+equals = "Vec<unknown>"
+
+[[json_assert]]
+path = "diagnostics.3.details.slot_kind"
+equals = "constructor_type"
+
+[[json_assert]]
+path = "diagnostics.3.details.inferred_type"
+equals = "Maybe<unknown>"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Vec<String>`, but found `Vec<Int>`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 26
+column = 17
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "empty Vec literal needs concrete type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 34
+column = 3
+
+[[diagnostics]]
+id = "type.local_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "omitted local binding `items` has no concrete inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 30
+column = 6
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Empty` needs type context"
+
+[diagnostics.span]
+file = "main.veln"
+line = 40
+column = 14

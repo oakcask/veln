@@ -13,8 +13,9 @@ full type reference.
   source type positions.
 - Local inference is monomorphic and flow-sensitive within one function body.
   An omitted local `let` binding type may be fixed by a later same-function use
-  such as a call argument or return-compatible expression when that use
-  requires one concrete type. Non-empty `Vec<T>` and `Dict<K, V>` literal
+  such as a call argument, return-compatible expression, or `if` branch result
+  checked against a concrete enclosing expected type when that use requires
+  one concrete type. Non-empty `Vec<T>` and `Dict<K, V>` literal
   initializers may also infer omitted local binding types when every element,
   key, and value agrees on one concrete type. Empty `Vec<T>` literals, `Nil`
   for `List<T>`, and empty dictionary literals accept concrete expected

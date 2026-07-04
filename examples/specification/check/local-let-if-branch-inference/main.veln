@@ -1,0 +1,135 @@
+# Omitted local let types may be fixed by if branch expected types.
+fn consume_vec(items: Vec<Int>) -> Int
+	1
+end
+
+type Box<A>
+	Box(value: A)
+end
+
+type Maybe<A>
+	Empty
+	Full(value: A)
+end
+
+fn consume_maybe(value: Maybe<Int>) -> Int
+	1
+end
+
+fn return_context_vec(flag: Bool) -> Vec<Int>
+	let items = []
+	if flag
+		items
+	else
+		[1]
+	end
+end
+
+fn return_context_constructor(flag: Bool) -> Maybe<Int>
+	let maybe = Empty
+	if flag
+		maybe
+	else
+		Full(1)
+	end
+end
+
+fn local_annotation_context_vec(flag: Bool) -> Vec<Int>
+	let items = []
+	let chosen: Vec<Int> = if flag
+		items
+	else
+		[1]
+	end
+	chosen
+end
+
+fn call_argument_context_vec(flag: Bool) -> Int
+	let items = []
+	consume_vec(if flag
+		items
+	else
+		[1]
+	end)
+end
+
+fn call_argument_context_constructor(flag: Bool) -> Int
+	let maybe = Empty
+	consume_maybe(if flag
+		maybe
+	else
+		Full(1)
+	end)
+end
+
+fn record_field_context(flag: Bool) -> {vec: Vec<Int>, list: List<Int>, dict: Dict<String, Int>, maybe: Maybe<Int>}
+	let vec_items = []
+	let list_items = Nil
+	let dict_items = {}
+	let maybe_item = Empty
+	{
+		vec: if flag
+			vec_items
+		else
+			[1]
+		end,
+		list: if flag
+			list_items
+		else
+			Cons(1, Nil)
+		end,
+		dict: if flag
+			dict_items
+		else
+			{"one": 1}
+		end,
+		maybe: if flag
+			maybe_item
+		else
+			Full(1)
+		end
+	}
+end
+
+fn match_arm_context(flag: Bool, prefer_empty: Bool) -> Vec<Int>
+	let items = []
+	match flag
+		true => if prefer_empty
+			items
+		else
+			[1]
+		end
+		false => [2]
+	end
+end
+
+fn outer_if_branch_context(flag: Bool, prefer_empty: Bool) -> Vec<Int>
+	let items = []
+	if flag
+		if prefer_empty
+			items
+		else
+			[1]
+		end
+	else
+		[2]
+	end
+end
+
+fn constructor_payload_context(flag: Bool) -> Box<Vec<Int>>
+	let items = []
+	Box(if flag
+		items
+	else
+		[1]
+	end)
+end
+
+fn constructor_payload_context_constructor(flag: Bool) -> Box<Maybe<Int>>
+	let maybe = Empty
+	Box(if flag
+		maybe
+	else
+		Full(1)
+	end)
+end

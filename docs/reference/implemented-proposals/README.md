@@ -96,6 +96,8 @@ behavior.
   [local-inference-match-scrutinee-constructor-pattern.md](local-inference-match-scrutinee-constructor-pattern.md).
 - Local inference local pattern let:
   [local-inference-local-pattern-let.md](local-inference-local-pattern-let.md).
+- Local inference if branch local let:
+  [local-inference-if-branch-local-let.md](local-inference-if-branch-local-let.md).
 - Local inference nested initializer expected type:
   [local-inference-nested-initializer-expected-type.md](local-inference-nested-initializer-expected-type.md).
 - Local inference hole expected-type flow:

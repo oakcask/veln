@@ -67,7 +67,8 @@ Implemented current behavior is specified in
 `../specification/types.md#read-first` and
 `../specification/types-full.md#inference` for the narrow same-function local
 `let` slice: a binding whose initializer leaves `unknown` may be fixed by a
-later call argument or return-compatible use that requires one concrete type.
+later call argument, return-compatible use, or concrete `if` branch result use
+that requires one concrete type.
 Non-empty collection literal initializers may also infer omitted local binding
 types when every element, key, and value agrees on one concrete type.
 Unconstrained bindings and later incompatible uses are diagnostics.
@@ -83,9 +84,9 @@ from the wrong descriptor report `type.mismatch`.
 
 Remaining planned work in this section extends omitted local annotations into
 broader expected-type paths that are not covered by the current same-function
-local `let`, non-empty collection initializer, empty collection expected-type,
-hole expected-type flow, nested initializer expected-type propagation, and
-local pattern slices.
+local `let`, `if` branch local `let`, non-empty collection initializer, empty
+collection expected-type, hole expected-type flow, nested initializer
+expected-type propagation, and local pattern slices.
 
 ## Completed Hole Expected-Type Flow Slice
 
@@ -107,6 +108,15 @@ under
 Current behavior is specified in `../specification/types.md#read-first`,
 `../specification/types-full.md#inference`, and the checked examples under
 `../../examples/specification/check/local-let-inference/`.
+
+## Completed If Branch Local Let Slice
+
+The completed `if` branch local `let` inference slice is archived under
+`../reference/implemented-proposals/local-inference-if-branch-local-let.md`.
+Current behavior is specified in `../specification/types.md#read-first`,
+`../specification/types-full.md#inference`, and the checked examples under
+`../../examples/specification/check/local-let-if-branch-inference/` and
+`../../examples/specification/check/local-let-if-branch-inference-diagnostics/`.
 
 ## Completed Private Helper Call-Site Slice
 

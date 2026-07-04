@@ -1,0 +1,46 @@
+# If branch expected types keep local let inference monomorphic.
+fn consume_int(items: Vec<Int>) -> Int
+	1
+end
+
+fn consume_string(items: Vec<String>) -> Int
+	1
+end
+
+type Maybe<A>
+	Empty
+	Full(value: A)
+end
+
+fn consume_maybe(value: Maybe<Int>) -> Int
+	1
+end
+
+fn conflicting_later_use(flag: Bool) -> Int
+	let items = []
+	let chosen: Vec<Int> = if flag
+		items
+	else
+		[1]
+	end
+	consume_string(items)
+end
+
+fn unknown_branch_context(flag: Bool) -> Int
+	let items = []
+	let chosen = if flag
+		items
+	else
+		[]
+	end
+	1
+end
+
+fn nested_call_inside_branch(flag: Bool) -> Int
+	let value = Empty
+	if flag
+		consume_maybe(value)
+	else
+		1
+	end
+end
