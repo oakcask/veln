@@ -190,8 +190,10 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` declarations, explicit `Http2FrameHeaderWire`
   decode used by the HTTP/2 protocol-core frame-header path,
   width-sample primitive decode, `UInt16le`, `UInt24le`,
-  `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`, `UInt56le`, and `UInt64le`
-  little-endian primitive decode and encode, `UInt40be` five-byte,
+  `UInt31le`, `UInt32le`, `UInt48le`, `UInt56le`, and `UInt64le`
+  little-endian primitive decode and encode, `UInt40be` and `UInt40le`
+  five-byte primitive decode and encode
+  ([Binary Schema UInt40 Primitives](../reference/implemented-proposals/binary-schema-u40-primitives.md)),
   `UInt48be` six-byte, `UInt56be` seven-byte, and `UInt64be` eight-byte
   big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,
@@ -332,6 +334,9 @@ compare it with `../specification/` before changing behavior.
   The completed bounded repeat `ByteView(left_length - right_length)` payload
   helper slice is archived under
   [Binary Schema Repeat ByteView Subtract Helpers](../reference/implemented-proposals/binary-schema-repeat-byteview-subtract-helpers.md).
+  The completed `UInt40be` and
+  `UInt40le` exact-width primitive slice is archived under
+  [Binary Schema UInt40 Primitives](../reference/implemented-proposals/binary-schema-u40-primitives.md).
   The completed `UInt48be` and
   `UInt48le` exact-width primitive slice is archived under
   [Binary Schema UInt48 Primitives](../reference/implemented-proposals/binary-schema-u48-primitives.md).
