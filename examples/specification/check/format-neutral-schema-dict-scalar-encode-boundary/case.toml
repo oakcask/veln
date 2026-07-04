@@ -1,0 +1,47 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "format-neutral schema field `items` cannot expose a generated decode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape", "unresolved call_target `byte_encode_unsupported_key_packet`", "unresolved call_target `byte_encode_unsupported_value_packet`", "schema encode expression cannot resolve `UnsupportedKeyPacket` as an eligible schema encode helper", "schema encode expression cannot resolve `UnsupportedValuePacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 5
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `items` cannot expose a generated decode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `byte_encode_unsupported_key_packet`"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `UnsupportedKeyPacket` as an eligible schema encode helper"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `byte_encode_unsupported_value_packet`"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `UnsupportedValuePacket` as an eligible schema encode helper"

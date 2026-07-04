@@ -3099,6 +3099,13 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
             if name == "List"
                 && args.len() == 1
                 && format_neutral_schema_scalar_type(&args[0])
+    ) || matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Dict"
+                && args.len() == 2
+                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
+                && format_neutral_schema_scalar_type(&args[1])
     )
 }
 
