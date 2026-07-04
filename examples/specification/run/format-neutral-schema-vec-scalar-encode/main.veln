@@ -1,0 +1,63 @@
+# Format-neutral schema encode helpers accept Vec<scalar> fields.
+use stdio
+
+schema VecScalarPacket
+	items: Vec<Int>
+	flags: Vec<Bool>
+	ratios: Vec<Float>
+	labels: Vec<String>
+end
+
+fn add_int(total: Int, item: Int) -> Int
+	total + item
+end
+
+fn count_true(total: Int, item: Bool) -> Int
+	match item
+		true => total + 1
+		false => total
+	end
+end
+
+fn encoded_item_sum(result: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.items, 0, add_int)
+		Err(_) => -1
+	end
+end
+
+fn encoded_flag_count(result: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.flags, 0, count_true)
+		Err(_) => -1
+	end
+end
+
+fn encoded_ratio_count(result: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String>) -> Int
+	match result
+		Ok(packet) => vec_len(packet.ratios)
+		Err(_) => -1
+	end
+end
+
+fn encoded_label_count(result: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String>) -> Int
+	match result
+		Ok(packet) => vec_len(packet.labels)
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>} = {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}
+	let empty_packet: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>} = {items: [], flags: [], ratios: [], labels: []}
+	let encoded: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String> = byte_encode_vec_scalar_packet(packet)
+	let explicit: Result<{items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}, String> = encode VecScalarPacket from empty_packet
+	stdio::println(int_to_string(encoded_item_sum(encoded)))
+	stdio::println(int_to_string(encoded_flag_count(encoded)))
+	stdio::println(int_to_string(encoded_ratio_count(encoded)))
+	stdio::println(int_to_string(encoded_label_count(encoded)))
+	stdio::println(int_to_string(encoded_item_sum(explicit)))
+	stdio::println(int_to_string(encoded_flag_count(explicit)))
+	stdio::println(int_to_string(encoded_ratio_count(explicit)))
+	stdio::println(int_to_string(encoded_label_count(explicit)))
+end
