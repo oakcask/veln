@@ -124,3 +124,13 @@ equals = "hpack_fixture"
 value_path = "error.details.value"
 path = "value.detail.preview.constructor"
 equals = "ByteChunk"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 4
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.1.value"
+equals = 255

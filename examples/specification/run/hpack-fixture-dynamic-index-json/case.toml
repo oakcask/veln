@@ -77,3 +77,43 @@ equals = 1
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
 equals = false
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "constructor"
+equals = "Err"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.constructor"
+equals = "RuntimeDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.id"
+equals = "hpack.fixture.dynamic_index_out_of_range"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHpackFixtureDynamicIndexDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.byte_offset"
+equals = 29
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.requested_dynamic_index"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.dynamic_table_entry_count"
+equals = 0
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.0.value"
+equals = 190
