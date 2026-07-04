@@ -2787,6 +2787,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::accept_or_end", "netAcceptOrEnd"),
         ("net::accept_until", "netAcceptUntil"),
         ("net::accept_until_cancellable", "netAcceptUntilCancellable"),
+        ("net::listener_local_addr", "netListenerLocalAddr"),
         ("net::read_chunk", "netReadChunk"),
         ("net::stream_local_addr", "netStreamLocalAddr"),
         ("net::stream_peer_addr", "netStreamPeerAddr"),

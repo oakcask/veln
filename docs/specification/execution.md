@@ -30,8 +30,11 @@ enough.
 - `net` and `time` calls are host runtime boundaries. Fixture-backed and
   production-loopback transport paths preserve the same source-visible result
   shapes while keeping socket, deadline, cancellation, and monotonic-clock
-  work outside pure protocol code. Accepted and connected `NetStream` handles
-  expose local and peer endpoint text through `net::stream_local_addr` and
+  work outside pure protocol code. `NetListener` handles expose local
+  endpoint text through `net::listener_local_addr` before accept work without
+  exposing host socket handles, closing the listener, or changing later
+  accepted streams. Accepted and connected `NetStream` handles expose local
+  and peer endpoint text through `net::stream_local_addr` and
   `net::stream_peer_addr` without exposing host socket handles or changing
   stream ownership. Production-loopback cases can preserve more than one
   configured read chunk for one accepted stream, and `net::connect` can return

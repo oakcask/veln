@@ -1,0 +1,4 @@
+# Listener address inspection requires the net effect.
+pub fn missing_net(listener: NetListener) -> String
+	net::listener_local_addr(listener)
+end

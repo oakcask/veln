@@ -638,8 +638,9 @@ compare it with `../specification/` before changing behavior.
   cancellation, deadline-aware listener
   accept, cancellable deadline-aware listener accept, deadline-aware stream
   read, cancellable deadline-aware stream read, cancellable deadline-aware
-  stream write, accepted-stream endpoint text inspection, adapter-owned
-  source-visible client connect, listener-to-clean-stream-end lifecycle,
+  stream write, accepted-stream endpoint text inspection, listener endpoint
+  text inspection, adapter-owned source-visible client connect,
+  listener-to-clean-stream-end lifecycle,
   context-based adapter
   `task::spawn_with<Result, Context>` helper routing,
   accepted-stream lifecycle variants for deadline-aware, cancellable, and
@@ -728,6 +729,8 @@ compare it with `../specification/` before changing behavior.
   The completed accepted-stream endpoint text inspection slice is archived
   under
   [Network Stream Address Metadata](../reference/implemented-proposals/network-stream-address-metadata.md).
+  The completed listener endpoint text inspection slice is archived under
+  [Network Listener Address Metadata](../reference/implemented-proposals/network-listener-address-metadata.md).
   Deadline and cancellation behavior is complete for this proposal at the
   current relative and absolute monotonic `Deadline`, `CancelToken`,
   cancellation status-query, cancellable wait-outcome, cancellable

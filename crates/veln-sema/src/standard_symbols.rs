@@ -397,6 +397,16 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "net",
+        "listener_local_addr",
+        NET_EFFECTS,
+        "runtime.net.listener_local_addr",
+        StandardSignature {
+            params: PARAM_NET_LISTENER,
+            return_type: StandardType::String,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
         "read_chunk",
         NET_EFFECTS,
         "runtime.net.read_chunk",

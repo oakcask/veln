@@ -115,11 +115,17 @@ Implemented first socket slices are specified by
 `../specification/names-effects.md` and `../specification/execution.md`.
 Completed fixture-backed listen, accept, client connect, read, write, and
 close operations use the existing coarse `net` effect label and remain
-runtime boundaries. Accepted-stream and connected-stream endpoint text is
-current behavior for fixture-backed streams and production-loopback streams
-through `net::stream_local_addr` and `net::stream_peer_addr`; the helpers
-preserve stream ownership, expose only strings, and keep the same coarse
-`net` effect boundary.
+runtime boundaries. Listener endpoint text is current behavior for
+fixture-backed and production-loopback listeners through
+`net::listener_local_addr`; the helper preserves listener ownership, exposes
+only a string, and keeps the same coarse `net` effect boundary.
+Accepted-stream and connected-stream endpoint text is current behavior for
+fixture-backed streams and production-loopback streams through
+`net::stream_local_addr` and `net::stream_peer_addr`; the helpers preserve
+stream ownership, expose only strings, and keep the same coarse `net` effect
+boundary.
+The completed listener endpoint text inspection slice is archived under
+`../reference/implemented-proposals/network-listener-address-metadata.md`.
 The completed endpoint text inspection slice is archived under
 `../reference/implemented-proposals/network-stream-address-metadata.md`.
 The completed source-visible client connect slice is archived under
