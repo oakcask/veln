@@ -11,7 +11,7 @@ VELN_NET_EVENTS = "net-events.log"
 
 [stdout]
 format = "text"
-contains = ["listener 127.0.0.1:", " bytes 3\n"]
+contains = ["listener 127.0.0.1:", " stream-local 127.0.0.1:", " stream-peer 127.0.0.1:", " bytes 3\n"]
 
 [stderr]
 format = "empty"
