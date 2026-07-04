@@ -1,0 +1,29 @@
+# Nested dispatch payload repeat failures keep parent and element paths.
+
+schema ItemRecord
+	format binary
+
+	code: UInt8
+	value: UInt16be
+end
+
+schema RepeatedPayload
+	format binary
+
+	count: UInt8
+	items: Repeat(count, ItemRecord)
+end
+
+schema ClosedRepeatedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => RepeatedPayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010207012c09")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let _: {kind: Int, payload: {count: Int, items: List<{code: Int, value: Int}>}} = byte_decode_closed_repeated_packet(view)?
+	Ok(())
+end

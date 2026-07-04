@@ -6313,7 +6313,12 @@
                             "repeat payload",
                             schema.name,
                             Long.valueOf(diagnosticBaseOffset + repeatRelativeOffset),
-                            schemaRepeatedFieldPath(schema.name, field.name, elementIndex),
+                            schemaRepeatedFieldPathWithPrefix(
+                                fieldPathPrefix,
+                                schema.name,
+                                field.name,
+                                elementIndex
+                            ),
                             byteViewPreviewTrace(view, 8)
                         );
                         if (isErr(payloadLengthValue)) {
@@ -6330,7 +6335,12 @@
                             return schemaTruncatedFieldPathDiagnostic(
                                 message,
                                 byteOffset,
-                                schemaRepeatedFieldPath(schema.name, field.name, elementIndex),
+                                schemaRepeatedFieldPathWithPrefix(
+                                    fieldPathPrefix,
+                                    schema.name,
+                                    field.name,
+                                    elementIndex
+                                ),
                                 payloadLength,
                                 availablePayload,
                                 byteViewPreviewTrace(view, 8)
@@ -6350,7 +6360,12 @@
                             elementView,
                             field.repeat.payloadSchema,
                             diagnosticBaseOffset + repeatRelativeOffset,
-                            schemaRepeatedFieldPath(schema.name, field.name, elementIndex)
+                            schemaRepeatedFieldPathWithPrefix(
+                                fieldPathPrefix,
+                                schema.name,
+                                field.name,
+                                elementIndex
+                            )
                         );
                         if (isErr(read)) {
                             return read;
@@ -6368,7 +6383,12 @@
                             field.repeat.littleEndian,
                             schema.name,
                             field.name,
-                            schemaRepeatedFieldPath(schema.name, field.name, elementIndex)
+                            schemaRepeatedFieldPathWithPrefix(
+                                fieldPathPrefix,
+                                schema.name,
+                                field.name,
+                                elementIndex
+                            )
                         );
                         if (isErr(read)) {
                             return read;

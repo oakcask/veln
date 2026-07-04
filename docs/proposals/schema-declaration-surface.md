@@ -97,6 +97,9 @@ The completed direct nested binary schema decode binding slice is archived
 under
 [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
 
+The completed dispatch nested repeat helper slice is archived under
+[Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
+
 The completed format-neutral `Option` helper slice, including
 `Option<scalar>` fields inside nested record-shaped fields, is archived under
 [Format-Neutral Schema Option Helpers](../reference/implemented-proposals/format-neutral-schema-option-helpers.md).
