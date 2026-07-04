@@ -92,8 +92,9 @@ compare it with `../specification/` before changing behavior.
   `Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, and supported
   recursive `Result<Ok, Err>` visible-shape fields, same-module and public
   imported source ADT visible-shape fields, scalar-only, `Option<scalar>`,
-  `List<scalar>`, `Vec<scalar>`, `Dict<String, scalar>`, and supported
-  container and scalar-result format-neutral encode helpers, plus
+  `List<scalar>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
+  `Dict<String, scalar>`, and supported container and scalar-result
+  format-neutral encode helpers, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -159,6 +160,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Vec<scalar>` encode helper slice is archived
   under
   [Format-Neutral Schema Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-vec-scalar-encode-helpers.md).
+  The completed format-neutral `Vec<Option<scalar>>` encode helper slice is
+  archived under
+  [Format-Neutral Schema Option Vec Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-vec-encode-helpers.md).
   The completed format-neutral `Dict<String, scalar>` encode helper slice is
   archived under
   [Format-Neutral Schema Dict Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-scalar-encode-helpers.md).

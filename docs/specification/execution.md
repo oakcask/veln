@@ -103,10 +103,11 @@ enough.
   clause accept a schema-local visible record shape and return
   `Result<T, String>` when every field is a scalar leaf, `Option<scalar>`,
   `Option<List<scalar>>`, `List<scalar>`, `Vec<scalar>`,
-  `Dict<String, scalar>`, `Result<scalar, scalar>`, or an anonymous record
-  whose fields are supported format-neutral encode shapes. The supported
-  scalar leaves are `Int`, `Bool`, `Float`, and `String`. The helper returns
-  the supplied record on success and does not produce binary bytes.
+  `Vec<Option<scalar>>`, `Dict<String, scalar>`,
+  `Result<scalar, scalar>`, or an anonymous record whose fields are supported
+  format-neutral encode shapes. The supported scalar leaves are `Int`, `Bool`,
+  `Float`, and `String`. The helper returns the supplied record on success and
+  does not produce binary bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

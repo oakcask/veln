@@ -3105,7 +3105,8 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
         Type::Named { name, args }
             if name == "Vec"
                 && args.len() == 1
-                && format_neutral_schema_scalar_type(&args[0])
+                && (format_neutral_schema_scalar_type(&args[0])
+                    || format_neutral_schema_option_scalar_type(&args[0]))
     ) || matches!(
         ty,
         Type::Named { name, args }
@@ -3126,6 +3127,16 @@ fn format_neutral_schema_encode_field_type(ty: &Type) -> bool {
             if fields
                 .iter()
                 .all(|(_, field_ty)| format_neutral_schema_encode_field_type(field_ty))
+    )
+}
+
+fn format_neutral_schema_option_scalar_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Option"
+                && args.len() == 1
+                && format_neutral_schema_scalar_type(&args[0])
     )
 }
 
