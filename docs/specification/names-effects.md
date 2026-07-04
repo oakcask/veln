@@ -267,8 +267,10 @@ compiler-known calls.
   surface for schema-local values and accept the same schema-reference paths.
   Format-neutral schema encode helpers accept and return schema-local visible
   records through `Result<T, String>` for scalar leaves, `Option<scalar>`
-  fields, `List<scalar>` fields, and `Dict<String, scalar>` fields without
-  producing binary bytes.
+  fields, `Option<List<scalar>>` fields, `List<scalar>` fields,
+  `Dict<String, scalar>` fields, `Result<scalar, scalar>` fields, and
+  anonymous record fields whose fields are supported format-neutral encode
+  shapes without producing binary bytes.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,

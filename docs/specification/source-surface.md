@@ -38,8 +38,10 @@ ADTs with unsupported payloads remain unsupported helper fields and are
 declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
 `format` clause whose fields are scalar leaves, `Option<scalar>` fields,
-`List<scalar>` fields, or `Dict<String, scalar>` fields. The supported scalar
-leaves are `Int`, `Bool`, `Float`, and `String`.
+`Option<List<scalar>>` fields, `List<scalar>` fields,
+`Dict<String, scalar>` fields, `Result<scalar, scalar>` fields, or anonymous
+record fields whose fields are supported format-neutral encode shapes. The
+supported scalar leaves are `Int`, `Bool`, `Float`, and `String`.
 When present, the single `format binary` clause must appear before schema
 fields.
 
