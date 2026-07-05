@@ -126,6 +126,8 @@ behavior.
   [binary-data-outgoing-chunk-production.md](binary-data-outgoing-chunk-production.md).
 - Binary data source-visible `u56` byte helpers:
   [binary-data-u56-byte-helpers.md](binary-data-u56-byte-helpers.md).
+- Binary data schema conversion boundary:
+  [binary-data-schema-conversion-boundary.md](binary-data-schema-conversion-boundary.md).
 - Schema documentation references:
   [schema-documentation-references.md](schema-documentation-references.md).
 - Remove schema map-to:

@@ -1,0 +1,10 @@
+# Schema payload view conversion reports the failed byte range.
+fn schema_payload_view_from_chunk(bytes: ByteChunk, count: ByteCount) -> Result<ByteView, String>
+	byte_view(bytes, byte_offset(1)?, count)
+end
+
+pub fn main() -> Result<ByteChunk, String>
+	let source: ByteChunk = byte_chunk_from_hex("03aabb")?
+	let payload: ByteView = schema_payload_view_from_chunk(source, byte_count(3)?)?
+	Ok(byte_view_to_chunk(payload))
+end

@@ -192,7 +192,7 @@ compare it with `../specification/` before changing behavior.
   variable-length integers, or text encoding primitives open as schema
   declaration work.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
-  remaining binary-buffer, schema-facing conversion, and protocol-facing
+  remaining binary-buffer conversion and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
   big-endian and little-endian read/write through the current source-visible
   helper width set including `u56`, bounded view buffer helper,
@@ -200,6 +200,7 @@ compare it with `../specification/` before changing behavior.
   input and outgoing immutable chunk collection for protocol examples,
   budgeted outgoing whole-chunk production,
   byte-view freeze preservation across task and channel boundaries,
+  schema-facing byte data conversion boundary,
   source-visible `ByteView` range diagnostics with byte previews, checked byte
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
@@ -216,6 +217,8 @@ compare it with `../specification/` before changing behavior.
   previews.
   The outgoing chunk production slice is archived under
   [Binary Data Outgoing Chunk Production](../reference/implemented-proposals/binary-data-outgoing-chunk-production.md).
+  The schema conversion boundary slice is archived under
+  [Binary Data Schema Conversion Boundary](../reference/implemented-proposals/binary-data-schema-conversion-boundary.md).
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
