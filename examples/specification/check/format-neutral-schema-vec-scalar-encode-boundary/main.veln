@@ -1,23 +1,11 @@
-schema OptionVecPacket
-	items: Vec<Option<Int>>
-end
-
 schema UnsupportedNestedVecPacket
-	items: Vec<Vec<Int>>
+	metadata: {items: Vec<Vec<Int>>}
 end
 
-fn direct_option_vec(packet: {items: Vec<Option<Int>>}) -> Result<{items: Vec<Option<Int>>}, String>
-	byte_encode_option_vec_packet(packet)
-end
-
-fn explicit_option_vec(packet: {items: Vec<Option<Int>>}) -> Result<{items: Vec<Option<Int>>}, String>
-	encode OptionVecPacket from packet
-end
-
-fn direct_nested_vec(packet: {items: Vec<Vec<Int>>}) -> Result<{items: Vec<Vec<Int>>}, String>
+fn direct_nested_vec(packet: {metadata: {items: Vec<Vec<Int>>}}) -> Result<{metadata: {items: Vec<Vec<Int>>}}, String>
 	byte_encode_unsupported_nested_vec_packet(packet)
 end
 
-fn explicit_nested_vec(packet: {items: Vec<Vec<Int>>}) -> Result<{items: Vec<Vec<Int>>}, String>
+fn explicit_nested_vec(packet: {metadata: {items: Vec<Vec<Int>>}}) -> Result<{metadata: {items: Vec<Vec<Int>>}}, String>
 	encode UnsupportedNestedVecPacket from packet
 end
