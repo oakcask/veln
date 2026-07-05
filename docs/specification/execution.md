@@ -289,7 +289,14 @@ enough.
   out-of-range representation `0xff 0x80 0x01`. HTTP/2 completed HEADERS
   decoding tries this source-visible dynamic indexed boundary before fixture
   fallback for accepted and out-of-range dynamic indexed fields. The same
-  ordinary-source boundary exposes
+  ordinary-source boundary exposes a bounded HPACK integer core for the
+  checked indexed-field, table-size update, and string-literal-length prefix
+  widths. The standalone boundary decodes those integer shapes, encodes the
+  same bounded shapes, and reports non-terminating continuations through the
+  focused `hpack.integer.malformed` fact with byte offset, prefix width,
+  observed byte count, observed first byte, bounded preview count, and module
+  name under `examples/specification/run/hpack-fixture-codec-boundary/`.
+  The same ordinary-source boundary exposes
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first
   dynamic entries, evicts oldest entries after insertion or table-size

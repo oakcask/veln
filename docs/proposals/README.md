@@ -567,6 +567,9 @@ compare it with `../specification/` before changing behavior.
   later fixture dynamic-table reuse, and the source-visible dynamic indexed
   HPACK core boundary for multiple carried bounded dynamic-table entries and
   saturated seven-bit indexed representation `0xff 0x00`, plus the
+  source-visible HPACK integer core for checked indexed-field, table-size
+  update, and string-literal-length prefix widths, including bounded encoding
+  and focused non-terminating continuation diagnostics, plus the
   source-visible HPACK dynamic-table accounting core for the entry-size
   formula, newest-first insertion, table-size reduction, insertion-caused
   eviction, over-limit insertion, and zero-size table reduction, plus the
@@ -585,6 +588,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
   The completed source-visible dynamic indexed core slice is archived under
   [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
+  The completed source-visible HPACK integer core slice is archived under
+  [HTTP/2 HPACK Integer Core](../reference/implemented-proposals/http2-hpack-integer-core.md).
   The completed source-visible dynamic-table accounting core slice is archived
   under
   [HTTP/2 HPACK Dynamic Table Accounting Core](../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md).

@@ -1101,7 +1101,16 @@ representations `0xff 0x00` and `0xff 0x80 0x00` for dynamic table index
 an indexed field asks past the carried table, including out-of-range
 `0xff 0x80 0x01`. HTTP/2 completed HEADERS now routes accepted and
 out-of-range dynamic indexed fields through that source-visible boundary
-before fixture fallback. The same source-visible boundary
+before fixture fallback. The same source-visible boundary now exposes a
+bounded HPACK integer core for the checked indexed-field, table-size update,
+and string-literal-length prefix widths. The checked standalone boundary
+decodes and encodes those integer shapes, and reports non-terminating
+continuations through `hpack.integer.malformed` with byte offset, prefix
+width, observed byte count, observed first byte, bounded preview count, and
+module name. That
+completed integer core slice is archived under
+[HTTP/2 HPACK Integer Core](../reference/implemented-proposals/http2-hpack-integer-core.md).
+The same source-visible boundary
 now exposes the dynamic-table accounting core: dynamic entry size is
 header-name byte count plus header-value byte count plus `32`; entries insert
 newest-first into immutable states; oldest entries are evicted after insertion
@@ -1126,7 +1135,9 @@ and
 [HTTP/2 HPACK Dynamic Raw Literal-Name Core](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-core.md).
 
 The remaining scope below is still planned work for the full protocol core and
-full HPACK behavior.
+full HPACK behavior beyond the bounded source-visible integer, static,
+static-name indexing, dynamic-index, raw literal-name, and dynamic-table
+accounting core slices.
 
 ## Completion Criteria
 
