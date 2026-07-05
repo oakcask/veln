@@ -1,0 +1,22 @@
+# Production loopback read-side shutdown preserves write-side ownership.
+use stdio
+
+fn read_state(stream: NetStream) -> String effects [net]
+	match net::read_chunk_or_end(stream)
+		Some(_) => "chunk"
+		None => "end"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::shutdown_read(stream)
+	let after_shutdown = read_state(stream)
+	let outgoing: ByteChunk = byte_chunk_from_hex("0c0d")?
+	net::write_chunk(stream, outgoing)
+	net::shutdown_write(stream)
+	net::close_stream(stream)
+	stdio::println(after_shutdown)
+	Ok(())
+end

@@ -717,6 +717,8 @@ compare it with `../specification/` before changing behavior.
   [Network Monotonic Clock Boundary](../reference/implemented-proposals/network-monotonic-clock-boundary.md).
   The completed write-side stream half-close boundary is archived under
   [Network Stream Shutdown Write Boundary](../reference/implemented-proposals/network-stream-shutdown-write-boundary.md).
+  The completed read-side stream half-close boundary is archived under
+  [Network Stream Shutdown Read Boundary](../reference/implemented-proposals/network-stream-shutdown-read-boundary.md).
   The completed explicit listener-close boundary is archived under
   [Network Listener Close Boundary](../reference/implemented-proposals/network-listener-close-boundary.md).
   The completed source-visible client connect boundary is archived under

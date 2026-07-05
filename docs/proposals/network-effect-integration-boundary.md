@@ -54,7 +54,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   lifecycle, cancellable accepted-stream lifecycle, cancellable
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
   adapter-owned clean shutdown lifecycle, explicit listener close lifecycle,
-  and production multi-chunk event routing slices
+  production multi-chunk event routing, and production read-side shutdown
+  lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, production multi-chunk
   routing, production two-stream multi-cycle routing, deadline-aware
@@ -458,6 +459,9 @@ The explicit stream close lifecycle slice is recorded as implemented in
 
 The write-side stream half-close lifecycle slice is recorded as implemented in
 `../reference/implemented-proposals/network-stream-shutdown-write-boundary.md`.
+
+The read-side stream half-close lifecycle slice is recorded as implemented in
+`../reference/implemented-proposals/network-stream-shutdown-read-boundary.md`.
 
 The source-visible ordered chunk-list write slice is recorded as implemented
 in `../reference/implemented-proposals/network-write-chunks-boundary.md`.

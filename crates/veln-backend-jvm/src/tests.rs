@@ -2860,6 +2860,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "netWriteChunksUntilCancellable",
         ),
         ("net::shutdown_write", "netShutdownWrite"),
+        ("net::shutdown_read", "netShutdownRead"),
         ("net::close_stream", "netCloseStream"),
         ("net::close_listener", "netCloseListener"),
         ("process::args", "processArgs"),

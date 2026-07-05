@@ -116,6 +116,8 @@
         private final boolean lastProductionStream;
         private final java.io.InputStream input;
         private final java.io.OutputStream output;
+        private final java.util.concurrent.atomic.AtomicBoolean readShutdown =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
         private final java.util.concurrent.atomic.AtomicBoolean writeShutdown =
             new java.util.concurrent.atomic.AtomicBoolean(false);
 
@@ -198,6 +200,14 @@
 
         private boolean isWriteShutdown() {
             return writeShutdown.get();
+        }
+
+        private boolean isReadShutdown() {
+            return readShutdown.get();
+        }
+
+        private boolean shutdownReadOnce() {
+            return readShutdown.compareAndSet(false, true);
         }
 
         private boolean shutdownWriteOnce() {
@@ -1003,6 +1013,9 @@
         if (value.isProductionSocket()) {
             return readProductionChunk(value);
         }
+        if (value.isReadShutdown()) {
+            throw new RuntimeFailure("transport read failed: stream read side is shut down");
+        }
         String sourceName = "VELN_NET_READ_CHUNK_HEX";
         String input = nextNetReadChunkHex(value.id);
         if (System.getenv("VELN_NET_READ_CHUNKS_HEX") != null) {
@@ -1056,6 +1069,17 @@
             Object chunk = readProductionChunkOrNull(value);
             return chunk == null ? none() : some(chunk);
         }
+        if (value.isReadShutdown()) {
+            try {
+                writeNetEvent("read-end " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
+        }
         String input = nextNetReadChunkHexOrNull(value.id);
         if (input == null) {
             try {
@@ -1105,6 +1129,17 @@
         if (value.isProductionSocket()) {
             Object chunk = readProductionChunkOrNull(value);
             return chunk == null ? none() : some(chunk);
+        }
+        if (value.isReadShutdown()) {
+            try {
+                writeNetEvent("read-end " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return none();
         }
         String input = nextNetReadChunkHexOrNull(value.id);
         if (input == null) {
@@ -1169,6 +1204,17 @@
             return chunk == null
                 ? streamReadOutcome("ReadEnd")
                 : streamReadOutcome("ReadChunk", chunk);
+        }
+        if (value.isReadShutdown()) {
+            try {
+                writeNetEvent("read-end " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+            return streamReadOutcome("ReadEnd");
         }
         String input = nextNetReadChunkHexOrNull(value.id);
         if (input == null) {
@@ -1378,6 +1424,25 @@
         return UNIT;
     }
 
+    public static Object netShutdownRead(Object stream) {
+        NetStream value = asNetStream(stream);
+        if (value.isProductionSocket()) {
+            shutdownProductionRead(value);
+            return UNIT;
+        }
+        if (value.shutdownReadOnce()) {
+            try {
+                writeNetEvent("shutdown-read " + value.id);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport shutdown_read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+        }
+        return UNIT;
+    }
+
     public static Object netCloseStream(Object stream) {
         if (forced("VELN_NET_CLOSE_FAILED")) {
             throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");
@@ -1453,6 +1518,17 @@
     }
 
     private static Object readProductionChunkOrNull(NetStream stream) {
+        if (stream.isReadShutdown()) {
+            try {
+                writeNetEvent("read-end-production " + stream.id);
+                return null;
+            } catch (java.io.IOException | RuntimeException error) {
+                throw new RuntimeFailure(
+                    "transport read failed: could not record VELN_NET_EVENTS",
+                    error
+                );
+            }
+        }
         byte[] buffer = new byte[4096];
         try {
             int count = stream.input.read(buffer);
@@ -1477,6 +1553,20 @@
             writeNetEvent("write-production " + stream.id + " " + format(bytes));
         } catch (java.io.IOException | RuntimeException error) {
             throw new RuntimeFailure("transport write failed: production socket failed", error);
+        }
+    }
+
+    private static void shutdownProductionRead(NetStream stream) {
+        if (!stream.shutdownReadOnce()) {
+            return;
+        }
+        try {
+            if (stream.socket != null) {
+                stream.socket.shutdownInput();
+            }
+            writeNetEvent("shutdown-read-production " + stream.id);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure("transport shutdown_read failed: production socket failed", error);
         }
     }
 
