@@ -317,6 +317,8 @@ behavior.
   [network-stream-close-boundary.md](network-stream-close-boundary.md).
 - Network stream shutdown write boundary:
   [network-stream-shutdown-write-boundary.md](network-stream-shutdown-write-boundary.md).
+- Network stream shutdown read boundary:
+  [network-stream-shutdown-read-boundary.md](network-stream-shutdown-read-boundary.md).
 - Network listener close boundary:
   [network-listener-close-boundary.md](network-listener-close-boundary.md).
 - Network client connect boundary:

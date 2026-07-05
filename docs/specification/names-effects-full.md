@@ -211,6 +211,7 @@ net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net
 net::write_chunks_until(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
 net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
 net::shutdown_write(stream: NetStream) -> () effects [net]
+net::shutdown_read(stream: NetStream) -> () effects [net]
 net::close_stream(stream: NetStream) -> () effects [net]
 net::close_listener(listener: NetListener) -> () effects [net]
 time::monotonic_ms() -> Int effects [time]
@@ -234,8 +235,8 @@ effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
 `net::accept_or_end`, `net::listener_local_addr`, `net::read_chunk`,
 `net::read_chunk_or_end`, and
 `net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
-`net::close_stream`, and `net::close_listener` also infer the same coarse
-`net` effect. Direct calls
+`net::shutdown_read`, `net::close_stream`, and `net::close_listener` also
+infer the same coarse `net` effect. Direct calls
 to `net::accept_until`,
 `net::read_chunk_until`, and
 `net::read_chunk_until_cancellable`,
@@ -305,6 +306,9 @@ supplied `CancelToken` wins before the list is fully written.
 shutdown, returns `()`, and leaves clean read end on the existing
 `net::read_chunk_or_end` path. Later writes on the same stream fail as runtime
 transport failures.
+`net::shutdown_read` records fixture-backed adapter-owned read-side shutdown,
+returns `()`, and makes later optional stream reads observe clean end while
+leaving the write side owned by the same `NetStream`.
 `net::close_stream` records fixture-backed adapter-owned stream cleanup and
 returns `()`. `net::close_listener` records fixture-backed adapter-owned
 listener cleanup and returns `()`; after that close, `net::accept`,
@@ -331,9 +335,10 @@ bytes from that stream, `net::read_chunk_until` reads bytes before the
 supplied deadline or reports clean stream end as `None`, `net::write_chunk`
 writes bytes back to the stream, `net::write_chunks` writes each chunk in
 source list order, `net::shutdown_write` shuts down the stream write side
-without replacing the read clean-end path, `net::close_stream` closes the
-owned stream, and a following optional or deadline-aware accept can observe
-clean listener end.
+without replacing the read clean-end path, `net::shutdown_read` shuts down the
+stream read side so later optional reads report clean end while the write side
+can still write, `net::close_stream` closes the owned stream, and a following
+optional or deadline-aware accept can observe clean listener end.
 When a source program opens a production-loopback listener and then calls
 `net::connect` with the same source-visible address value while that listener
 is still open, the client stream is paired with that listener. A following

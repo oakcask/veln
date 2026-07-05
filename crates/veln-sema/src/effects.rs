@@ -931,6 +931,11 @@ mod tests {
         assert_eq!(return_type, Type::unit());
 
         let (params, return_type) =
+            standard_library_signature(&path("net", "shutdown_read")).expect("net signature");
+        assert_eq!(params, vec![net_stream_type()]);
+        assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
             standard_library_signature(&path("time", "monotonic_ms")).expect("time signature");
         assert!(params.is_empty());
         assert_eq!(return_type, Type::int());

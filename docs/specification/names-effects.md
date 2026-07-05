@@ -38,11 +38,12 @@ compiler-known calls.
   `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
   inspection for accepted and connected `NetStream` handles,
   fixture-backed stream writes,
-  stream close recording, and listener close recording,
+  stream read-side shutdown, stream close recording, and listener close
+  recording,
   opt-in production loopback socket ownership for listen, sequential accepts,
   client connects, source-visible listener/client connect pairing, reads,
-  writes, clean listener end, stream close, and listener close under the same
-  public calls,
+  writes, clean listener end, stream read-side shutdown, stream close, and
+  listener close under the same public calls,
   relative and absolute monotonic deadline calls, and cancellable deadline
   waits through
   source-visible `CancelToken` handles. `time::cancel_owner` creates a
@@ -87,7 +88,10 @@ compiler-known calls.
   completion or deadline expiry before the list is fully written.
   `net::write_chunks_until_cancellable` extends that boundary with
   cancellation, returning ordinary write outcomes for full completion,
-  deadline expiry, or cancellation before the list is fully written. The
+  deadline expiry, or cancellation before the list is fully written.
+  `net::shutdown_read` shuts down the stream read side under the same coarse
+  `net` effect, makes later optional reads observe clean end, and leaves the
+  write side owned by the same `NetStream`. The
   adapter-owned outbound
   ordering example accepts
   deterministic loopback streams, routes ordinary `StreamInput` values
@@ -158,8 +162,11 @@ compiler-known calls.
   an address value, connects a source-owned client stream through the same
   value, accepts the paired server stream, exchanges one byte chunk, closes
   both stream handles, observes clean listener end, and closes the listener
-  under the existing `net` effect boundary. The production multi-chunk routing
-  lifecycle accepts one production stream, preserves
+  under the existing `net` effect boundary. The production read-side shutdown
+  lifecycle shuts down accepted-stream input, observes clean optional read
+  end, writes response bytes, and then explicitly shuts down write ownership
+  and closes the stream under the same `net` effect. The production
+  multi-chunk routing lifecycle accepts one production stream, preserves
   configured read chunk boundaries as repeated `net::read_chunk_or_end`
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an
   existing channel to a pure handler, and projects ordered `SendBytes` actions

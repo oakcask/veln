@@ -27,6 +27,10 @@ behavior.
 - Production-loopback listener endpoint text, accepted-stream endpoint text,
   read, stream close, and listener close:
   `../../examples/specification/run/transport-socket-production-listener-address/`.
+- Production-loopback read-side shutdown lifecycle:
+  `../../examples/specification/run/socket-stream-adapter-production-shutdown-read-lifecycle/`.
+- `net::shutdown_read` effect checking:
+  `../../examples/specification/check/socket-stream-shutdown-read-effects/`.
 - Listener endpoint metadata lookup runtime failure JSON:
   `../../examples/specification/run/transport-socket-listener-address-failure-json/`.
 - `net::listener_local_addr` effect checking:
