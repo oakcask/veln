@@ -311,7 +311,14 @@ compiler-known calls.
   dispatch payload slices accept schema-local visible fields, using
   `ByteView` fields for length-bounded payloads, `List<T>` fields for repeated
   payloads, and `SchemaDispatchPayload<T>` for extension dispatch payload
-  fields. Eligible nested dispatch payloads include public imported binary
+  fields. Schema-facing byte conversions are explicit source-visible helper
+  calls: `byte_view` supplies bounded `ByteView` payloads over owned bytes, and
+  `byte_view_to_chunk` materializes schema-decoded bounded bytes back to owned
+  `ByteChunk` data. The executable coverage is
+  `../../examples/specification/run/binary-schema-byte-conversion-boundary/`
+  and
+  `../../examples/specification/run/binary-schema-byte-conversion-range-json/`.
+  Eligible nested dispatch payloads include public imported binary
   schemas with quotient-sized `ByteView(left_length / right_length)` fields
   whose operands are earlier visible `Int` fields in the nested payload
   schema. Same-module recursive dispatch payload slices with a length-bounded

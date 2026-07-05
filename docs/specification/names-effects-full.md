@@ -1068,6 +1068,14 @@ byte reads report negative direct-constructor payloads with the same
 non-negative offset and count error strings as the construction helpers.
 `byte_view_to_chunk(view)` materializes exactly the bounded bytes as an
 immutable owned `ByteChunk`.
+Schema-facing byte conversions are ordinary source-visible helper calls, not
+implicit schema coercions: source code uses `byte_view` when schema input or
+payload fields need bounded `ByteView` values over owned bytes, and
+`byte_view_to_chunk` when schema-decoded bounded bytes must be materialized as
+an owned `ByteChunk`. The checked cases
+`../../examples/specification/run/binary-schema-byte-conversion-boundary/` and
+`../../examples/specification/run/binary-schema-byte-conversion-range-json/`
+cover the successful boundary and the requested-range failure.
 `byte_view_count(view)` returns the view length as `ByteCount`.
 `byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
 `byte_view_slice(view, offset, count)` derive bounded immutable views within

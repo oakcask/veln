@@ -19,8 +19,8 @@ slicing, offsets for diagnostics, and output chunks for encoding.
 ## Scope
 
 Define the remaining standard-library support for binary-buffer behavior,
-schema-facing conversion policy, protocol-facing diagnostics, and bounded
-buffers for flow-control and incremental parsing examples.
+protocol-facing diagnostics, and bounded buffers for flow-control and
+incremental parsing examples.
 
 The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
 immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
@@ -37,6 +37,7 @@ collection for protocol examples, budgeted outgoing whole-chunk production,
 and channel boundaries, source-visible `ByteView` range failure diagnostics
 with bounded byte previews, checked byte write conversion diagnostics with
 helper name, supplied value, accepted range, width, and byte order,
+schema-facing source-visible `ByteChunk` and `ByteView` conversion boundaries,
 schema-facing length-bounded `ByteView` encode conversion diagnostics with
 schema field path and byte-view count mismatch reason, and
 structured byte previews for the implemented schema-owned byte diagnostics and
@@ -59,6 +60,8 @@ The completed outgoing chunk production slice is archived under
 `../reference/implemented-proposals/binary-data-outgoing-chunk-production.md`.
 The completed source-visible `u56` byte helper slice is archived under
 `../reference/implemented-proposals/binary-data-u56-byte-helpers.md`.
+The completed schema conversion boundary slice is archived under
+`../reference/implemented-proposals/binary-data-schema-conversion-boundary.md`.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -156,7 +159,7 @@ bounded by default.
 ## Remaining Completion Criteria
 
 - Specification pages describe the later binary-buffer behavior and any
-  schema-facing conversion boundaries not covered by the current byte helpers,
+  binary-buffer conversion boundaries not covered by the current byte helpers,
   source-visible `ByteView` range diagnostics, checked byte write conversion
   diagnostics, schema-owned byte diagnostic previews, and command-facing
   length-bounded `ByteView` encode conversion diagnostics.

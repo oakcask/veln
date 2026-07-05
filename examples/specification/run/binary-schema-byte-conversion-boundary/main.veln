@@ -1,0 +1,61 @@
+# Schema byte boundaries convert explicitly between owned chunks and bounded views.
+use stdio
+
+schema PayloadWire
+	format binary
+
+	length: UInt8
+	payload: ByteView(length)
+end
+
+fn decoded_payload(step: DecodeStep<{length: Int, payload: ByteView}>) -> Result<ByteView, String>
+	match step
+		Decoded(packet, _) => Ok(packet.payload)
+		NeedMore(_) => Err("unexpected incomplete decode")
+		Invalid(_) => Err("unexpected invalid decode")
+	end
+end
+
+fn emit_payload(label: String, payload: ByteView) -> Result<(), String> effects [stdio]
+	let owned: ByteChunk = byte_view_to_chunk(payload)
+	stdio::print(label)
+	stdio::print(" view-count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_view_count(payload))))
+	stdio::print(" owned-count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(owned))))
+	Ok(())
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	stdio::println("output_chunk_list schema-byte-conversion count 1")
+	emit_output_chunk("schema-byte-conversion", 0, bytes, "03aabbcc")
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let source: ByteChunk = byte_chunk_from_hex("03aabbcc")?
+	let packet_view: ByteView = byte_view(source, byte_offset(0)?, byte_count(4)?)?
+	let decoded: ByteView = decoded_payload(decode PayloadWire from packet_view at byte_offset(17)?)?
+	let _ = emit_payload("decoded-payload", decoded)?
+
+	let owned_payload: ByteChunk = byte_view_to_chunk(decoded)
+	let schema_payload: ByteView = byte_view(owned_payload, byte_offset(0)?, byte_count(3)?)?
+	let _ = emit_payload("schema-payload", schema_payload)?
+
+	let encoded: Result<ByteChunk, EncodeError> = encode PayloadWire from {length: 3, payload: schema_payload}
+	let _ = match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+	Ok(())
+end

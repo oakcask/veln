@@ -1,0 +1,47 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "byte view range exceeds chunk length"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.byte_range_out_of_bounds"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.requested_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview"
+equals = {"encoding":"hex","data":"aabb","preview_byte_count":2,"total_byte_count":2,"truncated":false}
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(byte view range exceeds chunk length)\n"
