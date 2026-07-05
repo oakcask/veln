@@ -510,6 +510,11 @@ It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
 nonzero streams on the existing `http2.protocol.invalid_stream_id` path.
+It rejects non-ACK SETTINGS frames whose payload length is not a multiple of
+the six-byte SETTINGS item width as `http2.protocol.invalid_payload_length`
+before updating peer-advertised SETTINGS state, with ordinary output plus
+JSON and human diagnostic projection evidence for the item-width rule
+provenance.
 It also records accepted local SETTINGS batches in an ordered outstanding
 queue when the fixture emits
 local `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_INITIAL_WINDOW_SIZE`,

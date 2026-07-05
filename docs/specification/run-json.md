@@ -998,8 +998,9 @@ Wrong-length protocol payloads use id
 `expected_payload_length`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected payload bytes. The preview
 uses the same object shape as other protocol-owned byte previews while
-payload length facts stay in their own fields. The SETTINGS ACK, PING,
-GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` checked JSON examples return
+payload length facts stay in their own fields. The SETTINGS ACK, SETTINGS
+item-width, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` checked JSON
+examples return
 source-visible
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, and the
 `http2_protocol_invalid_payload_length(...)` helper returns the same

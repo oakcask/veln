@@ -361,8 +361,16 @@ enough.
   Multiple peer SETTINGS frames received before consumption coalesce to that
   one pending ACK. Consuming the intent emits an empty SETTINGS frame with the
   ACK flag and clears the pending ACK state without mutating peer-advertised
-  settings. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  settings. A non-ACK peer SETTINGS frame whose payload length is not a
+  multiple of the six-byte SETTINGS item width fails with
+  `http2.protocol.invalid_payload_length` before peer-advertised settings are
+  updated; structured and human diagnostics keep the primary message on the
+  payload-length fact and carry the SETTINGS item-width rule provenance as
+  context. The checked cases are
+  `examples/specification/run/http2-protocol-core/`,
+  `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
+  and
+  `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
 - The same checked HTTP/2 protocol core accepts received `PRIORITY` frames on
   nonzero client-initiated streams when the frame has the fixed five-byte
   payload and does not depend on itself. The decoded frame exposes dependency
