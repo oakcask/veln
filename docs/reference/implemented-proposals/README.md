@@ -418,6 +418,8 @@ behavior.
   [codec-owned-decode-invalid-id-diagnostics.md](codec-owned-decode-invalid-id-diagnostics.md).
 - Codec magic mismatch diagnostics:
   [codec-magic-mismatch-diagnostics.md](codec-magic-mismatch-diagnostics.md).
+- Codec unsupported feature diagnostics:
+  [codec-unsupported-feature-diagnostics.md](codec-unsupported-feature-diagnostics.md).
 - Runtime diagnostic HTTP/2 preface payloads:
   [runtime-diagnostic-http2-preface-payloads.md](runtime-diagnostic-http2-preface-payloads.md).
 - Runtime diagnostic HTTP/2 SETTINGS ACK payload:
