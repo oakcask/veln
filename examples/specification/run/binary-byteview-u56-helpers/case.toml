@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "u56-read 283686952306183 283686952306183\nu56-max 72057594037927935\noutput_chunk_list u56-big count 1\noutput_chunk u56-big index 0 hex \"01020304050607\" count 7\noutput_chunk_list u56-little count 1\noutput_chunk u56-little index 0 hex \"07060504030201\" count 7\noutput_chunk_list u56-max-big count 1\noutput_chunk u56-max-big index 0 hex \"ffffffffffffff\" count 7\noutput_chunk_list u56-max-little count 1\noutput_chunk u56-max-little index 0 hex \"ffffffffffffff\" count 7\nbyte_write_u56_be value must be between 0 and 72057594037927935\nbyte_write_u56_le value must be between 0 and 72057594037927935\nbyte read requires 7 bytes but view has 6\nbyte read requires 7 bytes but view has 6\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "u56-big"
+chunks = ["01020304050607"]
+
+[[output_chunk_list]]
+name = "u56-little"
+chunks = ["07060504030201"]
+
+[[output_chunk_list]]
+name = "u56-max-big"
+chunks = ["ffffffffffffff"]
+
+[[output_chunk_list]]
+name = "u56-max-little"
+chunks = ["ffffffffffffff"]

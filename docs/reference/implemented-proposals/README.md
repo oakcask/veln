@@ -124,6 +124,8 @@ behavior.
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
 - Binary data outgoing chunk production:
   [binary-data-outgoing-chunk-production.md](binary-data-outgoing-chunk-production.md).
+- Binary data source-visible `u56` byte helpers:
+  [binary-data-u56-byte-helpers.md](binary-data-u56-byte-helpers.md).
 - Schema documentation references:
   [schema-documentation-references.md](schema-documentation-references.md).
 - Remove schema map-to:

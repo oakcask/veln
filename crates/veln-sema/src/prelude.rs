@@ -983,17 +983,15 @@ fn byte_numeric_signature<T: BytePreludeType>(
 ) -> Option<ByteSignature<T>> {
     match name {
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
-        | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u64_be"
-        | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le" | "byte_read_u32_le"
-        | "byte_read_u40_le" | "byte_read_u48_le" | "byte_read_u64_le" => {
-            Some((vec![types.byte_view.clone()], result_string(T::int())))
-        }
+        | "byte_read_u32_be" | "byte_read_u40_be" | "byte_read_u48_be" | "byte_read_u56_be"
+        | "byte_read_u64_be" | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le"
+        | "byte_read_u32_le" | "byte_read_u40_le" | "byte_read_u48_le" | "byte_read_u56_le"
+        | "byte_read_u64_le" => Some((vec![types.byte_view.clone()], result_string(T::int()))),
         "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
-        | "byte_write_u32_be" | "byte_write_u40_be" | "byte_write_u48_be" | "byte_write_u64_be"
-        | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le" | "byte_write_u32_le"
-        | "byte_write_u40_le" | "byte_write_u48_le" | "byte_write_u64_le" => {
-            Some((vec![T::int()], result_string(types.byte_chunk.clone())))
-        }
+        | "byte_write_u32_be" | "byte_write_u40_be" | "byte_write_u48_be" | "byte_write_u56_be"
+        | "byte_write_u64_be" | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le"
+        | "byte_write_u32_le" | "byte_write_u40_le" | "byte_write_u48_le" | "byte_write_u56_le"
+        | "byte_write_u64_le" => Some((vec![T::int()], result_string(types.byte_chunk.clone()))),
         "byte_count" => Some((vec![T::int()], result_string(types.byte_count.clone()))),
         "byte_count_to_int" => Some((vec![types.byte_count.clone()], T::int())),
         "byte_offset" => Some((vec![T::int()], result_string(types.byte_offset.clone()))),

@@ -888,6 +888,7 @@ byte_read_u31_be(view: ByteView) -> Result<Int, String>
 byte_read_u32_be(view: ByteView) -> Result<Int, String>
 byte_read_u40_be(view: ByteView) -> Result<Int, String>
 byte_read_u48_be(view: ByteView) -> Result<Int, String>
+byte_read_u56_be(view: ByteView) -> Result<Int, String>
 byte_read_u64_be(view: ByteView) -> Result<Int, String>
 byte_read_u16_le(view: ByteView) -> Result<Int, String>
 byte_read_u24_le(view: ByteView) -> Result<Int, String>
@@ -895,6 +896,7 @@ byte_read_u31_le(view: ByteView) -> Result<Int, String>
 byte_read_u32_le(view: ByteView) -> Result<Int, String>
 byte_read_u40_le(view: ByteView) -> Result<Int, String>
 byte_read_u48_le(view: ByteView) -> Result<Int, String>
+byte_read_u56_le(view: ByteView) -> Result<Int, String>
 byte_read_u64_le(view: ByteView) -> Result<Int, String>
 byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_be(value: Int) -> Result<ByteChunk, String>
@@ -903,6 +905,7 @@ byte_write_u31_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u40_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u48_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u56_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u64_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_le(value: Int) -> Result<ByteChunk, String>
@@ -910,6 +913,7 @@ byte_write_u31_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u40_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u48_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u56_le(value: Int) -> Result<ByteChunk, String>
 byte_write_u64_le(value: Int) -> Result<ByteChunk, String>
 byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
@@ -1082,6 +1086,11 @@ The fixed-width unsigned big-endian and little-endian read helpers read from
 the start of the view and return `Err(String)` when the view is too short.
 The `u31` and `u64` reads also return `Err(String)` when the decoded value
 would exceed the source-visible `Int` maximum for the helper width. The
+source-visible `u56` helpers read and write the same seven-byte big-endian or
+little-endian representation as `UInt56be` and `UInt56le`, accept values in
+the `0..72057594037927935` range, and reject shorter views or unrepresentable
+write values with `Err(String)`.
+The
 `byte_expect_fixed_u8_be` helper reads one byte and returns
 `schema.fixed_field_mismatch` diagnostic details when the actual byte differs
 from the expected fixed byte for the supplied schema and field names. The
@@ -1234,16 +1243,18 @@ helpers, rather than the public schema application surface.
   `http2_peer_limit_concurrent_streams_exceeded`,
   `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
-  `byte_read_u40_be`, `byte_read_u48_be`, `byte_read_u64_be`,
+  `byte_read_u40_be`, `byte_read_u48_be`, `byte_read_u56_be`,
+  `byte_read_u64_be`,
   `byte_read_u16_le`, `byte_read_u24_le`, `byte_read_u31_le`,
   `byte_read_u32_le`, `byte_read_u40_le`, `byte_read_u48_le`,
-  `byte_read_u64_le`, `byte_write_u8_be`,
+  `byte_read_u56_le`, `byte_read_u64_le`, `byte_write_u8_be`,
   `byte_write_u16_be`, `byte_write_u24_be`, `byte_write_u31_be`,
   `byte_write_u32_be`, `byte_write_u40_be`, `byte_write_u48_be`,
-  `byte_write_u64_be`, `byte_write_u16_le`, `byte_write_u24_le`,
-  `byte_write_u31_le`, `byte_write_u32_le`, `byte_write_u40_le`,
-  `byte_write_u48_le`, `byte_write_u64_le`, `byte_count`,
-  `byte_count_to_int`, `byte_offset`, `byte_offset_to_int`,
+  `byte_write_u56_be`, `byte_write_u64_be`, `byte_write_u16_le`,
+  `byte_write_u24_le`, `byte_write_u31_le`, `byte_write_u32_le`,
+  `byte_write_u40_le`, `byte_write_u48_le`, `byte_write_u56_le`,
+  `byte_write_u64_le`, `byte_count`, `byte_count_to_int`, `byte_offset`,
+  `byte_offset_to_int`,
   `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`,
   `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
   `list_nil`, `list_cons`, `list_is_empty`, `list_fold`, `list_reverse`,

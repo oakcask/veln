@@ -327,13 +327,15 @@ compiler-known calls.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`,
   `UInt56le`, and `UInt64le` fields use little-endian byte order in generated
   decode and encode helpers.
-  Source-visible byte helpers also expose checked `u40`, `u48`, and `u64`
-  big-endian and little-endian reads and writes through ordinary `Int` values;
-  eight-byte values above the source-visible `Int` maximum fail instead of
-  wrapping. The `u40` helpers use the same five-byte representations as
-  `UInt40be` and `UInt40le`, the `u48` helpers use the same six-byte
-  representations as `UInt48be` and `UInt48le`, and the `u64` helpers use the
-  same eight-byte representations as `UInt64be` and `UInt64le`.
+  Source-visible byte helpers also expose checked `u40`, `u48`, `u56`, and
+  `u64` big-endian and little-endian reads and writes through ordinary `Int`
+  values; eight-byte values above the source-visible `Int` maximum fail
+  instead of wrapping. The `u40` helpers use the same five-byte
+  representations as `UInt40be` and `UInt40le`, the `u48` helpers use the
+  same six-byte representations as `UInt48be` and `UInt48le`, the `u56`
+  helpers use the same seven-byte representations as `UInt56be` and
+  `UInt56le`, and the `u64` helpers use the same eight-byte representations as
+  `UInt64be` and `UInt64le`.
   HTTP/2 frame-header decoding should be expressed at source level through
   explicit schema operations or ordinary protocol wrapper functions. Remaining
   compiler-known compatibility and protocol diagnostic projection helpers,

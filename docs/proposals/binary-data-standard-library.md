@@ -28,9 +28,9 @@ for construction, length, append, bounded take, bounded drop, bounded views,
 bounded view count, bounded view take/drop/slice, outgoing `List<ByteChunk>`
 construction and append, view-to-chunk materialization, fixed-width unsigned
 big-endian reads and writes for 8-bit, 16-bit, 24-bit, 31-bit, 32-bit, 40-bit,
-48-bit, and 64-bit source-visible `Int` values, fixed-width unsigned
+48-bit, 56-bit, and 64-bit source-visible `Int` values, fixed-width unsigned
 little-endian reads and writes for 16-bit, 24-bit, 31-bit, 32-bit, 40-bit,
-48-bit, and 64-bit source-visible `Int` values, source-visible pending input
+48-bit, 56-bit, and 64-bit source-visible `Int` values, source-visible pending input
 and outgoing immutable chunk
 collection for protocol examples, budgeted outgoing whole-chunk production,
 `ByteView` freeze preservation across task
@@ -57,6 +57,8 @@ byte diagnostics.
 Current behavior belongs to the specification pages, not this proposal.
 The completed outgoing chunk production slice is archived under
 `../reference/implemented-proposals/binary-data-outgoing-chunk-production.md`.
+The completed source-visible `u56` byte helper slice is archived under
+`../reference/implemented-proposals/binary-data-u56-byte-helpers.md`.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
