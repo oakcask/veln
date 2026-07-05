@@ -31,6 +31,14 @@ behavior.
   `../../examples/specification/run/socket-stream-adapter-production-shutdown-read-lifecycle/`.
 - `net::shutdown_read` effect checking:
   `../../examples/specification/check/socket-stream-shutdown-read-effects/`.
+- Production-loopback write-side shutdown lifecycle:
+  `../../examples/specification/run/socket-stream-adapter-production-shutdown-write-lifecycle/`.
+- Fixture-backed write-side shutdown lifecycle and failure:
+  `../../examples/specification/run/socket-stream-adapter-shutdown-write-lifecycle/`
+  and
+  `../../examples/specification/run/socket-stream-adapter-shutdown-write-failure-json/`.
+- `net::shutdown_write` effect checking:
+  `../../examples/specification/check/socket-stream-shutdown-write-effects/`.
 - Listener endpoint metadata lookup runtime failure JSON:
   `../../examples/specification/run/transport-socket-listener-address-failure-json/`.
 - `net::listener_local_addr` effect checking:

@@ -89,6 +89,9 @@ compiler-known calls.
   `net::write_chunks_until_cancellable` extends that boundary with
   cancellation, returning ordinary write outcomes for full completion,
   deadline expiry, or cancellation before the list is fully written.
+  `net::shutdown_write` shuts down the stream write side under the same
+  coarse `net` effect, makes later writes fail as runtime transport failures,
+  and leaves the clean read-end path available on the same `NetStream`.
   `net::shutdown_read` shuts down the stream read side under the same coarse
   `net` effect, makes later optional reads observe clean end, and leaves the
   write side owned by the same `NetStream`. The
@@ -166,6 +169,9 @@ compiler-known calls.
   lifecycle shuts down accepted-stream input, observes clean optional read
   end, writes response bytes, and then explicitly shuts down write ownership
   and closes the stream under the same `net` effect. The production
+  write-side shutdown lifecycle writes response bytes, shuts down output,
+  observes clean read end, and then closes the stream under the same `net`
+  effect. The production
   multi-chunk routing lifecycle accepts one production stream, preserves
   configured read chunk boundaries as repeated `net::read_chunk_or_end`
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an
