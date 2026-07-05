@@ -20,10 +20,10 @@ supplied record on success without producing binary bytes. Explicit
 `encode Schema from value` expressions use the same helper boundary.
 
 At this slice, recursive format-neutral encode helper shapes beyond the
-supported dictionary slice, such as `Dict<String, Option<Int>>`, remained
+supported dictionary slice, such as `Dict<String, Option<Int>>`, were still
 unsupported and did not expose a generated helper. Dictionaries with
-non-`String` keys remain unsupported. The later first container encode helper
-slice is tracked in a sibling implemented proposal record.
+non-`String` keys remain unsupported. Later container and dictionary-option
+encode helper slices are tracked in sibling implemented proposal records.
 
 ## Evidence
 
@@ -31,8 +31,8 @@ slice is tracked in a sibling implemented proposal record.
   checks direct helper calls and explicit schema encode expressions over
   `Dict<String, scalar>` fields.
 - `../../../examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`
-  checks that `Dict<Int, String>` and `Dict<String, Option<Int>>` remain
-  outside the generated encode helper boundary.
+  checks that non-string dictionary keys and unsupported dictionary value
+  shapes remain outside the generated encode helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper signature generation plus Core and IR lowering.
 

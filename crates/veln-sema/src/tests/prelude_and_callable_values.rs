@@ -568,12 +568,63 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_vec_fields() {
 }
 
 #[test]
+fn generated_format_neutral_schema_encode_helpers_accept_option_scalar_dict_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  scores: Dict<String, Option<Int>>\n",
+            "  states: Dict<String, Option<Bool>>\n",
+            "  weights: Dict<String, Option<Float>>\n",
+            "  names: Dict<String, Option<String>>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {scores: Dict<String, Option<Int>>, states: Dict<String, Option<Bool>>, weights: Dict<String, Option<Float>>, names: Dict<String, Option<String>>}) -> Result<{scores: Dict<String, Option<Int>>, states: Dict<String, Option<Bool>>, weights: Dict<String, Option<Float>>, names: Dict<String, Option<String>>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {scores: Dict<String, Option<Int>>, states: Dict<String, Option<Bool>>, weights: Dict<String, Option<Float>>, names: Dict<String, Option<String>>}) -> Result<{scores: Dict<String, Option<Int>>, states: Dict<String, Option<Bool>>, weights: Dict<String, Option<Float>>, names: Dict<String, Option<String>>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
 fn generated_format_neutral_schema_encode_helpers_reject_dict_boundaries() {
     for (field_type, record_type) in [
         ("Dict<Int, String>", "{items: Dict<Int, String>}"),
         (
-            "Dict<String, Option<Int>>",
-            "{items: Dict<String, Option<Int>>}",
+            "Dict<String, List<Int>>",
+            "{items: Dict<String, List<Int>>}",
+        ),
+        (
+            "Dict<String, Dict<String, Int>>",
+            "{items: Dict<String, Dict<String, Int>>}",
         ),
         (
             "Option<Dict<Int, String>>",
@@ -599,7 +650,11 @@ fn generated_format_neutral_schema_encode_helpers_reject_dict_boundaries() {
             .diagnostics
             .iter()
             .find(|diagnostic| diagnostic.id == "schema.encode_expression")
-            .expect("unsupported format-neutral encode helper should be rejected");
+            .unwrap_or_else(|| {
+                panic!(
+                    "unsupported format-neutral encode helper should be rejected for {field_type}"
+                )
+            });
         assert_eq!(
             diagnostic.message,
             "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
