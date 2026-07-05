@@ -570,6 +570,8 @@ and consuming the intent clears the pending state. The send intent does not
 update peer-advertised SETTINGS state or local receive-limit state. The
 completed slice is archived under
 [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
+The completed SETTINGS item-length validation slice is archived under
+[HTTP/2 SETTINGS Item-Length Validation](../reference/implemented-proposals/http2-settings-item-length-validation.md).
 The completed ordered local SETTINGS batch send-intent slice is archived under
 [HTTP/2 Local SETTINGS Batch Send](../reference/implemented-proposals/http2-local-settings-batch-send.md).
 The implemented slice also includes outbound DATA send-intent flow control,

@@ -510,6 +510,8 @@ behavior.
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
+- HTTP/2 SETTINGS item-length validation:
+  [http2-settings-item-length-validation.md](http2-settings-item-length-validation.md).
 - HTTP/2 local SETTINGS batch send:
   [http2-local-settings-batch-send.md](http2-local-settings-batch-send.md).
 - HTTP/2 outbound DATA flow control:
