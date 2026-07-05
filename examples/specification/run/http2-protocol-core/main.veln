@@ -1324,6 +1324,13 @@ end
 fn validate_settings_ack_payload_length(offset: Int, payload: ByteChunk, length: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
 	match settings_ack_set(flags)
 		true => validate_fixed_payload_length(offset, payload, length, 4, stream_id, 0, "connection-control", "rfc9113_settings_ack_payload_length")
+		false => validate_settings_item_payload_length(offset, payload, length, stream_id)
+	end
+end
+
+fn validate_settings_item_payload_length(offset: Int, payload: ByteChunk, length: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
+	match settings_payload_has_partial_item(length)
+		true => Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, 4, stream_id, length, 6, "connection-control", "rfc9113_settings_payload_item_length", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
 		false => Ok(ProtocolPayloadOk)
 	end
 end
@@ -1351,6 +1358,13 @@ end
 fn settings_payload_has_complete_items(length: Int) -> Bool
 	match length > 0
 		true => (length / 6) * 6 == length
+		false => false
+	end
+end
+
+fn settings_payload_has_partial_item(length: Int) -> Bool
+	match length > 0
+		true => (length / 6) * 6 != length
 		false => false
 	end
 end
@@ -10876,6 +10890,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_settings))?
 	print_step("settings-ack", settings_ack)
 	print_peer_settings("settings-ack", step_state(settings_ack))
+	let settings_partial_item: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050400000000000005000040")?), step_state(peer_settings))?
+	print_failure("settings-partial-item", settings_partial_item)
+	print_peer_settings("settings-partial-item", step_state(settings_partial_item))
+	let ignored_settings_partial_item_diagnostic: () = http2_protocol_diagnostic(step_failure(settings_partial_item), DiagnosticContext(step_state(settings_partial_item)))?
+	let settings_trailing_item: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007040000000000000500008000aa")?), frame_state())?
+	print_failure("settings-trailing-item", settings_trailing_item)
+	print_peer_settings("settings-trailing-item", step_state(settings_trailing_item))
+	let ignored_settings_trailing_item_diagnostic: () = http2_protocol_diagnostic(step_failure(settings_trailing_item), DiagnosticContext(step_state(settings_trailing_item)))?
 	let ignored_local_settings_send_cases: () = print_local_settings_send_cases()?
 	let settings_unknown_only: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000aaaa12345678")?), frame_state())?
 	print_step("settings-unknown-only", settings_unknown_only)
