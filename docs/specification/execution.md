@@ -191,6 +191,9 @@ enough.
   `examples/specification/run/binary-schema-u48-widths-encode-out-of-range/`,
   and
   `examples/specification/run/binary-schema-u48-widths-truncated-json/`.
+  Source-visible seven-byte `byte_read_u56_be`, `byte_read_u56_le`,
+  `byte_write_u56_be`, and `byte_write_u56_le` helper behavior is checked by
+  `examples/specification/run/binary-byteview-u56-helpers/`.
   Seven-byte `UInt56be` and eight-byte `UInt64be` compatibility helper parity
   is checked by `examples/specification/run/binary-schema-u56-widths-encode/`,
   `examples/specification/run/binary-schema-u56-widths-encode-out-of-range/`,
