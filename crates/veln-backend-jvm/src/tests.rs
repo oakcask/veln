@@ -275,6 +275,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainMagicMismatch));
 
+        Object unsupportedFeature = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.unsupported_feature",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(27) }),
+                "Packet.extension",
+                "feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(unsupportedFeature));
+
+        Object plainUnsupportedFeature = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.unsupported_feature",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(28) }),
+                "Packet.extension",
+                "plain unsupported feature"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainUnsupportedFeature));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -1974,6 +1996,30 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_magic_line.contains("\texpected_magic\t"));
     assert!(!plain_magic_line.contains("\tactual_magic\t"));
+    assert!(
+        trace.contains("\tbyte_diagnostic_v2\tcodec.unsupported_feature\t27\t"),
+        "{trace}"
+    );
+    assert!(
+        trace.contains(
+            "\tunsupported_feature\tstring\t64796e616d69635f7461626c655f73697a655f757064617465"
+        ),
+        "{trace}"
+    );
+    assert!(
+        trace.contains("\treason\tstring\t64796e616d6963207461626c652073697a652075706461746573206172652064697361626c656420666f7220746869732070726f66696c65"),
+        "{trace}"
+    );
+    let plain_unsupported_feature_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.unsupported_feature\t28\t"))
+        .expect("plain unsupported feature should be recorded");
+    assert!(
+        plain_unsupported_feature_line
+            .contains("\treason\tstring\t706c61696e20756e737570706f727465642066656174757265"),
+        "{plain_unsupported_feature_line}"
+    );
+    assert!(!plain_unsupported_feature_line.contains("\tunsupported_feature\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"

@@ -470,6 +470,9 @@ When a `veln run` entry returns a source-visible
 - `actual_magic`: the actual magic string when the id is
   `codec.magic_mismatch` and the source-visible reason carries magic
   mismatch fields
+- `unsupported_feature`: the unsupported feature string when the id is
+  `codec.unsupported_feature` and the source-visible reason carries the
+  unsupported feature field
 - `local_byte_offset`: the byte offset reported by helper context carried by
   the reason when present
 - `expected_count`: the byte count expected by helper context carried by the
@@ -560,6 +563,13 @@ strings still keep only `reason` and do not invent magic facts. The checked
 direct result and `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-magic-mismatch-direct-json/` and
 `examples/specification/run/codec-magic-mismatch-step-json/`.
+For `codec.unsupported_feature`, a source-visible reason written as
+`feature=<value>; reason=<text>` is projected as separate
+`unsupported_feature` and `reason` fields. Plain reason strings still keep
+only `reason` and do not invent feature facts. The checked direct result and
+`DecodeStep::Invalid(...)` examples are
+`examples/specification/run/codec-unsupported-feature-direct-json/` and
+`examples/specification/run/codec-unsupported-feature-step-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice covers
 hand-written decode boundaries whose returned `Decoded` consumed count is

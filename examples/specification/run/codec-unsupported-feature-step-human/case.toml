@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.unsupported_feature]: unsupported feature failed at byte offset 28", "note: Field path: schema `ManualPacketWire` / field `extension`.", "note: Unsupported feature: `dynamic_table_size_update`.", "note: Unsupported feature reason: dynamic table size updates are disabled for this profile.", "note: DecodeError value: DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(28), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile)."]

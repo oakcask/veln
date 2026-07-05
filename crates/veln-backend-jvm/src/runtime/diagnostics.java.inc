@@ -1805,6 +1805,8 @@
                 mergeTagMismatchReason(details, reason);
             } else if (id.equals("codec.magic_mismatch")) {
                 mergeMagicMismatchReason(details, reason);
+            } else if (id.equals("codec.unsupported_feature")) {
+                mergeUnsupportedFeatureReason(details, reason);
             } else if (id.equals("codec.consumed_count_invalid")) {
                 mergeConsumedCountInvalidReason(details, reason);
             } else {
@@ -2407,6 +2409,55 @@
         MagicMismatchReason(String expectedMagic, String actualMagic, String reason) {
             this.expectedMagic = expectedMagic;
             this.actualMagic = actualMagic;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeUnsupportedFeatureReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        UnsupportedFeatureReason parsed = parseUnsupportedFeatureReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.string("unsupported_feature", parsed.unsupportedFeature));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static UnsupportedFeatureReason parseUnsupportedFeatureReason(String reason) {
+        String unsupportedFeature = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("feature")) {
+                unsupportedFeature = value;
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (unsupportedFeature == null
+            || unsupportedFeature.isEmpty()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new UnsupportedFeatureReason(unsupportedFeature, failureReason);
+    }
+
+    private static final class UnsupportedFeatureReason {
+        final String unsupportedFeature;
+        final String reason;
+
+        UnsupportedFeatureReason(String unsupportedFeature, String reason) {
+            this.unsupportedFeature = unsupportedFeature;
             this.reason = reason;
         }
     }

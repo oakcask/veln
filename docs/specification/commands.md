@@ -210,7 +210,17 @@ requiring the full command reference on the first read.
   `expected_magic=<value>; actual_magic=<value>; reason=<text>` form; the
   checked direct result and `DecodeStep::Invalid(...)` examples are
   `examples/specification/run/codec-magic-mismatch-direct-human/` and
-  `examples/specification/run/codec-magic-mismatch-step-human/`. A
+  `examples/specification/run/codec-magic-mismatch-step-human/`.
+  Codec-owned unsupported feature failures with id
+  `codec.unsupported_feature` use
+  `unsupported feature failed at byte offset ...` as the primary human
+  message and put field path, unsupported feature, failure reason, and the
+  source-visible `DecodeError` value in related notes when the
+  source-visible reason uses the narrow
+  `feature=<value>; reason=<text>` form; the checked direct result and
+  `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-unsupported-feature-direct-human/` and
+  `examples/specification/run/codec-unsupported-feature-step-human/`. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

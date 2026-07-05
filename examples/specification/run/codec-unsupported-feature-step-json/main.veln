@@ -1,0 +1,8 @@
+# DecodeStep Invalid unsupported-feature failures populate stable JSON.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(28)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.unsupported_feature", offset, "ManualPacketWire.extension", "feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end
