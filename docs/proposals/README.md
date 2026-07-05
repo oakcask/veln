@@ -165,6 +165,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Vec<scalar>` encode helper slice is archived
   under
   [Format-Neutral Schema Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-vec-scalar-encode-helpers.md).
+  The completed format-neutral nested record `Vec<scalar>` encode helper slice
+  is archived under
+  [Format-Neutral Schema Nested Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-nested-vec-scalar-encode-helpers.md).
   The completed format-neutral `Vec<Option<scalar>>` encode helper slice is
   archived under
   [Format-Neutral Schema Option Vec Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-vec-encode-helpers.md).

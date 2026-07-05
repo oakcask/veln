@@ -275,6 +275,8 @@ behavior.
   [format-neutral-schema-list-scalar-encode-helpers.md](format-neutral-schema-list-scalar-encode-helpers.md).
 - Format-neutral schema `Vec<scalar>` encode helpers:
   [format-neutral-schema-vec-scalar-encode-helpers.md](format-neutral-schema-vec-scalar-encode-helpers.md).
+- Format-neutral schema nested record `Vec<scalar>` encode helpers:
+  [format-neutral-schema-nested-vec-scalar-encode-helpers.md](format-neutral-schema-nested-vec-scalar-encode-helpers.md).
 - Format-neutral schema `Vec<Option<scalar>>` encode helpers:
   [format-neutral-schema-option-vec-encode-helpers.md](format-neutral-schema-option-vec-encode-helpers.md).
 - Format-neutral schema `Dict<String, scalar>` encode helpers:

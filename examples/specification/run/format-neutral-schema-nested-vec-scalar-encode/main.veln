@@ -1,0 +1,60 @@
+# Format-neutral schema encode helpers accept nested record Vec<scalar> fields.
+use stdio
+
+schema NestedVecScalarPacket
+	metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}
+end
+
+fn add_int(total: Int, item: Int) -> Int
+	total + item
+end
+
+fn count_true(total: Int, item: Bool) -> Int
+	match item
+		true => total + 1
+		false => total
+	end
+end
+
+fn encoded_item_sum(result: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.metadata.items, 0, add_int)
+		Err(_) => -1
+	end
+end
+
+fn encoded_flag_count(result: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String>) -> Int
+	match result
+		Ok(packet) => vec_fold(packet.metadata.flags, 0, count_true)
+		Err(_) => -1
+	end
+end
+
+fn encoded_ratio_count(result: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String>) -> Int
+	match result
+		Ok(packet) => vec_len(packet.metadata.ratios)
+		Err(_) => -1
+	end
+end
+
+fn encoded_label_count(result: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String>) -> Int
+	match result
+		Ok(packet) => vec_len(packet.metadata.labels)
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}} = {metadata: {items: [2, 3, 5], flags: [true, false, true], ratios: [1.25, 0.5], labels: ["alpha", "beta"]}}
+	let empty_packet: {metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}} = {metadata: {items: [], flags: [], ratios: [], labels: []}}
+	let encoded: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String> = byte_encode_nested_vec_scalar_packet(packet)
+	let explicit: Result<{metadata: {items: Vec<Int>, flags: Vec<Bool>, ratios: Vec<Float>, labels: Vec<String>}}, String> = encode NestedVecScalarPacket from empty_packet
+	stdio::println(int_to_string(encoded_item_sum(encoded)))
+	stdio::println(int_to_string(encoded_flag_count(encoded)))
+	stdio::println(int_to_string(encoded_ratio_count(encoded)))
+	stdio::println(int_to_string(encoded_label_count(encoded)))
+	stdio::println(int_to_string(encoded_item_sum(explicit)))
+	stdio::println(int_to_string(encoded_flag_count(explicit)))
+	stdio::println(int_to_string(encoded_ratio_count(explicit)))
+	stdio::println(int_to_string(encoded_label_count(explicit)))
+end
