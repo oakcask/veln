@@ -231,6 +231,60 @@ fn print_dynamic_core_failure(label: String, failure: HpackDynamicCoreFailure) -
 	stdio::println(hpack_dynamic_core::dynamic_core_failure_decoder_module(failure))
 end
 
+fn print_hpack_integer_decode(label: String, result: Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(prefix) => print_hpack_integer_decode_success(label, prefix)
+		Err(failure) => print_hpack_integer_decode_failure(label, failure)
+	end
+end
+
+fn print_hpack_integer_decode_success(label: String, prefix: HpackDynamicCoreIntegerPrefix) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" integer value ")
+	stdio::print(int_to_string(hpack_dynamic_core::hpack_integer_prefix_value(prefix)))
+	stdio::print(" prefix_size ")
+	stdio::println(int_to_string(hpack_dynamic_core::hpack_integer_prefix_size(prefix)))
+	Ok(())
+end
+
+fn print_hpack_integer_decode_failure(label: String, failure: HpackDynamicCoreFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" integer_failed id ")
+	stdio::print(hpack_dynamic_core::dynamic_core_failure_diagnostic_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_offset(failure)))
+	stdio::print(" prefix_width ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_prefix_width(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_observed_first_byte(failure)))
+	stdio::print(" preview_count ")
+	stdio::print(int_to_string(hpack_dynamic_core::dynamic_core_failure_preview_count(failure)))
+	stdio::print(" codec_module ")
+	stdio::println(hpack_dynamic_core::dynamic_core_failure_decoder_module(failure))
+	Ok(())
+end
+
+fn print_hpack_integer_encode(label: String, result: Result<HpackDynamicCoreIntegerEncoding, HpackDynamicCoreFailure>, expected_hex: String) -> Result<(), String> effects [stdio]
+	match result
+		Ok(encoding) => match encoded_bytes_equal(hpack_dynamic_core::hpack_integer_encoding_bytes(encoding), byte_chunk_from_hex(expected_hex)?)
+			true => print_hpack_integer_encode_success(label, hpack_dynamic_core::hpack_integer_encoding_bytes(encoding))
+			false => Err("unexpected HPACK integer encoding")
+		end
+		Err(_) => Err("expected HPACK integer encoding")
+	end
+end
+
+fn print_hpack_integer_encode_success(label: String, encoded: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" integer_encoded count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(encoded))))
+	stdio::print(" first_byte ")
+	stdio::println(int_to_string(encoded_byte_at_or_missing(encoded, 0)))
+	Ok(())
+end
+
 fn print_dynamic_core_state(label: String, state: HpackDynamicCoreState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" dynamic_core_state decode_count ")
@@ -662,6 +716,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_dynamic_core_transition("dynamic-core-indexed-multi-continuation-retained-older-path", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_multi_continuation_block, dynamic_core_deep_state, 128))
 	let dynamic_core_multi_continuation_out_of_range_block: ByteChunk = byte_chunk_from_hex("ff8001")?
 	print_dynamic_core_transition("dynamic-core-indexed-multi-continuation-out-of-range", hpack_dynamic_core::decode_indexed_header_field(dynamic_core_multi_continuation_out_of_range_block, dynamic_core_deep_state, 129))
+	let _ = print_hpack_integer_decode("hpack-integer-indexed-prefix", hpack_dynamic_core::decode_hpack_integer_prefix(127, 7, dynamic_core_multi_continuation_block, 1, 145))?
+	let _ = print_hpack_integer_decode("hpack-integer-table-size-prefix", hpack_dynamic_core::decode_hpack_integer_prefix(31, 5, byte_chunk_from_hex("3f8202")?, 1, 146))?
+	let _ = print_hpack_integer_decode("hpack-integer-literal-length-prefix", hpack_dynamic_core::decode_hpack_integer_prefix(127, 7, byte_chunk_from_hex("7f01")?, 1, 147))?
+	let _ = print_hpack_integer_decode("hpack-integer-unterminated", hpack_dynamic_core::decode_hpack_integer_prefix(127, 7, byte_chunk_from_hex("ff80")?, 1, 148))?
+	let _ = print_hpack_integer_encode("hpack-integer-encode-indexed-prefix", hpack_dynamic_core::encode_hpack_integer_prefix(127, 7, 128, 149), "ff00")?
+	let _ = print_hpack_integer_encode("hpack-integer-encode-table-size-prefix", hpack_dynamic_core::encode_hpack_integer_prefix(160, 5, 32, 150), "3f8101")?
+	let _ = print_hpack_integer_encode("hpack-integer-encode-literal-length-prefix", hpack_dynamic_core::encode_hpack_integer_prefix(128, 7, 0, 151), "7f01")?
 	let dynamic_core_static_literal_content_type: Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure> = hpack_dynamic_core::decode_static_name_literal_with_indexing_field(byte_chunk_from_hex("5f0474657874")?, hpack_dynamic_core::initial_dynamic_core_state(), 76)
 	print_dynamic_core_transition("dynamic-core-static-literal-indexed-content-type", dynamic_core_static_literal_content_type)
 	let dynamic_core_static_literal_content_type_state: HpackDynamicCoreState = dynamic_core_next_state_or(dynamic_core_static_literal_content_type, hpack_dynamic_core::initial_dynamic_core_state())

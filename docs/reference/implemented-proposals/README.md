@@ -388,6 +388,8 @@ behavior.
   [http2-hpack-static-name-indexing-core.md](http2-hpack-static-name-indexing-core.md).
 - HTTP/2 HPACK dynamic index core:
   [http2-hpack-dynamic-index-core.md](http2-hpack-dynamic-index-core.md).
+- HTTP/2 HPACK integer core:
+  [http2-hpack-integer-core.md](http2-hpack-integer-core.md).
 - HTTP/2 HPACK dynamic raw literal-name core:
   [http2-hpack-dynamic-raw-literal-name-core.md](http2-hpack-dynamic-raw-literal-name-core.md).
 - HTTP/2 HPACK table-size receive policy:
