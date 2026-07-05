@@ -83,12 +83,13 @@ schemas whose fields use implemented exact-width unsigned primitives,
   field is a scalar leaf, `Option<scalar>` field,
   `Option<List<scalar>>` field, `List<scalar>` field,
   `Vec<scalar>` field, `Vec<Option<scalar>>` field,
-  `Dict<String, scalar>` field, `Option<Dict<String, scalar>>` field,
-  `Result<scalar, scalar>` field, or anonymous record field whose fields are
-  supported format-neutral encode shapes, plus same-module source ADT fields
-  and public imported source ADT fields referenced through written `use` paths
-  whose constructor payloads are supported format-neutral encode shapes. The
-  supported scalar leaves are `Int`, `Bool`, `Float`, and `String`
+  `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
+  `Option<Dict<String, scalar>>` field, `Result<scalar, scalar>` field, or
+  anonymous record field whose fields are supported format-neutral encode
+  shapes, plus same-module source ADT fields and public imported source ADT
+  fields referenced through written `use` paths whose constructor payloads are
+  supported format-neutral encode shapes. The supported scalar leaves are
+  `Int`, `Bool`, `Float`, and `String`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -189,6 +190,10 @@ The completed format-neutral `Dict<String, scalar>` encode helper slice is
 archived under
 [Format-Neutral Schema Dict Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-scalar-encode-helpers.md).
 
+The completed format-neutral `Dict<String, Option<scalar>>` encode helper
+slice is archived under
+[Format-Neutral Schema Dict Option Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-option-scalar-encode-helpers.md).
+
 The completed format-neutral `Option<Dict<String, scalar>>` encode helper
 slice is archived under
 [Format-Neutral Schema Option Dict Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-encode-helpers.md).
@@ -209,8 +214,8 @@ This proposal remains open for:
   supported representation-only reserved-bit, direct nested binary schema,
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral encode helper fields beyond the
-  implemented scalar, supported container, option-dictionary, scalar-result,
-  anonymous record, and source ADT shapes
+  implemented scalar, supported container, dictionary-option, option-dictionary,
+  scalar-result, anonymous record, and source ADT shapes
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations

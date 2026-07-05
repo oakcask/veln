@@ -20,10 +20,12 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice does not add arbitrary recursive encode eligibility. Shapes such
+This slice did not add arbitrary recursive encode eligibility. Shapes such
 as `Option<List<List<Int>>>`, `List<Option<Int>>`,
-`Dict<String, Option<Int>>`, and `Result<List<Int>, String>` remain outside
-the generated format-neutral encode helper surface.
+`Dict<String, Option<Int>>`, and `Result<List<Int>, String>` were outside
+the generated format-neutral encode helper surface at this slice. Later
+dictionary-option encode helper support is tracked in a sibling implemented
+proposal record.
 
 ## Evidence
 

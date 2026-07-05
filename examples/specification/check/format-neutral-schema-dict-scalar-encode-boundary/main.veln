@@ -2,8 +2,8 @@ schema UnsupportedKeyPacket
 	items: Dict<Int, String>
 end
 
-schema UnsupportedValuePacket
-	items: Dict<String, Option<Int>>
+schema UnsupportedListValuePacket
+	items: Dict<String, List<Int>>
 end
 
 fn direct_key(packet: {items: Dict<Int, String>}) -> Result<{items: Dict<Int, String>}, String>
@@ -14,10 +14,10 @@ fn explicit_key(packet: {items: Dict<Int, String>}) -> Result<{items: Dict<Int, 
 	encode UnsupportedKeyPacket from packet
 end
 
-fn direct_value(packet: {items: Dict<String, Option<Int>>}) -> Result<{items: Dict<String, Option<Int>>}, String>
-	byte_encode_unsupported_value_packet(packet)
+fn direct_value(packet: {items: Dict<String, List<Int>>}) -> Result<{items: Dict<String, List<Int>>}, String>
+	byte_encode_unsupported_list_value_packet(packet)
 end
 
-fn explicit_value(packet: {items: Dict<String, Option<Int>>}) -> Result<{items: Dict<String, Option<Int>>}, String>
-	encode UnsupportedValuePacket from packet
+fn explicit_value(packet: {items: Dict<String, List<Int>>}) -> Result<{items: Dict<String, List<Int>>}, String>
+	encode UnsupportedListValuePacket from packet
 end

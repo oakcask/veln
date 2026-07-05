@@ -3111,7 +3111,9 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
             Some(ty.clone())
         }
         Type::Named { name, .. }
-            if name == "Dict" && format_neutral_schema_scalar_dict_type(ty) =>
+            if name == "Dict"
+                && (format_neutral_schema_scalar_dict_type(ty)
+                    || format_neutral_schema_option_scalar_dict_type(ty)) =>
         {
             Some(ty.clone())
         }
@@ -3169,6 +3171,17 @@ fn format_neutral_schema_scalar_dict_type(ty: &Type) -> bool {
     )
 }
 
+fn format_neutral_schema_option_scalar_dict_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Dict"
+                && args.len() == 2
+                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
+                && format_neutral_schema_option_scalar_type(&args[1])
+    )
+}
+
 pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -3177,6 +3190,9 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
 ) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
     format_neutral_schema_plain_encode_field_type(&ty).or_else(|| {
+        if !format_neutral_schema_encode_type_is_source_adt_candidate(&ty) {
+            return None;
+        }
         format_neutral_schema_source_adt_encode_type(
             module,
             schema.module_name.as_deref(),
@@ -3187,13 +3203,16 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
 }
 
 pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
-    let Ok(Type::Named { name, .. }) = parse_type_annotation(text) else {
-        return false;
-    };
-    !matches!(
+    parse_type_annotation(text)
+        .ok()
+        .is_some_and(|ty| format_neutral_schema_encode_type_is_source_adt_candidate(&ty))
+}
+
+fn format_neutral_schema_encode_type_is_source_adt_candidate(ty: &Type) -> bool {
+    matches!(ty, Type::Named { name, .. } if !matches!(
         name.as_str(),
         "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
-    )
+    ))
 }
 
 fn format_neutral_schema_source_adt_encode_type(
