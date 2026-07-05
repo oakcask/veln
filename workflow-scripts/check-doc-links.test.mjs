@@ -157,6 +157,54 @@ test("allows archival routes from proposals through implemented records", () => 
   assert.equal(result.valid, true);
 });
 
+test("rejects bare implemented proposal paths in the proposal catalog", () => {
+  using fixture = tempDocs("doc-links-proposal-catalog-bare-path");
+  fixture.git("init");
+  fixture.write(
+    "proposals/README.md",
+    [
+      "# Proposals",
+      "",
+      "Archived under `../reference/implemented-proposals/schema-boundary.md`.",
+    ].join("\n"),
+  );
+  fixture.write(
+    "reference/implemented-proposals/schema-boundary.md",
+    "# Schema Boundary\n",
+  );
+  fixture.git("add", ".");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "proposals/README.md:3: use a Markdown link for implemented proposal route: ../reference/implemented-proposals/schema-boundary.md",
+  ]);
+});
+
+test("allows linked implemented proposal paths in the proposal catalog", () => {
+  using fixture = tempDocs("doc-links-proposal-catalog-linked-path");
+  fixture.git("init");
+  fixture.write(
+    "proposals/README.md",
+    [
+      "# Proposals",
+      "",
+      "Archived under [schema-boundary.md](../reference/implemented-proposals/schema-boundary.md).",
+    ].join("\n"),
+  );
+  fixture.write(
+    "reference/implemented-proposals/schema-boundary.md",
+    "# Schema Boundary\n",
+  );
+  fixture.git("add", ".");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 test("rejects references to unversioned paths", () => {
   using fixture = tempDocs("doc-links-unversioned");
   fixture.git("init");

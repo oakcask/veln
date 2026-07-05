@@ -35,6 +35,9 @@ export function validateDocsLinks(docsRoot) {
     errors.push(
       ...validateVersionedPathReferences({ docsRoot, file, repoRoot, text }),
     );
+    errors.push(
+      ...validateProposalCatalogReferences({ docsRoot, file, text }),
+    );
   }
 
   return {
@@ -94,6 +97,30 @@ function validateVersionedPathReferences({ docsRoot, file, repoRoot, text }) {
   }
 
   return errors;
+}
+
+function validateProposalCatalogReferences({ docsRoot, file, text }) {
+  const relativeFrom = path.relative(docsRoot, file);
+  if (relativeFrom !== path.join("proposals", "README.md")) {
+    return [];
+  }
+
+  const errors = [];
+  for (const reference of localPathReferences(stripFencedCodeBlocks(text))) {
+    if (isBareImplementedProposalPath(reference.text)) {
+      errors.push(
+        `${relativeFrom}:${reference.line}: use a Markdown link for implemented proposal route: ${reference.text}`,
+      );
+    }
+  }
+  return errors;
+}
+
+function isBareImplementedProposalPath(value) {
+  return (
+    value.startsWith("../reference/implemented-proposals/") &&
+    value.endsWith(".md")
+  );
 }
 
 function listMarkdownFiles(root) {

@@ -48,34 +48,34 @@ compare it with `../specification/` before changing behavior.
   local `let` expected-type path inference,
   nested initializer expected-type propagation, hole expected-type flow, and
   examples cleanup, and diagnostic-details slices are archived under
-  `../reference/implemented-proposals/local-inference-private-helper-call-site.md`,
-  `../reference/implemented-proposals/local-inference-prelude-callback-argument.md`,
-  `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`,
-  `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`,
-  `../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md`,
-  `../reference/implemented-proposals/local-inference-prelude-callback-fallback.md`,
-  `../reference/implemented-proposals/local-inference-record-field-callback.md`,
-  `../reference/implemented-proposals/local-inference-local-callback-binding.md`,
+  [local-inference-private-helper-call-site.md](../reference/implemented-proposals/local-inference-private-helper-call-site.md),
+  [local-inference-prelude-callback-argument.md](../reference/implemented-proposals/local-inference-prelude-callback-argument.md),
+  [local-inference-dictionary-callback-aliases.md](../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md),
+  [local-inference-declared-helper-callback-argument.md](../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md),
+  [local-inference-declared-helper-callback-alias.md](../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md),
+  [local-inference-prelude-callback-fallback.md](../reference/implemented-proposals/local-inference-prelude-callback-fallback.md),
+  [local-inference-record-field-callback.md](../reference/implemented-proposals/local-inference-record-field-callback.md),
+  [local-inference-local-callback-binding.md](../reference/implemented-proposals/local-inference-local-callback-binding.md),
   [local-inference-local-callback-binding-annotation-elision.md](../reference/implemented-proposals/local-inference-local-callback-binding-annotation-elision.md),
-  `../reference/implemented-proposals/local-inference-direct-return-callback.md`,
-  `../reference/implemented-proposals/local-inference-match-arm-callback.md`,
-  `../reference/implemented-proposals/local-inference-if-branch-callback.md`,
-  `../reference/implemented-proposals/local-inference-callback-return-expected-type.md`,
-  `../reference/implemented-proposals/local-inference-constructor-payload-callback.md`,
-  `../reference/implemented-proposals/local-inference-collection-callback-element.md`,
-  `../reference/implemented-proposals/local-inference-dictionary-value-callback.md`,
+  [local-inference-direct-return-callback.md](../reference/implemented-proposals/local-inference-direct-return-callback.md),
+  [local-inference-match-arm-callback.md](../reference/implemented-proposals/local-inference-match-arm-callback.md),
+  [local-inference-if-branch-callback.md](../reference/implemented-proposals/local-inference-if-branch-callback.md),
+  [local-inference-callback-return-expected-type.md](../reference/implemented-proposals/local-inference-callback-return-expected-type.md),
+  [local-inference-constructor-payload-callback.md](../reference/implemented-proposals/local-inference-constructor-payload-callback.md),
+  [local-inference-collection-callback-element.md](../reference/implemented-proposals/local-inference-collection-callback-element.md),
+  [local-inference-dictionary-value-callback.md](../reference/implemented-proposals/local-inference-dictionary-value-callback.md),
   [local-inference-variadic-callback-parameter.md](../reference/implemented-proposals/local-inference-variadic-callback-parameter.md),
   [local-inference-non-empty-collection-initializer.md](../reference/implemented-proposals/local-inference-non-empty-collection-initializer.md),
-  `../reference/implemented-proposals/local-inference-adt-constructor-payload.md`,
-  `../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md`,
-  `../reference/implemented-proposals/local-inference-local-pattern-let.md`,
-  `../reference/implemented-proposals/local-inference-if-branch-local-let.md`,
-  `../reference/implemented-proposals/local-inference-local-let-expected-type-paths.md`,
+  [local-inference-adt-constructor-payload.md](../reference/implemented-proposals/local-inference-adt-constructor-payload.md),
+  [local-inference-match-scrutinee-constructor-pattern.md](../reference/implemented-proposals/local-inference-match-scrutinee-constructor-pattern.md),
+  [local-inference-local-pattern-let.md](../reference/implemented-proposals/local-inference-local-pattern-let.md),
+  [local-inference-if-branch-local-let.md](../reference/implemented-proposals/local-inference-if-branch-local-let.md),
+  [local-inference-local-let-expected-type-paths.md](../reference/implemented-proposals/local-inference-local-let-expected-type-paths.md),
   [local-inference-nested-initializer-expected-type.md](../reference/implemented-proposals/local-inference-nested-initializer-expected-type.md),
-  `../reference/implemented-proposals/local-inference-hole-expected-type-flow.md`,
-  `../reference/implemented-proposals/local-inference-examples-cleanup.md`,
+  [local-inference-hole-expected-type-flow.md](../reference/implemented-proposals/local-inference-hole-expected-type-flow.md),
+  [local-inference-examples-cleanup.md](../reference/implemented-proposals/local-inference-examples-cleanup.md),
   and
-  `../reference/implemented-proposals/local-inference-diagnostic-details.md`.
+  [local-inference-diagnostic-details.md](../reference/implemented-proposals/local-inference-diagnostic-details.md).
 - [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
   use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
   standard-library design.
@@ -779,7 +779,7 @@ compare it with `../specification/` before changing behavior.
   operation boundary. Current behavior is specified under
   `../specification/source-surface.md` and `../specification/execution.md`;
   the completed record is archived under
-  `../reference/implemented-proposals/schema-binary-pattern-boundary.md`.
+  [schema-binary-pattern-boundary.md](../reference/implemented-proposals/schema-binary-pattern-boundary.md).
 - [Codec Execution Boundary](codec-execution-boundary.md): superseded route
   for the former source-level `codec` declaration design. Current schema
   operation behavior is specified under
