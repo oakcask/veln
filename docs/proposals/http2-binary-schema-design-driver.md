@@ -403,11 +403,14 @@ decode and encode, SETTINGS maximum-frame-size state, PING, GOAWAY, DATA
 receive-window accounting, HEADERS opaque header-block payload preservation,
 CONTINUATION handling needed to keep header-block boundaries valid, local
 SETTINGS send-intent value ranges for supported items, and typed protocol
-errors for those slices in the ordinary-source protocol-core example.
-Remaining target coverage includes SETTINGS behavior beyond those local
-send-intent value ranges, stream lifecycle, outbound flow control, graceful
-shutdown interactions, and typed protocol errors beyond the implemented frame
-and stream rules.
+errors for those slices in the ordinary-source protocol-core example. The
+implemented outbound DATA send-window slice also covers peer `WINDOW_UPDATE`
+send-credit refill and peer `SETTINGS_INITIAL_WINDOW_SIZE` send-window delta
+accounting. Remaining target coverage includes SETTINGS behavior beyond those
+local send-intent value ranges, stream lifecycle, outbound flow-control
+interactions beyond that DATA send-window slice, graceful shutdown
+interactions, and typed protocol errors beyond the implemented frame and
+stream rules.
 
 HPACK starts outside the frame schema at a deliberately small library codec
 boundary. The reserved boundary is an explicit codec module because header

@@ -9427,6 +9427,18 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	print_peer_settings("outbound-initial-window-increase", step_state(outbound_initial_window_increase))
 	let increased_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_increase, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_data_send_credit(outbound_initial_window_restored))?
 	print_outbound_send_credit_update("outbound-initial-window-increase-send-credit", increased_send_credit)
+	let absent_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_increase, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_send_credit_without_stream(7))?
+	print_outbound_send_credit_update("outbound-initial-window-absent-send-credit", absent_send_credit)
+	let absent_send_credit_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(outbound_initial_window_increase)), outbound_send_credit_update_credit(absent_send_credit))?
+	print_outbound_data("outbound-data-after-initial-window-absent", absent_send_credit_data)
+	let closed_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_increase, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_send_credit_with_closed_stream(7, 1))?
+	print_outbound_send_credit_update("outbound-initial-window-closed-send-credit", closed_send_credit)
+	let closed_send_credit_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(outbound_initial_window_increase)), outbound_send_credit_update_credit(closed_send_credit))?
+	print_outbound_data("outbound-data-after-initial-window-closed", closed_send_credit_data)
+	let reset_send_credit: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(outbound_initial_window_increase, state_peer_settings(step_state(outbound_initial_window_reduce)), outbound_send_credit_with_reset_stream(7, 1, 8))?
+	print_outbound_send_credit_update("outbound-initial-window-reset-send-credit", reset_send_credit)
+	let reset_send_credit_data: OutboundDataDecision = send_data(1, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(outbound_initial_window_increase)), outbound_send_credit_update_credit(reset_send_credit))?
+	print_outbound_data("outbound-data-after-initial-window-reset", reset_send_credit_data)
 	let peer_closed_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), frame_state())?
 	let peer_closed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_closed_settings))?
 	let peer_closed_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000100000001aa")?), step_state(peer_closed_headers))?
