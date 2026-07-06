@@ -193,6 +193,8 @@ behavior.
   [binary-schema-repeat-byteview-subtract-helpers.md](binary-schema-repeat-byteview-subtract-helpers.md).
 - Binary schema direct nested decode bindings:
   [binary-schema-direct-nested-decode-bindings.md](binary-schema-direct-nested-decode-bindings.md).
+- Binary schema anonymous record decode:
+  [binary-schema-anonymous-record-decode.md](binary-schema-anonymous-record-decode.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length + right_length)` payload helpers:

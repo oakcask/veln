@@ -1,0 +1,16 @@
+# Binary schema anonymous record decode failures include nested field paths.
+
+schema AnonymousRecordPacket
+	format binary
+
+	prefix: UInt8
+	header: {kind: UInt8, code: UInt16be}
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0a0102")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let _: {prefix: Int, header: {kind: Int, code: Int}, suffix: Int} = byte_decode_anonymous_record_packet(view)?
+	Ok(())
+end

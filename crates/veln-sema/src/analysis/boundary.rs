@@ -3,10 +3,11 @@ use crate::adt::AdtRegistry;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
-    SchemaDispatchSpec, SchemaRepeatPayload, byte_view_multiple_constraint,
-    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
-    flag_schema_primitive, format_neutral_schema_encode_field_is_source_adt_candidate,
+    SchemaDispatchSpec, SchemaRepeatPayload, binary_schema_anonymous_record_decode_type,
+    byte_view_multiple_constraint, byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    exact_width_schema_primitive, exact_width_schema_primitive_bit_width,
+    extension_dispatch_schema_primitive, flag_schema_primitive,
+    format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema, lowercase_reserved_bits_schema_primitive,
     lowercase_schema_primitive, lowercase_schema_primitive_nested_payloads,
@@ -823,6 +824,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 && let Some(payload_schema) =
                     schema_dispatch_payload_schema(module, schema, &field.ty)
                 && let Some(field_ty) = schema_decode_value_type(module, payload_schema)
+            {
+                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
+                decoded_fields.insert(field.name.clone(), field_ty);
+                continue;
+            }
+            if format_name == Some("binary")
+                && let Some(field_ty) = binary_schema_anonymous_record_decode_type(&field.ty)
             {
                 check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
                 decoded_fields.insert(field.name.clone(), field_ty);

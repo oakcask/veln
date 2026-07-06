@@ -3073,6 +3073,33 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
     )
 }
 
+pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<Type> {
+    let Type::Record(fields) = parse_type_annotation(text).ok()? else {
+        return None;
+    };
+    fields
+        .into_iter()
+        .map(|(name, ty)| {
+            binary_schema_anonymous_record_leaf_type(&ty)?;
+            Some((name, Type::int()))
+        })
+        .collect::<Option<Vec<_>>>()
+        .map(Type::Record)
+}
+
+fn binary_schema_anonymous_record_leaf_type(ty: &Type) -> Option<()> {
+    match ty {
+        Type::Named { name, args }
+            if args.is_empty()
+                && exact_width_schema_primitive(name).is_some()
+                && flag_schema_primitive(name).is_none() =>
+        {
+            Some(())
+        }
+        _ => None,
+    }
+}
+
 fn format_neutral_schema_scalar_type_is_supported(name: &str, args: &[Type]) -> bool {
     args.is_empty() && matches!(name, "Int" | "Bool" | "Float" | "String")
 }
@@ -3587,6 +3614,8 @@ fn schema_decode_record_fields_inner_after_push(
             (0, Type::named("List", vec![element_ty]))
         } else if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
             (0, schema_decode_value_type_inner(module, nested, stack)?)
+        } else if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
+            (0, record_ty)
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;

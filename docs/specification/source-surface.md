@@ -58,7 +58,8 @@ exact-width unsigned primitives, lowercase `uint...` fields, visible flag
 bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
 reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
 canonical repeated fields `[Payload; count]`, direct nested binary schema
-fields, `ByteView(length)`, closed dispatch, and extension dispatch forms documented in
+fields, anonymous record fields whose nested fields are exact-width unsigned
+primitive leaves, `ByteView(length)`, closed dispatch, and extension dispatch forms documented in
 [source-surface-full.md](source-surface-full.md) and checked by
 `docs/specification/source-surface-executable.pl`. Canonical repeated fields
 write the payload field type before `;` and the count expression after it; the
@@ -70,6 +71,12 @@ schema, `ByteView(length_field)`, or
 Direct nested binary schema fields may name an eligible same-module schema or
 public imported schema and expose the nested schema-local visible record at
 that field.
+Anonymous record fields in `format binary` schemas expose a nested
+schema-local visible record at that field when every nested field is an
+implemented exact-width unsigned primitive leaf. The checked decode case is
+`examples/specification/run/binary-schema-anonymous-record-decode/`, and the
+checked nested truncation JSON case is
+`examples/specification/run/binary-schema-anonymous-record-truncated-json/`.
 Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
 primitive payload spellings that are accepted by canonical repeated-field
 syntax.

@@ -88,7 +88,8 @@ compare it with `../specification/` before changing behavior.
   validation, visible flag bitset decode bindings, bounded repeat generated
   helper bindings including subtractive `ByteView` payloads, supported
   representation-only reserved-bit generated helper bindings, direct nested
-  binary schema helper bindings, generated
+  binary schema helper bindings, binary anonymous record decode helper
+  bindings, generated
   encode-time field-local validation for eligible schema helpers, derived
   encode boundary support, format-neutral schema bodies without a `format`
   clause, generated format-neutral decode helpers for
@@ -114,6 +115,8 @@ compare it with `../specification/` before changing behavior.
   The completed direct nested binary schema decode binding slice is archived
   under
   [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
+  The completed binary schema anonymous record decode slice is archived under
+  [Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
   The completed dispatch nested repeat helper slice is archived under
   [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
   The completed general representation-only reserved-bit generated helper
@@ -353,6 +356,8 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits` payload layouts. The completed dispatch payload helper boundary diagnostics
   slice is archived under
   [Binary Schema Dispatch Payload Helper Boundary Diagnostics](../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
+  The completed binary schema anonymous record decode slice is archived under
+  [Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
   The completed direction-specific nested dispatch payload helper slice is
   archived under
   [Binary Schema Directional Dispatch Payload Helpers](../reference/implemented-proposals/binary-schema-directional-dispatch-payload-helpers.md).
