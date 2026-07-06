@@ -708,8 +708,8 @@ compare it with `../specification/` before changing behavior.
   boundary, production multi-chunk adapter event routing, production
   multi-event adapter task-helper routing, production multi-chunk
   read-failure runtime boundary, per-stream task handler-failure lifecycle
-  boundary, accepted-stream endpoint text inspection, cancellation owner
-  status query,
+  boundary, source-visible standard stream adapter routing helper,
+  accepted-stream endpoint text inspection, cancellation owner status query,
   absolute monotonic deadline
   construction
   ([Network Deadline At Boundary](../reference/implemented-proposals/network-deadline-at-boundary.md)),
@@ -769,6 +769,9 @@ compare it with `../specification/` before changing behavior.
   The same record includes the completed production multi-event adapter
   task-helper routing evidence, production multi-chunk read-failure runtime
   boundary, and per-stream task handler-failure lifecycle cleanup boundary.
+  The completed source-visible standard stream adapter routing helper slice
+  is archived under
+  [Network Stream Adapter Routing Helper](../reference/implemented-proposals/network-stream-adapter-routing-helper.md).
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).

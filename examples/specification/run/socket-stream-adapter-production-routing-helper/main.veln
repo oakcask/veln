@@ -1,0 +1,94 @@
+# Production loopback adapter uses the standard stream routing helper.
+use stdio
+
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(EndStream, list_cons(SendBytes(bytes), list_cons(Ignore, list_nil())))
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+fn action_count(actions: List<StreamAdapterAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn write_count(actions: List<StreamAdapterAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => 1 + write_count(tail)
+			EndStream => write_count(tail)
+			Ignore => write_count(tail)
+		end
+	end
+end
+
+fn end_count(actions: List<StreamAdapterAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => end_count(tail)
+			EndStream => 1 + end_count(tail)
+			Ignore => end_count(tail)
+		end
+	end
+end
+
+fn ignore_count(actions: List<StreamAdapterAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(action, tail) => match action
+			SendBytes(_) => ignore_count(tail)
+			EndStream => ignore_count(tail)
+			Ignore => 1 + ignore_count(tail)
+		end
+	end
+end
+
+fn accepted_lifecycle(stream: NetStream) -> Result<List<StreamAdapterAction>, String> effects [net, concurrency]
+	let actions = stream_adapter_drain_actions(stream, handle_input)
+	net::close_stream(stream)
+	Ok(actions)
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let actions: List<StreamAdapterAction> = accepted_lifecycle(stream)?
+	let clean_end: Bool = listener_ended(listener)
+	stdio::print("actions ")
+	stdio::print(int_to_string(action_count(actions)))
+	stdio::print(" writes ")
+	stdio::print(int_to_string(write_count(actions)))
+	stdio::print(" end-actions ")
+	stdio::print(int_to_string(end_count(actions)))
+	stdio::print(" ignores ")
+	stdio::print(int_to_string(ignore_count(actions)))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end

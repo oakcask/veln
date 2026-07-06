@@ -509,6 +509,10 @@ The production multi-chunk event routing slice is recorded as implemented in
 including runtime success, task-context trace/order, handler-failure
 lifecycle, read-failure, and static effect-boundary evidence.
 
+The standard stream adapter routing helper slice is recorded as implemented
+in
+`../reference/implemented-proposals/network-stream-adapter-routing-helper.md`.
+
 The production two-stream multi-cycle routing slice is recorded as implemented
 in
 `../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md`.

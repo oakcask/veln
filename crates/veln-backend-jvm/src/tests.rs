@@ -2746,6 +2746,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_count_to_int", "byteCountToInt"),
         ("byte_offset", "byteOffset"),
         ("byte_offset_to_int", "byteOffsetToInt"),
+        ("stream_adapter_drain_actions", "streamAdapterDrainActions"),
         ("string_split_once", "stringSplitOnce"),
         ("string_parse_int", "stringParseInt"),
         ("int_to_string", "intToString"),

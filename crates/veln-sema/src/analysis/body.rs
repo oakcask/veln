@@ -7,6 +7,7 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
+use crate::effects::prelude_effect_origin;
 use crate::standard_symbols::qualified_symbol;
 use crate::types::{SchemaReferenceErrorKind, lowercase_schema_primitive};
 
@@ -1822,6 +1823,18 @@ impl<'a> FunctionChecker<'a> {
                 )
             })?
         };
+
+        if let Some(origin) = prelude_effect_origin(segments, callee) {
+            for effect in &origin.effects {
+                self.inferred_effects.push(EffectUse {
+                    effect: effect.clone(),
+                    node_id: callee.node_id,
+                    span: callee.span.clone(),
+                    kind: "direct_call",
+                    symbol: origin.symbol.clone(),
+                });
+            }
+        }
 
         for (index, arg) in args.iter().enumerate() {
             let Some(param_type) = params.get(index) else {

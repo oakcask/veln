@@ -60,6 +60,11 @@ enough.
   handler failure value from the task boundary, skips later response writes
   for that stream, closes the accepted stream, and then observes deterministic
   listener end.
+  `stream_adapter_drain_actions` is the standard adapter-level stream routing
+  helper: it drains one accepted production stream into ordered
+  `StreamAdapterAction` values through channel-routed `StreamInput` values,
+  writes only `SendBytes` chunks via `net::write_chunks`, and leaves stream
+  close and listener-end observation to the adapter caller.
   That helper owns the `concurrency` boundary and calls a pure event/action
   handler. The
   multi-cycle routing case accepts more than one production stream from one

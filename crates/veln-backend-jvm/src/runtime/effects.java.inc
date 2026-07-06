@@ -1371,6 +1371,68 @@
         return UNIT;
     }
 
+    public static Object streamAdapterDrainActions(Object stream, Object handler) {
+        Object route = channelBounded(Long.valueOf(1));
+        Object actions = listNil();
+        while (true) {
+            Object input = streamAdapterInputFromRead(netReadChunkOrEnd(stream));
+            Object routed = streamAdapterRouteInput(route, input);
+            Object handled = call(handler, routed);
+            actions = streamAdapterAppend(actions, handled);
+            if (isAdt(routed, "StreamInput::End")) {
+                break;
+            }
+        }
+        netWriteChunks(stream, streamAdapterSendChunks(actions));
+        return actions;
+    }
+
+    private static Object streamAdapterInputFromRead(Object readResult) {
+        Option read = asOption(readResult);
+        if (read.some) {
+            return adt("StreamInput::Chunk", new Object[] { read.value });
+        }
+        return adt("StreamInput::End", new Object[] {});
+    }
+
+    private static Object streamAdapterRouteInput(Object route, Object input) {
+        channelSend(recordField(route, "tx"), input);
+        Option received = asOption(channelRecv(recordField(route, "rx")));
+        if (received.some) {
+            return received.value;
+        }
+        return adt("StreamInput::End", new Object[] {});
+    }
+
+    private static Object streamAdapterAppend(Object left, Object right) {
+        Object reversed = listNil();
+        ListValue current = asListValue(left);
+        while (current.cons) {
+            reversed = listCons(current.head, reversed);
+            current = asListValue(current.tail);
+        }
+        Object appended = right;
+        current = asListValue(reversed);
+        while (current.cons) {
+            appended = listCons(current.head, appended);
+            current = asListValue(current.tail);
+        }
+        return appended;
+    }
+
+    private static Object streamAdapterSendChunks(Object actions) {
+        Object reversed = listNil();
+        ListValue current = asListValue(actions);
+        while (current.cons) {
+            if (isAdt(current.head, "StreamAdapterAction::SendBytes")) {
+                Adt send = (Adt) diagnosticResultValue(current.head);
+                reversed = listCons(send.payloads[0], reversed);
+            }
+            current = asListValue(current.tail);
+        }
+        return listReverse(reversed);
+    }
+
     public static Object netWriteChunksUntil(Object stream, Object chunks, Object deadline) {
         ListValue current = asListValue(chunks);
         while (current.cons) {

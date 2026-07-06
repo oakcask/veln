@@ -1,0 +1,23 @@
+# Standard stream routing helper keeps transport and channel effects in the adapter.
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(SendBytes(bytes), list_cons(Ignore, list_nil()))
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+fn accepted_lifecycle(stream: NetStream) -> List<StreamAdapterAction> effects [net, concurrency]
+	stream_adapter_drain_actions(stream, handle_input)
+end
+
+pub fn handler_boundary(input: StreamInput) -> List<StreamAdapterAction>
+	handle_input(input)
+end
+
+pub fn adapter_missing_concurrency(stream: NetStream) -> List<StreamAdapterAction> effects [net]
+	accepted_lifecycle(stream)
+end
+
+pub fn adapter_missing_net(stream: NetStream) -> List<StreamAdapterAction> effects [concurrency]
+	accepted_lifecycle(stream)
+end
