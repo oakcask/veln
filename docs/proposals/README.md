@@ -215,11 +215,12 @@ compare it with `../specification/` before changing behavior.
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
   protocol byte previews, HTTP/2 invalid stream-id domain protocol byte
   previews, plus the HPACK fixture unsupported-header-block and
-  malformed-Huffman-padding protocol byte previews, HTTP/2 SETTINGS value
-  range protocol byte preview, HTTP/2 `WINDOW_UPDATE` invalid-increment
-  protocol byte preview, HTTP/2 DATA receive flow-control protocol byte
-  preview, HTTP/2 unexpected SETTINGS ACK protocol byte preview, HTTP/2
-  invalid DATA padding protocol byte preview, plus HTTP/2 frame-size,
+  malformed-Huffman-padding protocol byte previews, HPACK fixture Huffman EOS
+  protocol byte preview, HTTP/2 SETTINGS value range protocol byte preview,
+  HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, HTTP/2 DATA
+  receive flow-control protocol byte preview, HTTP/2 unexpected SETTINGS ACK
+  protocol byte preview, HTTP/2 invalid DATA padding protocol byte preview,
+  plus HTTP/2 frame-size,
   header-list, header-table, concurrent-stream receive-limit, and
   stream-after-GOAWAY protocol byte previews, and HTTP/2 request, response,
   request-trailer, and response-trailer header-list validation protocol byte
@@ -228,6 +229,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Data Outgoing Chunk Production](../reference/implemented-proposals/binary-data-outgoing-chunk-production.md).
   The schema conversion boundary slice is archived under
   [Binary Data Schema Conversion Boundary](../reference/implemented-proposals/binary-data-schema-conversion-boundary.md).
+  The HPACK Huffman EOS protocol-facing byte diagnostic slice is archived
+  under
+  [Binary Data HPACK Huffman EOS Diagnostic](../reference/implemented-proposals/binary-data-hpack-huffman-eos-diagnostic.md).
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and

@@ -45,16 +45,17 @@ HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
 invalid frame-kind and PRIORITY self-dependency protocol-owned byte
 diagnostics, plus HTTP/2 invalid stream-id domain protocol-owned byte
 diagnostics, and the HPACK fixture unsupported-header-block protocol-facing
-diagnostic, plus HTTP/2 SETTINGS value range protocol-owned byte diagnostics,
-HTTP/2 `WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and
-HTTP/2 unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2
-DATA receive flow-control protocol-owned byte diagnostics, plus HTTP/2
-invalid DATA padding protocol-owned byte diagnostics, and HTTP/2
-frame-size, header-list, header-table, and concurrent-stream receive-limit
-protocol-owned byte diagnostics, plus HTTP/2 stream-after-GOAWAY
-protocol-owned byte diagnostics, and HTTP/2 request, response,
-request-trailer, and response-trailer header-list validation protocol-owned
-byte diagnostics.
+diagnostic, HPACK fixture malformed-Huffman-padding protocol-facing
+diagnostic, and HPACK fixture Huffman EOS protocol-facing diagnostic, plus
+HTTP/2 SETTINGS value range protocol-owned byte diagnostics, HTTP/2
+`WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and HTTP/2
+unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2 DATA
+receive flow-control protocol-owned byte diagnostics, plus HTTP/2 invalid
+DATA padding protocol-owned byte diagnostics, and HTTP/2 frame-size,
+header-list, header-table, and concurrent-stream receive-limit protocol-owned
+byte diagnostics, plus HTTP/2 stream-after-GOAWAY protocol-owned byte
+diagnostics, and HTTP/2 request, response, request-trailer, and
+response-trailer header-list validation protocol-owned byte diagnostics.
 Current behavior belongs to the specification pages, not this proposal.
 The completed outgoing chunk production slice is archived under
 `../reference/implemented-proposals/binary-data-outgoing-chunk-production.md`.
@@ -62,6 +63,9 @@ The completed source-visible `u56` byte helper slice is archived under
 `../reference/implemented-proposals/binary-data-u56-byte-helpers.md`.
 The completed schema conversion boundary slice is archived under
 `../reference/implemented-proposals/binary-data-schema-conversion-boundary.md`.
+The completed HPACK Huffman EOS protocol-facing byte diagnostic slice is
+archived under
+`../reference/implemented-proposals/binary-data-hpack-huffman-eos-diagnostic.md`.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -167,10 +171,11 @@ bounded by default.
   slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
   slice, HTTP/2 invalid stream-id domain slice, HTTP/2 PRIORITY
   self-dependency slice, HPACK fixture unsupported-header-block and
-  SETTINGS value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment
-  slice, the HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive
-  flow-control slice, the HTTP/2 invalid DATA padding slice, and the HTTP/2
-  frame-size, header-list, header-table, concurrent-stream receive-limit,
+  malformed-Huffman-padding slices, HPACK fixture Huffman EOS slice, SETTINGS
+  value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment slice, the
+  HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive flow-control
+  slice, the HTTP/2 invalid DATA padding slice, and the HTTP/2 frame-size,
+  header-list, header-table, concurrent-stream receive-limit,
   stream-after-GOAWAY, and HTTP/2 request, response, request-trailer, and
   response-trailer header-list validation slices cover
   protocol-owned byte previews,
