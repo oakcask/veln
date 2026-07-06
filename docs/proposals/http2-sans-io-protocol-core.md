@@ -918,7 +918,7 @@ full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal, bounded source-visible static-name
 literals, broader outbound behavior beyond the checked fixture encoder
 boundaries named above, outbound table-size behavior beyond the checked
-fixture encoder update and reduced-capacity
+fixture encoder update, zero-capacity insertion, and reduced-capacity
 insertion boundaries, and production header validation beyond
 ordinary request,
 response,
@@ -1046,9 +1046,10 @@ capacity into later outbound HPACK encoding, and rejects requested updates
 above the peer-advertised `SETTINGS_HEADER_TABLE_SIZE` as typed HPACK fixture
 encode failures before emitting header-block bytes. The checked
 reduced-capacity eviction slice emits `:method: PUT` as a literal again after
-a table-size update to `30`, because it does not fit that table, and reuses
-the same entry as `0xbe` after a table-size update to `42`, because it exactly
-fits that table. The checked
+a table-size update to zero or `30`, because it does not fit that table, and
+reuses the same entry as `0xbe` after a table-size update to `42`, because it
+exactly fits that table. The zero-capacity path also clears retained dynamic
+entries before the later HEADERS encodes. The checked
 protocol-core example now derives that outbound HPACK fixture capacity from
 received peer `SETTINGS_HEADER_TABLE_SIZE` frames: lower accepted peer limits
 drive smaller later outbound updates and prevent dynamic-index reuse while

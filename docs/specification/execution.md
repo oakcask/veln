@@ -402,9 +402,10 @@ enough.
   fixture encode failures before HEADERS bytes are emitted. The same fixture
   encoder observes the current outbound dynamic-table capacity after a checked
   table-size update: a later literal-with-indexing entry larger than the
-  capacity is not retained for dynamic-index reuse, while an entry that fits
-  the reduced capacity is retained and reused through the outbound HEADERS
-  path.
+  capacity is not retained for dynamic-index reuse, and a zero-capacity update
+  clears retained entries and keeps later literal-with-indexing HEADERS
+  encodes on the literal path. An entry that fits the reduced capacity is
+  retained and reused through the outbound HEADERS path.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit

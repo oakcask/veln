@@ -564,7 +564,7 @@ compare it with `../specification/` before changing behavior.
   diagnostics, checked outbound
   dynamic table-size update encoding and state handoff into later HEADERS
   and server-side `PUSH_PROMISE`, checked outbound dynamic-table eviction
-  after reduced table-size updates, received peer
+  after zero and reduced table-size updates, received peer
   `SETTINGS_HEADER_TABLE_SIZE` values driving later outbound HPACK fixture
   capacity, checked outbound dynamic-name literal-without-indexing and
   literal-with-indexing fixture encoding, and checked outbound `PUSH_PROMISE`
