@@ -644,6 +644,9 @@ compare it with `../specification/` before changing behavior.
   The completed outbound dynamic-name literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Dynamic-Name Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md).
+  The completed outbound dynamic-name literal-never-indexed fixture slice is
+  archived under
+  [HTTP/2 Outbound HPACK Dynamic-Name Never-Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-never-indexed-literal.md).
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
