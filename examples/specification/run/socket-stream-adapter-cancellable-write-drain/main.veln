@@ -1,0 +1,57 @@
+# Cancellable adapter write-drain helper reports full completion as a value.
+use stdio
+
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(EndStream, list_cons(SendBytes(bytes), list_cons(Ignore, list_nil())))
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+	match outcome
+		WriteCompleted => "written"
+		WriteDeadlineExpired => "deadline"
+		WriteCancelled => "cancelled"
+	end
+end
+
+fn accepted_lifecycle(stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<StreamWriteOutcome, String> effects [net, time, concurrency]
+	let outcome = stream_adapter_drain_actions_until_cancellable(stream, handle_input, deadline, token)
+	net::close_stream(stream)
+	Ok(outcome)
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing production stream")
+	end
+end
+
+fn listener_ended(listener: NetListener) -> Bool effects [net]
+	match net::accept_or_end(listener)
+		Some(_) => false
+		None => true
+	end
+end
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	let outcome: StreamWriteOutcome = accepted_lifecycle(stream, deadline, token)?
+	let clean_end: Bool = listener_ended(listener)
+	stdio::print(write_outcome_text(outcome))
+	stdio::print(" clean-end ")
+	stdio::println(bool_text(clean_end))
+	Ok(())
+end

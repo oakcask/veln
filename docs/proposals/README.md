@@ -715,6 +715,7 @@ compare it with `../specification/` before changing behavior.
   source-visible deadline-aware `net::write_chunks_until` chunk-list writes,
   source-visible cancellable deadline-aware
   `net::write_chunks_until_cancellable` chunk-list writes,
+  adapter-level cancellable write-drain helper,
   adapter-owned multi-handler outbound write ordering through
   `net::write_chunks`, adapter-owned outbound write-failure boundary,
   HTTP/2 adapter/core write projection through ordered `net::write_chunks`,

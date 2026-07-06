@@ -254,6 +254,10 @@ to `net::accept_until`,
 `net::write_chunks_until_cancellable` infer both `net` and `time` because
 the adapter-owned accept, read, or write attempt observes a `Deadline` or
 `CancelToken`.
+Direct calls to
+`stream_adapter_drain_actions_until_cancellable` infer `net`, `time`, and
+`concurrency` because the helper owns stream I/O, deadline/cancellation
+observation, and channel routing.
 Direct calls to `time::timeout_ms`,
 `time::monotonic_ms`, `time::deadline_after_ms`,
 `time::deadline_at_ms`, `time::wait_until`,
@@ -495,6 +499,13 @@ stream reads through a channel-routed `StreamInput` boundary, calls a pure
 `fn(StreamInput) -> List<StreamAdapterAction>` handler, preserves ordered
 handler actions, and writes only `SendBytes` chunks through
 `net::write_chunks` under `net` and `concurrency`.
+The cancellable helper `stream_adapter_drain_actions_until_cancellable`
+exposes the same adapter-level drain, route, and pure handler boundary, then
+projects only ordered `SendBytes` chunks through
+`net::write_chunks_until_cancellable`. It returns `WriteCompleted`,
+`WriteDeadlineExpired`, or `WriteCancelled` as ordinary
+`StreamWriteOutcome` values, preserves host write failures as runtime
+transport failures, and requires `net`, `time`, and `concurrency`.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and
@@ -955,6 +966,7 @@ byte_count_to_int(value: ByteCount) -> Int
 byte_offset(value: Int) -> Result<ByteOffset, String>
 byte_offset_to_int(value: ByteOffset) -> Int
 stream_adapter_drain_actions(stream: NetStream, handler: fn(StreamInput) -> List<StreamAdapterAction>) -> List<StreamAdapterAction> effects [net, concurrency]
+stream_adapter_drain_actions_until_cancellable(stream: NetStream, handler: fn(StreamInput) -> List<StreamAdapterAction>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time, concurrency]
 vec_len(items: Vec<A>) -> Int
 vec_is_empty(items: Vec<A>) -> Bool
 vec_push(items: Vec<A>, value: A) -> Vec<A>

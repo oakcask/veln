@@ -74,7 +74,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
-  chunk-list stream-write boundary
+  chunk-list stream-write boundary, and the adapter-level cancellable
+  write-drain helper boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
@@ -476,6 +477,10 @@ implemented in
 The source-visible cancellable deadline-aware chunk-list write slice is
 recorded as implemented in
 `../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md`.
+
+The adapter-level cancellable write-drain helper slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-adapter-cancellable-write-drain.md`.
 
 The explicit listener-close boundary is recorded as implemented in
 `../reference/implemented-proposals/network-listener-close-boundary.md`.
