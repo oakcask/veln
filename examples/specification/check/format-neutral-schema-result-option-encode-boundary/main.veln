@@ -1,0 +1,12 @@
+schema UnsupportedResultOptionPacket
+	outcome: Result<Option<Int>, String>
+	metadata: {label: Result<Option<String>, Int>, ready: Bool}
+end
+
+fn direct(packet: {outcome: Result<Option<Int>, String>, metadata: {label: Result<Option<String>, Int>, ready: Bool}}) -> Result<{outcome: Result<Option<Int>, String>, metadata: {label: Result<Option<String>, Int>, ready: Bool}}, String>
+	byte_encode_unsupported_result_option_packet(packet)
+end
+
+fn explicit(packet: {outcome: Result<Option<Int>, String>, metadata: {label: Result<Option<String>, Int>, ready: Bool}}) -> Result<{outcome: Result<Option<Int>, String>, metadata: {label: Result<Option<String>, Int>, ready: Bool}}, String>
+	encode UnsupportedResultOptionPacket from packet
+end

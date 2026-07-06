@@ -46,6 +46,6 @@ sibling implemented proposal record.
 
 The broader schema declaration proposal remains open for format-neutral encode
 helpers beyond the implemented scalar, supported container,
-option-dictionary, scalar-result, anonymous record, and source ADT shapes,
-binary schema fields outside the implemented helper slices, and later schema
-composition surfaces.
+option-dictionary, scalar-result, result-option, anonymous record, and source
+ADT shapes, binary schema fields outside the implemented helper slices, and
+later schema composition surfaces.

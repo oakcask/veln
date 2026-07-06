@@ -98,9 +98,9 @@ compare it with `../specification/` before changing behavior.
   imported source ADT visible-shape fields, scalar-only, `Option<scalar>`,
   `List<scalar>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
   `Dict<String, scalar>`, `Dict<String, Option<scalar>>`,
-  `Option<Dict<String, scalar>>`, and supported container and scalar-result
-  format-neutral encode helpers, same-module and public imported source ADT
-  encode helper fields, plus
+  `Option<Dict<String, scalar>>`, and supported container, scalar-result, and
+  result-option format-neutral encode helpers, same-module and public
+  imported source ADT encode helper fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
   `map to` clauses are removed as recorded in
   [Remove Schema Map To](../reference/implemented-proposals/remove-schema-map-to.md).
@@ -131,6 +131,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Result<scalar, scalar>` helper slice is
   archived under
   [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
+  The completed format-neutral `Result<scalar, Option<scalar>>` encode helper
+  slice is archived under
+  [Format-Neutral Schema Result Option Encode Helpers](../reference/implemented-proposals/format-neutral-schema-result-option-encode-helpers.md).
   The completed format-neutral recursive `Result` visible-shape helper slice
   is archived under
   [Format-Neutral Schema Result Visible Shapes](../reference/implemented-proposals/format-neutral-schema-result-visible-shapes.md).
