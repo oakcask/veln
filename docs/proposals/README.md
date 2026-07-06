@@ -520,8 +520,9 @@ compare it with `../specification/` before changing behavior.
   accepted `content-length` body-length
   accounting for tracked inbound and outbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
-  fixture header-list encoder slice, including static-name literal fixtures,
-  visible-ASCII ordinary new-name literal-without-indexing for outbound
+  fixture header-list encoder slice, including exact static-indexed outbound
+  helper bytes for checked HPACK static table name/value pairs, static-name
+  literal fixtures, visible-ASCII ordinary new-name literal-without-indexing for outbound
   HEADERS and `PUSH_PROMISE`, visible-ASCII ordinary new-name
   literal-never-indexed for outbound HEADERS without dynamic insertion,
   full-table single-byte Huffman-marked string literal decoding and encoding,
@@ -574,12 +575,16 @@ compare it with `../specification/` before changing behavior.
   formula, newest-first insertion, table-size reduction, insertion-caused
   eviction, over-limit insertion, and zero-size table reduction, plus the
   source-visible static-name literal-with-indexing receive core for checked
-  dynamic-state insertion and `0xbe` dynamic-indexed reuse,
+  dynamic-state insertion and `0xbe` dynamic-indexed reuse, plus the
+  source-visible exact static-indexed outbound encode helper for checked
+  HPACK static table name/value pairs across outbound HEADERS and
+  server-side `PUSH_PROMISE`,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture boundary and implemented source-visible static, static-name
-  indexing, dynamic-index, and dynamic-table accounting core decoders,
+  fixture boundary, the exact static-indexed outbound encode helper, and the
+  implemented source-visible static, static-name indexing, dynamic-index, and
+  dynamic-table accounting core decoders,
   including full HPACK compression and unbounded dynamic-table behavior.
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).

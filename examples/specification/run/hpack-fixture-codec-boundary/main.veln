@@ -453,8 +453,18 @@ fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_static_indexed_encode_cases() -> Result<(), String> effects [stdio]
+	let _ = print_encoded_literal("encode-static-indexed-method-get", encode_static_indexed_header_field(":method", "GET", 152), byte_chunk_from_hex("82")?)?
+	let _ = print_encoded_literal("encode-static-indexed-scheme-https", encode_static_indexed_header_field(":scheme", "https", 153), byte_chunk_from_hex("87")?)?
+	let _ = print_encoded_literal("encode-static-indexed-status-200", encode_static_indexed_header_field(":status", "200", 154), byte_chunk_from_hex("88")?)?
+	let _ = print_encoded_literal("encode-static-indexed-accept-encoding", encode_static_indexed_header_field("accept-encoding", "gzip, deflate", 155), byte_chunk_from_hex("90")?)?
+	let _ = print_encode_failure("encode-static-indexed-method-put", encode_static_indexed_header_field(":method", "PUT", 156))?
+	Ok(())
+end
+
 fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
 	let initial_encode: HpackFixtureState = initial_encode_state()
+	let ignored_static_indexed_encode_cases: () = print_static_indexed_encode_cases()?
 	print_encode_state("encode-initial", initial_encode)
 	let literal_headers: HpackHeaderList = outbound_literal_indexed_path_target_headers()
 	let literal_state: HpackFixtureState = print_encode_transition("encode-stateful-literal-indexed-path-target", encode_header_list_with_state(literal_headers, initial_encode, 120), "44072f746172676574")?
