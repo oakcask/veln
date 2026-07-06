@@ -116,6 +116,9 @@ The completed direct nested binary schema decode binding slice is archived
 under
 [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
 
+The completed binary schema anonymous record decode slice is archived under
+[Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
+
 The completed dispatch nested repeat helper slice is archived under
 [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
 
@@ -502,5 +505,6 @@ Remaining:
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   supported representation-only reserved-bit, direct nested binary schema,
-  bounded repeat, length-bounded `ByteView`, closed dispatch, extension
-  dispatch, and recursive format-neutral visible-shape helper boundary.
+  anonymous record decode, bounded repeat, length-bounded `ByteView`, closed
+  dispatch, extension dispatch, and recursive format-neutral visible-shape
+  helper boundary.
