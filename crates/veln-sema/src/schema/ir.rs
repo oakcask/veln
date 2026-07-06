@@ -13,7 +13,7 @@ use crate::types::{
     closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
     extension_dispatch_schema_primitive, flag_schema_primitive,
-    format_neutral_schema_field_type_for_schema,
+    format_neutral_schema_field_type_for_schema, parse_type_annotation,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
@@ -140,6 +140,9 @@ fn ir_schema_field(
         return Some(Some(decoded?));
     }
     if let Some(decoded) = ir_schema_nested_schema_field(module, schema, field, stack) {
+        return Some(Some(decoded?));
+    }
+    if let Some(decoded) = ir_schema_anonymous_record_field(field) {
         return Some(Some(decoded?));
     }
     ir_schema_dispatch_field(module, schema, field, decoded_field_types, stack).map(Some)
@@ -295,6 +298,76 @@ fn ir_schema_nested_schema_field(
             reserved_bits: None,
         },
     )))
+}
+
+fn ir_schema_anonymous_record_field(
+    field: &SchemaField,
+) -> Option<Option<(Option<Type>, IrSchemaDecodeField)>> {
+    let Type::Record(fields) = parse_type_annotation(&field.ty).ok()? else {
+        return None;
+    };
+    let (field_ty, payload_schema) = ir_schema_anonymous_record_spec(fields)?;
+    Some(Some((
+        Some(field_ty),
+        IrSchemaDecodeField {
+            name: field.name.clone(),
+            width: 0,
+            max_value: 0,
+            little_endian: false,
+            flag_type: String::new(),
+            predicate: None,
+            length_field: None,
+            length_multiple: None,
+            repeat: None,
+            payload_schema: Some(Box::new(payload_schema)),
+            dispatch: None,
+            reserved_bits: None,
+        },
+    )))
+}
+
+fn ir_schema_anonymous_record_spec(
+    fields: Vec<(String, Type)>,
+) -> Option<(Type, IrSchemaDecodeSpec)> {
+    let mut visible_fields = Vec::new();
+    let mut ir_fields = Vec::new();
+    for (name, ty) in fields {
+        let Type::Named {
+            name: ty_name,
+            args,
+        } = ty
+        else {
+            return None;
+        };
+        if !args.is_empty() || flag_schema_primitive(&ty_name).is_some() {
+            return None;
+        }
+        let width = exact_width_schema_primitive(&ty_name)?;
+        visible_fields.push((name.clone(), Type::int()));
+        ir_fields.push(IrSchemaDecodeField {
+            name,
+            width,
+            max_value: exact_width_schema_primitive_max_value(&ty_name)?,
+            little_endian: exact_width_schema_primitive_little_endian(&ty_name),
+            flag_type: String::new(),
+            predicate: None,
+            length_field: None,
+            length_multiple: None,
+            repeat: None,
+            payload_schema: None,
+            dispatch: None,
+            reserved_bits: None,
+        });
+    }
+    Some((
+        Type::Record(visible_fields),
+        IrSchemaDecodeSpec {
+            schema_name: String::new(),
+            function_name: String::new(),
+            fields: ir_fields,
+            validation: None,
+        },
+    ))
 }
 
 fn ir_schema_dispatch_field(

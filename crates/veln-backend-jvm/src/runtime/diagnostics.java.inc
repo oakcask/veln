@@ -1539,7 +1539,9 @@
         }
         java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
             new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(prefix);
-        path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        if (!schemaName.isEmpty()) {
+            path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        }
         path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
         path.add(new ByteDiagnosticFieldPathSegment("index", Long.toString(index)));
         return path;
@@ -1555,7 +1557,9 @@
         }
         java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
             new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(prefix);
-        path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        if (!schemaName.isEmpty()) {
+            path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        }
         path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
         return path;
     }

@@ -70,7 +70,8 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, `ByteView(length_field)`,
   or `ByteView(left_length - right_length)` payloads, direct nested binary
-  schema fields, or the implemented dispatch payload slices
+  schema fields, anonymous record fields made from implemented exact-width
+  unsigned primitive leaves, or the implemented dispatch payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
@@ -221,10 +222,11 @@ This proposal remains open for:
 - generated runtime helper bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   supported representation-only reserved-bit, direct nested binary schema,
-  bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
-  dispatch slices, and format-neutral encode helper fields beyond the
-  implemented scalar, supported container, dictionary-option, option-dictionary,
-  recursive result, anonymous record, and source ADT shapes
+  anonymous record decode, bounded repeat, length-bounded `ByteView`, closed
+  dispatch, and extension dispatch slices, and format-neutral encode helper
+  fields beyond the implemented scalar, supported container,
+  dictionary-option, option-dictionary, recursive result, anonymous record,
+  and source ADT shapes
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
@@ -473,9 +475,10 @@ Implemented:
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives, visible flag bitset fields, direct nested binary schema
-  fields, supported representation-only `ReservedBits(width, value)` fields,
-  or bounded repeat fields over implemented primitive, nested schema, or
-  `ByteView(length_field)` payloads expose generated
+  fields, anonymous record fields whose nested fields are implemented
+  exact-width unsigned primitive leaves, supported representation-only
+  `ReservedBits(width, value)` fields, or bounded repeat fields over
+  implemented primitive, nested schema, or `ByteView(length_field)` payloads expose generated
   `byte_decode_<schema>` helper bindings.
 - Format-neutral schemas without a `format` clause whose fields are recursive
   visible shapes made from scalar leaves, anonymous record fields,

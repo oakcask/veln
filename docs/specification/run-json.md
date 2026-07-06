@@ -244,6 +244,10 @@ adds an `index` segment after the repeated field segment in `field_path`; the
 segment `name` is the zero-based element index whose representation could not
 be fully read. Nested repeated schema failures append the nested schema field
 segments after that `index` segment.
+Anonymous record field failures append the nested anonymous record field
+segment after the outer field segment without adding a synthetic schema
+segment; the checked JSON case is
+`examples/specification/run/binary-schema-anonymous-record-truncated-json/`.
 Packed visible-only sub-byte groups use the same shape and report the first
 field in the group when the shared byte is missing.
 

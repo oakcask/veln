@@ -87,6 +87,68 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_anonymous_record_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema AnonymousPacket\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: UInt8\n",
+            "  header: {kind: UInt8, code: UInt16be, tail: UInt16le}\n",
+            "  suffix: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{prefix: Int, header: {kind: Int, code: Int, tail: Int}, suffix: Int}, String>\n",
+            "  byte_decode_anonymous_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "AnonymousPacket");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width))
+            .collect::<Vec<_>>(),
+        vec![("prefix", 1), ("header", 0), ("suffix", 1)]
+    );
+    let header = schema.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("anonymous record should carry nested decode metadata");
+    assert_eq!(header.schema_name, "");
+    assert_eq!(
+        header
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field.little_endian,
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("kind", 1, 0xff, false),
+            ("code", 2, 0xffff, false),
+            ("tail", 2, 0xffff, true),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declarations() {
     let source = SourceFile::new(
         "main.veln",
