@@ -1439,6 +1439,26 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {
+                            name: "expected_stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "started_frame_kind".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "started_byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "accumulated_header_block_bytes".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
                             name: "preview".to_string(),
                             ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
                         },
@@ -1548,6 +1568,14 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                         },
                         AdtPayloadField {
                             name: "active_continuation".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "accumulated_header_block_bytes".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
                             ty: AdtPayloadType::Concrete(Type::string()),
                         },
                         AdtPayloadField {

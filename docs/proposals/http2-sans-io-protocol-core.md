@@ -135,33 +135,12 @@ fields, while protocol failures report invalid stream ids, parity mismatches,
 window overflow, negative-credit blocking, or limit violations with the active
 connection state as related context.
 
-## Discussion Result: Header-Block Continuation State
+## Implemented: Header-Block Continuation State
 
-Header-block continuation should be represented as connection decode state, not
-as schema state and not as HPACK state.
-
-The decode state should carry an optional pending header-block assembly value.
-That value records the stream id that owns the block, the frame kind that
-started it, the absolute byte offset of the starting frame, the accumulated
-opaque header-block byte chunks, and the accumulated `ByteCount`. The
-accumulated bytes must be owned or frozen chunks because the main decode state
-still drops consumed input after each frame.
-
-When no header block is pending, a HEADERS frame with `END_HEADERS` produces a
-complete opaque header-block event immediately. A HEADERS frame without
-`END_HEADERS` creates the pending assembly and emits no complete header event
-yet. When a block is pending, the next frame must be a CONTINUATION frame for
-the same stream. A CONTINUATION without `END_HEADERS` appends its payload to
-the assembly. A CONTINUATION with `END_HEADERS` completes the assembly and
-hands the combined opaque chunks to the HPACK boundary or fixture codec.
-
-Any different frame kind, different stream id, or connection end while an
-assembly is pending is a peer protocol-state failure. The diagnostic should
-point at the incoming frame or stream end that violated the continuation rule,
-with related context for the pending stream id, starting frame kind, starting
-byte offset, accumulated byte count, and rule provenance. This keeps
-continuation ordering out of schemas while still making the state machine
-repairable in fixtures and agent-facing output.
+The completed header-block continuation state slice is archived under
+[HTTP/2 Header-Block Continuation State](../reference/implemented-proposals/http2-header-block-continuation-state.md).
+Current behavior is specified by `../specification/` and checked executable
+cases under `../../examples/specification/run/`.
 
 ## Discussion Result: Peer Limit Diagnostic Ids
 

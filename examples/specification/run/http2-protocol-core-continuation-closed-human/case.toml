@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.closed_with_pending]: input ended with pending bytes at byte offset 12", "note: Input end arrived while 0 byte(s) remained undecoded.", "note: Active continuation state: headers.", "note: Pending header block started with frame kind 1 at byte offset 0 for stream 1; accumulated 3 header-block byte(s).", "note: Rule provenance: rfc9113_continuation_sequence."]

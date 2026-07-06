@@ -1259,6 +1259,11 @@ impl<'a> ProtocolDiagnosticContext<'a> {
             "http2.protocol.closed_with_pending" => {
                 let pending_count = self.number("pending_count")?;
                 let active_continuation = self.string("active_continuation")?;
+                let expected_stream = self.number("expected_stream_id")?;
+                let started_kind = self.number("started_frame_kind")?;
+                let started_offset = self.number("started_byte_offset")?;
+                let accumulated = self.number("accumulated_header_block_bytes")?;
+                let rule_provenance = self.string("rule_provenance")?;
                 let mut diagnostic = self.diagnostic(format!(
                     "input ended with pending bytes at byte offset {}",
                     self.byte_offset
@@ -1270,6 +1275,14 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 diagnostic.related.push(note_json(format!(
                     "Active continuation state: {active_continuation}."
                 )));
+                if active_continuation != "none" {
+                    diagnostic.related.push(note_json(format!(
+                        "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
+                    )));
+                    diagnostic
+                        .related
+                        .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+                }
                 Some(diagnostic)
             }
             "http2.protocol.partial_preface" => {
@@ -1307,6 +1320,8 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 let started_kind = self.number("started_frame_kind")?;
                 let started_offset = self.number("started_byte_offset")?;
                 let active_continuation = self.string("active_continuation")?;
+                let accumulated = self.number("accumulated_header_block_bytes")?;
+                let rule_provenance = self.string("rule_provenance")?;
                 let mut diagnostic = self.diagnostic(format!(
                     "expected CONTINUATION frame at byte offset {}",
                     self.byte_offset
@@ -1315,9 +1330,12 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
                 )));
                 diagnostic.related.push(note_json(format!(
-                    "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}."
+                    "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}; accumulated {accumulated} header-block byte(s)."
                 )));
                 push_byte_preview_note(&mut diagnostic, self.entries);
+                diagnostic
+                    .related
+                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
                 Some(diagnostic)
             }
             _ => None,
@@ -4273,6 +4291,11 @@ mod tests {
             ("pending_count", JsonValue::Number(4)),
             ("input_event", JsonValue::string("end")),
             ("active_continuation", JsonValue::string("none")),
+            ("expected_stream_id", JsonValue::Number(0)),
+            ("started_frame_kind", JsonValue::Number(0)),
+            ("started_byte_offset", JsonValue::Number(0)),
+            ("accumulated_header_block_bytes", JsonValue::Number(0)),
+            ("rule_provenance", JsonValue::string("none")),
             ("byte_preview", byte_preview("01020304")),
         ]);
         let failure = TestFailure::result_with_details(
@@ -4457,6 +4480,11 @@ mod tests {
             ("started_frame_kind", JsonValue::Number(1)),
             ("started_byte_offset", JsonValue::Number(0)),
             ("active_continuation", JsonValue::string("headers")),
+            ("accumulated_header_block_bytes", JsonValue::Number(3)),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_continuation_sequence"),
+            ),
             (
                 "byte_preview",
                 byte_preview_with_counts("0000000000000000", 9, true),
@@ -4477,7 +4505,7 @@ mod tests {
             diagnostic.message,
             "expected CONTINUATION frame at byte offset 9"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -4492,6 +4520,11 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("00 00 00 00 00 00 00 00 (showing 8 of 9 byte(s), truncated)")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9113_continuation_sequence")
         );
     }
 

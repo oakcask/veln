@@ -434,7 +434,12 @@
         long byteOffset = asLong(detail.payloads[0]);
         long pendingCount = asLong(detail.payloads[1]);
         String activeContinuation = asString(detail.payloads[2]);
-        String nearbyContext = byteChunkPreviewTrace(detail.payloads[3], 8);
+        long expectedStream = asLong(detail.payloads[3]);
+        long startedKind = asLong(detail.payloads[4]);
+        long startedOffset = asLong(detail.payloads[5]);
+        long accumulatedHeaderBlockBytes = asLong(detail.payloads[6]);
+        String ruleProvenance = asString(detail.payloads[7]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[8], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -442,6 +447,11 @@
                 DiagnosticDetail.number("pending_count", pendingCount),
                 DiagnosticDetail.string("input_event", "end"),
                 DiagnosticDetail.string("active_continuation", activeContinuation),
+                DiagnosticDetail.number("expected_stream_id", expectedStream),
+                DiagnosticDetail.number("started_frame_kind", startedKind),
+                DiagnosticDetail.number("started_byte_offset", startedOffset),
+                DiagnosticDetail.number("accumulated_header_block_bytes", accumulatedHeaderBlockBytes),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );
@@ -518,7 +528,9 @@
         long startedKind = asLong(detail.payloads[4]);
         long startedOffset = asLong(detail.payloads[5]);
         String activeContinuation = asString(detail.payloads[6]);
-        String nearbyContext = byteChunkPreviewTrace(detail.payloads[7], 8);
+        long accumulatedHeaderBlockBytes = asLong(detail.payloads[7]);
+        String ruleProvenance = asString(detail.payloads[8]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[9], 8);
         return new ProtocolDiagnostic(
             id,
             byteOffset,
@@ -529,6 +541,8 @@
                 DiagnosticDetail.number("started_frame_kind", startedKind),
                 DiagnosticDetail.number("started_byte_offset", startedOffset),
                 DiagnosticDetail.string("active_continuation", activeContinuation),
+                DiagnosticDetail.number("accumulated_header_block_bytes", accumulatedHeaderBlockBytes),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext)
             )
         );

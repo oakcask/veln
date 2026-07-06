@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))"
+equals = "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, 0, 0, 0, 0, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -44,6 +44,26 @@ equals = "end"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_continuation"
+equals = "none"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.expected_stream_id"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.started_frame_kind"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.started_byte_offset"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.accumulated_header_block_bytes"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.rule_provenance"
 equals = "none"
 
 [[json_assert]]

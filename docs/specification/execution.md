@@ -327,6 +327,18 @@ enough.
   the existing fixture fallback diagnostics. The checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
+- The checked HTTP/2 receive state carries pending header-block continuation
+  assembly as connection decode state. A HEADERS frame without `END_HEADERS`
+  records the owning stream id, starting frame kind, starting byte offset, and
+  accumulated opaque header-block bytes without emitting a completed header
+  event. Same-stream CONTINUATION frames append payload bytes until
+  `END_HEADERS` completes the combined header block for HPACK decoding. A
+  different frame kind, different stream id, or input end while this assembly
+  is pending reports protocol-owned continuation context with the pending
+  stream, start frame, start offset, accumulated byte count, and rule
+  provenance. The checked coverage includes the single and multiple
+  CONTINUATION success paths, wrong frame kind, wrong stream id, and
+  end-of-input while pending under `examples/specification/run/`.
 - The source-visible HPACK fixture encoder accepts exact static-table
   name/value pairs as indexed-field bytes under
   `examples/specification/run/hpack-fixture-codec-boundary/`, including

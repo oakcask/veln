@@ -2857,11 +2857,11 @@ fn result_value_parser_exposes_http2_preface_runtime_diagnostics() {
 #[test]
 fn result_value_parser_exposes_http2_control_runtime_diagnostics() {
     let closed = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))",
+        "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, 0, 0, 0, 0, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))",
     )
     .expect("closed-input runtime diagnostic value should parse");
     let continuation = parse_result_value(
-        "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, ByteChunk([Byte(0), Byte(0), Byte(0)])))",
+        "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, 3, rfc9113_continuation_sequence, ByteChunk([Byte(0), Byte(0), Byte(0)])))",
     )
     .expect("continuation runtime diagnostic value should parse");
     let frame_kind = parse_result_value(
@@ -2882,12 +2882,30 @@ fn result_value_parser_exposes_http2_control_runtime_diagnostics() {
         Some(&JsonValue::String("none".to_string()))
     );
     assert_eq!(
+        json_path(&closed, "value.detail.expected_stream_id"),
+        Some(&JsonValue::Number(0))
+    );
+    assert_eq!(
+        json_path(&closed, "value.detail.rule_provenance"),
+        Some(&JsonValue::String("none".to_string()))
+    );
+    assert_eq!(
         json_path(&continuation, "value.detail.expected_stream_id"),
         Some(&JsonValue::Number(1))
     );
     assert_eq!(
         json_path(&continuation, "value.detail.active_continuation"),
         Some(&JsonValue::String("headers".to_string()))
+    );
+    assert_eq!(
+        json_path(&continuation, "value.detail.accumulated_header_block_bytes"),
+        Some(&JsonValue::Number(3))
+    );
+    assert_eq!(
+        json_path(&continuation, "value.detail.rule_provenance"),
+        Some(&JsonValue::String(
+            "rfc9113_continuation_sequence".to_string()
+        ))
     );
     assert_eq!(
         json_path(&frame_kind, "value.detail.expected_frame_kind"),
@@ -3649,7 +3667,7 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
             ))
         }
         "RuntimeHttp2ProtocolClosedWithPendingDiagnostic" => {
-            let args = expect_arity(name, args, 4)?;
+            let args = expect_arity(name, args, 9)?;
             Ok(result_value_object(
                 "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
                 vec![
@@ -3659,12 +3677,20 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "active_continuation",
                         JsonValue::String(args[2].trim().to_string()),
                     ),
-                    ("preview", parse_veln_value(args[3])?),
+                    ("expected_stream_id", parse_veln_value(args[3])?),
+                    ("started_frame_kind", parse_veln_value(args[4])?),
+                    ("started_byte_offset", parse_veln_value(args[5])?),
+                    ("accumulated_header_block_bytes", parse_veln_value(args[6])?),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[7].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[8])?),
                 ],
             ))
         }
         "RuntimeHttp2ProtocolContinuationExpectedDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
+            let args = expect_arity(name, args, 10)?;
             Ok(result_value_object(
                 "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
                 vec![
@@ -3678,7 +3704,12 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                         "active_continuation",
                         JsonValue::String(args[6].trim().to_string()),
                     ),
-                    ("preview", parse_veln_value(args[7])?),
+                    ("accumulated_header_block_bytes", parse_veln_value(args[7])?),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[8].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[9])?),
                 ],
             ))
         }

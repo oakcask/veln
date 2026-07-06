@@ -3635,11 +3635,21 @@
         Object offset,
         Object pendingCount,
         Object activeContinuation,
+        Object expectedStream,
+        Object startedKind,
+        Object startedOffset,
+        Object accumulatedBytes,
+        Object ruleProvenance,
         Object preview
     ) {
         long byteOffset = asLong(offset);
         long pending = asLong(pendingCount);
         String continuation = asString(activeContinuation);
+        long expectedStreamId = asLong(expectedStream);
+        long startedFrameKind = asLong(startedKind);
+        long startedByteOffset = asLong(startedOffset);
+        long accumulatedHeaderBlockBytes = asLong(accumulatedBytes);
+        String provenance = asString(ruleProvenance);
         String message = "HTTP/2 input ended with " + pending
             + " pending byte(s) at byte offset " + byteOffset;
         Object detail = adt(
@@ -3648,6 +3658,11 @@
                 Long.valueOf(byteOffset),
                 Long.valueOf(pending),
                 continuation,
+                Long.valueOf(expectedStreamId),
+                Long.valueOf(startedFrameKind),
+                Long.valueOf(startedByteOffset),
+                Long.valueOf(accumulatedHeaderBlockBytes),
+                provenance,
                 byteViewToChunk(preview)
             }
         );
@@ -3735,6 +3750,8 @@
         Object startedKind,
         Object startedOffset,
         Object activeContinuation,
+        Object accumulatedBytes,
+        Object ruleProvenance,
         Object preview
     ) {
         long byteOffset = asLong(offset);
@@ -3744,6 +3761,8 @@
         long startedFrameKind = asLong(startedKind);
         long startedByteOffset = asLong(startedOffset);
         String continuation = asString(activeContinuation);
+        long accumulatedHeaderBlockBytes = asLong(accumulatedBytes);
+        String provenance = asString(ruleProvenance);
         String message = "HTTP/2 expected CONTINUATION frame at byte offset " + byteOffset;
         Object detail = adt(
             "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
@@ -3755,6 +3774,8 @@
                 Long.valueOf(startedFrameKind),
                 Long.valueOf(startedByteOffset),
                 continuation,
+                Long.valueOf(accumulatedHeaderBlockBytes),
+                provenance,
                 byteViewToChunk(preview)
             }
         );

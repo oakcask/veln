@@ -16,8 +16,9 @@ under `../../../examples/specification/run/`.
 `Err(RuntimeDiagnostic(...))` with
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` carrying the byte
 offset, actual frame kind, actual stream id, expected stream id, started
-frame kind, started byte offset, active continuation state, and inspected
-frame-header preview chunk.
+frame kind, started byte offset, active continuation state, accumulated
+header-block byte count, rule provenance, and inspected frame-header preview
+chunk.
 
 Command recording projects the HTTP/2 `details.protocol_diagnostic` JSON
 object from the returned `RuntimeDiagnostic(...)` value. Human output uses the
