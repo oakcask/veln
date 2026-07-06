@@ -2,22 +2,10 @@ schema UnsupportedDeepOptionListPacket
 	metadata: {items: Option<List<List<Int>>>}
 end
 
-schema UnsupportedResultPayloadPacket
-	outcome: Result<List<Int>, String>
-end
-
 fn direct_deep(packet: {metadata: {items: Option<List<List<Int>>>}}) -> Result<{metadata: {items: Option<List<List<Int>>>}}, String>
 	byte_encode_unsupported_deep_option_list_packet(packet)
 end
 
 fn explicit_deep(packet: {metadata: {items: Option<List<List<Int>>>}}) -> Result<{metadata: {items: Option<List<List<Int>>>}}, String>
 	encode UnsupportedDeepOptionListPacket from packet
-end
-
-fn direct_result(packet: {outcome: Result<List<Int>, String>}) -> Result<{outcome: Result<List<Int>, String>}, String>
-	byte_encode_unsupported_result_payload_packet(packet)
-end
-
-fn explicit_result(packet: {outcome: Result<List<Int>, String>}) -> Result<{outcome: Result<List<Int>, String>}, String>
-	encode UnsupportedResultPayloadPacket from packet
 end

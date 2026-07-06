@@ -1,0 +1,16 @@
+use wire
+
+schema UnsupportedRecursiveResultPacket
+	callback: Result<Int, fn(Int) -> String>
+	bad_dict: Result<Dict<Int, Int>, String>
+	private_payload: Result<wire::PrivateWirePayload, String>
+	metadata: {nested_callback: Result<Result<Int, String>, fn(Int) -> String>}
+end
+
+fn direct(packet: {callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>, private_payload: Result<wire::PrivateWirePayload, String>, metadata: {nested_callback: Result<Result<Int, String>, fn(Int) -> String>}}) -> Result<{callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>, private_payload: Result<wire::PrivateWirePayload, String>, metadata: {nested_callback: Result<Result<Int, String>, fn(Int) -> String>}}, String>
+	byte_encode_unsupported_recursive_result_packet(packet)
+end
+
+fn explicit(packet: {callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>, private_payload: Result<wire::PrivateWirePayload, String>, metadata: {nested_callback: Result<Result<Int, String>, fn(Int) -> String>}}) -> Result<{callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>, private_payload: Result<wire::PrivateWirePayload, String>, metadata: {nested_callback: Result<Result<Int, String>, fn(Int) -> String>}}, String>
+	encode UnsupportedRecursiveResultPacket from packet
+end

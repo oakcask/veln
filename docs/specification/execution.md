@@ -117,8 +117,9 @@ enough.
   `Option<List<scalar>>`, `List<scalar>`, `Vec<scalar>`,
   `Vec<Option<scalar>>`, `Dict<String, scalar>`,
   `Dict<String, Option<scalar>>`, `Option<Dict<String, scalar>>`,
-  `Result<scalar, scalar>`, `Result<scalar, Option<scalar>>`, or an
-  anonymous record whose fields are supported format-neutral encode shapes.
+  `Result<Ok, Err>` when both payloads are supported format-neutral encode
+  shapes, or an anonymous record whose fields are supported format-neutral
+  encode shapes.
   Same-module source ADT fields and public imported source ADT fields
   referenced through written `use` paths are supported when every constructor
   payload is a supported format-neutral encode shape. The supported scalar

@@ -3120,11 +3120,16 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
         Type::Named { name, args }
             if name == "Result"
                 && args.len() == 2
-                && format_neutral_schema_scalar_type(&args[0])
-                && (format_neutral_schema_scalar_type(&args[1])
-                    || format_neutral_schema_option_scalar_type(&args[1])) =>
+                && format_neutral_schema_plain_encode_field_type(&args[0]).is_some()
+                && format_neutral_schema_plain_encode_field_type(&args[1]).is_some() =>
         {
-            Some(ty.clone())
+            Some(Type::named(
+                "Result",
+                vec![
+                    format_neutral_schema_plain_encode_field_type(&args[0])?,
+                    format_neutral_schema_plain_encode_field_type(&args[1])?,
+                ],
+            ))
         }
         Type::Record(fields) => Some(Type::Record(
             fields
@@ -3190,17 +3195,13 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     text: &str,
 ) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_plain_encode_field_type(&ty).or_else(|| {
-        if !format_neutral_schema_encode_type_is_source_adt_candidate(&ty) {
-            return None;
-        }
-        format_neutral_schema_source_adt_encode_type(
-            module,
-            schema.module_name.as_deref(),
-            adts,
-            &ty,
-        )
-    })
+    format_neutral_schema_encode_shape_type_for_schema(
+        module,
+        schema.module_name.as_deref(),
+        adts,
+        &ty,
+        &mut Vec::new(),
+    )
 }
 
 pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
@@ -3221,9 +3222,19 @@ fn format_neutral_schema_source_adt_encode_type(
     current_module: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
+    stack: &mut Vec<(Option<String>, String, usize)>,
 ) -> Option<Type> {
     let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
     let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
+    let key = (
+        descriptor.module_name.clone(),
+        descriptor.type_name.clone(),
+        descriptor.type_parameters.len(),
+    );
+    if stack.contains(&key) {
+        return Some(descriptor_ty);
+    }
+    stack.push(key);
     let supported = descriptor.variants.iter().all(|variant| {
         variant
             .payload_fields
@@ -3240,10 +3251,72 @@ fn format_neutral_schema_source_adt_encode_type(
                 ) else {
                     return false;
                 };
-                format_neutral_schema_plain_encode_field_type(&payload_ty).is_some()
+                format_neutral_schema_encode_shape_type_for_schema(
+                    module,
+                    descriptor.module_name.as_deref(),
+                    adts,
+                    &payload_ty,
+                    stack,
+                )
+                .is_some()
             })
     });
+    stack.pop();
     supported.then_some(descriptor_ty)
+}
+
+fn format_neutral_schema_encode_shape_type_for_schema(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+    stack: &mut Vec<(Option<String>, String, usize)>,
+) -> Option<Type> {
+    if let Some(ty) = format_neutral_schema_plain_encode_field_type(ty) {
+        return Some(ty);
+    }
+    match ty {
+        Type::Named { name, args } if name == "Result" && args.len() == 2 => Some(Type::named(
+            "Result",
+            vec![
+                format_neutral_schema_encode_shape_type_for_schema(
+                    module,
+                    current_module,
+                    adts,
+                    &args[0],
+                    stack,
+                )?,
+                format_neutral_schema_encode_shape_type_for_schema(
+                    module,
+                    current_module,
+                    adts,
+                    &args[1],
+                    stack,
+                )?,
+            ],
+        )),
+        Type::Named { .. } if format_neutral_schema_encode_type_is_source_adt_candidate(ty) => {
+            format_neutral_schema_source_adt_encode_type(module, current_module, adts, ty, stack)
+        }
+        Type::Record(fields) => Some(Type::Record(
+            fields
+                .iter()
+                .map(|(name, field_ty)| {
+                    Some((
+                        name.clone(),
+                        format_neutral_schema_encode_shape_type_for_schema(
+                            module,
+                            current_module,
+                            adts,
+                            field_ty,
+                            stack,
+                        )?,
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()?,
+        )),
+        _ => None,
+    }
 }
 
 fn format_neutral_schema_encode_record_fields(

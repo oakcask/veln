@@ -1,0 +1,7 @@
+pub type WirePayload
+	pub WirePayload(value: Int)
+end
+
+type PrivateWirePayload
+	PrivateWirePayload(value: Int)
+end

@@ -21,10 +21,9 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice did not add arbitrary recursive result encode eligibility. Shapes
-such as `Result<Option<Int>, String>`, nested `Result` payloads, and
-container payloads outside the existing supported encode shapes remain outside
-the generated format-neutral encode helper surface.
+The later recursive `Result` encode slice widened result payload eligibility
+after this slice. That follow-up is recorded in
+`format-neutral-schema-recursive-result-encode-helpers.md`.
 
 ## Evidence
 
@@ -32,15 +31,11 @@ the generated format-neutral encode helper surface.
   checks successful generated helper and explicit encode expression
   resolution, top-level and anonymous record field positions, and pass-through
   runtime behavior for `Ok`, `Err(None)`, and `Err(Some(scalar))` values.
-- `../../../examples/specification/check/format-neutral-schema-result-option-encode-boundary/`
-  keeps the nearby `Result<Option<scalar>, scalar>` shape outside the encode
-  helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
-  checks generated helper resolution for accepted result-option fields and
-  rejection of the reversed option-payload shape.
+  checks generated helper resolution for accepted result-option fields.
 
 ## Remaining Work
 
 The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-encode shapes, and later schema composition surfaces.
+outside the implemented helper slices, format-neutral encode shapes beyond the
+implemented supported-shape boundary, and later schema composition surfaces.

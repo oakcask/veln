@@ -634,15 +634,66 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_vec_fields() {
 }
 
 #[test]
-fn generated_format_neutral_schema_encode_helpers_reject_result_option_ok_payloads() {
+fn generated_format_neutral_schema_encode_helpers_accept_recursive_result_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Payload\n",
+            "  Payload(value: Int)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  outcome: Result<Option<Int>, String>\n",
+            "  details: Result<Vec<Int>, Dict<String, String>>\n",
+            "  nested: {payload: Result<Result<Int, String>, Payload>}\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {outcome: Result<Option<Int>, String>, details: Result<Vec<Int>, Dict<String, String>>, nested: {payload: Result<Result<Int, String>, Payload>}}) -> Result<{outcome: Result<Option<Int>, String>, details: Result<Vec<Int>, Dict<String, String>>, nested: {payload: Result<Result<Int, String>, Payload>}}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {outcome: Result<Option<Int>, String>, details: Result<Vec<Int>, Dict<String, String>>, nested: {payload: Result<Result<Int, String>, Payload>}}) -> Result<{outcome: Result<Option<Int>, String>, details: Result<Vec<Int>, Dict<String, String>>, nested: {payload: Result<Result<Int, String>, Payload>}}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_unsupported_result_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "schema Packet\n",
-            "  outcome: Result<Option<Int>, String>\n",
+            "  callback: Result<Int, fn(Int) -> String>\n",
+            "  bad_dict: Result<Dict<Int, Int>, String>\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {outcome: Result<Option<Int>, String>}) -> Result<{outcome: Result<Option<Int>, String>}, String>\n",
+            "pub fn main(packet: {callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>}) -> Result<{callback: Result<Int, fn(Int) -> String>, bad_dict: Result<Dict<Int, Int>, String>}, String>\n",
             "  encode Packet from packet\n",
             "end\n",
         ),

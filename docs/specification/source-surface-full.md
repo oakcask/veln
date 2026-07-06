@@ -42,9 +42,10 @@ Format-neutral generated encode helpers are limited to scalar leaves and
 `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
 `Vec<scalar>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Option<Dict<String, scalar>>`,
-`Result<scalar, scalar>`, `Result<scalar, Option<scalar>>`, or anonymous
-record fields whose fields are supported format-neutral encode shapes. The
-supported scalar leaves are `Int`, `Bool`, `Float`, and `String`.
+`Result<Ok, Err>` when both payloads are supported format-neutral encode
+shapes, or anonymous record fields whose fields are supported format-neutral
+encode shapes. The supported scalar leaves are `Int`, `Bool`, `Float`, and
+`String`.
 
 ## Executable Grammar
 

@@ -1,0 +1,68 @@
+# Format-neutral schema encode helpers accept recursive Result payload shapes.
+use stdio
+
+schema RecursiveResultPacket
+	status: Result<Option<Int>, String>
+	payload: Result<Vec<Int>, Dict<String, String>>
+	metadata: {trace: Result<Result<Int, String>, Dict<String, Option<Int>>>}
+end
+
+fn add_int(total: Int, item: Int) -> Int
+	total + item
+end
+
+fn status_text(status: Result<Option<Int>, String>) -> String
+	match status
+		Ok(maybe_code) => match maybe_code
+			Some(code) => int_to_string(code)
+			None => "missing-status"
+		end
+		Err(message) => message
+	end
+end
+
+fn payload_text(payload: Result<Vec<Int>, Dict<String, String>>) -> String
+	match payload
+		Ok(items) => int_to_string(vec_fold(items, 0, add_int))
+		Err(labels) => match dict_get(labels, "owner")
+			Some(label) => label
+			None => "missing-owner"
+		end
+	end
+end
+
+fn trace_text(trace: Result<Result<Int, String>, Dict<String, Option<Int>>>) -> String
+	match trace
+		Ok(inner) => match inner
+			Ok(value) => int_to_string(value)
+			Err(message) => message
+		end
+		Err(scores) => match dict_get(scores, "math")
+			Some(maybe_score) => match maybe_score
+				Some(score) => int_to_string(score)
+				None => "empty-score"
+			end
+			None => "missing-score"
+		end
+	end
+end
+
+fn emit_packet(packet: {status: Result<Option<Int>, String>, payload: Result<Vec<Int>, Dict<String, String>>, metadata: {trace: Result<Result<Int, String>, Dict<String, Option<Int>>>}}) -> () effects [stdio]
+	stdio::println(status_text(packet.status))
+	stdio::println(payload_text(packet.payload))
+	stdio::println(trace_text(packet.metadata.trace))
+end
+
+fn emit(result: Result<{status: Result<Option<Int>, String>, payload: Result<Vec<Int>, Dict<String, String>>, metadata: {trace: Result<Result<Int, String>, Dict<String, Option<Int>>>}}, String>) -> () effects [stdio]
+	match result
+		Ok(packet) => emit_packet(packet)
+		Err(message) => stdio::println(message)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let direct_packet: {status: Result<Option<Int>, String>, payload: Result<Vec<Int>, Dict<String, String>>, metadata: {trace: Result<Result<Int, String>, Dict<String, Option<Int>>>}} = {status: Ok(Some(7)), payload: Ok([2, 3, 5]), metadata: {trace: Ok(Err("inner-blocked"))}}
+	let explicit_packet: {status: Result<Option<Int>, String>, payload: Result<Vec<Int>, Dict<String, String>>, metadata: {trace: Result<Result<Int, String>, Dict<String, Option<Int>>>}} = {status: Err("blocked"), payload: Err({"owner": "core"}), metadata: {trace: Err({"math": Some(13)})}}
+	emit(byte_encode_recursive_result_packet(direct_packet))
+	emit(encode RecursiveResultPacket from explicit_packet)
+end

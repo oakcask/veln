@@ -39,8 +39,8 @@ proposal record.
   checks successful `Result<scalar, scalar>` fields, including `Ok` and `Err`
   payloads.
 - `../../../examples/specification/check/format-neutral-schema-container-encode-boundary/`
-  keeps adjacent unsupported recursive container and non-scalar result
-  payload shapes outside the encode helper boundary.
+  keeps an adjacent unsupported recursive container shape outside the encode
+  helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for accepted container encode shapes and
   rejection of a deeper recursive container shape.
