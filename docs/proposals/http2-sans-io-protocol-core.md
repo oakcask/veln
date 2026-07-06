@@ -1032,7 +1032,8 @@ Huffman encode boundary is archived under
 [HTTP/2 HPACK Huffman Encode Boundary](../reference/implemented-proposals/http2-hpack-huffman-encode-boundary.md);
 it exposes payload-only encoding for supported source-visible strings and
 bounded byte chunks, while unsupported source-visible strings stay on fixture
-encode failures. The completed ordinary
+encode failures, with direct coverage in the focused HPACK fixture boundary
+case. The completed ordinary
 literal-with-indexing outbound slice is archived under
 [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
 It emits the checked raw `x-trace: ok` literal-with-indexing bytes, returns a
@@ -1118,7 +1119,8 @@ receive path that decodes Huffman `:path: test` through completed HEADERS and
 final CONTINUATION before fixture fallback. The encode record covers
 payload-only HPACK Huffman encoding for supported source-visible strings and
 bounded byte chunks, plus unsupported source strings returning fixture
-failures. The later
+failures through both the aggregate protocol-core case and the focused HPACK
+fixture boundary case. The later
 source-visible
 static-name literal-with-indexing dynamic-state slice is archived under
 [HTTP/2 HPACK Static-Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).

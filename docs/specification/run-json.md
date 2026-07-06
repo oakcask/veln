@@ -1096,7 +1096,9 @@ body-accounting state. Non-decimal visible values on the same decoded request
 or response path still use the existing header-list rules. The protocol-core
 case also checks source-visible HPACK Huffman payload encoding directly for a
 supported string, bounded raw bytes, and an unsupported string that returns a
-fixture failure. Stateful HTTP/2
+fixture failure. The focused HPACK fixture boundary case checks the same
+payload-only boundary directly before the outbound header-list fixture
+encoder cases. Stateful HTTP/2
 header-block decoding routes supported static-name literal-with-indexing
 blocks through the source-visible static decoder and updates carried HPACK
 dynamic state for later dynamic-indexed reuse. Unsupported

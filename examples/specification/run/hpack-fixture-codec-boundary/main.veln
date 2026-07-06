@@ -450,6 +450,9 @@ fn print_raw_string_encode_cases() -> Result<(), String> effects [stdio]
 	let expected_long_encoding: ByteChunk = byte_append(byte_chunk_from_hex("7f01")?, repeat_expected_byte(128)?)
 	let _ = print_encoded_literal("encode-raw-long-a", encode_hpack_raw_string_literal(hpack_fixture_long_raw_string_value(), 96), expected_long_encoding)?
 	let _ = print_encode_failure("encode-raw-non-visible", encode_hpack_raw_string_literal("\n", 98))?
+	let _ = print_encoded_literal("encode-hpack-huffman-payload-test", encode_hpack_huffman_payload("test", 160), byte_chunk_from_hex("49509f")?)?
+	let _ = print_encoded_literal("encode-hpack-huffman-payload-bytes-00-ff", encode_hpack_huffman_payload_bytes(byte_chunk_from_hex("00ff")?, "hpack-bytes-00-ff", 161), byte_chunk_from_hex("ffc7ffffdd")?)?
+	let _ = print_encode_failure("encode-hpack-huffman-payload-unsupported-string", encode_hpack_huffman_payload("\n\n", 162))?
 	Ok(())
 end
 

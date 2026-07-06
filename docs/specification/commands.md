@@ -267,7 +267,9 @@ requiring the full command reference on the first read.
   checks the source-visible HPACK Huffman encode boundary directly:
   successful calls print payload-only `ByteChunk` output for supported string
   and bounded byte input, while unsupported string input prints the returned
-  HPACK fixture failure. The same HPACK fixture boundary case also checks a
+  HPACK fixture failure. The focused HPACK fixture boundary case checks the
+  same payload-only boundary without routing through outbound header-list
+  fixture encoding. The same HPACK fixture boundary case also checks a
   standalone source-visible static-indexed encode helper
   for exact HPACK static table pairs, including `:method: GET`,
   `:scheme: https`, `:status: 200`, and

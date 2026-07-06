@@ -382,6 +382,9 @@ enough.
   `accept-encoding: gzip, deflate`. Outbound HTTP/2 HEADERS and server-side
   `PUSH_PROMISE` fixture paths route supported static-indexed header lists
   through the same helper before fixture fallback and frame splitting. The
+  same focused HPACK fixture boundary case checks payload-only Huffman
+  encoding directly for a supported string, bounded byte input, and an
+  unsupported string returned as a fixture encode failure. The
   source-visible HPACK fixture encoder also accepts the checked outbound
   dynamic-name literal-with-indexing and literal-never-indexed slices under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the

@@ -542,7 +542,8 @@ compare it with `../specification/` before changing behavior.
   HEADERS and `PUSH_PROMISE`, visible-ASCII ordinary new-name
   literal-never-indexed for outbound HEADERS without dynamic insertion,
   full-table single-byte Huffman-marked string literal decoding and encoding,
-  and the bounded
+  source-visible payload-only HPACK Huffman encode boundary coverage, and the
+  bounded
   stateful dynamic-table fixture encoder path across outbound HEADERS and
   server-side `PUSH_PROMISE`, focused unsupported-Huffman EOS
   and non-visible decoded-byte diagnostics, focused malformed string-length
