@@ -101,6 +101,15 @@ reuses it as `0xbe`, and keeps the older `:path: /target` entry reachable as
 `0xbf`. The aggregate protocol-core example feeds the returned state through
 both outbound HEADERS and server-side `PUSH_PROMISE` framing.
 
+The outbound boundary also accepts a fixture-owned dynamic-name
+literal-never-indexed header list when the selected header name is already in
+the bounded dynamic table. The checked `:path: /secret` encode emits
+`0x1f 0x2f 0x07 "/secret"` from the carried `:path` name, does not insert the
+fresh value, and keeps the prior `:path: /target` entry reusable as `0xbe`
+through outbound HEADERS framing. Encoding the never-indexed dynamic-name
+fixture without a matching dynamic-table name remains the same focused HPACK
+fixture dynamic-name failure path.
+
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
 Unsupported ordinary new-name fields stay on the same fixture header-list
@@ -134,7 +143,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   capacity,
   dynamic-name literal-with-indexing `:path: /again` into outbound HEADERS,
   reuse of that inserted value as `0xbe`, retained older `:path: /target`
-  reuse as `0xbf`, an
+  reuse as `0xbf`, dynamic-name literal-never-indexed `:path: /secret` into
+  outbound HEADERS, retained `:path: /target` reuse as `0xbe` after that
+  never-indexed block, an
   over-peer-limit table-size update failure,
   raw new-name literal-without-indexing `x-demo: hello` into outbound
   HEADERS and server-side `PUSH_PROMISE`,
@@ -166,9 +177,12 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   accepted raw new-name literal-without-indexing bytes, rejected invalid
   ordinary new-name failure, accepted raw new-name literal-never-indexed
   bytes, the matching dynamic-index probe failure, retained dynamic indexed
-  reuse after the never-indexed block, dynamic-name literal-with-indexing
-  insertion, newest reuse, retained older reuse, accepted outbound table-size
-  update bytes, reduced table capacity observed by a later encode,
+  reuse after the never-indexed block, dynamic-name literal-without-indexing
+  encode and retained reuse, dynamic-name literal-never-indexed encode,
+  missing-name failure, retained reuse after the never-indexed dynamic-name
+  block, dynamic-name literal-with-indexing insertion, newest reuse, retained
+  older reuse, accepted outbound table-size update bytes, reduced table
+  capacity observed by a later encode,
   reduced-capacity `:method: PUT` insertion and retention checks, and
   over-peer-limit table-size update failure.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks the

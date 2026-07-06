@@ -426,6 +426,10 @@ pub fn outbound_literal_dynamic_name_path_again_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/again"), HpackHeader(":fixture", "literal-dynamic-name-with-indexing"), 8)
 end
 
+pub fn outbound_literal_dynamic_name_path_secret_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "/secret"), HpackHeader(":fixture", "literal-dynamic-name-never-indexed"), 10)
+end
+
 pub fn outbound_dynamic_indexed_path_again_probe_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/again"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
 end
@@ -2060,6 +2064,10 @@ fn encode_dynamic_name_literal_header_list(headers: HpackHeaderList, state: Hpac
 			true => outbound_dynamic_name_literal_miss(headers, state, offset)
 			false => encode_header_list_transition(encode_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 63, 64, headers, offset), state_with_dynamic_entry(state, name, value))
 		end
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-dynamic-name-never-indexed"), _) => match matching_dynamic_name_index(state, name) < 0
+			true => outbound_dynamic_name_literal_miss(headers, state, offset)
+			false => encode_header_list_transition(encode_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 15, 16, headers, offset), next_state(state))
+		end
 		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
 	end
 end
@@ -2092,6 +2100,7 @@ end
 fn outbound_dynamic_name_literal_header_list(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-with-indexing"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-never-indexed"), _) => true
 		_ => false
 	end
 end

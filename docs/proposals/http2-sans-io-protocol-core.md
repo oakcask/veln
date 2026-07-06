@@ -1064,6 +1064,13 @@ It reuses a returned outbound HPACK fixture state to encode and insert a fresh
 `:path: /again` value under the dynamic `:path` name, then proves the new
 entry is reusable as `0xbe` and the older `:path: /target` entry remains
 reachable as `0xbf` through the bounded table.
+The completed outbound dynamic-name literal-never-indexed slice is archived
+under
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-never-indexed-literal.md`.
+It reuses a returned outbound HPACK fixture state to encode a fresh
+`:path: /secret` value under the dynamic `:path` name without inserting a new
+entry, routes the returned state through outbound HEADERS, and proves the
+older `:path: /target` entry remains reusable as `0xbe`.
 Server-side `PUSH_PROMISE` send-intents also carry returned fixture encode
 state across successive promised header-list encodes: a supported
 literal-with-indexing promised header list updates the bounded dynamic table,
