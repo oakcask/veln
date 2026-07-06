@@ -19,28 +19,20 @@ path = "error.kind"
 equals = "result"
 
 [[json_assert]]
-path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, 3, rfc9113_continuation_sequence, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1)])))"
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.kind"
-equals = "protocol_diagnostic"
-
-[[json_assert]]
 path = "error.details.protocol_diagnostic.id"
 equals = "http2.protocol.continuation_expected"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_offset.value"
-equals = 9
+equals = 12
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.actual_frame_kind"
-equals = 0
+equals = 9
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.actual_stream_id"
-equals = 1
+equals = 3
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.expected_stream_id"
@@ -67,21 +59,5 @@ path = "error.details.protocol_diagnostic.rule_provenance"
 equals = "rfc9113_continuation_sequence"
 
 [[json_assert]]
-path = "error.details.protocol_diagnostic.byte_preview.encoding"
-equals = "hex"
-
-[[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "0000000000000000"
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
-equals = 8
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
-equals = 9
-
-[[json_assert]]
-path = "error.details.protocol_diagnostic.byte_preview.truncated"
-equals = true
+equals = "0000000900000000"

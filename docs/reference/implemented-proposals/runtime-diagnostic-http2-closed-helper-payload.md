@@ -15,8 +15,9 @@ under `../../../examples/specification/run/`.
 `Result<(), RuntimeDiagnostic>`. On failure it returns
 `Err(RuntimeDiagnostic(...))` with
 `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` carrying the byte
-offset, pending byte count, active continuation state, and retained pending
-bytes.
+offset, pending byte count, active continuation state, pending stream id,
+starting frame kind, starting byte offset, accumulated header-block byte
+count, rule provenance, and retained pending bytes.
 
 Command recording projects the HTTP/2 `details.protocol_diagnostic` JSON
 object from the returned `RuntimeDiagnostic(...)` value. The helper no longer

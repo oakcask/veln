@@ -378,6 +378,8 @@ behavior.
   [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
+- HTTP/2 header-block continuation state:
+  [http2-header-block-continuation-state.md](http2-header-block-continuation-state.md).
 - HTTP/2 HPACK static indexed fixture:
   [http2-hpack-authority-static-indexed-fixture.md](http2-hpack-authority-static-indexed-fixture.md).
 - HTTP/2 HPACK static table decode and static-name literals:

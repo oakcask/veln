@@ -549,12 +549,13 @@ The protocol core should model:
 - stream identifiers
 - stream lifecycle
 - inbound and outbound flow-control windows
-- header-block continuation state
 - graceful shutdown state
 
 These rules should be expressed with Veln types and contracts rather than
 schema declarations. For example, a schema can decode a frame with stream id
 zero, but the connection state machine decides which frame kinds may use it.
+The completed header-block continuation state slice is archived under
+`../reference/implemented-proposals/http2-header-block-continuation-state.md`.
 
 ## Effects And Concurrency
 

@@ -701,20 +701,23 @@ value with `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` or
 `RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)`. Input
 end with pending bytes after the preface uses id
 `http2.protocol.closed_with_pending` and records `byte_offset.value`,
-`pending_count`, `input_event`, and `active_continuation`, plus a structured
+`pending_count`, `input_event`, `active_continuation`,
+`expected_stream_id`, `started_frame_kind`, `started_byte_offset`,
+`accumulated_header_block_bytes`, and `rule_provenance`, plus a structured
 bounded `byte_preview` for the retained pending bytes. A frame that violates
 an active header-block continuation sequence uses id
 `http2.protocol.continuation_expected` and records `byte_offset.value`,
 `actual_frame_kind`, `actual_stream_id`, `expected_stream_id`,
-`started_frame_kind`, `started_byte_offset`, and `active_continuation`, plus a
-structured bounded `byte_preview` for the inspected incoming frame header
-bytes. These protocol-owned byte previews use the same `encoding`, `data`,
+`started_frame_kind`, `started_byte_offset`, `active_continuation`,
+`accumulated_header_block_bytes`, and `rule_provenance`, plus a structured
+bounded `byte_preview` for the inspected incoming frame header bytes. These
+protocol-owned byte previews use the same `encoding`, `data`,
 `preview_byte_count`, `total_byte_count`, and `truncated` object shape as
 schema-owned byte diagnostics, while byte offset, expected byte count, actual
 pending count, matched prefix count, expected byte, actual byte, active
-protocol state, active continuation state, and rule provenance stay in their
-own fields. The checked closed-input pending-byte and continuation-ordering
-JSON examples return source-visible
+protocol state, active continuation state, accumulated header-block byte
+count, and rule provenance stay in their own fields. The checked closed-input
+pending-byte and continuation-ordering JSON examples return source-visible
 `RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` and
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
