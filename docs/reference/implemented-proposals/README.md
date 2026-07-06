@@ -128,6 +128,8 @@ behavior.
   [binary-data-u56-byte-helpers.md](binary-data-u56-byte-helpers.md).
 - Binary data schema conversion boundary:
   [binary-data-schema-conversion-boundary.md](binary-data-schema-conversion-boundary.md).
+- Binary data HPACK Huffman EOS diagnostic:
+  [binary-data-hpack-huffman-eos-diagnostic.md](binary-data-hpack-huffman-eos-diagnostic.md).
 - Schema documentation references:
   [schema-documentation-references.md](schema-documentation-references.md).
 - Remove schema map-to:
