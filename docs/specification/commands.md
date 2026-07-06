@@ -242,17 +242,21 @@ requiring the full command reference on the first read.
   uses the same focused HPACK fixture human diagnostic as the compatibility
   helper, with byte offset, observed header block size, observed first byte,
   expected fixture, codec module, and bounded byte preview projected from the
-  returned error value. The standalone source-visible HPACK static boundary
-  case checks accepted static-name literal-with-indexing and
+  returned error value. Source-visible HPACK static Huffman failures projected
+  from the static boundary keep the same fields and use
+  `codec_module = "hpack_static"`. The standalone source-visible HPACK static
+  boundary case checks accepted static-name literal-with-indexing and
   literal-never-indexed inputs, accepted Huffman-marked literal values decoded
   through the HPACK static Huffman table for the three static-name forms, and
   malformed raw-length fallback for those forms. The aggregate HTTP/2
   protocol-core run case also checks source-visible HPACK static-name
   `:scheme` and `:authority` literal values in request header blocks through
-  the existing request header-list validation path, including accepted
-  `:scheme` values `http` and `https`, accepted visible ASCII `:authority`
-  values, and rejected visible ASCII values for both pseudo-headers on
-  completed HEADERS and final CONTINUATION paths. It also checks a
+  the existing request header-list validation path, including accepted raw
+  `:scheme` values `http` and `https`, the checked Huffman-marked `https`
+  value on completed HEADERS and final CONTINUATION paths, the checked
+  Huffman-marked `:path: test` value on completed HEADERS and final
+  CONTINUATION paths, accepted visible ASCII `:authority` values, and
+  rejected visible ASCII values for both pseudo-headers. It also checks a
   source-visible HPACK static-name `content-length` literal in request header
   blocks across the
   literal-without-indexing, literal-with-indexing, and literal-never-indexed

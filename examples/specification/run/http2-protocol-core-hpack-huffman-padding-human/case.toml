@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[hpack.fixture.malformed_huffman_padding]: malformed HPACK Huffman padding at byte offset 9", "note: HPACK fixture codec `hpack_fixture` observed header block size 3 and first byte 4.", "note: Nearby bytes: 04 81 00 (showing 3 of 3 byte(s), complete).", "note: Expected fixture HPACK Huffman padding."]
+contains = ["error[hpack.fixture.malformed_huffman_padding]: malformed HPACK Huffman padding at byte offset 9", "note: HPACK fixture codec `hpack_static` observed header block size 3 and first byte 4.", "note: Nearby bytes: 04 81 00 (showing 3 of 3 byte(s), complete).", "note: Expected fixture HPACK Huffman padding."]

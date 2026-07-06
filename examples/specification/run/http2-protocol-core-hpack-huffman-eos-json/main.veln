@@ -1,7 +1,7 @@
 # HTTP/2 HPACK Huffman EOS projects structured runtime details.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.huffman_eos_symbol", error, RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman data symbol instead of EOS", "hpack_fixture", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.huffman_eos_symbol", error, RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman data symbol instead of EOS", "hpack_static", byte_chunk([])))
 end
 
 fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
@@ -19,5 +19,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_huffman_eos_symbol(9, 6, 4, "fixture HPACK Huffman data symbol instead of EOS", "hpack_fixture", preview)
+	hpack_fixture_huffman_eos_symbol(9, 6, 4, "fixture HPACK Huffman data symbol instead of EOS", "hpack_static", preview)
 end

@@ -566,8 +566,10 @@ compare it with `../specification/` before changing behavior.
   table, including line feed, single-byte `hpack-byte-*` labels, and
   multi-byte `hpack-bytes-*` labels, narrowed request `:scheme` static-name
   paths for accepted `http` and `https` values and rejected visible ASCII
-  values, narrowed request `:authority` static-name paths for accepted and
-  rejected visible ASCII values, plus narrowed request and response
+  values, narrowed request `:path: test` Huffman static-name receive through
+  completed HEADERS and final CONTINUATION before fixture fallback,
+  narrowed request `:authority` static-name paths for accepted and rejected
+  visible ASCII values, plus narrowed request and response
   `content-length` static-name paths
   for accepted visible ASCII decimal values on literal-without-indexing,
   literal-with-indexing, and literal-never-indexed forms that do not observe
@@ -597,6 +599,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible static-name Huffman literal slice is archived
   under
   [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
+  The completed source-visible HPACK Huffman decode boundary slice is archived
+  under
+  [HTTP/2 HPACK Huffman Decode Boundary](../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md).
   The completed source-visible dynamic indexed core slice is archived under
   [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
   The completed source-visible HPACK integer core slice is archived under

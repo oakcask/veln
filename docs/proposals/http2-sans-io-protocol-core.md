@@ -913,6 +913,7 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-hpack-static-name-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-huffman-focused-diagnostics.md`,
+`../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md`,
 `../reference/implemented-proposals/http2-hpack-multibyte-non-visible-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-string-literal-fixture.md`,
 `../reference/implemented-proposals/http2-hpack-dynamic-table-accounting-core.md`,
@@ -929,10 +930,11 @@ The remaining HPACK work in this proposal starts after the fixture boundary
 and the source-visible static decoder boundary archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md):
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal and bounded source-visible static-name
-literals and exact static-indexed outbound encode helper, outbound behavior
-beyond the checked fixture encoder, exact static-indexed helper, dynamic-table
-reuse, dynamic-name, and table-size update boundaries, outbound table-size
+the checked fixture string literal, bounded source-visible static-name
+literals, source-visible Huffman decode boundary, and exact static-indexed
+outbound encode helper, outbound behavior beyond the checked fixture encoder,
+exact static-indexed helper, dynamic-table reuse, dynamic-name, and table-size
+update boundaries, outbound table-size
 behavior beyond the checked fixture encoder update and reduced-capacity
 insertion boundaries, and production header validation beyond
 ordinary request,
@@ -1102,9 +1104,14 @@ Completed source-visible HPACK static decode slices are archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md)
 and
 [HTTP/2 HPACK Static-Name Huffman Literals](../reference/implemented-proposals/http2-hpack-static-name-huffman-literals.md).
+The completed source-visible HPACK Huffman decode boundary slice is archived
+under
+[HTTP/2 HPACK Huffman Decode Boundary](../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md).
 Those records cover static-name literal-without-indexing request and response
-header-list validation, focused malformed raw literal value diagnostics, and
-the standalone static-name literal boundary. The later source-visible
+header-list validation, focused malformed raw literal value diagnostics, the
+standalone static-name literal boundary, and the checked receive path that
+decodes Huffman `:path: test` through completed HEADERS and final
+CONTINUATION before fixture fallback. The later source-visible
 static-name literal-with-indexing dynamic-state slice is archived under
 [HTTP/2 HPACK Static-Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).
 The narrow source-visible dynamic indexed HPACK core slice is also current
