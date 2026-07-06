@@ -715,7 +715,6 @@ compare it with `../specification/` before changing behavior.
   source-visible deadline-aware `net::write_chunks_until` chunk-list writes,
   source-visible cancellable deadline-aware
   `net::write_chunks_until_cancellable` chunk-list writes,
-  adapter-level cancellable write-drain helper,
   adapter-owned multi-handler outbound write ordering through
   `net::write_chunks`, adapter-owned outbound write-failure boundary,
   HTTP/2 adapter/core write projection through ordered `net::write_chunks`,
@@ -794,6 +793,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible standard stream adapter routing helper slice
   is archived under
   [Network Stream Adapter Routing Helper](../reference/implemented-proposals/network-stream-adapter-routing-helper.md).
+  The completed adapter-level cancellable write-drain helper slice is
+  archived under
+  [Network Adapter Cancellable Write-Drain](../reference/implemented-proposals/network-adapter-cancellable-write-drain.md).
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).

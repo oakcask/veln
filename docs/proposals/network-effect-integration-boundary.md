@@ -74,8 +74,7 @@ checked task slices, and narrow deadline and cancellation slices, for:
   deadline-aware stream-write boundary,
   deadline-aware chunk-list stream-write boundary, cancellable
   deadline-aware stream-write boundary, and cancellable deadline-aware
-  chunk-list stream-write boundary, and the adapter-level cancellable
-  write-drain helper boundary
+  chunk-list stream-write boundary
 - composed use of `net`, `time`, and `concurrency` effects beyond the checked
   adapter-level cancellable stream routing, receiver-list cancellable
   channel-first routing, receiver-list timeout-result selection, receiver-list
