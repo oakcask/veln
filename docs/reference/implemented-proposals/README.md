@@ -187,7 +187,8 @@ behavior.
   [binary-schema-suffix-reserved-groups.md](binary-schema-suffix-reserved-groups.md).
 - Binary schema reserved-bit mapping exposure:
   [binary-schema-reserved-bit-mapping-exposure.md](binary-schema-reserved-bit-mapping-exposure.md).
-- Binary schema repeat helper bindings:
+- Binary schema repeat helper bindings, including representation-only
+  lowercase reserved repeat payloads:
   [binary-schema-repeat-schema-payload-helpers.md](binary-schema-repeat-schema-payload-helpers.md).
 - Binary schema repeat `ByteView(left_length - right_length)` helpers:
   [binary-schema-repeat-byteview-subtract-helpers.md](binary-schema-repeat-byteview-subtract-helpers.md).

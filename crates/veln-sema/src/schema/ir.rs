@@ -252,9 +252,9 @@ fn ir_schema_repeat_field(
     {
         return Some(None);
     }
-    let (element_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;
+    let (field_ty, ir_repeat) = ir_schema_repeat(module, schema, repeat, stack)?;
     Some(Some((
-        Some(Type::named("List", vec![element_ty])),
+        field_ty,
         IrSchemaDecodeField {
             name: field.name.clone(),
             width: 0,
@@ -520,43 +520,79 @@ fn ir_schema_repeat(
     schema: &SchemaDecl,
     repeat: SchemaRepeatSpec,
     stack: &mut Vec<String>,
-) -> Option<(Type, IrSchemaRepeat)> {
-    let (element_ty, width, max_value, little_endian, byte_view_length_field, payload_schema) =
-        match repeat.payload {
-            SchemaRepeatPayload::Primitive {
-                width,
-                max_value,
-                little_endian,
-            } => (Type::int(), width, max_value, little_endian, None, None),
-            SchemaRepeatPayload::ByteView { length_field } => (
-                Type::named("ByteView", Vec::new()),
+) -> Option<(Option<Type>, IrSchemaRepeat)> {
+    let (
+        field_ty,
+        width,
+        max_value,
+        little_endian,
+        reserved_bits,
+        byte_view_length_field,
+        payload_schema,
+    ) = match repeat.payload {
+        SchemaRepeatPayload::Primitive {
+            width,
+            max_value,
+            little_endian,
+        } => (
+            Some(Type::named("List", vec![Type::int()])),
+            width,
+            max_value,
+            little_endian,
+            None,
+            None,
+            None,
+        ),
+        SchemaRepeatPayload::ReservedBits {
+            bit_width,
+            expected_value,
+        } => (
+            None,
+            bit_width,
+            0,
+            false,
+            Some(IrSchemaReservedBits {
+                bit_width,
+                expected_value,
+            }),
+            None,
+            None,
+        ),
+        SchemaRepeatPayload::ByteView { length_field } => (
+            Some(Type::named(
+                "List",
+                vec![Type::named("ByteView", Vec::new())],
+            )),
+            0,
+            0,
+            false,
+            None,
+            Some(length_field),
+            None,
+        ),
+        SchemaRepeatPayload::Schema { schema_name } => {
+            let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
+            let element_ty = schema_decode_value_type(module, nested_schema)?;
+            let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
+            (
+                Some(Type::named("List", vec![element_ty])),
                 0,
                 0,
                 false,
-                Some(length_field),
                 None,
-            ),
-            SchemaRepeatPayload::Schema { schema_name } => {
-                let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
-                let element_ty = schema_decode_value_type(module, nested_schema)?;
-                let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
-                (
-                    element_ty,
-                    0,
-                    0,
-                    false,
-                    None,
-                    Some(Box::new(payload_schema)),
-                )
-            }
-        };
+                None,
+                Some(Box::new(payload_schema)),
+            )
+        }
+    };
     Some((
-        element_ty,
+        field_ty,
         IrSchemaRepeat {
             count_field: repeat.count_field,
             width,
             max_value,
             little_endian,
+            reserved_bits,
             byte_view_length_field,
             payload_schema,
         },

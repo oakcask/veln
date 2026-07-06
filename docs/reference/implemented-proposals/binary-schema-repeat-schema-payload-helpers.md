@@ -22,8 +22,9 @@ earlier visible `Int` field. Payloads may be implemented byte-aligned unsigned
 primitives, `ByteView(length_field)` with an earlier visible `Int` length
 field, `ByteView(left_length + right_length)` or
 `ByteView(left_length - right_length)` with both operands naming earlier
-visible `Int` fields, or eligible same-module or public imported nested binary
-schemas resolved through written schema-aware paths.
+visible `Int` fields, supported lowercase `uint... reserves <value>`
+representation-only payloads, or eligible same-module or public imported
+nested binary schemas resolved through written schema-aware paths.
 
 Decode exposes repeated primitive fields as `List<Int>`, repeated
 `ByteView(length_field)`, `ByteView(left_length + right_length)`, and
@@ -33,6 +34,12 @@ shape. Encode accepts the same list shapes and writes each element through the
 generated helper path. Runtime failures keep the repeated field path, append
 the repeated element index when the failed element is known, and then append
 the nested schema field path for nested payload failures.
+
+Repeated lowercase reserved payloads validate the declared reserved value at
+each decoded element, emit the declared reserved value once per count during
+encode, omit the representation-only payload from the decoded record and
+encoded input record, and keep the repeated element index on mismatch and
+truncation diagnostics.
 
 ## Evidence
 
@@ -49,6 +56,12 @@ the nested schema field path for nested payload failures.
   checks repeated additive-length `ByteView` decode.
 - `../../../examples/specification/run/binary-schema-repeat-byteview-subtract-decode/`
   checks repeated subtractive-length `ByteView` decode.
+- `../../../examples/specification/run/binary-schema-repeat-reserved-decode-encode/`
+  checks representation-only repeated reserved payload decode and encode.
+- `../../../examples/specification/run/binary-schema-repeat-reserved-mismatch-json/`
+  checks repeated reserved payload mismatch diagnostics.
+- `../../../examples/specification/run/binary-schema-repeat-reserved-truncated-json/`
+  checks repeated reserved payload truncation diagnostics.
 - `../../../examples/specification/run/binary-schema-repeat-nested-decode/`
   checks same-module nested repeat decode.
 - `../../../examples/specification/run/binary-schema-imported-repeat-nested-decode/`

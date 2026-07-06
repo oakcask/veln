@@ -366,11 +366,12 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
+        final long reservedValue;
         final String byteViewLengthField;
         final BinarySchemaSpec payloadSchema;
 
         SchemaRepeatSpec(String countField, int width, long maxValue, boolean littleEndian) {
-            this(countField, width, maxValue, littleEndian, "", null);
+            this(countField, width, maxValue, littleEndian, -1L, "", null);
         }
 
         SchemaRepeatSpec(
@@ -378,6 +379,7 @@
             int width,
             long maxValue,
             boolean littleEndian,
+            long reservedValue,
             String byteViewLengthField,
             BinarySchemaSpec payloadSchema
         ) {
@@ -385,12 +387,17 @@
             this.width = width;
             this.maxValue = maxValue;
             this.littleEndian = littleEndian;
+            this.reservedValue = reservedValue;
             this.byteViewLengthField = byteViewLengthField;
             this.payloadSchema = payloadSchema;
         }
 
         boolean isByteViewPayload() {
             return !byteViewLengthField.isEmpty();
+        }
+
+        boolean isReservedPayload() {
+            return reservedValue >= 0L;
         }
     }
 
@@ -2652,6 +2659,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -2677,6 +2685,7 @@
             repeatWidths,
             repeatMaxValues,
             repeatLittleEndianValues,
+            repeatReservedValues,
             repeatByteViewLengthFields,
             repeatSchemaSpecs,
             reservedBitWidths,
@@ -2710,6 +2719,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -2735,6 +2745,7 @@
             repeatWidths,
             repeatMaxValues,
             repeatLittleEndianValues,
+            repeatReservedValues,
             repeatByteViewLengthFields,
             repeatSchemaSpecs,
             reservedBitWidths,
@@ -2885,6 +2896,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -2908,6 +2920,7 @@
         java.util.List<Object> repeatWidthValues = asList(repeatWidths);
         java.util.List<Object> repeatMaxValueValues = asList(repeatMaxValues);
         java.util.List<Object> repeatLittleEndianValueList = asList(repeatLittleEndianValues);
+        java.util.List<Object> repeatReservedValueValues = asList(repeatReservedValues);
         java.util.List<Object> repeatByteViewLengthFieldValues = asList(repeatByteViewLengthFields);
         java.util.List<Object> repeatSchemaSpecValues = asList(repeatSchemaSpecs);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
@@ -2929,6 +2942,7 @@
             || fieldNameValues.size() != repeatWidthValues.size()
             || fieldNameValues.size() != repeatMaxValueValues.size()
             || fieldNameValues.size() != repeatLittleEndianValueList.size()
+            || fieldNameValues.size() != repeatReservedValueValues.size()
             || fieldNameValues.size() != repeatByteViewLengthFieldValues.size()
             || fieldNameValues.size() != repeatSchemaSpecValues.size()
             || fieldNameValues.size() != reservedBitWidthValues.size()
@@ -2965,6 +2979,7 @@
             String repeatCountField = asString(repeatCountFieldValues.get(index));
             String repeatByteViewLengthField =
                 asString(repeatByteViewLengthFieldValues.get(index));
+            long repeatReservedValue = asLong(repeatReservedValueValues.get(index));
             Object schemaSpecValue = repeatSchemaSpecValues.get(index);
             if (!predicateText.isEmpty()) {
                 fixedValue = schemaFixedFieldValue(fieldName, predicateText, maxValue);
@@ -3008,6 +3023,7 @@
                         (int) asLong(repeatWidthValues.get(index)),
                         asLong(repeatMaxValueValues.get(index)),
                         asBool(repeatLittleEndianValueList.get(index)),
+                        repeatReservedValue,
                         repeatByteViewLengthField,
                         payloadSchema
                     )
@@ -3487,6 +3503,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -3512,6 +3529,7 @@
             repeatWidths,
             repeatMaxValues,
             repeatLittleEndianValues,
+            repeatReservedValues,
             repeatByteViewLengthFields,
             repeatSchemaSpecs,
             reservedBitWidths,
@@ -3545,6 +3563,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -3570,6 +3589,7 @@
             repeatWidths,
             repeatMaxValues,
             repeatLittleEndianValues,
+            repeatReservedValues,
             repeatByteViewLengthFields,
             repeatSchemaSpecs,
             reservedBitWidths,
@@ -5297,6 +5317,28 @@
         String schemaName,
         String fieldName
     ) {
+        return schemaReadReservedBitsPath(
+            view,
+            diagnosticBaseOffset,
+            relativeOffset,
+            bitWidth,
+            expectedValue,
+            schemaName,
+            fieldName,
+            schemaFieldPath(schemaName, fieldName)
+        );
+    }
+
+    private static Object schemaReadReservedBitsPath(
+        Object view,
+        long diagnosticBaseOffset,
+        int relativeOffset,
+        int bitWidth,
+        long expectedValue,
+        String schemaName,
+        String fieldName,
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
+    ) {
         java.util.List<Object> bytes = byteViewBytes(view);
         long storageBaseOffset = byteViewStorageOffset(view);
         long count = byteViewCountLong(view);
@@ -5319,11 +5361,10 @@
         if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
-            return schemaTruncatedFieldDiagnostic(
+            return schemaTruncatedFieldPathDiagnostic(
                 message,
                 byteOffset,
-                schemaName,
-                fieldName,
+                fieldPath,
                 requiredBytes,
                 available,
                 byteViewPreviewTrace(view, 8)
@@ -5350,11 +5391,10 @@
         if (actualValue != expectedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
-            return schemaReservedBitsMismatchDiagnostic(
+            return schemaReservedBitsMismatchPathDiagnostic(
                 message,
                 byteOffset,
-                schemaName,
-                fieldName,
+                fieldPath,
                 bitWidth,
                 expectedValue,
                 actualValue,
@@ -6410,6 +6450,30 @@
                         java.util.Map<Object, Object> value = asMap(unwrapOk(read));
                         elements.add(value.get("value"));
                         repeatRelativeOffset += asLong(value.get("consumed"));
+                    } else if (field.repeat.isReservedPayload()) {
+                        Object read = schemaReadReservedBitsPath(
+                            view,
+                            diagnosticBaseOffset,
+                            (int) repeatRelativeOffset,
+                            field.repeat.width,
+                            field.repeat.reservedValue,
+                            schema.name,
+                            field.name,
+                            schemaRepeatedFieldPathWithPrefix(
+                                fieldPathPrefix,
+                                schema.name,
+                                field.name,
+                                elementIndex
+                            )
+                        );
+                        if (isErr(read)) {
+                            return read;
+                        }
+                        int byteWidth = reservedByteWidth(field.repeat.width);
+                        int requiredBytes = byteWidth > 0
+                            ? byteWidth
+                            : packedReservedStorageByteWidth(field.repeat.width);
+                        repeatRelativeOffset += requiredBytes;
                     } else {
                         Object read = schemaReadUnsignedWithBasePath(
                             view,
@@ -6439,7 +6503,9 @@
                     repeated = listCons(elements.get(elementIndex), repeated);
                 }
                 decoded.put(field.name, Long.valueOf(0L));
-                values.put(field.name, repeated);
+                if (!field.repeat.isReservedPayload()) {
+                    values.put(field.name, repeated);
+                }
                 relativeOffset = repeatRelativeOffset;
                 continue;
             }
@@ -7104,6 +7170,12 @@
                         }
                         relativeOffset += consumed;
                     }
+                } else if (field.repeat.isReservedPayload()) {
+                    int byteWidth = reservedByteWidth(field.repeat.width);
+                    int requiredBytes = byteWidth > 0
+                        ? byteWidth
+                        : packedReservedStorageByteWidth(field.repeat.width);
+                    relativeOffset += repeatCount * requiredBytes;
                 } else {
                     relativeOffset += repeatCount * field.repeat.width;
                 }
@@ -7574,6 +7646,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -7599,6 +7672,7 @@
             repeatWidths,
             repeatMaxValues,
             repeatLittleEndianValues,
+            repeatReservedValues,
             repeatByteViewLengthFields,
             repeatSchemaSpecs,
             reservedBitWidths,
@@ -7626,6 +7700,7 @@
         Object repeatWidths,
         Object repeatMaxValues,
         Object repeatLittleEndianValues,
+        Object repeatReservedValues,
         Object repeatByteViewLengthFields,
         Object repeatSchemaSpecs,
         Object reservedBitWidths,
@@ -7657,6 +7732,8 @@
             repeatMaxValues == null ? null : asList(repeatMaxValues);
         java.util.List<Object> repeatLittleEndianValueList =
             repeatLittleEndianValues == null ? null : asList(repeatLittleEndianValues);
+        java.util.List<Object> repeatReservedValueValues =
+            repeatReservedValues == null ? null : asList(repeatReservedValues);
         java.util.List<Object> repeatByteViewLengthFieldValues =
             repeatByteViewLengthFields == null ? null : asList(repeatByteViewLengthFields);
         java.util.List<Object> repeatSchemaSpecValues =
@@ -7692,6 +7769,8 @@
                 && fieldNameValues.size() != repeatMaxValueValues.size())
             || (repeatLittleEndianValueList != null
                 && fieldNameValues.size() != repeatLittleEndianValueList.size())
+            || (repeatReservedValueValues != null
+                && fieldNameValues.size() != repeatReservedValueValues.size())
             || (repeatByteViewLengthFieldValues != null
                 && fieldNameValues.size() != repeatByteViewLengthFieldValues.size())
             || (repeatSchemaSpecValues != null
@@ -7726,6 +7805,9 @@
                 repeatByteViewLengthFieldValues == null
                     ? ""
                     : asString(repeatByteViewLengthFieldValues.get(index));
+            long repeatReservedValue = repeatReservedValueValues == null
+                ? -1L
+                : asLong(repeatReservedValueValues.get(index));
             Object schemaSpecValue = repeatSchemaSpecValues == null
                 ? ""
                 : repeatSchemaSpecValues.get(index);
@@ -7759,7 +7841,20 @@
                     return err("invalid repeat metadata for field `" + fieldName + "` in schema `" + name + "`");
                 }
                 long repeatWidth = asLong(repeatWidthValues.get(index));
-                if (repeatWidth < 1L || repeatWidth > 8L) {
+                if (repeatReservedValue >= 0L) {
+                    if (repeatWidth > Integer.MAX_VALUE
+                        || !supportedReservedBits((int) repeatWidth, repeatReservedValue)) {
+                        return err(
+                            "unsupported repeat reserved payload "
+                                + repeatWidth
+                                + " for field `"
+                                + fieldName
+                                + "` in schema `"
+                                + name
+                                + "`"
+                        );
+                    }
+                } else if (repeatWidth < 1L || repeatWidth > 8L) {
                     if (repeatByteViewLengthField.isEmpty()
                         && !(schemaSpecValue instanceof java.util.List<?>)) {
                         return err(
@@ -7788,6 +7883,7 @@
                         (int) repeatWidth,
                         asLong(repeatMaxValueValues.get(index)),
                         asBool(repeatLittleEndianValueList.get(index)),
+                        repeatReservedValue,
                         repeatByteViewLengthField,
                         payloadSchema
                     )
@@ -8001,7 +8097,7 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 23) {
+        if (values.size() != 24) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -8027,7 +8123,8 @@
             values.get(19),
             values.get(20),
             values.get(21),
-            values.get(22)
+            values.get(22),
+            values.get(23)
         );
     }
 
@@ -8419,6 +8516,39 @@
         );
     }
 
+    private static Object schemaWriteReservedBits(
+        int bitWidth,
+        long expectedValue,
+        String schemaName,
+        String fieldName
+    ) {
+        if (!supportedReservedBits(bitWidth, expectedValue)) {
+            return err(encodeError(
+                "codec.metadata",
+                schemaName + "." + fieldName,
+                "unsupported reserved bits payload"
+            ));
+        }
+        int byteWidth = reservedByteWidth(bitWidth);
+        if (byteWidth > 0) {
+            return schemaWriteUnsigned(
+                Long.valueOf(expectedValue),
+                byteWidth,
+                reservedMaxValue(bitWidth),
+                false,
+                schemaName,
+                fieldName
+            );
+        }
+        int storageByteWidth = packedReservedStorageByteWidth(bitWidth);
+        long combined = expectedValue << (storageByteWidth * 8 - bitWidth);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        for (int index = storageByteWidth - 1; index >= 0; index -= 1) {
+            bytes.add(byteObject((combined >> (index * 8)) & 0xffL));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
     private static Object schemaWriteRepeatedField(
         java.util.Map<Object, Object> fields,
         SchemaFieldSpec field,
@@ -8439,6 +8569,22 @@
         long expectedCount = asLong(unwrapOk(expectedCountValue));
         if (field.repeat.isByteViewPayload()) {
             return schemaWriteRepeatedByteViews(fields, field, schemaName, expectedCount);
+        }
+        if (field.repeat.isReservedPayload()) {
+            java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+            for (long index = 0L; index < expectedCount; index += 1L) {
+                Object encoded = schemaWriteReservedBits(
+                    field.repeat.width,
+                    field.repeat.reservedValue,
+                    schemaName,
+                    field.name
+                );
+                if (isErr(encoded)) {
+                    return encoded;
+                }
+                bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
+            }
+            return ok(byteChunkObject(bytes));
         }
         Object items = fields.get(field.name);
         ListValue current = asListValue(items);

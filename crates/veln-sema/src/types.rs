@@ -3629,6 +3629,9 @@ fn schema_decode_record_fields_inner_after_push(
             {
                 return None;
             }
+            if let SchemaRepeatPayload::ReservedBits { .. } = &repeat.payload {
+                continue;
+            }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
             (0, Type::named("List", vec![element_ty]))
         } else if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
@@ -3760,6 +3763,7 @@ fn schema_repeat_payload_type(
 ) -> Option<Type> {
     match &repeat.payload {
         SchemaRepeatPayload::Primitive { .. } => Some(Type::int()),
+        SchemaRepeatPayload::ReservedBits { .. } => Some(Type::unit()),
         SchemaRepeatPayload::ByteView { .. } => Some(Type::named("ByteView", Vec::new())),
         SchemaRepeatPayload::Schema { schema_name } => {
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
@@ -4164,6 +4168,9 @@ fn schema_encode_schema_fields(
                     })
             {
                 return None;
+            }
+            if let SchemaRepeatPayload::ReservedBits { .. } = &repeat.payload {
+                continue;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
             fields.push((field.name.clone(), Type::named("List", vec![element_ty])));
@@ -4729,6 +4736,10 @@ pub(crate) enum SchemaRepeatPayload {
         max_value: i64,
         little_endian: bool,
     },
+    ReservedBits {
+        bit_width: u8,
+        expected_value: i64,
+    },
     ByteView {
         length_field: String,
     },
@@ -4769,6 +4780,11 @@ fn repeat_schema_primitive_from_parts(
             max_value: exact_width_schema_primitive_max_value(primitive)?,
             little_endian: exact_width_schema_primitive_little_endian(primitive),
         }
+    } else if let Some((bit_width, expected_value)) = reserved_bits_schema_primitive(primitive) {
+        SchemaRepeatPayload::ReservedBits {
+            bit_width: dispatch_reserved_bits_width(bit_width, expected_value)?,
+            expected_value,
+        }
     } else if let Some(length_expr) = byte_view_schema_primitive(primitive) {
         match length_expr {
             ByteViewLengthExpr::Field(_)
@@ -4794,10 +4810,9 @@ fn repeat_schema_primitive_from_parts(
 }
 
 pub(crate) fn schema_repeat_payload_accepts_lowercase_primitive(text: &str) -> bool {
-    matches!(lowercase_schema_primitive(text), Some(Ok(_)))
-        && exact_width_schema_primitive(text).is_some()
-        && exact_width_schema_primitive_bit_width(text).is_some_and(|width| width >= 8)
-        && flag_schema_primitive(text).is_none()
+    (lowercase_schema_primitive(text).is_some()
+        || lowercase_reserved_bits_schema_primitive(text).is_some())
+        && repeat_schema_primitive_from_parts("count", text).is_some()
 }
 
 fn canonical_repeat_schema_primitive_parts(ty: &str) -> Option<(&str, &str)> {

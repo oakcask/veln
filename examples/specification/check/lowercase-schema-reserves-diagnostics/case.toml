@@ -14,11 +14,11 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 9
+equals = 10
 
 [[json_assert]]
 path = "summary.by_kind.type"
-equals = 9
+equals = 10
 
 [[diagnostics]]
 id = "schema.lowercase_primitive"
@@ -60,7 +60,13 @@ message = "binary schema primitive `uint24be reserves 0` can only be used in a `
 id = "schema.lowercase_primitive"
 severity = "error"
 kind = "type"
-message = "binary schema primitive `uint16be reserves 0` is not yet supported in `Repeat` payload positions"
+message = "binary schema primitive `uint2 reserves 4` is not yet supported in `Repeat` payload positions"
+
+[[diagnostics]]
+id = "schema.lowercase_primitive"
+severity = "error"
+kind = "type"
+message = "binary schema primitive `uint8 reserves 256` is not yet supported in `Repeat` payload positions"
 
 [[diagnostics]]
 id = "schema.lowercase_primitive"

@@ -28,6 +28,14 @@ schema RepeatReservePayload
 	items: Repeat(count, uint16be reserves 0)
 end
 
+schema RepeatUnsupportedReserveValuePayload
+	format binary
+
+	count: uint8
+	items: Repeat(count, uint2 reserves 4)
+	other_items: Repeat(count, uint8 reserves 256)
+end
+
 schema DispatchReservePayload
 	format binary
 

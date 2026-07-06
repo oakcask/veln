@@ -142,6 +142,11 @@ enough.
   Lowercase exact-width `uint...` payloads written in legacy
   `Repeat(count, Payload)` fields normalize to the same generated decode and
   encode helper behavior as the matching canonical repeated-field payload.
+  Lowercase `uint... reserves <value>` payloads written in legacy
+  `Repeat(count, Payload)` fields validate the declared reserved value at each
+  repeated element during decode, emit that value once per count during encode,
+  append the repeated element index to mismatch and truncation diagnostics, and
+  do not expose a visible list field.
   Repeated `ByteView(left_length - right_length)` payloads expose
   `List<ByteView>` and report truncation with the repeated element index.
 - Direct nested binary schema fields name an eligible same-module or public
