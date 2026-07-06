@@ -147,13 +147,18 @@ enough.
 - Direct nested binary schema fields name an eligible same-module or public
   imported nested binary schema, consume that nested schema in place, and
   expose the nested schema-local visible record at the field.
-- Anonymous record fields in `format binary` schemas consume their nested
-  exact-width unsigned primitive leaves in source order and expose the nested
-  anonymous record shape at the field. Truncation inside the anonymous record
-  preserves the outer field segment and appends the nested field segment. The
-  checked cases are
-  `examples/specification/run/binary-schema-anonymous-record-decode/` and
-  `examples/specification/run/binary-schema-anonymous-record-truncated-json/`.
+- Anonymous record fields in `format binary` schemas consume their exact-width
+  unsigned primitive leaves in source order and expose the nested anonymous
+  record shape at the field. One nested anonymous record field is supported
+  inside that outer anonymous record when the inner record contains only
+  exact-width unsigned primitive leaves. Truncation inside the anonymous record
+  preserves the outer field segment and appends each anonymous record field
+  segment down to the failed primitive. The checked cases are
+  `examples/specification/run/binary-schema-anonymous-record-decode/`,
+  `examples/specification/run/binary-schema-anonymous-record-truncated-json/`,
+  `examples/specification/run/binary-schema-nested-anonymous-record-decode/`,
+  and
+  `examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`.
 - Dispatch payload cases written with lowercase exact-width `uint...` and
   `flag...` primitive spelling normalize to the same generated decode and
   encode helper behavior as compatible upper-case exact-width payload spelling.

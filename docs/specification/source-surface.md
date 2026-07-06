@@ -59,7 +59,8 @@ bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
 reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
 canonical repeated fields `[Payload; count]`, direct nested binary schema
 fields, anonymous record fields whose nested fields are exact-width unsigned
-primitive leaves, `ByteView(length)`, closed dispatch, and extension dispatch forms documented in
+primitive leaves or one nested anonymous record field made from those leaves,
+`ByteView(length)`, closed dispatch, and extension dispatch forms documented in
 [source-surface-full.md](source-surface-full.md) and checked by
 `docs/specification/source-surface-executable.pl`. Canonical repeated fields
 write the payload field type before `;` and the count expression after it; the
@@ -73,10 +74,15 @@ public imported schema and expose the nested schema-local visible record at
 that field.
 Anonymous record fields in `format binary` schemas expose a nested
 schema-local visible record at that field when every nested field is an
-implemented exact-width unsigned primitive leaf. The checked decode case is
-`examples/specification/run/binary-schema-anonymous-record-decode/`, and the
-checked nested truncation JSON case is
-`examples/specification/run/binary-schema-anonymous-record-truncated-json/`.
+implemented exact-width unsigned primitive leaf, or when the field contains
+one nested anonymous record whose fields are implemented exact-width unsigned
+primitive leaves. The checked decode cases are
+`examples/specification/run/binary-schema-anonymous-record-decode/` and
+`examples/specification/run/binary-schema-nested-anonymous-record-decode/`.
+The checked nested truncation JSON cases are
+`examples/specification/run/binary-schema-anonymous-record-truncated-json/`
+and
+`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`.
 Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
 primitive payload spellings that are accepted by canonical repeated-field
 syntax.
