@@ -62,6 +62,9 @@ fit in the selected frame payload is rejected before bytes or credit changes.
   `WINDOW_UPDATE` and verifies the same DATA bytes are emitted again.
 - The same checked case sends a higher peer `SETTINGS_INITIAL_WINDOW_SIZE`
   and verifies the tracked open-stream send credit increases by that delta.
+- The same checked case applies the same SETTINGS transition to absent,
+  closed, and reset outbound stream credit and verifies those shapes keep
+  their existing later-DATA rejection behavior.
 - The same checked case verifies a local outbound `WINDOW_UPDATE`
   receive-credit intent does not refill outbound DATA send credit.
 - The same checked case keeps the existing PADDED DATA and split DATA

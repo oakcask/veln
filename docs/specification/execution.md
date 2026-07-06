@@ -390,6 +390,14 @@ enough.
   server-side `PUSH_PROMISE` send-intents continue to use the recorded local
   GOAWAY boundary. The checked case is
   `examples/specification/run/http2-protocol-core/`.
+- The same checked HTTP/2 protocol core keeps outbound DATA send-window
+  accounting separate from inbound receive-window accounting. Accepted
+  outbound DATA consumes connection and tracked open-stream send credit,
+  peer `WINDOW_UPDATE` restores only the matching send-credit side, and
+  peer `SETTINGS_INITIAL_WINDOW_SIZE` applies its delta only to tracked open
+  outbound streams. Missing, closed, and reset outbound stream credit retain
+  their existing later-DATA rejection shape after that SETTINGS transition.
+  The checked case is `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
   Multiple peer SETTINGS frames received before consumption coalesce to that
