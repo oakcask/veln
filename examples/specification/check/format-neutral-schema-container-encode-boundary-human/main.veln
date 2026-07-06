@@ -1,0 +1,7 @@
+schema UnsupportedDeepOptionListPacket
+	metadata: {items: Option<List<List<Int>>>}
+end
+
+fn explicit_deep(packet: {metadata: {items: Option<List<List<Int>>>}}) -> Result<{metadata: {items: Option<List<List<Int>>>}}, String>
+	encode UnsupportedDeepOptionListPacket from packet
+end

@@ -34,6 +34,8 @@ struct SchemaSymbol {
     name: String,
     module_name: Option<String>,
     visibility: Visibility,
+    span: SourceSpan,
+    unsupported_format_neutral_encode_field: Option<SchemaField>,
 }
 
 #[derive(Clone)]
@@ -46,6 +48,8 @@ struct SchemaAliasSymbol {
 struct ResolvedSchemaSymbol {
     name: String,
     module_name: Option<String>,
+    span: SourceSpan,
+    unsupported_format_neutral_encode_field: Option<SchemaField>,
 }
 
 struct SchemaAliasTarget {
@@ -70,6 +74,12 @@ pub(crate) enum SchemaReferenceErrorKind {
 pub(crate) struct SchemaReferenceError {
     pub(crate) kind: SchemaReferenceErrorKind,
     pub(crate) resolved_kind: Option<&'static str>,
+}
+
+pub(crate) struct UnsupportedSchemaEncodeField {
+    pub(crate) schema_name: String,
+    pub(crate) schema_span: SourceSpan,
+    pub(crate) field: SchemaField,
 }
 
 #[derive(Clone)]
@@ -556,6 +566,26 @@ impl TypeEnvironment {
             function.name == helper_name
                 && function.module_name == schema.module_name
                 && self.symbol_is_visible(*function, schema.module_name.as_deref(), current_module)
+        })
+    }
+
+    pub(crate) fn unsupported_schema_encode_field(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+    ) -> Option<UnsupportedSchemaEncodeField> {
+        let schema = self.schema_symbols.schema_target_path(
+            schema_path,
+            current_module,
+            &self.uses,
+            true,
+            &mut Vec::new(),
+        )?;
+        let field = schema.unsupported_format_neutral_encode_field.clone()?;
+        Some(UnsupportedSchemaEncodeField {
+            schema_name: schema.name.clone(),
+            schema_span: schema.span.clone(),
+            field,
         })
     }
 
@@ -3381,6 +3411,31 @@ fn format_neutral_schema_encode_record_fields(
         .collect()
 }
 
+fn format_neutral_schema_first_unsupported_encode_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<SchemaField> {
+    if schema.format.is_some() {
+        return None;
+    }
+    let adts = AdtRegistry::from_module(module);
+    schema
+        .fields
+        .iter()
+        .find(|field| {
+            let declaration_diagnostic_exists =
+                format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
+                    .is_none()
+                    && format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
+            !declaration_diagnostic_exists
+                && format_neutral_schema_encode_field_type_for_schema(
+                    module, schema, &adts, &field.ty,
+                )
+                .is_none()
+        })
+        .cloned()
+}
+
 fn format_neutral_schema_visible_shape_type_for_schema(
     module: &SurfaceModule,
     current_module: Option<&str>,
@@ -5563,6 +5618,9 @@ impl SchemaSymbolTable {
                     name: schema.name.clone()?,
                     module_name: schema.module_name.clone(),
                     visibility: schema.visibility,
+                    span: schema.span.clone(),
+                    unsupported_format_neutral_encode_field:
+                        format_neutral_schema_first_unsupported_encode_field(module, schema),
                 })
             })
             .collect();
@@ -5671,6 +5729,10 @@ impl SchemaSymbolTable {
                 ResolvedSchemaSymbol {
                     name: schema.name.clone(),
                     module_name: schema.module_name.clone(),
+                    span: schema.span.clone(),
+                    unsupported_format_neutral_encode_field: schema
+                        .unsupported_format_neutral_encode_field
+                        .clone(),
                 }
             });
         }

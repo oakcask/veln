@@ -217,6 +217,10 @@ The completed first format-neutral container encode helper slice is archived
 under
 [Format-Neutral Schema Container Encode Helpers](../reference/implemented-proposals/format-neutral-schema-container-encode-helpers.md).
 
+The completed format-neutral encode helper diagnostic cleanup slice is archived
+under
+[Format-Neutral Schema Encode Helper Diagnostics](../reference/implemented-proposals/format-neutral-schema-encode-helper-diagnostics.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in

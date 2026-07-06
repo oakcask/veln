@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use super::boundary::{
     duplicate_name_diagnostic, exact_width_binary_primitive_name,
-    exact_width_schema_primitive_diagnostic, lowercase_schema_primitive_position_diagnostic,
-    type_contains_unknown,
+    exact_width_schema_primitive_diagnostic, format_neutral_schema_encode_helper_diagnostic,
+    lowercase_schema_primitive_position_diagnostic, type_contains_unknown,
 };
 use super::repair_reasoning::*;
 use super::*;
@@ -1455,6 +1455,17 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn push_schema_encode_expression_diagnostic(&mut self, expr: &Expr, schema: &[String]) {
+        if let Some(unsupported) = self
+            .environment
+            .unsupported_schema_encode_field(schema, self.function.module_name.as_deref())
+        {
+            self.diagnostics
+                .push(format_neutral_schema_encode_helper_diagnostic(
+                    &unsupported.schema_name,
+                    &unsupported.schema_span,
+                    &unsupported.field,
+                ));
+        }
         self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode");
     }
 

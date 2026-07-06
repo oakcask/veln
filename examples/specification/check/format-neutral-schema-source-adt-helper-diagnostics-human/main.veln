@@ -1,0 +1,7 @@
+type CallbackPayload
+	CallbackPayload(callback: fn(Int) -> String)
+end
+
+schema BadPacket
+	payload: CallbackPayload
+end

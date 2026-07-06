@@ -1,0 +1,8 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["error[schema.format_neutral_encode_helper]: format-neutral schema field `metadata` cannot expose a generated encode helper because `{ items : Option<List<List<Int>>> }` is not a supported format-neutral encode shape", "note: main.veln:1:1: Generated format-neutral encode helpers for schema `UnsupportedDeepOptionListPacket` accept scalar leaves, Option<scalar>, Option<List<scalar>>", "same-module or public imported source ADTs referenced through written use paths when every constructor payload is a supported format-neutral encode shape"]
+
+[stderr]
+format = "empty"

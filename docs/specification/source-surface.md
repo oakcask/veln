@@ -196,6 +196,8 @@ The checked format-neutral generated helper cases are
 `examples/specification/check/format-neutral-schema-vec-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics/`,
+`examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics-human/`,
+`examples/specification/check/format-neutral-schema-container-encode-boundary-human/`,
 and
 `examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`.
 Schema-level `map to` clauses, selected
