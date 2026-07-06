@@ -263,8 +263,12 @@ requiring the full command reference on the first read.
   forms that do not require later fixture dynamic-table reuse; accepted
   visible ASCII decimal values update the existing content-length
   body-accounting state, while non-decimal visible values use the existing
-  request header-list validation diagnostic. The same HPACK fixture boundary
-  case also checks a standalone source-visible static-indexed encode helper
+  request header-list validation diagnostic. The same aggregate run case also
+  checks the source-visible HPACK Huffman encode boundary directly:
+  successful calls print payload-only `ByteChunk` output for supported string
+  and bounded byte input, while unsupported string input prints the returned
+  HPACK fixture failure. The same HPACK fixture boundary case also checks a
+  standalone source-visible static-indexed encode helper
   for exact HPACK static table pairs, including `:method: GET`,
   `:scheme: https`, `:status: 200`, and
   `accept-encoding: gzip, deflate`, and keeps non-exact values such as

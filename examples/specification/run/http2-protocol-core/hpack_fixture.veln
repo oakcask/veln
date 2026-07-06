@@ -1011,14 +1011,18 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 end
 
 pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match hpack_fixture_huffman_string_value_bytes(value, offset)
-		Ok(bytes) => match hpack_huffman_encode_fixture_bytes(bytes, value, offset)
-			Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
-				Ok(prefix) => Ok(byte_append(prefix, encoded_value))
-				Err(failure) => Err(failure)
-			end
+	match encode_hpack_huffman_payload(value, offset)
+		Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
+			Ok(prefix) => Ok(byte_append(prefix, encoded_value))
 			Err(failure) => Err(failure)
 		end
+		Err(failure) => Err(failure)
+	end
+end
+
+pub fn encode_hpack_huffman_payload(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match hpack_fixture_huffman_string_value_bytes(value, offset)
+		Ok(bytes) => encode_hpack_huffman_payload_bytes(bytes, value, offset)
 		Err(_) => unsupported_raw_string_encoding(value, offset)
 	end
 end
@@ -1037,6 +1041,10 @@ fn hpack_fixture_huffman_string_value_bytes(value: String, offset: Int) -> Resul
 			end
 		end
 	end
+end
+
+pub fn encode_hpack_huffman_payload_bytes(bytes: ByteChunk, source_label: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	hpack_huffman_encode_fixture_bytes(bytes, source_label, offset)
 end
 
 fn hpack_fixture_huffman_label_hex(hex: String) -> Option<ByteChunk>

@@ -7686,6 +7686,20 @@ fn print_outbound_hpack_encode_expected_failure(label: String, result: Result<Hp
 	end
 end
 
+fn print_hpack_huffman_payload(label: String, result: Result<ByteChunk, HpackFixtureFailure>, expected_hex: String) -> Result<(), String> effects [stdio]
+	match result
+		Ok(encoded) => emit_encoded_header(label, encoded, expected_hex)
+		Err(_) => Err("expected source-visible HPACK Huffman payload encoding")
+	end
+end
+
+fn print_hpack_huffman_payload_failure(label: String, result: Result<ByteChunk, HpackFixtureFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected source-visible HPACK Huffman payload encoding failure")
+		Err(failure) => print_outbound_hpack_encode_failure(label, failure)
+	end
+end
+
 fn print_checked_outbound_hpack_encode_transition(label: String, transition: HpackEncodeTransition, expected_hex: String) -> Result<HpackFixtureState, String> effects [stdio]
 	let matches: Bool = byte_chunks_equal(hpack_fixture::encode_transition_bytes(transition), byte_chunk_from_hex(expected_hex)?)?
 	match matches
@@ -10372,6 +10386,9 @@ fn print_hpack_no_huffman_raw_cases(state: Http2DecodeState) -> Result<(), Strin
 end
 
 fn print_hpack_general_string_literal_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
+	let ignored_hpack_huffman_payload_test: () = print_hpack_huffman_payload("hpack-huffman-payload-test", hpack_fixture::encode_hpack_huffman_payload("test", 160), "49509f")?
+	let ignored_hpack_huffman_payload_bytes: () = print_hpack_huffman_payload("hpack-huffman-payload-bytes-00-ff", hpack_fixture::encode_hpack_huffman_payload_bytes(byte_chunk_from_hex("00ff")?, "hpack-bytes-00-ff", 161), "ffc7ffffdd")?
+	let ignored_hpack_huffman_payload_failure: () = print_hpack_huffman_payload_failure("hpack-huffman-payload-unsupported-string", hpack_fixture::encode_hpack_huffman_payload("\n\n", 162))?
 	let ignored_hpack_literal_method_put_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-method-put-huffman", "http2-hpack-literal-method-put-huffman", "0000050104000000010283d7c37f", "0283d7c37f", ":method", "PUT")?
 	let ignored_hpack_literal_status_200_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-status-200-huffman", "http2-hpack-literal-status-200-huffman", "00000401040000000108821001", "08821001", ":status", "200")?
 	let ignored_hpack_literal_path_linefeed_huffman: () = print_hpack_header_block_case_with_header(state, "hpack-literal-path-linefeed-huffman", "http2-hpack-literal-path-linefeed-huffman", "0000060104000000010484fffffff3", "0484fffffff3", ":path", "\n")?

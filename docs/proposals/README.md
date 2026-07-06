@@ -612,6 +612,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible HPACK Huffman decode boundary slice is archived
   under
   [HTTP/2 HPACK Huffman Decode Boundary](../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md).
+  The completed source-visible HPACK Huffman encode boundary slice is archived
+  under
+  [HTTP/2 HPACK Huffman Encode Boundary](../reference/implemented-proposals/http2-hpack-huffman-encode-boundary.md).
   The completed source-visible dynamic indexed core slice is archived under
   [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md).
   The completed source-visible HPACK integer core slice is archived under

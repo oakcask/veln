@@ -397,6 +397,8 @@ behavior.
   [http2-hpack-static-name-huffman-literals.md](http2-hpack-static-name-huffman-literals.md).
 - HTTP/2 HPACK Huffman decode boundary:
   [http2-hpack-huffman-decode-boundary.md](http2-hpack-huffman-decode-boundary.md).
+- HTTP/2 HPACK Huffman encode boundary:
+  [http2-hpack-huffman-encode-boundary.md](http2-hpack-huffman-encode-boundary.md).
 - HTTP/2 HPACK no-Huffman raw literal fixture:
   [http2-hpack-authority-literal-fixture.md](http2-hpack-authority-literal-fixture.md).
 - HTTP/2 HPACK dynamic table fixture:

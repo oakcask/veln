@@ -303,7 +303,14 @@ enough.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked
-  protocol-core case. Stateful HTTP/2 header-block decoding routes supported
+  protocol-core case. The HTTP/2 protocol-core fixture also exposes a
+  source-visible HPACK Huffman encode boundary for outbound checked values:
+  `encode_hpack_huffman_payload` accepts supported source-visible strings,
+  `encode_hpack_huffman_payload_bytes` accepts bounded byte chunks, and both
+  return only the encoded Huffman payload bytes with EOS padding. Unsupported
+  source-visible strings stay on the ordinary
+  `Result<HpackFixtureFailure>` path instead of a runtime diagnostic.
+  Stateful HTTP/2 header-block decoding routes supported
   static-name literal-with-indexing fields through the source-visible static
   decoder, inserts the decoded name/value pair into the carried HPACK dynamic
   state, and resolves a following `0xbe` dynamic indexed field from that
