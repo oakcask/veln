@@ -886,22 +886,26 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name.is_none() {
-                if let Some(field_ty) =
-                    format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
-                {
+                let decode_field_type =
+                    format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty);
+                if let Some(field_ty) = decode_field_type.clone() {
                     decoded_fields.insert(field.name.clone(), field_ty);
                 } else {
                     diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
-                    if format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty)
-                        && format_neutral_schema_encode_field_type_for_schema(
-                            module, schema, &adts, &field.ty,
-                        )
-                        .is_none()
-                    {
-                        diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
-                            schema, field,
-                        ));
-                    }
+                }
+                let encode_unsupported = format_neutral_schema_encode_field_type_for_schema(
+                    module, schema, &adts, &field.ty,
+                )
+                .is_none();
+                let direct_source_adt_candidate =
+                    format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
+                if encode_unsupported && direct_source_adt_candidate && decode_field_type.is_none()
+                {
+                    diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
+                        schema.name.as_deref().unwrap_or("<missing>"),
+                        &schema.span,
+                        field,
+                    ));
                 }
                 continue;
             }
@@ -957,15 +961,14 @@ fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaFi
     diagnostic
 }
 
-fn format_neutral_schema_encode_helper_diagnostic(
-    schema: &SchemaDecl,
+pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
+    schema_name: &str,
+    schema_span: &SourceSpan,
     field: &SchemaField,
 ) -> Diagnostic {
-    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
-    let supported =
-        "source ADT whose constructor payloads are supported format-neutral encode shapes";
+    let supported = "supported format-neutral encode shape";
     let boundary_message = format!(
-        "Generated format-neutral encode helpers for schema `{schema_name}` accept same-module or public imported source ADTs referenced through written use paths when every constructor payload is a supported format-neutral encode shape."
+        "Generated format-neutral encode helpers for schema `{schema_name}` accept scalar leaves, Option<scalar>, Option<List<scalar>>, List<scalar>, Vec<scalar>, Vec<Option<scalar>>, Dict<String, scalar>, Dict<String, Option<scalar>>, Option<Dict<String, scalar>>, Result<Ok, Err> when both payloads are supported format-neutral encode shapes, anonymous record fields whose fields are supported format-neutral encode shapes, and same-module or public imported source ADTs referenced through written use paths when every constructor payload is a supported format-neutral encode shape."
     );
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_encode_helper",
@@ -993,7 +996,7 @@ fn format_neutral_schema_encode_helper_diagnostic(
     );
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("schema_helper_boundary")),
-        ("span", span_json(&schema.span)),
+        ("span", span_json(schema_span)),
         ("message", JsonValue::string(boundary_message)),
     ]));
     diagnostic

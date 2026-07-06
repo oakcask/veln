@@ -1374,8 +1374,14 @@ fn generated_format_neutral_schema_encode_helpers_reject_source_adts_with_unsupp
         .expect("unsupported format-neutral encode helper should be rejected");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `payload` cannot expose a generated encode helper because `CallbackPayload` is not a source ADT whose constructor payloads are supported format-neutral encode shapes"
+        "format-neutral schema field `payload` cannot expose a generated encode helper because `CallbackPayload` is not a supported format-neutral encode shape"
     );
+    assert!(diagnostic.related.iter().any(|related| {
+        let related = related.to_json();
+        related.contains("Option<scalar>")
+            && related.contains("Option<List<scalar>>")
+            && related.contains("same-module or public imported source ADTs")
+    }));
 }
 
 #[test]

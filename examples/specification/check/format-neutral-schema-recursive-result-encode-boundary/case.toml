@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 7
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
