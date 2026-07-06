@@ -9741,6 +9741,19 @@ fn print_outbound_headers_never_indexed_cases(outbound_dynamic_encode_state: Hpa
 end
 
 fn print_outbound_headers_dynamic_name_indexed_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let outbound_dynamic_name_never_indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_secret_headers(), outbound_dynamic_encode_state, 0)
+	let outbound_dynamic_name_never_indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-never-indexed-path-secret", outbound_dynamic_name_never_indexed_encode, "1f2f072f736563726574")?
+	let outbound_dynamic_name_never_indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_never_indexed_encode)?
+	let outbound_headers_hpack_dynamic_name_never_indexed: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_never_indexed_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_dynamic))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-never-indexed", outbound_headers_hpack_dynamic_name_never_indexed)
+	let ignored_headers_hpack_dynamic_name_never_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-never-indexed", outbound_headers_hpack_dynamic_name_never_indexed, "00000a0104000000011f2f072f736563726574")?
+	let outbound_dynamic_name_never_indexed_retained_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_dynamic_name_never_indexed_state, 0)
+	let outbound_dynamic_name_never_indexed_retained_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-never-indexed-retains-path-target", outbound_dynamic_name_never_indexed_retained_encode, "be")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-after-dynamic-name-never-indexed", outbound_dynamic_name_never_indexed_retained_state)
+	let outbound_dynamic_name_never_indexed_retained_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_never_indexed_retained_encode)?
+	let outbound_headers_hpack_dynamic_name_never_indexed_retained: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_never_indexed_retained_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_dynamic_name_never_indexed))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-never-indexed-retained", outbound_headers_hpack_dynamic_name_never_indexed_retained)
+	let ignored_headers_hpack_dynamic_name_never_indexed_retained_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-never-indexed-retained", outbound_headers_hpack_dynamic_name_never_indexed_retained, "000001010400000001be")?
 	let outbound_dynamic_name_indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_again_headers(), outbound_dynamic_encode_state, 0)
 	let outbound_dynamic_name_indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-name-indexed-path-again", outbound_dynamic_name_indexed_encode, "7e062f616761696e")?
 	let outbound_dynamic_name_indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_dynamic_name_indexed_encode)?

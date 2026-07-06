@@ -347,11 +347,13 @@ enough.
   `PUSH_PROMISE` fixture paths route supported static-indexed header lists
   through the same helper before fixture fallback and frame splitting. The
   source-visible HPACK fixture encoder also accepts the checked outbound
-  dynamic-name literal-with-indexing slice under
+  dynamic-name literal-with-indexing and literal-never-indexed slices under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
-  returned encode state through outbound HEADERS and server-side
-  `PUSH_PROMISE` framing in
-  `examples/specification/run/http2-protocol-core/`. The same fixture encoder
+  returned encode state through outbound HEADERS for both forms and
+  server-side `PUSH_PROMISE` framing for the literal-with-indexing form in
+  `examples/specification/run/http2-protocol-core/`. The never-indexed
+  dynamic-name encode leaves the prior dynamic entry reusable as `0xbe`.
+  The same fixture encoder
   accepts a checked ordinary new-name literal-with-indexing header list for
   visible-ASCII field-name and value pairs that pass the outbound ordinary
   header-name validation boundary. Encoding `x-trace: ok` first emits raw

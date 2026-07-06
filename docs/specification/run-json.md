@@ -671,11 +671,14 @@ probe for that field fails at the fixture boundary, and the earlier
 HEADERS and `PUSH_PROMISE` state handoff covers a fixture-scoped
 dynamic-name literal-with-indexing encode: a fresh `:path: /again` value is
 inserted as the newest dynamic entry, later reused as `0xbe`, and the older
-`:path: /target` entry remains reachable as `0xbf`. Outbound HPACK dynamic
-table-size update requests use the same result boundary: an accepted update
-returns a fixture encode state that later HEADERS and `PUSH_PROMISE` encodes
-consume before frame splitting, while an over-limit update remains a typed
-HPACK fixture encode failure and produces no HTTP/2 output chunk list.
+`:path: /target` entry remains reachable as `0xbf`. The HEADERS path also
+checks a dynamic-name literal-never-indexed encode for `:path: /secret`: it
+emits the never-indexed dynamic-name bytes, does not insert `/secret`, and
+keeps the earlier `:path: /target` entry reusable as `0xbe`. Outbound HPACK
+dynamic table-size update requests use the same result boundary: an accepted
+update returns a fixture encode state that later HEADERS and `PUSH_PROMISE`
+encodes consume before frame splitting, while an over-limit update remains a
+typed HPACK fixture encode failure and produces no HTTP/2 output chunk list.
 The aggregate HEADERS path also checks reduced-capacity insertion: after a
 table-size update to `30`, a later literal-with-indexing `:method: PUT` block
 is emitted as a literal again on the next encode because it does not fit the
