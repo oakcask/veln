@@ -655,10 +655,14 @@ split DATA chunks in the fixture transport log, and leaves rejected send
 actions out of `error` unless adapter code explicitly reports them. The same
 applies when those send-intents build
 their opaque header-block bytes from fixture header-list values through the
-HPACK fixture encoder, including checked Huffman-marked string literal
-fixtures for outbound HEADERS and `PUSH_PROMISE`, and including the checked
-stateful `PUSH_PROMISE` path where the returned fixture encode state lets a
-later promised header list use the dynamic indexed byte `0xbe`. The outbound
+HPACK fixture encoder, including exact static-indexed HPACK bytes for
+`:method: GET`, `:path: /`, `:scheme: https`, `:status: 200`, and
+`accept-encoding: gzip, deflate` on outbound HEADERS, exact static-indexed
+bytes for `:status: 200` and `accept-encoding: gzip, deflate` on
+`PUSH_PROMISE`, checked Huffman-marked string literal fixtures for outbound
+HEADERS and `PUSH_PROMISE`, and the checked stateful `PUSH_PROMISE` path
+where the returned fixture encode state lets a later promised header list use
+the dynamic indexed byte `0xbe`. The outbound
 HEADERS fixture path also checks a raw ordinary new-name
 literal-never-indexed header block: it emits deterministic HPACK bytes
 without inserting `x-never: no` into the dynamic table, a later dynamic-index

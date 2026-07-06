@@ -930,9 +930,11 @@ and the source-visible static decoder boundary archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md):
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal and bounded source-visible static-name
-literals, outbound behavior beyond the checked fixture encoder boundary,
-outbound table-size behavior beyond the checked fixture encoder update and
-reduced-capacity insertion boundaries, and production header validation beyond
+literals and exact static-indexed outbound encode helper, outbound behavior
+beyond the checked fixture encoder, exact static-indexed helper, dynamic-table
+reuse, dynamic-name, and table-size update boundaries, outbound table-size
+behavior beyond the checked fixture encoder update and reduced-capacity
+insertion boundaries, and production header validation beyond
 ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, the
@@ -1056,6 +1058,12 @@ drive smaller later outbound updates and prevent dynamic-index reuse while
 leaving the local inbound receive-limit boundary unchanged, and higher
 accepted peer limits permit matching outbound updates and later dynamic-index
 reuse.
+The completed exact static-indexed outbound encode slice exposes a
+source-visible helper for checked HPACK static table name/value pairs,
+including `:method: GET`, `:scheme: https`, `:status: 200`, and
+`accept-encoding: gzip, deflate`. Outbound HEADERS and server-side
+`PUSH_PROMISE` fixture paths route supported static-indexed header lists
+through that helper before fixture fallback and frame splitting.
 The completed outbound dynamic-name literal-without-indexing slice is archived
 under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.

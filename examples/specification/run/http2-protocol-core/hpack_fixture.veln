@@ -462,6 +462,10 @@ pub fn outbound_static_indexed_status_200_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
+pub fn outbound_static_indexed_accept_encoding_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("accept-encoding", "gzip, deflate"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 pub fn outbound_request_content_length_headers() -> HpackHeaderList
 	request_headers_with_content_length("scheme,path,content-length:5")
 end
@@ -1753,6 +1757,11 @@ fn encode_static_empty_header(name: String, headers: HpackHeaderList, offset: In
 		"www-authenticate" => encoded_hex_or_failure("bd", headers, offset)
 		_ => unsupported_header_list_encoding(headers, offset)
 	end
+end
+
+pub fn encode_static_indexed_header_field(name: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let headers: HpackHeaderList = HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 0)
+	encode_static_indexed_header(name, value, headers, offset)
 end
 
 fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>

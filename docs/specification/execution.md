@@ -321,7 +321,14 @@ enough.
   the existing fixture fallback diagnostics. The checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
-- The source-visible HPACK fixture encoder accepts the checked outbound
+- The source-visible HPACK fixture encoder accepts exact static-table
+  name/value pairs as indexed-field bytes under
+  `examples/specification/run/hpack-fixture-codec-boundary/`, including
+  `:method: GET`, `:scheme: https`, `:status: 200`, and
+  `accept-encoding: gzip, deflate`. Outbound HTTP/2 HEADERS and server-side
+  `PUSH_PROMISE` fixture paths route supported static-indexed header lists
+  through the same helper before fixture fallback and frame splitting. The
+  source-visible HPACK fixture encoder also accepts the checked outbound
   dynamic-name literal-with-indexing slice under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
   returned encode state through outbound HEADERS and server-side

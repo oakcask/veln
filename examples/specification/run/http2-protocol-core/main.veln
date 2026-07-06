@@ -9646,6 +9646,14 @@ fn print_outbound_push_promise_dynamic_name_indexed_cases(outbound_push_promise_
 	Ok(())
 end
 
+fn print_outbound_push_promise_static_accept_encoding_case(outbound_receive_credit: OutboundReceiveCredit) -> Result<(), String> effects [stdio]
+	let outbound_push_promise_hpack_static_accept_encoding: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_static_indexed_accept_encoding_headers(), empty_peer_settings(), outbound_receive_credit)?
+	let ignored_push_promise_hpack_static_accept_encoding_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed-accept-encoding", outbound_push_promise_hpack_static_accept_encoding)?
+	let outbound_push_promise_hpack_static_accept_encoding_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static_accept_encoding)?
+	let ignored_push_promise_hpack_static_accept_encoding_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed-accept-encoding", outbound_push_promise_hpack_static_accept_encoding_decision, "0000050504000000010000000290")?
+	Ok(())
+end
+
 fn small_peer_max_frame_size_settings(value: Int) -> PeerSettingsState
 	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
 end
@@ -9792,6 +9800,16 @@ fn print_outbound_headers_table_size_eviction_cases(outbound_dynamic_encode_stat
 	Ok(())
 end
 
+fn print_outbound_headers_static_accept_encoding_case(outbound_receive_credit: OutboundReceiveCredit) -> Result<(), String> effects [stdio]
+	let outbound_headers_hpack_static_accept_encoding: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_static_indexed_accept_encoding_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_static_accept_encoding_print: () = print_outbound_headers_from_list("outbound-headers-hpack-static-indexed-accept-encoding", outbound_headers_hpack_static_accept_encoding)?
+	let outbound_headers_hpack_static_accept_encoding_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_static_accept_encoding)?
+	let ignored_headers_hpack_static_accept_encoding_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-accept-encoding", outbound_headers_hpack_static_accept_encoding_decision, "00000101040000000190")?
+	let outbound_hpack_static_accept_encoding_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_accept_encoding_headers(), hpack_fixture::initial_encode_state(), 0)
+	let ignored_outbound_hpack_static_accept_encoding_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-accept-encoding-encode", outbound_hpack_static_accept_encoding_encode, "90")?
+	Ok(())
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -9821,6 +9839,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_static_status_200_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-status-200", outbound_headers_hpack_static_status_200_decision, "00000101040000000188")?
 	let outbound_hpack_static_status_200_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_status_200_headers(), hpack_fixture::initial_encode_state(), 0)
 	let ignored_outbound_hpack_static_status_200_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-status-200-encode", outbound_hpack_static_status_200_encode, "88")?
+	let ignored_static_accept_encoding_case: () = print_outbound_headers_static_accept_encoding_case(outbound_receive_credit)?
 	let outbound_headers_hpack_literal: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_path_target_headers(), false, small_peer_max_frame_size_settings(4), outbound_receive_credit)?
 	let ignored_headers_hpack_literal_print: () = print_outbound_headers_from_list("outbound-headers-hpack-literal-continuation", outbound_headers_hpack_literal)?
 	let outbound_headers_hpack_literal_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_literal)?
@@ -9960,6 +9979,7 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_push_promise_hpack_static_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed", outbound_push_promise_hpack_static)?
 	let outbound_push_promise_hpack_static_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static)?
 	let ignored_push_promise_hpack_static_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed", outbound_push_promise_hpack_static_decision, "0000050504000000010000000288")?
+	let ignored_push_promise_static_accept_encoding_case: () = print_outbound_push_promise_static_accept_encoding_case(outbound_receive_credit)?
 	let outbound_push_promise_hpack_huffman: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_literal_status_200_huffman_headers(), empty_peer_settings(), outbound_receive_credit)?
 	let ignored_push_promise_hpack_huffman_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-literal-huffman", outbound_push_promise_hpack_huffman)?
 	let outbound_push_promise_hpack_huffman_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_huffman)?

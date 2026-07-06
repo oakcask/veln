@@ -10,9 +10,14 @@ checked executable case
 
 ## Completed Behavior
 
-The imported HPACK fixture module exposes a source-visible header-list encoder
-for the outbound protocol-core fixtures. It accepts the fixture-owned
-static-indexed header lists already accepted by the decoder, raw
+The imported HPACK fixture module exposes a source-visible helper that maps
+exact HPACK static table name/value pairs to indexed-field bytes. It accepts
+the checked exact pairs `:method: GET`, `:scheme: https`, `:status: 200`,
+and `accept-encoding: gzip, deflate`, while non-exact pairs such as
+`:method: PUT` stay on the fixture encode-failure path. The header-list
+encoder for the outbound protocol-core fixtures routes fixture-owned
+static-indexed header lists through that helper before falling back to the
+other fixture encoder paths. It also accepts raw
 literal-without-indexing and literal-with-indexing header lists for supported
 static-table names, checked Huffman-marked literal header lists for the
 same fixture boundary, and the checked request and response pseudo-header
@@ -105,7 +110,8 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
 
 - `../../../examples/specification/run/http2-protocol-core/` checks
   header-list encoding for static indexed `:method: GET`, `:path: /`,
-  `:scheme: https`, and `:status: 200` into outbound HEADERS, raw literal
+  `:scheme: https`, `:status: 200`, and
+  `accept-encoding: gzip, deflate` into outbound HEADERS, raw literal
   `:path: /target` into outbound HEADERS split across CONTINUATION frames,
   stateful literal-with-indexing `:path: /target`
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
@@ -129,8 +135,10 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   Huffman-marked literal `:path: hpack-byte-ff` into outbound HEADERS,
   Huffman-marked literal `:path: hpack-bytes-00-ff` into outbound HEADERS,
   Huffman-marked literal `:authority: abc.test` into outbound HEADERS, static
-  indexed `:status: 200` and Huffman-marked literal `:status: 200` into
-  server-side `PUSH_PROMISE`, stateful literal-with-indexing
+  indexed `:status: 200`, static indexed
+  `accept-encoding: gzip, deflate`, and Huffman-marked literal
+  `:status: 200` into server-side `PUSH_PROMISE`, stateful
+  literal-with-indexing
   `:path: /target` encoding before `PUSH_PROMISE` splitting, stateful
   dynamic indexed reuse as `0xbe` in a later `PUSH_PROMISE`,
   dynamic-name literal-with-indexing `:path: /again`, newest reuse as `0xbe`,
@@ -140,6 +148,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   that remains an HPACK fixture result.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the same stateful encoder transition directly at the HPACK fixture boundary:
+  direct exact static-indexed helper bytes for `:method: GET`,
+  `:scheme: https`, `:status: 200`, and
+  `accept-encoding: gzip, deflate`, non-exact `:method: PUT` encode failure,
   separate initial encode state, literal-with-indexing insertion, dynamic
   indexed reuse, encode-count advancement, stateless wrapper compatibility,
   accepted raw new-name literal-without-indexing bytes, rejected invalid

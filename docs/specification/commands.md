@@ -260,7 +260,12 @@ requiring the full command reference on the first read.
   visible ASCII decimal values update the existing content-length
   body-accounting state, while non-decimal visible values use the existing
   request header-list validation diagnostic. The same HPACK fixture boundary
-  case also checks a standalone source-visible `hpack_dynamic_core` dynamic
+  case also checks a standalone source-visible static-indexed encode helper
+  for exact HPACK static table pairs, including `:method: GET`,
+  `:scheme: https`, `:status: 200`, and
+  `accept-encoding: gzip, deflate`, and keeps non-exact values such as
+  `:method: PUT` on the fixture encode-failure path. It also checks a
+  standalone source-visible `hpack_dynamic_core` dynamic
   indexed decode for multiple carried bounded entries, decode-count
   advancement after accepted reads, and the focused
   `hpack.fixture.dynamic_index_out_of_range` failure facts when an indexed
