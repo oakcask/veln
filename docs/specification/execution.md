@@ -159,9 +159,10 @@ enough.
   encode helper behavior as compatible upper-case exact-width payload spelling.
   Byte-aligned lowercase `uint... reserves <value>` dispatch payloads validate
   the fixed payload bytes during decode, emit those bytes during encode, and
-  expose `()` as the payload value. Zero-reserved direct subbyte spellings
-  from `uint1 reserves 0` through `uint7 reserves 0` consume one payload byte,
-  validate the high-order payload bits, emit the same storage byte during
+  expose `()` as the payload value. Direct subbyte spellings from
+  `uint1 reserves 0` through `uint7 reserves 127` consume one payload byte
+  when the reserved value fits the declared width, validate the high-order
+  payload bits, emit the declared reserved value in that storage byte during
   encode, and also expose `()` as the payload value.
 - Closed and extension dispatch payload cases may name an eligible same-module
   or public imported nested binary schema. Nested payload schemas expose their

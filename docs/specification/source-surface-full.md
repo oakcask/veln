@@ -25,9 +25,10 @@ and encode entry points.
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
 and `flag...` primitive spelling in the same positions as compatible
 upper-case exact-width primitive payload spelling. They also accept
-byte-aligned lowercase `uint... reserves <value>` spelling and zero-reserved
-subbyte spellings from `uint1 reserves 0` through `uint7 reserves 0` in direct
-reserved-bit dispatch payload positions.
+byte-aligned lowercase `uint... reserves <value>` spelling and subbyte
+spellings from `uint1 reserves 0` through `uint7 reserves 127` in direct
+reserved-bit dispatch payload positions when the reserved value fits the
+declared width.
 `format binary` direct nested schema fields may name an eligible same-module
 schema or public imported schema and expose the nested schema-local visible
 record at that field.

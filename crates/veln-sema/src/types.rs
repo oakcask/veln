@@ -5367,10 +5367,7 @@ fn dispatch_reserved_bits_width(bit_width: i64, expected_value: i64) -> Option<u
     if bit_width <= 0 || bit_width > 32 {
         return None;
     }
-    if (1..=7).contains(&bit_width) && expected_value == 0 {
-        return Some(bit_width as u8);
-    }
-    if bit_width % 8 != 0 {
+    if !(1..=7).contains(&bit_width) && bit_width % 8 != 0 {
         return None;
     }
     let max_value = if bit_width == 32 {
@@ -7024,13 +7021,22 @@ mod tests {
             ));
         }
         assert!(schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint1 reserves 1"
+        ));
+        assert!(schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint2 reserves 3"
+        ));
+        assert!(schema_dispatch_payload_accepts_lowercase_primitive(
+            "uint7 reserves 127"
+        ));
+        assert!(schema_dispatch_payload_accepts_lowercase_primitive(
             "uint16be reserves 0"
         ));
         assert!(!schema_dispatch_payload_accepts_lowercase_primitive(
-            "uint1 reserves 1"
+            "uint1 reserves 2"
         ));
         assert!(!schema_dispatch_payload_accepts_lowercase_primitive(
-            "uint7 reserves 1"
+            "uint7 reserves 128"
         ));
         assert!(!schema_dispatch_payload_accepts_lowercase_primitive(
             "uint8 reserves 256"

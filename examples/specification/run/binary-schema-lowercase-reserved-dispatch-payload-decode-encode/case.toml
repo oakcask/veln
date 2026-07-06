@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "closed 1\noutput_chunk_list closed-reserved-dispatch count 1\noutput_chunk closed-reserved-dispatch index 0 hex \"01abcd\" count 3\ncompat 1\noutput_chunk_list closed-compat-reserved-dispatch count 1\noutput_chunk closed-compat-reserved-dispatch index 0 hex \"01abcd\" count 3\nextension 2 1\nextension-known\noutput_chunk_list extension-reserved-dispatch count 1\noutput_chunk extension-reserved-dispatch index 0 hex \"0201abcd\" count 4\nclosed-subbyte 1\noutput_chunk_list closed-subbyte-reserved-dispatch count 1\noutput_chunk closed-subbyte-reserved-dispatch index 0 hex \"0100\" count 2\nclosed-two-bit 1\noutput_chunk_list closed-two-bit-reserved-dispatch count 1\noutput_chunk closed-two-bit-reserved-dispatch index 0 hex \"0100\" count 2\nclosed-seven-bit 1\noutput_chunk_list closed-seven-bit-reserved-dispatch count 1\noutput_chunk closed-seven-bit-reserved-dispatch index 0 hex \"0100\" count 2\nextension-subbyte 1 1\nextension-known\noutput_chunk_list extension-subbyte-reserved-dispatch count 1\noutput_chunk extension-subbyte-reserved-dispatch index 0 hex \"010100\" count 3\nextension-two-bit 1 1\nextension-known\noutput_chunk_list extension-two-bit-reserved-dispatch count 1\noutput_chunk extension-two-bit-reserved-dispatch index 0 hex \"010100\" count 3\nextension-seven-bit 1 1\nextension-known\noutput_chunk_list extension-seven-bit-reserved-dispatch count 1\noutput_chunk extension-seven-bit-reserved-dispatch index 0 hex \"010100\" count 3\n"
+equals = "closed 1\noutput_chunk_list closed-reserved-dispatch count 1\noutput_chunk closed-reserved-dispatch index 0 hex \"01abcd\" count 3\ncompat 1\noutput_chunk_list closed-compat-reserved-dispatch count 1\noutput_chunk closed-compat-reserved-dispatch index 0 hex \"01abcd\" count 3\nextension 2 1\nextension-known\noutput_chunk_list extension-reserved-dispatch count 1\noutput_chunk extension-reserved-dispatch index 0 hex \"0201abcd\" count 4\nclosed-subbyte 1\noutput_chunk_list closed-subbyte-reserved-dispatch count 1\noutput_chunk closed-subbyte-reserved-dispatch index 0 hex \"0180\" count 2\nclosed-two-bit 1\noutput_chunk_list closed-two-bit-reserved-dispatch count 1\noutput_chunk closed-two-bit-reserved-dispatch index 0 hex \"01c0\" count 2\nclosed-seven-bit 1\noutput_chunk_list closed-seven-bit-reserved-dispatch count 1\noutput_chunk closed-seven-bit-reserved-dispatch index 0 hex \"01fe\" count 2\nextension-subbyte 1 1\nextension-known\noutput_chunk_list extension-subbyte-reserved-dispatch count 1\noutput_chunk extension-subbyte-reserved-dispatch index 0 hex \"010180\" count 3\nextension-two-bit 1 1\nextension-known\noutput_chunk_list extension-two-bit-reserved-dispatch count 1\noutput_chunk extension-two-bit-reserved-dispatch index 0 hex \"0101c0\" count 3\nextension-seven-bit 1 1\nextension-known\noutput_chunk_list extension-seven-bit-reserved-dispatch count 1\noutput_chunk extension-seven-bit-reserved-dispatch index 0 hex \"0101fe\" count 3\n"
 
 [[output_chunk_list]]
 name = "closed-reserved-dispatch"
@@ -36,24 +36,24 @@ chunks = ["0201abcd"]
 
 [[output_chunk_list]]
 name = "closed-subbyte-reserved-dispatch"
-chunks = ["0100"]
+chunks = ["0180"]
 
 [[output_chunk_list]]
 name = "closed-two-bit-reserved-dispatch"
-chunks = ["0100"]
+chunks = ["01c0"]
 
 [[output_chunk_list]]
 name = "closed-seven-bit-reserved-dispatch"
-chunks = ["0100"]
+chunks = ["01fe"]
 
 [[output_chunk_list]]
 name = "extension-subbyte-reserved-dispatch"
-chunks = ["010100"]
+chunks = ["010180"]
 
 [[output_chunk_list]]
 name = "extension-two-bit-reserved-dispatch"
-chunks = ["010100"]
+chunks = ["0101c0"]
 
 [[output_chunk_list]]
 name = "extension-seven-bit-reserved-dispatch"
-chunks = ["010100"]
+chunks = ["0101fe"]
