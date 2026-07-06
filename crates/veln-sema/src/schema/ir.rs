@@ -329,35 +329,67 @@ fn ir_schema_anonymous_record_field(
 fn ir_schema_anonymous_record_spec(
     fields: Vec<(String, Type)>,
 ) -> Option<(Type, IrSchemaDecodeSpec)> {
+    ir_schema_anonymous_record_spec_inner(fields, true)
+}
+
+fn ir_schema_anonymous_record_spec_inner(
+    fields: Vec<(String, Type)>,
+    allow_nested_record: bool,
+) -> Option<(Type, IrSchemaDecodeSpec)> {
     let mut visible_fields = Vec::new();
     let mut ir_fields = Vec::new();
+    let mut nested_record_seen = false;
     for (name, ty) in fields {
-        let Type::Named {
-            name: ty_name,
-            args,
-        } = ty
-        else {
-            return None;
-        };
-        if !args.is_empty() || flag_schema_primitive(&ty_name).is_some() {
-            return None;
+        match ty {
+            Type::Named {
+                name: ty_name,
+                args,
+            } => {
+                if !args.is_empty() || flag_schema_primitive(&ty_name).is_some() {
+                    return None;
+                }
+                let width = exact_width_schema_primitive(&ty_name)?;
+                visible_fields.push((name.clone(), Type::int()));
+                ir_fields.push(IrSchemaDecodeField {
+                    name,
+                    width,
+                    max_value: exact_width_schema_primitive_max_value(&ty_name)?,
+                    little_endian: exact_width_schema_primitive_little_endian(&ty_name),
+                    flag_type: String::new(),
+                    predicate: None,
+                    length_field: None,
+                    length_multiple: None,
+                    repeat: None,
+                    payload_schema: None,
+                    dispatch: None,
+                    reserved_bits: None,
+                });
+            }
+            Type::Record(fields) => {
+                if !allow_nested_record || nested_record_seen {
+                    return None;
+                }
+                nested_record_seen = true;
+                let (field_ty, payload_schema) =
+                    ir_schema_anonymous_record_spec_inner(fields, false)?;
+                visible_fields.push((name.clone(), field_ty));
+                ir_fields.push(IrSchemaDecodeField {
+                    name,
+                    width: 0,
+                    max_value: 0,
+                    little_endian: false,
+                    flag_type: String::new(),
+                    predicate: None,
+                    length_field: None,
+                    length_multiple: None,
+                    repeat: None,
+                    payload_schema: Some(Box::new(payload_schema)),
+                    dispatch: None,
+                    reserved_bits: None,
+                });
+            }
+            _ => return None,
         }
-        let width = exact_width_schema_primitive(&ty_name)?;
-        visible_fields.push((name.clone(), Type::int()));
-        ir_fields.push(IrSchemaDecodeField {
-            name,
-            width,
-            max_value: exact_width_schema_primitive_max_value(&ty_name)?,
-            little_endian: exact_width_schema_primitive_little_endian(&ty_name),
-            flag_type: String::new(),
-            predicate: None,
-            length_field: None,
-            length_multiple: None,
-            repeat: None,
-            payload_schema: None,
-            dispatch: None,
-            reserved_bits: None,
-        });
     }
     Some((
         Type::Record(visible_fields),
