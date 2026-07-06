@@ -1,0 +1,16 @@
+# Binary schema recursive anonymous record truncation reports all record segments.
+
+schema RecursiveAnonymousRecordPacket
+	format binary
+
+	prefix: UInt8
+	header: {kind: UInt8, detail: {code: UInt16be, trailer: {tail: UInt16le}}, marker: UInt8}
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0a01020304")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let _: {prefix: Int, header: {kind: Int, detail: {code: Int, trailer: {tail: Int}}, marker: Int}, suffix: Int} = byte_decode_recursive_anonymous_record_packet(view)?
+	Ok(())
+end

@@ -70,9 +70,10 @@ The implemented first slice covers:
   `ByteView(left_length - right_length)` payload fields, bounded repeat
   fields over implemented primitive, nested schema, `ByteView(length_field)`,
   or `ByteView(left_length - right_length)` payloads, direct nested binary
-  schema fields, anonymous record fields made from implemented exact-width
-  unsigned primitive leaves or one nested anonymous record field made from
-  those leaves, or the implemented dispatch payload slices
+  schema fields, recursive anonymous record fields whose leaves are
+  implemented exact-width unsigned primitives and whose records contain at
+  most one nested anonymous record field, or the implemented dispatch payload
+  slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
@@ -479,9 +480,9 @@ Implemented:
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives, visible flag bitset fields, direct nested binary schema
-  fields, anonymous record fields whose nested fields are implemented
-  exact-width unsigned primitive leaves or one nested anonymous record field
-  made from those leaves, supported representation-only
+  fields, recursive anonymous record fields whose leaves are implemented
+  exact-width unsigned primitives and whose records contain at most one nested
+  anonymous record field, supported representation-only
   `ReservedBits(width, value)` fields, or bounded repeat fields over
   implemented primitive, nested schema, or `ByteView(length_field)` payloads expose generated
   `byte_decode_<schema>` helper bindings.
@@ -507,7 +508,6 @@ Remaining:
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   supported representation-only reserved-bit, direct nested binary schema,
-  bounded anonymous record decode, bounded repeat, length-bounded `ByteView`,
-  closed dispatch, extension dispatch, and recursive format-neutral
-  visible-shape helper boundary. Recursive or arbitrary-depth binary
-  anonymous record decode remains outside the implemented bounded slice.
+  recursive anonymous record decode, bounded repeat, length-bounded
+  `ByteView`, closed dispatch, extension dispatch, and recursive
+  format-neutral visible-shape helper boundary.

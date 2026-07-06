@@ -247,9 +247,10 @@ segments after that `index` segment.
 Anonymous record field failures append anonymous record field segments after
 the outer field segment without adding a synthetic schema segment. The checked
 JSON cases are
-`examples/specification/run/binary-schema-anonymous-record-truncated-json/`
+`examples/specification/run/binary-schema-anonymous-record-truncated-json/`,
+`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`,
 and
-`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`.
+`examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.
 Packed visible-only sub-byte groups use the same shape and report the first
 field in the group when the shared byte is missing.
 

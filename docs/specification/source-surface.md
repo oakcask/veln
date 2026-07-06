@@ -58,8 +58,9 @@ exact-width unsigned primitives, lowercase `uint...` fields, visible flag
 bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
 reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
 canonical repeated fields `[Payload; count]`, direct nested binary schema
-fields, anonymous record fields whose nested fields are exact-width unsigned
-primitive leaves or one nested anonymous record field made from those leaves,
+fields, recursive anonymous record fields whose leaves are exact-width
+unsigned primitives and whose records contain at most one nested anonymous
+record field,
 `ByteView(length)`, closed dispatch, and extension dispatch forms documented in
 [source-surface-full.md](source-surface-full.md) and checked by
 `docs/specification/source-surface-executable.pl`. Canonical repeated fields
@@ -73,16 +74,18 @@ Direct nested binary schema fields may name an eligible same-module schema or
 public imported schema and expose the nested schema-local visible record at
 that field.
 Anonymous record fields in `format binary` schemas expose a nested
-schema-local visible record at that field when every nested field is an
-implemented exact-width unsigned primitive leaf, or when the field contains
-one nested anonymous record whose fields are implemented exact-width unsigned
-primitive leaves. The checked decode cases are
-`examples/specification/run/binary-schema-anonymous-record-decode/` and
-`examples/specification/run/binary-schema-nested-anonymous-record-decode/`.
-The checked nested truncation JSON cases are
-`examples/specification/run/binary-schema-anonymous-record-truncated-json/`
+schema-local visible record at that field when every leaf is an implemented
+exact-width unsigned primitive and each anonymous record contains at most one
+nested anonymous record field. The checked decode cases are
+`examples/specification/run/binary-schema-anonymous-record-decode/`,
+`examples/specification/run/binary-schema-nested-anonymous-record-decode/`,
 and
-`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`.
+`examples/specification/run/binary-schema-recursive-anonymous-record-decode/`.
+The checked nested truncation JSON cases are
+`examples/specification/run/binary-schema-anonymous-record-truncated-json/`,
+`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`,
+and
+`examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.
 Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
 primitive payload spellings that are accepted by canonical repeated-field
 syntax. They also accept supported lowercase `uint... reserves <value>`

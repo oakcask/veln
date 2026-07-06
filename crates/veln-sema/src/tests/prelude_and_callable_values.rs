@@ -218,6 +218,89 @@ fn generated_schema_decode_helpers_keep_nested_anonymous_record_metadata() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_recursive_anonymous_record_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema RecursiveAnonymousPacket\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: UInt8\n",
+            "  header: {kind: UInt8, detail: {code: UInt16be, trailer: {tail: UInt16le}}, marker: UInt8}\n",
+            "  suffix: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{prefix: Int, header: {kind: Int, detail: {code: Int, trailer: {tail: Int}}, marker: Int}, suffix: Int}, String>\n",
+            "  byte_decode_recursive_anonymous_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "RecursiveAnonymousPacket");
+    let header = schema.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("anonymous record should carry nested decode metadata");
+    let detail = header.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("recursive anonymous record should carry nested decode metadata");
+    let trailer = detail.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("deeper anonymous record should carry decode metadata");
+    assert_eq!(
+        trailer
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field.little_endian,
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![("tail", 2, 0xffff, true)]
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_reject_sibling_nested_anonymous_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SiblingNestedAnonymousPacket\n",
+            "  format binary\n",
+            "\n",
+            "  header: {left: {kind: UInt8}, right: {code: UInt8}}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert!(
+        ir.schema_decoders.is_empty(),
+        "sibling nested anonymous records should stay outside generated decode helper eligibility: {:#?}",
+        ir.schema_decoders
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declarations() {
     let source = SourceFile::new(
         "main.veln",
