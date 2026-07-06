@@ -669,7 +669,11 @@ bytes for `:status: 200` and `accept-encoding: gzip, deflate` on
 `PUSH_PROMISE`, checked Huffman-marked string literal fixtures for outbound
 HEADERS and `PUSH_PROMISE`, and the checked stateful `PUSH_PROMISE` path
 where the returned fixture encode state lets a later promised header list use
-the dynamic indexed byte `0xbe`. The outbound
+the dynamic indexed byte `0xbe`. The same run JSON stdout checks the
+source-visible HPACK Huffman payload helper directly: successful string and
+bounded byte inputs print payload-only output chunks without the HPACK string
+length prefix, and unsupported source strings remain ordinary fixture
+`Result` failures printed as stdout. The outbound
 HEADERS fixture path also checks a raw ordinary new-name
 literal-never-indexed header block: it emits deterministic HPACK bytes
 without inserting `x-never: no` into the dynamic table, a later dynamic-index
@@ -1089,7 +1093,12 @@ literal-never-indexed request and response blocks when the raw value is an
 accepted visible ASCII decimal string and the block does not require later
 fixture dynamic-table reuse; that value feeds the existing content-length
 body-accounting state. Non-decimal visible values on the same decoded request
-or response path still use the existing header-list rules. Stateful HTTP/2
+or response path still use the existing header-list rules. The protocol-core
+case also checks source-visible HPACK Huffman payload encoding directly for a
+supported string, bounded raw bytes, and an unsupported string that returns a
+fixture failure. The focused HPACK fixture boundary case checks the same
+payload-only boundary directly before the outbound header-list fixture
+encoder cases. Stateful HTTP/2
 header-block decoding routes supported static-name literal-with-indexing
 blocks through the source-visible static decoder and updates carried HPACK
 dynamic state for later dynamic-indexed reuse. Unsupported
