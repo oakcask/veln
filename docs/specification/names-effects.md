@@ -75,6 +75,12 @@ compiler-known calls.
   handler, drains optional stream reads through a channel-routed
   `StreamInput` boundary, and writes only ordered `SendBytes` chunks through
   `net::write_chunks`; it requires `net` and `concurrency`.
+  `stream_adapter_drain_actions_until_cancellable(stream, handler, deadline,
+  token)` uses the same adapter-owned drain, route, and pure handler boundary,
+  then writes only ordered `SendBytes` chunks through
+  `net::write_chunks_until_cancellable`; it requires `net`, `time`, and
+  `concurrency`, and returns `StreamWriteOutcome` for full completion,
+  deadline expiry, or cancellation before all projected chunks are written.
   Stream adapter routing that combines those outcomes with channel-routed
   `StreamInput` values declares both `time` and `concurrency`; the handler it
   calls stays free of transport effects. Socket lifecycle routing can combine
@@ -214,7 +220,13 @@ compiler-known calls.
   drain one accepted production stream into ordered `StreamAdapterAction`
   values, filters response projection to `SendBytes` chunks through
   `net::write_chunks`, closes the stream, and then observes clean listener end
-  under the existing `net` and `concurrency` effects. A
+  under the existing `net` and `concurrency` effects. The cancellable
+  adapter write-drain helper case uses
+  `stream_adapter_drain_actions_until_cancellable` to keep the same pure
+  handler and channel-routed `StreamInput` boundary while projecting ordered
+  `SendBytes` chunks through `net::write_chunks_until_cancellable`; checked
+  cases cover completion, deadline expiry, cancellation, and the required
+  `net`, `time`, and `concurrency` effects. A
   forced production read failure on the same multi-chunk
   routing path remains a runtime transport failure after the stream is
   accepted and before any chunk routing, response writes, stream close, or

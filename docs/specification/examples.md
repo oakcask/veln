@@ -50,6 +50,13 @@ behavior.
   `../../examples/specification/run/transport-socket-listener-address-failure-json/`.
 - `net::listener_local_addr` effect checking:
   `../../examples/specification/check/transport-socket-listener-address-effects/`.
+- Cancellable adapter write-drain helper completion, deadline, cancellation,
+  and effect checking:
+  `../../examples/specification/run/socket-stream-adapter-cancellable-write-drain/`,
+  `../../examples/specification/run/socket-stream-adapter-cancellable-write-drain-deadline/`,
+  `../../examples/specification/run/socket-stream-adapter-cancellable-write-drain-cancelled/`,
+  and
+  `../../examples/specification/check/socket-stream-adapter-cancellable-write-drain-effects/`.
 
 ## Read When
 

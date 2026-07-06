@@ -793,6 +793,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible standard stream adapter routing helper slice
   is archived under
   [Network Stream Adapter Routing Helper](../reference/implemented-proposals/network-stream-adapter-routing-helper.md).
+  The completed adapter-level cancellable write-drain helper slice is
+  archived under
+  [Network Adapter Cancellable Write-Drain](../reference/implemented-proposals/network-adapter-cancellable-write-drain.md).
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).

@@ -348,6 +348,8 @@ behavior.
   [network-write-until-cancellable-boundary.md](network-write-until-cancellable-boundary.md).
 - Network write chunks until cancellable boundary:
   [network-write-chunks-until-cancellable-boundary.md](network-write-chunks-until-cancellable-boundary.md).
+- Network adapter cancellable write-drain:
+  [network-adapter-cancellable-write-drain.md](network-adapter-cancellable-write-drain.md).
 - Network monotonic clock boundary:
   [network-monotonic-clock-boundary.md](network-monotonic-clock-boundary.md).
 - Network deadline at boundary:

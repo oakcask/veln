@@ -1,0 +1,28 @@
+# Cancellable adapter write-drain helper reports cancellation as a value.
+use stdio
+
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(SendBytes(bytes), list_nil())
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+	match outcome
+		WriteCompleted => "written"
+		WriteDeadlineExpired => "deadline"
+		WriteCancelled => "cancelled"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let deadline: Deadline = time::deadline_after_ms(100)
+	let token: CancelToken = time::cancel_token()
+	time::cancel(token)
+	let outcome: StreamWriteOutcome = stream_adapter_drain_actions_until_cancellable(stream, handle_input, deadline, token)
+	stdio::println(write_outcome_text(outcome))
+	Ok(())
+end

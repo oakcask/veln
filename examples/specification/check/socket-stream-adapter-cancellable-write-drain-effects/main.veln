@@ -1,0 +1,27 @@
+# Cancellable adapter write-drain helper keeps net, time, and channel effects in the adapter.
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(SendBytes(bytes), list_cons(Ignore, list_nil()))
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+fn accepted_lifecycle(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time, concurrency]
+	stream_adapter_drain_actions_until_cancellable(stream, handle_input, deadline, token)
+end
+
+pub fn handler_boundary(input: StreamInput) -> List<StreamAdapterAction>
+	handle_input(input)
+end
+
+pub fn adapter_missing_time(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, concurrency]
+	accepted_lifecycle(stream, deadline, token)
+end
+
+pub fn adapter_missing_concurrency(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
+	accepted_lifecycle(stream, deadline, token)
+end
+
+pub fn adapter_missing_net(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [time, concurrency]
+	accepted_lifecycle(stream, deadline, token)
+end

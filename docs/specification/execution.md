@@ -70,7 +70,13 @@ enough.
   writes only `SendBytes` chunks via `net::write_chunks`, and leaves stream
   close and listener-end observation to the adapter caller.
   That helper owns the `concurrency` boundary and calls a pure event/action
-  handler. The
+  handler.
+  `stream_adapter_drain_actions_until_cancellable` keeps that drain, channel,
+  and pure handler boundary, then writes only projected `SendBytes` chunks via
+  `net::write_chunks_until_cancellable` with the supplied `Deadline` and
+  `CancelToken`. It returns ordinary write outcome values for completion,
+  deadline expiry, or cancellation, while host write failures remain runtime
+  transport failures. The
   multi-cycle routing case accepts more than one production stream from one
   listener and preserves repeated read, route, ordered write, close, and clean
   listener-end observations without exposing socket handles to handlers.

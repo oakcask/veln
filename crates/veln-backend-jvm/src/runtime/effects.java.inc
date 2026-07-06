@@ -1416,6 +1416,31 @@
         return actions;
     }
 
+    public static Object streamAdapterDrainActionsUntilCancellable(
+        Object stream,
+        Object handler,
+        Object deadline,
+        Object token
+    ) {
+        Object route = channelBounded(Long.valueOf(1));
+        Object actions = listNil();
+        while (true) {
+            Object input = streamAdapterInputFromRead(netReadChunkOrEnd(stream));
+            Object routed = streamAdapterRouteInput(route, input);
+            Object handled = call(handler, routed);
+            actions = streamAdapterAppend(actions, handled);
+            if (isAdt(routed, "StreamInput::End")) {
+                break;
+            }
+        }
+        return netWriteChunksUntilCancellable(
+            stream,
+            streamAdapterSendChunks(actions),
+            deadline,
+            token
+        );
+    }
+
     private static Object streamAdapterInputFromRead(Object readResult) {
         Option read = asOption(readResult);
         if (read.some) {

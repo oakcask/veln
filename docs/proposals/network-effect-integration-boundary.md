@@ -477,6 +477,10 @@ The source-visible cancellable deadline-aware chunk-list write slice is
 recorded as implemented in
 `../reference/implemented-proposals/network-write-chunks-until-cancellable-boundary.md`.
 
+The adapter-level cancellable write-drain helper slice is recorded as
+implemented in
+`../reference/implemented-proposals/network-adapter-cancellable-write-drain.md`.
+
 The explicit listener-close boundary is recorded as implemented in
 `../reference/implemented-proposals/network-listener-close-boundary.md`.
 
