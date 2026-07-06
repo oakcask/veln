@@ -55,8 +55,7 @@ checked task slices, and narrow deadline and cancellation slices, for:
   deadline-aware accepted-stream lifecycle, explicit stream close lifecycle,
   adapter-owned clean shutdown lifecycle, explicit listener close lifecycle,
   production multi-chunk event routing, and production read-side shutdown
-  lifecycle slices, plus the source-visible standard stream adapter routing
-  helper slice
+  lifecycle slices
 - general mapping of transport byte chunks into sans-I/O input events beyond
   the checked adapter-owned multi-event routing, production multi-chunk
   routing, production two-stream multi-cycle routing, deadline-aware
@@ -417,16 +416,6 @@ read-failure case forces the same multi-chunk adapter path to fail as a runtime
 transport failure after production accept and before any chunk routing,
 response writes, stream close,
 or clean listener end is recorded.
-
-Implemented standard stream adapter routing helper slice: the
-source-visible `StreamAdapterAction` ADT and
-`stream_adapter_drain_actions(stream, handler)` helper let adapter code drain
-one accepted `NetStream` into ordinary ordered handler actions. The helper
-uses `net::read_chunk_or_end` to produce channel-routed `StreamInput` values,
-calls a pure `fn(StreamInput) -> List<StreamAdapterAction>` handler, writes
-only `SendBytes` chunks back through `net::write_chunks`, and keeps its public
-effect boundary at `net` and `concurrency`. The adapter caller remains
-responsible for stream close and listener-end observation.
 
 Implemented per-stream task handler-failure lifecycle slice: an executable
 specification case accepts one deterministic production-loopback stream,
