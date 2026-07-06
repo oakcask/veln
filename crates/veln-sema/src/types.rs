@@ -3077,13 +3077,10 @@ pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<T
     let Type::Record(fields) = parse_type_annotation(text).ok()? else {
         return None;
     };
-    binary_schema_anonymous_record_type(fields, true).map(Type::Record)
+    binary_schema_anonymous_record_type(fields).map(Type::Record)
 }
 
-fn binary_schema_anonymous_record_type(
-    fields: Vec<(String, Type)>,
-    allow_nested_record: bool,
-) -> Option<Vec<(String, Type)>> {
+fn binary_schema_anonymous_record_type(fields: Vec<(String, Type)>) -> Option<Vec<(String, Type)>> {
     let mut nested_record_seen = false;
     fields
         .into_iter()
@@ -3091,7 +3088,7 @@ fn binary_schema_anonymous_record_type(
             if binary_schema_anonymous_record_leaf_type(&ty).is_some() {
                 return Some((name, Type::int()));
             }
-            if !allow_nested_record || nested_record_seen {
+            if nested_record_seen {
                 return None;
             }
             let Type::Record(fields) = ty else {
@@ -3100,7 +3097,7 @@ fn binary_schema_anonymous_record_type(
             nested_record_seen = true;
             Some((
                 name,
-                Type::Record(binary_schema_anonymous_record_type(fields, false)?),
+                Type::Record(binary_schema_anonymous_record_type(fields)?),
             ))
         })
         .collect()

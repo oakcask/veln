@@ -329,12 +329,11 @@ fn ir_schema_anonymous_record_field(
 fn ir_schema_anonymous_record_spec(
     fields: Vec<(String, Type)>,
 ) -> Option<(Type, IrSchemaDecodeSpec)> {
-    ir_schema_anonymous_record_spec_inner(fields, true)
+    ir_schema_anonymous_record_spec_inner(fields)
 }
 
 fn ir_schema_anonymous_record_spec_inner(
     fields: Vec<(String, Type)>,
-    allow_nested_record: bool,
 ) -> Option<(Type, IrSchemaDecodeSpec)> {
     let mut visible_fields = Vec::new();
     let mut ir_fields = Vec::new();
@@ -366,12 +365,11 @@ fn ir_schema_anonymous_record_spec_inner(
                 });
             }
             Type::Record(fields) => {
-                if !allow_nested_record || nested_record_seen {
+                if nested_record_seen {
                     return None;
                 }
                 nested_record_seen = true;
-                let (field_ty, payload_schema) =
-                    ir_schema_anonymous_record_spec_inner(fields, false)?;
+                let (field_ty, payload_schema) = ir_schema_anonymous_record_spec_inner(fields)?;
                 visible_fields.push((name.clone(), field_ty));
                 ir_fields.push(IrSchemaDecodeField {
                     name,
