@@ -1,0 +1,4 @@
+# Stream state inspection is a net boundary operation.
+pub fn missing_net(stream: NetStream) -> Bool
+	net::stream_can_read(stream)
+end

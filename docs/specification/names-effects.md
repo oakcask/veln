@@ -37,6 +37,9 @@ compiler-known calls.
   handles,
   `net::stream_local_addr` and `net::stream_peer_addr` endpoint text
   inspection for accepted and connected `NetStream` handles,
+  `net::stream_can_read`, `net::stream_can_write`, and
+  `net::stream_is_closed` stream state inspection for owned `NetStream`
+  handles,
   fixture-backed stream writes,
   stream read-side shutdown, stream close recording, and listener close
   recording,
@@ -101,7 +104,13 @@ compiler-known calls.
   and leaves the clean read-end path available on the same `NetStream`.
   `net::shutdown_read` shuts down the stream read side under the same coarse
   `net` effect, makes later optional reads observe clean end, and leaves the
-  write side owned by the same `NetStream`. The
+  write side owned by the same `NetStream`. `net::stream_can_read`,
+  `net::stream_can_write`, and `net::stream_is_closed` observe read-side,
+  write-side, and full-close state as `Bool` under that same `net` effect
+  without consuming stream ownership. After full close, state inspection can
+  still observe the closed handle while later read, write, or shutdown
+  transport operations on that stale handle fail as runtime transport
+  failures. The
   adapter-owned outbound
   ordering example accepts
   deterministic loopback streams, routes ordinary `StreamInput` values
@@ -178,7 +187,12 @@ compiler-known calls.
   and closes the stream under the same `net` effect. The production
   write-side shutdown lifecycle writes response bytes, shuts down output,
   observes clean read end, and then closes the stream under the same `net`
-  effect. The production
+  effect. The production stream state inspection case observes `NetStream`
+  read, write, and closed status before shutdown, after read-side shutdown,
+  after write-side shutdown, and after close, while preserving stream
+  ownership for the intervening write and close operations. A companion
+  production stale-handle case confirms that a write after observed close
+  fails as a runtime transport failure. The production
   multi-chunk routing lifecycle accepts one production stream, preserves
   configured read chunk boundaries as repeated `net::read_chunk_or_end`
   results, routes each chunk as an ordinary `StreamInput.Chunk` through an

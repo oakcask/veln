@@ -33,6 +33,13 @@ behavior.
   `../../examples/specification/check/socket-stream-shutdown-read-effects/`.
 - Production-loopback write-side shutdown lifecycle:
   `../../examples/specification/run/socket-stream-adapter-production-shutdown-write-lifecycle/`.
+- Production-loopback stream state inspection:
+  `../../examples/specification/run/transport-socket-stream-state-inspection/`.
+- Production-loopback stale stream handle failure after state inspection:
+  `../../examples/specification/run/transport-socket-stream-state-stale-write-json/`.
+- `net::stream_can_read`, `net::stream_can_write`, and
+  `net::stream_is_closed` effect checking:
+  `../../examples/specification/check/transport-socket-stream-state-effects/`.
 - Fixture-backed write-side shutdown lifecycle and failure:
   `../../examples/specification/run/socket-stream-adapter-shutdown-write-lifecycle/`
   and

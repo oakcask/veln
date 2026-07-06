@@ -775,6 +775,9 @@ compare it with `../specification/` before changing behavior.
   The completed production two-stream multi-cycle routing slice is archived
   under
   [Network Production Two-Stream Multi-Cycle Routing](../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md).
+  The completed source-visible stream state inspection slice is archived
+  under
+  [Network Stream State Inspection](../reference/implemented-proposals/network-stream-state-inspection.md).
   The completed accepted-stream endpoint text inspection slice is archived
   under
   [Network Stream Address Metadata](../reference/implemented-proposals/network-stream-address-metadata.md).

@@ -2842,6 +2842,9 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("net::read_chunk", "netReadChunk"),
         ("net::stream_local_addr", "netStreamLocalAddr"),
         ("net::stream_peer_addr", "netStreamPeerAddr"),
+        ("net::stream_can_read", "netStreamCanRead"),
+        ("net::stream_can_write", "netStreamCanWrite"),
+        ("net::stream_is_closed", "netStreamIsClosed"),
         ("net::read_chunk_until", "netReadChunkUntil"),
         (
             "net::read_chunk_until_cancellable",

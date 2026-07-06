@@ -44,6 +44,7 @@ checked task slices, and narrow deadline and cancellation slices, for:
   per-stream task handler-failure lifecycle boundary, accepted-stream address
   metadata boundary, listener endpoint text inspection boundary,
   source-visible client connect boundary, the
+  stream state inspection boundary, the
   fixture-backed listen, optional accept, deadline-aware optional accept,
   optional stream-read, deadline-aware optional stream-read, cancellable
   deadline-aware stream-read, deadline-aware stream-write, cancellable
@@ -136,6 +137,8 @@ The completed source-visible client connect slice is archived under
 The completed source-visible production listener/client pairing slice is
 archived under
 [Network Production Listen Connect Lifecycle](../reference/implemented-proposals/network-production-listen-connect-lifecycle.md).
+The completed source-visible stream state inspection slice is archived under
+[Network Stream State Inspection](../reference/implemented-proposals/network-stream-state-inspection.md).
 
 The remaining transport surface should keep the existing coarse `net` effect
 label until effect handlers or an equivalent runtime permission mechanism are
@@ -516,6 +519,10 @@ in
 The production two-stream multi-cycle routing slice is recorded as implemented
 in
 `../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md`.
+
+The source-visible stream state inspection slice is recorded as implemented
+in
+`../reference/implemented-proposals/network-stream-state-inspection.md`.
 
 The HTTP/2 adapter/core write boundary slice is recorded as implemented in
 `../reference/implemented-proposals/network-http2-adapter-core-write-boundary.md`.

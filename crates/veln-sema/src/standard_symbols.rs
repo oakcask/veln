@@ -437,6 +437,36 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
     runtime_symbol_with_signature(
         "net",
+        "stream_can_read",
+        NET_EFFECTS,
+        "runtime.net.stream_can_read",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::Bool,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "stream_can_write",
+        NET_EFFECTS,
+        "runtime.net.stream_can_write",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::Bool,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
+        "stream_is_closed",
+        NET_EFFECTS,
+        "runtime.net.stream_is_closed",
+        StandardSignature {
+            params: PARAM_NET_STREAM,
+            return_type: StandardType::Bool,
+        },
+    ),
+    runtime_symbol_with_signature(
+        "net",
         "read_chunk_until",
         NET_TIME_EFFECTS,
         "runtime.net.read_chunk_until",

@@ -204,6 +204,9 @@ net::listener_local_addr(listener: NetListener) -> String effects [net]
 net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
 net::stream_local_addr(stream: NetStream) -> String effects [net]
 net::stream_peer_addr(stream: NetStream) -> String effects [net]
+net::stream_can_read(stream: NetStream) -> Bool effects [net]
+net::stream_can_write(stream: NetStream) -> Bool effects [net]
+net::stream_is_closed(stream: NetStream) -> Bool effects [net]
 net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net, time]
 net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
 net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
@@ -236,7 +239,9 @@ time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> 
 Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
 effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
 `net::accept_or_end`, `net::listener_local_addr`, `net::read_chunk`,
-`net::read_chunk_or_end`, and
+`net::stream_local_addr`, `net::stream_peer_addr`,
+`net::stream_can_read`, `net::stream_can_write`,
+`net::stream_is_closed`, `net::read_chunk_or_end`, and
 `net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
 `net::shutdown_read`, `net::close_stream`, and `net::close_listener` also
 infer the same coarse `net` effect. Direct calls
@@ -319,9 +324,12 @@ listener cleanup and returns `()`; after that close, `net::accept`,
 `net::accept_until_cancellable` fail as runtime transport failures instead of
 reporting clean end, deadline expiry, or cancellation.
 Connected and accepted streams expose endpoint text through
-`net::stream_local_addr` and `net::stream_peer_addr`, and use the same
-read, write, write-side shutdown, and close helpers. Forced connection
-failure remains a runtime transport failure.
+`net::stream_local_addr` and `net::stream_peer_addr`, expose read-capable,
+write-capable, and closed status through `net::stream_can_read`,
+`net::stream_can_write`, and `net::stream_is_closed`, and use the same read,
+write, write-side shutdown, read-side shutdown, and close helpers. State
+inspection returns `Bool` values without consuming stream ownership. Forced
+connection failure remains a runtime transport failure.
 Fixture-backed listeners expose their local endpoint text through
 `net::listener_local_addr` before accept work without exposing host socket
 handles, closing the listener, or changing later accepted streams.
@@ -340,8 +348,13 @@ writes bytes back to the stream, `net::write_chunks` writes each chunk in
 source list order, `net::shutdown_write` shuts down the stream write side
 without replacing the read clean-end path, `net::shutdown_read` shuts down the
 stream read side so later optional reads report clean end while the write side
-can still write, `net::close_stream` closes the owned stream, and a following
-optional or deadline-aware accept can observe clean listener end.
+can still write, `net::stream_can_read`, `net::stream_can_write`, and
+`net::stream_is_closed` observe the stream state before and after those
+shutdowns and after full close, `net::close_stream` closes the owned stream,
+state inspection can still observe the closed handle, later read, write, or
+shutdown transport operations on that stale handle fail as runtime transport
+failures, and a following optional or deadline-aware accept can observe clean
+listener end.
 When a source program opens a production-loopback listener and then calls
 `net::connect` with the same source-visible address value while that listener
 is still open, the client stream is paired with that listener. A following

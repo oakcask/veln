@@ -48,7 +48,11 @@ enough.
   half-close before full stream close and makes later writes runtime transport
   failures; production-loopback read-side shutdown makes later optional stream
   reads report clean end while preserving write-side ownership until explicit
-  write shutdown or stream close. The
+  write shutdown or stream close. Production-loopback stream state inspection
+  observes read-capable, write-capable, and closed status as source-visible
+  Bool values before half-close, after each half-close, and after full close
+  without consuming the `NetStream` handle; later transport operations through
+  a stale closed handle fail as runtime transport failures. The
   cancellable receiver-list channel-first adapter observes cancellation as an
   ordinary routed, timed-out, or cancelled source outcome before producing
   adapter actions, instead of adding another fixed route-count execution

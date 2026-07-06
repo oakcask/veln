@@ -1,0 +1,34 @@
+# Production loopback stream state inspection preserves stream ownership.
+use stdio
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+fn print_state(label: String, stream: NetStream) -> () effects [net, stdio]
+	stdio::print(label)
+	stdio::print(" read=")
+	stdio::print(bool_text(net::stream_can_read(stream)))
+	stdio::print(" write=")
+	stdio::print(bool_text(net::stream_can_write(stream)))
+	stdio::print(" closed=")
+	stdio::println(bool_text(net::stream_is_closed(stream)))
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	print_state("open", stream)
+	net::shutdown_read(stream)
+	print_state("read-shutdown", stream)
+	let outgoing: ByteChunk = byte_chunk_from_hex("0e0f")?
+	net::write_chunk(stream, outgoing)
+	net::shutdown_write(stream)
+	print_state("write-shutdown", stream)
+	net::close_stream(stream)
+	print_state("closed", stream)
+	Ok(())
+end
