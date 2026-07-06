@@ -340,7 +340,14 @@ enough.
   returned encode state through outbound HEADERS and server-side
   `PUSH_PROMISE` framing in
   `examples/specification/run/http2-protocol-core/`. The same fixture encoder
-  observes the current outbound dynamic-table capacity after a checked
+  accepts a checked ordinary new-name literal-with-indexing header list for
+  visible-ASCII field-name and value pairs that pass the outbound ordinary
+  header-name validation boundary. Encoding `x-trace: ok` first emits raw
+  literal-with-indexing bytes and returns a dynamic-table entry; encoding the
+  same header list from that returned state emits dynamic indexed byte `0xbe`
+  through the outbound HEADERS path. Unsupported ordinary names remain HPACK
+  fixture encode failures before HEADERS bytes are emitted. The same fixture
+  encoder observes the current outbound dynamic-table capacity after a checked
   table-size update: a later literal-with-indexing entry larger than the
   capacity is not retained for dynamic-index reuse, while an entry that fits
   the reduced capacity is retained and reused through the outbound HEADERS

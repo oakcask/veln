@@ -921,8 +921,9 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`,
 and
-`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`.
+[HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
 The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
 table state in ordinary Veln values.
@@ -931,10 +932,8 @@ and the source-visible static decoder boundary archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md):
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal, bounded source-visible static-name
-literals, source-visible Huffman decode boundary, and exact static-indexed
-outbound encode helper, outbound behavior beyond the checked fixture encoder,
-exact static-indexed helper, dynamic-table reuse, dynamic-name, and table-size
-update boundaries, outbound table-size
+literals, source-visible Huffman decode boundary, broader outbound behavior
+beyond the checked fixture encoder boundaries named above, outbound table-size
 behavior beyond the checked fixture encoder update and reduced-capacity
 insertion boundaries, and production header validation beyond
 ordinary request,
@@ -1044,7 +1043,13 @@ never-indexed outbound slice emits the checked raw literal bytes without
 inserting the field into the dynamic table, keeps a later dynamic-index probe
 for that field on the fixture encode-failure path, and preserves earlier
 dynamic entries for later indexed reuse. Unsupported ordinary names stay on
-HPACK fixture header-list encode failures. It also supports checked outbound
+HPACK fixture header-list encode failures. The completed ordinary
+literal-with-indexing outbound slice is archived under
+[HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
+It emits the checked raw `x-trace: ok` literal-with-indexing bytes, returns a
+dynamic-table entry, and reuses the same header list as `0xbe` through a later
+outbound HEADERS path while leaving invalid ordinary names on the encode
+failure path. It also supports checked outbound
 dynamic table-size update
 requests for HEADERS header blocks, carries the returned reduced table
 capacity into later outbound HPACK encoding, and rejects requested updates

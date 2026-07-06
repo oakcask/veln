@@ -35,6 +35,15 @@ dynamic table. A later dynamic-index probe for `x-never: no` therefore stays
 on the HPACK fixture header-list encode failure path, while any earlier
 inserted dynamic entry remains reusable from the returned state.
 
+The same outbound boundary accepts a fixture-owned ordinary new-name
+literal-with-indexing header list for a checked visible-ASCII field-name and
+value pair. It emits the checked `0x40` HPACK prefix and raw `x-trace: ok`
+bytes, returns an immutable encode state that inserts the field into the
+bounded dynamic table, and later encodes the same header list from that state
+as dynamic indexed byte `0xbe`. Invalid ordinary names remain on the HPACK
+fixture header-list encode failure path before outbound HEADERS bytes are
+emitted.
+
 The fixture module also exposes a stateful encode transition. Callers create a
 separate initial encode state, encode a supported literal-with-indexing header
 list, and receive both the encoded header block and a new state whose bounded
@@ -115,7 +124,8 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   `:path: /target` into outbound HEADERS split across CONTINUATION frames,
   stateful literal-with-indexing `:path: /target`
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
-  `0xbe`, outbound dynamic table-size update bytes `0x3e` and
+  `0xbe`, ordinary literal-with-indexing `x-trace: ok` followed by dynamic
+  indexed reuse as `0xbe`, outbound dynamic table-size update bytes `0x3e` and
   `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
   dynamic-table capacity, reduced-capacity `:method: PUT` insertion that is
   not retained at table size `30`, matching insertion that is retained and

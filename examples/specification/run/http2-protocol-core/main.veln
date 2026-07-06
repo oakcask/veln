@@ -9810,6 +9810,29 @@ fn print_outbound_headers_static_accept_encoding_case(outbound_receive_credit: O
 	Ok(())
 end
 
+fn print_outbound_headers_ordinary_indexed_cases(outbound_receive_credit: OutboundReceiveCredit) -> Result<(), String> effects [stdio]
+	let outbound_encode_initial: HpackFixtureState = hpack_fixture::initial_encode_state()
+	let outbound_ordinary_literal_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_ordinary_x_trace_headers(), outbound_encode_initial, 0)
+	let outbound_ordinary_literal_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-literal-indexed-ordinary-x-trace", outbound_ordinary_literal_encode, "4007782d7472616365026f6b")?
+	let outbound_ordinary_literal_encode_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_ordinary_literal_encode)?
+	let outbound_headers_hpack_stateful_ordinary_literal: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_ordinary_literal_encode_transition), false, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers("outbound-headers-hpack-stateful-literal-indexed-ordinary", outbound_headers_hpack_stateful_ordinary_literal)
+	let ignored_headers_hpack_stateful_ordinary_literal_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-literal-indexed-ordinary", outbound_headers_hpack_stateful_ordinary_literal, "00000c0104000000014007782d7472616365026f6b")?
+	let outbound_ordinary_dynamic_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_ordinary_x_trace_headers(), outbound_ordinary_literal_encode_state, 0)
+	let outbound_ordinary_dynamic_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-dynamic-indexed-ordinary-x-trace", outbound_ordinary_dynamic_encode, "be")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-after-ordinary-dynamic", outbound_ordinary_dynamic_encode_state)
+	let outbound_ordinary_dynamic_encode_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_ordinary_dynamic_encode)?
+	let outbound_headers_hpack_stateful_ordinary_dynamic: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_ordinary_dynamic_encode_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_ordinary_literal))?
+	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-indexed-ordinary", outbound_headers_hpack_stateful_ordinary_dynamic)
+	let ignored_headers_hpack_stateful_ordinary_dynamic_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-indexed-ordinary", outbound_headers_hpack_stateful_ordinary_dynamic, "000001010400000001be")?
+	Ok(())
+end
+
+fn print_outbound_headers_indexed_invalid_name_case(outbound_receive_credit: OutboundReceiveCredit) -> Result<(), String> effects [stdio]
+	let outbound_headers_hpack_indexed_invalid_name: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_indexed_invalid_name_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	print_outbound_headers_from_list("outbound-headers-hpack-indexed-invalid-name", outbound_headers_hpack_indexed_invalid_name)
+end
+
 fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
 	let outbound_headers_accepted: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("828486")?, false, empty_peer_settings(), outbound_receive_credit)?
@@ -9850,6 +9873,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_visible_ascii_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-visible-ascii-literal", outbound_headers_hpack_visible_ascii_decision, "00000e0104000000010006782d64656d6f0568656c6c6f")?
 	let outbound_encode_initial: HpackFixtureState = hpack_fixture::initial_encode_state()
 	print_outbound_hpack_encode_state("outbound-headers-hpack-stateful-initial", outbound_encode_initial)
+	let ignored_outbound_ordinary_indexed_cases: () = print_outbound_headers_ordinary_indexed_cases(outbound_receive_credit)?
 	let outbound_literal_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), outbound_encode_initial, 0)
 	let outbound_literal_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-stateful-literal-indexed-path-target", outbound_literal_encode, "44072f746172676574")?
 	let outbound_literal_encode_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(outbound_literal_encode)?
@@ -9918,6 +9942,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	let ignored_headers_hpack_huffman_non_visible_print: () = print_outbound_headers_from_list("outbound-headers-hpack-huffman-non-visible", outbound_headers_hpack_huffman_non_visible)?
 	let outbound_headers_hpack_invalid_name: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_literal_invalid_name_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_invalid_name_print: () = print_outbound_headers_from_list("outbound-headers-hpack-invalid-name", outbound_headers_hpack_invalid_name)?
+	let ignored_headers_hpack_indexed_invalid_name_print: () = print_outbound_headers_indexed_invalid_name_case(outbound_receive_credit)?
 	let outbound_headers_hpack_unsupported: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_unsupported_static_headers(), false, empty_peer_settings(), outbound_receive_credit)?
 	let ignored_headers_hpack_unsupported_print: () = print_outbound_headers_from_list("outbound-headers-hpack-unsupported", outbound_headers_hpack_unsupported)?
 	let outbound_headers_end_stream: OutboundHeadersDecision = send_headers(1, byte_chunk_from_hex("87")?, true, empty_peer_settings(), outbound_receive_credit)?

@@ -506,8 +506,16 @@ pub fn outbound_literal_visible_ascii_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("x-demo", "hello"), HpackHeader(":fixture", "literal-without-indexing"), 14)
 end
 
+pub fn outbound_literal_indexed_ordinary_x_trace_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-trace", "ok"), HpackHeader(":fixture", "literal-with-indexing"), 12)
+end
+
 pub fn outbound_literal_invalid_name_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("bad@name", "ok"), HpackHeader(":fixture", "literal-without-indexing"), 0)
+end
+
+pub fn outbound_literal_indexed_invalid_name_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("bad@name", "ok"), HpackHeader(":fixture", "literal-with-indexing"), 0)
 end
 
 pub fn outbound_literal_indexed_path_target_headers() -> HpackHeaderList
@@ -788,7 +796,7 @@ end
 fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let index: Int = literal_static_name_index(name)
 	match index < 0
-		true => match prefix_offset == 0 or prefix_offset == 16
+		true => match prefix_offset == 0 or prefix_offset == 16 or prefix_offset == 64
 			true => encode_new_name_literal_header_with_prefix(name, value, prefix_offset, headers, offset)
 			false => unsupported_header_list_encoding(headers, offset)
 		end
