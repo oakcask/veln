@@ -190,6 +190,16 @@ fn print_encode_state(label: String, state: HpackFixtureState) -> () effects [st
 	stdio::println(int_to_string(state_encode_count(state)))
 end
 
+fn print_encode_state_entries(label: String, state: HpackFixtureState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" encode_state table_size ")
+	stdio::print(int_to_string(state_table_size(state)))
+	stdio::print(" encode_count ")
+	stdio::print(int_to_string(state_encode_count(state)))
+	stdio::print(" dynamic_entries ")
+	stdio::println(int_to_string(state_dynamic_table_entry_count(state)))
+end
+
 fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
 	match result
 		Ok(transition) => print_decoded_transition(label, transition)
@@ -399,6 +409,13 @@ fn require_table_size(state: HpackFixtureState, expected_table_size: Int) -> Res
 	end
 end
 
+fn require_encode_state(state: HpackFixtureState, expected_table_size: Int, expected_dynamic_entries: Int) -> Result<(), String>
+	match state_table_size(state) == expected_table_size and state_dynamic_table_entry_count(state) == expected_dynamic_entries
+		true => Ok(())
+		false => Err("unexpected HPACK fixture encode state")
+	end
+end
+
 fn print_general_string_literal_cases(initial: HpackFixtureState, literal_state: HpackFixtureState) -> Result<(), String> effects [stdio]
 	let ignored_literal_method_put_huffman: HpackFixtureState = print_required_header("literal-method-put-huffman", decode_header_block(byte_chunk_from_hex("0283d7c37f")?, initial, 83), ":method", "PUT")?
 	let ignored_literal_method_bad_huffman: HpackFixtureState = print_required_header("literal-method-bad-huffman", decode_header_block(byte_chunk_from_hex("02838c727f")?, initial, 106), ":method", "bad")?
@@ -497,9 +514,18 @@ fn print_header_list_encode_cases() -> Result<(), String> effects [stdio]
 	let ignored_ordinary_indexed_again_state: HpackFixtureState = print_encode_transition("encode-stateful-dynamic-indexed-ordinary-x-trace", encode_header_list_with_state(outbound_literal_indexed_ordinary_x_trace_headers(), ordinary_indexed_state, 146), "be")?
 	let _ = print_encode_transition_failure("encode-literal-invalid-name", encode_header_list_with_state(outbound_literal_invalid_name_headers(), initial_encode, 128))?
 	let _ = print_encode_transition_failure("encode-literal-indexed-invalid-name", encode_header_list_with_state(outbound_literal_indexed_invalid_name_headers(), initial_encode, 147))?
+	let zero_state: HpackFixtureState = print_encode_transition("encode-table-size-update-zero", encode_table_size_update_with_state(0, 4096, dynamic_state, 148), "20")?
+	let ignored_zero_state: () = require_encode_state(zero_state, 0, 0)?
+	print_encode_state_entries("encode-table-size-update-zero-state", zero_state)
+	let method_put_headers: HpackHeaderList = outbound_literal_indexed_method_put_headers()
+	let zero_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-zero-method-put", encode_header_list_with_state(method_put_headers, zero_state, 149), "4203505554")?
+	let ignored_zero_method_state: () = require_encode_state(zero_method_state, 0, 0)?
+	print_encode_state_entries("encode-after-table-size-update-zero-method-put-state", zero_method_state)
+	let zero_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-zero-method-put-again", encode_header_list_with_state(method_put_headers, zero_method_state, 150), "4203505554")?
+	let ignored_zero_method_again_state: () = require_encode_state(zero_method_again_state, 0, 0)?
+	print_encode_state_entries("encode-after-table-size-update-zero-method-put-again-state", zero_method_again_state)
 	let reduced_state: HpackFixtureState = print_encode_transition("encode-table-size-update-30", encode_table_size_update_with_state(30, 4096, dynamic_state, 123), "3e")?
 	let ignored_reduced_literal_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30", encode_header_list_with_state(literal_headers, reduced_state, 124), "44072f746172676574")?
-	let method_put_headers: HpackHeaderList = outbound_literal_indexed_method_put_headers()
 	let reduced_method_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put", encode_header_list_with_state(method_put_headers, reduced_state, 140), "4203505554")?
 	let ignored_reduced_method_again_state: HpackFixtureState = print_encode_transition("encode-after-table-size-update-30-method-put-again", encode_header_list_with_state(method_put_headers, reduced_method_state, 141), "4203505554")?
 	let retained_update_state: HpackFixtureState = print_encode_transition("encode-table-size-update-42", encode_table_size_update_with_state(42, 4096, dynamic_state, 142), "3f0b")?

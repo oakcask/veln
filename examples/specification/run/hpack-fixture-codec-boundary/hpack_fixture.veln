@@ -272,6 +272,10 @@ fn state_dynamic_entry_count(state: HpackFixtureState) -> Int
 	end
 end
 
+pub fn state_dynamic_table_entry_count(state: HpackFixtureState) -> Int
+	state_dynamic_entry_count(state)
+end
+
 fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState, block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)

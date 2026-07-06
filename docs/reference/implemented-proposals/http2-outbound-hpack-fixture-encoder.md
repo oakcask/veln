@@ -74,8 +74,11 @@ for the implemented HPACK integer boundary, including `0x3e` for table size
 fixture state with the updated table capacity. Later outbound HEADERS
 encoding from that reduced state observes the new capacity before deciding
 whether a supported header list can reuse a dynamic indexed entry. The checked
-dynamic-table eviction boundary emits `:method: PUT` as a literal again after
-a table-size update to `30`, because the entry does not fit the reduced
+dynamic-table eviction boundary emits `0x20` for a zero table-size update,
+returns a state with zero capacity and no dynamic entries, and keeps repeated
+`:method: PUT` literal-with-indexing HEADERS encodes on the literal path while
+capacity remains zero. It emits `:method: PUT` as a literal again after a
+table-size update to `30`, because the entry does not fit the reduced
 capacity, and reuses the same entry as `0xbe` after a table-size update to
 `42`, because it exactly fits that capacity. A requested
 table-size update greater than the active peer-advertised
@@ -135,10 +138,12 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   encoding before HEADERS splitting, stateful dynamic indexed reuse as
   `0xbe`, ordinary literal-with-indexing `x-trace: ok` followed by dynamic
   indexed reuse as `0xbe`, outbound dynamic table-size update bytes `0x3e` and
-  `0x3f 0x81 0x01`, a following literal HEADERS block that observes reduced
-  dynamic-table capacity, reduced-capacity `:method: PUT` insertion that is
-  not retained at table size `30`, matching insertion that is retained and
-  reused as `0xbe` at table size `42`, received lower and higher peer
+  `0x3f 0x81 0x01`, zero table-size update byte `0x20`, a following literal
+  HEADERS block that observes reduced dynamic-table capacity,
+  zero-capacity `:method: PUT` insertion that is not retained,
+  reduced-capacity `:method: PUT` insertion that is not retained at table size
+  `30`, matching insertion that is retained and reused as `0xbe` at table
+  size `42`, received lower and higher peer
   header-table-size SETTINGS values driving later outbound HPACK fixture
   capacity,
   dynamic-name literal-with-indexing `:path: /again` into outbound HEADERS,
@@ -181,8 +186,8 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   encode and retained reuse, dynamic-name literal-never-indexed encode,
   missing-name failure, retained reuse after the never-indexed dynamic-name
   block, dynamic-name literal-with-indexing insertion, newest reuse, retained
-  older reuse, accepted outbound table-size update bytes, reduced table
-  capacity observed by a later encode,
+  older reuse, accepted outbound table-size update bytes, zero and reduced
+  table capacity observed by later encodes, zero-capacity and
   reduced-capacity `:method: PUT` insertion and retention checks, and
   over-peer-limit table-size update failure.
 - `../../../examples/specification/run/hpack-fixture-codec-json/` checks the
