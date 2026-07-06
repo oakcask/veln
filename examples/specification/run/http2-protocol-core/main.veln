@@ -10639,6 +10639,16 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("hpack-static-request-scheme-https", hpack_static_request_scheme_https)
 	let ignored_hpack_static_request_scheme_https: () = emit_header_block("http2-hpack-static-request-scheme-https", hpack_static_request_scheme_https, "820605687474707384")?
 	print_hpack_static_transition("hpack-static-request-scheme-https", hpack_static_request_scheme_https)
+	let hpack_static_request_scheme_https_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000018206849d29ad1f84")?), state)?
+	print_step("hpack-static-request-scheme-https-huffman", hpack_static_request_scheme_https_huffman)
+	let ignored_hpack_static_request_scheme_https_huffman: () = emit_header_block("http2-hpack-static-request-scheme-https-huffman", hpack_static_request_scheme_https_huffman, "8206849d29ad1f84")?
+	print_hpack_static_transition("hpack-static-request-scheme-https-huffman", hpack_static_request_scheme_https_huffman)
+	let hpack_static_request_scheme_https_huffman_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040100000000018206849d")?), state)?
+	print_step("hpack-static-request-scheme-https-huffman-continuation-start", hpack_static_request_scheme_https_huffman_start)
+	let hpack_static_request_scheme_https_huffman_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000129ad1f84")?), step_state(hpack_static_request_scheme_https_huffman_start))?
+	print_step("hpack-static-request-scheme-https-huffman-continuation-done", hpack_static_request_scheme_https_huffman_done)
+	let ignored_hpack_static_request_scheme_https_huffman_continuation: () = emit_header_block("http2-hpack-static-request-scheme-https-huffman-continuation", hpack_static_request_scheme_https_huffman_done, "8206849d29ad1f84")?
+	print_hpack_static_transition("hpack-static-request-scheme-https-huffman-continuation-done", hpack_static_request_scheme_https_huffman_done)
 	let ignored_hpack_static_request_scheme_validation: () = require_hpack_static_request_scheme_validation(state)?
 	let ignored_hpack_static_request_authority_validation: () = require_hpack_static_request_authority_validation(state)?
 	let hpack_static_response_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000188")?), state)?

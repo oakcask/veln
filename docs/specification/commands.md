@@ -249,10 +249,11 @@ requiring the full command reference on the first read.
   malformed raw-length fallback for those forms. The aggregate HTTP/2
   protocol-core run case also checks source-visible HPACK static-name
   `:scheme` and `:authority` literal values in request header blocks through
-  the existing request header-list validation path, including accepted
-  `:scheme` values `http` and `https`, accepted visible ASCII `:authority`
-  values, and rejected visible ASCII values for both pseudo-headers on
-  completed HEADERS and final CONTINUATION paths. It also checks a
+  the existing request header-list validation path, including accepted raw
+  `:scheme` values `http` and `https`, the checked Huffman-marked `https`
+  value on completed HEADERS and final CONTINUATION paths, accepted visible
+  ASCII `:authority` values, and rejected visible ASCII values for both
+  pseudo-headers. It also checks a
   source-visible HPACK static-name `content-length` literal in request header
   blocks across the
   literal-without-indexing, literal-with-indexing, and literal-never-indexed

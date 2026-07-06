@@ -253,9 +253,10 @@ enough.
   header-list validation and content-length body-accounting paths as fixture
   header lists. Stateful HTTP/2 request decoding also validates static-name
   `:scheme` literal values against the same request header-list rule as
-  fixture-marked values, accepting `http` and `https` and rejecting other
-  visible ASCII values with `scheme_value_not_http_or_https` on completed
-  HEADERS and final CONTINUATION paths. It also validates source-visible
+  fixture-marked values, accepting raw `http` and `https` values plus the
+  checked Huffman-marked `https` value and rejecting other visible ASCII
+  values with `scheme_value_not_http_or_https` on completed HEADERS and final
+  CONTINUATION paths. It also validates source-visible
   static-name `:authority` literal values through the existing request
   header-list path, accepting checked visible ASCII authority values and
   rejecting the checked invalid visible ASCII value with
