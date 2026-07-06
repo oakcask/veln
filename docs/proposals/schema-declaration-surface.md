@@ -85,11 +85,12 @@ schemas whose fields use implemented exact-width unsigned primitives,
   `Vec<scalar>` field, `Vec<Option<scalar>>` field,
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Option<Dict<String, scalar>>` field, `Result<scalar, scalar>` field, or
-  anonymous record field whose fields are supported format-neutral encode
-  shapes, plus same-module source ADT fields and public imported source ADT
-  fields referenced through written `use` paths whose constructor payloads are
-  supported format-neutral encode shapes. The supported scalar leaves are
-  `Int`, `Bool`, `Float`, and `String`
+  `Result<scalar, Option<scalar>>` field, or anonymous record field whose
+  fields are supported format-neutral encode shapes, plus same-module source
+  ADT fields and public imported source ADT fields referenced through written
+  `use` paths whose constructor payloads are supported format-neutral encode
+  shapes. The supported scalar leaves are `Int`, `Bool`, `Float`, and
+  `String`
 - generated encode-time field-local validation for eligible
   `byte_encode_<schema>` helpers, using the supported schema predicate
   language over the current visible `Int` field and earlier visible `Int`
@@ -147,6 +148,10 @@ archived under
 The completed format-neutral `Result<scalar, scalar>` helper slice is archived
 under
 [Format-Neutral Schema Result Helpers](../reference/implemented-proposals/format-neutral-schema-result-helpers.md).
+
+The completed format-neutral `Result<scalar, Option<scalar>>` encode helper
+slice is archived under
+[Format-Neutral Schema Result Option Encode Helpers](../reference/implemented-proposals/format-neutral-schema-result-option-encode-helpers.md).
 
 The completed format-neutral recursive `Result` visible-shape helper slice is
 archived under
@@ -215,7 +220,7 @@ This proposal remains open for:
   bounded repeat, length-bounded `ByteView`, closed dispatch, and extension
   dispatch slices, and format-neutral encode helper fields beyond the
   implemented scalar, supported container, dictionary-option, option-dictionary,
-  scalar-result, anonymous record, and source ADT shapes
+  scalar-result, result-option, anonymous record, and source ADT shapes
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations

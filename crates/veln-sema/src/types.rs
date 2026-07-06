@@ -3121,7 +3121,8 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
             if name == "Result"
                 && args.len() == 2
                 && format_neutral_schema_scalar_type(&args[0])
-                && format_neutral_schema_scalar_type(&args[1]) =>
+                && (format_neutral_schema_scalar_type(&args[1])
+                    || format_neutral_schema_option_scalar_type(&args[1])) =>
         {
             Some(ty.clone())
         }

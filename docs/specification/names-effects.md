@@ -286,8 +286,9 @@ compiler-known calls.
   `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
   `Option<Dict<String, scalar>>` fields, `Result<scalar, scalar>` fields,
-  and anonymous record fields whose fields are supported format-neutral encode
-  shapes without producing binary bytes.
+  `Result<scalar, Option<scalar>>` fields, and anonymous record fields whose
+  fields are supported format-neutral encode shapes without producing binary
+  bytes.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
   `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,

@@ -1,0 +1,107 @@
+# Format-neutral schema encode helpers accept Result<scalar, Option<scalar>> fields.
+use stdio
+
+schema ResultOptionPacket
+	code: Result<Int, Option<String>>
+	ready: Result<Bool, Option<Int>>
+	ratio: Result<Float, Option<Bool>>
+	label: Result<String, Option<Float>>
+	metadata: {flag: Bool, outcome: Result<String, Option<Int>>}
+end
+
+fn code_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.code
+			Ok(code) => int_to_string(code)
+			Err(maybe_message) => match maybe_message
+				Some(message) => message
+				None => "missing-code"
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn ready_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.ready
+			Ok(ready) => match ready
+				true => "ready"
+				false => "blocked"
+			end
+			Err(maybe_code) => match maybe_code
+				Some(code) => int_to_string(code)
+				None => "missing-ready"
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn ratio_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.ratio
+			Ok(ratio) => match ratio > 1.0
+				true => "ratio-high"
+				false => "ratio-low"
+			end
+			Err(maybe_flag) => match maybe_flag
+				Some(flag) => match flag
+					true => "ratio-flag"
+					false => "ratio-clear"
+				end
+				None => "missing-ratio"
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn label_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.label
+			Ok(label) => label
+			Err(maybe_ratio) => match maybe_ratio
+				Some(ratio) => match ratio > 1.0
+					true => "label-ratio-high"
+					false => "label-ratio-low"
+				end
+				None => "missing-label"
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn metadata_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
+	match result
+		Ok(packet) => match packet.metadata.outcome
+			Ok(outcome) => outcome
+			Err(maybe_code) => match maybe_code
+				Some(code) => int_to_string(code)
+				None => match packet.metadata.flag
+					true => "metadata-missing"
+					false => "metadata-clear"
+				end
+			end
+		end
+		Err(message) => message
+	end
+end
+
+fn emit(packet: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> () effects [stdio]
+	stdio::println(code_text(packet))
+	stdio::println(ready_text(packet))
+	stdio::println(ratio_text(packet))
+	stdio::println(label_text(packet))
+	stdio::println(metadata_text(packet))
+end
+
+pub fn main() -> () effects [stdio]
+	let ok_packet: {code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}} = {code: Ok(7), ready: Ok(true), ratio: Ok(1.5), label: Ok("result-option"), metadata: {flag: true, outcome: Ok("nested-ok")}}
+	let none_packet: {code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}} = {code: Err(None), ready: Err(None), ratio: Err(None), label: Err(None), metadata: {flag: true, outcome: Err(None)}}
+	let some_packet: {code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}} = {code: Err(Some("bad-code")), ready: Err(Some(503)), ratio: Err(Some(true)), label: Err(Some(1.5)), metadata: {flag: false, outcome: Err(Some(404))}}
+	emit(byte_encode_result_option_packet(ok_packet))
+	emit(encode ResultOptionPacket from none_packet)
+	emit(byte_encode_result_option_packet(some_packet))
+end

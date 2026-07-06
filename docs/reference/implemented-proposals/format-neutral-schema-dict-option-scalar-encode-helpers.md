@@ -41,6 +41,6 @@ non-string dictionary keys remain outside the generated encode helper surface.
 
 The broader schema declaration proposal remains open for format-neutral encode
 helpers beyond the implemented scalar, supported container,
-dictionary-option, option-dictionary, scalar-result, anonymous record, and
-source ADT shapes, binary schema fields outside the implemented helper slices,
-and later schema composition surfaces.
+dictionary-option, option-dictionary, scalar-result, result-option, anonymous
+record, and source ADT shapes, binary schema fields outside the implemented
+helper slices, and later schema composition surfaces.
