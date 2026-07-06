@@ -120,6 +120,8 @@
             new java.util.concurrent.atomic.AtomicBoolean(false);
         private final java.util.concurrent.atomic.AtomicBoolean writeShutdown =
             new java.util.concurrent.atomic.AtomicBoolean(false);
+        private final java.util.concurrent.atomic.AtomicBoolean closed =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
         private NetStream(String id) {
             this(id, id, id, null, null, null, false, null, null);
@@ -204,6 +206,14 @@
 
         private boolean isReadShutdown() {
             return readShutdown.get();
+        }
+
+        private boolean isClosed() {
+            return closed.get() || (socket != null && socket.isClosed());
+        }
+
+        private boolean closeOnce() {
+            return closed.compareAndSet(false, true);
         }
 
         private boolean shutdownReadOnce() {
@@ -1010,6 +1020,7 @@
             throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamClosed(value, "read");
         if (value.isProductionSocket()) {
             return readProductionChunk(value);
         }
@@ -1060,11 +1071,27 @@
         return checkedStreamAddress(value.peerAddress, "peer");
     }
 
+    public static Object netStreamCanRead(Object stream) {
+        NetStream value = asNetStream(stream);
+        return Boolean.valueOf(!value.isClosed() && !value.isReadShutdown());
+    }
+
+    public static Object netStreamCanWrite(Object stream) {
+        NetStream value = asNetStream(stream);
+        return Boolean.valueOf(!value.isClosed() && !value.isWriteShutdown());
+    }
+
+    public static Object netStreamIsClosed(Object stream) {
+        NetStream value = asNetStream(stream);
+        return Boolean.valueOf(value.isClosed());
+    }
+
     public static Object netReadChunkOrEnd(Object stream) {
         if (forced("VELN_NET_READ_FAILED")) {
             throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamClosed(value, "read");
         if (value.isProductionSocket()) {
             Object chunk = readProductionChunkOrNull(value);
             return chunk == null ? none() : some(chunk);
@@ -1115,6 +1142,7 @@
             throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
         }
         NetStream value = asNetStream(stream);
+        failIfStreamClosed(value, "read");
         if (readDeadlineExpired(deadline)) {
             try {
                 writeNetEvent("read-deadline " + value.id);
@@ -1177,6 +1205,7 @@
         }
         NetStream value = asNetStream(stream);
         CancelToken cancelToken = asCancelToken(token);
+        failIfStreamClosed(value, "read");
         if (waitCancelled(cancelToken)) {
             try {
                 writeNetEvent("read-cancelled " + value.id);
@@ -1469,6 +1498,7 @@
 
     public static Object netShutdownWrite(Object stream) {
         NetStream value = asNetStream(stream);
+        failIfStreamClosed(value, "shutdown_write");
         if (value.isProductionSocket()) {
             shutdownProductionWrite(value);
             return UNIT;
@@ -1488,6 +1518,7 @@
 
     public static Object netShutdownRead(Object stream) {
         NetStream value = asNetStream(stream);
+        failIfStreamClosed(value, "shutdown_read");
         if (value.isProductionSocket()) {
             shutdownProductionRead(value);
             return UNIT;
@@ -1510,6 +1541,7 @@
             throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");
         }
         NetStream value = asNetStream(stream);
+        value.closeOnce();
         if (value.isProductionSocket()) {
             closeProductionStream(value);
             return UNIT;
@@ -1565,7 +1597,14 @@
         }
     }
 
+    private static void failIfStreamClosed(NetStream stream, String operation) {
+        if (stream.isClosed()) {
+            throw new RuntimeFailure("transport " + operation + " failed: stream closed");
+        }
+    }
+
     private static void failIfStreamWriteShutdown(NetStream stream) {
+        failIfStreamClosed(stream, "write");
         if (stream.isWriteShutdown()) {
             throw new RuntimeFailure("transport write failed: stream write side is shut down");
         }
@@ -1580,6 +1619,7 @@
     }
 
     private static Object readProductionChunkOrNull(NetStream stream) {
+        failIfStreamClosed(stream, "read");
         if (stream.isReadShutdown()) {
             try {
                 writeNetEvent("read-end-production " + stream.id);

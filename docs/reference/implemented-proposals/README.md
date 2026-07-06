@@ -323,6 +323,8 @@ behavior.
   [network-stream-shutdown-write-boundary.md](network-stream-shutdown-write-boundary.md).
 - Network stream shutdown read boundary:
   [network-stream-shutdown-read-boundary.md](network-stream-shutdown-read-boundary.md).
+- Network stream state inspection:
+  [network-stream-state-inspection.md](network-stream-state-inspection.md).
 - Network listener close boundary:
   [network-listener-close-boundary.md](network-listener-close-boundary.md).
 - Network client connect boundary:

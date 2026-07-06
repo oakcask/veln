@@ -1,0 +1,19 @@
+# Closed stream state is observable before stale writes fail.
+use stdio
+
+fn bool_text(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::close_stream(stream)
+	stdio::println(bool_text(net::stream_is_closed(stream)))
+	let outgoing: ByteChunk = byte_chunk_from_hex("0a")?
+	net::write_chunk(stream, outgoing)
+	Ok(())
+end
