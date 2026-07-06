@@ -38,6 +38,7 @@ pub struct IrSchemaRepeat {
     pub width: u8,
     pub max_value: i64,
     pub little_endian: bool,
+    pub reserved_bits: Option<IrSchemaReservedBits>,
     pub byte_view_length_field: Option<String>,
     pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
 }

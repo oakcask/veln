@@ -1,0 +1,16 @@
+# Binary schema Repeat reserved payloads report mismatch at the element index.
+
+schema RepeatReservePayload
+	format binary
+
+	count: UInt8
+	items: Repeat(count, uint16be reserves 43981)
+	kind: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("02abcdabce2a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let _: {count: Int, kind: Int} = byte_decode_repeat_reserve_payload(view)?
+	Ok(())
+end

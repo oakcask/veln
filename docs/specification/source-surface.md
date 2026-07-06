@@ -85,7 +85,8 @@ and
 `examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`.
 Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
 primitive payload spellings that are accepted by canonical repeated-field
-syntax.
+syntax. They also accept supported lowercase `uint... reserves <value>`
+payloads as representation-only repeated payloads.
 Closed and extension dispatch payload cases accept the same lowercase
 exact-width `uint...` and `flag...` spelling wherever the compatible
 upper-case exact-width primitive payload spelling is accepted. Byte-aligned

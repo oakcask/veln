@@ -383,7 +383,8 @@ compare it with `../specification/` before changing behavior.
   The completed public imported nested dispatch
   `ByteView(left_length / right_length)` payload helper slice is archived under
   [Binary Schema Imported Dispatch ByteView Quotient Payload Helpers](../reference/implemented-proposals/binary-schema-imported-dispatch-byteview-quotient-payload-helpers.md).
-  The completed bounded repeat helper binding slice is archived under
+  The completed bounded repeat helper binding slice, including
+  representation-only lowercase reserved repeat payloads, is archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed bounded repeat `ByteView(left_length - right_length)` payload
   helper slice is archived under

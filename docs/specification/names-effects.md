@@ -351,6 +351,7 @@ compiler-known calls.
   `[Payload; count]`, closed dispatch, extension dispatch, and eligible nested
   dispatch payload slices accept schema-local visible fields, using
   `ByteView` fields for length-bounded payloads, `List<T>` fields for repeated
+  visible payloads, no visible field for representation-only repeated reserved
   payloads, and `SchemaDispatchPayload<T>` for extension dispatch payload
   fields. Schema-facing byte conversions are explicit source-visible helper
   calls: `byte_view` supplies bounded `ByteView` payloads over owned bytes, and

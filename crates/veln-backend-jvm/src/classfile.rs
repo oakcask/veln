@@ -910,6 +910,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
         self.emit_schema_repeat_little_endian_values(code, schema);
+        self.emit_schema_repeat_reserved_values(code, schema);
         self.emit_schema_repeat_byte_view_length_fields(code, schema);
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
@@ -926,7 +927,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            &object_method_descriptor(24),
+            &object_method_descriptor(25),
         );
     }
 
@@ -953,6 +954,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
         self.emit_schema_repeat_little_endian_values(code, schema);
+        self.emit_schema_repeat_reserved_values(code, schema);
         self.emit_schema_repeat_byte_view_length_fields(code, schema);
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
@@ -969,7 +971,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            &object_method_descriptor(25),
+            &object_method_descriptor(26),
         );
     }
 
@@ -995,6 +997,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
         self.emit_schema_repeat_little_endian_values(code, schema);
+        self.emit_schema_repeat_reserved_values(code, schema);
         self.emit_schema_repeat_byte_view_length_fields(code, schema);
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
@@ -1010,7 +1013,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
-            &object_method_descriptor(23),
+            &object_method_descriptor(24),
         );
     }
 
@@ -1058,6 +1061,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             self.emit_schema_repeat_widths(code, schema);
             self.emit_schema_repeat_max_values(code, schema);
             self.emit_schema_repeat_little_endian_values(code, schema);
+            self.emit_schema_repeat_reserved_values(code, schema);
             self.emit_schema_repeat_byte_view_length_fields(code, schema);
             self.emit_schema_repeat_schema_specs(code, schema);
             self.emit_schema_reserved_bit_widths(code, schema);
@@ -1073,7 +1077,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.invokestatic(
                 &self.program.options.runtime_class,
                 "byteEncodeStepDeclaredBinarySchemaBudgeted",
-                &object_method_descriptor(24),
+                &object_method_descriptor(25),
             );
             return;
         };
@@ -1088,6 +1092,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
         self.emit_schema_repeat_little_endian_values(code, schema);
+        self.emit_schema_repeat_reserved_values(code, schema);
         self.emit_schema_repeat_byte_view_length_fields(code, schema);
         self.emit_schema_repeat_schema_specs(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
@@ -1103,7 +1108,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeStepDeclaredBinarySchema",
-            &object_method_descriptor(23),
+            &object_method_descriptor(24),
         );
     }
 
@@ -1273,6 +1278,28 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             } else {
                 code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
             }
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_repeat_reserved_values(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            let value = schema.fields[index]
+                .repeat
+                .as_ref()
+                .and_then(|repeat| repeat.reserved_bits.as_ref())
+                .map(|reserved| reserved.expected_value)
+                .unwrap_or(-1);
+            code.ldc_long(value);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         });
         code.invokestatic(
             &self.program.options.runtime_class,
@@ -1574,7 +1601,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, 23, |this, code, index| match index {
+        self.emit_object_array(code, 24, |this, code, index| match index {
             0 => code.ldc_string(&schema.schema_name),
             1 => this.emit_schema_field_names(code, schema),
             2 => this.emit_schema_field_widths(code, schema),
@@ -1585,19 +1612,20 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             7 => this.emit_schema_repeat_widths(code, schema),
             8 => this.emit_schema_repeat_max_values(code, schema),
             9 => this.emit_schema_repeat_little_endian_values(code, schema),
-            10 => this.emit_schema_repeat_byte_view_length_fields(code, schema),
-            11 => this.emit_schema_repeat_schema_specs(code, schema),
-            12 => this.emit_schema_reserved_bit_widths(code, schema),
-            13 => this.emit_schema_reserved_values(code, schema),
-            14 => this.emit_schema_field_predicates(code, schema),
-            15 => this.emit_schema_byte_view_multiples(code, schema),
-            16 => this.emit_schema_validation(code, schema),
-            17 => this.emit_schema_dispatch_tag_fields(code, schema),
-            18 => this.emit_schema_dispatch_length_fields(code, schema),
-            19 => this.emit_schema_dispatch_case_tags(code, schema),
-            20 => this.emit_schema_dispatch_case_widths(code, schema),
-            21 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
-            22 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            10 => this.emit_schema_repeat_reserved_values(code, schema),
+            11 => this.emit_schema_repeat_byte_view_length_fields(code, schema),
+            12 => this.emit_schema_repeat_schema_specs(code, schema),
+            13 => this.emit_schema_reserved_bit_widths(code, schema),
+            14 => this.emit_schema_reserved_values(code, schema),
+            15 => this.emit_schema_field_predicates(code, schema),
+            16 => this.emit_schema_byte_view_multiples(code, schema),
+            17 => this.emit_schema_validation(code, schema),
+            18 => this.emit_schema_dispatch_tag_fields(code, schema),
+            19 => this.emit_schema_dispatch_length_fields(code, schema),
+            20 => this.emit_schema_dispatch_case_tags(code, schema),
+            21 => this.emit_schema_dispatch_case_widths(code, schema),
+            22 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
+            23 => this.emit_schema_dispatch_case_schema_specs(code, schema),
             _ => unreachable!(),
         });
         code.invokestatic(

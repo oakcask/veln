@@ -1,0 +1,51 @@
+# Binary schema Repeat reserved payloads decode and encode representation bytes only.
+use stdio
+
+schema RepeatReservePayload
+	format binary
+
+	count: UInt8
+	items: Repeat(count, uint16be reserves 43981)
+	kind: UInt8
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	emit_output_chunk_list_header("repeat-reserved", 1)
+	emit_output_chunk("repeat-reserved", 0, bytes, "03abcdabcdabcd2a")
+end
+
+fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("03abcdabcdabcd2a")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let decoded: {count: Int, kind: Int} = byte_decode_repeat_reserve_payload(view)?
+	stdio::println(int_to_string(decoded.count))
+	stdio::println(int_to_string(decoded.kind))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_repeat_reserve_payload({count: 3, kind: 42})
+	emit_result(encoded)
+	Ok(())
+end

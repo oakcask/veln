@@ -1076,6 +1076,7 @@ fn check_schema_repeat_field(
     }
     let element_ty = match &repeat.payload {
         SchemaRepeatPayload::Primitive { .. } => Type::int(),
+        SchemaRepeatPayload::ReservedBits { .. } => return None,
         SchemaRepeatPayload::ByteView { length_field } => {
             if !check_schema_repeat_byte_view_reference(
                 schema,
