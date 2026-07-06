@@ -1,0 +1,53 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "format-neutral schema field `private_payload` cannot expose a generated decode helper", "\"field_type\":\"Result<wire::PrivateWirePayload, String>\"", "unresolved call_target `byte_encode_unsupported_recursive_result_packet`", "schema encode expression cannot resolve `UnsupportedRecursiveResultPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 6
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `callback` cannot expose a generated decode helper because `Result<Int, fn(Int) -> String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `bad_dict` cannot expose a generated decode helper because `Result<Dict<Int, Int>, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `private_payload` cannot expose a generated decode helper because `Result<wire::PrivateWirePayload, String>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
+
+[[diagnostics]]
+id = "schema.format_neutral_decode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `metadata` cannot expose a generated decode helper because `{ nested_callback : Result<Result<Int, String>, fn(Int) -> String> }` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `byte_encode_unsupported_recursive_result_packet`"
+
+[[diagnostics]]
+id = "schema.encode_expression"
+severity = "error"
+kind = "type"
+message = "schema encode expression cannot resolve `UnsupportedRecursiveResultPacket` as an eligible schema encode helper"

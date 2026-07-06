@@ -291,6 +291,8 @@ behavior.
   [format-neutral-schema-container-encode-helpers.md](format-neutral-schema-container-encode-helpers.md).
 - Format-neutral schema `Result<scalar, Option<scalar>>` encode helpers:
   [format-neutral-schema-result-option-encode-helpers.md](format-neutral-schema-result-option-encode-helpers.md).
+- Format-neutral schema recursive `Result` encode helpers:
+  [format-neutral-schema-recursive-result-encode-helpers.md](format-neutral-schema-recursive-result-encode-helpers.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:
