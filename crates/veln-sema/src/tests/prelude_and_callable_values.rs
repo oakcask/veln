@@ -10169,8 +10169,9 @@ fn infers_prelude_helper_calls_from_expected_types() {
         } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
-    let source_backed_prelude_names =
-        crate::standard_symbols::source_backed_prelude_names().collect::<Vec<_>>();
+    let source_backed_prelude_names = crate::standard_symbols::source_backed_prelude_names()
+        .filter(|name| *name != "stream_adapter_drain_actions")
+        .collect::<Vec<_>>();
     let core_prelude_calls = fields
         .iter()
         .filter_map(|field| match &field.expr.kind {

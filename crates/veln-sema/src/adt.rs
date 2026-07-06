@@ -215,8 +215,9 @@ impl AdtRegistry {
         uses: &[UseDecl],
         include_imports: bool,
     ) -> ConstructorLookup<'_> {
-        let matches =
+        let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
+        prefer_current_module_constructors(&mut matches, segments, current_module);
         match matches.as_slice() {
             [] => ConstructorLookup::Missing,
             [constructor] => ConstructorLookup::Found(*constructor),
@@ -254,6 +255,28 @@ impl AdtRegistry {
         }
         matches
     }
+}
+
+fn prefer_current_module_constructors<'a>(
+    matches: &mut Vec<AdtConstructor<'a>>,
+    segments: &[String],
+    current_module: Option<&str>,
+) {
+    if segments.len() != 1 {
+        return;
+    }
+    let Some(current_module) = current_module else {
+        return;
+    };
+    if !matches
+        .iter()
+        .any(|constructor| constructor.descriptor.module_name.as_deref() == Some(current_module))
+    {
+        return;
+    }
+    matches.retain(|constructor| {
+        constructor.descriptor.module_name.as_deref() == Some(current_module)
+    });
 }
 
 fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {
