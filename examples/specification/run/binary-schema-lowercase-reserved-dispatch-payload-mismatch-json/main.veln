@@ -4,7 +4,7 @@ schema ClosedThreeBitReservedDispatch
 	format binary
 
 	kind: uint8
-	payload: Dispatch(kind, 1 => uint3 reserves 0)
+	payload: Dispatch(kind, 1 => uint3 reserves 5)
 end
 
 pub fn main() -> Result<(), String>

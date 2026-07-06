@@ -40,7 +40,7 @@ equals = 3
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_value"
-equals = 0
+equals = 5
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.actual_value"

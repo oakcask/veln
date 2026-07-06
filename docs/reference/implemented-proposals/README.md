@@ -215,6 +215,8 @@ behavior.
   [binary-schema-dispatch-lowercase-two-bit-reserved-payload.md](binary-schema-dispatch-lowercase-two-bit-reserved-payload.md).
 - Binary schema dispatch lowercase subbyte reserved payloads:
   [binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md](binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md).
+- Binary schema dispatch nonzero lowercase subbyte reserved payloads:
+  [binary-schema-dispatch-nonzero-lowercase-subbyte-reserved-payloads.md](binary-schema-dispatch-nonzero-lowercase-subbyte-reserved-payloads.md).
 - Binary schema dispatch reserved byte prefix payload helpers:
   [binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md](binary-schema-dispatch-reserved-byte-prefix-payload-helpers.md).
 - Binary schema dispatch nested repeat helpers:

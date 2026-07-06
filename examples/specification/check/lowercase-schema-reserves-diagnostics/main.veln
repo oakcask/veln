@@ -39,5 +39,5 @@ schema DispatchUnsupportedReserveValuePayload
 	format binary
 
 	tag: uint8
-	payload: Dispatch(tag, 1 => uint8 reserves 256)
+	payload: Dispatch(tag, 1 => uint2 reserves 4, 2 => uint8 reserves 256)
 end

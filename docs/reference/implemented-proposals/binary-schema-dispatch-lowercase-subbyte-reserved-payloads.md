@@ -23,8 +23,10 @@ compare the supplied length against that one-byte encoded payload.
 
 The slice is intentionally bounded to zero-reserved one-byte subbyte payloads.
 Byte-aligned reserved dispatch payloads continue to use the existing
-byte-aligned path. Non-zero subbyte reserved payloads and non-byte-aligned
-reserved payloads that span more than one byte remain outside this record.
+byte-aligned path. Nonzero subbyte reserved payloads are covered by
+[Binary Schema Dispatch Nonzero Lowercase Subbyte Reserved Payloads](binary-schema-dispatch-nonzero-lowercase-subbyte-reserved-payloads.md).
+Non-byte-aligned reserved payloads that span more than one byte remain outside
+this record.
 
 ## Evidence
 

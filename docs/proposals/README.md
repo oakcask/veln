@@ -318,6 +318,10 @@ compare it with `../specification/` before changing behavior.
   direct lowercase dispatch payloads written as zero-reserved subbyte payloads
   from `uint1 reserves 0` through `uint7 reserves 0`
   ([Binary Schema Dispatch Lowercase Subbyte Reserved Payloads](../reference/implemented-proposals/binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md)),
+  direct lowercase dispatch payloads written as nonzero subbyte payloads from
+  `uint1 reserves 1` through `uint7 reserves 127` when the reserved value fits
+  the declared width
+  ([Binary Schema Dispatch Nonzero Lowercase Subbyte Reserved Payloads](../reference/implemented-proposals/binary-schema-dispatch-nonzero-lowercase-subbyte-reserved-payloads.md)),
   schema-local field reference diagnostics for repeat count fields and count
   expressions, byte-view lengths, byte-view payload multiple operands,
   dispatch tags, and extension-dispatch tags and lengths

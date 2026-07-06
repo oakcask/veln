@@ -27,21 +27,21 @@ schema ClosedSubbyteReservedDispatch
 	format binary
 
 	kind: uint8
-	payload: Dispatch(kind, 1 => uint1 reserves 0)
+	payload: Dispatch(kind, 1 => uint1 reserves 1)
 end
 
 schema ClosedTwoBitReservedDispatch
 	format binary
 
 	kind: uint8
-	payload: Dispatch(kind, 1 => uint2 reserves 0)
+	payload: Dispatch(kind, 1 => uint2 reserves 3)
 end
 
 schema ClosedSevenBitReservedDispatch
 	format binary
 
 	kind: uint8
-	payload: Dispatch(kind, 1 => uint7 reserves 0)
+	payload: Dispatch(kind, 1 => uint7 reserves 127)
 end
 
 schema ExtensionSubbyteReservedDispatch
@@ -49,7 +49,7 @@ schema ExtensionSubbyteReservedDispatch
 
 	length: uint8
 	kind: uint8
-	payload: ExtensionDispatch(kind, length, 1 => uint1 reserves 0)
+	payload: ExtensionDispatch(kind, length, 1 => uint1 reserves 1)
 end
 
 schema ExtensionTwoBitReservedDispatch
@@ -57,7 +57,7 @@ schema ExtensionTwoBitReservedDispatch
 
 	length: uint8
 	kind: uint8
-	payload: ExtensionDispatch(kind, length, 1 => uint2 reserves 0)
+	payload: ExtensionDispatch(kind, length, 1 => uint2 reserves 3)
 end
 
 schema ExtensionSevenBitReservedDispatch
@@ -65,7 +65,7 @@ schema ExtensionSevenBitReservedDispatch
 
 	length: uint8
 	kind: uint8
-	payload: ExtensionDispatch(kind, length, 1 => uint7 reserves 0)
+	payload: ExtensionDispatch(kind, length, 1 => uint7 reserves 127)
 end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
@@ -130,28 +130,28 @@ pub fn main() -> Result<(), String> effects [stdio]
 	emit_extension_payload(extension.payload)
 	emit_encoded("extension-reserved-dispatch", byte_encode_extension_reserved_dispatch({length: extension.length, kind: extension.kind, payload: Known(())}), "0201abcd")
 
-	let closed_subbyte_bytes: ByteChunk = byte_chunk_from_hex("0100")?
+	let closed_subbyte_bytes: ByteChunk = byte_chunk_from_hex("0180")?
 	let closed_subbyte_view: ByteView = byte_view(closed_subbyte_bytes, byte_offset(0)?, byte_count(2)?)?
 	let closed_subbyte: {kind: Int, payload: ()} = byte_decode_closed_subbyte_reserved_dispatch(closed_subbyte_view)?
 	stdio::print("closed-subbyte ")
 	stdio::println(int_to_string(closed_subbyte.kind))
-	emit_encoded("closed-subbyte-reserved-dispatch", byte_encode_closed_subbyte_reserved_dispatch(closed_subbyte), "0100")
+	emit_encoded("closed-subbyte-reserved-dispatch", byte_encode_closed_subbyte_reserved_dispatch(closed_subbyte), "0180")
 
-	let closed_two_bit_bytes: ByteChunk = byte_chunk_from_hex("0100")?
+	let closed_two_bit_bytes: ByteChunk = byte_chunk_from_hex("01c0")?
 	let closed_two_bit_view: ByteView = byte_view(closed_two_bit_bytes, byte_offset(0)?, byte_count(2)?)?
 	let closed_two_bit: {kind: Int, payload: ()} = byte_decode_closed_two_bit_reserved_dispatch(closed_two_bit_view)?
 	stdio::print("closed-two-bit ")
 	stdio::println(int_to_string(closed_two_bit.kind))
-	emit_encoded("closed-two-bit-reserved-dispatch", byte_encode_closed_two_bit_reserved_dispatch(closed_two_bit), "0100")
+	emit_encoded("closed-two-bit-reserved-dispatch", byte_encode_closed_two_bit_reserved_dispatch(closed_two_bit), "01c0")
 
-	let closed_seven_bit_bytes: ByteChunk = byte_chunk_from_hex("0100")?
+	let closed_seven_bit_bytes: ByteChunk = byte_chunk_from_hex("01fe")?
 	let closed_seven_bit_view: ByteView = byte_view(closed_seven_bit_bytes, byte_offset(0)?, byte_count(2)?)?
 	let closed_seven_bit: {kind: Int, payload: ()} = byte_decode_closed_seven_bit_reserved_dispatch(closed_seven_bit_view)?
 	stdio::print("closed-seven-bit ")
 	stdio::println(int_to_string(closed_seven_bit.kind))
-	emit_encoded("closed-seven-bit-reserved-dispatch", byte_encode_closed_seven_bit_reserved_dispatch(closed_seven_bit), "0100")
+	emit_encoded("closed-seven-bit-reserved-dispatch", byte_encode_closed_seven_bit_reserved_dispatch(closed_seven_bit), "01fe")
 
-	let extension_subbyte_bytes: ByteChunk = byte_chunk_from_hex("010100")?
+	let extension_subbyte_bytes: ByteChunk = byte_chunk_from_hex("010180")?
 	let extension_subbyte_view: ByteView = byte_view(extension_subbyte_bytes, byte_offset(0)?, byte_count(3)?)?
 	let extension_subbyte: {length: Int, kind: Int, payload: SchemaDispatchPayload<()>} = byte_decode_extension_subbyte_reserved_dispatch(extension_subbyte_view)?
 	stdio::print("extension-subbyte ")
@@ -159,9 +159,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(extension_subbyte.kind))
 	emit_extension_payload(extension_subbyte.payload)
-	emit_encoded("extension-subbyte-reserved-dispatch", byte_encode_extension_subbyte_reserved_dispatch({length: extension_subbyte.length, kind: extension_subbyte.kind, payload: Known(())}), "010100")
+	emit_encoded("extension-subbyte-reserved-dispatch", byte_encode_extension_subbyte_reserved_dispatch({length: extension_subbyte.length, kind: extension_subbyte.kind, payload: Known(())}), "010180")
 
-	let extension_two_bit_bytes: ByteChunk = byte_chunk_from_hex("010100")?
+	let extension_two_bit_bytes: ByteChunk = byte_chunk_from_hex("0101c0")?
 	let extension_two_bit_view: ByteView = byte_view(extension_two_bit_bytes, byte_offset(0)?, byte_count(3)?)?
 	let extension_two_bit: {length: Int, kind: Int, payload: SchemaDispatchPayload<()>} = byte_decode_extension_two_bit_reserved_dispatch(extension_two_bit_view)?
 	stdio::print("extension-two-bit ")
@@ -169,9 +169,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(extension_two_bit.kind))
 	emit_extension_payload(extension_two_bit.payload)
-	emit_encoded("extension-two-bit-reserved-dispatch", byte_encode_extension_two_bit_reserved_dispatch({length: extension_two_bit.length, kind: extension_two_bit.kind, payload: Known(())}), "010100")
+	emit_encoded("extension-two-bit-reserved-dispatch", byte_encode_extension_two_bit_reserved_dispatch({length: extension_two_bit.length, kind: extension_two_bit.kind, payload: Known(())}), "0101c0")
 
-	let extension_seven_bit_bytes: ByteChunk = byte_chunk_from_hex("010100")?
+	let extension_seven_bit_bytes: ByteChunk = byte_chunk_from_hex("0101fe")?
 	let extension_seven_bit_view: ByteView = byte_view(extension_seven_bit_bytes, byte_offset(0)?, byte_count(3)?)?
 	let extension_seven_bit: {length: Int, kind: Int, payload: SchemaDispatchPayload<()>} = byte_decode_extension_seven_bit_reserved_dispatch(extension_seven_bit_view)?
 	stdio::print("extension-seven-bit ")
@@ -179,6 +179,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" ")
 	stdio::println(int_to_string(extension_seven_bit.kind))
 	emit_extension_payload(extension_seven_bit.payload)
-	emit_encoded("extension-seven-bit-reserved-dispatch", byte_encode_extension_seven_bit_reserved_dispatch({length: extension_seven_bit.length, kind: extension_seven_bit.kind, payload: Known(())}), "010100")
+	emit_encoded("extension-seven-bit-reserved-dispatch", byte_encode_extension_seven_bit_reserved_dispatch({length: extension_seven_bit.length, kind: extension_seven_bit.kind, payload: Known(())}), "0101fe")
 	Ok(())
 end

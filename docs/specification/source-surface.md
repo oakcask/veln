@@ -85,8 +85,9 @@ exact-width `uint...` and `flag...` spelling wherever the compatible
 upper-case exact-width primitive payload spelling is accepted. Byte-aligned
 lowercase `uint... reserves <value>` payloads are accepted wherever direct
 reserved-bit dispatch payloads are supported; direct dispatch payloads also
-accept zero-reserved subbyte spellings from `uint1 reserves 0` through
-`uint7 reserves 0`. Binary-only primitive
+accept subbyte spellings from `uint1 reserves 0` through
+`uint7 reserves 127` when the reserved value fits the declared width.
+Binary-only primitive
 vocabulary remains gated by `format binary`. In `format binary` schemas,
 `veln fmt` writes supported compatibility primitive spellings as the canonical
 lowercase schema vocabulary, including direct fields, supported reserved
