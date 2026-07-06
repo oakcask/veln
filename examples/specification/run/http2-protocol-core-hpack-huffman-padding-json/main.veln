@@ -1,7 +1,7 @@
 # HTTP/2 HPACK malformed Huffman padding projects structured runtime details.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.malformed_huffman_padding", error, RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman padding", "hpack_fixture", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.malformed_huffman_padding", error, RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman padding", "hpack_static", byte_chunk([])))
 end
 
 fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
@@ -19,5 +19,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_fixture", preview)
+	hpack_fixture_malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_static", preview)
 end

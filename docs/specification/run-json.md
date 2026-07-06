@@ -1050,6 +1050,8 @@ symbol, and `hpack.fixture.huffman_non_visible_value` for HPACK Huffman output
 that decodes to a non-visible checked header value. The source-visible runtime
 diagnostic payload path for those ids uses the same
 `details.protocol_diagnostic` field shape as the standard fixture helpers.
+Source-visible HPACK static Huffman failures projected from the static
+boundary keep the same fields and use `codec_module: "hpack_static"`.
 The source-visible HPACK static decoder uses
 `hpack.static.unsupported_index` for static-only header blocks that name an
 unsupported static-table index; it reuses the same public fields with
@@ -1060,9 +1062,14 @@ metadata when their values are raw single-byte-length visible ASCII or a
 bounded Huffman-marked literal value decoded through the HPACK static
 Huffman table. The aggregate HTTP/2 protocol-core case also routes the
 checked Huffman-marked `:scheme: https` request block through completed
-HEADERS and final CONTINUATION paths before fixture fallback. Unsupported
-Huffman-marked values and malformed raw lengths stay on the unsupported
-static header-block fallback path. It also accepts the
+HEADERS and final CONTINUATION paths before fixture fallback, and routes the
+checked Huffman-marked `:path: test` static-name literal through the same
+completed HEADERS and final CONTINUATION paths. Malformed Huffman padding,
+EOS-as-symbol, and non-visible decoded outputs on the promoted static
+boundary keep their focused HPACK fixture ids while projecting
+`codec_module: "hpack_static"`. Malformed raw lengths and out-of-scope
+header blocks stay on the unsupported static header-block fallback path. It
+also accepts the
 static-table
 `content-length` name in literal-without-indexing, literal-with-indexing, and
 literal-never-indexed request and response blocks when the raw value is an

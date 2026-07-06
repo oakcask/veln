@@ -4,6 +4,9 @@ pub type HpackStaticFailure
 	NotStaticHeaderBlock(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 	UnsupportedStaticIndex(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 	MalformedRawStringValue(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	MalformedHuffmanPadding(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	HuffmanEosSymbol(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	HuffmanNonVisibleValue(offset: Int, hpack_static_observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 end
 
 fn hpack_static_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
@@ -181,6 +184,27 @@ fn hpack_static_malformed_raw_string_value(block: ByteChunk, offset: Int) -> Res
 	Err(MalformedRawStringValue(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "fixture HPACK raw string value", "hpack_static", block))
 end
 
+fn hpack_static_malformed_huffman_padding(block: ByteChunk, offset: Int) -> Result<String, HpackStaticFailure>
+	Err(MalformedHuffmanPadding(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "fixture HPACK Huffman padding", "hpack_static", block))
+end
+
+fn hpack_static_huffman_eos_symbol(block: ByteChunk, offset: Int) -> Result<String, HpackStaticFailure>
+	Err(HuffmanEosSymbol(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "fixture HPACK Huffman data symbol instead of EOS", "hpack_static", block))
+end
+
+fn hpack_static_huffman_non_visible_value(block: ByteChunk, offset: Int) -> Result<String, HpackStaticFailure>
+	Err(HuffmanNonVisibleValue(offset, hpack_static_observed_size(block), hpack_static_byte_at_or_missing(block, 0), "fixture HPACK Huffman checked header value", "hpack_static", block))
+end
+
+fn hpack_static_huffman_value_failure(block: ByteChunk, offset: Int, failure: HpackFixtureFailure) -> Result<String, HpackStaticFailure>
+	match hpack_fixture::hpack_failure_expected_fixture(failure)
+		"fixture HPACK Huffman padding" => hpack_static_malformed_huffman_padding(block, offset)
+		"fixture HPACK Huffman data symbol instead of EOS" => hpack_static_huffman_eos_symbol(block, offset)
+		"fixture HPACK Huffman checked header value" => hpack_static_huffman_non_visible_value(block, offset)
+		_ => hpack_static_not_static_string(block, offset)
+	end
+end
+
 fn hpack_static_literal_without_indexing_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = hpack_static_byte_at_or_missing(block, 0)
 	match first_byte
@@ -302,9 +326,9 @@ fn hpack_static_literal_huffman_value_until(block: ByteChunk, end_index: Int, va
 					Ok(prefix_count) => match byte_drop(block, prefix_count)
 						Ok(value_suffix) => match byte_count(hpack_static_byte_at_or_missing(block, value_index) - 128)
 							Ok(value_count) => match byte_take(value_suffix, value_count)
-								Ok(value_bytes) => match hpack_fixture::checked_hpack_huffman_value(value_bytes)
-									Some(value) => Ok(value)
-									None => hpack_static_not_static_string(block, offset)
+								Ok(value_bytes) => match hpack_fixture::decode_checked_hpack_huffman_value(value_bytes, offset)
+									Ok(value) => Ok(value)
+									Err(failure) => hpack_static_huffman_value_failure(block, offset, failure)
 								end
 								Err(_) => hpack_static_not_static_string(block, offset)
 							end
@@ -326,6 +350,13 @@ fn hpack_static_literal_value_until(block: ByteChunk, end_index: Int, value_inde
 	match hpack_static_byte_at_or_missing(block, value_index) >= 128
 		true => hpack_static_literal_huffman_value_until(block, end_index, value_index, offset)
 		false => hpack_static_literal_raw_value_until(block, end_index, value_index, offset)
+	end
+end
+
+fn hpack_static_literal_value_for_name(block: ByteChunk, end_index: Int, value_index: Int, offset: Int, name: String) -> Result<String, HpackStaticFailure>
+	match hpack_static_byte_at_or_missing(block, value_index) >= 128 and name == ":authority"
+		true => hpack_static_not_static_string(block, offset)
+		false => hpack_static_literal_value_until(block, end_index, value_index, offset)
 	end
 end
 
@@ -365,7 +396,7 @@ end
 
 fn hpack_static_decode_literal_indexing_form(block: ByteChunk, count: Int, offset: Int, name_index: Int, value_index: Int, marker: String) -> Result<HpackHeaderList, HpackStaticFailure>
 	match hpack_static_table_literal_name(name_index)
-		Some(name) => match hpack_static_literal_raw_value(block, count, value_index, offset)
+		Some(name) => match hpack_static_literal_value_for_name(block, count, value_index, offset, name)
 			Ok(value) => Ok(hpack_static_literal_static_name_header(name, value, marker, count))
 			Err(failure) => Err(failure)
 		end
@@ -383,7 +414,7 @@ end
 
 fn hpack_static_decode_literal_without_indexing_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
 	match hpack_static_table_literal_name(hpack_static_literal_without_indexing_name_index(block))
-		Some(name) => match hpack_static_literal_raw_value(block, count, hpack_static_literal_without_indexing_value_index(block), offset)
+		Some(name) => match hpack_static_literal_value_for_name(block, count, hpack_static_literal_without_indexing_value_index(block), offset, name)
 			Ok(value) => Ok(hpack_static_literal_without_indexing_header(name, value, count))
 			Err(failure) => Err(failure)
 		end
@@ -508,6 +539,9 @@ pub fn hpack_static_failure_is_not_static(failure: HpackStaticFailure) -> Bool
 		NotStaticHeaderBlock(_, _, _, _, _, _) => true
 		UnsupportedStaticIndex(_, _, _, _, _, _) => false
 		MalformedRawStringValue(_, _, _, _, _, _) => false
+		MalformedHuffmanPadding(_, _, _, _, _, _) => false
+		HuffmanEosSymbol(_, _, _, _, _, _) => false
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => false
 	end
 end
 
@@ -516,6 +550,9 @@ pub fn hpack_static_failure_offset(failure: HpackStaticFailure) -> Int
 		NotStaticHeaderBlock(offset, _, _, _, _, _) => offset
 		UnsupportedStaticIndex(offset, _, _, _, _, _) => offset
 		MalformedRawStringValue(offset, _, _, _, _, _) => offset
+		MalformedHuffmanPadding(offset, _, _, _, _, _) => offset
+		HuffmanEosSymbol(offset, _, _, _, _, _) => offset
+		HuffmanNonVisibleValue(offset, _, _, _, _, _) => offset
 	end
 end
 
@@ -524,6 +561,9 @@ pub fn hpack_static_failure_observed_size(failure: HpackStaticFailure) -> Int
 		NotStaticHeaderBlock(_, size, _, _, _, _) => size
 		UnsupportedStaticIndex(_, size, _, _, _, _) => size
 		MalformedRawStringValue(_, size, _, _, _, _) => size
+		MalformedHuffmanPadding(_, size, _, _, _, _) => size
+		HuffmanEosSymbol(_, size, _, _, _, _) => size
+		HuffmanNonVisibleValue(_, size, _, _, _, _) => size
 	end
 end
 
@@ -532,6 +572,9 @@ pub fn hpack_static_failure_observed_first_byte(failure: HpackStaticFailure) -> 
 		NotStaticHeaderBlock(_, _, first_byte, _, _, _) => first_byte
 		UnsupportedStaticIndex(_, _, first_byte, _, _, _) => first_byte
 		MalformedRawStringValue(_, _, first_byte, _, _, _) => first_byte
+		MalformedHuffmanPadding(_, _, first_byte, _, _, _) => first_byte
+		HuffmanEosSymbol(_, _, first_byte, _, _, _) => first_byte
+		HuffmanNonVisibleValue(_, _, first_byte, _, _, _) => first_byte
 	end
 end
 
@@ -540,6 +583,9 @@ pub fn hpack_static_failure_expected_header(failure: HpackStaticFailure) -> Stri
 		NotStaticHeaderBlock(_, _, _, expected_header, _, _) => expected_header
 		UnsupportedStaticIndex(_, _, _, expected_header, _, _) => expected_header
 		MalformedRawStringValue(_, _, _, expected_header, _, _) => expected_header
+		MalformedHuffmanPadding(_, _, _, expected_header, _, _) => expected_header
+		HuffmanEosSymbol(_, _, _, expected_header, _, _) => expected_header
+		HuffmanNonVisibleValue(_, _, _, expected_header, _, _) => expected_header
 	end
 end
 
@@ -548,6 +594,9 @@ pub fn hpack_static_failure_decoder_module(failure: HpackStaticFailure) -> Strin
 		NotStaticHeaderBlock(_, _, _, _, decoder_module, _) => decoder_module
 		UnsupportedStaticIndex(_, _, _, _, decoder_module, _) => decoder_module
 		MalformedRawStringValue(_, _, _, _, decoder_module, _) => decoder_module
+		MalformedHuffmanPadding(_, _, _, _, decoder_module, _) => decoder_module
+		HuffmanEosSymbol(_, _, _, _, decoder_module, _) => decoder_module
+		HuffmanNonVisibleValue(_, _, _, _, decoder_module, _) => decoder_module
 	end
 end
 
@@ -556,5 +605,8 @@ pub fn hpack_static_failure_preview(failure: HpackStaticFailure) -> ByteChunk
 		NotStaticHeaderBlock(_, _, _, _, _, preview) => preview
 		UnsupportedStaticIndex(_, _, _, _, _, preview) => preview
 		MalformedRawStringValue(_, _, _, _, _, preview) => preview
+		MalformedHuffmanPadding(_, _, _, _, _, preview) => preview
+		HuffmanEosSymbol(_, _, _, _, _, preview) => preview
+		HuffmanNonVisibleValue(_, _, _, _, _, preview) => preview
 	end
 end

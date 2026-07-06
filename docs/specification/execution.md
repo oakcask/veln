@@ -256,7 +256,11 @@ enough.
   fixture-marked values, accepting raw `http` and `https` values plus the
   checked Huffman-marked `https` value and rejecting other visible ASCII
   values with `scheme_value_not_http_or_https` on completed HEADERS and final
-  CONTINUATION paths. It also validates source-visible
+  CONTINUATION paths. The same receive path routes the checked
+  Huffman-marked `:path: test` static-name literal through completed HEADERS
+  and final CONTINUATION paths before fixture fallback, so the decoded visible
+  ASCII value reaches the ordinary request header-list path. It also validates
+  source-visible
   static-name `:authority` literal values through the existing request
   header-list path, accepting checked visible ASCII authority values and
   rejecting the checked invalid visible ASCII value with

@@ -2148,9 +2148,16 @@ fn string_literal_value(literal: HpackStringLiteral) -> String
 end
 
 pub fn checked_hpack_huffman_value(encoded: ByteChunk) -> Option<String>
-	match decode_hpack_huffman_short_literal_value(encoded, byte_count_to_int(byte_chunk_count(encoded)), 0, 0)
-		Ok(literal) => Some(string_literal_value(literal))
+	match decode_checked_hpack_huffman_value(encoded, 0)
+		Ok(value) => Some(value)
 		Err(_) => None
+	end
+end
+
+pub fn decode_checked_hpack_huffman_value(encoded: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match decode_hpack_huffman_short_literal_value(encoded, byte_count_to_int(byte_chunk_count(encoded)), 0, offset)
+		Ok(literal) => Ok(string_literal_value(literal))
+		Err(failure) => Err(failure)
 	end
 end
 

@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[hpack.fixture.huffman_eos_symbol]: HPACK Huffman EOS used as decoded symbol at byte offset 9", "note: HPACK fixture codec `hpack_fixture` observed header block size 6 and first byte 4.", "note: Nearby bytes: 04 84 ff ff ff ff (showing 6 of 6 byte(s), complete).", "note: Expected fixture HPACK Huffman data symbol instead of EOS."]
+contains = ["error[hpack.fixture.huffman_eos_symbol]: HPACK Huffman EOS used as decoded symbol at byte offset 9", "note: HPACK fixture codec `hpack_static` observed header block size 6 and first byte 4.", "note: Nearby bytes: 04 84 ff ff ff ff (showing 6 of 6 byte(s), complete).", "note: Expected fixture HPACK Huffman data symbol instead of EOS."]
