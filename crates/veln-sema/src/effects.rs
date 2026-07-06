@@ -17,6 +17,8 @@ pub(crate) const KNOWN_EFFECT_LABELS: &[&str] = &[
     "concurrency",
 ];
 
+const NET_CONCURRENCY_EFFECTS: &[&str] = &["net", "concurrency"];
+
 pub(crate) fn stdio_signature(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
     if !symbol.effects.contains(&"stdio") {
@@ -724,6 +726,38 @@ pub(crate) fn standard_library_effects(segments: &[String]) -> Option<&'static [
         return None;
     }
     Some(symbol.effects)
+}
+
+pub(crate) fn prelude_effect_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
+    let effects = prelude_effects(segments)?;
+    let symbol = prelude_effect_symbol(segments)?;
+    Some(CallOrigin {
+        node_id: callee.node_id,
+        span: callee.span.clone(),
+        symbol,
+        effects: effects.iter().map(|effect| (*effect).to_string()).collect(),
+    })
+}
+
+pub(crate) fn prelude_effects(segments: &[String]) -> Option<&'static [&'static str]> {
+    match segments {
+        [name] if name == "stream_adapter_drain_actions" => Some(NET_CONCURRENCY_EFFECTS),
+        [module, name]
+            if (module == "prelude" || module == "prelude_builtin")
+                && name == "stream_adapter_drain_actions" =>
+        {
+            Some(NET_CONCURRENCY_EFFECTS)
+        }
+        _ => None,
+    }
+}
+
+fn prelude_effect_symbol(segments: &[String]) -> Option<String> {
+    match segments {
+        [name] => Some(name.clone()),
+        [module, name] => Some(format!("{module}::{name}")),
+        _ => None,
+    }
 }
 
 fn core_function_return_type(ty: &CoreType) -> Option<&CoreType> {

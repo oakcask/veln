@@ -364,6 +364,8 @@ behavior.
   Includes the production multi-event adapter task-helper routing evidence and
   the production multi-chunk read-failure runtime boundary plus the
   per-stream task handler-failure lifecycle cleanup boundary.
+- Network stream adapter routing helper:
+  [network-stream-adapter-routing-helper.md](network-stream-adapter-routing-helper.md).
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
 - Network stream address metadata:

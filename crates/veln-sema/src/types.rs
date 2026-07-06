@@ -9,7 +9,9 @@ use veln_core::CoreType;
 use veln_source::SourceSpan;
 
 use crate::adt::{self, AdtRegistry};
-use crate::effects::{concurrency_effects, is_stdio_call, standard_library_effects};
+use crate::effects::{
+    concurrency_effects, is_stdio_call, prelude_effects, standard_library_effects,
+};
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
@@ -5946,6 +5948,10 @@ fn collect_expr_effects(
                         push_unique_effect(inferred, effect);
                     }
                 } else if let Some(effects) = standard_library_effects(segments) {
+                    for effect in effects {
+                        push_unique_effect(inferred, effect);
+                    }
+                } else if let Some(effects) = prelude_effects(segments) {
                     for effect in effects {
                         push_unique_effect(inferred, effect);
                     }

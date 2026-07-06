@@ -323,6 +323,16 @@ pub type StreamInput
 	End
 end
 
+pub type StreamAdapterAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	Ignore
+end
+
+pub fn stream_adapter_drain_actions(stream: NetStream, handler: fn(StreamInput) -> List<StreamAdapterAction>) -> List<StreamAdapterAction> effects [net, concurrency]
+	prelude_builtin::stream_adapter_drain_actions(stream, handler)
+end
+
 pub type AcceptOutcome
 	AcceptStream(stream: NetStream)
 	AcceptEnd

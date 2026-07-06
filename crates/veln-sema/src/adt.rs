@@ -871,6 +871,40 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "StreamAdapterAction".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "SendBytes".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "bytes".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                    }],
+                    coverage_case: "SendBytes(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "EndStream".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "EndStream".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Ignore".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "Ignore".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "streamadapteraction".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "AcceptOutcome".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
@@ -2643,6 +2677,7 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
         && matches!(
             descriptor.type_name.as_str(),
             "StreamInput"
+                | "StreamAdapterAction"
                 | "Flag8"
                 | "Flag16be"
                 | "Flag16le"

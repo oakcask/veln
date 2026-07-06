@@ -42,6 +42,9 @@ The `StreamInput` standard ADT constructors are available as `Chunk(bytes)`,
 `End`, `StreamInput::Chunk(bytes)`, `StreamInput::End`,
 `prelude::Chunk(bytes)`, `prelude::End`,
 `prelude::StreamInput::Chunk(bytes)`, and `prelude::StreamInput::End`.
+The `StreamAdapterAction` standard ADT constructors are available through the
+same bare, type-qualified, prelude-qualified, and prelude-type-qualified
+forms.
 The `AcceptOutcome` standard ADT constructors are available through the same
 bare, type-qualified, prelude-qualified, and prelude-type-qualified forms.
 
@@ -473,6 +476,12 @@ failed stream. Its matching effect case rejects adapter paths that omit either
 read failure on the same
 optional-read routing path remains a runtime transport failure before any
 ordinary `StreamInput.Chunk` is routed or response bytes are written.
+The standard helper `stream_adapter_drain_actions` exposes this adapter-level
+shape as a reusable boundary over one accepted `NetStream`: it drains optional
+stream reads through a channel-routed `StreamInput` boundary, calls a pure
+`fn(StreamInput) -> List<StreamAdapterAction>` handler, preserves ordered
+handler actions, and writes only `SendBytes` chunks through
+`net::write_chunks` under `net` and `concurrency`.
 The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and
@@ -686,11 +695,13 @@ Prelude helper exports are ordinary pure helper calls for name-resolution
 purposes: bare helper names resolve when no local declaration shadows them and
 no written import creates an ambiguity, and `prelude::name` selects the
 standard helper explicitly. The helpers are registered in the standard symbol
-table as pure compatibility helpers or source-backed pure helpers, so a name
-must be present in that table before the prelude signature adapter assigns its
-compiler-known type. They do not infer effects. No `List`/`Vec` conversion
-helpers are part of this public helper set; names such as `list_to_vec` or
-`vec_to_list` resolve only when user declarations put them in scope.
+table as compatibility helpers or source-backed helpers, so a name must be
+present in that table before the prelude signature adapter assigns its
+compiler-known type. Most helpers do not infer effects; explicitly effectful
+standard helpers infer the effects declared by their public prelude signature.
+No `List`/`Vec` conversion helpers are part of this public helper set; names
+such as `list_to_vec` or `vec_to_list` resolve only when user declarations put
+them in scope.
 
 ### Standard Byte ADTs
 
@@ -698,6 +709,12 @@ helpers are part of this public helper set; names such as `list_to_vec` or
 type StreamInput
 	Chunk(bytes: ByteChunk)
 	End
+end
+
+type StreamAdapterAction
+	SendBytes(bytes: ByteChunk)
+	EndStream
+	Ignore
 end
 
 type AcceptOutcome
@@ -924,6 +941,7 @@ byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
 byte_offset(value: Int) -> Result<ByteOffset, String>
 byte_offset_to_int(value: ByteOffset) -> Int
+stream_adapter_drain_actions(stream: NetStream, handler: fn(StreamInput) -> List<StreamAdapterAction>) -> List<StreamAdapterAction> effects [net, concurrency]
 vec_len(items: Vec<A>) -> Int
 vec_is_empty(items: Vec<A>) -> Bool
 vec_push(items: Vec<A>, value: A) -> Vec<A>

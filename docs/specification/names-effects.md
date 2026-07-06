@@ -65,6 +65,13 @@ compiler-known calls.
   value-returning cancellable wait returns
   `CancellableWaitOutcome` under the same `time` effect so adapter code can
   treat completion, deadline expiry, and cancellation as ordinary values.
+  `StreamAdapterAction` exposes source-visible adapter response actions:
+  `SendBytes(ByteChunk)`, `EndStream`, and `Ignore`.
+  `stream_adapter_drain_actions(stream, handler)` accepts an owned
+  `NetStream` and a pure `fn(StreamInput) -> List<StreamAdapterAction>`
+  handler, drains optional stream reads through a channel-routed
+  `StreamInput` boundary, and writes only ordered `SendBytes` chunks through
+  `net::write_chunks`; it requires `net` and `concurrency`.
   Stream adapter routing that combines those outcomes with channel-routed
   `StreamInput` values declares both `time` and `concurrency`; the handler it
   calls stays free of transport effects. Socket lifecycle routing can combine
@@ -189,6 +196,11 @@ compiler-known calls.
   not project later response bytes for the failed stream. The matching effect
   fixture rejects adapter entry points that omit either label while keeping
   that handler boundary effect-free. A
+  standard stream routing helper case uses `stream_adapter_drain_actions` to
+  drain one accepted production stream into ordered `StreamAdapterAction`
+  values, filters response projection to `SendBytes` chunks through
+  `net::write_chunks`, closes the stream, and then observes clean listener end
+  under the existing `net` and `concurrency` effects. A
   forced production read failure on the same multi-chunk
   routing path remains a runtime transport failure after the stream is
   accepted and before any chunk routing, response writes, stream close, or
@@ -246,8 +258,9 @@ compiler-known calls.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
-- Source-visible `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
-  `DecodeError`, `EncodeStep<TState>`, and `EncodeError` ADTs plus pure byte
+- Source-visible `StreamInput`, `StreamAdapterAction`, `DecodeStep<T>`,
+  `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
+  ADTs plus pure byte
   vocabulary helpers for `Byte`, `ByteChunk`, `ByteView`, `ByteCount`,
   `ByteOffset`, compact hex fixture decoding, visible ASCII conversion between
   strings and immutable chunks, bounded `ByteView` slicing, outgoing
