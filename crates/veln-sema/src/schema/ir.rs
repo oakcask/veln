@@ -337,7 +337,6 @@ fn ir_schema_anonymous_record_spec_inner(
 ) -> Option<(Type, IrSchemaDecodeSpec)> {
     let mut visible_fields = Vec::new();
     let mut ir_fields = Vec::new();
-    let mut nested_record_seen = false;
     for (name, ty) in fields {
         match ty {
             Type::Named {
@@ -365,10 +364,6 @@ fn ir_schema_anonymous_record_spec_inner(
                 });
             }
             Type::Record(fields) => {
-                if nested_record_seen {
-                    return None;
-                }
-                nested_record_seen = true;
                 let (field_ty, payload_schema) = ir_schema_anonymous_record_spec_inner(fields)?;
                 visible_fields.push((name.clone(), field_ty));
                 ir_fields.push(IrSchemaDecodeField {

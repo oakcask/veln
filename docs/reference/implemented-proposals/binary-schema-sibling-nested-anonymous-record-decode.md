@@ -1,0 +1,46 @@
+# Binary Schema Sibling Nested Anonymous Record Decode
+
+Status: implemented
+
+This record preserves the completed generated decode helper slice for binary
+schema anonymous record fields that contain more than one nested anonymous
+record field at the same record level. Current behavior is specified by
+`../../specification/source-surface.md`, `../../specification/execution.md`,
+`../../specification/run-json.md`, and the checked executable examples under
+`../../../examples/specification/run/`.
+
+## Outcome
+
+Generated binary schema decode helpers accept an anonymous record field with
+sibling nested anonymous record fields when every leaf is an implemented
+exact-width unsigned primitive. Decode keeps source-order leaf consumption,
+the schema-local visible record shape, and consumed-byte accounting for both
+the compatibility helper and explicit `decode <Schema> from <view> at
+<offset>` operation.
+
+Runtime truncation inside the second nested anonymous record sibling uses the
+existing `schema.truncated_field` byte diagnostic shape. The field path keeps
+the outer schema field segment and appends the selected sibling field and
+failed primitive field segments, without inserting a synthetic nested schema
+segment.
+
+Encode helpers for anonymous record fields remain outside this binary-schema
+slice.
+
+## Evidence
+
+- `../../../examples/specification/run/binary-schema-sibling-nested-anonymous-record-decode/`
+  checks successful decode through the generated helper and explicit schema
+  decode operation for an anonymous record with two nested anonymous record
+  siblings.
+- `../../../examples/specification/run/binary-schema-sibling-nested-anonymous-record-truncated-json/`
+  checks truncation JSON for a primitive inside the second nested anonymous
+  record sibling, including field path, byte offset, expected count,
+  available count, and readiness.
+
+## Remaining Work
+
+The broader schema declaration surface proposal remains open for generated
+runtime helper bindings outside the implemented binary helper boundaries and
+format-neutral helper boundaries. Anonymous record encode support in
+`format binary` schemas remains outside this completed decode-only slice.
