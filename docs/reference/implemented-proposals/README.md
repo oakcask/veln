@@ -130,6 +130,8 @@ behavior.
   [binary-data-schema-conversion-boundary.md](binary-data-schema-conversion-boundary.md).
 - Binary data HPACK Huffman EOS diagnostic:
   [binary-data-hpack-huffman-eos-diagnostic.md](binary-data-hpack-huffman-eos-diagnostic.md).
+- Binary data HPACK static index byte preview diagnostics:
+  [binary-data-hpack-static-index-byte-preview-diagnostics.md](binary-data-hpack-static-index-byte-preview-diagnostics.md).
 - Schema documentation references:
   [schema-documentation-references.md](schema-documentation-references.md).
 - Remove schema map-to:

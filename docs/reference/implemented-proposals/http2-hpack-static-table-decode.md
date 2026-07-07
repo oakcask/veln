@@ -94,3 +94,10 @@ block size, first byte, expected static header description, decoder module
   `hpack.static.unsupported_index`.
 - `../../../examples/specification/run/hpack-static-core-index-unsupported-json/`
   checks the structured `run --json` protocol diagnostic fields.
+- `../../../examples/specification/run/hpack-static-index-projection-human/`
+  checks the same human diagnostic when the HTTP/2 protocol-core
+  `HpackFixtureDecodeFailed` path projects the source-visible static decoder
+  failure into a runtime diagnostic.
+- `../../../examples/specification/run/hpack-static-index-projection-json/`
+  checks the same structured `run --json` fields for that protocol-core
+  projection.

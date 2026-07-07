@@ -238,9 +238,11 @@ compare it with `../specification/` before changing behavior.
   write conversion diagnostics, and schema byte-preview diagnostic slices plus
   HTTP/2 client preface, invalid frame-kind, and PRIORITY self-dependency
   protocol byte previews, HTTP/2 invalid stream-id domain protocol byte
-  previews, plus the HPACK fixture unsupported-header-block and
-  malformed-Huffman-padding protocol byte previews, HPACK fixture Huffman EOS
-  protocol byte preview, HTTP/2 SETTINGS value range protocol byte preview,
+  previews, plus the HPACK fixture unsupported-header-block,
+  unsupported-static-index, and malformed-Huffman-padding protocol byte
+  previews, HPACK static unsupported-index protocol byte preview, HPACK
+  fixture Huffman EOS protocol byte preview, HTTP/2 SETTINGS value range
+  protocol byte preview,
   HTTP/2 `WINDOW_UPDATE` invalid-increment protocol byte preview, HTTP/2 DATA
   receive flow-control protocol byte preview, HTTP/2 unexpected SETTINGS ACK
   protocol byte preview, HTTP/2 invalid DATA padding protocol byte preview,
@@ -256,6 +258,8 @@ compare it with `../specification/` before changing behavior.
   The HPACK Huffman EOS protocol-facing byte diagnostic slice is archived
   under
   [Binary Data HPACK Huffman EOS Diagnostic](../reference/implemented-proposals/binary-data-hpack-huffman-eos-diagnostic.md).
+  The HPACK static index byte preview diagnostics slice is archived under
+  [Binary Data HPACK Static Index Byte Preview Diagnostics](../reference/implemented-proposals/binary-data-hpack-static-index-byte-preview-diagnostics.md).
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
@@ -600,9 +604,7 @@ compare it with `../specification/` before changing behavior.
   deterministic `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   the source-visible HPACK static-indexed decoder for every single-byte
   static table entry from `0x81` `:authority` through `0xbd`
-  `www-authenticate:`, focused `hpack.static.unsupported_index`
-  diagnostics for indexes outside the static table boundary, plus
-  source-visible
+  `www-authenticate:`, plus source-visible
   literal-without-indexing, literal-with-indexing, and
   literal-never-indexed static-name decoding of names resolved through the
   HPACK static table metadata with raw visible-ASCII values and bounded

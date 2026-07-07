@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[hpack.static.unsupported_index]: unsupported HPACK static index at byte offset 15", "note: HPACK static decoder `hpack_static` observed header block size 1 and first byte 128.", "note: Nearby bytes: 80 (showing 1 of 1 byte(s), complete).", "note: Expected HPACK static indexed header."]

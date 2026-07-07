@@ -1083,7 +1083,9 @@ boundary keep the same fields and use `codec_module: "hpack_static"`.
 The source-visible HPACK static decoder uses
 `hpack.static.unsupported_index` for static-only header blocks that name an
 unsupported static-table index; it reuses the same public fields with
-`codec_module: "hpack_static"`. It accepts bounded static-name
+`codec_module: "hpack_static"`. Focused checked examples cover both a direct
+source-visible `RuntimeHpackFixtureDiagnostic(...)` value and projection from
+the HTTP/2 protocol-core HPACK failure path. It accepts bounded static-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 source-visible HPACK inputs for names resolved through the HPACK static table
 metadata when their values are raw single-byte-length visible ASCII or a

@@ -266,10 +266,16 @@ pending-byte close, and remaining invalid frame-kind slices also route through
 that projection boundary. The
 continuation-ordering and pending-byte close diagnostics carry structured
 protocol-owned byte previews for the inspected incoming frame header and
-retained pending bytes. The remaining proposal work covers broader schema and
-codec diagnostics beyond these implemented slices. The language-level
+retained pending bytes. HPACK fixture unsupported static indexes and
+source-visible HPACK static unsupported indexes also project through the
+protocol-diagnostic shape with byte offset, observed header-block count,
+observed first byte, expected fixture or header, codec module, and bounded byte
+preview fields. The remaining proposal work covers broader schema and codec
+diagnostics beyond these implemented slices. The language-level
 transport for attaching runtime diagnostic details to failures is covered by
 [Runtime Diagnostic Payloads](../reference/implemented-proposals/runtime-diagnostic-payload.md).
+The HPACK static index byte preview diagnostics slice is archived under
+[Binary Data HPACK Static Index Byte Preview Diagnostics](../reference/implemented-proposals/binary-data-hpack-static-index-byte-preview-diagnostics.md).
 
 ## Problem
 

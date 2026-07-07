@@ -45,8 +45,10 @@ HTTP/2 client connection preface protocol-owned byte diagnostics, plus HTTP/2
 invalid frame-kind and PRIORITY self-dependency protocol-owned byte
 diagnostics, plus HTTP/2 invalid stream-id domain protocol-owned byte
 diagnostics, and the HPACK fixture unsupported-header-block protocol-facing
-diagnostic, HPACK fixture malformed-Huffman-padding protocol-facing
-diagnostic, and HPACK fixture Huffman EOS protocol-facing diagnostic, plus
+diagnostic, HPACK fixture unsupported-static-index protocol-facing diagnostic,
+HPACK static unsupported-index protocol-facing diagnostic, HPACK fixture
+malformed-Huffman-padding protocol-facing diagnostic, and HPACK fixture
+Huffman EOS protocol-facing diagnostic, plus
 HTTP/2 SETTINGS value range protocol-owned byte diagnostics, HTTP/2
 `WINDOW_UPDATE` invalid-increment protocol-owned byte diagnostics, and HTTP/2
 unexpected SETTINGS ACK protocol-owned byte diagnostics, plus HTTP/2 DATA
@@ -66,6 +68,9 @@ The completed schema conversion boundary slice is archived under
 The completed HPACK Huffman EOS protocol-facing byte diagnostic slice is
 archived under
 `../reference/implemented-proposals/binary-data-hpack-huffman-eos-diagnostic.md`.
+The completed HPACK static index byte preview diagnostics slice is archived
+under
+`../reference/implemented-proposals/binary-data-hpack-static-index-byte-preview-diagnostics.md`.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -171,7 +176,9 @@ bounded by default.
   slices, HTTP/2 client connection preface slice, HTTP/2 invalid frame-kind
   slice, HTTP/2 invalid stream-id domain slice, HTTP/2 PRIORITY
   self-dependency slice, HPACK fixture unsupported-header-block and
-  malformed-Huffman-padding slices, HPACK fixture Huffman EOS slice, SETTINGS
+  unsupported-static-index slices, HPACK static unsupported-index slice,
+  HPACK fixture malformed-Huffman-padding slice, HPACK fixture Huffman EOS
+  slice, SETTINGS
   value range slices, the HTTP/2 `WINDOW_UPDATE` invalid-increment slice, the
   HTTP/2 unexpected SETTINGS ACK slice, the HTTP/2 DATA receive flow-control
   slice, the HTTP/2 invalid DATA padding slice, and the HTTP/2 frame-size,
