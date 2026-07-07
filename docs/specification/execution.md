@@ -360,13 +360,16 @@ enough.
   resolves a following `0xbe` dynamic indexed field from the inserted entry.
   It also accepts checked raw visible-ASCII literal-name fields across the
   literal-without-indexing, literal-with-indexing, and literal-never-indexed
-  forms. Only literal-with-indexing mutates the immutable dynamic table; the
-  other two forms advance the decode count without adding an entry. The
-  checked raw literal-name insertion is then reused through the existing
-  dynamic indexed path. HTTP/2 completed HEADERS and final CONTINUATION
-  decoding route accepted raw literal-name fields through this source-visible
-  boundary before fixture fallback, while unsupported or malformed forms keep
-  the existing fixture fallback diagnostics. The checked cases are
+  forms when the value is raw visible ASCII or a bounded Huffman-marked value
+  accepted by the existing checked HPACK Huffman boundary. Only
+  literal-with-indexing mutates the immutable dynamic table; the other two
+  forms advance the decode count without adding an entry. The checked raw
+  literal-name insertion is then reused through the existing dynamic indexed
+  path. HTTP/2 completed HEADERS and final CONTINUATION decoding route
+  accepted raw literal-name fields through this source-visible boundary before
+  fixture fallback, while unsupported or malformed forms keep the existing
+  fixture fallback diagnostics, including focused malformed Huffman padding
+  projection. The checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 receive state carries pending header-block continuation

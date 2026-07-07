@@ -1,3 +1,5 @@
+use hpack_fixture
+
 pub type HpackDynamicCoreEntry
 	NoDynamicCoreEntry
 	DynamicCoreEntry(name: String, value: String, older: HpackDynamicCoreEntry)
@@ -438,6 +440,25 @@ fn dynamic_core_decode_raw_string_literal_value(block: ByteChunk, value_count: I
 	end
 end
 
+fn dynamic_core_decode_huffman_string_literal_value(block: ByteChunk, value_count: Int, prefix_size: Int, offset: Int) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
+	match byte_count(prefix_size)
+		Ok(prefix_count) => match byte_drop(block, prefix_count)
+			Ok(value_suffix) => match byte_count(value_count)
+				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
+					Ok(value_bytes) => match hpack_fixture::decode_checked_hpack_huffman_value(value_bytes, offset)
+						Ok(value) => Ok(HpackDynamicCoreStringLiteral(value, value_count + prefix_size))
+						Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+					end
+					Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+				end
+				Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+			end
+			Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+		end
+		Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+	end
+end
+
 fn dynamic_core_decode_raw_string_literal_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
 	match dynamic_core_decode_string_length_at(block, observed_size, index, offset)
 		Ok(length) => match dynamic_core_string_length_huffman_marked(length)
@@ -454,7 +475,10 @@ end
 fn dynamic_core_decode_string_literal_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
 	match dynamic_core_decode_string_length_at(block, observed_size, index, offset)
 		Ok(length) => match dynamic_core_string_length_huffman_marked(length)
-			true => dynamic_core_unsupported_raw_literal_string(block, offset)
+			true => match observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
+				true => dynamic_core_decode_huffman_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
+				false => dynamic_core_unsupported_raw_literal_string(block, offset)
+			end
 			false => match observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
 				true => dynamic_core_decode_raw_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
 				false => dynamic_core_unsupported_raw_literal_string(block, offset)

@@ -8339,6 +8339,16 @@ fn require_hpack_transition_header(step: Http2Step, previous_state: Http2DecodeS
 	end
 end
 
+fn require_completed_header_list_decode(step: Http2Step, previous_state: Http2DecodeState, expected_name: String, expected_value: String, expected_wire_size: Int) -> Result<(), String>
+	match decode_completed_header_list(step_offset(step), step_kind_value(step), step_flags(step), step_stream_id(step), step_completed_header_block(step), state_hpack_fixture_state(previous_state))
+		HeaderListDecodeOk(decoded_header_list_size, _, headers) => match decoded_header_list_size == expected_wire_size and hpack_fixture::header_list_first_name(headers) == expected_name and hpack_fixture::header_list_first_value(headers) == expected_value
+			true => Ok(())
+			false => Err("unexpected HTTP/2 completed header-list decode")
+		end
+		HeaderListDecodeFailed(_) => Err("expected HTTP/2 completed header-list decode")
+	end
+end
+
 fn require_hpack_state_table_size(state: Http2DecodeState, expected_table_size: Int) -> Result<(), String>
 	match hpack_fixture::state_table_size(state_hpack_fixture_state(state)) == expected_table_size
 		true => Ok(())
@@ -8469,14 +8479,23 @@ fn project_hpack_fixture_decode_failure(failure: Http2ProtocolFailure) -> Result
 			false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_index_out_of_range"
 				true => accept_runtime_diagnostic(hpack_fixture_dynamic_index_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
 				false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_malformed"
-					true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-					false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
-						true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
-						false => Err("expected projected HPACK dynamic fixture failure")
+						true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_malformed(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+						false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.dynamic_name_continuation_out_of_range"
+							true => accept_runtime_diagnostic(hpack_fixture_dynamic_name_continuation_out_of_range(offset, observed_size, observed_first_byte, requested_dynamic_index, dynamic_table_entry_count, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+							false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.malformed_huffman_padding"
+								true => accept_runtime_diagnostic(hpack_fixture_malformed_huffman_padding(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+								false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_eos_symbol"
+									true => accept_runtime_diagnostic(hpack_fixture_huffman_eos_symbol(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+									false => match hpack_fixture_failure_id(expected_fixture) == "hpack.fixture.huffman_non_visible_value"
+										true => accept_runtime_diagnostic(hpack_fixture_huffman_non_visible_value(offset, observed_size, observed_first_byte, expected_fixture, codec_module, byte_view(preview_chunk, byte_offset(0)?, byte_chunk_count(preview_chunk))?))
+										false => Err("expected projected HPACK dynamic fixture failure")
+									end
+								end
+							end
+						end
 					end
 				end
 			end
-		end
 		_ => Err("expected projected HPACK fixture failure")
 	end
 end
@@ -8900,6 +8919,21 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let ignored_http2_ordinary_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-trace", http2_ordinary_referenced, http2_ordinary_state)
 	let ignored_http2_ordinary_referenced_header: () = require_hpack_transition_header(http2_ordinary_referenced, http2_ordinary_state, "x-trace", "ok")?
+	let http2_huffman_ordinary_inserted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000014006782d687566668349509f")?), frame_state())?
+	print_step("hpack-stateful-literal-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_inserted)
+	let ignored_http2_huffman_ordinary_inserted: () = emit_header_block("http2-hpack-stateful-literal-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_inserted, "4006782d687566668349509f")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_inserted, frame_state())
+	let ignored_http2_huffman_ordinary_inserted_header: () = require_hpack_transition_header(http2_huffman_ordinary_inserted, frame_state(), "x-huff", "test")?
+	let ignored_http2_huffman_ordinary_inserted_completed_decode: () = require_completed_header_list_decode(http2_huffman_ordinary_inserted, frame_state(), "x-huff", "test", 12)?
+	let http2_huffman_ordinary_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_huffman_ordinary_inserted))
+	let http2_huffman_ordinary_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000001be")?), http2_huffman_ordinary_state)?
+	print_step("hpack-stateful-dynamic-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_referenced)
+	let ignored_http2_huffman_ordinary_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-huff-huffman", http2_huffman_ordinary_referenced, http2_huffman_ordinary_state)
+	let ignored_http2_huffman_ordinary_referenced_header: () = require_hpack_transition_header(http2_huffman_ordinary_referenced, http2_huffman_ordinary_state, "x-huff", "test")?
+	let http2_huffman_padding: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a0104000000010006782d687566668100")?), frame_state())?
+	print_failure("hpack-raw-name-huffman-padding", http2_huffman_padding)
+	let ignored_http2_huffman_padding: () = require_projected_hpack_fixture_failure(http2_huffman_padding)?
 	let http2_ordinary_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000014007")?), frame_state())?
 	print_step("hpack-stateful-literal-indexed-ordinary-continuation-start", http2_ordinary_continuation_start)
 	let http2_ordinary_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a090400000001782d7472616365026f6b")?), step_state(http2_ordinary_continuation_start))?
@@ -8913,6 +8947,20 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	let ignored_http2_ordinary_continuation_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-continuation", http2_ordinary_continuation_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-continuation", http2_ordinary_continuation_referenced, http2_ordinary_continuation_state)
 	let ignored_http2_ordinary_continuation_referenced_header: () = require_hpack_transition_header(http2_ordinary_continuation_referenced, http2_ordinary_continuation_state, "x-trace", "ok")?
+	let http2_huffman_ordinary_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000014006")?), frame_state())?
+	print_step("hpack-stateful-literal-indexed-ordinary-x-huff-continuation-start", http2_huffman_ordinary_continuation_start)
+	let http2_huffman_ordinary_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a090400000001782d687566668349509f")?), step_state(http2_huffman_ordinary_continuation_start))?
+	print_step("hpack-stateful-literal-indexed-ordinary-x-huff-continuation-done", http2_huffman_ordinary_continuation_done)
+	let ignored_http2_huffman_ordinary_continuation: () = emit_header_block("http2-hpack-stateful-literal-indexed-ordinary-x-huff-continuation", http2_huffman_ordinary_continuation_done, "4006782d687566668349509f")?
+	print_hpack_transition_from_state("hpack-stateful-literal-indexed-ordinary-x-huff-continuation-done", http2_huffman_ordinary_continuation_done, step_state(http2_huffman_ordinary_continuation_start))
+	let ignored_http2_huffman_ordinary_continuation_header: () = require_hpack_transition_header(http2_huffman_ordinary_continuation_done, step_state(http2_huffman_ordinary_continuation_start), "x-huff", "test")?
+	let ignored_http2_huffman_ordinary_continuation_completed_decode: () = require_completed_header_list_decode(http2_huffman_ordinary_continuation_done, step_state(http2_huffman_ordinary_continuation_start), "x-huff", "test", 12)?
+	let http2_huffman_ordinary_continuation_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_huffman_ordinary_continuation_done))
+	let http2_huffman_ordinary_continuation_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000003be")?), http2_huffman_ordinary_continuation_state)?
+	print_step("hpack-stateful-dynamic-indexed-ordinary-x-huff-continuation", http2_huffman_ordinary_continuation_referenced)
+	let ignored_http2_huffman_ordinary_continuation_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-continuation", http2_huffman_ordinary_continuation_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-indexed-ordinary-x-huff-continuation", http2_huffman_ordinary_continuation_referenced, http2_huffman_ordinary_continuation_state)
+	let ignored_http2_huffman_ordinary_continuation_referenced_header: () = require_hpack_transition_header(http2_huffman_ordinary_continuation_referenced, http2_huffman_ordinary_continuation_state, "x-huff", "test")?
 	let http2_ordinary_never_indexed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000011007782d6e65766572026e6f")?), frame_state())?
 	print_step("hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed)
 	let ignored_http2_ordinary_never_indexed: () = emit_header_block("http2-hpack-raw-name-never-indexed-ordinary-x-never", http2_ordinary_never_indexed, "1007782d6e65766572026e6f")?
