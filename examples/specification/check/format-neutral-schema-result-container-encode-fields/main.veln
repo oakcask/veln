@@ -1,0 +1,16 @@
+# Format-neutral schema encode helpers accept container Result element fields.
+
+schema ResultContainerPacket
+	items: List<Result<Int, String>>
+	vector: Vec<Result<Option<Int>, String>>
+	labels: Dict<String, Result<List<Int>, String>>
+	metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}
+end
+
+fn direct(packet: {items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}) -> Result<{items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}, String>
+	byte_encode_result_container_packet(packet)
+end
+
+fn explicit(packet: {items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}) -> Result<{items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}, String>
+	encode ResultContainerPacket from packet
+end

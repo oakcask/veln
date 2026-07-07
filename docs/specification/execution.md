@@ -141,8 +141,10 @@ enough.
   `Dict<String, scalar>`,
   `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
   `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
-  supported format-neutral encode shapes, or an anonymous record whose fields
-  are supported format-neutral encode shapes.
+  supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
+  `Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each
+  result payload is a supported format-neutral encode shape, or an anonymous
+  record whose fields are supported format-neutral encode shapes.
   Same-module source ADT fields and public imported source ADT fields
   referenced through written `use` paths are supported when every constructor
   payload is a supported format-neutral encode shape. The supported scalar

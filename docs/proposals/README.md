@@ -102,7 +102,8 @@ compare it with `../specification/` before changing behavior.
   `Vec<Option<scalar>>`,
   `Dict<String, scalar>`, `Dict<String, Option<scalar>>`,
   `Dict<String, List<scalar>>`, `Option<Dict<String, scalar>>`, and
-  supported container and recursive-result format-neutral encode helpers,
+  supported container, recursive-result, and result-container format-neutral
+  encode helpers,
   same-module and public
   imported source ADT encode helper fields, plus
   `format binary` gating for binary-only field vocabulary. Schema-level
@@ -210,6 +211,9 @@ compare it with `../specification/` before changing behavior.
   The completed first format-neutral container encode helper slice is archived
   under
   [Format-Neutral Schema Container Encode Helpers](../reference/implemented-proposals/format-neutral-schema-container-encode-helpers.md).
+  The completed format-neutral result-container encode helper slice is
+  archived under
+  [Format-Neutral Schema Result Container Encode Helpers](../reference/implemented-proposals/format-neutral-schema-result-container-encode-helpers.md).
   The completed format-neutral encode helper diagnostic cleanup slice is
   archived under
   [Format-Neutral Schema Encode Helper Diagnostics](../reference/implemented-proposals/format-neutral-schema-encode-helper-diagnostics.md).

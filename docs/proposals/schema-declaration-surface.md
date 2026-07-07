@@ -97,8 +97,12 @@ The implemented first slice covers:
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Dict<String, List<scalar>>` field,
   `Option<Dict<String, scalar>>` field, `Result<Ok, Err>` field whose
-  payloads are supported format-neutral encode shapes, or anonymous record
-  field whose fields are supported format-neutral encode shapes, plus
+  payloads are supported format-neutral encode shapes,
+  `List<Result<Ok, Err>>` field, `Vec<Result<Ok, Err>>` field, and
+  `Dict<String, Result<Ok, Err>>` field where each result payload is a
+  supported format-neutral encode shape, or anonymous record field whose
+  fields are supported format-neutral encode shapes, including those same
+  result-container shapes, plus
   same-module source ADT fields and public imported source ADT fields
   referenced through written `use` paths whose constructor payloads are
   supported format-neutral encode shapes. The supported scalar leaves are
@@ -245,6 +249,10 @@ The completed first format-neutral container encode helper slice is archived
 under
 [Format-Neutral Schema Container Encode Helpers](../reference/implemented-proposals/format-neutral-schema-container-encode-helpers.md).
 
+The completed format-neutral result-container encode helper slice is archived
+under
+[Format-Neutral Schema Result Container Encode Helpers](../reference/implemented-proposals/format-neutral-schema-result-container-encode-helpers.md).
+
 The completed format-neutral encode helper diagnostic cleanup slice is archived
 under
 [Format-Neutral Schema Encode Helper Diagnostics](../reference/implemented-proposals/format-neutral-schema-encode-helper-diagnostics.md).
@@ -263,7 +271,7 @@ This proposal remains open for:
   dispatch, and extension dispatch slices, and format-neutral encode helper
   fields beyond the implemented scalar, supported container,
   dictionary-option, dictionary-list, option-dictionary, recursive result,
-  anonymous record, and source ADT shapes
+  result-container, anonymous record, and source ADT shapes
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations
