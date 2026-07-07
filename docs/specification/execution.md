@@ -136,8 +136,9 @@ enough.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
   `Result<T, String>` when every field is a scalar leaf, `Option<scalar>`,
-  `Option<List<scalar>>`, `List<scalar>`, `Vec<scalar>`,
-  `List<Option<scalar>>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
+  `Option<List<scalar>>`, `List<scalar>`, `List<Option<scalar>>`,
+  `List<Option<List<scalar>>>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
+  `Dict<String, scalar>`,
   `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
   `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
   supported format-neutral encode shapes, or an anonymous record whose fields

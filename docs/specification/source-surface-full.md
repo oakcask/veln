@@ -41,7 +41,8 @@ imported source ADTs referenced through written `use` paths are supported in
 those positions when every constructor payload is a recursive visible shape.
 Format-neutral generated encode helpers are limited to scalar leaves and
 `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
-`Vec<scalar>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
+`List<Option<scalar>>`, `List<Option<List<scalar>>>`, `Vec<scalar>`,
+`Vec<Option<scalar>>`, `Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
 `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
 supported format-neutral encode shapes, or anonymous record fields whose fields

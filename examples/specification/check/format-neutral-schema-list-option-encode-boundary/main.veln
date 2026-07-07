@@ -1,15 +1,3 @@
-schema UnsupportedNestedListOptionPacket
-	items: List<Option<List<Int>>>
-end
-
-fn direct_nested_list(packet: {items: List<Option<List<Int>>>}) -> Result<{items: List<Option<List<Int>>>}, String>
-	byte_encode_unsupported_nested_list_option_packet(packet)
-end
-
-fn explicit_nested_list(packet: {items: List<Option<List<Int>>>}) -> Result<{items: List<Option<List<Int>>>}, String>
-	encode UnsupportedNestedListOptionPacket from packet
-end
-
 schema UnsupportedDictListOptionPacket
 	items: List<Option<Dict<String, Int>>>
 end

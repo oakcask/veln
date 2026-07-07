@@ -1,4 +1,4 @@
-# Format-neutral schema encode helpers accept List<Option<scalar>> fields.
+# Format-neutral schema encode helpers accept List<Option<scalar>> and List<Option<List<scalar>>> fields.
 use stdio
 
 schema ListOptionPacket
@@ -6,7 +6,11 @@ schema ListOptionPacket
 	flags: List<Option<Bool>>
 	ratios: List<Option<Float>>
 	names: List<Option<String>>
-	metadata: {items: List<Option<Int>>, names: List<Option<String>>}
+	nested_items: List<Option<List<Int>>>
+	nested_flags: List<Option<List<Bool>>>
+	nested_ratios: List<Option<List<Float>>>
+	nested_names: List<Option<List<String>>>
+	metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}
 end
 
 fn optional_int_sum(items: List<Option<Int>>) -> Int
@@ -52,63 +56,184 @@ fn first_present_name(names: List<Option<String>>) -> String
 	end
 end
 
-fn item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn int_list_sum(items: List<Int>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head + int_list_sum(tail)
+	end
+end
+
+fn nested_optional_int_sum(items: List<Option<List<Int>>>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(values) => int_list_sum(values) + nested_optional_int_sum(tail)
+			None => nested_optional_int_sum(tail)
+		end
+	end
+end
+
+fn bool_list_true_count(flags: List<Bool>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			true => 1 + bool_list_true_count(tail)
+			false => bool_list_true_count(tail)
+		end
+	end
+end
+
+fn nested_optional_true_count(flags: List<Option<List<Bool>>>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(values) => bool_list_true_count(values) + nested_optional_true_count(tail)
+			None => nested_optional_true_count(tail)
+		end
+	end
+end
+
+fn float_list_count(ratios: List<Float>) -> Int
+	match ratios
+		Nil => 0
+		Cons(_, tail) => 1 + float_list_count(tail)
+	end
+end
+
+fn nested_optional_float_count(ratios: List<Option<List<Float>>>) -> Int
+	match ratios
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(values) => float_list_count(values) + nested_optional_float_count(tail)
+			None => nested_optional_float_count(tail)
+		end
+	end
+end
+
+fn first_present_nested_name(names: List<Option<List<String>>>) -> String
+	match names
+		Nil => "missing"
+		Cons(head, tail) => match head
+			Some(values) => match values
+				Cons(value, _) => value
+				Nil => first_present_nested_name(tail)
+			end
+			None => first_present_nested_name(tail)
+		end
+	end
+end
+
+fn item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => int_to_string(optional_int_sum(packet.items))
 		Err(message) => message
 	end
 end
 
-fn flag_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn flag_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => int_to_string(optional_true_count(packet.flags))
 		Err(message) => message
 	end
 end
 
-fn ratio_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn ratio_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => int_to_string(optional_float_count(packet.ratios))
 		Err(message) => message
 	end
 end
 
-fn name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => first_present_name(packet.names)
 		Err(message) => message
 	end
 end
 
-fn nested_item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn nested_item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(nested_optional_int_sum(packet.nested_items))
+		Err(message) => message
+	end
+end
+
+fn nested_flag_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(nested_optional_true_count(packet.nested_flags))
+		Err(message) => message
+	end
+end
+
+fn nested_ratio_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(nested_optional_float_count(packet.nested_ratios))
+		Err(message) => message
+	end
+end
+
+fn nested_name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => first_present_nested_name(packet.nested_names)
+		Err(message) => message
+	end
+end
+
+fn metadata_item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => int_to_string(optional_int_sum(packet.metadata.items))
 		Err(message) => message
 	end
 end
 
-fn nested_name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+fn metadata_name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
 	match result
 		Ok(packet) => first_present_name(packet.metadata.names)
 		Err(message) => message
 	end
 end
 
+fn metadata_nested_item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(nested_optional_int_sum(packet.metadata.nested_items))
+		Err(message) => message
+	end
+end
+
+fn metadata_nested_name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String>) -> String
+	match result
+		Ok(packet) => first_present_nested_name(packet.metadata.nested_names)
+		Err(message) => message
+	end
+end
+
 pub fn main() -> () effects [stdio]
-	let packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}} = {items: list_cons(Some(2), list_cons(None, list_cons(Some(5), list_nil()))), flags: list_cons(Some(true), list_cons(None, list_cons(Some(false), list_cons(Some(true), list_nil())))), ratios: list_cons(Some(1.25), list_cons(None, list_nil())), names: list_cons(None, list_cons(Some("alpha"), list_nil())), metadata: {items: list_cons(Some(3), list_cons(Some(4), list_nil())), names: list_cons(None, list_cons(Some("nested"), list_nil()))}}
-	let empty_packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}} = {items: list_nil(), flags: list_nil(), ratios: list_nil(), names: list_nil(), metadata: {items: list_nil(), names: list_nil()}}
-	let encoded: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String> = byte_encode_list_option_packet(packet)
-	let explicit: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String> = encode ListOptionPacket from empty_packet
+	let packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}} = {items: list_cons(Some(2), list_cons(None, list_cons(Some(5), list_nil()))), flags: list_cons(Some(true), list_cons(None, list_cons(Some(false), list_cons(Some(true), list_nil())))), ratios: list_cons(Some(1.25), list_cons(None, list_nil())), names: list_cons(None, list_cons(Some("alpha"), list_nil())), nested_items: list_cons(Some(list_cons(8, list_cons(1, list_nil()))), list_cons(None, list_cons(Some(list_cons(4, list_nil())), list_nil()))), nested_flags: list_cons(Some(list_cons(true, list_cons(false, list_nil()))), list_cons(Some(list_cons(true, list_nil())), list_nil())), nested_ratios: list_cons(Some(list_cons(1.25, list_cons(2.5, list_nil()))), list_cons(None, list_cons(Some(list_cons(3.75, list_nil())), list_nil()))), nested_names: list_cons(None, list_cons(Some(list_cons("outer", list_nil())), list_nil())), metadata: {items: list_cons(Some(3), list_cons(Some(4), list_nil())), names: list_cons(None, list_cons(Some("nested"), list_nil())), nested_items: list_cons(Some(list_cons(6, list_cons(7, list_nil()))), list_nil()), nested_names: list_cons(None, list_cons(Some(list_cons("inner", list_nil())), list_nil()))}}
+	let empty_packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}} = {items: list_nil(), flags: list_nil(), ratios: list_nil(), names: list_nil(), nested_items: list_nil(), nested_flags: list_nil(), nested_ratios: list_nil(), nested_names: list_nil(), metadata: {items: list_nil(), names: list_nil(), nested_items: list_nil(), nested_names: list_nil()}}
+	let encoded: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String> = byte_encode_list_option_packet(packet)
+	let explicit: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_names: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_names: List<Option<List<String>>>}}, String> = encode ListOptionPacket from empty_packet
 	stdio::println(item_text(encoded))
 	stdio::println(flag_text(encoded))
 	stdio::println(ratio_text(encoded))
 	stdio::println(name_text(encoded))
 	stdio::println(nested_item_text(encoded))
+	stdio::println(nested_flag_text(encoded))
+	stdio::println(nested_ratio_text(encoded))
 	stdio::println(nested_name_text(encoded))
+	stdio::println(metadata_item_text(encoded))
+	stdio::println(metadata_name_text(encoded))
+	stdio::println(metadata_nested_item_text(encoded))
+	stdio::println(metadata_nested_name_text(encoded))
 	stdio::println(item_text(explicit))
 	stdio::println(flag_text(explicit))
 	stdio::println(ratio_text(explicit))
 	stdio::println(name_text(explicit))
 	stdio::println(nested_item_text(explicit))
+	stdio::println(nested_flag_text(explicit))
+	stdio::println(nested_ratio_text(explicit))
 	stdio::println(nested_name_text(explicit))
+	stdio::println(metadata_item_text(explicit))
+	stdio::println(metadata_name_text(explicit))
+	stdio::println(metadata_nested_item_text(explicit))
+	stdio::println(metadata_nested_name_text(explicit))
 end

@@ -3176,7 +3176,8 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
             if name == "List"
                 && args.len() == 1
                 && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_type(&args[0])) =>
+                    || format_neutral_schema_option_scalar_type(&args[0])
+                    || format_neutral_schema_option_scalar_list_type(&args[0])) =>
         {
             Some(ty.clone())
         }
@@ -3242,6 +3243,16 @@ fn format_neutral_schema_scalar_list_type(ty: &Type) -> bool {
             if name == "List"
                 && args.len() == 1
                 && format_neutral_schema_scalar_type(&args[0])
+    )
+}
+
+fn format_neutral_schema_option_scalar_list_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Option"
+                && args.len() == 1
+                && format_neutral_schema_scalar_list_type(&args[0])
     )
 }
 
