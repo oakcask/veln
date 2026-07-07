@@ -122,6 +122,17 @@ enough.
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public
   source surface for applying schemas.
+- Consecutive visible `UInt1` through `UInt7` fields whose widths complete
+  one, two, three, four, five, six, seven, or eight big-endian bytes are
+  packed into the shared storage unit in declaration order. Decode exposes
+  ordinary `Int` fields, encode accepts the same schema-local visible record,
+  and truncation reports `schema.truncated_field` at the packed visible field
+  path corresponding to the missing input position. The eight-byte boundary is
+  checked by
+  `examples/specification/run/binary-schema-packed-visible-eight-byte-decode-encode/`,
+  `examples/specification/run/binary-schema-packed-visible-eight-byte-truncated-json/`,
+  and
+  `examples/specification/run/binary-schema-packed-visible-eight-byte-encode-out-of-range/`.
 - Format-neutral generated decode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
   `Result<T, String>`. The helper returns the supplied record on success and

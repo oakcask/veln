@@ -37,6 +37,5 @@ path.
 ## Remaining Work
 
 The broader binary schema primitives and dispatch proposal remains open for
-eight-byte visible-only packed groups plus reserved-bit layouts, dispatch
-forms, primitive shapes, and mapping behavior outside the implemented
-generated-helper slices.
+reserved-bit layouts, dispatch forms, primitive shapes, and mapping behavior
+outside the implemented generated-helper slices.

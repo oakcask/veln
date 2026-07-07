@@ -1,0 +1,48 @@
+use stdio
+
+schema PackedVisibleEightByteHeader
+	format binary
+
+	marker: UInt1
+	high: UInt7
+	upper: UInt7
+	middle: UInt7
+	lower: UInt7
+	tail: UInt7
+	flag: UInt7
+	code: UInt7
+	route: UInt7
+	checksum: UInt7
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let rejected: Result<ByteChunk, EncodeError> = byte_encode_packed_visible_eight_byte_header({marker: 1, high: 43, upper: 102, middle: 128, lower: 98, tail: 35, flag: 34, code: 89, route: 113, checksum: 16})
+	match rejected
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end

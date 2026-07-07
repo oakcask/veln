@@ -167,6 +167,8 @@ behavior.
   [binary-schema-packed-visible-six-byte-groups.md](binary-schema-packed-visible-six-byte-groups.md).
 - Binary schema packed visible seven-byte groups:
   [binary-schema-packed-visible-seven-byte-groups.md](binary-schema-packed-visible-seven-byte-groups.md).
+- Binary schema packed visible eight-byte groups:
+  [binary-schema-packed-visible-eight-byte-groups.md](binary-schema-packed-visible-eight-byte-groups.md).
 - Binary schema one-byte reserved suffix:
   [binary-schema-one-byte-reserved-suffix.md](binary-schema-one-byte-reserved-suffix.md).
 - Binary schema six-byte reserved suffix:

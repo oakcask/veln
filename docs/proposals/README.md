@@ -313,8 +313,8 @@ compare it with `../specification/` before changing behavior.
   encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
   visible-only packed `UInt1` through `UInt7` one-byte, two-byte,
-  three-byte, four-byte, five-byte, six-byte, and seven-byte group decode
-  and encode,
+  three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte
+  group decode and encode,
   bounded `Repeat(count_field, Payload)` primitive, same-module nested schema
   field, and public imported nested schema field decode and encode slices,
   bounded `Repeat(left_count - right_count, Payload)`,
@@ -456,6 +456,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Packed Visible Six-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-six-byte-groups.md).
   The completed visible-only packed seven-byte group slice is archived under
   [Binary Schema Packed Visible Seven-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-seven-byte-groups.md).
+  The completed visible-only packed eight-byte group slice is archived under
+  [Binary Schema Packed Visible Eight-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-eight-byte-groups.md).
   The completed six-byte reserved suffix slice is archived under
   [Binary Schema Six-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-six-byte-reserved-suffix.md).
   The completed seven-byte and eight-byte reserved suffix slice is archived

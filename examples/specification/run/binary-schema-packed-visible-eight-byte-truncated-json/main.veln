@@ -1,0 +1,21 @@
+schema PackedVisibleEightByteHeader
+	format binary
+
+	marker: UInt1
+	high: UInt7
+	upper: UInt7
+	middle: UInt7
+	lower: UInt7
+	tail: UInt7
+	flag: UInt7
+	code: UInt7
+	route: UInt7
+	checksum: UInt7
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(0)?)?
+	let ignored: {marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int} = byte_decode_packed_visible_eight_byte_header(view)?
+	Ok(())
+end

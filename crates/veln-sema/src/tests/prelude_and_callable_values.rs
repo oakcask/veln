@@ -6246,6 +6246,79 @@ fn generated_schema_helpers_accept_seven_byte_packed_visible_primitives() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_eight_byte_packed_visible_primitives() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PackedVisibleEightByteHeader\n",
+            "  format binary\n",
+            "\n",
+            "  marker: UInt1\n",
+            "  high: UInt7\n",
+            "  upper: UInt7\n",
+            "  middle: UInt7\n",
+            "  lower: UInt7\n",
+            "  tail: UInt7\n",
+            "  flag: UInt7\n",
+            "  code: UInt7\n",
+            "  route: UInt7\n",
+            "  checksum: UInt7\n",
+            "end\n",
+            "\n",
+            "\n",
+            "pub fn direct(view: ByteView) -> Result<{marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}, String>\n",
+            "  byte_decode_packed_visible_eight_byte_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}>\n",
+            "  byte_decode_step_packed_visible_eight_byte_header(view, base)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packed_visible_eight_byte_header(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn item_decode(view: ByteView, base: ByteOffset) -> DecodeStep<{marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}>\n",
+            "  decode PackedVisibleEightByteHeader from view at base\n",
+            "end\n",
+            "\n",
+            "pub fn item_encode(packet: {marker: Int, high: Int, upper: Int, middle: Int, lower: Int, tail: Int, flag: Int, code: Int, route: Int, checksum: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode PackedVisibleEightByteHeader from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "PackedVisibleEightByteHeader");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![
+            ("marker", 1, 0x1),
+            ("high", 1, 0x7f),
+            ("upper", 1, 0x7f),
+            ("middle", 1, 0x7f),
+            ("lower", 1, 0x7f),
+            ("tail", 1, 0x7f),
+            ("flag", 1, 0x7f),
+            ("code", 1, 0x7f),
+            ("route", 1, 0x7f),
+            ("checksum", 1, 0x7f)
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",
