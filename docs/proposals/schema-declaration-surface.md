@@ -85,7 +85,8 @@ The implemented first slice covers:
   expressions for format-neutral schemas without a `format` clause when every
   field is a scalar leaf, `Option<scalar>` field,
   `Option<List<scalar>>` field, `List<scalar>` field,
-  `Vec<scalar>` field, `Vec<Option<scalar>>` field,
+  `List<Option<scalar>>` field, `Vec<scalar>` field,
+  `Vec<Option<scalar>>` field,
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Dict<String, List<scalar>>` field,
   `Option<Dict<String, scalar>>` field, `Result<Ok, Err>` field whose
@@ -189,6 +190,10 @@ under
 The completed format-neutral `List<scalar>` encode helper slice is archived
 under
 [Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
+
+The completed format-neutral `List<Option<scalar>>` encode helper slice is
+archived under
+[Format-Neutral Schema List Option Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-option-encode-helpers.md).
 
 The completed format-neutral `Vec<scalar>` encode helper slice is archived
 under

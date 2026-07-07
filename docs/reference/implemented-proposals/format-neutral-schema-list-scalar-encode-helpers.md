@@ -21,9 +21,9 @@ supplied record on success without producing binary bytes. Explicit
 
 At this slice, recursive format-neutral encode helper shapes beyond the
 supported list slice, such as `Option<List<Int>>`, remained unsupported and
-did not expose a generated helper. Later `Dict<String, scalar>` and first
-container encode helper slices are tracked in sibling implemented proposal
-records.
+did not expose a generated helper. Later `Dict<String, scalar>`,
+`List<Option<scalar>>`, and first container encode helper slices are tracked
+in sibling implemented proposal records.
 
 ## Evidence
 
@@ -31,7 +31,7 @@ records.
   checks direct helper calls and explicit schema encode expressions over
   `List<scalar>` fields.
 - `../../../examples/specification/check/format-neutral-schema-list-scalar-encode-boundary/`
-  checks that `List<Option<Int>>` remains outside the generated encode helper
+  checks that `List<List<Int>>` remains outside the generated encode helper
   boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper signature generation plus Core and IR lowering.

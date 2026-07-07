@@ -24,8 +24,8 @@ This slice did not add arbitrary recursive encode eligibility. Shapes such
 as `Option<List<List<Int>>>`, `List<Option<Int>>`,
 `Dict<String, Option<Int>>`, and `Result<List<Int>, String>` were outside
 the generated format-neutral encode helper surface at this slice. Later
-dictionary-option encode helper support is tracked in a sibling implemented
-proposal record.
+dictionary-option and list-option encode helper support is tracked in sibling
+implemented proposal records.
 
 ## Evidence
 

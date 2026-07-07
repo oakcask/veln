@@ -1,11 +1,11 @@
-schema UnsupportedOptionListPacket
-	items: List<Option<Int>>
+schema UnsupportedNestedListPacket
+	items: List<List<Int>>
 end
 
-fn direct(packet: {items: List<Option<Int>>}) -> Result<{items: List<Option<Int>>}, String>
-	byte_encode_unsupported_option_list_packet(packet)
+fn direct(packet: {items: List<List<Int>>}) -> Result<{items: List<List<Int>>}, String>
+	byte_encode_unsupported_nested_list_packet(packet)
 end
 
-fn explicit(packet: {items: List<Option<Int>>}) -> Result<{items: List<Option<Int>>}, String>
-	encode UnsupportedOptionListPacket from packet
+fn explicit(packet: {items: List<List<Int>>}) -> Result<{items: List<List<Int>>}, String>
+	encode UnsupportedNestedListPacket from packet
 end
