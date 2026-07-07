@@ -23,8 +23,8 @@ does not produce binary bytes.
 This slice does not add arbitrary recursive format-neutral encode eligibility.
 Shapes such as `Dict<String, Dict<String, Int>>`,
 `Option<Dict<String, Option<Int>>>`, and non-string dictionary keys remain
-outside the generated encode helper surface. Later dictionary-list encode
-helper support is tracked in a sibling implemented proposal record.
+outside the generated encode helper surface. Dictionary-list encode helper
+support is preserved in a sibling implemented proposal record.
 
 ## Evidence
 
@@ -42,6 +42,6 @@ helper support is tracked in a sibling implemented proposal record.
 
 The broader schema declaration proposal remains open for format-neutral encode
 helpers beyond the implemented scalar, supported container,
-dictionary-option, option-dictionary, scalar-result, result-option, anonymous
-record, and source ADT shapes, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+dictionary-option, dictionary-list, option-dictionary, scalar-result,
+result-option, anonymous record, and source ADT shapes, binary schema fields
+outside the implemented helper slices, and later schema composition surfaces.
