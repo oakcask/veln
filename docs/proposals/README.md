@@ -570,7 +570,7 @@ compare it with `../specification/` before changing behavior.
   accounting for tracked inbound and outbound DATA,
   the malformed Huffman padding fixture diagnostic, and the outbound HPACK
   fixture header-list encoder slice, including exact static-indexed outbound
-  helper bytes for checked HPACK static table name/value pairs, static-name
+  helper bytes for finite HPACK static table fixed-value entries, static-name
   literal fixtures, visible-ASCII ordinary new-name literal-without-indexing for outbound
   HEADERS and `PUSH_PROMISE`, visible-ASCII ordinary new-name
   literal-never-indexed for outbound HEADERS without dynamic insertion,
@@ -633,8 +633,8 @@ compare it with `../specification/` before changing behavior.
   reuse, plus the source-visible dynamic-name literal receive core for checked
   literal-without-indexing, literal-with-indexing, and literal-never-indexed
   forms whose names come from the carried bounded dynamic table, plus the
-  source-visible exact static-indexed outbound encode helper for checked
-  HPACK static table name/value pairs across outbound HEADERS and
+  source-visible exact static-indexed outbound encode helper for the finite
+  HPACK static table entries with fixed values across outbound HEADERS and
   server-side `PUSH_PROMISE`,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes

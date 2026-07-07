@@ -9887,6 +9887,14 @@ fn print_outbound_push_promise_static_accept_encoding_case(outbound_receive_cred
 	let ignored_push_promise_hpack_static_accept_encoding_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed-accept-encoding", outbound_push_promise_hpack_static_accept_encoding)?
 	let outbound_push_promise_hpack_static_accept_encoding_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static_accept_encoding)?
 	let ignored_push_promise_hpack_static_accept_encoding_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed-accept-encoding", outbound_push_promise_hpack_static_accept_encoding_decision, "0000050504000000010000000290")?
+	let outbound_push_promise_hpack_static_method_post: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_static_indexed_method_post_headers(), empty_peer_settings(), outbound_receive_credit)?
+	let ignored_push_promise_hpack_static_method_post_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed-method-post", outbound_push_promise_hpack_static_method_post)?
+	let outbound_push_promise_hpack_static_method_post_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static_method_post)?
+	let ignored_push_promise_hpack_static_method_post_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed-method-post", outbound_push_promise_hpack_static_method_post_decision, "0000050504000000010000000283")?
+	let outbound_push_promise_hpack_static_content_type: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list(1, 2, hpack_fixture::outbound_static_indexed_content_type_headers(), empty_peer_settings(), outbound_receive_credit)?
+	let ignored_push_promise_hpack_static_content_type_print: () = print_outbound_push_promise_from_list("outbound-push-promise-hpack-static-indexed-content-type", outbound_push_promise_hpack_static_content_type)?
+	let outbound_push_promise_hpack_static_content_type_decision: OutboundPushPromiseDecision = require_outbound_push_promise_from_list(outbound_push_promise_hpack_static_content_type)?
+	let ignored_push_promise_hpack_static_content_type_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-hpack-static-indexed-content-type", outbound_push_promise_hpack_static_content_type_decision, "000005050400000001000000029f")?
 	Ok(())
 end
 
@@ -10080,6 +10088,29 @@ fn print_outbound_headers_static_accept_encoding_case(outbound_receive_credit: O
 	let ignored_headers_hpack_static_accept_encoding_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-accept-encoding", outbound_headers_hpack_static_accept_encoding_decision, "00000101040000000190")?
 	let outbound_hpack_static_accept_encoding_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_accept_encoding_headers(), hpack_fixture::initial_encode_state(), 0)
 	let ignored_outbound_hpack_static_accept_encoding_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-accept-encoding-encode", outbound_hpack_static_accept_encoding_encode, "90")?
+	let ignored_static_generalized_cases: () = print_outbound_headers_static_generalized_cases(outbound_receive_credit)?
+	Ok(())
+end
+
+fn print_outbound_headers_static_generalized_cases(outbound_receive_credit: OutboundReceiveCredit) -> Result<(), String> effects [stdio]
+	let outbound_headers_hpack_static_method_post: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_static_indexed_method_post_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_static_method_post_print: () = print_outbound_headers_from_list("outbound-headers-hpack-static-indexed-method-post", outbound_headers_hpack_static_method_post)?
+	let outbound_headers_hpack_static_method_post_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_static_method_post)?
+	let ignored_headers_hpack_static_method_post_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-method-post", outbound_headers_hpack_static_method_post_decision, "00000101040000000183")?
+	let outbound_hpack_static_method_post_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_method_post_headers(), hpack_fixture::initial_encode_state(), 0)
+	let ignored_outbound_hpack_static_method_post_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-method-post-encode", outbound_hpack_static_method_post_encode, "83")?
+	let outbound_headers_hpack_static_status_404: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_static_indexed_status_404_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_static_status_404_print: () = print_outbound_headers_from_list("outbound-headers-hpack-static-indexed-status-404", outbound_headers_hpack_static_status_404)?
+	let outbound_headers_hpack_static_status_404_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_static_status_404)?
+	let ignored_headers_hpack_static_status_404_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-status-404", outbound_headers_hpack_static_status_404_decision, "0000010104000000018d")?
+	let outbound_hpack_static_status_404_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_status_404_headers(), hpack_fixture::initial_encode_state(), 0)
+	let ignored_outbound_hpack_static_status_404_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-status-404-encode", outbound_hpack_static_status_404_encode, "8d")?
+	let outbound_headers_hpack_static_content_type: Result<OutboundHeadersDecision, HpackFixtureFailure> = send_headers_from_header_list(1, hpack_fixture::outbound_static_indexed_content_type_headers(), false, empty_peer_settings(), outbound_receive_credit)?
+	let ignored_headers_hpack_static_content_type_print: () = print_outbound_headers_from_list("outbound-headers-hpack-static-indexed-content-type", outbound_headers_hpack_static_content_type)?
+	let outbound_headers_hpack_static_content_type_decision: OutboundHeadersDecision = require_outbound_headers_from_list(outbound_headers_hpack_static_content_type)?
+	let ignored_headers_hpack_static_content_type_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-static-indexed-content-type", outbound_headers_hpack_static_content_type_decision, "0000010104000000019f")?
+	let outbound_hpack_static_content_type_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_static_indexed_content_type_headers(), hpack_fixture::initial_encode_state(), 0)
+	let ignored_outbound_hpack_static_content_type_encode_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-static-indexed-content-type-encode", outbound_hpack_static_content_type_encode, "9f")?
 	Ok(())
 end
 

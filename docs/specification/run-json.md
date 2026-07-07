@@ -669,9 +669,9 @@ actions out of `error` unless adapter code explicitly reports them. The same
 applies when those send-intents build
 their opaque header-block bytes from fixture header-list values through the
 HPACK fixture encoder, including exact static-indexed HPACK bytes for
-`:method: GET`, `:path: /`, `:scheme: https`, `:status: 200`, and
-`accept-encoding: gzip, deflate` on outbound HEADERS, exact static-indexed
-bytes for `:status: 200` and `accept-encoding: gzip, deflate` on
+fixed-value HPACK static table entries such as request pseudo-headers,
+response pseudo-headers, and ordinary headers on outbound HEADERS, exact
+static-indexed bytes for supported fixed-value static entries on
 `PUSH_PROMISE`, checked Huffman-marked string literal fixtures for outbound
 HEADERS and `PUSH_PROMISE`, and the checked stateful `PUSH_PROMISE` path
 where the returned fixture encode state lets a later promised header list use

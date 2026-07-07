@@ -424,12 +424,14 @@ enough.
   CONTINUATION success paths, wrong frame kind, wrong stream id, and
   end-of-input while pending under `examples/specification/run/`.
 - The source-visible HPACK fixture encoder accepts exact static-table
-  name/value pairs as indexed-field bytes under
+  name/value pairs with fixed values from the finite HPACK static table as
+  indexed-field bytes under
   `examples/specification/run/hpack-fixture-codec-boundary/`, including
-  `:method: GET`, `:scheme: https`, `:status: 200`, and
-  `accept-encoding: gzip, deflate`. Outbound HTTP/2 HEADERS and server-side
-  `PUSH_PROMISE` fixture paths route supported static-indexed header lists
-  through the same helper before fixture fallback and frame splitting. The
+  checked request pseudo-header, response pseudo-header, and ordinary-header
+  entries. Non-exact values for known static names remain fixture encode
+  failures. Outbound HTTP/2 HEADERS and server-side `PUSH_PROMISE` fixture
+  paths route supported static-indexed header lists through the same helper
+  before fixture fallback and frame splitting. The
   same focused HPACK fixture boundary case checks payload-only Huffman
   encoding directly for a supported string, bounded byte input, and an
   unsupported string returned as a fixture encode failure. The
