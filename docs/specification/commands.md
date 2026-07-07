@@ -242,8 +242,11 @@ requiring the full command reference on the first read.
   uses the same focused HPACK fixture human diagnostic as the compatibility
   helper, with byte offset, observed header block size, observed first byte,
   expected fixture, codec module, and bounded byte preview projected from the
-  returned error value. Source-visible HPACK static Huffman failures projected
-  from the static boundary keep the same fields and use
+  returned error value. Checked focused examples cover both a direct returned
+  diagnostic value and projection from the HTTP/2 protocol-core HPACK failure
+  path.
+  Source-visible HPACK static Huffman failures projected from the static
+  boundary keep the same fields and use
   `codec_module = "hpack_static"`. The standalone source-visible HPACK static
   boundary case checks accepted static-name literal-with-indexing and
   literal-never-indexed inputs, accepted Huffman-marked literal values decoded

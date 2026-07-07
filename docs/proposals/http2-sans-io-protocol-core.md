@@ -321,23 +321,14 @@ literal-with-indexing, and literal-never-indexed fixtures whose indexed-name
 form names a supported static-table header name already accepted by the
 static-indexed fixture set, including ordinary names such as `server`,
 `content-type`, and `user-agent`.
-Complete HEADERS and final CONTINUATION paths also attempt the implemented
-source-visible `hpack_static` decoder before fixture fallback for every
-single-byte static indexed entry from `0x81` `:authority` through `0xbd`
-`www-authenticate:`, using one static-table lookup path. Supported
-static-name literal-with-indexing forms now decode through that source-visible
-path and insert the decoded name/value pair into carried HPACK dynamic state;
-unsupported forms still fall back to the HPACK fixture boundary.
-Static-only header blocks with unsupported static-table indexes now project
-`hpack.static.unsupported_index`, including the standalone source-visible
-boundary case for static table index `62`. The source-visible decoder also
-accepts bounded literal-without-indexing, literal-with-indexing, and
-literal-never-indexed static-name slices for names resolved through the HPACK
-static table metadata when the value is a raw single-byte-length
-visible-ASCII string or a bounded Huffman-marked literal value decoded by
-scanning the HPACK static Huffman table. The standalone static boundary checks
-visible ASCII, line feed, single-byte `hpack-byte-*` labels, and multi-byte
-`hpack-bytes-*` labels across the static-name literal forms.
+The completed source-visible HPACK static-table decode slice, including
+complete HEADERS and final CONTINUATION routing, checked static-name literal
+forms, and focused `hpack.static.unsupported_index` diagnostics, is archived
+under
+[HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
+The later static-name literal-with-indexing dynamic-state slice is archived
+under
+[HTTP/2 HPACK Static Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).
 Unsupported Huffman-marked strings, malformed lengths, and static-decoder
 paths that need fixture dynamic-table mutation or table-size-update behavior
 remain fixture-owned. The broader HPACK fixture

@@ -600,9 +600,7 @@ compare it with `../specification/` before changing behavior.
   deterministic `hpack-bytes-*` multi-byte non-visible Huffman fixture labels,
   the source-visible HPACK static-indexed decoder for every single-byte
   static table entry from `0x81` `:authority` through `0xbd`
-  `www-authenticate:`, focused `hpack.static.unsupported_index`
-  diagnostics for indexes outside the static table boundary, plus
-  source-visible
+  `www-authenticate:`, plus source-visible
   literal-without-indexing, literal-with-indexing, and
   literal-never-indexed static-name decoding of names resolved through the
   HPACK static table metadata with raw visible-ASCII values and bounded
