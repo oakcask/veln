@@ -539,7 +539,8 @@ compare it with `../specification/` before changing behavior.
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, HEADERS with the PRIORITY flag, PING, GOAWAY, local
-  GOAWAY outbound HEADERS boundary, server-side `PUSH_PROMISE` rejection,
+  GOAWAY outbound HEADERS boundary,
+  server-side `PUSH_PROMISE` rejection,
   outbound `PRIORITY` post-GOAWAY send-intent boundary,
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
@@ -669,6 +670,8 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound DATA GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md).
   The completed GOAWAY receive lifecycle slice is archived under
   [HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
+  The completed GOAWAY drain completion slice is archived under
+  [HTTP/2 GOAWAY Drain Completion](../reference/implemented-proposals/http2-goaway-drain-completion.md).
   The completed accepted `content-length` body accounting slices are archived
   under
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).

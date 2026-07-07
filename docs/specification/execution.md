@@ -440,12 +440,23 @@ enough.
   GOAWAY send-intent only when it preserves or narrows the locally recorded
   graceful-shutdown last-stream boundary. Accepted repeated GOAWAY
   send-intents emit the normal GOAWAY frame bytes and update the local
-  graceful-shutdown state to the sent boundary. A repeated local GOAWAY that
+  shutdown state to the sent boundary. Receiving or sending GOAWAY with no
+  active stream at or below the recorded last-stream boundary exposes
+  `drained_shutdown`; receiving or sending GOAWAY while an already-admitted
+  in-boundary stream remains active continues to expose `graceful_shutdown`
+  until that stream reaches a terminal state through received HEADERS
+  `END_STREAM`, DATA `END_STREAM`, trailer HEADERS, `RST_STREAM`, or a local
+  outbound DATA or HEADERS `END_STREAM` send-intent. When a local GOAWAY
+  narrows an already received boundary, drain completion uses that stricter
+  boundary. A repeated local
+  GOAWAY that
   would widen the recorded boundary is rejected with
   `http2.protocol.stream_after_goaway` before output bytes are emitted. Later
   local outbound HEADERS, DATA, `PRIORITY`, stream-level `WINDOW_UPDATE`, and
   server-side `PUSH_PROMISE` send-intents continue to use the recorded local
-  GOAWAY boundary. The checked case is
+  GOAWAY boundary. Later inbound stream-creating HEADERS after drain
+  completion also use `http2.protocol.stream_after_goaway`, preserving the
+  recorded shutdown boundary. The checked case is
   `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core keeps outbound DATA send-window
   accounting separate from inbound receive-window accounting. Accepted

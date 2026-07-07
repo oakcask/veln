@@ -321,7 +321,8 @@ requiring the full command reference on the first read.
   projections include bounded byte previews for inspected frame headers from
   the returned `RuntimeDiagnostic(...)` value, and stream-after-GOAWAY
   projections include the bounded inspected frame-header preview or empty local
-  outbound preview carried by the returned value. The standard
+  outbound preview and active shutdown label carried by the returned value.
+  The standard
   `http2_protocol_invalid_preface(...)`,
   `http2_protocol_continuation_expected(...)`, and
   `http2_protocol_invalid_frame_kind(...)`,

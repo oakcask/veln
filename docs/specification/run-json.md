@@ -990,10 +990,12 @@ recorded last stream id uses id
 `http2.protocol.stream_after_goaway` and records
 `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
 `shutdown_state`, `endpoint_role`, `byte_preview`, `active_state`, and
-`rule_provenance`. The peer-created receive case carries a bounded inspected
-frame-header preview; the local outbound helper form can carry an empty
-preview when no peer bytes were inspected. The aggregate protocol-core example
-also checks that above-boundary outbound `PUSH_PROMISE` rejects before HPACK
+`rule_provenance`. `shutdown_state` is the active shutdown label, including
+`drained_shutdown` after drain completion. The peer-created receive case
+carries a bounded inspected frame-header preview; the local outbound helper
+form can carry an empty preview when no peer bytes were inspected. The
+aggregate protocol-core example also checks that above-boundary outbound
+`PUSH_PROMISE` rejects before HPACK
 fixture encoding, that above-boundary outbound `PRIORITY` rejects before
 priority payload encoding or emitted bytes, and that above-boundary outbound
 `WINDOW_UPDATE` rejects before receive-credit changes and emitted bytes. The
