@@ -1,0 +1,13 @@
+# Binary schema anonymous record encode failures preserve nested field paths.
+
+schema AnonymousRecordWritePacket
+	format binary
+
+	prefix: UInt8
+	header: {kind: UInt8, left: {code: UInt16be, tail: UInt16le}, right: {channel: UInt8, value: UInt24be}, marker: UInt8}
+	suffix: UInt8
+end
+
+pub fn main() -> Result<ByteChunk, EncodeError>
+	byte_encode_anonymous_record_write_packet({prefix: 10, header: {kind: 1, left: {code: 515, tail: 1284}, right: {channel: 6, value: 16777216}, marker: 11}, suffix: 255})
+end

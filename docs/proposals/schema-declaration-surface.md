@@ -80,6 +80,13 @@ The implemented first slice covers:
   recursive visible shapes, and same-module or public imported source ADTs
   whose constructor payloads are recursive visible shapes, with declaration
   diagnostics for unsupported helper field types
+- generated `byte_encode_<schema>` helper bindings for source
+  `format binary` schemas whose fields use implemented exact-width unsigned
+  primitives, visible flag bitset fields, supported representation-only
+  `ReservedBits(width, value)` fields, bounded repeat fields,
+  length-bounded `ByteView` fields, direct nested binary schema fields,
+  anonymous record fields whose leaves are implemented exact-width unsigned
+  primitives, or the implemented dispatch payload slices
 - generated `byte_encode_<schema>` helper bindings and explicit schema encode
   expressions for format-neutral schemas without a `format` clause when every
   field is a scalar leaf, `Option<scalar>` field,
@@ -126,6 +133,9 @@ The completed binary schema anonymous record decode slice is archived under
 The completed binary schema sibling nested anonymous record decode slice is
 archived under
 [Binary Schema Sibling Nested Anonymous Record Decode](../reference/implemented-proposals/binary-schema-sibling-nested-anonymous-record-decode.md).
+
+The completed binary schema anonymous record encode slice is archived under
+[Binary Schema Anonymous Record Encode](../reference/implemented-proposals/binary-schema-anonymous-record-encode.md).
 
 The completed dispatch nested repeat helper slice is archived under
 [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
@@ -249,7 +259,7 @@ This proposal remains open for:
 - generated runtime helper bindings for binary schema fields outside the
   implemented exact-width unsigned primitive, visible flag bitset,
   supported representation-only reserved-bit, direct nested binary schema,
-  anonymous record decode, bounded repeat, length-bounded `ByteView`, closed
+  anonymous record decode and encode, bounded repeat, length-bounded `ByteView`, closed
   dispatch, and extension dispatch slices, and format-neutral encode helper
   fields beyond the implemented scalar, supported container,
   dictionary-option, dictionary-list, option-dictionary, recursive result,
@@ -526,9 +536,9 @@ Implemented:
 
 Remaining:
 
-- General schema decode can synthesize executable bindings for fields outside
+- General schema helpers can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, visible flag bitset,
   supported representation-only reserved-bit, direct nested binary schema,
-  recursive anonymous record decode, bounded repeat, length-bounded
+  recursive anonymous record decode and encode, bounded repeat, length-bounded
   `ByteView`, closed dispatch, extension dispatch, and recursive
   format-neutral visible-shape helper boundary.

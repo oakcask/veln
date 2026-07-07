@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[json_assert]]
+path = "stdout"
+equals = "output_chunk_list anonymous-record-encode count 1\noutput_chunk anonymous-record-encode index 0 hex \"0a0102030405060708090bff\" count 12\n"
+
+[[output_chunk_list]]
+name = "anonymous-record-encode"
+chunks = ["0a0102030405060708090bff"]

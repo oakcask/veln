@@ -1,0 +1,14 @@
+schema UnsupportedAnonymousRecordWritePacket
+	format binary
+
+	length: UInt8
+	header: {payload: ByteView(length)}
+end
+
+fn direct(packet: {length: Int, header: {payload: ByteView}}) -> Result<ByteChunk, EncodeError>
+	byte_encode_unsupported_anonymous_record_write_packet(packet)
+end
+
+fn explicit(packet: {length: Int, header: {payload: ByteView}}) -> Result<ByteChunk, EncodeError>
+	encode UnsupportedAnonymousRecordWritePacket from packet
+end

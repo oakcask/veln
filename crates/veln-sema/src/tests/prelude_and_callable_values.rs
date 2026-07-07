@@ -333,6 +333,71 @@ fn generated_schema_decode_helpers_keep_sibling_nested_anonymous_record_metadata
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_anonymous_record_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema AnonymousPacket\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: UInt8\n",
+            "  header: {kind: UInt8, detail: {code: UInt16be, tail: UInt16le}, marker: UInt8}\n",
+            "  suffix: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {prefix: Int, header: {kind: Int, detail: {code: Int, tail: Int}, marker: Int}, suffix: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_anonymous_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let write = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write")
+        .expect("write should be lowered");
+    let CoreStmtKind::Return { expr } = &write.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "AnonymousPacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "AnonymousPacket")
+        .expect("anonymous schema should be emitted");
+    let header = schema.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("anonymous record should carry nested metadata");
+    let detail = header.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("nested anonymous record should carry nested metadata");
+    assert_eq!(
+        detail
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![("code", 2, 0xffff), ("tail", 2, 0xffff)]
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_from_format_neutral_schema_declarations() {
     let source = SourceFile::new(
         "main.veln",

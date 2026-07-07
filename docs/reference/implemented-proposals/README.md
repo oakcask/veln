@@ -200,6 +200,8 @@ behavior.
   [binary-schema-anonymous-record-decode.md](binary-schema-anonymous-record-decode.md).
 - Binary schema sibling nested anonymous record decode:
   [binary-schema-sibling-nested-anonymous-record-decode.md](binary-schema-sibling-nested-anonymous-record-decode.md).
+- Binary schema anonymous record encode:
+  [binary-schema-anonymous-record-encode.md](binary-schema-anonymous-record-encode.md).
 - Binary schema dispatch `ByteView(length_field)` payload helpers:
   [binary-schema-dispatch-byteview-payload-helpers.md](binary-schema-dispatch-byteview-payload-helpers.md).
 - Binary schema dispatch `ByteView(left_length + right_length)` payload helpers:

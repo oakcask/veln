@@ -1209,6 +1209,7 @@ visible exact-width field and whose payload is an exact-width unsigned
 primitive, an eligible nested binary schema, or
 `ByteView(length_field)` whose length names an earlier visible exact-width
 field,
+anonymous record fields whose leaves are exact-width unsigned primitives,
 length-bounded
 `ByteView(length_field)` fields whose
 length names an earlier visible exact-width field,

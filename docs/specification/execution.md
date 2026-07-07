@@ -182,6 +182,15 @@ enough.
   `examples/specification/run/binary-schema-recursive-anonymous-record-decode/`,
   and
   `examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.
+- Generated binary schema encode helpers accept anonymous record fields whose
+  leaves are exact-width unsigned primitives, write leaves in declaration
+  order with each primitive's byte order, and preserve nested anonymous record
+  field segments in `schema.encode_value_unrepresentable` paths. The checked
+  cases are
+  `examples/specification/run/binary-schema-anonymous-record-encode/`,
+  `examples/specification/run/binary-schema-anonymous-record-encode-out-of-range-json/`,
+  and
+  `examples/specification/check/binary-schema-anonymous-record-encode-boundary/`.
 - Dispatch payload cases written with lowercase exact-width `uint...` and
   `flag...` primitive spelling normalize to the same generated decode and
   encode helper behavior as compatible upper-case exact-width payload spelling.

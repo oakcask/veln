@@ -90,6 +90,11 @@ The checked nested truncation JSON cases are
 `examples/specification/run/binary-schema-sibling-nested-anonymous-record-truncated-json/`,
 and
 `examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.
+The checked encode cases are
+`examples/specification/run/binary-schema-anonymous-record-encode/`,
+`examples/specification/run/binary-schema-anonymous-record-encode-out-of-range-json/`,
+and
+`examples/specification/check/binary-schema-anonymous-record-encode-boundary/`.
 Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
 primitive payload spellings that are accepted by canonical repeated-field
 syntax. They also accept supported lowercase `uint... reserves <value>`
