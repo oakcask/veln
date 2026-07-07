@@ -1204,6 +1204,8 @@ prefix groups whose widths complete one, two, three, or four big-endian bytes,
 supported consecutive non-byte-aligned
 `UIntN` and `ReservedBits(width, value)` groups whose widths complete one,
 two, three, four, five, six, seven, or eight big-endian bytes,
+visible-only packed `UInt1` through `UInt7` groups whose widths complete one,
+two, three, four, five, six, seven, or eight big-endian bytes,
 bounded `Repeat(count_field, Payload)` fields whose count names an earlier
 visible exact-width field and whose payload is an exact-width unsigned
 primitive, an eligible nested binary schema, or

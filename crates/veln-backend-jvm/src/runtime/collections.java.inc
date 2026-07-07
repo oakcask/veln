@@ -667,7 +667,7 @@
             hasVisible = hasVisible || !field.isReserved();
             if (bitPackedStorageBitWidth(totalBitWidth)) {
                 return (hasReserved && hasVisible)
-                    || (!hasReserved && hasVisible && fieldCount >= 2 && totalBitWidth <= 56)
+                    || (!hasReserved && hasVisible && fieldCount >= 2 && totalBitWidth <= 64)
                     ? new BitPackedFieldGroupSpec(fieldCount, totalBitWidth / 8, totalBitWidth)
                     : null;
             }

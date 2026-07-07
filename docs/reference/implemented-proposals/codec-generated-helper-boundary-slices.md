@@ -19,8 +19,8 @@ subtraction, multiplication, and division repeated primitive count
 expressions, standalone visible `UInt1` through `UInt7` fields, opt-in
 visible flag bitset fields, including generated-helper-backed `Flag24be` and
 `Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, six-byte, and
-seven-byte groups, seven-byte
+visible-only packed three-byte, four-byte, five-byte, six-byte, seven-byte,
+and eight-byte groups, seven-byte
 or eight-byte reserved prefix groups, seven-byte wide reserved suffix groups,
 the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix route,
 and schema
@@ -41,8 +41,8 @@ multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
 standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
 fields, including generated-helper-backed `Flag24be` and `Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, six-byte, and
-seven-byte groups, seven-byte
+visible-only packed three-byte, four-byte, five-byte, six-byte, seven-byte,
+and eight-byte groups, seven-byte
 or eight-byte reserved prefix groups, and seven-byte wide reserved suffix
 groups, plus the narrow `ReservedBits(9, 0)` plus `UInt8` two-byte prefix
 route.
