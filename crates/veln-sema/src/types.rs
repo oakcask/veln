@@ -3188,7 +3188,8 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
         Type::Named { name, .. }
             if name == "Dict"
                 && (format_neutral_schema_scalar_dict_type(ty)
-                    || format_neutral_schema_option_scalar_dict_type(ty)) =>
+                    || format_neutral_schema_option_scalar_dict_type(ty)
+                    || format_neutral_schema_scalar_list_dict_type(ty)) =>
         {
             Some(ty.clone())
         }
@@ -3260,6 +3261,17 @@ fn format_neutral_schema_option_scalar_dict_type(ty: &Type) -> bool {
                 && args.len() == 2
                 && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
                 && format_neutral_schema_option_scalar_type(&args[1])
+    )
+}
+
+fn format_neutral_schema_scalar_list_dict_type(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args }
+            if name == "Dict"
+                && args.len() == 2
+                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
+                && format_neutral_schema_scalar_list_type(&args[1])
     )
 }
 

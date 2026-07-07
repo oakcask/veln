@@ -42,11 +42,11 @@ those positions when every constructor payload is a recursive visible shape.
 Format-neutral generated encode helpers are limited to scalar leaves and
 `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
 `Vec<scalar>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
-`Dict<String, Option<scalar>>`, `Option<Dict<String, scalar>>`,
-`Result<Ok, Err>` when both payloads are supported format-neutral encode
-shapes, or anonymous record fields whose fields are supported format-neutral
-encode shapes. The supported scalar leaves are `Int`, `Bool`, `Float`, and
-`String`.
+`Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
+`Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
+supported format-neutral encode shapes, or anonymous record fields whose fields
+are supported format-neutral encode shapes. The supported scalar leaves are
+`Int`, `Bool`, `Float`, and `String`.
 
 ## Executable Grammar
 
