@@ -310,6 +310,8 @@ behavior.
   [format-neutral-schema-result-option-encode-helpers.md](format-neutral-schema-result-option-encode-helpers.md).
 - Format-neutral schema recursive `Result` encode helpers:
   [format-neutral-schema-recursive-result-encode-helpers.md](format-neutral-schema-recursive-result-encode-helpers.md).
+- Format-neutral schema result-container encode helpers:
+  [format-neutral-schema-result-container-encode-helpers.md](format-neutral-schema-result-container-encode-helpers.md).
 - Format-neutral schema encode helper diagnostics:
   [format-neutral-schema-encode-helper-diagnostics.md](format-neutral-schema-encode-helper-diagnostics.md).
 - Codec hand-written encode resume:

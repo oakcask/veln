@@ -1,0 +1,92 @@
+# Format-neutral schema encode helpers accept Result elements in containers.
+use stdio
+
+schema ResultContainerPacket
+	items: List<Result<Int, String>>
+	vector: Vec<Result<Option<Int>, String>>
+	labels: Dict<String, Result<List<Int>, String>>
+	metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}
+end
+
+fn add_int(acc: Int, item: Int) -> Int
+	acc + item
+end
+
+fn list_result_sum(items: List<Result<Int, String>>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => match head
+			Ok(value) => value + list_result_sum(tail)
+			Err(_) => list_result_sum(tail)
+		end
+	end
+end
+
+fn vector_result_sum(acc: Int, item: Result<Option<Int>, String>) -> Int
+	match item
+		Ok(maybe_value) => match maybe_value
+			Some(value) => acc + value
+			None => acc
+		end
+		Err(_) => acc
+	end
+end
+
+fn list_sum(items: List<Int>) -> Int
+	list_fold(items, 0, add_int)
+end
+
+fn label_sum(labels: Dict<String, Result<List<Int>, String>>) -> Int
+	match dict_get(labels, "scores")
+		Some(result) => match result
+			Ok(items) => list_sum(items)
+			Err(_) => -1
+		end
+		None => -2
+	end
+end
+
+fn flag_count(acc: Int, item: Result<Bool, String>) -> Int
+	match item
+		Ok(value) => match value
+			true => acc + 1
+			false => acc
+		end
+		Err(_) => acc
+	end
+end
+
+fn alias_text(aliases: Dict<String, Result<String, Option<Int>>>) -> String
+	match dict_get(aliases, "primary")
+		Some(result) => match result
+			Ok(value) => value
+			Err(maybe_code) => match maybe_code
+				Some(code) => int_to_string(code)
+				None => "empty-alias"
+			end
+		end
+		None => "missing-alias"
+	end
+end
+
+fn emit_packet(packet: {items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}) -> () effects [stdio]
+	stdio::println(int_to_string(list_result_sum(packet.items)))
+	stdio::println(int_to_string(vec_fold(packet.vector, 0, vector_result_sum)))
+	stdio::println(int_to_string(label_sum(packet.labels)))
+	stdio::println(int_to_string(vec_fold(packet.metadata.flags, 0, flag_count)))
+	stdio::println(alias_text(packet.metadata.aliases))
+end
+
+fn emit(result: Result<{items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}}, String>) -> () effects [stdio]
+	match result
+		Ok(packet) => emit_packet(packet)
+		Err(message) => stdio::println(message)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let direct_packet: {items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}} = {items: list_cons(Ok(3), list_cons(Err("skip"), list_cons(Ok(5), list_nil()))), vector: [Ok(Some(7)), Ok(None), Err("blocked")], labels: {"scores": Ok(list_cons(11, list_cons(13, list_nil())))}, metadata: {flags: [Ok(true), Err("skip"), Ok(false), Ok(true)], aliases: {"primary": Ok("core")}}}
+	let explicit_packet: {items: List<Result<Int, String>>, vector: Vec<Result<Option<Int>, String>>, labels: Dict<String, Result<List<Int>, String>>, metadata: {flags: Vec<Result<Bool, String>>, aliases: Dict<String, Result<String, Option<Int>>>}} = {items: list_cons(Err("skip"), list_cons(Ok(2), list_nil())), vector: [Ok(Some(4)), Ok(Some(6))], labels: {"scores": Err("blocked")}, metadata: {flags: [Err("skip"), Ok(true)], aliases: {"primary": Err(Some(42))}}}
+	emit(byte_encode_result_container_packet(direct_packet))
+	emit(encode ResultContainerPacket from explicit_packet)
+end

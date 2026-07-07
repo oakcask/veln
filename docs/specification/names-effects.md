@@ -337,8 +337,11 @@ compiler-known calls.
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
   `Dict<String, List<scalar>>` fields,
   `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
-  payloads are supported format-neutral encode shapes, and anonymous record
-  fields whose fields are supported format-neutral encode shapes without
+  payloads are supported format-neutral encode shapes,
+  `List<Result<Ok, Err>>`, `Vec<Result<Ok, Err>>`, and
+  `Dict<String, Result<Ok, Err>>` fields when each result payload is a
+  supported format-neutral encode shape, and anonymous record fields whose
+  fields are supported format-neutral encode shapes without
   producing binary bytes.
   Pure source-backed prelude helpers
   `flag8_is_set`, `flag8_set`,
