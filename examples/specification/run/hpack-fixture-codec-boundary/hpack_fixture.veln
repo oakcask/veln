@@ -1156,6 +1156,13 @@ fn string_literal_value(literal: HpackStringLiteral) -> String
 	end
 end
 
+pub fn decode_checked_hpack_huffman_value(encoded: ByteChunk, offset: Int) -> Result<String, HpackFixtureFailure>
+	match decode_hpack_huffman_short_literal_value(encoded, byte_count_to_int(byte_chunk_count(encoded)), 0, offset)
+		Ok(literal) => Ok(string_literal_value(literal))
+		Err(failure) => Err(failure)
+	end
+end
+
 fn string_literal_wire_size(literal: HpackStringLiteral) -> Int
 	match literal
 		HpackStringLiteral(_, wire_size) => wire_size

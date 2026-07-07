@@ -286,9 +286,12 @@ requiring the full command reference on the first read.
   over-limit insertion, static-name literal-with-indexing insertion for
   `content-type: text`, later dynamic-indexed reuse through `0xbe`, accepted
   raw visible-ASCII literal-name fields across the literal-without-indexing,
-  literal-with-indexing, and literal-never-indexed forms, dynamic-table
-  mutation only for literal-with-indexing, and final CONTINUATION routing
-  through the source-visible raw literal-name boundary before fixture fallback.
+  literal-with-indexing, and literal-never-indexed forms, including bounded
+  Huffman-marked values accepted by the checked HPACK Huffman boundary,
+  dynamic-table mutation only for literal-with-indexing, dynamic-indexed reuse
+  of the inserted Huffman-valued raw literal, focused malformed-Huffman
+  fallback projection, and final CONTINUATION routing through the
+  source-visible raw literal-name boundary before fixture fallback.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

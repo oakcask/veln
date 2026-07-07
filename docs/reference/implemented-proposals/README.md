@@ -419,6 +419,8 @@ behavior.
   [http2-hpack-integer-core.md](http2-hpack-integer-core.md).
 - HTTP/2 HPACK dynamic raw literal-name core:
   [http2-hpack-dynamic-raw-literal-name-core.md](http2-hpack-dynamic-raw-literal-name-core.md).
+- HTTP/2 HPACK dynamic raw literal-name Huffman values:
+  [http2-hpack-dynamic-raw-literal-name-huffman-values.md](http2-hpack-dynamic-raw-literal-name-huffman-values.md).
 - HTTP/2 HPACK table-size receive policy:
   [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
 - HTTP/2 HPACK Huffman fixture:

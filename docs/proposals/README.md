@@ -602,6 +602,9 @@ compare it with `../specification/` before changing behavior.
   eviction, over-limit insertion, and zero-size table reduction, plus the
   source-visible static-name literal-with-indexing receive core for checked
   dynamic-state insertion and `0xbe` dynamic-indexed reuse, plus the
+  source-visible raw literal-name Huffman-value receive core for checked
+  Huffman-marked values, dynamic-state insertion, and `0xbe` dynamic-indexed
+  reuse, plus the
   source-visible exact static-indexed outbound encode helper for checked
   HPACK static table name/value pairs across outbound HEADERS and
   server-side `PUSH_PROMISE`,

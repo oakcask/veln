@@ -1149,12 +1149,14 @@ header-name byte count plus header-value byte count plus `32`; entries insert
 newest-first into immutable states; oldest entries are evicted after insertion
 or table-size reduction; and inserting an entry larger than the supplied
 table-size limit, or reducing the table size to zero, clears the carried table.
-The raw literal-name receive slice is now current behavior there as well:
-`hpack_dynamic_core` accepts checked visible-ASCII literal names and values
-across literal-without-indexing, literal-with-indexing, and
-literal-never-indexed receive forms; only literal-with-indexing inserts into
-the immutable dynamic table; and HTTP/2 completed HEADERS and final
-CONTINUATION paths try that source-visible boundary before fixture fallback.
+The raw literal-name receive slices are now current behavior there as well:
+`hpack_dynamic_core` accepts checked visible-ASCII literal names with raw
+visible-ASCII values or bounded Huffman-marked values across
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+receive forms; only literal-with-indexing inserts into the immutable dynamic
+table; and HTTP/2 completed HEADERS and final CONTINUATION paths try that
+source-visible boundary before fixture fallback. Malformed Huffman values keep
+the existing focused fixture diagnostics.
 The completed slices are checked by
 `../../examples/specification/run/hpack-fixture-codec-boundary/` and archived
 under
@@ -1166,11 +1168,13 @@ The HTTP/2 route is checked by
 [HTTP/2 HPACK Dynamic Index Core](../reference/implemented-proposals/http2-hpack-dynamic-index-core.md)
 and
 [HTTP/2 HPACK Dynamic Raw Literal-Name Core](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-core.md).
+The Huffman-value raw literal-name slice is archived under
+[HTTP/2 HPACK Dynamic Raw Literal-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-huffman-values.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior beyond the bounded source-visible integer, static,
-static-name indexing, dynamic-index, raw literal-name, and dynamic-table
-accounting core slices.
+static-name indexing, dynamic-index, raw literal-name, raw literal-name
+Huffman-value, and dynamic-table accounting core slices.
 
 ## Completion Criteria
 

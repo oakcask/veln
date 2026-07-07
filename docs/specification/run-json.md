@@ -1137,8 +1137,10 @@ over-limit insertion. It also checks source-visible static-name
 literal-with-indexing `content-type: text`, immutable dynamic-core insertion,
 and dynamic-indexed reuse through `0xbe`. It checks accepted raw visible-ASCII
 literal-name fields for literal-without-indexing, literal-with-indexing, and
-literal-never-indexed, including dynamic-table mutation only for
-literal-with-indexing and dynamic-indexed reuse of the inserted raw literal.
+literal-never-indexed, including bounded Huffman-marked values accepted by the
+checked HPACK Huffman boundary, dynamic-table mutation only for
+literal-with-indexing, dynamic-indexed reuse of the inserted Huffman-valued raw
+literal, and focused malformed-Huffman fallback projection.
 The same standalone boundary checks the source-visible HPACK integer core:
 seven-bit indexed fields, five-bit table-size updates, and seven-bit
 literal-length shapes decode and encode through the shared bounded helper, and
