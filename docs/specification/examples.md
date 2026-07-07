@@ -57,6 +57,16 @@ behavior.
   `../../examples/specification/run/socket-stream-adapter-cancellable-write-drain-cancelled/`,
   and
   `../../examples/specification/check/socket-stream-adapter-cancellable-write-drain-effects/`.
+- Adapter accept-loop helper success, forced transport failures, and effect
+  checking:
+  `../../examples/specification/run/socket-stream-adapter-accept-loop/`,
+  `../../examples/specification/run/socket-stream-adapter-accept-loop-accept-failure-json/`,
+  `../../examples/specification/run/socket-stream-adapter-accept-loop-read-failure-json/`,
+  `../../examples/specification/run/socket-stream-adapter-accept-loop-write-failure-json/`,
+  `../../examples/specification/run/socket-stream-adapter-accept-loop-stream-close-failure-json/`,
+  `../../examples/specification/run/socket-stream-adapter-accept-loop-listener-close-failure-json/`,
+  and
+  `../../examples/specification/check/socket-stream-adapter-accept-loop-effects/`.
 
 ## Read When
 

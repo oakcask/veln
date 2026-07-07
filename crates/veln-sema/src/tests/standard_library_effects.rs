@@ -1159,6 +1159,54 @@ fn stream_adapter_cancellable_write_drain_requires_net_time_and_concurrency_effe
 }
 
 #[test]
+fn stream_adapter_accept_loop_requires_net_and_concurrency_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn handle_input(input: StreamInput) -> List<StreamAdapterAction>\n",
+            "  match input\n",
+            "    Chunk(bytes) => list_cons(SendBytes(bytes), list_nil())\n",
+            "    End => list_cons(EndStream, list_nil())\n",
+            "  end\n",
+            "end\n",
+            "\n",
+            "pub fn missing_concurrency(listener: NetListener) -> () effects [net]\n",
+            "  stream_adapter_accept_loop(listener, handle_input)\n",
+            "end\n",
+            "\n",
+            "pub fn missing_net(listener: NetListener) -> () effects [concurrency]\n",
+            "  stream_adapter_accept_loop(listener, handle_input)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `concurrency`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"concurrency\""));
+    assert!(details.contains("\"inferred_effects\":[\"net\",\"concurrency\"]"));
+    assert!(details.contains("\"symbol\":\"stream_adapter_accept_loop\""));
+
+    assert_eq!(diagnostics[1].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[1].message,
+        "public function uses undeclared effect `net`"
+    );
+    let details = diagnostics[1].details.to_json();
+    assert!(details.contains("\"effect\":\"net\""));
+    assert!(details.contains("\"inferred_effects\":[\"net\",\"concurrency\"]"));
+    assert!(details.contains("\"symbol\":\"stream_adapter_accept_loop\""));
+}
+
+#[test]
 fn write_chunks_until_requires_net_and_time_effects_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",

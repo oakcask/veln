@@ -337,6 +337,10 @@ pub fn stream_adapter_drain_actions_until_cancellable(stream: NetStream, handler
 	prelude_builtin::stream_adapter_drain_actions_until_cancellable(stream, handler, deadline, token)
 end
 
+pub fn stream_adapter_accept_loop(listener: NetListener, handler: fn(StreamInput) -> List<StreamAdapterAction>) -> () effects [net, concurrency]
+	prelude_builtin::stream_adapter_accept_loop(listener, handler)
+end
+
 pub type AcceptOutcome
 	AcceptStream(stream: NetStream)
 	AcceptEnd

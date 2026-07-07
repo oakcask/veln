@@ -732,10 +732,11 @@ compare it with `../specification/` before changing behavior.
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle, and
   listener-drain adapter lifecycle, listener-drain read-failure runtime
-  boundary, deadline-aware adapter lifecycle, deadline-aware accept and read
-  failure runtime boundaries, production cancellable deadline-aware adapter
-  lifecycle and outcome boundary, adapter close-failure runtime boundary, and
-  explicit listener-close boundary, adapter-owned cancellation owner
+  boundary, source-visible adapter accept-loop helper, deadline-aware adapter
+  lifecycle, deadline-aware accept and read failure runtime boundaries,
+  production cancellable deadline-aware adapter lifecycle and outcome
+  boundary, adapter close-failure runtime boundary, and explicit
+  listener-close boundary, adapter-owned cancellation owner
   lifecycle boundary, production owner-drain cancellable deadline lifecycle
   boundary, production multi-chunk adapter event routing, production
   multi-event adapter task-helper routing, production multi-chunk
@@ -804,6 +805,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible standard stream adapter routing helper slice
   is archived under
   [Network Stream Adapter Routing Helper](../reference/implemented-proposals/network-stream-adapter-routing-helper.md).
+  The completed source-visible adapter accept-loop helper slice is archived
+  under
+  [Network Adapter Accept-Loop Helper](../reference/implemented-proposals/network-adapter-accept-loop-helper.md).
   The completed adapter-level cancellable write-drain helper slice is
   archived under
   [Network Adapter Cancellable Write-Drain](../reference/implemented-proposals/network-adapter-cancellable-write-drain.md).

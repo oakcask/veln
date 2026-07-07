@@ -33,7 +33,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   production-loopback listen, sequential accept, read, write, clean listener
   end, close lifecycle, two-stream adapter handler/action lifecycle,
   listener-drain adapter lifecycle, listener-drain read-failure boundary,
-  adapter-owned outbound write-failure boundary,
+  source-visible adapter accept-loop helper, adapter-owned outbound
+  write-failure boundary,
   deadline-aware adapter lifecycle, deadline-aware accept-failure boundary,
   deadline-aware read-failure boundary, production cancellable deadline-aware
   adapter lifecycle and outcome boundary, explicit listener-close boundary,
@@ -81,8 +82,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   cancellable timeout-result selection, two-receiver timeout-result selection,
   two-receiver cancellable timeout-result selection, socket/channel routing,
   deadline-aware lifecycle, cancellable lifecycle, cancellable deadline-aware
-  lifecycle, clean shutdown lifecycle, and
-  multi-handler outbound write-ordering slices
+  lifecycle, clean shutdown lifecycle, source-visible adapter accept-loop
+  helper, and multi-handler outbound write-ordering slices
 - richer channel-first stream event routing beyond the checked two-route,
   three-route, four-route, general receiver-list routing helper,
   receiver-list timeout,
@@ -438,6 +439,19 @@ adapter-owned response chunks through `net::write_chunks`, closes each stream,
 and observes clean listener end. The adapter owns `net` and `concurrency`; the
 handler receives no `NetStream` and calls no transport functions.
 
+Implemented source-visible adapter accept-loop helper slice: executable
+specification cases use `stream_adapter_accept_loop(listener, handler)` to own
+one `NetListener`, repeatedly accept production-loopback streams until clean
+listener end, drain each accepted stream through the existing
+`stream_adapter_drain_actions` boundary, project ordered `SendBytes` actions
+through `net::write_chunks`, close each accepted stream, and close the
+listener after clean end. The helper uses only the existing coarse `net` and
+`concurrency` effects, keeps the handler signature at ordinary
+`StreamInput` to `List<StreamAdapterAction>`, and preserves forced accept,
+read, write, stream close, and listener close failures as runtime transport
+failures. The completion record is archived under
+[Network Adapter Accept-Loop Helper](../reference/implemented-proposals/network-adapter-accept-loop-helper.md).
+
 Implemented production owner-drain cancellable deadline lifecycle slice: an
 executable specification case creates a `CancelOwner` in adapter code, passes
 only observer `CancelToken` values to cancellable deadline-aware accept/read
@@ -693,6 +707,7 @@ standard-library surface.
 - The checked production-loopback lifecycle, including the two-stream
   listener sequence, two-stream adapter handler/action boundary,
   listener-drain lifecycle, listener-drain read-failure runtime boundary,
+  source-visible adapter accept-loop helper and transport-failure boundaries,
   deadline-aware adapter lifecycle, deadline-aware accept and read failure
   runtime boundaries, adapter-owned clean shutdown lifecycle,
   adapter-owned cancellation owner lifecycle, and clean listener end, remains

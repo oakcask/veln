@@ -1416,6 +1416,18 @@
         return actions;
     }
 
+    public static Object streamAdapterAcceptLoop(Object listener, Object handler) {
+        while (true) {
+            Option accepted = asOption(netAcceptOrEnd(listener));
+            if (!accepted.some) {
+                netCloseListener(listener);
+                return UNIT;
+            }
+            streamAdapterDrainActions(accepted.value, handler);
+            netCloseStream(accepted.value);
+        }
+    }
+
     public static Object streamAdapterDrainActionsUntilCancellable(
         Object stream,
         Object handler,
