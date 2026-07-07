@@ -734,14 +734,18 @@ fn generated_schema_encode_helpers_resolve_from_list_option_encode_declarations(
             "  flags: List<Option<Bool>>\n",
             "  ratios: List<Option<Float>>\n",
             "  labels: List<Option<String>>\n",
-            "  metadata: {items: List<Option<Int>>, labels: List<Option<String>>}\n",
+            "  nested_items: List<Option<List<Int>>>\n",
+            "  nested_flags: List<Option<List<Bool>>>\n",
+            "  nested_ratios: List<Option<List<Float>>>\n",
+            "  nested_labels: List<Option<List<String>>>\n",
+            "  metadata: {items: List<Option<Int>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_labels: List<Option<List<String>>>}\n",
             "end\n",
             "\n",
-            "pub fn direct(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}, String>\n",
+            "pub fn direct(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_labels: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_labels: List<Option<List<String>>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_labels: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_labels: List<Option<List<String>>>}}, String>\n",
             "  byte_encode_list_option_packet(packet)\n",
             "end\n",
             "\n",
-            "pub fn explicit(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}, String>\n",
+            "pub fn explicit(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_labels: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_labels: List<Option<List<String>>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_flags: List<Option<List<Bool>>>, nested_ratios: List<Option<List<Float>>>, nested_labels: List<Option<List<String>>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>, nested_items: List<Option<List<Int>>>, nested_labels: List<Option<List<String>>>}}, String>\n",
             "  encode ListOptionPacket from packet\n",
             "end\n",
         ),
@@ -1490,6 +1494,7 @@ fn generated_format_neutral_schema_encode_helpers_reject_source_adts_with_unsupp
         let related = related.to_json();
         related.contains("Option<scalar>")
             && related.contains("Option<List<scalar>>")
+            && related.contains("List<Option<List<scalar>>>")
             && related.contains("same-module or public imported source ADTs")
     }));
 }

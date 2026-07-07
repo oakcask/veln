@@ -284,6 +284,8 @@ behavior.
   [format-neutral-schema-list-scalar-encode-helpers.md](format-neutral-schema-list-scalar-encode-helpers.md).
 - Format-neutral schema `List<Option<scalar>>` encode helpers:
   [format-neutral-schema-list-option-encode-helpers.md](format-neutral-schema-list-option-encode-helpers.md).
+- Format-neutral schema `List<Option<List<scalar>>>` encode helpers:
+  [format-neutral-schema-list-option-list-encode-helpers.md](format-neutral-schema-list-option-list-encode-helpers.md).
 - Format-neutral schema `Vec<scalar>` encode helpers:
   [format-neutral-schema-vec-scalar-encode-helpers.md](format-neutral-schema-vec-scalar-encode-helpers.md).
 - Format-neutral schema nested record `Vec<scalar>` encode helpers:

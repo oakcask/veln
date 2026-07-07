@@ -332,6 +332,7 @@ compiler-known calls.
   Format-neutral schema encode helpers accept and return schema-local visible
   records through `Result<T, String>` for scalar leaves, `Option<scalar>`
   fields, `Option<List<scalar>>` fields, `List<scalar>` fields,
+  `List<Option<scalar>>` fields, `List<Option<List<scalar>>>` fields,
   `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
   `Dict<String, List<scalar>>` fields,
