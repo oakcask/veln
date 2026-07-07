@@ -168,15 +168,17 @@ enough.
   expose the nested schema-local visible record at the field.
 - Anonymous record fields in `format binary` schemas consume their exact-width
   unsigned primitive leaves in source order and expose the nested anonymous
-  record shape at the field. Anonymous records may recurse when each record
-  contains at most one nested anonymous record field and all leaves are
-  exact-width unsigned primitives. Truncation inside the anonymous record
-  preserves the outer field segment and appends every anonymous record field
-  segment down to the failed primitive. The checked cases are
+  record shape at the field. Anonymous records may recurse when all leaves are
+  exact-width unsigned primitives, and a record may contain sibling nested
+  anonymous record fields at the same level. Truncation inside the anonymous
+  record preserves the outer field segment and appends every anonymous record
+  field segment down to the failed primitive. The checked cases are
   `examples/specification/run/binary-schema-anonymous-record-decode/`,
   `examples/specification/run/binary-schema-anonymous-record-truncated-json/`,
   `examples/specification/run/binary-schema-nested-anonymous-record-decode/`,
   `examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`,
+  `examples/specification/run/binary-schema-sibling-nested-anonymous-record-decode/`,
+  `examples/specification/run/binary-schema-sibling-nested-anonymous-record-truncated-json/`,
   `examples/specification/run/binary-schema-recursive-anonymous-record-decode/`,
   and
   `examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.

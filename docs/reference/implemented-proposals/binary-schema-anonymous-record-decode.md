@@ -4,9 +4,8 @@ Status: implemented
 
 This record preserves the completed generated decode helper slice for binary
 schema fields whose type is an anonymous record made from implemented
-exact-width unsigned primitive leaves, with recursive anonymous record fields
-whose records contain at most one nested anonymous record field. Current
-behavior is specified by
+exact-width unsigned primitive leaves, through the original single nested
+anonymous record boundary. Current behavior is specified by
 `../../specification/source-surface.md`, `../../specification/execution.md`,
 `../../specification/run-json.md`, and the checked executable examples under
 `../../../examples/specification/run/`.
@@ -15,9 +14,10 @@ behavior is specified by
 
 Generated binary schema decode helpers accept a visible field whose schema type
 is an anonymous record. Each leaf must be an implemented exact-width unsigned
-primitive, and each anonymous record may contain at most one nested anonymous
-record field. Decode reads the leaves in source order and exposes the same
-anonymous record shape at the outer schema field.
+primitive. Decode reads the leaves in source order and exposes the same
+anonymous record shape at the outer schema field. Later sibling nested
+anonymous record support is archived under
+`binary-schema-sibling-nested-anonymous-record-decode.md`.
 
 Runtime truncation inside the anonymous record uses the existing
 `schema.truncated_field` byte diagnostic shape. The field path keeps the outer

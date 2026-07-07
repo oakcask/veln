@@ -3111,20 +3111,15 @@ pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<T
 }
 
 fn binary_schema_anonymous_record_type(fields: Vec<(String, Type)>) -> Option<Vec<(String, Type)>> {
-    let mut nested_record_seen = false;
     fields
         .into_iter()
         .map(|(name, ty)| {
             if binary_schema_anonymous_record_leaf_type(&ty).is_some() {
                 return Some((name, Type::int()));
             }
-            if nested_record_seen {
-                return None;
-            }
             let Type::Record(fields) = ty else {
                 return None;
             };
-            nested_record_seen = true;
             Some((
                 name,
                 Type::Record(binary_schema_anonymous_record_type(fields)?),

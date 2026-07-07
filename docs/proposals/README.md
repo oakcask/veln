@@ -120,6 +120,9 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Direct Nested Decode Bindings](../reference/implemented-proposals/binary-schema-direct-nested-decode-bindings.md).
   The completed binary schema anonymous record decode slice is archived under
   [Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
+  The completed binary schema sibling nested anonymous record decode slice is
+  archived under
+  [Binary Schema Sibling Nested Anonymous Record Decode](../reference/implemented-proposals/binary-schema-sibling-nested-anonymous-record-decode.md).
   The completed dispatch nested repeat helper slice is archived under
   [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
   The completed general representation-only reserved-bit generated helper

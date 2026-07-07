@@ -1,0 +1,16 @@
+# Binary schema sibling nested anonymous record truncation reports the second sibling path.
+
+schema SiblingNestedAnonymousRecordPacket
+	format binary
+
+	prefix: UInt8
+	header: {kind: UInt8, left: {code: UInt16be, tail: UInt16le}, right: {channel: UInt8, value: UInt24be}, marker: UInt8}
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0a0102030405060708")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let _: {prefix: Int, header: {kind: Int, left: {code: Int, tail: Int}, right: {channel: Int, value: Int}, marker: Int}, suffix: Int} = byte_decode_sibling_nested_anonymous_record_packet(view)?
+	Ok(())
+end

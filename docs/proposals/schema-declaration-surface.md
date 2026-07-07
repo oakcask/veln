@@ -71,9 +71,8 @@ The implemented first slice covers:
   fields over implemented primitive, nested schema, `ByteView(length_field)`,
   or `ByteView(left_length - right_length)` payloads, direct nested binary
   schema fields, recursive anonymous record fields whose leaves are
-  implemented exact-width unsigned primitives and whose records contain at
-  most one nested anonymous record field, or the implemented dispatch payload
-  slices
+  implemented exact-width unsigned primitives, or the implemented dispatch
+  payload slices
 - generated `byte_decode_<schema>` helper bindings for format-neutral schemas
   without a `format` clause when every field is a recursive format-neutral
   visible shape made from scalar leaves, anonymous record fields, `Option<T>`,
@@ -123,6 +122,10 @@ under
 
 The completed binary schema anonymous record decode slice is archived under
 [Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
+
+The completed binary schema sibling nested anonymous record decode slice is
+archived under
+[Binary Schema Sibling Nested Anonymous Record Decode](../reference/implemented-proposals/binary-schema-sibling-nested-anonymous-record-decode.md).
 
 The completed dispatch nested repeat helper slice is archived under
 [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
@@ -500,8 +503,7 @@ Implemented:
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives, visible flag bitset fields, direct nested binary schema
   fields, recursive anonymous record fields whose leaves are implemented
-  exact-width unsigned primitives and whose records contain at most one nested
-  anonymous record field, supported representation-only
+  exact-width unsigned primitives, supported representation-only
   `ReservedBits(width, value)` fields, or bounded repeat fields over
   implemented primitive, nested schema, or `ByteView(length_field)` payloads expose generated
   `byte_decode_<schema>` helper bindings.

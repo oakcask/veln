@@ -275,7 +275,7 @@ fn generated_schema_decode_helpers_keep_recursive_anonymous_record_metadata() {
 }
 
 #[test]
-fn generated_schema_decode_helpers_reject_sibling_nested_anonymous_records() {
+fn generated_schema_decode_helpers_keep_sibling_nested_anonymous_record_metadata() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -293,10 +293,42 @@ fn generated_schema_decode_helpers_reject_sibling_nested_anonymous_records() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let ir = lowered.ir.expect("typed IR should be built");
-    assert!(
-        ir.schema_decoders.is_empty(),
-        "sibling nested anonymous records should stay outside generated decode helper eligibility: {:#?}",
-        ir.schema_decoders
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    let header = schema.fields[0]
+        .payload_schema
+        .as_ref()
+        .expect("anonymous record should carry nested decode metadata");
+    assert_eq!(
+        header
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width))
+            .collect::<Vec<_>>(),
+        vec![("left", 0), ("right", 0)]
+    );
+    let left = header.fields[0]
+        .payload_schema
+        .as_ref()
+        .expect("left anonymous record should carry decode metadata");
+    assert_eq!(
+        left.fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![("kind", 1, 0xff)]
+    );
+    let right = header.fields[1]
+        .payload_schema
+        .as_ref()
+        .expect("right anonymous record should carry decode metadata");
+    assert_eq!(
+        right
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![("code", 1, 0xff)]
     );
 }
 
