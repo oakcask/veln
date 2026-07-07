@@ -725,6 +725,73 @@ fn generated_schema_encode_helpers_resolve_from_option_vec_encode_declarations()
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_from_list_option_encode_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ListOptionPacket\n",
+            "  items: List<Option<Int>>\n",
+            "  flags: List<Option<Bool>>\n",
+            "  ratios: List<Option<Float>>\n",
+            "  labels: List<Option<String>>\n",
+            "  metadata: {items: List<Option<Int>>, labels: List<Option<String>>}\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}, String>\n",
+            "  byte_encode_list_option_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}) -> Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, labels: List<Option<String>>, metadata: {items: List<Option<Int>>, labels: List<Option<String>>}}, String>\n",
+            "  encode ListOptionPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "ListOptionPacket" && args.len() == 1
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "ListOptionPacket" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_from_nested_vec_scalar_encode_declarations() {
     let source = SourceFile::new(
         "main.veln",

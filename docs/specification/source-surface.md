@@ -39,7 +39,8 @@ declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
 `format` clause whose fields are scalar leaves, `Option<scalar>` fields,
 `Option<List<scalar>>` fields, `List<scalar>` fields,
-`Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
+`List<Option<scalar>>` fields, `Vec<scalar>` fields,
+`Vec<Option<scalar>>` fields,
 `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
 `Dict<String, List<scalar>>` fields,
 `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
@@ -121,7 +122,8 @@ record shape for eligible binary schemas and returns
 visible record shape as `Result<T, String>` without producing binary bytes
 when every field is one of the supported format-neutral encode shapes:
 scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
-`Vec<scalar>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
+`List<Option<scalar>>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
+`Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
 `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
 supported format-neutral encode shapes, or anonymous record fields whose fields
@@ -138,6 +140,7 @@ coverage is
 `examples/specification/run/format-neutral-schema-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-list-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-list-option-encode/`,
 `examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-nested-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-vec-encode/`,
@@ -178,6 +181,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-list-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-list-option-encode/`,
 `examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-nested-vec-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-vec-encode/`,
@@ -194,6 +198,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/check/format-neutral-schema-container-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-recursive-result-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-list-scalar-encode-boundary/`,
+`examples/specification/check/format-neutral-schema-list-option-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-option-dict-encode-boundary/`,

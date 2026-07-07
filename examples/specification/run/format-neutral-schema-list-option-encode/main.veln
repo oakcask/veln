@@ -1,0 +1,114 @@
+# Format-neutral schema encode helpers accept List<Option<scalar>> fields.
+use stdio
+
+schema ListOptionPacket
+	items: List<Option<Int>>
+	flags: List<Option<Bool>>
+	ratios: List<Option<Float>>
+	names: List<Option<String>>
+	metadata: {items: List<Option<Int>>, names: List<Option<String>>}
+end
+
+fn optional_int_sum(items: List<Option<Int>>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(value) => value + optional_int_sum(tail)
+			None => optional_int_sum(tail)
+		end
+	end
+end
+
+fn optional_true_count(flags: List<Option<Bool>>) -> Int
+	match flags
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(value) => match value
+				true => 1 + optional_true_count(tail)
+				false => optional_true_count(tail)
+			end
+			None => optional_true_count(tail)
+		end
+	end
+end
+
+fn optional_float_count(ratios: List<Option<Float>>) -> Int
+	match ratios
+		Nil => 0
+		Cons(head, tail) => match head
+			Some(_) => 1 + optional_float_count(tail)
+			None => optional_float_count(tail)
+		end
+	end
+end
+
+fn first_present_name(names: List<Option<String>>) -> String
+	match names
+		Nil => "missing"
+		Cons(head, tail) => match head
+			Some(value) => value
+			None => first_present_name(tail)
+		end
+	end
+end
+
+fn item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(optional_int_sum(packet.items))
+		Err(message) => message
+	end
+end
+
+fn flag_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(optional_true_count(packet.flags))
+		Err(message) => message
+	end
+end
+
+fn ratio_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(optional_float_count(packet.ratios))
+		Err(message) => message
+	end
+end
+
+fn name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => first_present_name(packet.names)
+		Err(message) => message
+	end
+end
+
+fn nested_item_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => int_to_string(optional_int_sum(packet.metadata.items))
+		Err(message) => message
+	end
+end
+
+fn nested_name_text(result: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String>) -> String
+	match result
+		Ok(packet) => first_present_name(packet.metadata.names)
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}} = {items: list_cons(Some(2), list_cons(None, list_cons(Some(5), list_nil()))), flags: list_cons(Some(true), list_cons(None, list_cons(Some(false), list_cons(Some(true), list_nil())))), ratios: list_cons(Some(1.25), list_cons(None, list_nil())), names: list_cons(None, list_cons(Some("alpha"), list_nil())), metadata: {items: list_cons(Some(3), list_cons(Some(4), list_nil())), names: list_cons(None, list_cons(Some("nested"), list_nil()))}}
+	let empty_packet: {items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}} = {items: list_nil(), flags: list_nil(), ratios: list_nil(), names: list_nil(), metadata: {items: list_nil(), names: list_nil()}}
+	let encoded: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String> = byte_encode_list_option_packet(packet)
+	let explicit: Result<{items: List<Option<Int>>, flags: List<Option<Bool>>, ratios: List<Option<Float>>, names: List<Option<String>>, metadata: {items: List<Option<Int>>, names: List<Option<String>>}}, String> = encode ListOptionPacket from empty_packet
+	stdio::println(item_text(encoded))
+	stdio::println(flag_text(encoded))
+	stdio::println(ratio_text(encoded))
+	stdio::println(name_text(encoded))
+	stdio::println(nested_item_text(encoded))
+	stdio::println(nested_name_text(encoded))
+	stdio::println(item_text(explicit))
+	stdio::println(flag_text(explicit))
+	stdio::println(ratio_text(explicit))
+	stdio::println(name_text(explicit))
+	stdio::println(nested_item_text(explicit))
+	stdio::println(nested_name_text(explicit))
+end
