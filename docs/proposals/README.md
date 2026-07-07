@@ -97,7 +97,8 @@ compare it with `../specification/` before changing behavior.
   `Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, and supported
   recursive `Result<Ok, Err>` visible-shape fields, same-module and public
   imported source ADT visible-shape fields, scalar-only, `Option<scalar>`,
-  `List<scalar>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
+  `List<scalar>`, `List<Option<scalar>>`, `Vec<scalar>`,
+  `Vec<Option<scalar>>`,
   `Dict<String, scalar>`, `Dict<String, Option<scalar>>`,
   `Dict<String, List<scalar>>`, `Option<Dict<String, scalar>>`, and
   supported container and recursive-result format-neutral encode helpers,
@@ -173,6 +174,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `List<scalar>` encode helper slice is archived
   under
   [Format-Neutral Schema List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-scalar-encode-helpers.md).
+  The completed format-neutral `List<Option<scalar>>` encode helper slice is
+  archived under
+  [Format-Neutral Schema List Option Encode Helpers](../reference/implemented-proposals/format-neutral-schema-list-option-encode-helpers.md).
   The completed format-neutral `Vec<scalar>` encode helper slice is archived
   under
   [Format-Neutral Schema Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-vec-scalar-encode-helpers.md).
