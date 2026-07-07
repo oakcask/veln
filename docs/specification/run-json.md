@@ -1149,6 +1149,12 @@ literal-never-indexed, including bounded Huffman-marked values accepted by the
 checked HPACK Huffman boundary, dynamic-table mutation only for
 literal-with-indexing, dynamic-indexed reuse of the inserted Huffman-valued raw
 literal, and focused malformed-Huffman fallback projection.
+It also checks source-visible dynamic-name literal receive forms for names
+resolved from the carried bounded dynamic table: literal-without-indexing and
+literal-never-indexed decode fresh values while retaining the existing entry
+for later `0xbe` reuse, and literal-with-indexing inserts `:path: /again`,
+reuses it through `0xbe`, and keeps the older `:path: /target` entry
+available through `0xbf` when the table has room.
 The same standalone boundary checks the source-visible HPACK integer core:
 seven-bit indexed fields, five-bit table-size updates, and seven-bit
 literal-length shapes decode and encode through the shared bounded helper, and
