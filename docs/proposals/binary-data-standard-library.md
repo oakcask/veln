@@ -68,6 +68,9 @@ The completed schema conversion boundary slice is archived under
 The completed HPACK Huffman EOS protocol-facing byte diagnostic slice is
 archived under
 `../reference/implemented-proposals/binary-data-hpack-huffman-eos-diagnostic.md`.
+The completed HPACK static index byte preview diagnostics slice is archived
+under
+`../reference/implemented-proposals/binary-data-hpack-static-index-byte-preview-diagnostics.md`.
 
 ## Discussion Result: Core Byte Vocabulary Names
 

@@ -274,6 +274,8 @@ preview fields. The remaining proposal work covers broader schema and codec
 diagnostics beyond these implemented slices. The language-level
 transport for attaching runtime diagnostic details to failures is covered by
 [Runtime Diagnostic Payloads](../reference/implemented-proposals/runtime-diagnostic-payload.md).
+The HPACK static index byte preview diagnostics slice is archived under
+[Binary Data HPACK Static Index Byte Preview Diagnostics](../reference/implemented-proposals/binary-data-hpack-static-index-byte-preview-diagnostics.md).
 
 ## Problem
 
