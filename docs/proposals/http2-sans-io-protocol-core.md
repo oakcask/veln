@@ -54,10 +54,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  repeated outbound GOAWAY send-intent boundary, outbound GOAWAY send-intent
-  state, and outbound HEADERS, DATA, stream-level `WINDOW_UPDATE`, and
-  server-side `PUSH_PROMISE` send-intent rejection above received or locally
-  sent GOAWAY boundaries
+  repeated outbound GOAWAY send-intent boundary,
+  outbound GOAWAY send-intent state, and outbound HEADERS, DATA,
+  stream-level `WINDOW_UPDATE`, and server-side `PUSH_PROMISE` send-intent
+  rejection above received or locally sent GOAWAY boundaries
 
 ## Discussion Result: Limit Placement
 
@@ -804,6 +804,8 @@ send-intent above the sent last stream id is rejected before frame splitting
 or encode checks. The completed repeated outbound GOAWAY boundary is archived
 under
 [HTTP/2 Repeated Outbound GOAWAY Boundary](../reference/implemented-proposals/http2-repeated-outbound-goaway-boundary.md).
+The completed GOAWAY drain completion slice is archived under
+[HTTP/2 GOAWAY Drain Completion](../reference/implemented-proposals/http2-goaway-drain-completion.md).
 Generated schema encode-helper representation failures for the last stream id
 or error-code payload are preserved before accepted bytes
 are produced.

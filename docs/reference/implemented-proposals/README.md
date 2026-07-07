@@ -561,6 +561,8 @@ behavior.
   [http2-outbound-window-update-goaway-boundary.md](http2-outbound-window-update-goaway-boundary.md).
 - HTTP/2 GOAWAY receive lifecycle:
   [http2-goaway-receive-lifecycle.md](http2-goaway-receive-lifecycle.md).
+- HTTP/2 GOAWAY drain completion:
+  [http2-goaway-drain-completion.md](http2-goaway-drain-completion.md).
 - HTTP/2 repeated outbound GOAWAY boundary:
   [http2-repeated-outbound-goaway-boundary.md](http2-repeated-outbound-goaway-boundary.md).
 - HTTP/2 half-closed-by-peer outbound DATA:

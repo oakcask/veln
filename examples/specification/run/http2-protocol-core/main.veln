@@ -151,6 +151,7 @@ end
 type ConnectionShutdownState
 	OpenConnection
 	GracefulShutdown(Int, Int)
+	DrainedShutdown(Int, Int)
 end
 
 type StreamPriorityState
@@ -805,7 +806,7 @@ fn complete_after_header_list_size(pending: ByteChunk, next_continuation: Pendin
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state))?
+		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state), next_receive_flow_control)?
 			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 			ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
 		end
@@ -2080,6 +2081,10 @@ fn validate_goaway_send_boundary(last_stream_id: Int, error_code: Int, state: Ht
 			true => Ok(OutboundGoawayRejected(last_stream_id, error_code, StreamAfterGoaway(0, last_stream_id, current_last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => encode_goaway_intent(last_stream_id, error_code, state, payload)
 		end
+		DrainedShutdown(current_last_stream_id, _) => match last_stream_id > current_last_stream_id
+			true => Ok(OutboundGoawayRejected(last_stream_id, error_code, StreamAfterGoaway(0, last_stream_id, current_last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => encode_goaway_intent(last_stream_id, error_code, state, payload)
+		end
 	end
 end
 
@@ -2093,7 +2098,7 @@ end
 
 fn goaway_sent_state(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Http2DecodeState
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, _, receive_flow_control) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, GracefulShutdown(last_stream_id, error_code), receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, _, receive_flow_control) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, complete_shutdown_drain(GracefulShutdown(last_stream_id, error_code), receive_flow_control), receive_flow_control)
 	end
 end
 
@@ -2187,6 +2192,10 @@ fn validate_outbound_priority_after_goaway(stream_id: Int, dependency_stream_id:
 		OpenConnection => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
 		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
 			true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
+		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundPriorityRejected(stream_id, dependency_stream_id, exclusive, weight, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => encode_priority_intent(stream_id, dependency_stream_id, exclusive, weight, connection_window, stream_window)
 		end
 	end
@@ -2295,6 +2304,10 @@ fn validate_outbound_headers_after_goaway(stream_id: Int, payload_length: Int, h
 		OpenConnection => validate_headers_frame_size(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_window, stream_window)
 		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
 			true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => validate_headers_frame_size(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_window, stream_window)
+		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundHeadersRejected(stream_id, payload_length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => validate_headers_frame_size(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_window, stream_window)
 		end
 	end
@@ -2424,6 +2437,16 @@ fn send_push_promise_from_header_list_with_shutdown(stream_id: Int, promised_str
 				Err(failure) => Ok(Err(failure))
 			end
 		end
+		DrainedShutdown(_, _) => match outbound_push_promise_preflight(stream_id, promised_stream_id, hpack_fixture::header_list_wire_size(headers) + 4, peer_settings, shutdown_state, receive_credit)
+			OutboundPushPromisePreflightRejected(decision) => Ok(Ok(decision))
+			OutboundPushPromiseReady => match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
+				Ok(transition) => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, shutdown_state, receive_credit)
+					Ok(decision) => Ok(Ok(decision))
+					Err(error) => Err(error)
+				end
+				Err(failure) => Ok(Err(failure))
+			end
+		end
 	end
 end
 
@@ -2480,6 +2503,10 @@ fn validate_push_promise_preflight_goaway(stream_id: Int, promised_stream_id: In
 		OpenConnection => OutboundPushPromiseReady
 		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
 			true => OutboundPushPromisePreflightRejected(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => OutboundPushPromiseReady
+		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => OutboundPushPromisePreflightRejected(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => OutboundPushPromiseReady
 		end
 	end
@@ -2543,6 +2570,10 @@ fn validate_outbound_push_promise_after_goaway(stream_id: Int, promised_stream_i
 		OpenConnection => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
 		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
 			true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
+		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => encode_push_promise_intent(stream_id, promised_stream_id, payload_length, header_block, max_frame_size, connection_window, stream_window)
 		end
 	end
@@ -2638,6 +2669,10 @@ fn validate_open_stream_outbound_data_window(stream_id: Int, open_stream_id: Int
 			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 			true => validate_outbound_data_after_goaway(stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
 		end
+		DrainedShutdown(_, _) => match stream_id == open_stream_id
+			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
+			true => validate_outbound_data_after_goaway(stream_id, payload, length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window)
+		end
 	end
 end
 
@@ -2645,6 +2680,10 @@ fn validate_open_stream_outbound_data_window_with_content_length(stream_id: Int,
 	match shutdown_state
 		OpenConnection => validate_open_connection_outbound_data_window_with_content_length(stream_id, open_stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 		GracefulShutdown(_, _) => match stream_id == open_stream_id
+			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
+			true => validate_outbound_data_after_goaway_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window, expected_length, observed_length)
+		end
+		DrainedShutdown(_, _) => match stream_id == open_stream_id
 			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
 			true => validate_outbound_data_after_goaway_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, shutdown_state, connection_window, stream_window, expected_length, observed_length)
 		end
@@ -2684,6 +2723,10 @@ fn validate_outbound_data_after_goaway(stream_id: Int, payload: ByteChunk, lengt
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => validate_outbound_data_windows(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundDataRejected(stream_id, length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => validate_outbound_data_windows(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
+		end
 	end
 end
 
@@ -2692,6 +2735,10 @@ fn validate_outbound_data_after_goaway_with_content_length(stream_id: Int, paylo
 		OpenConnection => validate_outbound_data_windows_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 		GracefulShutdown(last_stream_id, _) => match stream_id > last_stream_id
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => validate_outbound_data_windows_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
+		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => validate_outbound_data_windows_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 		end
 	end
@@ -3013,6 +3060,10 @@ fn validate_stream_window_update_after_goaway(stream_id: Int, increment: Int, sh
 			true => Ok(OutboundWindowUpdateRejected(StreamAfterGoaway(0, stream_id, last_stream_id, "graceful_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
 			false => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
 		end
+		DrainedShutdown(last_stream_id, _) => match stream_id > last_stream_id
+			true => Ok(OutboundWindowUpdateRejected(StreamAfterGoaway(0, stream_id, last_stream_id, "drained_shutdown", "local", "goaway_last_stream_id", empty_header_block())))
+			false => validate_stream_window_update_bound(stream_id, increment, connection_window, open_stream_id, stream_window)
+		end
 	end
 end
 
@@ -3209,26 +3260,31 @@ fn record_local_end_stream(state: Http2DecodeState, stream_id: Int) -> Http2Deco
 	end
 end
 
-fn update_shutdown_state(pending: ByteChunk, offset: Int, length: Int, kind: Int, shutdown_state: ConnectionShutdownState) -> Result<ShutdownStateDecision, String>
+fn update_shutdown_state(pending: ByteChunk, offset: Int, length: Int, kind: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ShutdownStateDecision, String>
 	match kind
 		7 => match length == 8
-			true => validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, pending)
-			false => Ok(ShutdownStateOk(shutdown_state))
+			true => validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, receive_flow_control, pending)
+			false => Ok(ShutdownStateOk(complete_shutdown_drain(shutdown_state, receive_flow_control)))
 		end
-		_ => Ok(ShutdownStateOk(shutdown_state))
+		_ => Ok(ShutdownStateOk(complete_shutdown_drain(shutdown_state, receive_flow_control)))
 	end
 end
 
-fn validate_goaway_shutdown_update(offset: Int, decoded_shutdown: ConnectionShutdownState, shutdown_state: ConnectionShutdownState, preview_chunk: ByteChunk) -> Result<ShutdownStateDecision, String>
+fn validate_goaway_shutdown_update(offset: Int, decoded_shutdown: ConnectionShutdownState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, preview_chunk: ByteChunk) -> Result<ShutdownStateDecision, String>
 	match decoded_shutdown
 		OpenConnection => Ok(ShutdownStateOk(shutdown_state))
 		GracefulShutdown(new_last_stream_id, new_error_code) => match shutdown_state
-			OpenConnection => Ok(ShutdownStateOk(GracefulShutdown(new_last_stream_id, new_error_code)))
+			OpenConnection => Ok(ShutdownStateOk(complete_shutdown_drain(GracefulShutdown(new_last_stream_id, new_error_code), receive_flow_control)))
 			GracefulShutdown(current_last_stream_id, _) => match new_last_stream_id > current_last_stream_id
 				true => Ok(ShutdownStateFailed(StreamAfterGoaway(offset, new_last_stream_id, current_last_stream_id, "graceful_shutdown", "server", "goaway_last_stream_id", preview_chunk)))
-				false => Ok(ShutdownStateOk(GracefulShutdown(new_last_stream_id, new_error_code)))
+				false => Ok(ShutdownStateOk(complete_shutdown_drain(GracefulShutdown(new_last_stream_id, new_error_code), receive_flow_control)))
+			end
+			DrainedShutdown(current_last_stream_id, _) => match new_last_stream_id > current_last_stream_id
+				true => Ok(ShutdownStateFailed(StreamAfterGoaway(offset, new_last_stream_id, current_last_stream_id, "drained_shutdown", "server", "goaway_last_stream_id", preview_chunk)))
+				false => Ok(ShutdownStateOk(DrainedShutdown(new_last_stream_id, new_error_code)))
 			end
 		end
+		DrainedShutdown(new_last_stream_id, new_error_code) => Ok(ShutdownStateOk(DrainedShutdown(new_last_stream_id, new_error_code)))
 	end
 end
 
@@ -3241,6 +3297,63 @@ fn decode_goaway_state(pending: ByteChunk) -> Result<ConnectionShutdownState, St
 	let last_stream_id: Int = byte_read_u31_be(last_stream_view)?
 	let error_code: Int = byte_read_u32_be(error_code_view)?
 	Ok(GracefulShutdown(last_stream_id, error_code))
+end
+
+fn complete_shutdown_drain(shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> ConnectionShutdownState
+	match shutdown_state
+		OpenConnection => OpenConnection
+		GracefulShutdown(last_stream_id, error_code) => match receive_flow_control_has_active_in_boundary_stream(receive_flow_control, last_stream_id)
+			true => GracefulShutdown(last_stream_id, error_code)
+			false => DrainedShutdown(last_stream_id, error_code)
+		end
+		DrainedShutdown(last_stream_id, error_code) => DrainedShutdown(last_stream_id, error_code)
+	end
+end
+
+fn receive_flow_control_has_active_in_boundary_stream(receive_flow_control: ReceiveFlowControl, last_stream_id: Int) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => false
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(stream_id, _, _)) => stream_id <= last_stream_id
+		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _)) => first_stream_id <= last_stream_id or second_stream_id <= last_stream_id
+		ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _, third_stream_id, _, _)) => first_stream_id <= last_stream_id or second_stream_id <= last_stream_id or third_stream_id <= last_stream_id
+		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(stream_id, _, _, promised_stream_id)) => stream_id <= last_stream_id or (promised_stream_id > 0 and promised_stream_id <= last_stream_id)
+		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(stream_id, _, _)) => stream_id <= last_stream_id
+		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)) => false
+		ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)) => false
+	end
+end
+
+fn complete_shutdown_drain_after_outbound_send(shutdown_state: ConnectionShutdownState, send_credit: OutboundSendCredit) -> ConnectionShutdownState
+	match send_credit
+		OutboundSendCredit(_, stream_credit) => complete_shutdown_drain_after_outbound_stream_credit(shutdown_state, stream_credit)
+	end
+end
+
+fn complete_shutdown_drain_after_outbound_receive(shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> ConnectionShutdownState
+	match receive_credit
+		OutboundReceiveCredit(_, stream_credit) => complete_shutdown_drain_after_outbound_stream_credit(shutdown_state, stream_credit)
+	end
+end
+
+fn complete_shutdown_drain_after_outbound_stream_credit(shutdown_state: ConnectionShutdownState, stream_credit: OutboundReceiveCreditStream) -> ConnectionShutdownState
+	match shutdown_state
+		OpenConnection => OpenConnection
+		GracefulShutdown(last_stream_id, error_code) => match outbound_stream_credit_has_active_in_boundary_stream(stream_credit, last_stream_id)
+			true => GracefulShutdown(last_stream_id, error_code)
+			false => DrainedShutdown(last_stream_id, error_code)
+		end
+		DrainedShutdown(last_stream_id, error_code) => DrainedShutdown(last_stream_id, error_code)
+	end
+end
+
+fn outbound_stream_credit_has_active_in_boundary_stream(stream_credit: OutboundReceiveCreditStream, last_stream_id: Int) -> Bool
+	match stream_credit
+		NoOutboundReceiveCreditStream => false
+		OutboundReceiveCreditOpenStream(stream_id, _) => stream_id <= last_stream_id
+		OutboundReceiveCreditOpenStreamContentLength(stream_id, _, _, _) => stream_id <= last_stream_id
+		OutboundReceiveCreditClosedStream(_) => false
+		OutboundReceiveCreditResetStream(_, _) => false
+	end
 end
 
 fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
@@ -3887,6 +4000,7 @@ fn validate_new_stream_after_goaway(offset: Int, stream_id: Int, shutdown_state:
 			true => ReceiveFlowControlFailed(StreamAfterGoaway(offset, stream_id, last_stream_id, "graceful_shutdown", "server", "goaway_last_stream_id", preview_chunk))
 			false => ReceiveFlowControlOk(default_receive_flow_control())
 		end
+		DrainedShutdown(last_stream_id, _) => ReceiveFlowControlFailed(StreamAfterGoaway(offset, stream_id, last_stream_id, "drained_shutdown", "server", "goaway_last_stream_id", preview_chunk))
 	end
 end
 
@@ -4633,6 +4747,15 @@ fn state_shutdown_label(state: Http2DecodeState) -> String
 	match state
 		State(_, _, _, _, _, _, _, OpenConnection, _) => "open"
 		State(_, _, _, _, _, _, _, GracefulShutdown(_, _), _) => "graceful_shutdown"
+		State(_, _, _, _, _, _, _, DrainedShutdown(_, _), _) => "drained_shutdown"
+	end
+end
+
+fn shutdown_label(shutdown_state: ConnectionShutdownState) -> String
+	match shutdown_state
+		OpenConnection => "open"
+		GracefulShutdown(_, _) => "graceful_shutdown"
+		DrainedShutdown(_, _) => "drained_shutdown"
 	end
 end
 
@@ -4640,6 +4763,15 @@ fn state_shutdown_last_stream_id(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, _, _, OpenConnection, _) => 0
 		State(_, _, _, _, _, _, _, GracefulShutdown(last_stream_id, _), _) => last_stream_id
+		State(_, _, _, _, _, _, _, DrainedShutdown(last_stream_id, _), _) => last_stream_id
+	end
+end
+
+fn shutdown_last_stream_id(shutdown_state: ConnectionShutdownState) -> Int
+	match shutdown_state
+		OpenConnection => 0
+		GracefulShutdown(last_stream_id, _) => last_stream_id
+		DrainedShutdown(last_stream_id, _) => last_stream_id
 	end
 end
 
@@ -4647,6 +4779,15 @@ fn state_shutdown_error_code(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, _, _, OpenConnection, _) => 0
 		State(_, _, _, _, _, _, _, GracefulShutdown(_, error_code), _) => error_code
+		State(_, _, _, _, _, _, _, DrainedShutdown(_, error_code), _) => error_code
+	end
+end
+
+fn shutdown_error_code(shutdown_state: ConnectionShutdownState) -> Int
+	match shutdown_state
+		OpenConnection => 0
+		GracefulShutdown(_, error_code) => error_code
+		DrainedShutdown(_, error_code) => error_code
 	end
 end
 
@@ -7906,13 +8047,17 @@ fn print_empty_output_chunks(label: String) -> Result<(), String> effects [stdio
 end
 
 fn print_shutdown_state(label: String, state: Http2DecodeState) -> () effects [stdio]
+	print_shutdown_value(label, state_shutdown_state_value(state))
+end
+
+fn print_shutdown_value(label: String, shutdown_state: ConnectionShutdownState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" shutdown ")
-	stdio::print(state_shutdown_label(state))
+	stdio::print(shutdown_label(shutdown_state))
 	stdio::print(" last_stream_id ")
-	stdio::print(int_to_string(state_shutdown_last_stream_id(state)))
+	stdio::print(int_to_string(shutdown_last_stream_id(shutdown_state)))
 	stdio::print(" error_code ")
-	stdio::println(int_to_string(state_shutdown_error_code(state)))
+	stdio::println(int_to_string(shutdown_error_code(shutdown_state)))
 end
 
 fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
@@ -10205,6 +10350,25 @@ fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	print_shutdown_state("outbound-goaway-state", outbound_goaway_state(outbound_goaway_accepted))
 	let outbound_goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), outbound_goaway_state(outbound_goaway_accepted))?
 	print_goaway_stream_failure("outbound-goaway-late-headers", outbound_goaway_late_headers)
+	let outbound_goaway_open_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let outbound_goaway_open: OutboundGoawayDecision = send_goaway(5, 11, step_state(outbound_goaway_open_headers))?
+	print_outbound_goaway("outbound-goaway-open", outbound_goaway_open)
+	print_shutdown_state("outbound-goaway-open-state", outbound_goaway_state(outbound_goaway_open))
+	let outbound_goaway_combined_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let outbound_goaway_combined_received: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(outbound_goaway_combined_headers))?
+	print_shutdown_state("outbound-goaway-combined-received-state", step_state(outbound_goaway_combined_received))
+	let outbound_goaway_combined_narrow: OutboundGoawayDecision = send_goaway(3, 22, step_state(outbound_goaway_combined_received))?
+	print_outbound_goaway("outbound-goaway-combined-narrow", outbound_goaway_combined_narrow)
+	let ignored_outbound_goaway_combined_narrow_chunk: () = print_outbound_goaway_chunk("http2-goaway-combined-narrow", outbound_goaway_combined_narrow, "0000080700000000000000000300000016")?
+	print_shutdown_state("outbound-goaway-combined-narrow-drain", outbound_goaway_state(outbound_goaway_combined_narrow))
+	let outbound_goaway_data_end_stream: OutboundDataDecision = send_data_with_shutdown(5, byte_chunk_from_hex("0102")?, true, empty_peer_settings(), state_shutdown_state_value(outbound_goaway_state(outbound_goaway_open)), outbound_send_credit_with_open_stream(10, 5, 20))?
+	print_outbound_data("outbound-goaway-data-end-stream", outbound_goaway_data_end_stream)
+	let ignored_outbound_goaway_data_end_stream_chunk: () = print_outbound_data_chunk("http2-goaway-data-end-stream", outbound_goaway_data_end_stream, "0000020001000000050102")?
+	print_shutdown_value("outbound-goaway-data-end-stream-drain", complete_shutdown_drain_after_outbound_send(state_shutdown_state_value(outbound_goaway_state(outbound_goaway_open)), outbound_data_send_credit(outbound_goaway_data_end_stream)))
+	let outbound_goaway_headers_end_stream: OutboundHeadersDecision = send_headers_with_shutdown(5, byte_chunk_from_hex("82")?, true, empty_peer_settings(), state_shutdown_state_value(outbound_goaway_state(outbound_goaway_open)), outbound_receive_credit_with_open_stream(10, 5, 20))?
+	print_outbound_headers("outbound-goaway-headers-end-stream", outbound_goaway_headers_end_stream)
+	let ignored_outbound_goaway_headers_end_stream_chunk: () = print_outbound_headers_chunk("http2-goaway-headers-end-stream", outbound_goaway_headers_end_stream, "00000101050000000582")?
+	print_shutdown_value("outbound-goaway-headers-end-stream-drain", complete_shutdown_drain_after_outbound_receive(state_shutdown_state_value(outbound_goaway_state(outbound_goaway_open)), outbound_headers_receive_credit(outbound_goaway_headers_end_stream)))
 	let outbound_goaway_narrow: OutboundGoawayDecision = send_goaway(3, 22, outbound_goaway_state(outbound_goaway_accepted))?
 	print_outbound_goaway("outbound-goaway-narrow", outbound_goaway_narrow)
 	let ignored_goaway_narrow_chunk: () = print_outbound_goaway_chunk("http2-goaway-narrow", outbound_goaway_narrow, "0000080700000000000000000300000016")?
@@ -11007,9 +11171,29 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	let ignored_goaway_existing_trailers: () = emit_header_block("http2-goaway-existing-trailers", goaway_existing_trailers, "21222324")?
 	print_hpack_transition("goaway-existing-trailers", goaway_existing_trailers)
 	print_closed_by_peer_stream("goaway-existing-trailers", step_state(goaway_existing_trailers))
-	let goaway_allowed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway))?
-	print_step("goaway-allowed-headers", goaway_allowed_headers)
-	print_peer_streams("goaway-allowed-headers", step_state(goaway_allowed_headers))
+	print_shutdown_state("goaway-existing-trailers-drain", step_state(goaway_existing_trailers))
+	let goaway_data_end_stream_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let goaway_data_end_stream_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_data_end_stream_headers))?
+	let goaway_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020001000000050102")?), step_state(goaway_data_end_stream_shutdown))?
+	print_step("goaway-existing-data-end-stream", goaway_data_end_stream)
+	print_closed_by_peer_stream("goaway-existing-data-end-stream", step_state(goaway_data_end_stream))
+	print_shutdown_state("goaway-existing-data-end-stream-drain", step_state(goaway_data_end_stream))
+	let goaway_reset_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let goaway_reset_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_reset_headers))?
+	let goaway_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000500000008")?), step_state(goaway_reset_shutdown))?
+	print_rst_stream("goaway-existing-reset", goaway_reset)
+	print_shutdown_state("goaway-existing-reset-drain", step_state(goaway_reset))
+	let goaway_headers_promise: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000002303132")?), client_push_receive_state(65535, 1, 65535))?
+	let goaway_headers_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000020000000b")?), step_state(goaway_headers_promise))?
+	print_shutdown_state("goaway-existing-headers-shutdown", step_state(goaway_headers_shutdown))
+	let goaway_headers_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000002353637")?), step_state(goaway_headers_shutdown))?
+	print_step("goaway-existing-headers-end-stream", goaway_headers_end_stream)
+	let ignored_goaway_headers_end_stream_block: () = emit_header_block("http2-goaway-existing-headers-end-stream", goaway_headers_end_stream, "353637")?
+	print_hpack_transition("goaway-existing-headers-end-stream", goaway_headers_end_stream)
+	print_closed_by_peer_stream("goaway-existing-headers-end-stream", step_state(goaway_headers_end_stream))
+	print_shutdown_state("goaway-existing-headers-end-stream-drain", step_state(goaway_headers_end_stream))
+	let goaway_drained_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway))?
+	print_goaway_stream_failure("goaway-drained-late-headers", goaway_drained_late_headers)
 	let goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway))?
 	print_goaway_stream_failure("goaway-late-headers", goaway_late_headers)
 	let goaway_even_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000006")?), step_state(goaway))?
