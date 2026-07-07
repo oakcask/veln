@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "schema.encode_value_unrepresentable\nUInt64Width.value\nvalue must be between 0 and 18446744073709551615\n"
+equals = "schema.encode_value_unrepresentable\nUInt64BigWidth.value\nvalue must be between 0 and 18446744073709551615\nschema.encode_value_unrepresentable\nUInt64LittleWidth.value\nvalue must be between 0 and 18446744073709551615\n"
 
 [[json_assert]]
 path = "error"
