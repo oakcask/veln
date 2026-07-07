@@ -324,6 +324,7 @@ compiler-known calls.
   fields, `Option<List<scalar>>` fields, `List<scalar>` fields,
   `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
+  `Dict<String, List<scalar>>` fields,
   `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
   payloads are supported format-neutral encode shapes, and anonymous record
   fields whose fields are supported format-neutral encode shapes without

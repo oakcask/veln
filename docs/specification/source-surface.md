@@ -41,9 +41,10 @@ Format-neutral generated encode helpers are exposed only for schemas without a
 `Option<List<scalar>>` fields, `List<scalar>` fields,
 `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
 `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
+`Dict<String, List<scalar>>` fields,
 `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
-payloads are supported format-neutral encode shapes, or anonymous record
-fields whose fields are supported format-neutral encode shapes.
+payloads are supported format-neutral encode shapes, or anonymous record fields
+whose fields are supported format-neutral encode shapes.
 Same-module source ADT fields and public imported source ADT fields referenced
 through written `use` paths are also supported when every constructor payload
 is a supported format-neutral encode shape. The supported scalar leaves are
@@ -121,11 +122,12 @@ visible record shape as `Result<T, String>` without producing binary bytes
 when every field is one of the supported format-neutral encode shapes:
 scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
 `Vec<scalar>`, `Vec<Option<scalar>>`, `Dict<String, scalar>`,
-`Dict<String, Option<scalar>>`, `Option<Dict<String, scalar>>`,
-`Result<Ok, Err>` when both payloads are supported format-neutral encode
-shapes, or anonymous record fields whose fields are supported format-neutral
-encode shapes, plus same-module source ADT fields and public imported source
-ADT fields referenced through written `use` paths when every constructor
+`Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
+`Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
+supported format-neutral encode shapes, or anonymous record fields whose fields
+are supported format-neutral encode shapes, plus same-module source ADT fields
+and public imported source ADT fields referenced through written `use` paths
+when every constructor
 payload is a supported format-neutral encode shape.
 Qualified public schema paths are accepted when the imported schema or public
 schema alias is visible.
@@ -141,6 +143,7 @@ coverage is
 `examples/specification/run/format-neutral-schema-option-vec-encode/`,
 `examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-dict-option-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-dict-list-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-dict-encode/`,
 `examples/specification/run/format-neutral-schema-option-list-encode/`,
 `examples/specification/run/format-neutral-schema-nested-container-encode/`,
@@ -180,6 +183,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-option-vec-encode/`,
 `examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-dict-option-scalar-encode/`,
+`examples/specification/run/format-neutral-schema-dict-list-scalar-encode/`,
 `examples/specification/run/format-neutral-schema-option-dict-encode/`,
 `examples/specification/run/format-neutral-schema-option-list-encode/`,
 `examples/specification/run/format-neutral-schema-nested-container-encode/`,

@@ -1,0 +1,101 @@
+# Format-neutral schema encode helpers accept Dict<String, List<scalar>> fields.
+use stdio
+
+schema DictListScalarPacket
+	scores: Dict<String, List<Int>>
+	states: Dict<String, List<Bool>>
+	weights: Dict<String, List<Float>>
+	names: Dict<String, List<String>>
+end
+
+fn add_int(acc: Int, item: Int) -> Int
+	acc + item
+end
+
+fn count_true(acc: Int, item: Bool) -> Int
+	match item
+		true => acc + 1
+		false => acc
+	end
+end
+
+fn add_float(acc: Float, item: Float) -> Float
+	acc + item
+end
+
+fn int_list_sum(items: List<Int>) -> Int
+	list_fold(items, 0, add_int)
+end
+
+fn true_count(items: List<Bool>) -> Int
+	list_fold(items, 0, count_true)
+end
+
+fn float_list_kind(items: List<Float>) -> String
+	match list_fold(items, 0.0, add_float) > 1.0
+		true => "weight-high"
+		false => "weight-low"
+	end
+end
+
+fn first_string(items: List<String>) -> String
+	match items
+		Cons(head, _) => head
+		Nil => "empty"
+	end
+end
+
+fn encoded_score(result: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.scores, "math")
+			Some(value) => int_list_sum(value)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_state(result: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.states, "enabled")
+			Some(value) => true_count(value)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_weight(result: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match dict_get(packet.weights, "ratio")
+			Some(value) => float_list_kind(value)
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+fn encoded_name(result: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String>) -> String
+	match result
+		Ok(packet) => match dict_get(packet.names, "owner")
+			Some(value) => first_string(value)
+			None => "missing"
+		end
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>} = {scores: {"math": list_cons(11, list_cons(13, list_nil()))}, states: {"enabled": list_cons(true, list_cons(false, list_cons(true, list_nil())))}, weights: {"ratio": list_cons(0.75, list_cons(0.50, list_nil()))}, names: {"owner": list_cons("core", list_cons("stable", list_nil()))}}
+	let empty_packet: {scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>} = {scores: {}, states: {}, weights: {}, names: {}}
+	let encoded: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String> = byte_encode_dict_list_scalar_packet(packet)
+	let explicit: Result<{scores: Dict<String, List<Int>>, states: Dict<String, List<Bool>>, weights: Dict<String, List<Float>>, names: Dict<String, List<String>>}, String> = encode DictListScalarPacket from empty_packet
+	stdio::println(int_to_string(encoded_score(encoded)))
+	stdio::println(int_to_string(encoded_state(encoded)))
+	stdio::println(encoded_weight(encoded))
+	stdio::println(encoded_name(encoded))
+	stdio::println(int_to_string(encoded_score(explicit)))
+	stdio::println(int_to_string(encoded_state(explicit)))
+	stdio::println(encoded_weight(explicit))
+	stdio::println(encoded_name(explicit))
+end
