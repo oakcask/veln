@@ -383,6 +383,8 @@ behavior.
   per-stream task handler-failure lifecycle cleanup boundary.
 - Network stream adapter routing helper:
   [network-stream-adapter-routing-helper.md](network-stream-adapter-routing-helper.md).
+- Network adapter accept-loop helper:
+  [network-adapter-accept-loop-helper.md](network-adapter-accept-loop-helper.md).
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
 - Network stream address metadata:

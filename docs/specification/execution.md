@@ -71,6 +71,13 @@ enough.
   close and listener-end observation to the adapter caller.
   That helper owns the `concurrency` boundary and calls a pure event/action
   handler.
+  `stream_adapter_accept_loop` owns the listener-level adapter boundary: it
+  repeatedly accepts streams until clean listener end, drains each accepted
+  stream through `stream_adapter_drain_actions`, projects ordered `SendBytes`
+  chunks through `net::write_chunks`, closes each stream, and closes the
+  listener after clean end. Forced accept, read, write, stream close, and
+  listener close failures remain runtime transport failures at the same host
+  boundaries.
   `stream_adapter_drain_actions_until_cancellable` keeps that drain, channel,
   and pure handler boundary, then writes only projected `SendBytes` chunks via
   `net::write_chunks_until_cancellable` with the supplied `Deadline` and

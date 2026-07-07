@@ -10501,6 +10501,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
     let source_backed_prelude_names = crate::standard_symbols::source_backed_prelude_names()
         .filter(|name| *name != "stream_adapter_drain_actions")
+        .filter(|name| *name != "stream_adapter_accept_loop")
         .filter(|name| *name != "stream_adapter_drain_actions_until_cancellable")
         .collect::<Vec<_>>();
     let core_prelude_calls = fields

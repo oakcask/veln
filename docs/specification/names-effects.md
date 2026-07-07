@@ -75,6 +75,11 @@ compiler-known calls.
   handler, drains optional stream reads through a channel-routed
   `StreamInput` boundary, and writes only ordered `SendBytes` chunks through
   `net::write_chunks`; it requires `net` and `concurrency`.
+  `stream_adapter_accept_loop(listener, handler)` accepts an owned
+  `NetListener` and the same pure handler shape, repeatedly accepts streams
+  until clean listener end, delegates each accepted stream to
+  `stream_adapter_drain_actions`, closes each accepted stream, closes the
+  listener after clean end, and requires `net` and `concurrency`.
   `stream_adapter_drain_actions_until_cancellable(stream, handler, deadline,
   token)` uses the same adapter-owned drain, route, and pure handler boundary,
   then writes only ordered `SendBytes` chunks through
@@ -220,7 +225,12 @@ compiler-known calls.
   drain one accepted production stream into ordered `StreamAdapterAction`
   values, filters response projection to `SendBytes` chunks through
   `net::write_chunks`, closes the stream, and then observes clean listener end
-  under the existing `net` and `concurrency` effects. The cancellable
+  under the existing `net` and `concurrency` effects. The accept-loop helper
+  case uses `stream_adapter_accept_loop` to own the
+  listener lifecycle, route at least two accepted production streams through
+  the same pure handler boundary, project only `SendBytes` chunks, close each
+  stream, close the listener after clean listener end, and reject callers that
+  omit either `net` or `concurrency`. The cancellable
   adapter write-drain helper case uses
   `stream_adapter_drain_actions_until_cancellable` to keep the same pure
   handler and channel-routed `StreamInput` boundary while projecting ordered

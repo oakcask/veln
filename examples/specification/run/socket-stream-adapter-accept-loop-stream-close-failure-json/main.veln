@@ -1,0 +1,13 @@
+# Adapter accept-loop forced stream close failures stay runtime transport failures.
+fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
+	match input
+		Chunk(bytes) => list_cons(SendBytes(bytes), list_nil())
+		End => list_cons(EndStream, list_nil())
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	stream_adapter_accept_loop(listener, handle_input)
+	Ok(())
+end

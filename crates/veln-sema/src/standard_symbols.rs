@@ -952,6 +952,7 @@ source_prelude_symbol_set! {
     "byte_offset" => veln_stdlib::prelude_source("byte_offset"),
     "byte_offset_to_int" => veln_stdlib::prelude_source("byte_offset_to_int"),
     "stream_adapter_drain_actions" => veln_stdlib::prelude_source("stream_adapter_drain_actions"),
+    "stream_adapter_accept_loop" => veln_stdlib::prelude_source("stream_adapter_accept_loop"),
     "stream_adapter_drain_actions_until_cancellable" => veln_stdlib::prelude_source("stream_adapter_drain_actions_until_cancellable"),
     "vec_fold" => veln_stdlib::prelude_source("vec_fold"),
     "vec_len" => veln_stdlib::prelude_source("vec_len"),

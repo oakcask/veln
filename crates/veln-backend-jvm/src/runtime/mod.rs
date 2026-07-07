@@ -188,6 +188,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_offset" => "byteOffset",
     "byte_offset_to_int" => "byteOffsetToInt",
     "stream_adapter_drain_actions" => "streamAdapterDrainActions",
+    "stream_adapter_accept_loop" => "streamAdapterAcceptLoop",
     "stream_adapter_drain_actions_until_cancellable" => "streamAdapterDrainActionsUntilCancellable",
     "string_split_once" => "stringSplitOnce",
     "string_parse_int" => "stringParseInt",

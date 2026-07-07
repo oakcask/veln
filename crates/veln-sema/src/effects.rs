@@ -743,12 +743,19 @@ pub(crate) fn prelude_effect_origin(segments: &[String], callee: &Expr) -> Optio
 pub(crate) fn prelude_effects(segments: &[String]) -> Option<&'static [&'static str]> {
     match segments {
         [name] if name == "stream_adapter_drain_actions" => Some(NET_CONCURRENCY_EFFECTS),
+        [name] if name == "stream_adapter_accept_loop" => Some(NET_CONCURRENCY_EFFECTS),
         [name] if name == "stream_adapter_drain_actions_until_cancellable" => {
             Some(NET_TIME_CONCURRENCY_EFFECTS)
         }
         [module, name]
             if (module == "prelude" || module == "prelude_builtin")
                 && name == "stream_adapter_drain_actions" =>
+        {
+            Some(NET_CONCURRENCY_EFFECTS)
+        }
+        [module, name]
+            if (module == "prelude" || module == "prelude_builtin")
+                && name == "stream_adapter_accept_loop" =>
         {
             Some(NET_CONCURRENCY_EFFECTS)
         }
