@@ -386,8 +386,10 @@ enough.
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first
   dynamic entries, evicts oldest entries after insertion or table-size
-  reduction including reduction to a zero-size table, and clears the table when
-  an inserted entry is larger than the supplied table-size limit. The same
+  reduction including reduction to a zero-size table, keeps evicted entries
+  absent when the table size later expands, accepts later insertion into a
+  reexpanded table, and clears the table when an inserted entry is larger than
+  the supplied table-size limit. The same
   boundary accepts the checked static-name literal-with-indexing block
   `content-type: text`, returns the decoded header entry and wire size, inserts
   it into the immutable dynamic-core state using the same accounting rule, and
