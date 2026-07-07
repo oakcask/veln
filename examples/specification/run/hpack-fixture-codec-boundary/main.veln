@@ -855,6 +855,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let dynamic_core_accounting_zero_reexpanded: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_zero, 86)
 	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-reexpanded", dynamic_core_accounting_zero_reexpanded)
 	print_dynamic_core_transition("dynamic-core-accounting-zero-reexpanded-missing", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero_reexpanded, 153))
+	let dynamic_core_accounting_zero_reexpanded_insert: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(dynamic_core_accounting_zero_reexpanded, ":method", "PUT")
+	print_dynamic_core_accounting_state("dynamic-core-accounting-zero-reexpanded-insert", dynamic_core_accounting_zero_reexpanded_insert)
+	print_dynamic_core_transition("dynamic-core-accounting-zero-reexpanded-reuse", hpack_dynamic_core::decode_indexed_header_field(dynamic_indexed_block, dynamic_core_accounting_zero_reexpanded_insert, 154))
 	let dynamic_core_accounting_over_limit: HpackDynamicCoreState = hpack_dynamic_core::dynamic_core_insert_entry_state(hpack_dynamic_core::dynamic_core_with_table_size(dynamic_core_accounting_two, 30), ":method", "PUT")
 	print_dynamic_core_accounting_state("dynamic-core-accounting-over-limit", dynamic_core_accounting_over_limit)
 	let literal_indexed_dynamic_name_block: ByteChunk = byte_chunk_from_hex("7e062f616761696e")?
