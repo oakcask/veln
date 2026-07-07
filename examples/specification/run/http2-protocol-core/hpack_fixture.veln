@@ -378,6 +378,10 @@ pub fn outbound_static_indexed_method_get_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8)
 end
 
+pub fn outbound_static_indexed_method_post_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 pub fn outbound_static_indexed_path_root_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/"), HpackHeader(":fixture", "static-indexed"), 6)
 end
@@ -474,8 +478,16 @@ pub fn outbound_static_indexed_status_200_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":status", "200"), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
+pub fn outbound_static_indexed_status_404_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":status", "404"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
 pub fn outbound_static_indexed_accept_encoding_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("accept-encoding", "gzip, deflate"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+pub fn outbound_static_indexed_content_type_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("content-type", ""), HpackHeader(":fixture", "static-indexed"), 9)
 end
 
 pub fn outbound_request_content_length_headers() -> HpackHeaderList
@@ -1714,106 +1726,35 @@ fn outbound_table_size_update_exceeded(offset: Int, table_size: Int, allowed_siz
 	Err(OutboundTableSizeUpdateExceeded(offset, table_size, allowed_size, "fixture outbound table-size update", "hpack_fixture", preview))
 end
 
-fn encode_static_status_header(value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value
-		"200" => encoded_hex_or_failure("88", headers, offset)
-		"204" => encoded_hex_or_failure("89", headers, offset)
-		"206" => encoded_hex_or_failure("8a", headers, offset)
-		"304" => encoded_hex_or_failure("8b", headers, offset)
-		"400" => encoded_hex_or_failure("8c", headers, offset)
-		"404" => encoded_hex_or_failure("8d", headers, offset)
-		"500" => encoded_hex_or_failure("8e", headers, offset)
-		_ => unsupported_header_list_encoding(headers, offset)
-	end
-end
-
-fn encode_static_empty_header(name: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match name
-		"accept-charset" => encoded_hex_or_failure("8f", headers, offset)
-		"accept-language" => encoded_hex_or_failure("91", headers, offset)
-		"accept-ranges" => encoded_hex_or_failure("92", headers, offset)
-		"accept" => encoded_hex_or_failure("93", headers, offset)
-		"access-control-allow-origin" => encoded_hex_or_failure("94", headers, offset)
-		"age" => encoded_hex_or_failure("95", headers, offset)
-		"allow" => encoded_hex_or_failure("96", headers, offset)
-		"authorization" => encoded_hex_or_failure("97", headers, offset)
-		"cache-control" => encoded_hex_or_failure("98", headers, offset)
-		"content-disposition" => encoded_hex_or_failure("99", headers, offset)
-		"content-encoding" => encoded_hex_or_failure("9a", headers, offset)
-		"content-language" => encoded_hex_or_failure("9b", headers, offset)
-		"content-length" => encoded_hex_or_failure("9c", headers, offset)
-		"content-location" => encoded_hex_or_failure("9d", headers, offset)
-		"content-range" => encoded_hex_or_failure("9e", headers, offset)
-		"content-type" => encoded_hex_or_failure("9f", headers, offset)
-		"cookie" => encoded_hex_or_failure("a0", headers, offset)
-		"date" => encoded_hex_or_failure("a1", headers, offset)
-		"etag" => encoded_hex_or_failure("a2", headers, offset)
-		"expect" => encoded_hex_or_failure("a3", headers, offset)
-		"expires" => encoded_hex_or_failure("a4", headers, offset)
-		"from" => encoded_hex_or_failure("a5", headers, offset)
-		"host" => encoded_hex_or_failure("a6", headers, offset)
-		"if-match" => encoded_hex_or_failure("a7", headers, offset)
-		"if-modified-since" => encoded_hex_or_failure("a8", headers, offset)
-		"if-none-match" => encoded_hex_or_failure("a9", headers, offset)
-		"if-range" => encoded_hex_or_failure("aa", headers, offset)
-		"if-unmodified-since" => encoded_hex_or_failure("ab", headers, offset)
-		"last-modified" => encoded_hex_or_failure("ac", headers, offset)
-		"link" => encoded_hex_or_failure("ad", headers, offset)
-		"location" => encoded_hex_or_failure("ae", headers, offset)
-		"max-forwards" => encoded_hex_or_failure("af", headers, offset)
-		"proxy-authenticate" => encoded_hex_or_failure("b0", headers, offset)
-		"proxy-authorization" => encoded_hex_or_failure("b1", headers, offset)
-		"range" => encoded_hex_or_failure("b2", headers, offset)
-		"referer" => encoded_hex_or_failure("b3", headers, offset)
-		"refresh" => encoded_hex_or_failure("b4", headers, offset)
-		"retry-after" => encoded_hex_or_failure("b5", headers, offset)
-		"server" => encoded_hex_or_failure("b6", headers, offset)
-		"set-cookie" => encoded_hex_or_failure("b7", headers, offset)
-		"strict-transport-security" => encoded_hex_or_failure("b8", headers, offset)
-		"transfer-encoding" => encoded_hex_or_failure("b9", headers, offset)
-		"user-agent" => encoded_hex_or_failure("ba", headers, offset)
-		"vary" => encoded_hex_or_failure("bb", headers, offset)
-		"via" => encoded_hex_or_failure("bc", headers, offset)
-		"www-authenticate" => encoded_hex_or_failure("bd", headers, offset)
-		_ => unsupported_header_list_encoding(headers, offset)
-	end
-end
-
 pub fn encode_static_indexed_header_field(name: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let headers: HpackHeaderList = HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "static-indexed"), 0)
 	encode_static_indexed_header(name, value, headers, offset)
 end
 
 fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match name == ":authority" and value == ""
-		true => encoded_hex_or_failure("81", headers, offset)
-		false => match name == ":method" and value == "GET"
-			true => encoded_hex_or_failure("82", headers, offset)
-			false => match name == ":method" and value == "POST"
-				true => encoded_hex_or_failure("83", headers, offset)
-				false => match name == ":path" and value == "/"
-					true => encoded_hex_or_failure("84", headers, offset)
-					false => match name == ":path" and value == "/index.html"
-						true => encoded_hex_or_failure("85", headers, offset)
-						false => match name == ":scheme" and value == "http"
-							true => encoded_hex_or_failure("86", headers, offset)
-							false => match name == ":scheme" and value == "https"
-								true => encoded_hex_or_failure("87", headers, offset)
-								false => match name == ":status"
-									true => encode_static_status_header(value, headers, offset)
-									false => match value == "gzip, deflate" and name == "accept-encoding"
-										true => encoded_hex_or_failure("90", headers, offset)
-										false => match value == ""
-											true => encode_static_empty_header(name, headers, offset)
-											false => unsupported_header_list_encoding(headers, offset)
-										end
-									end
-								end
-							end
-						end
-					end
-				end
+	let index: Int = hpack_static_exact_index(name, value)
+	match index < 0
+		true => unsupported_header_list_encoding(headers, offset)
+		false => match byte_write_u8_be(index)
+			Ok(encoded) => Ok(encoded)
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
+fn hpack_static_exact_index(name: String, value: String) -> Int
+	hpack_static_exact_index_at(name, value, 129)
+end
+
+fn hpack_static_exact_index_at(name: String, value: String, index: Int) -> Int
+	match index > 189
+		true => -1
+		false => match static_indexed_header_value(index)
+			Some(HpackHeader(static_name, static_value)) => match static_name == name and static_value == value
+				true => index
+				false => hpack_static_exact_index_at(name, value, index + 1)
 			end
+			None => hpack_static_exact_index_at(name, value, index + 1)
 		end
 	end
 end

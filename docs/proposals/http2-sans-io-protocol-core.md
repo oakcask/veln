@@ -1061,11 +1061,15 @@ leaving the local inbound receive-limit boundary unchanged, and higher
 accepted peer limits permit matching outbound updates and later dynamic-index
 reuse.
 The completed exact static-indexed outbound encode slice exposes a
-source-visible helper for checked HPACK static table name/value pairs,
-including `:method: GET`, `:scheme: https`, `:status: 200`, and
-`accept-encoding: gzip, deflate`. Outbound HEADERS and server-side
-`PUSH_PROMISE` fixture paths route supported static-indexed header lists
-through that helper before fixture fallback and frame splitting.
+source-visible helper for exact HPACK static table name/value pairs whose
+static entry has a fixed value. The helper uses the shared finite static table
+metadata path instead of a one-fixture-per-index encode series. Checked
+coverage includes request pseudo-header, response pseudo-header, and ordinary
+header entries outside the original fixture pairs, plus a known static name
+with a non-exact value that remains on the fixture encode-failure path.
+Outbound HEADERS and server-side `PUSH_PROMISE` fixture paths route supported
+static-indexed header lists through that helper before fixture fallback and
+frame splitting.
 The completed outbound dynamic-name literal-without-indexing slice is archived
 under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`.

@@ -475,10 +475,14 @@ end
 
 fn print_static_indexed_encode_cases() -> Result<(), String> effects [stdio]
 	let _ = print_encoded_literal("encode-static-indexed-method-get", encode_static_indexed_header_field(":method", "GET", 152), byte_chunk_from_hex("82")?)?
+	let _ = print_encoded_literal("encode-static-indexed-method-post", encode_static_indexed_header_field(":method", "POST", 157), byte_chunk_from_hex("83")?)?
 	let _ = print_encoded_literal("encode-static-indexed-scheme-https", encode_static_indexed_header_field(":scheme", "https", 153), byte_chunk_from_hex("87")?)?
 	let _ = print_encoded_literal("encode-static-indexed-status-200", encode_static_indexed_header_field(":status", "200", 154), byte_chunk_from_hex("88")?)?
+	let _ = print_encoded_literal("encode-static-indexed-status-404", encode_static_indexed_header_field(":status", "404", 158), byte_chunk_from_hex("8d")?)?
 	let _ = print_encoded_literal("encode-static-indexed-accept-encoding", encode_static_indexed_header_field("accept-encoding", "gzip, deflate", 155), byte_chunk_from_hex("90")?)?
+	let _ = print_encoded_literal("encode-static-indexed-content-type-empty", encode_static_indexed_header_field("content-type", "", 159), byte_chunk_from_hex("9f")?)?
 	let _ = print_encode_failure("encode-static-indexed-method-put", encode_static_indexed_header_field(":method", "PUT", 156))?
+	let _ = print_encode_failure("encode-static-indexed-content-type-text-fallback", encode_static_indexed_header_field("content-type", "text/plain", 160))?
 	Ok(())
 end
 
