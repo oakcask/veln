@@ -403,6 +403,11 @@ reason)))` for the same supported encode ids,
 `EncodeStep::Encoded(...)` and `EncodeStep::Partial(...)` entry results do not
 populate `error` or `details.value_diagnostic`.
 
+Generated binary schema encode failures inside anonymous record fields append
+the anonymous record field segments after the outer field segment without a
+synthetic schema segment. The checked JSON case is
+`examples/specification/run/binary-schema-anonymous-record-encode-out-of-range-json/`.
+
 When a `veln run` entry returns a source-visible
 `DecodeError(id, byte_offset, field_path)`,
 `DecodeErrorWithReason(id, byte_offset, field_path, reason)`,

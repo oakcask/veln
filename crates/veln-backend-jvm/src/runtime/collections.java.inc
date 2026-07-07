@@ -8722,9 +8722,27 @@
         Adt error = asAdt(resultValue(encoded), "EncodeError::EncodeError");
         return err(encodeError(
             asString(error.payloads[0]),
-            prefix + "." + asString(error.payloads[1]),
+            joinEncodeErrorPath(prefix, asString(error.payloads[1])),
             asString(error.payloads[2])
         ));
+    }
+
+    private static String joinEncodeErrorPath(String prefix, String suffix) {
+        String left = prefix;
+        while (left.endsWith(".")) {
+            left = left.substring(0, left.length() - 1);
+        }
+        String right = suffix;
+        while (right.startsWith(".")) {
+            right = right.substring(1);
+        }
+        if (left.isEmpty()) {
+            return right;
+        }
+        if (right.isEmpty()) {
+            return left;
+        }
+        return left + "." + right;
     }
 
     private static boolean isAdtNamed(Object value, String name) {

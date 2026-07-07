@@ -4267,6 +4267,10 @@ fn schema_encode_schema_fields(
             ));
             continue;
         }
+        if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
+            fields.push((field.name.clone(), record_ty));
+            continue;
+        }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
         let recursive_dispatch_payload =

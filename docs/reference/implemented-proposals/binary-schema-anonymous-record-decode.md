@@ -24,8 +24,9 @@ Runtime truncation inside the anonymous record uses the existing
 schema field segment and appends each anonymous record field segment down to
 the failed primitive, without inserting a synthetic nested schema segment.
 
-Encode helpers for anonymous record fields remain outside this binary-schema
-slice.
+This decode-only record does not define encode helper behavior. Current
+anonymous record encode behavior is covered by
+`binary-schema-anonymous-record-encode.md`.
 
 ## Evidence
 
@@ -49,5 +50,4 @@ slice.
 
 The broader schema declaration surface proposal remains open for generated
 runtime helper bindings outside the implemented binary helper boundaries and
-format-neutral helper boundaries. Anonymous record encode support in
-`format binary` schemas remains outside this completed decode-only slice.
+format-neutral helper boundaries.

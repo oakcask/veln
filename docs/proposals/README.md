@@ -88,7 +88,7 @@ compare it with `../specification/` before changing behavior.
   validation, visible flag bitset decode bindings, bounded repeat generated
   helper bindings including subtractive `ByteView` payloads, supported
   representation-only reserved-bit generated helper bindings, direct nested
-  binary schema helper bindings, binary anonymous record decode helper
+  binary schema helper bindings, binary anonymous record decode and encode helper
   bindings, generated
   encode-time field-local validation for eligible schema helpers, derived
   encode boundary support, format-neutral schema bodies without a `format`
@@ -123,6 +123,8 @@ compare it with `../specification/` before changing behavior.
   The completed binary schema sibling nested anonymous record decode slice is
   archived under
   [Binary Schema Sibling Nested Anonymous Record Decode](../reference/implemented-proposals/binary-schema-sibling-nested-anonymous-record-decode.md).
+  The completed binary schema anonymous record encode slice is archived under
+  [Binary Schema Anonymous Record Encode](../reference/implemented-proposals/binary-schema-anonymous-record-encode.md).
   The completed dispatch nested repeat helper slice is archived under
   [Binary Schema Dispatch Nested Repeat Helpers](../reference/implemented-proposals/binary-schema-dispatch-nested-repeat-helpers.md).
   The completed general representation-only reserved-bit generated helper
@@ -384,6 +386,8 @@ compare it with `../specification/` before changing behavior.
   [Binary Schema Dispatch Payload Helper Boundary Diagnostics](../reference/implemented-proposals/binary-schema-dispatch-payload-helper-boundary-diagnostics.md).
   The completed binary schema anonymous record decode slice is archived under
   [Binary Schema Anonymous Record Decode](../reference/implemented-proposals/binary-schema-anonymous-record-decode.md).
+  The completed binary schema anonymous record encode slice is archived under
+  [Binary Schema Anonymous Record Encode](../reference/implemented-proposals/binary-schema-anonymous-record-encode.md).
   The completed direction-specific nested dispatch payload helper slice is
   archived under
   [Binary Schema Directional Dispatch Payload Helpers](../reference/implemented-proposals/binary-schema-directional-dispatch-payload-helpers.md).

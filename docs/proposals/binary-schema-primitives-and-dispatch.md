@@ -10,6 +10,8 @@ checked examples under `../../examples/specification/`.
 Completed primitive, flag, reserved-bit, repeat, byte-view, dispatch, and
 recursive dispatch helper slices are archived under
 `../reference/implemented-proposals/`.
+The completed binary schema anonymous record encode slice is archived under
+[Binary Schema Anonymous Record Encode](../reference/implemented-proposals/binary-schema-anonymous-record-encode.md).
 The completed bounded direct dispatch payload slice for zero-reserved subbyte
 payloads from `uint1 reserves 0` through `uint7 reserves 0` is archived under
 [Binary Schema Dispatch Lowercase Subbyte Reserved Payloads](../reference/implemented-proposals/binary-schema-dispatch-lowercase-subbyte-reserved-payloads.md).
