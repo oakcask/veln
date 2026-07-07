@@ -388,7 +388,14 @@ enough.
   accepted raw literal-name fields through this source-visible boundary before
   fixture fallback, while unsupported or malformed forms keep the existing
   fixture fallback diagnostics, including focused malformed Huffman padding
-  projection. The checked cases are
+  projection. The same boundary accepts checked dynamic-name literal receive
+  forms whose header name comes from the carried bounded dynamic table.
+  Literal-without-indexing and literal-never-indexed return the decoded header
+  while retaining the existing table entry for later `0xbe` reuse.
+  Literal-with-indexing inserts the fresh name/value pair using the same
+  bounded accounting rule, then exposes the inserted entry through `0xbe`
+  while retaining the older entry as `0xbf` when the table has room. The
+  checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 receive state carries pending header-block continuation

@@ -528,6 +528,25 @@ fn dynamic_core_decode_raw_name_literal_header_block(indexing: HpackDynamicCoreL
 	end
 end
 
+fn dynamic_core_decode_literal_dynamic_name_with_prefix(indexing: HpackDynamicCoreLiteralIndexing, prefix_value: Int, prefix_max: Int, observed_size: Int, state: HpackDynamicCoreState, block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	match dynamic_core_decode_prefixed_integer(prefix_value, prefix_max, block, observed_size, 1, offset)
+		Ok(name_index) => match dynamic_core_integer_prefix_value(name_index) >= 62
+			true => dynamic_core_decode_literal_dynamic_name_at(indexing, dynamic_core_integer_prefix_value(name_index) - 62, dynamic_core_integer_prefix_size(name_index), observed_size, state, block, offset)
+			false => dynamic_core_unsupported_raw_literal(block, offset)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn dynamic_core_decode_literal_dynamic_name_at(indexing: HpackDynamicCoreLiteralIndexing, table_index: Int, value_index: Int, observed_size: Int, state: HpackDynamicCoreState, block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	match state
+		HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, table_index)
+			Some(HpackDynamicCoreHeader(name, _)) => dynamic_core_decode_literal_header_with_name(indexing, name, observed_size, state, block, offset, value_index)
+			None => dynamic_core_index_out_of_range(block, offset, table_index, dynamic_core_entry_count(dynamic_entry))
+		end
+	end
+end
+
 fn dynamic_core_decode_saturated_indexed_header(block: ByteChunk, state: HpackDynamicCoreState, observed_size: Int, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	match dynamic_core_decode_prefixed_integer(127, 127, block, observed_size, 1, offset)
 		Ok(prefix) => match dynamic_core_integer_prefix_size(prefix) == observed_size
@@ -611,6 +630,19 @@ pub fn decode_raw_literal_name_header_field(block: ByteChunk, state: HpackDynami
 		16 => dynamic_core_decode_raw_name_literal_header_block(DynamicCoreLiteralNeverIndexed, observed_size, state, block, offset)
 		64 => dynamic_core_decode_raw_name_literal_header_block(DynamicCoreLiteralWithIndexing, observed_size, state, block, offset)
 		_ => dynamic_core_unsupported_raw_literal(block, offset)
+	end
+end
+
+pub fn decode_dynamic_name_literal_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
+	match first_byte >= 64 and first_byte < 128
+		true => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithIndexing, first_byte - 64, 63, observed_size, state, block, offset)
+		false => match first_byte
+			15 => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithoutIndexing, 15, 15, observed_size, state, block, offset)
+			31 => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralNeverIndexed, 15, 15, observed_size, state, block, offset)
+			_ => dynamic_core_unsupported_raw_literal(block, offset)
+		end
 	end
 end
 

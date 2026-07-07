@@ -904,11 +904,13 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`,
-and
+[HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md), and
 [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
 The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
-table state in ordinary Veln values.
+table state in ordinary Veln values, plus source-visible dynamic-name
+literal-without-indexing, literal-with-indexing, and literal-never-indexed
+receive paths whose names come from the carried bounded dynamic table.
 The remaining HPACK work in this proposal starts after the fixture boundary
 and the source-visible static decoder and Huffman boundary records archived
 under
@@ -1172,11 +1174,14 @@ and
 [HTTP/2 HPACK Dynamic Raw Literal-Name Core](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-core.md).
 The Huffman-value raw literal-name slice is archived under
 [HTTP/2 HPACK Dynamic Raw Literal-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-huffman-values.md).
+The dynamic-name literal receive core slice is archived under
+[HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior beyond the bounded source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
-Huffman-value, and dynamic-table accounting core slices.
+Huffman-value, dynamic-name literal receive, and dynamic-table accounting core
+slices.
 
 ## Completion Criteria
 
