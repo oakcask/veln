@@ -267,14 +267,16 @@ enough.
   Source-visible seven-byte `byte_read_u56_be`, `byte_read_u56_le`,
   `byte_write_u56_be`, and `byte_write_u56_le` helper behavior is checked by
   `examples/specification/run/binary-byteview-u56-helpers/`.
-  Seven-byte `UInt56be` and eight-byte `UInt64be` compatibility helper parity
-  is checked by `examples/specification/run/binary-schema-u56-widths-encode/`,
+  Seven-byte `UInt56be` and `UInt56le`, plus eight-byte `UInt64be` and
+  `UInt64le`, compatibility helper parity is checked by
+  `examples/specification/run/binary-schema-u56-widths-encode/`,
   `examples/specification/run/binary-schema-u56-widths-encode-out-of-range/`,
   `examples/specification/run/binary-schema-u56-widths-truncated-json/`,
   `examples/specification/run/binary-schema-u64-widths-encode/`,
   `examples/specification/run/binary-schema-u64-widths-encode-out-of-range/`,
   `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-human/`,
   `examples/specification/run/binary-schema-u64-widths-integer-out-of-range-json/`,
+  `examples/specification/run/binary-schema-u64le-widths-integer-out-of-range-json/`,
   and `examples/specification/run/binary-schema-u64-widths-truncated-json/`.
 - Representation-local generated schema encode failures that cannot write a
   supplied value, repeat count, or length-bounded `ByteView` use

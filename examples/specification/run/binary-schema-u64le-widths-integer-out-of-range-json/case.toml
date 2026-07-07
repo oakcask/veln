@@ -1,0 +1,75 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "schema integer out of range at byte offset 0"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.integer_out_of_range"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 0
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"UInt64LittleWidth"},{"kind":"field","name":"value"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_width"
+equals = 8
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.min_value"
+equals = 0
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.max_value"
+equals = 9223372036854775807
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.actual_value"
+missing = true
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.actual_value_text"
+equals = "9223372036854775808"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "0000000000000080"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 8
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false

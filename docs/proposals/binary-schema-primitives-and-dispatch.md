@@ -31,6 +31,9 @@ slice is archived under
 The completed direct visible `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`,
 `UInt56be`, and `UInt64be` generated helper parity slices are archived under
 [Binary Schema Big-Endian Width Parity](../reference/implemented-proposals/binary-schema-big-endian-width-parity.md).
+The completed direct visible `UInt56le` and `UInt64le` generated helper parity
+slice is archived under
+[Binary Schema UInt56le And UInt64le Parity](../reference/implemented-proposals/binary-schema-u56le-u64le-parity.md).
 The completed visible-only packed eight-byte group slice is archived under
 [Binary Schema Packed Visible Eight-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-eight-byte-groups.md).
 The completed schema-local field reference diagnostics slice is archived under

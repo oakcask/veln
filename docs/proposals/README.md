@@ -268,6 +268,9 @@ compare it with `../specification/` before changing behavior.
   width-sample primitive decode, `UInt16le`, `UInt24le`,
   `UInt31le`, `UInt32le`, `UInt48le`, `UInt56le`, and `UInt64le`
   little-endian primitive decode and encode,
+  `UInt56le` and `UInt64le` direct visible little-endian generated helper
+  parity
+  ([Binary Schema UInt56le And UInt64le Parity](../reference/implemented-proposals/binary-schema-u56le-u64le-parity.md)),
   `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, `UInt56be`, and `UInt64be`
   direct visible
   big-endian generated helper parity

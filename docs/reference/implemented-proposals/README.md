@@ -145,6 +145,9 @@ behavior.
   [binary-schema-big-endian-width-parity.md](binary-schema-big-endian-width-parity.md).
 - Binary schema `UInt56be` and `UInt56le` primitives:
   [binary-schema-u56-primitives.md](binary-schema-u56-primitives.md).
+- Binary schema direct visible little-endian width parity for `UInt56le` and
+  `UInt64le`:
+  [binary-schema-u56le-u64le-parity.md](binary-schema-u56le-u64le-parity.md).
 - Lowercase schema primitives:
   [lowercase-schema-primitives.md](lowercase-schema-primitives.md).
 - Binary schema `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` bitsets:

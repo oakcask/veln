@@ -1,10 +1,16 @@
-# Binary schema UInt64be encode rejects negative ordinary Int values.
+# Binary schema UInt64be and UInt64le encode reject negative ordinary Int values.
 use stdio
 
-schema UInt64Width
+schema UInt64BigWidth
 	format binary
 
 	value: UInt64be
+end
+
+schema UInt64LittleWidth
+	format binary
+
+	value: UInt64le
 end
 
 fn emit_error(error: EncodeError) -> () effects [stdio]
@@ -32,9 +38,15 @@ fn error_reason(error: EncodeError) -> String
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_width({value: -1})
-	match encoded
+	let big_encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_big_width({value: -1})
+	match big_encoded
 		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+
+	let little_encoded: Result<ByteChunk, EncodeError> = byte_encode_uint64_little_width({value: -1})
+	match little_encoded
+		Ok(_) => stdio::println("unexpected UInt64le encode success")
 		Err(error) => emit_error(error)
 	end
 end
