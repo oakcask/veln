@@ -24,6 +24,7 @@ end
 pub type HpackDynamicCoreFailure
 	DynamicCoreUnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 	DynamicCoreIndexOutOfRange(offset: Int, observed_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
+	DynamicCoreMalformedHuffmanPadding(offset: Int, observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 	DynamicCoreMalformedInteger(offset: Int, observed_size: Int, observed_first_byte: Int, prefix_width: Int, expected_header: String, decoder_module: String, preview: ByteChunk)
 end
 
@@ -285,6 +286,13 @@ fn dynamic_core_unsupported_raw_literal_string(block: ByteChunk, offset: Int) ->
 	Err(DynamicCoreUnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "source-visible raw literal-name header", "hpack_dynamic_core", block))
 end
 
+fn dynamic_core_huffman_string_literal_failure(block: ByteChunk, offset: Int, failure: HpackFixtureFailure) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
+	match hpack_fixture::failure_diagnostic_id(failure)
+		"hpack.fixture.malformed_huffman_padding" => Err(DynamicCoreMalformedHuffmanPadding(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), "fixture HPACK Huffman padding", "hpack_dynamic_core", block))
+		_ => dynamic_core_unsupported_raw_literal_string(block, offset)
+	end
+end
+
 fn dynamic_core_decode_indexed_at(table_index: Int, block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	match state
 		HpackDynamicCoreState(_, _, dynamic_entry) => match dynamic_core_entry_at(dynamic_entry, table_index)
@@ -447,7 +455,7 @@ fn dynamic_core_decode_huffman_string_literal_value(block: ByteChunk, value_coun
 				Ok(decoded_value_count) => match byte_take(value_suffix, decoded_value_count)
 					Ok(value_bytes) => match hpack_fixture::decode_checked_hpack_huffman_value(value_bytes, offset)
 						Ok(value) => Ok(HpackDynamicCoreStringLiteral(value, value_count + prefix_size))
-						Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
+						Err(failure) => dynamic_core_huffman_string_literal_failure(block, offset, failure)
 					end
 					Err(_) => dynamic_core_unsupported_raw_literal_string(block, offset)
 				end
@@ -716,6 +724,7 @@ pub fn dynamic_core_failure_diagnostic_id(failure: HpackDynamicCoreFailure) -> S
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(_, _, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, _, _) => "hpack.fixture.dynamic_index_out_of_range"
+		DynamicCoreMalformedHuffmanPadding(_, _, _, _, _, _) => "hpack.fixture.malformed_huffman_padding"
 		DynamicCoreMalformedInteger(_, _, _, _, _, _, _) => "hpack.integer.malformed"
 	end
 end
@@ -724,6 +733,7 @@ pub fn dynamic_core_failure_offset(failure: HpackDynamicCoreFailure) -> Int
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(offset, _, _, _, _, _) => offset
 		DynamicCoreIndexOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		DynamicCoreMalformedHuffmanPadding(offset, _, _, _, _, _) => offset
 		DynamicCoreMalformedInteger(offset, _, _, _, _, _, _) => offset
 	end
 end
@@ -732,6 +742,7 @@ pub fn dynamic_core_failure_observed_size(failure: HpackDynamicCoreFailure) -> I
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(_, observed_size, _, _, _, _) => observed_size
 		DynamicCoreIndexOutOfRange(_, observed_size, _, _, _, _, _, _) => observed_size
+		DynamicCoreMalformedHuffmanPadding(_, observed_size, _, _, _, _) => observed_size
 		DynamicCoreMalformedInteger(_, observed_size, _, _, _, _, _) => observed_size
 	end
 end
@@ -740,6 +751,7 @@ pub fn dynamic_core_failure_observed_first_byte(failure: HpackDynamicCoreFailure
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		DynamicCoreIndexOutOfRange(_, _, observed_first_byte, _, _, _, _, _) => observed_first_byte
+		DynamicCoreMalformedHuffmanPadding(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		DynamicCoreMalformedInteger(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
 	end
 end
@@ -755,6 +767,7 @@ pub fn dynamic_core_failure_preview_count(failure: HpackDynamicCoreFailure) -> I
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(_, _, _, _, _, preview) => byte_count_to_int(byte_chunk_count(preview))
 		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, _, preview) => byte_count_to_int(byte_chunk_count(preview))
+		DynamicCoreMalformedHuffmanPadding(_, _, _, _, _, preview) => byte_count_to_int(byte_chunk_count(preview))
 		DynamicCoreMalformedInteger(_, _, _, _, _, _, preview) => byte_count_to_int(byte_chunk_count(preview))
 	end
 end
@@ -777,6 +790,7 @@ pub fn dynamic_core_failure_decoder_module(failure: HpackDynamicCoreFailure) -> 
 	match failure
 		DynamicCoreUnsupportedHeaderBlock(_, _, _, _, decoder_module, _) => decoder_module
 		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, decoder_module, _) => decoder_module
+		DynamicCoreMalformedHuffmanPadding(_, _, _, _, decoder_module, _) => decoder_module
 		DynamicCoreMalformedInteger(_, _, _, _, _, decoder_module, _) => decoder_module
 	end
 end

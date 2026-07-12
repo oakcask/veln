@@ -414,8 +414,9 @@ enough.
   while retaining the older entry as `0xbf` when the table has room. These
   dynamic-name forms accept raw visible-ASCII values and bounded
   Huffman-marked values decoded by the existing checked HPACK Huffman boundary;
-  malformed Huffman values remain on the focused fixture fallback path. The
-  checked cases are
+  malformed Huffman padding reports the focused
+  `hpack.fixture.malformed_huffman_padding` shape at the dynamic-core boundary
+  and through HTTP/2 fixture projection. The checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 receive state carries pending header-block continuation

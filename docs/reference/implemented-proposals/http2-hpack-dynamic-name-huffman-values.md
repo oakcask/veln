@@ -29,8 +29,9 @@ the non-inserting forms keep the earlier dynamic entry reusable.
 
 Completed HTTP/2 HEADERS and final CONTINUATION decoding route accepted
 dynamic-name Huffman-value fields through this source-visible boundary before
-fixture fallback. Malformed Huffman-marked values keep the existing focused
-fixture fallback shape used by raw literal-name Huffman values.
+fixture fallback. Malformed Huffman padding keeps the focused
+`hpack.fixture.malformed_huffman_padding` shape at the dynamic-core boundary
+and through HTTP/2 fixture projection.
 
 Full HPACK compression, unbounded dynamic-table behavior, and unrelated
 header validation remain outside this receive slice.
@@ -41,7 +42,8 @@ header validation remain outside this receive slice.
   standalone `hpack_dynamic_core` dynamic-name Huffman values for all three
   indexing forms, dynamic-table mutation only for literal-with-indexing,
   retained dynamic-name reuse through `0xbe`, and a rejected malformed
-  Huffman value at the dynamic-core boundary.
+  Huffman value with `hpack.fixture.malformed_huffman_padding` at the
+  dynamic-core boundary.
 - `../../../examples/specification/run/http2-protocol-core/` checks completed
   HEADERS and final CONTINUATION routing for a dynamic-name Huffman value, plus
   dynamic indexed reuse of the inserted entry after each route.
