@@ -325,7 +325,10 @@ Packed reserved bitfield groups use the same projection at the specific
 reserved field that mismatched. The checked
 `examples/specification/run/binary-schema-general-reserved-bitfield-json/`
 case covers a general two-byte bitfield group with more than one
-representation-only reserved field.
+representation-only reserved field. The checked
+`examples/specification/run/binary-schema-general-reserved-byte-prefix-json/`
+case covers a nonzero three-bit prefix before a visible byte under the general
+padded prefix rule.
 
 When the result value is a binary schema field-local or schema-level
 validation failure,

@@ -397,10 +397,12 @@ compiler-known calls.
   `uint...` and `flag...` payloads to the same helper behavior as compatible
   upper-case exact-width primitive payloads, and byte-aligned
   `uint... reserves <value>` payloads validate or emit fixed bytes while
-  exposing `()` as the payload value. One
-  supported reserved-bit slice omits `ReservedBits(2, 0)` or
-  `ReservedBits(9, 0)` immediately before `UInt8` from the encode value
-  record while exposing the visible byte field. Generated encode helpers
+  exposing `()` as the payload value. A direct binary schema
+  `ReservedBits(width, value)` immediately before `UInt8` omits the reserved
+  field from the encode value record when the width is positive and not byte
+  aligned, the value fits that width, and the group with trailing zero padding
+  fits in at most eight big-endian bytes. The visible byte remains an ordinary
+  `Int` field. Generated encode helpers
   return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, `UInt31le`, `UInt32le`, `UInt40le`, `UInt48le`,
   `UInt56le`, and `UInt64le` fields use little-endian byte order in generated

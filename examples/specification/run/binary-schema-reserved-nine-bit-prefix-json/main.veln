@@ -6,8 +6,8 @@ schema ReservedNineBitPrefixHeader
 end
 
 pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("012a")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let bytes: ByteChunk = byte_chunk_from_hex("009500")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
 	let ignored: {control: Int} = byte_decode_reserved_nine_bit_prefix_header(view)?
 	Ok(())
 end

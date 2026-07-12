@@ -36,7 +36,7 @@ equals = [{"kind":"schema","name":"ReservedNineBitPrefixHeader"},{"kind":"field"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_count"
-equals = 2
+equals = 3
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.available_count"

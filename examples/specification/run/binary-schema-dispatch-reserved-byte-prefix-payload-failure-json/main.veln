@@ -15,8 +15,8 @@ schema NineBitPacket
 end
 
 pub fn main() -> Result<(), String>
-	let bytes: ByteChunk = byte_chunk_from_hex("01012a")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let bytes: ByteChunk = byte_chunk_from_hex("01009500")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
 	let ignored: {kind: Int, payload: {value: Int}} = byte_decode_nine_bit_packet(view)?
 	Ok(())
 end

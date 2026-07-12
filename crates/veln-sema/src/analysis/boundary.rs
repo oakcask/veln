@@ -16,11 +16,12 @@ use crate::types::{
     repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
     schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
+    schema_field_uses_generalized_reserved_byte_prefix,
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
-    schema_length_expression_references, schema_payload_name_last_segment,
-    schema_payload_name_path, schema_recursive_dispatch_helper_payload_type,
-    schema_recursive_dispatch_payload_type, schema_repeat_payload_accepts_lowercase_primitive,
-    supported_encode_reserved_bits,
+    schema_length_expression_references, schema_payload_has_generalized_reserved_byte_prefix,
+    schema_payload_name_last_segment, schema_payload_name_path,
+    schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
+    schema_repeat_payload_accepts_lowercase_primitive, supported_encode_reserved_bits,
 };
 use std::collections::BTreeSet;
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
@@ -1100,6 +1101,20 @@ fn check_schema_repeat_field(
                 schema_name,
                 diagnostics,
             )?;
+            if schema_payload_has_generalized_reserved_byte_prefix(payload_schema) {
+                diagnostics.push(schema_repeat_payload_diagnostic(
+                    schema,
+                    field,
+                    schema_name,
+                    "incompatible_payload_schema",
+                    format!(
+                        "repeat payload schema `{}` uses a reserved-byte-prefix layout outside repeat payload helpers",
+                        schema_payload_name_last_segment(schema_name)
+                    ),
+                    [],
+                ));
+                return None;
+            }
             schema_decode_value_type(module, payload_schema).or_else(|| {
                 diagnostics.push(schema_repeat_payload_diagnostic(
                     schema,
@@ -2470,6 +2485,21 @@ fn schema_dispatch_payload_helper_type(
     payload_schema: &SchemaDecl,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Type> {
+    if schema_payload_has_generalized_reserved_byte_prefix(payload_schema) {
+        diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
+            module,
+            schema,
+            field,
+            tag,
+            payload_name,
+            payload_schema,
+            SchemaHelperAvailability {
+                decode: false,
+                encode: false,
+            },
+        ));
+        return None;
+    }
     let decode_type = schema_decode_value_type(module, payload_schema);
     match decode_type {
         Some(payload_ty) => Some(payload_ty),
@@ -2560,6 +2590,18 @@ fn unsupported_dispatch_payload_helper_field(
     let mut decoded_fields = BTreeMap::<String, Type>::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+            if schema_field_uses_generalized_reserved_byte_prefix(&schema.fields, index, reserved) {
+                return Some(UnsupportedDispatchPayloadHelperField {
+                    field,
+                    field_path_display: format!("{schema_name}.{}", field.name),
+                    layout_fact: format!(
+                        "`ReservedBits({}, {})` uses the general direct byte-prefix rule, which is outside dispatch and repeat payload helpers",
+                        reserved.0, reserved.1
+                    ),
+                    reason: "unsupported_reserved_bits_layout",
+                    schema_name,
+                });
+            }
             if supported_encode_reserved_bits(&schema.fields, index, reserved).is_none() {
                 let layout =
                     reserved_bits_unsupported_layout_context(schema, Some(index), reserved.0);

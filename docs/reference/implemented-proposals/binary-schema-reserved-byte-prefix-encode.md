@@ -1,16 +1,17 @@
 # Binary Schema Reserved Byte Prefix Encode
 
-Status: implemented
+Status: superseded
 
 This record preserves the completed reserved-byte-prefix encode slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior is
-specified by `../../specification/source-surface.md`,
-`../../specification/execution.md`, `../../specification/examples.md`, and the
-checked executable examples under `../../../examples/specification/`.
+`../../proposals/binary-schema-primitives-and-dispatch.md`. The general rule
+that replaced this narrow slice is recorded in
+`binary-schema-general-reserved-byte-prefixes.md`; current behavior is
+specified under `../../specification/`.
 
 ## Outcome
 
-Generated binary schema decode and encode helpers accept the narrow
+At the time of this slice, generated binary schema decode and encode helpers
+accepted the narrow
 `ReservedBits(2, 0)` and `ReservedBits(9, 0)` followed by `UInt8` layouts as
 two-byte big-endian bitstream slices. The reserved field is
 representation-only: it is omitted from decoded result records, encoder value
@@ -37,15 +38,11 @@ slices continue to report `schema.reserved_bits_encode` during `check`.
   checks the same helper and derived codec route for `ReservedBits(9, 0)`
   followed by `UInt8`; the adjacent JSON cases check truncation and
   reserved-bit mismatch details.
-- `../../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
-  checks that an adjacent unsupported non-byte-aligned reserved-bit encode
-  layout still reports `schema.reserved_bits_encode`.
 - `crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks helper
   eligibility for the accepted reserved-byte-prefix layouts and rejection for
   unsupported reserved-bit encode groups.
 
-## Remaining Work
+## Superseded By
 
-The broader binary schema primitives and dispatch proposal remains open for
-reserved-bit layouts, dispatch forms, primitive shapes, and mapping behavior
-outside the implemented generated-helper slices.
+`binary-schema-general-reserved-byte-prefixes.md` replaces the width list with
+one bounded rule and contains the current completion evidence.

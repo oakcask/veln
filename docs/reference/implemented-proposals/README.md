@@ -160,6 +160,8 @@ behavior.
   [binary-schema-flag-decode-bindings.md](binary-schema-flag-decode-bindings.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
+- Binary schema general reserved byte prefixes:
+  [binary-schema-general-reserved-byte-prefixes.md](binary-schema-general-reserved-byte-prefixes.md).
 - Binary schema reserved fifteen-bit prefix:
   [binary-schema-reserved-fifteen-bit-prefix.md](binary-schema-reserved-fifteen-bit-prefix.md).
 - Binary schema packed visible two-byte groups:

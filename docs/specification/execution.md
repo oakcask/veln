@@ -252,6 +252,16 @@ enough.
 - Representation-only fields such as supported `ReservedBits(width, value)`
   and lowercase `uint... reserves <value>` layouts are validated and omitted
   from the decoded record.
+- A direct `ReservedBits(width, value)` followed by `UInt8` uses one
+  big-endian storage group when the width is positive and non-byte-aligned,
+  the value fits the width, and the group with trailing padding fits in at
+  most eight bytes. Decode and encode omit the reserved field, expose the
+  visible byte, consume the full padded group, and report truncation or
+  `schema.reserved_bits_mismatch` at the declared field paths. The checked
+  boundary cases are
+  `examples/specification/run/binary-schema-general-reserved-byte-prefix-decode-encode/`
+  and
+  `examples/specification/run/binary-schema-general-reserved-byte-prefix-json/`.
 - Generated `validate_<schema>` helpers accept the schema-local decoded record
   shape and check field-local `where` predicates plus the single schema-level
   `validate` predicate when present.
