@@ -394,6 +394,10 @@ pub fn outbound_literal_path_target_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/target"), HpackHeader(":fixture", "literal-without-indexing"), 9)
 end
 
+pub fn outbound_literal_server_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":fixture", "literal-without-indexing"), 5)
+end
+
 pub fn outbound_literal_visible_ascii_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("x-demo", "hello"), HpackHeader(":fixture", "literal-without-indexing"), 14)
 end
@@ -1759,7 +1763,24 @@ fn hpack_static_exact_index_at(name: String, value: String, index: Int) -> Int
 	end
 end
 
-fn literal_static_name_index(name: String) -> Int
+fn hpack_static_name_index(name: String) -> Int
+	hpack_static_name_index_at(name, 129)
+end
+
+fn hpack_static_name_index_at(name: String, index: Int) -> Int
+	match index > 189
+		true => -1
+		false => match static_indexed_header_value(index)
+			Some(HpackHeader(static_name, _)) => match static_name == name
+				true => index - 128
+				false => hpack_static_name_index_at(name, index + 1)
+			end
+			None => hpack_static_name_index_at(name, index + 1)
+		end
+	end
+end
+
+fn legacy_literal_static_name_index(name: String) -> Int
 	match name
 		":authority" => 1
 		":method" => 2
@@ -1768,6 +1789,11 @@ fn literal_static_name_index(name: String) -> Int
 		":status" => 8
 		_ => -1
 	end
+end
+
+pub fn encode_static_name_literal_without_indexing_header_field(name: String, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let headers: HpackHeaderList = HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), 0)
+	encode_static_name_literal_without_indexing(name, value, headers, offset)
 end
 
 fn ordinary_header_name_token_byte(value: Int) -> Bool
@@ -1842,10 +1868,24 @@ fn encode_new_name_literal_header_with_prefix(name: String, value: String, prefi
 	end
 end
 
-fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let index: Int = literal_static_name_index(name)
+fn encode_static_name_literal_without_indexing(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let index: Int = hpack_static_name_index(name)
 	match index < 0
-		true => match prefix_offset == 0 or prefix_offset == 16 or prefix_offset == 64
+		true => unsupported_header_list_encoding(headers, offset)
+		false => match encode_hpack_integer_with_prefix(index, 15, 0, offset)
+			Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
+				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
+				Err(failure) => Err(failure)
+			end
+			Err(_) => unsupported_header_list_encoding(headers, offset)
+		end
+	end
+end
+
+fn encode_literal_header_with_static_name_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let index: Int = legacy_literal_static_name_index(name)
+	match index < 0
+		true => match prefix_offset == 16 or prefix_offset == 64
 			true => encode_new_name_literal_header_with_prefix(name, value, prefix_offset, headers, offset)
 			false => unsupported_header_list_encoding(headers, offset)
 		end
@@ -1859,8 +1899,18 @@ fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset:
 	end
 end
 
+fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match prefix_offset == 0
+		true => match hpack_static_name_index(name) < 0
+			true => encode_new_name_literal_header_with_prefix(name, value, prefix_offset, headers, offset)
+			false => encode_static_name_literal_without_indexing(name, value, headers, offset)
+		end
+		false => encode_literal_header_with_static_name_prefix(name, value, prefix_offset, headers, offset)
+	end
+end
+
 fn encode_huffman_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	let index: Int = literal_static_name_index(name)
+	let index: Int = legacy_literal_static_name_index(name)
 	match index < 0
 		true => unsupported_header_list_encoding(headers, offset)
 		false => match byte_write_u8_be(prefix_offset + index)

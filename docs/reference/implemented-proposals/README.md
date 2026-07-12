@@ -561,6 +561,8 @@ behavior.
   [http2-outbound-hpack-dynamic-name-never-indexed-literal.md](http2-outbound-hpack-dynamic-name-never-indexed-literal.md).
 - HTTP/2 outbound HPACK ordinary indexed literal:
   [http2-outbound-hpack-ordinary-indexed-literal.md](http2-outbound-hpack-ordinary-indexed-literal.md).
+- HTTP/2 outbound HPACK static-name literal:
+  [http2-outbound-hpack-static-name-literal.md](http2-outbound-hpack-static-name-literal.md).
 - HTTP/2 outbound PUSH_PROMISE enable-push setting:
   [http2-outbound-push-promise-enable-push-setting.md](http2-outbound-push-promise-enable-push-setting.md).
 - HTTP/2 outbound PUSH_PROMISE GOAWAY boundary:

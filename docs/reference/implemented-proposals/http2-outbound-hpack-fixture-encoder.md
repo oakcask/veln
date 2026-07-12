@@ -31,7 +31,11 @@ send-intents. The literal-without-indexing encoder also accepts ordinary
 new-name fields when the name is lowercase, passes the existing HTTP
 field-name token boundary, is not connection-specific, and the value is a
 visible-ASCII raw string. It emits deterministic new-name HPACK literal bytes
-without Huffman compression.
+without Huffman compression. The completed static-name
+literal-without-indexing helper is archived under
+[HTTP/2 Outbound HPACK Static-Name Literal](http2-outbound-hpack-static-name-literal.md);
+it resolves names through finite HPACK static table metadata and leaves
+non-static names on the helper's HPACK fixture encode-failure path.
 
 The same outbound boundary accepts a fixture-owned ordinary new-name
 literal-never-indexed header list. It emits the checked `0x10` HPACK prefix

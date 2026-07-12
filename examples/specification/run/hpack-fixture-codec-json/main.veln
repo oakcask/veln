@@ -98,8 +98,12 @@ pub fn main() -> Result<(), RuntimeDiagnostic> effects [stdio]
 	print_encode_result("path-root", encode_header_list_with_state(static_indexed_path_root_headers(), initial_encode_state(), 0), 132)
 	print_encode_result("scheme-https", encode_header_list_with_state(static_indexed_scheme_https_headers(), initial_encode_state(), 0), 135)
 	print_encode_result("status-200", encode_header_list_with_state(static_indexed_status_200_headers(), initial_encode_state(), 0), 136)
+	print_encode_result("literal-method-put", encode_header_list_with_state(outbound_literal_method_put_headers(), initial_encode_state(), 0), 2)
+	print_encode_result("literal-server", encode_header_list_with_state(outbound_literal_server_headers(), initial_encode_state(), 0), 15)
+	print_encode_result("literal-path-target", encode_header_list_with_state(outbound_literal_path_target_headers(), initial_encode_state(), 0), 4)
 	print_encode_failure_result("unsupported-name", encode_header_list(unsupported_static_indexed_name_headers(), 31))
 	print_encode_failure_result("unsupported-value", encode_header_list(unsupported_static_indexed_value_headers(), 37))
+	print_encode_failure_result("unsupported-static-name-literal", encode_header_list(unsupported_static_name_literal_headers(), 43))
 
 	let bad_block: ByteChunk = bad_header_block()?
 	project_decode_result(decode_header_block(bad_block, initial_state(), 27))

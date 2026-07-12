@@ -898,7 +898,9 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`,
 [HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md), and
-[HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
+[HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md),
+and
+[HTTP/2 Outbound HPACK Static-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-static-name-literal.md).
 The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
 table state in ordinary Veln values, plus source-visible dynamic-name
@@ -914,10 +916,11 @@ and
 [HTTP/2 HPACK Huffman Encode Boundary](../reference/implemented-proposals/http2-hpack-huffman-encode-boundary.md):
 full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
 the checked fixture string literal, bounded source-visible static-name
-literals, broader outbound behavior beyond the checked fixture encoder
-boundaries named above, outbound table-size behavior beyond the checked
-fixture encoder update, zero-capacity insertion, and reduced-capacity
-insertion boundaries, and production header validation beyond
+literals outside the completed decode and outbound helper slices, broader
+outbound behavior beyond the checked fixture encoder boundaries named above,
+outbound table-size behavior beyond the checked fixture encoder update,
+zero-capacity insertion, and reduced-capacity insertion boundaries, and
+production header validation beyond
 ordinary request,
 response,
 and trailer header-name shape, the source-visible `te` value rule, the
@@ -1021,6 +1024,11 @@ ordinary new-name literal-without-indexing for accepted visible-ASCII
 field-name and value pairs used by outbound HEADERS and `PUSH_PROMISE`
 send-intents, and ordinary new-name literal-never-indexed for accepted
 visible-ASCII field-name and value pairs used by outbound HEADERS. The
+completed outbound static-name literal-without-indexing helper is archived
+under
+[HTTP/2 Outbound HPACK Static-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-static-name-literal.md).
+It resolves names through finite HPACK static table metadata and keeps
+non-static names on the helper's HPACK fixture encode-failure path. The
 never-indexed outbound slice emits the checked raw literal bytes without
 inserting the field into the dynamic table, keeps a later dynamic-index probe
 for that field on the fixture encode-failure path, and preserves earlier

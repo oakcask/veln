@@ -451,6 +451,11 @@ enough.
   failures. Outbound HTTP/2 HEADERS and server-side `PUSH_PROMISE` fixture
   paths route supported static-indexed header lists through the same helper
   before fixture fallback and frame splitting. The
+  same focused HPACK fixture boundary checks a source-visible static-name
+  literal-without-indexing helper: it resolves header names through the
+  finite HPACK static table metadata, emits raw visible-ASCII values for
+  known static names such as `:method`, `:path`, and `server`, and leaves
+  non-static names on the HPACK fixture encode-failure path. The
   same focused HPACK fixture boundary case checks payload-only Huffman
   encoding directly for a supported string, bounded byte input, and an
   unsupported string returned as a fixture encode failure. The
