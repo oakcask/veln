@@ -648,7 +648,9 @@ compare it with `../specification/` before changing behavior.
   Huffman-marked values and bounded dynamic-state insertion, plus the
   source-visible exact static-indexed outbound encode helper for the finite
   HPACK static table entries with fixed values across outbound HEADERS and
-  server-side `PUSH_PROMISE`,
+  server-side `PUSH_PROMISE`, plus source-visible static-name
+  literal-without-indexing outbound helper bytes for finite HPACK static
+  table names with raw visible-ASCII values,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and full HPACK behavior beyond the checked
@@ -721,6 +723,9 @@ compare it with `../specification/` before changing behavior.
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
+  The completed outbound static-name literal-without-indexing fixture slice
+  is archived under
+  [HTTP/2 Outbound HPACK Static-Name Literal](../reference/implemented-proposals/http2-outbound-hpack-static-name-literal.md).
   The completed outbound HPACK fixture encoder slice is archived under
   [HTTP/2 Outbound HPACK Fixture Encoder](../reference/implemented-proposals/http2-outbound-hpack-fixture-encoder.md).
   The completed outbound HPACK dynamic-table eviction slice is archived under

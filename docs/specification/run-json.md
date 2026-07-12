@@ -675,7 +675,11 @@ static-indexed bytes for supported fixed-value static entries on
 `PUSH_PROMISE`, checked Huffman-marked string literal fixtures for outbound
 HEADERS and `PUSH_PROMISE`, and the checked stateful `PUSH_PROMISE` path
 where the returned fixture encode state lets a later promised header list use
-the dynamic indexed byte `0xbe`. The same run JSON stdout checks the
+the dynamic indexed byte `0xbe`. The focused HPACK fixture stdout also checks
+static-name literal-without-indexing encoding through finite static-table
+name metadata: non-exact `:method: PUT`, ordinary `server: ok`, and the
+existing `:path: /target` subset emit raw literal bytes, while a non-static
+name remains a fixture encode failure. The same run JSON stdout checks the
 source-visible HPACK Huffman payload helper directly: successful string and
 bounded byte inputs print payload-only output chunks without the HPACK string
 length prefix, and unsupported source strings remain ordinary fixture
