@@ -44,8 +44,12 @@ full type reference.
   helpers whose declared parameter type is a concrete function type also
   constrain named private callback parameters at that argument position,
   including when the helper is reached through a visible public function
-  alias, and including the fixed parameter types and variadic element type of
-  a concrete variadic function type.
+  alias. This includes fixed parameter types, the variadic element type of a
+  concrete variadic function type, and ordinary effect-set compatibility for
+  concrete effectful function types. Incompatible callback returns or effects
+  report `type.mismatch` at the helper call argument; helper callback
+  parameters without one concrete function type do not constrain the private
+  callback signature.
   Source-backed prelude helpers without a compiler-known callback rule use the
   same declared-helper fallback when their embedded source signature contains a
   concrete function-typed callback parameter. A concrete expected record field

@@ -1,0 +1,11 @@
+fn apply_unknown(callback) -> String effects [stdio]
+	"ok"
+end
+
+fn emit(value) -> String effects [stdio]
+	"sent"
+end
+
+pub fn main() -> String effects [stdio]
+	apply_unknown(emit)
+end

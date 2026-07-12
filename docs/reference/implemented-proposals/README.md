@@ -62,6 +62,8 @@ behavior.
   [local-inference-dictionary-callback-aliases.md](local-inference-dictionary-callback-aliases.md).
 - Local inference declared helper callback argument:
   [local-inference-declared-helper-callback-argument.md](local-inference-declared-helper-callback-argument.md).
+- Local inference effectful declared-helper callback:
+  [local-inference-effectful-declared-helper-callback.md](local-inference-effectful-declared-helper-callback.md).
 - Local inference declared helper callback alias:
   [local-inference-declared-helper-callback-alias.md](local-inference-declared-helper-callback-alias.md).
 - Local inference prelude callback fallback:

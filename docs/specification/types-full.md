@@ -230,7 +230,9 @@ to satisfy the helper's declared function return type. When that return type is
 concrete, it flows into
 non-empty callback tail expressions using the same constructor, record, and
 collection expected-type rules as prelude helper callback returns. Function
-effect assignment keeps the usual pure and effectful compatibility checks.
+effect assignment keeps the usual pure and effectful compatibility checks;
+an incompatible callback return or effect set reports `type.mismatch` at the
+helper call argument.
 This rule does not infer public callback signatures, exported aliases, or
 helper signatures whose function parameter type still contains `unknown`,
 including an unknown variadic element type. A public function alias reached by

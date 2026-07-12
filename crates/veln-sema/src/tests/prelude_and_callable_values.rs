@@ -11972,11 +11972,15 @@ fn declared_helpers_infer_private_callback_parameters() {
             "fn keep_pair(label, value) -> Bool\n",
             "  true\n",
             "end\n",
-            "fn emit(value) -> () effects [stdio]\n",
+            "fn emit(value) effects [stdio]\n",
+            "  ()\n",
+            "end\n",
+            "fn ignore(value)\n",
             "  ()\n",
             "end\n",
             "pub fn main() -> {text: String, kept: Bool} effects [stdio]\n",
             "  apply_effect(\"ready\", emit)\n",
+            "  apply_effect(\"ready\", ignore)\n",
             "  {text: apply_int(1, stringify), kept: apply_pair(\"one\", 1, keep_pair)}\n",
             "end\n",
         ),
@@ -12007,6 +12011,14 @@ fn declared_helpers_infer_private_callback_parameters() {
         .find(|function| function.name == "emit")
         .expect("effectful callback should be lowered");
     assert_eq!(emit.params[0].ty, CoreType::string());
+    assert_eq!(emit.return_type, CoreType::unit());
+    let ignore = core
+        .functions
+        .iter()
+        .find(|function| function.name == "ignore")
+        .expect("pure callback should be lowered");
+    assert_eq!(ignore.params[0].ty, CoreType::string());
+    assert_eq!(ignore.return_type, CoreType::unit());
 }
 
 #[test]
@@ -12453,8 +12465,14 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
             "fn stringify(value) -> String\n",
             "  \"ok\"\n",
             "end\n",
-            "pub fn main() -> String\n",
-            "  helpers::apply_int(1, stringify)\n",
+            "fn emit(value) effects [stdio]\n",
+            "  \"sent\"\n",
+            "end\n",
+            "fn pure_emit(value)\n",
+            "  \"pure\"\n",
+            "end\n",
+            "pub fn main() -> {plain: String, effectful: String, pure: String} effects [stdio]\n",
+            "  {plain: helpers::apply_int(1, stringify), effectful: helpers::apply_effect(emit), pure: helpers::apply_effect(pure_emit)}\n",
             "end\n",
         ),
     );
@@ -12464,6 +12482,9 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
             "mod spec.helpers\n",
             "pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String\n",
             "  callback(value)\n",
+            "end\n",
+            "pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
+            "  callback(\"ready\")\n",
             "end\n",
         ),
     );
@@ -12489,6 +12510,154 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
         .find(|function| function.name == "stringify")
         .expect("callback should be lowered");
     assert_eq!(stringify.params[0].ty, CoreType::int());
+    let emit = core
+        .functions
+        .iter()
+        .find(|function| function.name == "emit")
+        .expect("effectful callback should be lowered");
+    assert_eq!(emit.params[0].ty, CoreType::string());
+    assert_eq!(emit.return_type, CoreType::string());
+    let pure_emit = core
+        .functions
+        .iter()
+        .find(|function| function.name == "pure_emit")
+        .expect("pure callback should be lowered");
+    assert_eq!(pure_emit.params[0].ty, CoreType::string());
+    assert_eq!(pure_emit.return_type, CoreType::string());
+}
+
+#[test]
+fn public_alias_effectful_declared_helpers_infer_private_callback_parameters() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod spec.app\n",
+            "use spec.api\n",
+            "fn emit(value) effects [stdio]\n",
+            "  \"sent\"\n",
+            "end\n",
+            "fn pure_emit(value)\n",
+            "  \"pure\"\n",
+            "end\n",
+            "pub fn main() -> {effectful: String, pure: String} effects [stdio]\n",
+            "  {effectful: api::apply_effect(emit), pure: api::apply_effect(pure_emit)}\n",
+            "end\n",
+        ),
+    );
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "pub fn apply_effect = impl::apply_effect\n",
+        ),
+    );
+    let impl_source = SourceFile::new(
+        "impl.veln",
+        concat!(
+            "mod spec.impl\n",
+            "fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
+            "  callback(\"ready\")\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let api = lower_surface_ast(&parse(&api_source).tree);
+    let implementation = lower_surface_ast(&parse(&impl_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses.into_iter().chain(api.uses).collect(),
+        aliases: api.aliases,
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: app
+            .functions
+            .into_iter()
+            .chain(implementation.functions)
+            .collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for name in ["emit", "pure_emit"] {
+        let callback = core
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+            .unwrap_or_else(|| panic!("{name} callback should be lowered"));
+        assert_eq!(callback.params[0].ty, CoreType::string(), "{name}");
+        assert_eq!(callback.return_type, CoreType::string(), "{name}");
+    }
+}
+
+#[test]
+fn imported_effectful_declared_helpers_report_callback_mismatches() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod spec.app\n",
+            "use spec.helpers\n",
+            "fn wrong_return(value) -> Int effects [stdio]\n",
+            "  1\n",
+            "end\n",
+            "fn extra_effect(value) -> String effects [stdio, net]\n",
+            "  value\n",
+            "end\n",
+            "pub fn main() -> {wrong_return: String, extra_effect: String} effects [stdio, net]\n",
+            "  {wrong_return: helpers::apply_effect(wrong_return), extra_effect: helpers::apply_effect(extra_effect)}\n",
+            "end\n",
+        ),
+    );
+    let helpers_source = SourceFile::new(
+        "helpers.veln",
+        concat!(
+            "mod spec.helpers\n",
+            "pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
+            "  callback(\"ready\")\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let helpers = lower_surface_ast(&parse(&helpers_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: [app.types, helpers.types].concat(),
+        functions: [app.functions, helpers.functions].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    for (expected_message, expected_column) in [
+        (
+            "expected `fn(String) -> String effects [stdio]`, but found `fn(String) -> Int effects [stdio]`",
+            40,
+        ),
+        (
+            "expected `fn(String) -> String effects [stdio]`, but found `fn(String) -> String effects [stdio, net]`",
+            91,
+        ),
+    ] {
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message == expected_message)
+            .unwrap_or_else(|| panic!("missing diagnostic: {expected_message}"));
+        assert_eq!(diagnostic.id, "type.mismatch");
+        let span = diagnostic
+            .span
+            .as_ref()
+            .expect("diagnostic should point at the imported helper call");
+        assert_eq!(span.file.as_str(), "app.veln");
+        assert_eq!(span.start.line, 10);
+        assert_eq!(span.start.column, expected_column);
+    }
 }
 
 #[test]

@@ -159,6 +159,9 @@ The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 The completed declared helper callback argument slice is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
+The completed effectful declared-helper callback coverage slice is archived in
+the
+[effectful declared-helper callback record](../reference/implemented-proposals/local-inference-effectful-declared-helper-callback.md).
 The completed public member alias boundary for declared helper callback
 arguments is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md`.
@@ -259,6 +262,11 @@ expected-type, concrete match-arm expected-type, concrete if-branch
 expected-type, and concrete constructor-payload expected-type, concrete
 collection element expected-type, and concrete dictionary value expected-type
 paths.
+
+Effect-set variants of the concrete declared-helper path are complete and do
+not form an open sequence of further slices. Any remaining callback-input work
+must add a distinct concrete expected-type source rather than another effect
+combination for an implemented path.
 
 This rule applies only to helpers whose signatures are compiler-known or
 declared with enough concrete function type information. It does not invent a

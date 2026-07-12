@@ -5,3 +5,7 @@ end
 fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool
 	callback(label, value)
 end
+
+fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]
+	callback("ready")
+end

@@ -25,9 +25,10 @@ compare it with `../specification/` before changing behavior.
   payload-carrying ADT constructor inference, match scrutinee
   constructor-pattern inference, local pattern `let` inference,
   compiler-known prelude callback argument including `vec_try_map_with`,
-  dictionary callback alias, declared helper callback argument, source-backed
-  prelude callback fallback, declared helper callback alias, record-field
-  callback, local callback binding, local callback binding annotation elision,
+  dictionary callback alias, declared helper callback argument, effectful
+  declared-helper callback, source-backed prelude callback fallback, declared
+  helper callback alias, record-field callback, local callback binding, local
+  callback binding annotation elision,
   direct return callback, match-arm callback, if-branch callback, callback
   return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
@@ -36,9 +37,10 @@ compare it with `../specification/` before changing behavior.
   `../specification/diagnostics-json.md`.
   The completed private helper call-site inference, prelude callback argument
   inference including `vec_try_map_with`, dictionary callback alias inference,
-  declared helper callback argument inference, declared helper callback alias
-  inference, source-backed prelude callback fallback, record-field callback
-  inference, local callback binding inference, local callback binding
+  declared helper callback argument inference, effectful declared-helper
+  callback inference, declared helper callback alias inference, source-backed
+  prelude callback fallback, record-field callback inference, local callback
+  binding inference, local callback binding
   annotation-elision inference, direct return callback inference, callback
   return expected-type inference, constructor-payload callback inference,
   collection callback element inference, non-empty
@@ -52,6 +54,7 @@ compare it with `../specification/` before changing behavior.
   [local-inference-prelude-callback-argument.md](../reference/implemented-proposals/local-inference-prelude-callback-argument.md),
   [local-inference-dictionary-callback-aliases.md](../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md),
   [local-inference-declared-helper-callback-argument.md](../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md),
+  [local-inference-effectful-declared-helper-callback.md](../reference/implemented-proposals/local-inference-effectful-declared-helper-callback.md),
   [local-inference-declared-helper-callback-alias.md](../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md),
   [local-inference-prelude-callback-fallback.md](../reference/implemented-proposals/local-inference-prelude-callback-fallback.md),
   [local-inference-record-field-callback.md](../reference/implemented-proposals/local-inference-record-field-callback.md),

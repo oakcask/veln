@@ -1,0 +1,59 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "expected `String`, but found `fn(unknown) -> String effects [stdio]`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.slot_kind"
+equals = "private_parameter"
+
+[[json_assert]]
+path = "diagnostics.0.details.parameter"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.0.details.inferred_type"
+equals = "unknown"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "repair_hint"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.message"
+equals = "Add a parameter type annotation."
+
+[[diagnostics]]
+id = "type.private_inference_incomplete"
+severity = "error"
+kind = "type"
+message = "private parameter `value` has no inferred type"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 9
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `String`, but found `fn(unknown) -> String effects [stdio]`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 16
