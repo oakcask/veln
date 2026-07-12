@@ -493,7 +493,10 @@ enough.
   server-side `PUSH_PROMISE` send-intents continue to use the recorded local
   GOAWAY boundary. Later inbound stream-creating HEADERS after drain
   completion also use `http2.protocol.stream_after_goaway`, preserving the
-  recorded shutdown boundary. The checked case is
+  recorded shutdown boundary. The checked receive case covers already-admitted
+  streams both at and below the received boundary, and rejects a new
+  above-boundary HEADERS frame while graceful shutdown still has an active
+  in-boundary stream. The checked case is
   `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core keeps outbound DATA send-window
   accounting separate from inbound receive-window accounting. Accepted

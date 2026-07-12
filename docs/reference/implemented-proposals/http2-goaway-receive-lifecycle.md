@@ -33,11 +33,14 @@ narrower diagnostic routes.
 - `../../../examples/specification/run/http2-protocol-core/` opens a
   peer-created stream, receives GOAWAY, then accepts DATA and trailer HEADERS
   on that already-admitted stream.
+- The same checked case repeats that accepted path for an already-admitted
+  stream below the recorded last stream id, not only at the boundary.
 - The same checked case verifies receive-window accounting, emitted trailer
   header-block bytes, HPACK fixture decode output, and the closed-by-peer
   lifecycle state after the accepted trailers.
 - The same checked case rejects a peer-created HEADERS stream above the
-  recorded last stream id with `http2.protocol.stream_after_goaway`.
+  recorded last stream id with `http2.protocol.stream_after_goaway`, including
+  while graceful shutdown still has an active in-boundary stream.
 - `../../specification/execution.md`, `../../specification/commands.md`, and
   `../../specification/run-json.md` summarize the current behavior and route
   readers to the checked executable example.

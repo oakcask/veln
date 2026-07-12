@@ -1018,6 +1018,10 @@ The checked `run --json` protocol-core example also keeps already-admitted
 peer-created stream DATA and trailer HEADERS after received GOAWAY as passed
 stdout, not as a `protocol_diagnostic`; receive-window credit, HPACK fixture
 decode, and closed-by-peer lifecycle facts remain ordinary executable output.
+The aggregate example checks these accepted frames for streams at the received
+last-stream-id boundary and below it, and separately rejects a new
+above-boundary peer-created HEADERS frame while the shutdown state is still
+`graceful_shutdown`.
 The checked stream-after-GOAWAY human and JSON examples return
 source-visible `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`
 payloads for peer-created and local outbound stream send-intents, so

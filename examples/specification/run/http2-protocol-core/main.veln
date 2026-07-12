@@ -11203,6 +11203,19 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	print_hpack_transition("goaway-existing-trailers", goaway_existing_trailers)
 	print_closed_by_peer_stream("goaway-existing-trailers", step_state(goaway_existing_trailers))
 	print_shutdown_state("goaway-existing-trailers-drain", step_state(goaway_existing_trailers))
+	let goaway_below_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), frame_state())?
+	let goaway_below_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_below_headers))?
+	let goaway_below_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000030102")?), step_state(goaway_below_shutdown))?
+	print_step("goaway-below-boundary-data", goaway_below_data)
+	print_receive_windows("goaway-below-boundary-data", step_state(goaway_below_data))
+	let goaway_below_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000321222324")?), step_state(goaway_below_data))?
+	print_step("goaway-below-boundary-trailers", goaway_below_trailers)
+	let ignored_goaway_below_trailers: () = emit_header_block("http2-goaway-below-boundary-trailers", goaway_below_trailers, "21222324")?
+	print_hpack_transition("goaway-below-boundary-trailers", goaway_below_trailers)
+	print_closed_by_peer_stream("goaway-below-boundary-trailers", step_state(goaway_below_trailers))
+	print_shutdown_state("goaway-below-boundary-trailers-drain", step_state(goaway_below_trailers))
+	let goaway_graceful_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway_existing_shutdown))?
+	print_goaway_stream_failure("goaway-graceful-late-headers", goaway_graceful_late_headers)
 	let goaway_data_end_stream_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
 	let goaway_data_end_stream_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_data_end_stream_headers))?
 	let goaway_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020001000000050102")?), step_state(goaway_data_end_stream_shutdown))?
