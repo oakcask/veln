@@ -267,6 +267,9 @@ The completed format-neutral encode helper diagnostic cleanup slice is archived
 under
 [Format-Neutral Schema Encode Helper Diagnostics](../reference/implemented-proposals/format-neutral-schema-encode-helper-diagnostics.md).
 
+The completed binary fixture schema-reference slice is archived under
+[Binary Fixture Schema References](../reference/implemented-proposals/binary-fixture-schema-references.md).
+
 Historical mapping slices that predate the source-surface removal remain
 archived under implemented proposal records. Current behavior removes
 schema-level `map to` clauses as recorded in
@@ -383,27 +386,6 @@ Schema aliases do not import schema-local field names, generated helper names,
 codec names, or ordinary source type bindings, and they do not create wrapper
 schemas, new schema identities, or generated codec aliases.
 
-## Implemented Slice: Binary Fixture Schema References
-
-The binary fixture metadata schema reference slice is implemented as current
-behavior under `../specification/source-surface.md` and
-`../specification/execution.md`, with executable coverage under
-`../../examples/specification/run/binary-fixture-invalid-field/`,
-`../../examples/specification/run/binary-fixture-schema-references/`, and
-`../../examples/specification/run/binary-fixture-schema-reference-diagnostics/`.
-
-Executable specification cases may add `schema = "Name"` or
-`schema = "module::Name"` to a `[[binary_fixture]]` record. The fixture
-reference uses schema-aware lookup rather than ordinary value or type lookup.
-Bare names resolve schemas and schema aliases in the fixture source module.
-Qualified references require a written `use` path and a public schema or
-public schema alias. Missing, private, function, source ADT type, codec, and
-generated helper targets are rejected as invalid fixture schema references.
-When fixture metadata also writes `field_path`, its first segment must name
-the resolved schema. Fixture schema references do not make schema-local field
-names, generated helper names, codec names, or ordinary source type bindings
-visible.
-
 ## Discussion Result: Field Validation Semantics
 
 The implemented source surface accepts field-local `where` clauses on schema
@@ -514,9 +496,6 @@ Implemented:
   `use` paths and import aliases, private imported schema diagnostics,
   wrong-kind diagnostics, missing schema diagnostics, and non-reexport
   boundaries.
-- Binary fixture metadata in executable specification cases resolves optional
-  schema references through schema-aware lookup and checks field-path schema
-  segments against the resolved schema.
 - Executable schema `where` validation helper slices evaluate supported
   predicates after the owning field is decoded, including arithmetic, boolean,
   prefix `not`, and grouped predicates over the current field and earlier
