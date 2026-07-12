@@ -12,18 +12,18 @@ specification and executable examples, not by this historical record.
 - Detailed inference rules:
   [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
 - Same-module success:
-  [declared-helper callback inference](../../../examples/specification/check/declared-helper-callback-inference/).
+  `../../../examples/specification/check/declared-helper-callback-inference/`.
 - Imported-helper and public-alias success:
-  [imported callback inference](../../../examples/specification/check/declared-helper-callback-import-inference/)
+  `../../../examples/specification/check/declared-helper-callback-import-inference/`
   and
-  [public-alias callback inference](../../../examples/specification/check/declared-helper-callback-alias-inference/).
+  `../../../examples/specification/check/declared-helper-callback-alias-inference/`.
 - Return, effect, and unconstrained-boundary diagnostics:
-  [return mismatch](../../../examples/specification/check/declared-helper-effectful-callback-return-diagnostics/),
-  [effect mismatch](../../../examples/specification/check/declared-helper-effectful-callback-inference-diagnostics/),
+  `../../../examples/specification/check/declared-helper-effectful-callback-return-diagnostics/`,
+  `../../../examples/specification/check/declared-helper-effectful-callback-inference-diagnostics/`,
   and
-  [unconstrained boundary](../../../examples/specification/check/declared-helper-effectful-callback-inference-unsupported/).
+  `../../../examples/specification/check/declared-helper-effectful-callback-inference-unsupported/`.
 - Human-readable unsupported-boundary diagnostic:
-  [human diagnostic](../../../examples/specification/check/declared-helper-effectful-callback-inference-unsupported-human/).
+  `../../../examples/specification/check/declared-helper-effectful-callback-inference-unsupported-human/`.
 
 ## Implemented Boundary
 
