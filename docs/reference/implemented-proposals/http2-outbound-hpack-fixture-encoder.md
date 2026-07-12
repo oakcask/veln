@@ -122,6 +122,15 @@ through outbound HEADERS framing. Encoding the never-indexed dynamic-name
 fixture without a matching dynamic-table name remains the same focused HPACK
 fixture dynamic-name failure path.
 
+All three outbound dynamic-name literal forms accept values from the existing
+checked Huffman encoder. With the carried `:path` name at dynamic index 62,
+the checked `test` value emits `0x0f 0x2f 0x83 0x49 0x50 0x9f` without
+indexing, `0x7e 0x83 0x49 0x50 0x9f` with indexing, and
+`0x1f 0x2f 0x83 0x49 0x50 0x9f` as never indexed. Only the indexed form
+inserts `:path: test`; later outbound HEADERS reuse it as `0xbe`. The other
+forms retain the prior `:path: /target` entry, and missing names or unsupported
+Huffman input return fixture failures without a successful header block.
+
 Unsupported header names, unsupported values, and unsupported value encodings
 return typed `HpackFixtureFailure` results from the HPACK fixture boundary.
 Unsupported ordinary new-name fields stay on the same fixture header-list
@@ -135,6 +144,14 @@ multi-byte `hpack-bytes-*` Huffman-marked values; the checked
 `0x04 0x85 0xff 0xc7 0xff 0xff 0xdd`. Raw non-visible string values still
 remain on the raw string encoding failure path. Those failures are not
 projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
+
+Checked new literal names can also use the existing source-visible Huffman
+encoder across literal-without-indexing, literal-with-indexing, and
+literal-never-indexed. The checked `test` name composes with raw `ok` and
+Huffman `test` values. Only the indexed form inserts the decoded pair for
+later `0xbe` reuse; the other forms retain an empty dynamic table, and an
+unsupported Huffman name fails without output or a changed carried state. The
+indexed `test: ok` block and its reuse also pass through outbound HEADERS.
 
 ## Evidence
 
@@ -160,7 +177,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   reuse of that inserted value as `0xbe`, retained older `:path: /target`
   reuse as `0xbf`, dynamic-name literal-never-indexed `:path: /secret` into
   outbound HEADERS, retained `:path: /target` reuse as `0xbe` after that
-  never-indexed block, an
+  never-indexed block, all three dynamic-name Huffman-value literal forms,
+  indexed `:path: test` reuse as `0xbe`, missing-name and unsupported-Huffman
+  no-output failures, an
   over-peer-limit table-size update failure,
   raw new-name literal-without-indexing `x-demo: hello` into outbound
   HEADERS and server-side `PUSH_PROMISE`,
@@ -198,7 +217,9 @@ projected as HTTP/2 protocol diagnostics by the outbound send-intent helpers.
   encode and retained reuse, dynamic-name literal-never-indexed encode,
   missing-name failure, retained reuse after the never-indexed dynamic-name
   block, dynamic-name literal-with-indexing insertion, newest reuse, retained
-  older reuse, accepted outbound table-size update bytes, zero and reduced
+  older reuse, exact bytes for all three dynamic-name Huffman-value forms,
+  insertion only for the indexed form, retained state for the other forms and
+  after failures, accepted outbound table-size update bytes, zero and reduced
   table capacity observed by later encodes, zero-capacity and
   reduced-capacity `:method: PUT` insertion and retention checks, and
   over-peer-limit table-size update failure.

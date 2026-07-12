@@ -617,8 +617,10 @@ compare it with `../specification/` before changing behavior.
   and server-side `PUSH_PROMISE`, checked outbound dynamic-table eviction
   after zero and reduced table-size updates, received peer
   `SETTINGS_HEADER_TABLE_SIZE` values driving later outbound HPACK fixture
-  capacity, checked outbound dynamic-name literal-without-indexing and
-  literal-with-indexing fixture encoding, and checked outbound `PUSH_PROMISE`
+  capacity, checked outbound dynamic-name literal-without-indexing,
+  literal-with-indexing, and literal-never-indexed fixture encoding with raw
+  and Huffman values, checked outbound new literal Huffman names across all
+  three forms with raw and Huffman values, and checked outbound `PUSH_PROMISE`
   rejection after peer
   `SETTINGS_ENABLE_PUSH = 0`, checked outbound `PUSH_PROMISE`
   rejection above received or locally sent GOAWAY boundaries, plus
@@ -732,6 +734,14 @@ compare it with `../specification/` before changing behavior.
   The completed outbound dynamic-name literal-never-indexed fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Dynamic-Name Never-Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-never-indexed-literal.md).
+  The completed outbound dynamic-name Huffman-value fixture slice is archived
+  under
+  [HTTP/2 Outbound HPACK Dynamic-Name Huffman Values](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-huffman-values.md).
+  The completed outbound Huffman literal-name fixture slice is archived under
+  [HTTP/2 Outbound HPACK Huffman Literal Names](../reference/implemented-proposals/http2-outbound-hpack-huffman-literal-names.md).
+  The completed bounded outbound representation-selection slice is archived
+  under
+  [HTTP/2 Outbound HPACK Representation Selection](../reference/implemented-proposals/http2-outbound-hpack-representation-selection.md).
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).

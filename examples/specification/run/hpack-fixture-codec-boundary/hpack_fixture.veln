@@ -522,6 +522,29 @@ pub fn encode_hpack_huffman_payload(value: String, offset: Int) -> Result<ByteCh
 	end
 end
 
+pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_hpack_huffman_payload(value, offset)
+		Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
+			Ok(prefix) => Ok(byte_append(prefix, encoded_value))
+			Err(failure) => Err(failure)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn hpack_fixture_huffman_string_length_prefix(count: Int, value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match count < 127
+		true => hpack_fixture_raw_string_length_prefix_byte(128 + count, value, offset)
+		false => match hpack_fixture_raw_string_length_prefix_byte(255, value, offset)
+			Ok(prefix) => match hpack_fixture_raw_string_length_tail(count - 127, value, offset)
+				Ok(tail) => Ok(byte_append(prefix, tail))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
 pub fn encode_hpack_huffman_payload_bytes(bytes: ByteChunk, source_label: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	hpack_huffman_encode_fixture_bytes(bytes, source_label, offset)
 end
@@ -668,6 +691,42 @@ pub fn outbound_literal_never_indexed_ordinary_x_never_headers() -> HpackHeaderL
 	HpackHeaderList(HpackHeader("x-never", "no"), HpackHeader(":fixture", "literal-never-indexed"), 12)
 end
 
+pub fn outbound_literal_huffman_name_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "ok"), HpackHeader(":fixture", "literal-without-indexing-huffman-name-raw-value"), 8)
+end
+
+pub fn outbound_literal_indexed_huffman_name_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "ok"), HpackHeader(":fixture", "literal-with-indexing-huffman-name-raw-value"), 8)
+end
+
+pub fn outbound_literal_never_indexed_huffman_name_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "ok"), HpackHeader(":fixture", "literal-never-indexed-huffman-name-raw-value"), 8)
+end
+
+pub fn outbound_literal_huffman_name_value_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "test"), HpackHeader(":fixture", "literal-without-indexing-huffman-name-huffman-value"), 9)
+end
+
+pub fn outbound_literal_indexed_huffman_name_value_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "test"), HpackHeader(":fixture", "literal-with-indexing-huffman-name-huffman-value"), 9)
+end
+
+pub fn outbound_literal_never_indexed_huffman_name_value_test_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "test"), HpackHeader(":fixture", "literal-never-indexed-huffman-name-huffman-value"), 9)
+end
+
+pub fn outbound_literal_unsupported_huffman_name_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-demo", "ok"), HpackHeader(":fixture", "literal-with-indexing-huffman-name-raw-value"), 0)
+end
+
+pub fn outbound_dynamic_indexed_test_ok_probe_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "ok"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
+end
+
+pub fn outbound_dynamic_indexed_test_test_probe_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("test", "test"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
+end
+
 pub fn outbound_dynamic_indexed_ordinary_x_never_probe_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("x-never", "no"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
 end
@@ -682,6 +741,26 @@ end
 
 pub fn outbound_literal_dynamic_name_path_secret_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":path", "/secret"), HpackHeader(":fixture", "literal-dynamic-name-never-indexed"), 10)
+end
+
+pub fn outbound_literal_dynamic_name_path_test_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "literal-dynamic-name-without-indexing-huffman"), 6)
+end
+
+pub fn outbound_literal_dynamic_name_path_test_indexed_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "literal-dynamic-name-with-indexing-huffman"), 5)
+end
+
+pub fn outbound_literal_dynamic_name_path_test_never_indexed_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "literal-dynamic-name-never-indexed-huffman"), 6)
+end
+
+pub fn outbound_literal_dynamic_name_unsupported_huffman_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "\n\n"), HpackHeader(":fixture", "literal-dynamic-name-without-indexing-huffman"), 0)
+end
+
+pub fn outbound_dynamic_indexed_path_test_probe_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":path", "test"), HpackHeader(":fixture", "dynamic-indexed-probe"), 9)
 end
 
 pub fn outbound_dynamic_indexed_path_again_probe_headers() -> HpackHeaderList
@@ -722,6 +801,22 @@ end
 
 pub fn outbound_static_indexed_content_type_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader("content-type", ""), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+pub fn outbound_selected_seed_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader("x-trace", "ok"), 14)
+end
+
+pub fn outbound_selected_carried_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("x-trace", "ok"), HpackHeader("x-trace", "again"), 8)
+end
+
+pub fn outbound_selected_static_name_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("server", "ok"), HpackHeader(":method", "GET"), 5)
+end
+
+pub fn outbound_selected_invalid_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader("bad@name", "ok"), HpackHeader(":method", "GET"), 0)
 end
 
 fn unsupported_header_list_preview(headers: HpackHeaderList) -> ByteChunk
@@ -826,10 +921,18 @@ fn accepted_ordinary_header_name_bytes(name: String) -> Result<ByteChunk, String
 end
 
 fn encode_new_name_literal_header_with_prefix(name: String, value: String, prefix_value: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	encode_new_name_literal_header(name, value, prefix_value, false, false, headers, offset)
+end
+
+fn encode_huffman_name_literal_header_with_prefix(name: String, value: String, prefix_value: Int, huffman_value: Bool, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	encode_new_name_literal_header(name, value, prefix_value, true, huffman_value, headers, offset)
+end
+
+fn encode_new_name_literal_header(name: String, value: String, prefix_value: Int, huffman_name: Bool, huffman_value: Bool, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match accepted_ordinary_header_name_bytes(name)
 		Ok(_) => match byte_write_u8_be(prefix_value)
-			Ok(prefix) => match encode_hpack_raw_string_literal(name, offset)
-				Ok(encoded_name) => match encode_hpack_raw_string_literal(value, offset)
+			Ok(prefix) => match encode_literal_name(name, huffman_name, offset)
+				Ok(encoded_name) => match encode_literal_value(value, huffman_value, offset)
 					Ok(encoded_value) => Ok(byte_append(byte_append(prefix, encoded_name), encoded_value))
 					Err(failure) => Err(failure)
 				end
@@ -838,6 +941,20 @@ fn encode_new_name_literal_header_with_prefix(name: String, value: String, prefi
 			Err(_) => unsupported_header_list_encoding(headers, offset)
 		end
 		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
+fn encode_literal_name(name: String, huffman_name: Bool, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match huffman_name
+		true => encode_hpack_huffman_string_literal(name, offset)
+		false => encode_hpack_raw_string_literal(name, offset)
+	end
+end
+
+fn encode_literal_value(value: String, huffman_value: Bool, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match huffman_value
+		true => encode_hpack_huffman_string_literal(value, offset)
+		false => encode_hpack_raw_string_literal(value, offset)
 	end
 end
 
@@ -869,6 +986,23 @@ fn hpack_static_exact_index_at(name: String, value: String, index: Int) -> Int
 	end
 end
 
+fn hpack_static_name_index(name: String) -> Int
+	hpack_static_name_index_at(name, 129)
+end
+
+fn hpack_static_name_index_at(name: String, index: Int) -> Int
+	match index > 189
+		true => -1
+		false => match static_indexed_header_value(index)
+			Some(HpackHeader(static_name, _)) => match static_name == name
+				true => index - 128
+				false => hpack_static_name_index_at(name, index + 1)
+			end
+			None => hpack_static_name_index_at(name, index + 1)
+		end
+	end
+end
+
 fn encode_literal_header_with_prefix(name: String, value: String, prefix_offset: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let index: Int = literal_static_name_index(name)
 	match index < 0
@@ -890,6 +1024,77 @@ pub fn encode_header_list(headers: HpackHeaderList, offset: Int) -> Result<ByteC
 	match encode_header_list_with_state(headers, initial_encode_state(), offset)
 		Ok(transition) => Ok(encode_transition_bytes(transition))
 		Err(failure) => Err(failure)
+	end
+end
+
+pub fn encode_selected_header_list_with_state(headers: HpackHeaderList, state: HpackFixtureState, active_capacity: Int, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match selected_capacity_matches_state(state, active_capacity)
+		false => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+		true => match headers
+			HpackHeaderList(first, second, _) => match encode_selected_header(first, headers, state, offset)
+				Ok(first_transition) => match encode_selected_header(second, headers, encode_transition_state(first_transition), offset)
+					Ok(second_transition) => Ok(HpackEncodeTransition(byte_append(encode_transition_bytes(first_transition), encode_transition_bytes(second_transition)), encode_transition_state(second_transition)))
+					Err(failure) => Err(failure)
+				end
+				Err(failure) => Err(failure)
+			end
+		end
+	end
+end
+
+fn selected_capacity_matches_state(state: HpackFixtureState, active_capacity: Int) -> Bool
+	match state
+		HpackFixtureState(table_size, _, _) => active_capacity >= 0 and table_size == active_capacity
+	end
+end
+
+fn encode_selected_header(header: HpackHeader, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match header
+		HpackHeader(name, value) => match hpack_static_exact_index(name, value) >= 0
+			true => encode_selected_static_exact(name, value, headers, state, offset)
+			false => match matching_dynamic_header_index(state, name, value) >= 0
+				true => encode_selected_dynamic_exact(name, value, headers, state, offset)
+				false => match hpack_static_name_index(name) >= 0
+					true => encode_selected_static_name(name, value, headers, state, offset)
+					false => match matching_dynamic_name_index(state, name) >= 0
+						true => encode_selected_dynamic_name(name, value, headers, state, offset)
+						false => encode_selected_new_name(name, value, headers, state, offset)
+					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_selected_static_exact(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_header_list_transition(encode_hpack_integer_with_prefix(hpack_static_exact_index(name, value) - 128, 127, 128, offset), next_state(state))
+end
+
+fn encode_selected_dynamic_exact(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_header_list_transition(encode_hpack_integer_with_prefix(matching_dynamic_header_index(state, name, value) + 62, 127, 128, offset), next_state(state))
+end
+
+fn encode_selected_static_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encode_hpack_integer_with_prefix(hpack_static_name_index(name), 63, 64, offset)
+		Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), state_with_dynamic_entry(state, name, value)))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_selected_dynamic_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_header_list_transition(encode_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 63, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+end
+
+fn encode_selected_new_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_header_list_transition(encode_new_name_literal_header_with_prefix(name, value, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+end
+
+fn matching_dynamic_header_index(state: HpackFixtureState, name: String, value: String) -> Int
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => matching_dynamic_entry_index(dynamic_entry, name, value, 0)
 	end
 end
 
@@ -980,6 +1185,12 @@ fn encode_non_dynamic_header_list(headers: HpackHeaderList, state: HpackFixtureS
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 0, headers, offset), next_state(state))
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 64, headers, offset), state_with_dynamic_entry(state, name, value))
 		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed"), _) => encode_header_list_transition(encode_literal_header_with_prefix(name, value, 16, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing-huffman-name-raw-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 0, false, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing-huffman-name-raw-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 64, false, headers, offset), state_with_dynamic_entry(state, name, value))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed-huffman-name-raw-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 16, false, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-without-indexing-huffman-name-huffman-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 0, true, headers, offset), next_state(state))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-with-indexing-huffman-name-huffman-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 64, true, headers, offset), state_with_dynamic_entry(state, name, value))
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-never-indexed-huffman-name-huffman-value"), _) => encode_header_list_transition(encode_huffman_name_literal_header_with_prefix(name, value, 16, true, headers, offset), next_state(state))
 		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
 	end
 end
@@ -998,6 +1209,18 @@ fn encode_dynamic_name_literal_header_list(headers: HpackHeaderList, state: Hpac
 			true => outbound_dynamic_name_literal_miss(headers, state, offset)
 			false => encode_header_list_transition(encode_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 15, 16, headers, offset), next_state(state))
 		end
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-dynamic-name-without-indexing-huffman"), _) => match matching_dynamic_name_index(state, name) < 0
+			true => outbound_dynamic_name_literal_miss(headers, state, offset)
+			false => encode_header_list_transition(encode_huffman_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 15, 0, headers, offset), next_state(state))
+		end
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-dynamic-name-with-indexing-huffman"), _) => match matching_dynamic_name_index(state, name) < 0
+			true => outbound_dynamic_name_literal_miss(headers, state, offset)
+			false => encode_header_list_transition(encode_huffman_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 63, 64, headers, offset), state_with_dynamic_entry(state, name, value))
+		end
+		HpackHeaderList(HpackHeader(name, value), HpackHeader(":fixture", "literal-dynamic-name-never-indexed-huffman"), _) => match matching_dynamic_name_index(state, name) < 0
+			true => outbound_dynamic_name_literal_miss(headers, state, offset)
+			false => encode_header_list_transition(encode_huffman_literal_with_dynamic_name(value, matching_dynamic_name_index(state, name), 15, 16, headers, offset), next_state(state))
+		end
 		_ => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
 	end
 end
@@ -1006,6 +1229,17 @@ fn encode_literal_with_dynamic_name(value: String, dynamic_name_index: Int, pref
 	let hpack_name_index: Int = dynamic_name_index + 62
 	match encode_hpack_integer_with_prefix(hpack_name_index, prefix_max, prefix_base, offset)
 		Ok(prefix) => match encode_hpack_raw_string_literal(value, offset)
+			Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => unsupported_header_list_encoding(headers, offset)
+	end
+end
+
+fn encode_huffman_literal_with_dynamic_name(value: String, dynamic_name_index: Int, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let hpack_name_index: Int = dynamic_name_index + 62
+	match encode_hpack_integer_with_prefix(hpack_name_index, prefix_max, prefix_base, offset)
+		Ok(prefix) => match encode_hpack_huffman_string_literal(value, offset)
 			Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
 			Err(failure) => Err(failure)
 		end
@@ -1032,6 +1266,9 @@ fn outbound_dynamic_name_literal_header_list(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-without-indexing"), _) => true
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-with-indexing"), _) => true
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-never-indexed"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-without-indexing-huffman"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-with-indexing-huffman"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-dynamic-name-never-indexed-huffman"), _) => true
 		_ => false
 	end
 end
@@ -1039,6 +1276,12 @@ end
 fn header_list_requires_literal_encoding(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(_, HpackHeader(":fixture", "literal-never-indexed"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-without-indexing-huffman-name-raw-value"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-with-indexing-huffman-name-raw-value"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-never-indexed-huffman-name-raw-value"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-without-indexing-huffman-name-huffman-value"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-with-indexing-huffman-name-huffman-value"), _) => true
+		HpackHeaderList(_, HpackHeader(":fixture", "literal-never-indexed-huffman-name-huffman-value"), _) => true
 		_ => false
 	end
 end

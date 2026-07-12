@@ -897,6 +897,9 @@ Completed HPACK fixture behavior is current behavior under
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-table-eviction.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-literal.md`,
 `../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-indexed-literal.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-huffman-values.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-huffman-literal-names.md`,
+`../reference/implemented-proposals/http2-outbound-hpack-representation-selection.md`,
 [HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md), and
 [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md),
 and
@@ -1093,6 +1096,18 @@ It reuses a returned outbound HPACK fixture state to encode a fresh
 `:path: /secret` value under the dynamic `:path` name without inserting a new
 entry, routes the returned state through outbound HEADERS, and proves the
 older `:path: /target` entry remains reusable as `0xbe`.
+The completed outbound dynamic-name Huffman-value slice is archived under
+`../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-huffman-values.md`.
+It Huffman-encodes checked values for all three dynamic-name literal forms,
+inserts only the literal-with-indexing result, preserves carried state on the
+other forms and encode failures, and routes supported bytes through outbound
+HEADERS.
+The completed outbound Huffman literal-name slice is archived under
+`../reference/implemented-proposals/http2-outbound-hpack-huffman-literal-names.md`.
+It reuses the checked Huffman encoder for new names across all three literal
+forms, composes raw and Huffman values, inserts only the
+literal-with-indexing pair, and routes accepted indexed bytes and state reuse
+through outbound HEADERS.
 Server-side `PUSH_PROMISE` send-intents also carry returned fixture encode
 state across successive promised header-list encodes: a supported
 literal-with-indexing promised header list updates the bounded dynamic table,
@@ -1184,12 +1199,25 @@ The dynamic-name literal receive core slice is archived under
 [HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md).
 The dynamic-name Huffman-value slice is archived under
 [HTTP/2 HPACK Dynamic-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-name-huffman-values.md).
+The outbound dynamic-name Huffman-value slice is archived under
+[HTTP/2 Outbound HPACK Dynamic-Name Huffman Values](../reference/implemented-proposals/http2-outbound-hpack-dynamic-name-huffman-values.md).
+The outbound Huffman literal-name slice is archived under
+[HTTP/2 Outbound HPACK Huffman Literal Names](../reference/implemented-proposals/http2-outbound-hpack-huffman-literal-names.md).
+The bounded outbound representation-selection slice is archived under
+[HTTP/2 Outbound HPACK Representation Selection](../reference/implemented-proposals/http2-outbound-hpack-representation-selection.md).
+It selects exact static, exact dynamic, static-name literal, dynamic-name
+literal, and new-name literal representations in deterministic order across
+two-header lists, carries bounded state between blocks, and routes selected
+blocks through outbound HEADERS.
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior beyond the bounded source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
-Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value, and
-dynamic-table accounting core slices.
+Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value,
+outbound dynamic-name Huffman-value, outbound Huffman literal-name, and
+bounded outbound representation selection, and dynamic-table accounting core
+slices. Full or unbounded compression policy remains planned; another
+same-shaped bounded selector is not a follow-up target.
 
 ## Completion Criteria
 
