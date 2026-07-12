@@ -25,7 +25,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 clap = "4.6.1"
-proc-macro2 = "1.0.103"
+proc-macro2 = "1.0.106"
 syn = "2.0.117"
 veln-ast = { path = "crates/veln-ast" }
 veln-analysis = { path = "crates/veln-analysis" }
