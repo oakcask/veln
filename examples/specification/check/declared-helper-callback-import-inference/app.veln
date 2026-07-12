@@ -4,6 +4,10 @@ fn stringify(value) -> String
 	"ok"
 end
 
-pub fn main() -> String
-	helpers::apply_int(1, stringify)
+fn emit(value) effects [stdio]
+	"sent"
+end
+
+pub fn main() -> { plain : String, effectful : String } effects [stdio]
+	{ plain: helpers::apply_int(1, stringify), effectful: helpers::apply_effect(emit) }
 end

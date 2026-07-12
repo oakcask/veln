@@ -1,3 +1,7 @@
 pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String
 	callback(value)
 end
+
+pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]
+	callback("ready")
+end

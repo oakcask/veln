@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[type.private_inference_incomplete]: private parameter `value` has no inferred type", "note: main.veln:5:9: Add a parameter type annotation.", "error[type.mismatch]: expected `String`, but found `fn(unknown) -> String effects [stdio]`"]
+
+[stderr]
+format = "empty"

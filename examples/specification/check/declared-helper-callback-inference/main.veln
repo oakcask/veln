@@ -18,11 +18,11 @@ fn keep_pair(label, value) -> Bool
 	true
 end
 
-fn emit(value) -> () effects [stdio]
+fn emit(value) effects [stdio]
 	()
 end
 
-pub fn main() -> {text: String, kept: Bool} effects [stdio]
+pub fn main() -> { text : String, kept : Bool } effects [stdio]
 	apply_effect("ready", emit)
-	{text: apply_int(1, stringify), kept: apply_pair("one", 1, keep_pair)}
+	{ text: apply_int(1, stringify), kept: apply_pair("one", 1, keep_pair) }
 end

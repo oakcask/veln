@@ -11972,7 +11972,7 @@ fn declared_helpers_infer_private_callback_parameters() {
             "fn keep_pair(label, value) -> Bool\n",
             "  true\n",
             "end\n",
-            "fn emit(value) -> () effects [stdio]\n",
+            "fn emit(value) effects [stdio]\n",
             "  ()\n",
             "end\n",
             "pub fn main() -> {text: String, kept: Bool} effects [stdio]\n",
@@ -12007,6 +12007,7 @@ fn declared_helpers_infer_private_callback_parameters() {
         .find(|function| function.name == "emit")
         .expect("effectful callback should be lowered");
     assert_eq!(emit.params[0].ty, CoreType::string());
+    assert_eq!(emit.return_type, CoreType::unit());
 }
 
 #[test]
@@ -12453,8 +12454,11 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
             "fn stringify(value) -> String\n",
             "  \"ok\"\n",
             "end\n",
-            "pub fn main() -> String\n",
-            "  helpers::apply_int(1, stringify)\n",
+            "fn emit(value) effects [stdio]\n",
+            "  \"sent\"\n",
+            "end\n",
+            "pub fn main() -> {plain: String, effectful: String} effects [stdio]\n",
+            "  {plain: helpers::apply_int(1, stringify), effectful: helpers::apply_effect(emit)}\n",
             "end\n",
         ),
     );
@@ -12464,6 +12468,9 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
             "mod spec.helpers\n",
             "pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String\n",
             "  callback(value)\n",
+            "end\n",
+            "pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
+            "  callback(\"ready\")\n",
             "end\n",
         ),
     );
@@ -12489,6 +12496,13 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
         .find(|function| function.name == "stringify")
         .expect("callback should be lowered");
     assert_eq!(stringify.params[0].ty, CoreType::int());
+    let emit = core
+        .functions
+        .iter()
+        .find(|function| function.name == "emit")
+        .expect("effectful callback should be lowered");
+    assert_eq!(emit.params[0].ty, CoreType::string());
+    assert_eq!(emit.return_type, CoreType::string());
 }
 
 #[test]
