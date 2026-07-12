@@ -44,7 +44,8 @@ Format-neutral generated encode helpers are limited to scalar leaves and
 `List<Option<scalar>>`, `List<Option<List<scalar>>>`, `Vec<scalar>`,
 `Vec<Option<scalar>>`, `Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
-`Dict<String, Vec<scalar>>`, `Option<Dict<String, scalar>>`,
+`Dict<String, Vec<scalar>>`, `Dict<String, Vec<Option<scalar>>>`,
+`Option<Dict<String, scalar>>`,
 `Result<Ok, Err>` when both payloads are
 supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
 `Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each result

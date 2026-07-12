@@ -97,6 +97,7 @@ The implemented first slice covers:
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Dict<String, List<scalar>>` field,
   `Dict<String, Vec<scalar>>` field,
+  `Dict<String, Vec<Option<scalar>>>` field,
   `Option<Dict<String, scalar>>` field, `Result<Ok, Err>` field whose
   payloads are supported format-neutral encode shapes,
   `List<Result<Ok, Err>>` field, `Vec<Result<Ok, Err>>` field, and
@@ -245,6 +246,10 @@ is archived under
 The completed format-neutral `Dict<String, Vec<scalar>>` encode helper slice
 is archived under
 [Format-Neutral Schema Dict Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-vec-scalar-encode-helpers.md).
+
+The completed format-neutral `Dict<String, Vec<Option<scalar>>>` encode helper
+slice is archived under
+[Format-Neutral Schema Dict Vec Option Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-vec-option-encode-helpers.md).
 
 The completed format-neutral `Option<Dict<String, scalar>>` encode helper
 slice is archived under
