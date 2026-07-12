@@ -96,6 +96,7 @@ The implemented first slice covers:
   `Vec<Option<scalar>>` field,
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Dict<String, List<scalar>>` field,
+  `Dict<String, Vec<scalar>>` field,
   `Option<Dict<String, scalar>>` field, `Result<Ok, Err>` field whose
   payloads are supported format-neutral encode shapes,
   `List<Result<Ok, Err>>` field, `Vec<Result<Ok, Err>>` field, and
@@ -241,6 +242,10 @@ The completed format-neutral `Dict<String, List<scalar>>` encode helper slice
 is archived under
 [Format-Neutral Schema Dict List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-list-scalar-encode-helpers.md).
 
+The completed format-neutral `Dict<String, Vec<scalar>>` encode helper slice
+is archived under
+[Format-Neutral Schema Dict Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-vec-scalar-encode-helpers.md).
+
 The completed format-neutral `Option<Dict<String, scalar>>` encode helper
 slice is archived under
 [Format-Neutral Schema Option Dict Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-encode-helpers.md).
@@ -270,8 +275,8 @@ This proposal remains open for:
   anonymous record decode and encode, bounded repeat, length-bounded `ByteView`, closed
   dispatch, and extension dispatch slices, and format-neutral encode helper
   fields beyond the implemented scalar, supported container,
-  dictionary-option, dictionary-list, option-dictionary, recursive result,
-  result-container, anonymous record, and source ADT shapes
+  dictionary-option, dictionary-list, dictionary-vec, option-dictionary,
+  recursive result, result-container, anonymous record, and source ADT shapes
 - schema-aware references from later schema composition surfaces beyond codec
   declaration heads, public schema member aliases, documentation comments,
   binary fixture metadata, and explicit schema operations

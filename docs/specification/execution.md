@@ -151,6 +151,7 @@ enough.
   `List<Option<List<scalar>>>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
   `Dict<String, scalar>`,
   `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
+  `Dict<String, Vec<scalar>>`,
   `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
   supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
   `Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each
