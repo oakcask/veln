@@ -19,7 +19,7 @@ specification and executable examples, not by this historical record.
   `../../../examples/specification/check/declared-helper-callback-alias-inference/`.
 - Return, effect, and unconstrained-boundary diagnostics:
   `../../../examples/specification/check/declared-helper-effectful-callback-return-diagnostics/`,
-  `../../../examples/specification/check/declared-helper-effectful-callback-inference-diagnostics/`
+  `../../../examples/specification/check/declared-helper-effectful-callback-inference-diagnostics/`,
   and
   `../../../examples/specification/check/declared-helper-effectful-callback-inference-unsupported/`.
 - Human-readable unsupported-boundary diagnostic:
@@ -43,10 +43,14 @@ inference.
 ## Completion Evidence
 
 - Executable examples cover effectful parameter and return inference through
-  direct, imported, and public-alias helper calls.
-- JSON diagnostic coverage fixes incompatible return and effect types at the
+  direct, imported, and public-alias helper calls, including a pure callback
+  satisfying an effectful helper parameter.
+- JSON diagnostic coverage pins incompatible return and effect types at the
   call-site span.
-- Unsupported-boundary coverage fixes the private inference diagnostic when
+- Semantic coverage pins direct, imported, and public-alias inference,
+  pure-to-effectful compatibility, and return and effect mismatches through
+  an imported public helper signature.
+- Unsupported-boundary coverage pins the private inference diagnostic when
   the helper's callback parameter remains undeclared despite concrete effect
   declarations elsewhere, including its JSON repair hint and human-readable
   related note.

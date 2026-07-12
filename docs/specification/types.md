@@ -47,8 +47,9 @@ full type reference.
   alias. This includes fixed parameter types, the variadic element type of a
   concrete variadic function type, and ordinary effect-set compatibility for
   concrete effectful function types. Incompatible callback returns or effects
-  report `type.mismatch`; helper callback parameters without one concrete
-  function type do not constrain the private callback signature.
+  report `type.mismatch` at the helper call argument; helper callback
+  parameters without one concrete function type do not constrain the private
+  callback signature.
   Source-backed prelude helpers without a compiler-known callback rule use the
   same declared-helper fallback when their embedded source signature contains a
   concrete function-typed callback parameter. A concrete expected record field

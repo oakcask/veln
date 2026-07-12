@@ -22,7 +22,12 @@ fn emit(value) effects [stdio]
 	()
 end
 
+fn ignore(value)
+	()
+end
+
 pub fn main() -> { text : String, kept : Bool } effects [stdio]
 	apply_effect("ready", emit)
+	apply_effect("ready", ignore)
 	{ text: apply_int(1, stringify), kept: apply_pair("one", 1, keep_pair) }
 end

@@ -25,9 +25,10 @@ compare it with `../specification/` before changing behavior.
   payload-carrying ADT constructor inference, match scrutinee
   constructor-pattern inference, local pattern `let` inference,
   compiler-known prelude callback argument including `vec_try_map_with`,
-  dictionary callback alias, declared helper callback argument, source-backed
-  prelude callback fallback, declared helper callback alias, record-field
-  callback, local callback binding, local callback binding annotation elision,
+  dictionary callback alias, declared helper callback argument, effectful
+  declared-helper callback, source-backed prelude callback fallback, declared
+  helper callback alias, record-field callback, local callback binding, local
+  callback binding annotation elision,
   direct return callback, match-arm callback, if-branch callback, callback
   return expected-type,
   constructor-payload callback, variadic declared-helper callback parameter,
