@@ -124,6 +124,8 @@ behavior.
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 - Binary fixture helpers:
   [binary-fixture-helpers.md](binary-fixture-helpers.md).
+- Binary fixture schema references:
+  [binary-fixture-schema-references.md](binary-fixture-schema-references.md).
 - Binary data outgoing chunk production:
   [binary-data-outgoing-chunk-production.md](binary-data-outgoing-chunk-production.md).
 - Binary data source-visible `u56` byte helpers:

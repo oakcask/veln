@@ -669,7 +669,15 @@ enough.
   [test-json.md](test-json.md).
 - Executable specification cases may declare named binary fixture records and
   named output chunks in `case.toml`. These fixture records are harness
-  expectations, not language syntax.
+  expectations, not language syntax. A binary fixture may use `schema` to
+  name a schema or schema alias from the fixture source module. Bare names may
+  name private local schemas; qualified names require a written `use` path and
+  a public target. Functions, source ADT types, codecs, generated helpers, and
+  unresolved or inaccessible targets are rejected. When `field_path` is also
+  present, its first segment must name the resolved schema. The checked
+  positive and negative cases live under
+  `examples/specification/run/binary-fixture-schema-references/` and
+  `examples/specification/run/binary-fixture-schema-reference-diagnostics/`.
 - Tail-recursive user functions may execute deep self-recursive calls through
   the implemented trampoline path. Other JVM details are backend details unless
   this reference marks a behavior as observable.

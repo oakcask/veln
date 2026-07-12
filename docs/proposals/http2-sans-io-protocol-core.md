@@ -105,20 +105,6 @@ out of the schema language. The initial slice may use opaque header blocks or
 a deliberately small fixture codec, but it should not introduce a
 schema-backed HPACK special case.
 
-## Implemented: Flow-Control Numeric Domain Types
-
-The completed flow-control numeric domain-type slice is archived under
-[HTTP/2 Flow-Control Numeric Domain Types](../reference/implemented-proposals/http2-flow-control-numeric-domain-types.md).
-Current behavior is specified by `../specification/execution.md` and checked by
-`../../examples/specification/run/http2-protocol-core/`.
-
-## Implemented: Header-Block Continuation State
-
-The completed header-block continuation state slice is archived under
-[HTTP/2 Header-Block Continuation State](../reference/implemented-proposals/http2-header-block-continuation-state.md).
-Current behavior is specified by `../specification/` and checked executable
-cases under `../../examples/specification/run/`.
-
 ## Discussion Result: Peer Limit Diagnostic Ids
 
 HTTP/2 peer protocol limit failures should use protocol-owned diagnostic ids
