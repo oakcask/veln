@@ -1,0 +1,23 @@
+# Recursive repeated nested schema failures keep the repeated element path.
+
+schema RecursivePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 1 => UInt8, 2 => RecursivePacket)
+end
+
+schema PacketBatch
+	format binary
+
+	count: UInt8
+	items: Repeat(count, RecursivePacket)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0201010902020201")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
+	let _: {count: Int, items: List<{length: Int, kind: Int, payload: Int}>} = byte_decode_packet_batch(view)?
+	Ok(())
+end

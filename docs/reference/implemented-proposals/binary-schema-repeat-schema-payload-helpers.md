@@ -30,7 +30,10 @@ Decode exposes repeated primitive fields as `List<Int>`, repeated
 `ByteView(length_field)`, `ByteView(left_length + right_length)`, and
 `ByteView(left_length - right_length)` fields as `List<ByteView>`, and
 repeated nested schema fields as a list of the nested schema's decoded record
-shape. Encode accepts the same list shapes and writes each element through the
+shape. Repeated nested schema payloads may name a same-module recursive binary
+schema when that nested schema already exposes a finite recursive dispatch
+helper shape through a length-bounded field and a non-recursive primitive base
+case. Encode accepts the same list shapes and writes each element through the
 generated helper path. Runtime failures keep the repeated field path, append
 the repeated element index when the failed element is known, and then append
 the nested schema field path for nested payload failures.
@@ -64,6 +67,9 @@ truncation diagnostics.
   checks repeated reserved payload truncation diagnostics.
 - `../../../examples/specification/run/binary-schema-repeat-nested-decode/`
   checks same-module nested repeat decode.
+- `../../../examples/specification/run/binary-schema-recursive-repeat-nested-decode/`
+  checks same-module recursive dispatch helper decode through a repeated
+  nested schema field.
 - `../../../examples/specification/run/binary-schema-imported-repeat-nested-decode/`
   checks imported public nested repeat decode.
 - `../../../examples/specification/run/binary-schema-repeat-truncated-json/`,
@@ -77,6 +83,9 @@ truncation diagnostics.
   check repeat runtime failure diagnostics.
 - `../../../examples/specification/run/binary-schema-repeat-nested-truncated-json/`
   checks same-module nested repeat truncation diagnostics.
+- `../../../examples/specification/run/binary-schema-recursive-repeat-nested-failure-json/`
+  checks recursive nested repeat diagnostics with the repeated element index
+  and nested recursive schema field path.
 - `../../../examples/specification/run/binary-schema-imported-repeat-nested-truncated-json/`
   checks imported nested repeat truncation diagnostics.
 - `../../../examples/specification/run/binary-schema-repeat-encode/`,
@@ -109,5 +118,4 @@ truncation diagnostics.
 ## Remaining Work
 
 The broader binary schema primitives and dispatch proposal remains open for
-recursive repeated nested schemas outside the existing helper eligibility
-checks and mapping behavior outside the implemented structural slices.
+binary schema behavior outside the implemented structural helper slices.
