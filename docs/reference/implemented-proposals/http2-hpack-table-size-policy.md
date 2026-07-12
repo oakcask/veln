@@ -13,12 +13,20 @@ and the checked executable cases under
 
 The HTTP/2 protocol core keeps HPACK integer decoding and bounded fixture
 eviction in the HPACK fixture module, then applies the local receive policy
-after a completed HEADERS or final CONTINUATION header block returns its next
-immutable HPACK state. A decoded dynamic table-size update whose requested
+to each leading table-size update before a completed HEADERS or final
+CONTINUATION header block installs its next immutable HPACK state. A decoded
+dynamic table-size update whose requested
 table size is at or below the active local header-table-size receive limit is
 accepted and carried into later header-block decoding. A decoded update above
 that limit is rejected before the decoded HPACK state is installed, including
 when the requested size repeats the current fixture table size.
+
+Up to two consecutive leading updates are applied in wire order, and a
+following supported header field observes the final capacity and updated
+dynamic table. The first excessive or malformed update stops the sequence, a
+third update uses the focused placement diagnostic, and a failed block leaves
+the input HPACK state unchanged. The single-update behavior remains
+unchanged.
 
 The rejection is a protocol peer-limit failure, not an HPACK fixture
 unsupported-header-block failure. It uses
@@ -49,10 +57,13 @@ CONTINUATION paths.
 
 - `../../../examples/specification/run/http2-protocol-core/case.toml` checks
   accepted table-size updates through completed HEADERS and final CONTINUATION
-  paths, including the boundary value `160`, rejects a larger checked update
-  through both paths, including a repeated initial fixture table size, and
-  checks malformed table-size update integers and trailing-byte table-size
-  updates through both paths.
+  paths, including two updates followed by a header field and the
+  boundary value `160`, retained and evicted dynamic-index lookups under the
+  resulting capacity, rejects a larger checked update at either consecutive
+  position and through both paths, including a repeated initial fixture table
+  size, and checks malformed table-size update integers, the bounded third
+  update rejection, state preservation, and trailing-byte table-size updates
+  through both paths.
 - `../../../examples/specification/run/http2-protocol-core-header-table-human/case.toml`
   checks the human diagnostic projection for the local header-table receive
   limit.
@@ -66,5 +77,6 @@ CONTINUATION paths.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/case.toml`
   remains the focused HPACK fixture evidence for integer decoding and bounded
   dynamic table eviction independent of the HTTP/2 policy boundary, including
-  the malformed table-size update integer diagnostic and the trailing-byte
+  two consecutive updates, a following field observing the final capacity, the
+  malformed table-size update integer diagnostic, and the trailing-byte
   table-size update diagnostic.

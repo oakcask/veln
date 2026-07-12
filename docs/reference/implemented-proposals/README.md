@@ -457,6 +457,8 @@ behavior.
   [http2-hpack-dynamic-name-huffman-values.md](http2-hpack-dynamic-name-huffman-values.md).
 - HTTP/2 HPACK table-size receive policy:
   [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
+- HTTP/2 HPACK consecutive table-size updates:
+  [http2-hpack-multiple-table-size-updates.md](http2-hpack-multiple-table-size-updates.md).
 - HTTP/2 HPACK Huffman fixture:
   [http2-hpack-huffman-fixture.md](http2-hpack-huffman-fixture.md).
 - HTTP/2 HPACK malformed Huffman padding diagnostic:

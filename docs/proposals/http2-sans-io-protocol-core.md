@@ -1128,6 +1128,15 @@ integers through `hpack.fixture.table_size_update_malformed`. The completed
 trailing-byte slice reports saturated-prefix table-size update integers that
 successfully parse and leave trailing header-block bytes through
 `hpack.fixture.table_size_update_trailing_bytes`.
+The completed two-consecutive-table-size-update slice is archived under
+[HTTP/2 HPACK Multiple Table Size Updates](../reference/implemented-proposals/http2-hpack-multiple-table-size-updates.md).
+It applies exactly two leading updates in wire order, decodes a following
+field with the final capacity, validates both updates before state
+installation, rejects a third update as misplaced, and keeps the input state
+unchanged on the first excessive, malformed, or misplaced update through
+standalone HPACK, completed HEADERS, and final CONTINUATION paths. Another
+same-shaped update-count extension is not planned; broader support requires
+the later full HPACK compression policy.
 Completed source-visible HPACK static decode slices are archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md)
 and

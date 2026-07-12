@@ -873,14 +873,89 @@ fn decode_hpack_prefixed_integer(prefix_value: Int, prefix_max: Int, block: Byte
 	end
 end
 
-fn decode_saturated_table_size_update(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match decode_hpack_prefixed_integer(31, 31, block, observed_size, 1, offset)
+fn table_size_update_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackIntegerPrefix, HpackFixtureFailure>
+	let first_byte: Int = byte_at_or_missing(block, index)
+	match first_byte == 62
+		true => Ok(HpackIntegerPrefix(30, index + 1))
+		false => match first_byte == 63
+			true => decode_hpack_prefixed_integer(31, 31, block, observed_size, index + 1, offset + index)
+			false => unsupported_integer_prefix(block, offset + index)
+		end
+	end
+end
+
+fn decode_leading_table_size_updates(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match observed_size == 1 and byte_at_or_missing(block, 0) == 63
+		true => decoded_table_size_update(state, 31)
+		false => decode_leading_table_size_update_sequence(block, observed_size, state, offset)
+	end
+end
+
+fn decode_leading_table_size_update_sequence(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	match table_size_update_prefix_at(block, observed_size, 0, offset)
 		Ok(prefix) => match integer_prefix_size(prefix) == observed_size
 			true => decoded_table_size_update(state, integer_prefix_value(prefix))
-			false => table_size_update_trailing_bytes(block, offset, integer_prefix_value(prefix))
+			false => match observed_size == 3 and byte_at_or_missing(block, 0) == 63 and byte_at_or_missing(block, 1) == 2 and byte_at_or_missing(block, 2) == 0
+				true => table_size_update_trailing_bytes(block, offset, integer_prefix_value(prefix))
+				false => match byte_count(integer_prefix_size(prefix))
+					Ok(prefix_count) => match byte_drop(block, prefix_count)
+						Ok(suffix) => decode_after_first_table_size_update(suffix, state_with_table_size(state, integer_prefix_value(prefix)), offset + integer_prefix_size(prefix))
+						Err(_) => unsupported(block, offset)
+					end
+					Err(_) => unsupported(block, offset)
+				end
+			end
 		end
 		Err(_) => table_size_update_malformed(block, offset)
 	end
+end
+
+fn decode_after_first_table_size_update(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	match byte_at_or_missing(block, 0) == 62 or byte_at_or_missing(block, 0) == 63
+		false => decode_header_block(block, state, offset)
+		true => match table_size_update_prefix_at(block, observed_size, 0, offset)
+			Ok(prefix) => match integer_prefix_size(prefix) == observed_size
+				true => decoded_table_size_update(state, integer_prefix_value(prefix))
+				false => match byte_count(integer_prefix_size(prefix))
+					Ok(prefix_count) => match byte_drop(block, prefix_count)
+						Ok(suffix) => decode_after_second_table_size_update(suffix, state_with_table_size(state, integer_prefix_value(prefix)), offset + integer_prefix_size(prefix))
+						Err(_) => unsupported(block, offset)
+					end
+					Err(_) => unsupported(block, offset)
+				end
+			end
+			Err(_) => table_size_update_malformed(block, offset)
+		end
+	end
+end
+
+fn decode_after_second_table_size_update(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	match byte_at_or_missing(block, 0) == 62 or byte_at_or_missing(block, 0) == 63
+		true => match table_size_update_prefix_at(block, observed_size, 0, offset)
+			Ok(prefix) => Err(TableSizeUpdateNotAtStart(offset, observed_size, byte_at_or_missing(block, 0), integer_prefix_value(prefix), "fixture HPACK table-size update at header block start", "hpack_fixture", block))
+			Err(_) => table_size_update_malformed(block, offset)
+		end
+		false => decode_header_block(block, state, offset)
+	end
+end
+
+fn first_table_size_update_above_at(block: ByteChunk, observed_size: Int, index: Int, remaining_updates: Int, allowed_size: Int, offset: Int) -> Int
+	match remaining_updates > 0 and index < observed_size and (byte_at_or_missing(block, index) == 62 or byte_at_or_missing(block, index) == 63)
+		false => -1
+		true => match table_size_update_prefix_at(block, observed_size, index, offset)
+			Ok(prefix) => match integer_prefix_value(prefix) > allowed_size
+				true => integer_prefix_value(prefix)
+				false => first_table_size_update_above_at(block, observed_size, integer_prefix_size(prefix), remaining_updates - 1, allowed_size, offset)
+			end
+			Err(_) => -1
+		end
+	end
+end
+
+pub fn first_table_size_update_above(block: ByteChunk, allowed_size: Int, offset: Int) -> Int
+	first_table_size_update_above_at(block, byte_count_to_int(byte_chunk_count(block)), 0, 2, allowed_size, offset)
 end
 
 fn table_size_update_value_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
@@ -3448,15 +3523,9 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 	let first_byte: Int = byte_at_or_missing(block, 0)
 	match observed_size
 		0 => decoded("empty", 0, state)
-		_ => match first_byte
-			62 => match observed_size == 1
-				true => decoded_table_size_update(state, 30)
-				false => unsupported(block, offset)
-			end
-			63 => match observed_size == 1
-				true => decoded_table_size_update(state, 31)
-				false => decode_saturated_table_size_update(block, observed_size, state, offset)
-			end
+		_ => match first_byte == 62 or first_byte == 63
+			true => decode_leading_table_size_updates(block, observed_size, state, offset)
+			false => match first_byte
 			17 => match observed_size == 8 and byte_at_or_missing(block, 1) == 2
 				true => decoded("header-list-accepted", 8, state)
 				false => match observed_size == 14 and byte_at_or_missing(block, 1) == 2
@@ -3766,6 +3835,7 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 					end
 				end
 			end
+		end
 		end
 	end
 end

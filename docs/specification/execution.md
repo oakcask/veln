@@ -404,6 +404,22 @@ enough.
   focused `hpack.integer.malformed` fact with byte offset, prefix width,
   observed byte count, observed first byte, bounded preview count, and module
   name under `examples/specification/run/hpack-fixture-codec-boundary/`.
+  At the checked HPACK fixture boundary, up to two consecutive dynamic
+  table-size updates at the start of one header block are decoded and applied
+  in wire order. A following supported header field is decoded with the final
+  table capacity and updated immutable state. Reducing the capacity evicts entries
+  immediately, and a later increase in the same block does not restore them;
+  the checked dynamic-index lookup observes that wire-order result. Completed
+  HEADERS and final CONTINUATION paths use the same boundary. Each requested
+  size is checked against the local receive limit before any next HPACK state
+  is installed. A third leading update is outside the bounded fixture
+  vocabulary and keeps the focused placement diagnostic;
+  the first excessive update reports
+  `http2.peer_limit.header_table_size_exceeded`, while a malformed update or
+  an update after a header field keeps the existing focused HPACK diagnostic.
+  Failed blocks leave the carried HPACK state unchanged. The executable cases
+  are `examples/specification/run/hpack-fixture-codec-boundary/` and
+  `examples/specification/run/http2-protocol-core/`.
   The same ordinary-source boundary exposes
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first

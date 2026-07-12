@@ -409,6 +409,29 @@ fn require_table_size(state: HpackFixtureState, expected_table_size: Int) -> Res
 	end
 end
 
+fn require_dynamic_entry_count(state: HpackFixtureState, expected_dynamic_entries: Int) -> Result<(), String>
+	match state_dynamic_table_entry_count(state) == expected_dynamic_entries
+		true => Ok(())
+		false => Err("unexpected HPACK fixture dynamic entry count")
+	end
+end
+
+fn require_multiple_table_size_updates(state: HpackFixtureState) -> Result<(), String>
+	let updates_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e")?, state, 81), ":fixture", "table-size-update")?
+	let ignored_updates_size: () = require_table_size(updates_state, 30)?
+	let field_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013e82")?, state, 85), ":method", "GET")?
+	let ignored_field_size: () = require_table_size(field_state, 30)?
+	let retained_state: HpackFixtureState = require_decoded_header(decode_header_block(byte_chunk_from_hex("3f81013f0dbe")?, state, 88), ":path", "/target")?
+	let ignored_retained_size: () = require_table_size(retained_state, 44)?
+	let ignored_retained_entry: () = require_dynamic_entry_count(retained_state, 1)?
+	let ignored_wire_order_eviction: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f8101be")?, state, 89), "hpack.fixture.dynamic_index_out_of_range")?
+	let ignored_malformed: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f80")?, state, 90), "hpack.fixture.table_size_update_malformed")?
+	let ignored_after_field: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e823f01")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_third_update: () = require_failure_id(decode_header_block(byte_chunk_from_hex("3e3f013f02")?, state, 91), "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_original_size: () = require_table_size(state, 4096)?
+	require_dynamic_entry_count(state, 1)
+end
+
 fn require_encode_state(state: HpackFixtureState, expected_table_size: Int, expected_dynamic_entries: Int) -> Result<(), String>
 	match state_table_size(state) == expected_table_size and state_dynamic_table_entry_count(state) == expected_dynamic_entries
 		true => Ok(())
@@ -1031,6 +1054,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let table_size_update_general_wide: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(table_size_update_general_wide_block, dynamic_state, 79)
 	print_transition("table-size-update-general-wide", table_size_update_general_wide)
 	print_state("table-size-update-general-wide", next_state_or(table_size_update_general_wide, dynamic_state))
+	let ignored_multiple_table_size_updates: () = require_multiple_table_size_updates(dynamic_state)?
 	let malformed_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f80")?
 	let ignored_malformed_table_size_update: () = print_required_unsupported_with_id("table-size-update-malformed", decode_header_block(malformed_table_size_update_block, dynamic_state, 77))?
 	let trailing_table_size_update_block: ByteChunk = byte_chunk_from_hex("3f0200")?
