@@ -53,8 +53,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`, outbound
   `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
   receive-window accounting and outbound send-window delta accounting
-- graceful shutdown interactions beyond the implemented GOAWAY receive state,
-  repeated outbound GOAWAY send-intent boundary,
+- graceful shutdown interactions beyond the implemented GOAWAY receive
+  lifecycle, repeated outbound GOAWAY send-intent boundary,
   outbound GOAWAY send-intent state, and outbound HEADERS, DATA,
   stream-level `WINDOW_UPDATE`, and server-side `PUSH_PROMISE` send-intent
   rejection above received or locally sent GOAWAY boundaries
