@@ -1,0 +1,75 @@
+# Format-neutral schema encode helpers accept Dict<String, Vec<scalar>> fields.
+use stdio
+
+schema DictVecScalarPacket
+	scores: Dict<String, Vec<Int>>
+	states: Dict<String, Vec<Bool>>
+	weights: Dict<String, Vec<Float>>
+	names: Dict<String, Vec<String>>
+end
+
+fn add_int(total: Int, item: Int) -> Int
+	total + item
+end
+
+fn count_true(total: Int, item: Bool) -> Int
+	match item
+		true => total + 1
+		false => total
+	end
+end
+
+fn encoded_score(result: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.scores, "math")
+			Some(value) => vec_fold(value, 0, add_int)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_state(result: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.states, "enabled")
+			Some(value) => vec_fold(value, 0, count_true)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_weight_count(result: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.weights, "ratio")
+			Some(value) => vec_len(value)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_name_count(result: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String>) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.names, "owner")
+			Some(value) => vec_len(value)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>} = {scores: {"math": [11, 13]}, states: {"enabled": [true, false, true]}, weights: {"ratio": [0.75, 0.50]}, names: {"owner": ["core", "stable"]}}
+	let empty_packet: {scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>} = {scores: {}, states: {}, weights: {}, names: {}}
+	let encoded: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String> = byte_encode_dict_vec_scalar_packet(packet)
+	let explicit: Result<{scores: Dict<String, Vec<Int>>, states: Dict<String, Vec<Bool>>, weights: Dict<String, Vec<Float>>, names: Dict<String, Vec<String>>}, String> = encode DictVecScalarPacket from empty_packet
+	stdio::println(int_to_string(encoded_score(encoded)))
+	stdio::println(int_to_string(encoded_state(encoded)))
+	stdio::println(int_to_string(encoded_weight_count(encoded)))
+	stdio::println(int_to_string(encoded_name_count(encoded)))
+	stdio::println(int_to_string(encoded_score(explicit)))
+	stdio::println(int_to_string(encoded_state(explicit)))
+	stdio::println(int_to_string(encoded_weight_count(explicit)))
+	stdio::println(int_to_string(encoded_name_count(explicit)))
+end

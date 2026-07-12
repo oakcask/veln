@@ -309,6 +309,8 @@ behavior.
   [format-neutral-schema-dict-option-scalar-encode-helpers.md](format-neutral-schema-dict-option-scalar-encode-helpers.md).
 - Format-neutral schema `Dict<String, List<scalar>>` encode helpers:
   [format-neutral-schema-dict-list-scalar-encode-helpers.md](format-neutral-schema-dict-list-scalar-encode-helpers.md).
+- Format-neutral schema `Dict<String, Vec<scalar>>` encode helpers:
+  [format-neutral-schema-dict-vec-scalar-encode-helpers.md](format-neutral-schema-dict-vec-scalar-encode-helpers.md).
 - Format-neutral schema `Option<Dict<String, scalar>>` encode helpers:
   [format-neutral-schema-option-dict-encode-helpers.md](format-neutral-schema-option-dict-encode-helpers.md).
 - Format-neutral schema container encode helpers:

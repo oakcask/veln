@@ -101,7 +101,8 @@ compare it with `../specification/` before changing behavior.
   `List<Option<List<scalar>>>`, `Vec<scalar>`,
   `Vec<Option<scalar>>`,
   `Dict<String, scalar>`, `Dict<String, Option<scalar>>`,
-  `Dict<String, List<scalar>>`, `Option<Dict<String, scalar>>`, and
+  `Dict<String, List<scalar>>`, `Dict<String, Vec<scalar>>`,
+  `Option<Dict<String, scalar>>`, and
   supported container, recursive-result, and result-container format-neutral
   encode helpers,
   same-module and public
@@ -205,6 +206,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Dict<String, List<scalar>>` encode helper
   slice is archived under
   [Format-Neutral Schema Dict List Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-list-scalar-encode-helpers.md).
+  The completed format-neutral `Dict<String, Vec<scalar>>` encode helper
+  slice is archived under
+  [Format-Neutral Schema Dict Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-vec-scalar-encode-helpers.md).
   The completed format-neutral `Option<Dict<String, scalar>>` encode helper
   slice is archived under
   [Format-Neutral Schema Option Dict Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-dict-encode-helpers.md).
