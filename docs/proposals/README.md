@@ -228,8 +228,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral encode helper diagnostic cleanup slice is
   archived under
   [Format-Neutral Schema Encode Helper Diagnostics](../reference/implemented-proposals/format-neutral-schema-encode-helper-diagnostics.md).
-  Binary fixture metadata in executable specification cases may also validate
-  schema-aware references. Binary primitive execution is current behavior
+  The completed binary fixture schema-reference slice is archived under
+  [Binary Fixture Schema References](../reference/implemented-proposals/binary-fixture-schema-references.md).
+  Binary primitive execution is current behavior
   under `../specification/source-surface.md` and
   `../specification/execution.md`; this proposal does not keep arbitrary
   bitstream parsing, signed integer families, floating-point encodings,
