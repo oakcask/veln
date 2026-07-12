@@ -9053,6 +9053,33 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	print_step("hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced)
 	let ignored_http2_referenced: () = emit_header_block("http2-hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced, "be")?
 	print_hpack_transition_from_state("hpack-stateful-after-missing-dynamic-indexed-path-target", http2_referenced, step_state(http2_inserted))
+	let http2_dynamic_name_huffman_base_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_inserted))
+	let http2_dynamic_name_huffman: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000501040000000d7e8349509f")?), http2_dynamic_name_huffman_base_state)?
+	print_step("hpack-stateful-dynamic-name-huffman-indexed-path-test", http2_dynamic_name_huffman)
+	let ignored_http2_dynamic_name_huffman: () = emit_header_block("http2-hpack-stateful-dynamic-name-huffman-indexed-path-test", http2_dynamic_name_huffman, "7e8349509f")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-huffman-indexed-path-test", http2_dynamic_name_huffman, http2_dynamic_name_huffman_base_state)
+	let ignored_http2_dynamic_name_huffman_header: () = require_hpack_transition_header(http2_dynamic_name_huffman, http2_dynamic_name_huffman_base_state, ":path", "test")?
+	let ignored_http2_dynamic_name_huffman_completed_decode: () = require_completed_header_list_decode(http2_dynamic_name_huffman, http2_dynamic_name_huffman_base_state, ":path", "test", 4)?
+	let http2_dynamic_name_huffman_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_dynamic_name_huffman))
+	let http2_dynamic_name_huffman_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000fbe")?), http2_dynamic_name_huffman_state)?
+	print_step("hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse", http2_dynamic_name_huffman_referenced)
+	let ignored_http2_dynamic_name_huffman_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse", http2_dynamic_name_huffman_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse", http2_dynamic_name_huffman_referenced, http2_dynamic_name_huffman_state)
+	let ignored_http2_dynamic_name_huffman_referenced_header: () = require_hpack_transition_header(http2_dynamic_name_huffman_referenced, http2_dynamic_name_huffman_state, ":path", "test")?
+	let http2_dynamic_name_huffman_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020100000000117e83")?), http2_dynamic_name_huffman_base_state)?
+	print_step("hpack-stateful-dynamic-name-huffman-continuation-start", http2_dynamic_name_huffman_continuation_start)
+	let http2_dynamic_name_huffman_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000001149509f")?), step_state(http2_dynamic_name_huffman_continuation_start))?
+	print_step("hpack-stateful-dynamic-name-huffman-continuation-done", http2_dynamic_name_huffman_continuation_done)
+	let ignored_http2_dynamic_name_huffman_continuation: () = emit_header_block("http2-hpack-stateful-dynamic-name-huffman-continuation", http2_dynamic_name_huffman_continuation_done, "7e8349509f")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-huffman-continuation-done", http2_dynamic_name_huffman_continuation_done, step_state(http2_dynamic_name_huffman_continuation_start))
+	let ignored_http2_dynamic_name_huffman_continuation_header: () = require_hpack_transition_header(http2_dynamic_name_huffman_continuation_done, step_state(http2_dynamic_name_huffman_continuation_start), ":path", "test")?
+	let ignored_http2_dynamic_name_huffman_continuation_completed_decode: () = require_completed_header_list_decode(http2_dynamic_name_huffman_continuation_done, step_state(http2_dynamic_name_huffman_continuation_start), ":path", "test", 4)?
+	let http2_dynamic_name_huffman_continuation_state: Http2DecodeState = hpack_carry_only_state(step_state(http2_dynamic_name_huffman_continuation_done))
+	let http2_dynamic_name_huffman_continuation_referenced: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001010400000013be")?), http2_dynamic_name_huffman_continuation_state)?
+	print_step("hpack-stateful-dynamic-name-huffman-continuation-reuse", http2_dynamic_name_huffman_continuation_referenced)
+	let ignored_http2_dynamic_name_huffman_continuation_referenced: () = emit_header_block("http2-hpack-stateful-dynamic-name-huffman-continuation-reuse", http2_dynamic_name_huffman_continuation_referenced, "be")?
+	print_hpack_transition_from_state("hpack-stateful-dynamic-name-huffman-continuation-reuse", http2_dynamic_name_huffman_continuation_referenced, http2_dynamic_name_huffman_continuation_state)
+	let ignored_http2_dynamic_name_huffman_continuation_referenced_header: () = require_hpack_transition_header(http2_dynamic_name_huffman_continuation_referenced, http2_dynamic_name_huffman_continuation_state, ":path", "test")?
 	let http2_ordinary_inserted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c0104000000014007782d7472616365026f6b")?), frame_state())?
 	print_step("hpack-stateful-literal-indexed-ordinary-x-trace", http2_ordinary_inserted)
 	let ignored_http2_ordinary_inserted: () = emit_header_block("http2-hpack-stateful-literal-indexed-ordinary-x-trace", http2_ordinary_inserted, "4007782d7472616365026f6b")?
