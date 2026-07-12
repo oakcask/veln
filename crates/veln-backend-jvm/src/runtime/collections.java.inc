@@ -500,10 +500,10 @@
         if (reserved == null
             || visible == null
             || !reserved.isReserved()
-            || (reserved.reservedBitWidth != 1
-                && reserved.reservedBitWidth != 2
-                && reserved.reservedBitWidth != 9)
-            || reserved.reservedValue != 0L
+            || reserved.reservedBitWidth <= 0
+            || reserved.reservedBitWidth > 56
+            || reserved.reservedBitWidth % 8 == 0
+            || !supportedReservedBits(reserved.reservedBitWidth, reserved.reservedValue)
             || visible.isReserved()
             || visible.dispatch != null
             || visible.repeat != null
@@ -521,7 +521,9 @@
         SchemaFieldSpec reserved,
         SchemaFieldSpec visible
     ) {
-        return reservedBytePrefixVisibleBitWidth(reserved, visible) > 0 ? 2 : 0;
+        return reservedBytePrefixVisibleBitWidth(reserved, visible) > 0
+            ? (reserved.reservedBitWidth + 8 + 7) / 8
+            : 0;
     }
 
     private static int suffixPackedVisibleBitWidth(SchemaFieldSpec visible, SchemaFieldSpec reserved) {
@@ -3273,11 +3275,9 @@
                     ));
                 }
                 int lowPaddingBitWidth =
-                    field.reservedBitWidth == 9
-                        ? 0
-                        : reservedBytePrefixStorageByteWidth * 8
-                            - field.reservedBitWidth
-                            - visibleBitWidth;
+                    reservedBytePrefixStorageByteWidth * 8
+                        - field.reservedBitWidth
+                        - visibleBitWidth;
                 long combined =
                     (field.reservedValue << (visibleBitWidth + lowPaddingBitWidth))
                         | (visibleValue << lowPaddingBitWidth);
@@ -5542,10 +5542,7 @@
                 (combined << 8)
                     | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + index));
         }
-        int reservedShift =
-            reserved.reservedBitWidth == 9
-                ? 8
-                : storageByteWidth * 8 - reserved.reservedBitWidth;
+        int reservedShift = storageByteWidth * 8 - reserved.reservedBitWidth;
         long actualReserved =
             (combined >> reservedShift) & reservedMaxValue(reserved.reservedBitWidth);
         if (actualReserved != reserved.reservedValue) {
@@ -5563,9 +5560,7 @@
         }
         int visibleBitWidth = reservedBytePrefixVisibleBitWidth(reserved, visible);
         int lowPaddingBitWidth =
-            reserved.reservedBitWidth == 9
-                ? 0
-                : storageByteWidth * 8 - reserved.reservedBitWidth - visibleBitWidth;
+            storageByteWidth * 8 - reserved.reservedBitWidth - visibleBitWidth;
         long value = (combined >> lowPaddingBitWidth) & reservedMaxValue(visibleBitWidth);
         return ok(Long.valueOf(value));
     }

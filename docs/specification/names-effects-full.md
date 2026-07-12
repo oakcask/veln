@@ -1186,8 +1186,9 @@ slices retain compatibility
 source-visible fields are exact-width unsigned primitives, supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, the supported
-`ReservedBits(2, 0)` and `ReservedBits(9, 0)` before `UInt8` byte-prefix
-layouts, supported
+general non-byte-aligned `ReservedBits(width, value)` before `UInt8`
+byte-prefix layouts whose padded group fits in at most eight big-endian bytes,
+supported
 prefix `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 complete one, two, three, or four big-endian bytes, supported `UIntN` plus
 reserved suffix layouts whose widths complete one, two, three, four, five, six,
@@ -1233,9 +1234,11 @@ supported reserved-bit encode layout omits byte-aligned
 `ReservedBits(width, value)` fields from the value record and writes their
 declared fixed values. It also omits `ReservedBits(1, 0)` from the value
 record when it immediately precedes `UInt31be`; it omits
-`ReservedBits(2, 0)` or `ReservedBits(9, 0)` from the value record when it
-immediately precedes `UInt8` and writes the declared reserved prefix, visible
-byte, and zero low padding bits when present in one two-byte bitstream slice;
+`ReservedBits(width, value)` from the value record when it immediately
+precedes `UInt8`, the positive width is not byte aligned, the value fits that
+width, and the padded group fits in at most eight big-endian bytes. It writes
+the declared reserved prefix, visible byte, and trailing zero padding in that
+storage group;
 supported packed
 prefix layouts omit the reserved field and write the declared high bits with
 the visible low-bit record field in the shared storage unit. Supported suffix

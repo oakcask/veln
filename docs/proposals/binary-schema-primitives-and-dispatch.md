@@ -38,6 +38,8 @@ slice is archived under
 [Binary Schema UInt56le And UInt64le Parity](../reference/implemented-proposals/binary-schema-u56le-u64le-parity.md).
 The completed visible-only packed eight-byte group slice is archived under
 [Binary Schema Packed Visible Eight-Byte Groups](../reference/implemented-proposals/binary-schema-packed-visible-eight-byte-groups.md).
+The completed bounded direct reserved-byte-prefix rule is archived under
+[Binary Schema General Reserved Byte Prefixes](../reference/implemented-proposals/binary-schema-general-reserved-byte-prefixes.md).
 The completed schema-local field reference diagnostics slice is archived under
 [Binary Schema Field Reference Diagnostics](../reference/implemented-proposals/binary-schema-field-reference-diagnostics.md).
 Schema-level value projection is no longer part of this proposal: `map to` in

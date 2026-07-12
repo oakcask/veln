@@ -291,6 +291,9 @@ compare it with `../specification/` before changing behavior.
   ([Binary Schema UInt40 Primitives](../reference/implemented-proposals/binary-schema-u40-primitives.md)),
   `UInt48be` six-byte big-endian primitive decode and encode,
   byte-aligned reserved-bit decode and encode,
+  general direct non-byte-aligned reserved prefixes before `UInt8` whose
+  padded groups fit in at most eight big-endian bytes
+  ([Binary Schema General Reserved Byte Prefixes](../reference/implemented-proposals/binary-schema-general-reserved-byte-prefixes.md)),
   one-byte, two-byte, three-byte, and four-byte packed reserved-prefix decode
   and encode,
   one-byte, two-byte, three-byte, four-byte, five-byte, six-byte, seven-byte,
@@ -456,6 +459,8 @@ compare it with `../specification/` before changing behavior.
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
   and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
+  The completed general direct reserved-byte-prefix rule is archived under
+  [Binary Schema General Reserved Byte Prefixes](../reference/implemented-proposals/binary-schema-general-reserved-byte-prefixes.md).
   The completed one-byte reserved suffix slice is archived under
   [Binary Schema One-Byte Reserved Suffix](../reference/implemented-proposals/binary-schema-one-byte-reserved-suffix.md).
   The completed `UInt8` plus multi-byte reserved suffix slice is archived

@@ -1,0 +1,13 @@
+schema GeneralReservedBytePrefix
+	format binary
+
+	guard: ReservedBits(3, 5)
+	payload: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("d560")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let ignored: {payload: Int} = byte_decode_general_reserved_byte_prefix(view)?
+	Ok(())
+end

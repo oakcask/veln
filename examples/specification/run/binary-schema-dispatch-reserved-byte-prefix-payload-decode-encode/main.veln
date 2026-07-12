@@ -75,10 +75,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	emit_two_bit(two_bit)
 	emit_encoded("two-bit-byte-prefix-payload", byte_encode_two_bit_packet(two_bit), "012ac0")
 
-	let nine_bit_bytes: ByteChunk = byte_chunk_from_hex("01002a")?
-	let nine_bit_view: ByteView = byte_view(nine_bit_bytes, byte_offset(0)?, byte_count(3)?)?
+	let nine_bit_bytes: ByteChunk = byte_chunk_from_hex("01001500")?
+	let nine_bit_view: ByteView = byte_view(nine_bit_bytes, byte_offset(0)?, byte_count(4)?)?
 	let nine_bit: {kind: Int, payload: {value: Int}} = byte_decode_nine_bit_packet(nine_bit_view)?
 	emit_nine_bit(nine_bit)
-	emit_encoded("nine-bit-byte-prefix-payload", byte_encode_nine_bit_packet(nine_bit), "01002a")
+	emit_encoded("nine-bit-byte-prefix-payload", byte_encode_nine_bit_packet(nine_bit), "01001500")
 	Ok(())
 end

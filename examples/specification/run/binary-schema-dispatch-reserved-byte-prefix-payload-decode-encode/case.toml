@@ -20,7 +20,7 @@ equals = null
 
 [[json_assert]]
 path = "stdout"
-equals = "two-bit 1 171\noutput_chunk_list two-bit-byte-prefix-payload count 1\noutput_chunk two-bit-byte-prefix-payload index 0 hex \"012ac0\" count 3\nnine-bit 1 42\noutput_chunk_list nine-bit-byte-prefix-payload count 1\noutput_chunk nine-bit-byte-prefix-payload index 0 hex \"01002a\" count 3\n"
+equals = "two-bit 1 171\noutput_chunk_list two-bit-byte-prefix-payload count 1\noutput_chunk two-bit-byte-prefix-payload index 0 hex \"012ac0\" count 3\nnine-bit 1 42\noutput_chunk_list nine-bit-byte-prefix-payload count 1\noutput_chunk nine-bit-byte-prefix-payload index 0 hex \"01001500\" count 4\n"
 
 [[output_chunk_list]]
 name = "two-bit-byte-prefix-payload"
@@ -28,4 +28,4 @@ chunks = ["012ac0"]
 
 [[output_chunk_list]]
 name = "nine-bit-byte-prefix-payload"
-chunks = ["01002a"]
+chunks = ["01001500"]

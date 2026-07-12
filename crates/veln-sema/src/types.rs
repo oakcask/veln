@@ -3909,6 +3909,9 @@ pub(crate) fn schema_dispatch_case_type(
                 return schema_recursive_dispatch_payload_type(module, schema);
             }
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
+            if schema_payload_has_generalized_reserved_byte_prefix(nested) {
+                return None;
+            }
             schema_decode_value_type_inner(module, nested, stack)
         }
     }
@@ -3935,6 +3938,9 @@ fn schema_encode_dispatch_case_type(
                 return schema_recursive_dispatch_payload_type(module, schema);
             }
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
+            if schema_payload_has_generalized_reserved_byte_prefix(nested) {
+                return None;
+            }
             schema_encode_value_type(module, nested)
         }
     }
@@ -3952,6 +3958,9 @@ fn schema_repeat_payload_type(
         SchemaRepeatPayload::ByteView { .. } => Some(Type::named("ByteView", Vec::new())),
         SchemaRepeatPayload::Schema { schema_name } => {
             let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
+            if schema_payload_has_generalized_reserved_byte_prefix(nested) {
+                return None;
+            }
             schema_decode_value_type_inner(module, nested, stack)
         }
     }
@@ -5357,9 +5366,35 @@ fn supported_reserved_byte_prefix(
     expected_value: i64,
     visible_field: Option<&veln_ast::SchemaField>,
 ) -> bool {
-    matches!(bit_width, 1 | 2 | 9)
-        && expected_value == 0
+    bit_width > 0
+        && bit_width <= 56
+        && bit_width % 8 != 0
+        && reserved_bits_max_value(bit_width)
+            .is_some_and(|max_value| (0..=max_value).contains(&expected_value))
         && visible_field.is_some_and(|field| canonical_schema_primitive_is(&field.ty, "UInt8"))
+}
+
+pub(crate) fn schema_payload_has_generalized_reserved_byte_prefix(schema: &SchemaDecl) -> bool {
+    schema.fields.iter().enumerate().any(|(index, field)| {
+        let Some((bit_width, expected_value)) = reserved_bits_schema_primitive(&field.ty) else {
+            return false;
+        };
+        schema_field_uses_generalized_reserved_byte_prefix(
+            &schema.fields,
+            index,
+            (bit_width, expected_value),
+        )
+    })
+}
+
+pub(crate) fn schema_field_uses_generalized_reserved_byte_prefix(
+    fields: &[veln_ast::SchemaField],
+    index: usize,
+    reserved: (i64, i64),
+) -> bool {
+    let (bit_width, expected_value) = reserved;
+    supported_reserved_byte_prefix(bit_width, expected_value, fields.get(index + 1))
+        && !matches!((bit_width, expected_value), (1, 0) | (2, 0) | (9, 0))
 }
 
 fn supported_middle_reserved_bits(

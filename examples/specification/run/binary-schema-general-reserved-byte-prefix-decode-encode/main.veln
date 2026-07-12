@@ -1,0 +1,187 @@
+use stdio
+
+schema GeneralReservedBytePrefix
+	format binary
+
+	guard: ReservedBits(3, 5)
+	payload: UInt8
+end
+
+schema BoundaryReservedBytePrefix
+	format binary
+
+	guard: ReservedBits(55, 1)
+	payload: UInt8
+end
+
+fn byte_value(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(chunk, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn general_step_kind(step: DecodeStep<{payload: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn general_payload(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.payload
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_count(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn decode_error_id(step: DecodeStep<{payload: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+		Invalid(DecodeErrorWithReason(id, _, _, _)) => id
+	end
+end
+
+fn decode_error_offset(step: DecodeStep<{payload: Int}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+		Invalid(DecodeErrorWithReason(_, offset, _, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn decode_error_path(step: DecodeStep<{payload: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, path)) => path
+		Invalid(DecodeErrorWithReason(_, _, path, _)) => path
+	end
+end
+
+fn encode_step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn encode_error_id(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn encode_error_path(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
+	match encoded
+		Ok(chunk) => Encoded(list_cons(chunk, list_nil()))
+		Err(error) => Invalid(error)
+	end
+end
+
+fn encoded_chunk(step: EncodeStep<()>) -> Result<ByteChunk, String>
+	match step
+		Encoded(Cons(chunk, Nil)) => Ok(chunk)
+		Encoded(_) => Err("unexpected encoded chunk count")
+		Partial(_, _, _) => Err("unexpected partial encode")
+		Invalid(_) => Err("unexpected encode failure")
+	end
+end
+
+fn direct_encoded_chunk(encoded: Result<ByteChunk, EncodeError>) -> Result<ByteChunk, String>
+	match encoded
+		Ok(chunk) => Ok(chunk)
+		Err(_) => Err("unexpected direct encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("b560")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let direct: {payload: Int} = byte_decode_general_reserved_byte_prefix(view)?
+	stdio::println(int_to_string(direct.payload))
+
+	let direct_encoded: ByteChunk = direct_encoded_chunk(byte_encode_general_reserved_byte_prefix({payload: 171}))?
+	stdio::println(int_to_string(byte_value(direct_encoded, 0)?))
+	stdio::println(int_to_string(byte_value(direct_encoded, 1)?))
+
+	let decoded: DecodeStep<{payload: Int}> = decode GeneralReservedBytePrefix from view at byte_offset(20)?
+	stdio::println(general_step_kind(decoded))
+	stdio::println(int_to_string(general_payload(decoded)))
+	stdio::println(int_to_string(consumed_count(decoded)))
+
+	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let waiting: DecodeStep<{payload: Int}> = decode GeneralReservedBytePrefix from short_view at byte_offset(24)?
+	stdio::println(general_step_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+	stdio::println(decode_error_id(waiting))
+	stdio::println(int_to_string(decode_error_offset(waiting)))
+	stdio::println(decode_error_path(waiting))
+
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("d560")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(2)?)?
+	let invalid: DecodeStep<{payload: Int}> = decode GeneralReservedBytePrefix from invalid_view at byte_offset(28)?
+	stdio::println(general_step_kind(invalid))
+	stdio::println(int_to_string(consumed_count(invalid)))
+	stdio::println(decode_error_id(invalid))
+	stdio::println(int_to_string(decode_error_offset(invalid)))
+	stdio::println(decode_error_path(invalid))
+
+	let encoded: EncodeStep<()> = encode_result_step(encode GeneralReservedBytePrefix from {payload: 171})
+	stdio::println(encode_step_kind(encoded))
+	let encoded_bytes: ByteChunk = encoded_chunk(encoded)?
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(encoded_bytes))))
+	stdio::println(int_to_string(byte_value(encoded_bytes, 0)?))
+	stdio::println(int_to_string(byte_value(encoded_bytes, 1)?))
+
+	let rejected: EncodeStep<()> = encode_result_step(encode GeneralReservedBytePrefix from {payload: 256})
+	stdio::println(encode_step_kind(rejected))
+	stdio::println(encode_error_id(rejected))
+	stdio::println(encode_error_path(rejected))
+
+	let boundary_bytes: ByteChunk = byte_chunk_from_hex("0000000000000356")?
+	let boundary_view: ByteView = byte_view(boundary_bytes, byte_offset(0)?, byte_count(8)?)?
+	let boundary_direct: {payload: Int} = byte_decode_boundary_reserved_byte_prefix(boundary_view)?
+	stdio::println(int_to_string(boundary_direct.payload))
+	let boundary_decoded: DecodeStep<{payload: Int}> = decode BoundaryReservedBytePrefix from boundary_view at byte_offset(32)?
+	stdio::println(general_step_kind(boundary_decoded))
+	stdio::println(int_to_string(general_payload(boundary_decoded)))
+	stdio::println(int_to_string(consumed_count(boundary_decoded)))
+	let boundary_encoded: ByteChunk = direct_encoded_chunk(byte_encode_boundary_reserved_byte_prefix({payload: 171}))?
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(boundary_encoded))))
+	stdio::println(int_to_string(byte_value(boundary_encoded, 6)?))
+	stdio::println(int_to_string(byte_value(boundary_encoded, 7)?))
+	Ok(())
+end

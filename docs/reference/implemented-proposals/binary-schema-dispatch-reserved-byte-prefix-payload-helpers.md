@@ -16,8 +16,8 @@ reserved-byte-prefix layouts `ReservedBits(2, 0)` followed by `UInt8` or
 `ReservedBits(9, 0)` followed by `UInt8`. The payload schema routes through
 the same generated helper path used for ordinary schema fields: the reserved
 field is representation-only, the visible byte decodes as an `Int`, and encode
-emits the declared zero reserved prefix with the visible byte in the same
-two-byte big-endian slice.
+emits the declared zero reserved prefix with the visible byte and trailing
+padding in the width-derived big-endian storage group.
 
 Nested decode failures keep the parent dispatch field path before the nested
 schema field path. Reserved-bit mismatch diagnostics report the absolute byte

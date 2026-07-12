@@ -116,6 +116,7 @@ end
 fn emit_direct_encoded_chunk(chunk: ByteChunk) -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(byte_value(chunk, 0)?))
 	stdio::println(int_to_string(byte_value(chunk, 1)?))
+	stdio::println(int_to_string(byte_value(chunk, 2)?))
 	Ok(())
 end
 
@@ -166,8 +167,8 @@ fn encode_result_step(encoded: Result<ByteChunk, EncodeError>) -> EncodeStep<()>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("002a")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let bytes: ByteChunk = byte_chunk_from_hex("001500")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
 	let decoded: {control: Int} = byte_decode_reserved_nine_bit_prefix_header(view)?
 	stdio::println(int_to_string(decoded.control))
 
@@ -186,8 +187,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(readiness_count(waiting)))
 	stdio::println(int_to_string(consumed_count(waiting)))
 
-	let invalid_bytes: ByteChunk = byte_chunk_from_hex("012a")?
-	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(2)?)?
+	let invalid_bytes: ByteChunk = byte_chunk_from_hex("009500")?
+	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(3)?)?
 	let invalid: DecodeStep<{control: Int}> = decode ReservedNineBitPrefixHeader from invalid_view at byte_offset(40)?
 	stdio::println(decode_step_kind(invalid))
 	stdio::println(int_to_string(consumed_count(invalid)))
@@ -197,7 +198,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 
 	let derived_encoded: EncodeStep<()> = encode_result_step(encode ReservedNineBitPrefixHeader from {control: 171})
 	stdio::println(encode_step_kind(derived_encoded))
-	emit_derived_encoded("reserved-nine-bit-prefix", derived_encoded, "00ab")
+	emit_derived_encoded("reserved-nine-bit-prefix", derived_encoded, "005580")
 
 	let rejected: EncodeStep<()> = encode_result_step(encode ReservedNineBitPrefixHeader from {control: 256})
 	stdio::println(encode_step_kind(rejected))

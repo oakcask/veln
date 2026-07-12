@@ -3645,6 +3645,82 @@ fn generated_schema_helpers_accept_reserved_nine_bit_prefix_bits() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_general_reserved_byte_prefix_boundaries() {
+    for (bit_width, expected_value) in [(3, 5), (7, 85), (9, 341), (55, (1_i64 << 55) - 1)] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "schema GeneralReservedBytePrefix\n\
+                 \tformat binary\n\
+                 \n\
+                 \tguard: ReservedBits({bit_width}, {expected_value})\n\
+                 \tpayload: UInt8\n\
+                 end\n\
+                 \n\
+                 pub fn read_header(view: ByteView) -> Result<{{payload: Int}}, String>\n\
+                 \tbyte_decode_general_reserved_byte_prefix(view)\n\
+                 end\n\
+                 \n\
+                 pub fn write_header(packet: {{payload: Int}}) -> Result<ByteChunk, EncodeError>\n\
+                 \tbyte_encode_general_reserved_byte_prefix(packet)\n\
+                 end\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let lowered = lower_checked_surface_module(&module);
+
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "reserved byte prefix width {bit_width} should be accepted: {:#?}",
+            lowered.diagnostics
+        );
+        let ir = lowered.ir.expect("typed IR should be built");
+        assert_eq!(ir.schema_decoders.len(), 1, "width {bit_width}");
+        assert_eq!(
+            ir.schema_decoders[0].fields[0]
+                .reserved_bits
+                .as_ref()
+                .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+            Some((bit_width as u8, expected_value)),
+            "width {bit_width}"
+        );
+    }
+}
+
+#[test]
+fn generated_schema_helpers_reject_reserved_byte_prefix_outside_boundaries() {
+    for (bit_width, expected_value) in [(3, 8), (57, 0)] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "schema UnsupportedReservedBytePrefix\n\
+                 \tformat binary\n\
+                 \n\
+                 \tguard: ReservedBits({bit_width}, {expected_value})\n\
+                 \tpayload: UInt8\n\
+                 end\n"
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let lowered = lower_checked_surface_module(&module);
+
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "schema.reserved_bits_encode"),
+            "reserved byte prefix width {bit_width} value {expected_value} should be rejected: {:#?}",
+            lowered.diagnostics
+        );
+        assert!(lowered.ir.is_none());
+    }
+}
+
+#[test]
 fn generated_schema_helpers_accept_one_byte_packed_reserved_suffix_bits() {
     let source = SourceFile::new(
         "main.veln",
@@ -5868,13 +5944,6 @@ fn generated_schema_helpers_reject_unsupported_three_byte_packed_reserved_shapes
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "schema TooWidePackedHeader\n",
-            "  format binary\n",
-            "\n",
-            "  control_reserved: ReservedBits(17, 0)\n",
-            "  control: UInt8\n",
-            "end\n",
-            "\n",
             "schema TooNarrowPackedHeader\n",
             "  format binary\n",
             "\n",
@@ -5906,8 +5975,8 @@ fn generated_schema_helpers_reject_unsupported_three_byte_packed_reserved_shapes
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported three-byte packed reserved shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported three-byte packed reserved shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
@@ -5921,13 +5990,6 @@ fn generated_schema_helpers_reject_unsupported_four_byte_packed_reserved_shapes(
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "schema TooWidePackedHeader\n",
-            "  format binary\n",
-            "\n",
-            "  control_reserved: ReservedBits(25, 0)\n",
-            "  control: UInt8\n",
-            "end\n",
-            "\n",
             "schema TooNarrowPackedHeader\n",
             "  format binary\n",
             "\n",
@@ -5959,8 +6021,8 @@ fn generated_schema_helpers_reject_unsupported_four_byte_packed_reserved_shapes(
         })
         .count();
     assert_eq!(
-        unsupported_shapes, 3,
-        "unsupported four-byte packed reserved shapes should be rejected: {:#?}",
+        unsupported_shapes, 2,
+        "remaining unsupported four-byte packed reserved shapes should be rejected: {:#?}",
         lowered.diagnostics
     );
     assert!(
