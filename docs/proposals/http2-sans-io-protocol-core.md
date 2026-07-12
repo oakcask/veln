@@ -105,21 +105,7 @@ out of the schema language. The initial slice may use opaque header blocks or
 a deliberately small fixture codec, but it should not introduce a
 schema-backed HPACK special case.
 
-## Discussion Result: Protocol Numeric Domain Types
-
-Stream identifiers and flow-control counters should be protocol-domain values
-backed by ordinary `Int`, not new source-visible unsigned integer widths.
-Binary schemas decode the external `UInt31be` representation into an `Int`.
-The protocol core then validates and wraps that value at the state-machine
-boundary.
-
-Use a nonzero `StreamId` domain value for real streams and a separate
-`StreamRef` shape when a frame may target either the connection or a stream.
-`StreamRef` distinguishes the connection control stream from a stream id, so
-stream id zero does not accidentally pass through APIs that require an actual
-stream. Client-initiated and server-initiated parity rules are checked by
-connection state constructors or transition functions because validity depends
-on endpoint role and lifecycle state.
+## Discussion Result: Flow-Control Numeric Domain Types
 
 Flow-control values should be distinct domain values even though they share an
 `Int` representation. The core should at least separate current window credit,
@@ -129,11 +115,11 @@ reduction, while connection windows and advertised limits keep their own
 bounds. Constructors and transition contracts own those range checks; schemas
 only read the bytes.
 
-This keeps wire layout in schema primitives, protocol meaning in ordinary Veln
-types, and diagnostics precise: schema failures report malformed encoded
-fields, while protocol failures report invalid stream ids, parity mismatches,
-window overflow, negative-credit blocking, or limit violations with the active
-connection state as related context.
+This should keep wire layout in schema primitives, protocol meaning in ordinary
+Veln types, and diagnostics precise: schema failures report malformed encoded
+fields, while protocol failures report window overflow, negative-credit
+blocking, or limit violations with the active connection state as related
+context.
 
 ## Implemented: Header-Block Continuation State
 

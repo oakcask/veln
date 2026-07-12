@@ -2,6 +2,7 @@
 use hpack_fixture
 use hpack_static
 use hpack_dynamic_core
+use stream_domain
 use stdio
 
 schema Http2FrameHeaderWire
@@ -744,7 +745,7 @@ end
 
 fn require_peer_stream_id(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
 	match stream_id_is_reserved_by_peer(stream_id, receive_flow_control)
-		true => ProtocolStreamIdOk
+		true => require_server_stream_id(offset, kind, stream_id)
 		false => require_client_stream_id(offset, kind, stream_id)
 	end
 end
@@ -759,18 +760,41 @@ end
 
 fn require_connection_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
 	match stream_id
-		0 => ProtocolStreamIdOk
+		0 => match stream_domain::stream_ref_is_connection(stream_domain::connection_stream_ref())
+			true => ProtocolStreamIdOk
+			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero"))
+		end
 		_ => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero"))
 	end
 end
 
 fn require_client_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_id
-		0 => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
-		_ => match stream_id_is_client_initiated(stream_id)
+	match stream_domain::client_stream_id(stream_id)
+		Ok(value) => match stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
 			true => ProtocolStreamIdOk
 			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
 		end
+		Err(_) => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
+	end
+end
+
+fn require_server_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
+	match stream_domain::server_stream_id(stream_id)
+		Ok(value) => match stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
+			true => ProtocolStreamIdOk
+			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
+		end
+		Err(_) => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
+	end
+end
+
+fn require_server_promised_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
+	match stream_domain::server_stream_id(stream_id)
+		Ok(value) => match stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
+			true => ProtocolStreamIdOk
+			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
+		end
+		Err(_) => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
 	end
 end
 
@@ -3534,12 +3558,9 @@ fn validate_push_promise_stream_state(offset: Int, kind: Int, stream_id: Int, re
 end
 
 fn validate_received_push_promise_stream(offset: Int, kind: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ProtocolStreamIdDecision
-	match promised_stream_id
-		0 => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, promised_stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
-		_ => match stream_id_is_server_initiated(promised_stream_id)
-			true => validate_received_push_promise_associated_stream(offset, kind, stream_id, receive_flow_control)
-			false => ProtocolStreamIdFailed(InvalidStreamId(offset, kind, promised_stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
-		end
+	match require_server_promised_stream_id(offset, kind, promised_stream_id)
+		ProtocolStreamIdOk => validate_received_push_promise_associated_stream(offset, kind, stream_id, receive_flow_control)
+		ProtocolStreamIdFailed(error) => ProtocolStreamIdFailed(error)
 	end
 end
 
@@ -9262,7 +9283,17 @@ fn require_hpack_multiple_table_size_cases(state: Http2DecodeState) -> Result<()
 	let failure_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301010000000d3e3f82")?), state)?
 	let failure_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000000d023e82")?), step_state(failure_continuation_start))?
 	let ignored_failure_continuation: () = require_failure_with_id("hpack-multiple-table-size-updates-failure-continuation-done", failure_continuation_done, "http2.peer_limit.header_table_size_exceeded")?
-	require_hpack_state_table_size(step_state(failure_continuation_done), 4096)
+	let ignored_failure_continuation_size: () = require_hpack_state_table_size(step_state(failure_continuation_done), 4096)?
+	let malformed_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000201010000000f3e3f")?), seed_state)?
+	let malformed_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000f80")?), step_state(malformed_continuation_start))?
+	let ignored_malformed_continuation: () = require_failure_with_id("hpack-multiple-table-size-updates-malformed-continuation-done", malformed_continuation_done, "hpack.fixture.table_size_update_malformed")?
+	let ignored_malformed_continuation_size: () = require_hpack_state_table_size(step_state(malformed_continuation_done), 4096)?
+	let ignored_malformed_continuation_entry: () = require_hpack_state_dynamic_entry_count(step_state(malformed_continuation_done), 1)?
+	let third_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030101000000113e3f01")?), seed_state)?
+	let third_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000113f02")?), step_state(third_continuation_start))?
+	let ignored_third_continuation: () = require_failure_with_id("hpack-multiple-table-size-update-third-continuation-done", third_continuation_done, "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_third_continuation_size: () = require_hpack_state_table_size(step_state(third_continuation_done), 4096)?
+	require_hpack_state_dynamic_entry_count(step_state(third_continuation_done), 1)
 end
 
 fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
@@ -10687,6 +10718,7 @@ fn print_ping_cases() -> Result<(), String> effects [stdio]
 end
 
 fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> effects [stdio]
+	let ignored_stream_domain_cases: () = stream_domain::verify_stream_domain_cases()?
 	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
 	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
 	let headers_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), frame_state())?

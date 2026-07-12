@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln", "hpack_fixture.veln", "hpack_static.veln", "hpack_dynamic_core.veln"]
+command = ["run", "--json", "main", "main.veln", "stream_domain.veln", "hpack_fixture.veln", "hpack_static.veln", "hpack_dynamic_core.veln"]
 exit = 0
 
 [requires]
