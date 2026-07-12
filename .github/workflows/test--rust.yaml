@@ -26,7 +26,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
-  NEXTEST_VERSION: "0.9.138"
+  NEXTEST_VERSION: "0.9.140"
   NEXTEST_SHARDS: "4"
 
 jobs:
