@@ -779,6 +779,14 @@ fn stream_id_is_client_initiated(stream_id: Int) -> Bool
 end
 
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+	let excessive_table_size: Int = hpack_fixture::first_table_size_update_above(completed_header_block, receive_limit_value(header_table_receive_limit()), next_offset)
+	match excessive_table_size >= 0
+		true => Ok(Failed(consumed_state, HeaderTableSizeExceeded(next_offset, excessive_table_size, header_table_receive_limit(), kind, stream_id, "hpack_dynamic_table_size_update", completed_header_block)))
+		false => complete_receive_flow_control_update_after_table_size_check(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state)
+	end
+end
+
+fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	match decode_completed_header_list(next_offset, kind, flags, stream_id, completed_header_block, hpack_state)
 		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_table_size_update(next_offset, kind, flags, stream_id, completed_header_block, headers, next_hpack_state)
 			HeaderTableSizeOk => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size, completed_header_block)
@@ -8541,11 +8549,29 @@ fn require_hpack_state_table_size(state: Http2DecodeState, expected_table_size: 
 	end
 end
 
+fn require_hpack_state_dynamic_entry_count(state: Http2DecodeState, expected_dynamic_entries: Int) -> Result<(), String>
+	match hpack_fixture::state_dynamic_table_entry_count(state_hpack_fixture_state(state)) == expected_dynamic_entries
+		true => Ok(())
+		false => Err("unexpected HTTP/2 HPACK carried dynamic entry count")
+	end
+end
+
 fn require_frame_decoded(label: String, step: Http2Step) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Ok(())
 		Waiting(_) => Err(label)
 		Failed(_, _) => Err(label)
+	end
+end
+
+fn require_failure_with_id(label: String, step: Http2Step, expected_id: String) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err(label)
+		Waiting(_) => Err(label)
+		Failed(_, failure) => match failure_id(failure) == expected_id
+			true => Ok(())
+			false => Err(label)
+		end
 	end
 end
 
@@ -9195,12 +9221,57 @@ fn print_hpack_dynamic_table_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn require_hpack_multiple_table_size_cases(state: Http2DecodeState) -> Result<(), String>
+	let headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050105000000033f81013e82")?), state)?
+	let ignored_headers_decode: () = require_completed_header_list_decode(headers, state, ":method", "GET", 8)?
+	let ignored_headers_size: () = require_hpack_state_table_size(step_state(headers), 30)?
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020101000000053e3f")?), state)?
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000050182")?), step_state(continuation_start))?
+	let ignored_continuation_decode: () = require_completed_header_list_decode(continuation_done, state, ":method", "GET", 8)?
+	let ignored_continuation_size: () = require_hpack_state_table_size(step_state(continuation_done), 32)?
+	let seed: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000901040000000144072f746172676574")?), state)?
+	let seed_state: Http2DecodeState = hpack_carry_only_state(step_state(seed))
+	let retained_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060105000000033f81013f0dbe")?), seed_state)?
+	let ignored_retained_headers_decode: () = require_completed_header_list_decode(retained_headers, seed_state, ":path", "/target", 9)?
+	let ignored_retained_headers_size: () = require_hpack_state_table_size(step_state(retained_headers), 44)?
+	let ignored_retained_headers_entry: () = require_hpack_state_dynamic_entry_count(step_state(retained_headers), 1)?
+	let retained_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030101000000053f8101")?), seed_state)?
+	let retained_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030904000000053f0dbe")?), step_state(retained_continuation_start))?
+	let ignored_retained_continuation_decode: () = require_completed_header_list_decode(retained_continuation_done, seed_state, ":path", "/target", 9)?
+	let ignored_retained_continuation_size: () = require_hpack_state_table_size(step_state(retained_continuation_done), 44)?
+	let ignored_retained_continuation_entry: () = require_hpack_state_dynamic_entry_count(step_state(retained_continuation_done), 1)?
+	let evicted_lookup: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050105000000073e3f8101be")?), seed_state)?
+	let ignored_evicted_lookup: () = require_failure_with_id("hpack-multiple-table-size-updates-wire-order-eviction", evicted_lookup, "hpack.fixture.dynamic_index_out_of_range")?
+	let ignored_evicted_lookup_size: () = require_hpack_state_table_size(step_state(evicted_lookup), 4096)?
+	let ignored_evicted_lookup_entry: () = require_hpack_state_dynamic_entry_count(step_state(evicted_lookup), 1)?
+	let over_limit_first: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050105000000073f82023e82")?), state)?
+	let ignored_over_limit_first: () = require_failure_with_id("hpack-multiple-table-size-updates-first-over-limit", over_limit_first, "http2.peer_limit.header_table_size_exceeded")?
+	let ignored_over_limit_first_size: () = require_hpack_state_table_size(step_state(over_limit_first), 4096)?
+	let over_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060105000000073e3f82023e82")?), state)?
+	let ignored_over_limit: () = require_failure_with_id("hpack-multiple-table-size-updates-over-limit", over_limit, "http2.peer_limit.header_table_size_exceeded")?
+	let ignored_over_limit_state: () = require_hpack_state_table_size(step_state(over_limit), 4096)?
+	let malformed: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030105000000093e3f80")?), state)?
+	let ignored_malformed: () = require_failure_with_id("hpack-multiple-table-size-updates-malformed-middle", malformed, "hpack.fixture.table_size_update_malformed")?
+	let ignored_malformed_state: () = require_hpack_state_table_size(step_state(malformed), 4096)?
+	let after_field: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000b3e823f01")?), state)?
+	let ignored_after_field: () = require_failure_with_id("hpack-multiple-table-size-update-after-field", after_field, "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_after_field_state: () = require_hpack_state_table_size(step_state(after_field), 4096)?
+	let third_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000501050000000d3e3f013f02")?), state)?
+	let ignored_third_update: () = require_failure_with_id("hpack-multiple-table-size-update-third", third_update, "hpack.fixture.table_size_update_not_at_start")?
+	let ignored_third_update_state: () = require_hpack_state_table_size(step_state(third_update), 4096)?
+	let failure_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301010000000d3e3f82")?), state)?
+	let failure_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000000d023e82")?), step_state(failure_continuation_start))?
+	let ignored_failure_continuation: () = require_failure_with_id("hpack-multiple-table-size-updates-failure-continuation-done", failure_continuation_done, "http2.peer_limit.header_table_size_exceeded")?
+	require_hpack_state_table_size(step_state(failure_continuation_done), 4096)
+end
+
 fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
 	let table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010105000000013e")?), state)?
 	print_step("hpack-table-size-update", table_size_update)
 	let ignored_table_size_update: () = emit_header_block("http2-hpack-table-size-update", table_size_update, "3e")?
 	print_hpack_transition("hpack-table-size-update", table_size_update)
 	print_hpack_state("hpack-table-size-update", step_state(table_size_update))
+	let ignored_multiple_table_size_cases: () = require_hpack_multiple_table_size_cases(state)?
 	let after_table_size_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000382")?), hpack_carry_only_state(step_state(table_size_update)))?
 	print_step("hpack-after-table-size-update", after_table_size_update)
 	let ignored_after_table_size_update: () = emit_header_block("http2-hpack-after-table-size-update", after_table_size_update, "82")?

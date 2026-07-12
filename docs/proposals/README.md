@@ -612,7 +612,7 @@ compare it with `../specification/` before changing behavior.
   insertion, focused dynamic-index lookup failure diagnostics, checked
   dynamic-name continuation diagnostics, checked
   inbound table-size update placement, malformed-integer, and trailing-byte
-  diagnostics, checked outbound
+  diagnostics, two consecutive leading-update state transitions, checked outbound
   dynamic table-size update encoding and state handoff into later HEADERS
   and server-side `PUSH_PROMISE`, checked outbound dynamic-table eviction
   after zero and reduced table-size updates, received peer
