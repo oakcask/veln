@@ -1,0 +1,11 @@
+fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]
+	callback("ready")
+end
+
+fn emit(value) -> Int effects [stdio]
+	1
+end
+
+pub fn main() -> String effects [stdio]
+	apply_effect(emit)
+end

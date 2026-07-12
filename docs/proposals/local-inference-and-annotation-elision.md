@@ -159,6 +159,9 @@ The completed dictionary callback helper alias slice is archived under
 `../reference/implemented-proposals/local-inference-dictionary-callback-aliases.md`.
 The completed declared helper callback argument slice is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-argument.md`.
+The completed effectful declared-helper callback coverage slice is archived
+under
+`../reference/implemented-proposals/local-inference-effectful-declared-helper-callback.md`.
 The completed public member alias boundary for declared helper callback
 arguments is archived under
 `../reference/implemented-proposals/local-inference-declared-helper-callback-alias.md`.

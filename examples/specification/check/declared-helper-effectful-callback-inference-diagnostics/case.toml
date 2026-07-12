@@ -1,0 +1,36 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "expected `fn(String) -> String effects [stdio]`, but found `fn(String) -> String effects [stdio, net]`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "fn(String) -> String effects [stdio]"
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "fn(String) -> String effects [stdio, net]"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `fn(String) -> String effects [stdio]`, but found `fn(String) -> String effects [stdio, net]`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 10
+column = 15
