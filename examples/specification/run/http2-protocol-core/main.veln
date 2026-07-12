@@ -193,6 +193,26 @@ type OutboundSendCredit
 	OutboundSendCredit(Int, OutboundReceiveCreditStream)
 end
 
+type ConnectionWindowCredit
+	ConnectionWindowCredit(Int)
+end
+
+type StreamWindowCredit
+	StreamWindowCredit(Int)
+end
+
+type InitialWindowSize
+	InitialWindowSize(Int)
+end
+
+type WindowUpdateIncrement
+	WindowUpdateIncrement(Int)
+end
+
+type FlowControlDomainError
+	FlowControlDomainOutOfRange(String, Int, Int, Int)
+end
+
 type PrefaceState
 	ExpectPreface
 	AfterPreface
@@ -610,6 +630,145 @@ end
 
 fn default_receive_flow_control() -> ReceiveFlowControl
 	ReceiveFlowControl(65535, NoOpenStreamReceiveWindow)
+end
+
+fn max_flow_control_value() -> Int
+	2147483647
+end
+
+fn min_stream_window_credit() -> Int
+	-2147483647
+end
+
+fn connection_window_credit(value: Int) -> Result<ConnectionWindowCredit, FlowControlDomainError>
+	match value < 0
+		true => Err(FlowControlDomainOutOfRange("connection_window_credit", value, 0, max_flow_control_value()))
+		false => match value > max_flow_control_value()
+			true => Err(FlowControlDomainOutOfRange("connection_window_credit", value, 0, max_flow_control_value()))
+			false => Ok(ConnectionWindowCredit(value))
+		end
+	end
+end
+
+fn stream_window_credit(value: Int) -> Result<StreamWindowCredit, FlowControlDomainError>
+	match value < min_stream_window_credit()
+		true => Err(FlowControlDomainOutOfRange("stream_window_credit", value, min_stream_window_credit(), max_flow_control_value()))
+		false => match value > max_flow_control_value()
+			true => Err(FlowControlDomainOutOfRange("stream_window_credit", value, min_stream_window_credit(), max_flow_control_value()))
+			false => Ok(StreamWindowCredit(value))
+		end
+	end
+end
+
+fn initial_window_size(value: Int) -> Result<InitialWindowSize, FlowControlDomainError>
+	match value < 0
+		true => Err(FlowControlDomainOutOfRange("initial_window_size", value, 0, max_flow_control_value()))
+		false => match value > max_flow_control_value()
+			true => Err(FlowControlDomainOutOfRange("initial_window_size", value, 0, max_flow_control_value()))
+			false => Ok(InitialWindowSize(value))
+		end
+	end
+end
+
+fn window_update_increment_value(value: Int) -> Result<WindowUpdateIncrement, FlowControlDomainError>
+	match value < 1
+		true => Err(FlowControlDomainOutOfRange("window_update_increment", value, 1, max_flow_control_value()))
+		false => match value > max_flow_control_value()
+			true => Err(FlowControlDomainOutOfRange("window_update_increment", value, 1, max_flow_control_value()))
+			false => Ok(WindowUpdateIncrement(value))
+		end
+	end
+end
+
+fn connection_window_credit_value(credit: ConnectionWindowCredit) -> Int
+	match credit
+		ConnectionWindowCredit(value) => value
+	end
+end
+
+fn stream_window_credit_value(credit: StreamWindowCredit) -> Int
+	match credit
+		StreamWindowCredit(value) => value
+	end
+end
+
+fn initial_window_size_value(size: InitialWindowSize) -> Int
+	match size
+		InitialWindowSize(value) => value
+	end
+end
+
+fn window_update_increment_int(increment: WindowUpdateIncrement) -> Int
+	match increment
+		WindowUpdateIncrement(value) => value
+	end
+end
+
+fn checked_stream_window_credit_value(value: Int) -> Result<Int, String>
+	match stream_window_credit(value)
+		Ok(credit) => Ok(stream_window_credit_value(credit))
+		Err(_) => Err("stream window credit is outside the HTTP/2 domain")
+	end
+end
+
+fn data_exceeds_connection_window(length: Int, value: Int) -> Bool
+	match connection_window_credit(value)
+		Ok(credit) => length > connection_window_credit_value(credit)
+		Err(_) => true
+	end
+end
+
+fn data_exceeds_stream_window(length: Int, value: Int) -> Bool
+	match stream_window_credit(value)
+		Ok(credit) => length > stream_window_credit_value(credit)
+		Err(_) => true
+	end
+end
+
+fn debit_connection_window(value: Int, length: Int) -> Result<Int, String>
+	match connection_window_credit(value - length)
+		Ok(credit) => Ok(connection_window_credit_value(credit))
+		Err(_) => Err("DATA debit would leave connection window credit outside the HTTP/2 domain")
+	end
+end
+
+fn debit_stream_window(value: Int, length: Int) -> Result<Int, String>
+	checked_stream_window_credit_value(value - length)
+end
+
+fn window_update_increment_is_invalid(value: Int) -> Bool
+	match window_update_increment_value(value)
+		Ok(_) => false
+		Err(_) => true
+	end
+end
+
+fn connection_window_refill_overflows(value: Int, increment: Int) -> Bool
+	match connection_window_credit(value + increment)
+		Ok(_) => false
+		Err(_) => true
+	end
+end
+
+fn stream_window_refill_overflows(value: Int, increment: Int) -> Bool
+	match stream_window_credit(value + increment)
+		Ok(_) => false
+		Err(_) => true
+	end
+end
+
+fn refilled_connection_window(value: Int, increment: Int) -> Int
+	match connection_window_credit(value + increment)
+		Ok(credit) => connection_window_credit_value(credit)
+		Err(_) => value
+	end
+end
+
+fn refilled_stream_window(value: Int, increment: Int) -> Int
+	match stream_window_credit(value + increment)
+		Ok(credit) => stream_window_credit_value(credit)
+		Err(_) => value
+	end
 end
 
 fn concurrent_stream_receive_limit() -> Int
@@ -1444,9 +1603,9 @@ fn validate_max_frame_size_setting(item_offset: Int, value: Int, preview: ByteVi
 end
 
 fn validate_initial_window_size_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
-	match value > 2147483647
-		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings", preview)))
-		false => Ok(SettingsValueOk)
+	match initial_window_size(value)
+		Ok(_) => Ok(SettingsValueOk)
+		Err(_) => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, max_flow_control_value(), "peer_settings", preview)))
 	end
 end
 
@@ -1533,7 +1692,10 @@ fn update_single_initial_window_receive_credit(pending: ByteChunk, next_offset: 
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match identifier
-		4 => Ok(apply_initial_window_delta(value - active_peer_initial_window_size(peer_settings), receive_flow_control))
+		4 => apply_initial_window_delta(initial_window_size_value(match initial_window_size(value)
+			Ok(size) => size
+			Err(_) => Err("validated initial window size is outside the HTTP/2 domain")?
+		end) - active_peer_initial_window_size(peer_settings), receive_flow_control)
 		_ => Ok(receive_flow_control)
 	end
 end
@@ -2744,11 +2906,11 @@ fn validate_open_stream_outbound_data_window_with_content_length(stream_id: Int,
 end
 
 fn validate_open_connection_outbound_data_window(stream_id: Int, open_stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
-	match length > connection_window
+	match data_exceeds_connection_window(length, connection_window)
 		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 		false => match stream_id == open_stream_id
 			false => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
-			true => match length > stream_window
+			true => match data_exceeds_stream_window(length, stream_window)
 				true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 				false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 			end
@@ -2757,11 +2919,11 @@ fn validate_open_connection_outbound_data_window(stream_id: Int, open_stream_id:
 end
 
 fn validate_open_connection_outbound_data_window_with_content_length(stream_id: Int, open_stream_id: Int, payload: ByteChunk, encoded_length: Int, application_length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
-	match encoded_length > connection_window
+	match data_exceeds_connection_window(encoded_length, connection_window)
 		true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 		false => match stream_id == open_stream_id
 			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
-			true => match encoded_length > stream_window
+			true => match data_exceeds_stream_window(encoded_length, stream_window)
 				true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 				false => validate_data_frame_size_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 			end
@@ -2798,9 +2960,9 @@ fn validate_outbound_data_after_goaway_with_content_length(stream_id: Int, paylo
 end
 
 fn validate_outbound_data_windows(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
-	match length > connection_window
+	match data_exceeds_connection_window(length, connection_window)
 		true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
-		false => match length > stream_window
+		false => match data_exceeds_stream_window(length, stream_window)
 			true => Ok(OutboundDataRejected(stream_id, length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 			false => validate_data_frame_size(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
 		end
@@ -2808,9 +2970,9 @@ fn validate_outbound_data_windows(stream_id: Int, payload: ByteChunk, length: In
 end
 
 fn validate_outbound_data_windows_with_content_length(stream_id: Int, payload: ByteChunk, encoded_length: Int, application_length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
-	match encoded_length > connection_window
+	match data_exceeds_connection_window(encoded_length, connection_window)
 		true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
-		false => match encoded_length > stream_window
+		false => match data_exceeds_stream_window(encoded_length, stream_window)
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 			false => validate_data_frame_size_with_content_length(stream_id, payload, encoded_length, application_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 		end
@@ -2845,21 +3007,21 @@ end
 fn consume_outbound_padded_data_window(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
 	match send_credit
 		OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
-		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match encoded_length > connection_window
+		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match data_exceeds_connection_window(encoded_length, connection_window)
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 			false => match stream_id == open_stream_id
 				false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
-				true => match encoded_length > stream_window
+				true => match data_exceeds_stream_window(encoded_length, stream_window)
 					true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 					false => encode_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, connection_window, stream_window)
 				end
 			end
 		end
-		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match encoded_length > connection_window
+		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match data_exceeds_connection_window(encoded_length, connection_window)
 			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, connection_window, "connection-flow-control", "outbound_connection_window", empty_header_block())))
 			false => match stream_id == open_stream_id
 				false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, 0, "open-stream", "outbound_stream_window", empty_header_block())))
-				true => match encoded_length > stream_window
+				true => match data_exceeds_stream_window(encoded_length, stream_window)
 					true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, FlowControlWindowExceeded(0, 0, stream_id, encoded_length, stream_window, "open-stream", "outbound_stream_window", empty_header_block())))
 					false => validate_outbound_padded_content_length(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, connection_window, stream_window, expected_length, observed_length)
 				end
@@ -2897,7 +3059,7 @@ end
 
 fn encode_data_intent_with_content_length(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
 	match encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_window, stream_window)
-		Ok(OutboundDataAccepted(_, _, _, _, chunk)) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit_with_content_length(stream_id, end_stream, connection_window - length, stream_window - length, expected_length, observed_length), chunk))
+		Ok(OutboundDataAccepted(_, _, _, _, chunk)) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit_with_content_length(stream_id, end_stream, debit_connection_window(connection_window, length)?, debit_stream_window(stream_window, length)?, expected_length, observed_length), chunk))
 		Ok(OutboundDataRejected(_, _, _, error)) => Ok(OutboundDataRejected(stream_id, length, end_stream, error))
 		Ok(OutboundDataEncodeFailed(_, _, _, error)) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
 		Err(error) => Err(error)
@@ -2907,7 +3069,7 @@ end
 fn encode_single_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: length, kind: 0, flags: data_flags(end_stream), stream_id: stream_id})
 	match encoded_header
-		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit(stream_id, end_stream, connection_window - length, stream_window - length), byte_append(header, payload)))
+		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit(stream_id, end_stream, debit_connection_window(connection_window, length)?, debit_stream_window(stream_window, length)?), byte_append(header, payload)))
 		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
 	end
 end
@@ -2945,7 +3107,7 @@ end
 fn encode_final_data_frame(stream_id: Int, length: Int, end_stream: Bool, final_length: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: final_length, kind: 0, flags: data_flags(end_stream), stream_id: stream_id})
 	match encoded_header
-		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit(stream_id, end_stream, connection_window - length, stream_window - length), byte_append(byte_append(encoded, header), remaining)))
+		Ok(header) => Ok(OutboundDataAccepted(stream_id, length, end_stream, data_sent_send_credit(stream_id, end_stream, debit_connection_window(connection_window, length)?, debit_stream_window(stream_window, length)?), byte_append(byte_append(encoded, header), remaining)))
 		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, length, end_stream, error))
 	end
 end
@@ -2961,7 +3123,7 @@ end
 
 fn encode_padded_data_intent_with_content_length(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
 	match encode_padded_data_intent(stream_id, payload, encoded_length, padding_length, end_stream, max_frame_size, connection_window, stream_window)
-		Ok(OutboundDataAccepted(_, _, _, _, chunk)) => Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit_with_content_length(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length, expected_length, observed_length), chunk))
+		Ok(OutboundDataAccepted(_, _, _, _, chunk)) => Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit_with_content_length(stream_id, end_stream, debit_connection_window(connection_window, encoded_length)?, debit_stream_window(stream_window, encoded_length)?, expected_length, observed_length), chunk))
 		Ok(OutboundDataRejected(_, _, _, error)) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, error))
 		Ok(OutboundDataEncodeFailed(_, _, _, error)) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
 		Err(error) => Err(error)
@@ -2977,7 +3139,7 @@ fn encode_single_padded_data_intent(stream_id: Int, payload: ByteChunk, encoded_
 end
 
 fn encode_single_padded_data_payload(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, connection_window: Int, stream_window: Int, header: ByteChunk) -> Result<OutboundDataDecision, String>
-	Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length), byte_append(header, padded_data_payload(padding_length, payload)?)))
+	Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit(stream_id, end_stream, debit_connection_window(connection_window, encoded_length)?, debit_stream_window(stream_window, encoded_length)?), byte_append(header, padded_data_payload(padding_length, payload)?)))
 end
 
 fn encode_split_padded_data_intent(stream_id: Int, payload: ByteChunk, encoded_length: Int, padding_length: Int, end_stream: Bool, max_frame_size: Int, max_application_frame_payload: Int, connection_window: Int, stream_window: Int) -> Result<OutboundDataDecision, String>
@@ -3013,7 +3175,7 @@ end
 fn encode_final_padded_data_frame(stream_id: Int, encoded_length: Int, padding_length: Int, end_stream: Bool, final_application_length: Int, connection_window: Int, stream_window: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
 	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: final_application_length + padding_length + 1, kind: 0, flags: padded_data_flags(end_stream), stream_id: stream_id})
 	match encoded_header
-		Ok(header) => Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length), byte_append(byte_append(encoded, header), padded_data_payload(padding_length, remaining)?)))
+		Ok(header) => Ok(OutboundDataAccepted(stream_id, encoded_length, end_stream, data_sent_send_credit(stream_id, end_stream, debit_connection_window(connection_window, encoded_length)?, debit_stream_window(stream_window, encoded_length)?), byte_append(byte_append(encoded, header), padded_data_payload(padding_length, remaining)?)))
 		Err(error) => Ok(OutboundDataEncodeFailed(stream_id, encoded_length, end_stream, error))
 	end
 end
@@ -3077,9 +3239,9 @@ end
 
 fn validate_connection_window_update_bound(increment: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundWindowUpdateDecision, String>
 	match receive_credit
-		OutboundReceiveCredit(connection_window, stream_credit) => match connection_window + increment > max_receive_flow_control_window()
-			true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_receive_window", empty_header_block())))
-			false => encode_window_update_intent(0, increment, OutboundReceiveCredit(connection_window + increment, stream_credit))
+		OutboundReceiveCredit(connection_window, stream_credit) => match connection_window_credit(connection_window + increment)
+			Err(_) => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_receive_window", empty_header_block())))
+			Ok(next_credit) => encode_window_update_intent(0, increment, OutboundReceiveCredit(connection_window_credit_value(next_credit), stream_credit))
 		end
 	end
 end
@@ -3121,20 +3283,20 @@ fn validate_stream_window_update_after_goaway(stream_id: Int, increment: Int, sh
 end
 
 fn validate_stream_window_update_bound(stream_id: Int, increment: Int, connection_window: Int, open_stream_id: Int, stream_window: Int) -> Result<OutboundWindowUpdateDecision, String>
-	match stream_window + increment > max_receive_flow_control_window()
-		true => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_receive_window", empty_header_block())))
-		false => encode_window_update_intent(stream_id, increment, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window + increment)))
+	match stream_window_credit(stream_window + increment)
+		Err(_) => Ok(OutboundWindowUpdateRejected(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_receive_window", empty_header_block())))
+		Ok(next_credit) => encode_window_update_intent(stream_id, increment, OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window_credit_value(next_credit))))
 	end
 end
 
 fn validate_outbound_window_update_increment(stream_id: Int, increment: Int, active_state: String) -> OutboundWindowUpdateIncrementDecision
-	match increment
-		0 => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero", empty_header_block()))
-		_ => match increment < 0
-			true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_range", empty_header_block()))
-			false => match increment > max_receive_flow_control_window()
-				true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window(), active_state, "window_update_increment_range", empty_header_block()))
-				false => OutboundWindowUpdateIncrementOk
+	match window_update_increment_value(increment)
+		Ok(_) => OutboundWindowUpdateIncrementOk
+		Err(_) => match increment == 0
+			true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_nonzero", empty_header_block()))
+			false => match increment < 0
+				true => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, 1, active_state, "window_update_increment_range", empty_header_block()))
+				false => OutboundWindowUpdateIncrementFailed(FlowControlWindowExceeded(0, 8, stream_id, increment, max_receive_flow_control_window(), active_state, "window_update_increment_range", empty_header_block()))
 			end
 		end
 	end
@@ -3218,18 +3380,21 @@ fn update_single_initial_window_send_credit(payload: ByteChunk, item_offset: Int
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
 	match identifier
-		4 => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(value - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))))
+		4 => match initial_window_size(value)
+			Ok(size) => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(initial_window_size_value(size) - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))?))
+			Err(_) => Err("validated initial window size is outside the HTTP/2 domain")
+		end
 		_ => Ok(decision)
 	end
 end
 
-fn apply_initial_window_delta_to_outbound_send_credit(delta: Int, send_credit: OutboundSendCredit) -> OutboundSendCredit
+fn apply_initial_window_delta_to_outbound_send_credit(delta: Int, send_credit: OutboundSendCredit) -> Result<OutboundSendCredit, String>
 	match send_credit
-		OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream) => OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream)
-		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window)) => OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window + delta))
-		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length)) => OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window + delta, expected_length, observed_length))
-		OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id)) => OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id))
-		OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code)) => OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code))
+		OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundSendCredit(connection_window, NoOutboundReceiveCreditStream))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, stream_window)) => Ok(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(stream_id, checked_stream_window_credit_value(stream_window + delta)?)))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length)) => Ok(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(stream_id, checked_stream_window_credit_value(stream_window + delta)?, expected_length, observed_length)))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id)) => Ok(OutboundSendCredit(connection_window, OutboundReceiveCreditClosedStream(stream_id)))
+		OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code)) => Ok(OutboundSendCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code)))
 	end
 end
 
@@ -3242,11 +3407,11 @@ end
 
 fn refill_outbound_connection_send_credit(offset: Int, increment: Int, preview: ByteChunk, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
 	match send_credit
-		OutboundSendCredit(connection_window, stream_credit) => match increment == 0
+		OutboundSendCredit(connection_window, stream_credit) => match window_update_increment_is_invalid(increment)
 			true => Ok(OutboundSendCreditUpdateRejected(InvalidWindowUpdateIncrement(offset, 0, increment, 1, max_receive_flow_control_window(), "connection-flow-control", "window_update_increment_nonzero", byte_chunk_view(preview)?)))
-			false => match increment > max_receive_flow_control_window() - connection_window
+			false => match connection_window_refill_overflows(connection_window, increment)
 				true => Ok(OutboundSendCreditUpdateRejected(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "outbound_connection_window", preview)))
-				false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window + increment, stream_credit)))
+				false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(refilled_connection_window(connection_window, increment), stream_credit)))
 			end
 		end
 	end
@@ -3257,21 +3422,21 @@ fn refill_outbound_stream_send_credit(offset: Int, stream_id: Int, increment: In
 		OutboundSendCredit(_, NoOutboundReceiveCreditStream) => Ok(OutboundSendCreditUpdateRejected(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window)) => match stream_id == open_stream_id
 			false => Ok(OutboundSendCreditUpdateRejected(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
-			true => match increment == 0
+			true => match window_update_increment_is_invalid(increment)
 				true => Ok(OutboundSendCreditUpdateRejected(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", byte_chunk_view(preview)?)))
-				false => match increment > max_receive_flow_control_window() - stream_window
+				false => match stream_window_refill_overflows(stream_window, increment)
 					true => Ok(OutboundSendCreditUpdateRejected(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_window", preview)))
-					false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, stream_window + increment))))
+					false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, refilled_stream_window(stream_window, increment)))))
 				end
 			end
 		end
 		OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
 			false => Ok(OutboundSendCreditUpdateRejected(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
-			true => match increment == 0
+			true => match window_update_increment_is_invalid(increment)
 				true => Ok(OutboundSendCreditUpdateRejected(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", byte_chunk_view(preview)?)))
-				false => match increment > max_receive_flow_control_window() - stream_window
+				false => match stream_window_refill_overflows(stream_window, increment)
 					true => Ok(OutboundSendCreditUpdateRejected(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "outbound_stream_window", preview)))
-					false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, stream_window + increment, expected_length, observed_length))))
+					false => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window, OutboundReceiveCreditOpenStreamContentLength(open_stream_id, refilled_stream_window(stream_window, increment), expected_length, observed_length))))
 				end
 			end
 		end
@@ -3286,16 +3451,16 @@ fn refill_outbound_stream_send_credit(offset: Int, stream_id: Int, increment: In
 	end
 end
 
-fn apply_initial_window_delta(delta: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControl
+fn apply_initial_window_delta(delta: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)
-		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window, priority)) => ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window + delta, priority))
-		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window + delta, first_priority, second_stream_id, second_stream_window + delta, second_priority))
-		ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)) => ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window + delta, first_priority, second_stream_id, second_stream_window + delta, second_priority, third_stream_id, third_stream_window + delta, third_priority))
-		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, stream_window, priority, promised_stream_id)) => ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, stream_window + delta, priority, promised_stream_id))
-		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(stream_id, stream_window, priority)) => ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(stream_id, stream_window + delta, priority))
-		ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(stream_id, stream_window)) => ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(stream_id, stream_window))
-		ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code)) => ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code))
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow))
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window, priority)) => Ok(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, checked_stream_window_credit_value(stream_window + delta)?, priority)))
+		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => Ok(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, checked_stream_window_credit_value(first_stream_window + delta)?, first_priority, second_stream_id, checked_stream_window_credit_value(second_stream_window + delta)?, second_priority)))
+		ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)) => Ok(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, checked_stream_window_credit_value(first_stream_window + delta)?, first_priority, second_stream_id, checked_stream_window_credit_value(second_stream_window + delta)?, second_priority, third_stream_id, checked_stream_window_credit_value(third_stream_window + delta)?, third_priority)))
+		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, stream_window, priority, promised_stream_id)) => Ok(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, checked_stream_window_credit_value(stream_window + delta)?, priority, promised_stream_id)))
+		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(stream_id, stream_window, priority)) => Ok(ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(stream_id, checked_stream_window_credit_value(stream_window + delta)?, priority)))
+		ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(stream_id, stream_window)) => Ok(ReceiveFlowControl(connection_window, ClosedByPeerStreamReceiveWindow(stream_id, stream_window)))
+		ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code)) => Ok(ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code)))
 	end
 end
 
@@ -4057,22 +4222,22 @@ end
 fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
-		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match data_exceeds_connection_window(length, connection_window)
 			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
-			false => match length > stream_window
+			false => match data_exceeds_stream_window(length, stream_window)
 				true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window", preview)))
 				false => receive_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority)
 			end
 		end
-		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match length > connection_window
+		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match data_exceeds_connection_window(length, connection_window)
 			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match stream_id == first_stream_id
-				true => match length > first_stream_window
+				true => match data_exceeds_stream_window(length, first_stream_window)
 					true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window", preview)))
 					false => receive_first_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)
 				end
 				false => match stream_id == second_stream_id
-					true => match length > second_stream_window
+					true => match data_exceeds_stream_window(length, second_stream_window)
 						true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window", preview)))
 						false => receive_second_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)
 					end
@@ -4080,20 +4245,20 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, applica
 				end
 			end
 		end
-		ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)) => match length > connection_window
+		ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)) => match data_exceeds_connection_window(length, connection_window)
 			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match stream_id == first_stream_id
-				true => match length > first_stream_window
+				true => match data_exceeds_stream_window(length, first_stream_window)
 					true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, first_stream_window, "open-stream", "stream_receive_window", preview)))
 					false => receive_first_of_three_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)
 				end
 				false => match stream_id == second_stream_id
-					true => match length > second_stream_window
+					true => match data_exceeds_stream_window(length, second_stream_window)
 						true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, second_stream_window, "open-stream", "stream_receive_window", preview)))
 						false => receive_second_of_three_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)
 					end
 					false => match stream_id == third_stream_id
-						true => match length > third_stream_window
+						true => match data_exceeds_stream_window(length, third_stream_window)
 							true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, third_stream_window, "open-stream", "stream_receive_window", preview)))
 							false => receive_third_open_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)
 						end
@@ -4102,10 +4267,10 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, applica
 				end
 			end
 		end
-		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match length > connection_window
+		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match data_exceeds_connection_window(length, connection_window)
 			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
 			false => match stream_id == open_stream_id
-				true => match length > stream_window
+				true => match data_exceeds_stream_window(length, stream_window)
 					true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window", preview)))
 					false => receive_client_push_associated_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority, promised_stream_id)
 				end
@@ -4115,9 +4280,9 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, applica
 				end
 			end
 		end
-		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match length > connection_window
+		ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)) => match data_exceeds_connection_window(length, connection_window)
 			true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window", preview)))
-			false => match length > stream_window
+			false => match data_exceeds_stream_window(length, stream_window)
 				true => Ok(ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "half-closed-local-stream", "stream_receive_window", preview)))
 				false => receive_half_closed_local_stream_data_after_windows(offset, stream_id, length, application_length, end_stream, preview, connection_window, open_stream_id, stream_window, priority)
 			end
@@ -4137,8 +4302,8 @@ fn receive_client_push_associated_data_after_windows(offset: Int, stream_id: Int
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, priority)?
 	match body_decision
 		ContentLengthBodyOk(next_priority) => match end_stream
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length))))
-			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window - length, next_priority, promised_stream_id))))
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ClosedByPeerStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?))))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ClientPushAssociatedStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?, next_priority, promised_stream_id))))
 		end
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
@@ -4148,8 +4313,8 @@ fn receive_open_stream_data_after_windows(offset: Int, stream_id: Int, length: I
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, priority)?
 	match body_decision
 		ContentLengthBodyOk(next_priority) => match end_stream
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length))))
-			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, OpenStreamReceiveWindow(open_stream_id, stream_window - length, next_priority))))
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ClosedByPeerStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?))))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, OpenStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?, next_priority))))
 		end
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
@@ -4158,7 +4323,7 @@ end
 fn receive_first_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, first_priority)?
 	match body_decision
-		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window - length, next_priority, second_stream_id, second_stream_window, second_priority))))
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, TwoOpenStreamReceiveWindows(first_stream_id, debit_stream_window(first_stream_window, length)?, next_priority, second_stream_id, second_stream_window, second_priority))))
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
@@ -4166,7 +4331,7 @@ end
 fn receive_second_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, second_priority)?
 	match body_decision
-		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window - length, next_priority))))
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, debit_stream_window(second_stream_window, length)?, next_priority))))
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
@@ -4174,7 +4339,7 @@ end
 fn receive_first_of_three_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState, third_stream_id: Int, third_stream_window: Int, third_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, first_priority)?
 	match body_decision
-		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window - length, next_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority))))
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ThreeOpenStreamReceiveWindows(first_stream_id, debit_stream_window(first_stream_window, length)?, next_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority))))
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
@@ -4182,7 +4347,7 @@ end
 fn receive_second_of_three_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState, third_stream_id: Int, third_stream_window: Int, third_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, second_priority)?
 	match body_decision
-		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window - length, next_priority, third_stream_id, third_stream_window, third_priority))))
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, debit_stream_window(second_stream_window, length)?, next_priority, third_stream_id, third_stream_window, third_priority))))
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
@@ -4190,7 +4355,7 @@ end
 fn receive_third_open_stream_data_after_windows(offset: Int, stream_id: Int, length: Int, application_length: Int, end_stream: Bool, preview: ByteChunk, connection_window: Int, first_stream_id: Int, first_stream_window: Int, first_priority: StreamPriorityState, second_stream_id: Int, second_stream_window: Int, second_priority: StreamPriorityState, third_stream_id: Int, third_stream_window: Int, third_priority: StreamPriorityState) -> Result<ReceiveFlowControlDecision, String>
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "open-stream", preview, third_priority)?
 	match body_decision
-		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window - length, next_priority))))
+		ContentLengthBodyOk(next_priority) => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, debit_stream_window(third_stream_window, length)?, next_priority))))
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
 end
@@ -4199,8 +4364,8 @@ fn receive_half_closed_local_stream_data_after_windows(offset: Int, stream_id: I
 	let body_decision: ContentLengthBodyDecision = update_content_length_body(offset, 0, stream_id, application_length, end_stream, "half-closed-local-stream", preview, priority)?
 	match body_decision
 		ContentLengthBodyOk(next_priority) => match end_stream
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, ClosedByPeerStreamReceiveWindow(open_stream_id, stream_window - length))))
-			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window - length, next_priority))))
+			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, ClosedByPeerStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?))))
+			false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(debit_connection_window(connection_window, length)?, HalfClosedLocalStreamReceiveWindow(open_stream_id, debit_stream_window(stream_window, length)?, next_priority))))
 		end
 		ContentLengthBodyFailed(error) => Ok(ReceiveFlowControlFailed(error))
 	end
@@ -4286,11 +4451,11 @@ end
 
 fn update_connection_receive_credit(offset: Int, increment: Int, preview: ByteView, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, open_stream) => match increment == 0
-			true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, 0, increment, 1, max_receive_flow_control_window(), "connection-flow-control", "window_update_increment_nonzero", preview))
-			false => match increment > max_receive_flow_control_window() - connection_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window", byte_view_to_chunk(preview)))
-				false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window + increment, open_stream))
+		ReceiveFlowControl(connection_window, open_stream) => match window_update_increment_value(increment)
+			Err(_) => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, 0, increment, 1, max_receive_flow_control_window(), "connection-flow-control", "window_update_increment_nonzero", preview))
+			Ok(domain_increment) => match connection_window_credit(connection_window + window_update_increment_int(domain_increment))
+				Err(_) => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window", byte_view_to_chunk(preview)))
+				Ok(next_credit) => ReceiveFlowControlOk(ReceiveFlowControl(connection_window_credit_value(next_credit), open_stream))
 			end
 		end
 	end
@@ -4301,55 +4466,55 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
 			false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
-			true => match increment == 0
-				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-				false => match increment > max_receive_flow_control_window() - stream_window
-					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window + increment, priority)))
+			true => match window_update_increment_value(increment)
+				Err(_) => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
+				Ok(domain_increment) => match stream_window_credit(stream_window + window_update_increment_int(domain_increment))
+					Err(_) => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
+					Ok(next_credit) => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window_credit_value(next_credit), priority)))
 				end
 			end
 		end
 		ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority)) => match stream_id == first_stream_id
-			true => match increment == 0
+			true => match window_update_increment_is_invalid(increment)
 				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-				false => match increment > max_receive_flow_control_window() - first_stream_window
+				false => match stream_window_refill_overflows(first_stream_window, increment)
 					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - first_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window + increment, first_priority, second_stream_id, second_stream_window, second_priority)))
+					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, refilled_stream_window(first_stream_window, increment), first_priority, second_stream_id, second_stream_window, second_priority)))
 				end
 			end
 			false => match stream_id == second_stream_id
-				true => match increment == 0
+				true => match window_update_increment_is_invalid(increment)
 					true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-					false => match increment > max_receive_flow_control_window() - second_stream_window
+					false => match stream_window_refill_overflows(second_stream_window, increment)
 						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - second_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window + increment, second_priority)))
+						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, TwoOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, refilled_stream_window(second_stream_window, increment), second_priority)))
 					end
 				end
 				false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 			end
 		end
 		ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)) => match stream_id == first_stream_id
-			true => match increment == 0
+			true => match window_update_increment_is_invalid(increment)
 				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-				false => match increment > max_receive_flow_control_window() - first_stream_window
+				false => match stream_window_refill_overflows(first_stream_window, increment)
 					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - first_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window + increment, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)))
+					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, refilled_stream_window(first_stream_window, increment), first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window, third_priority)))
 				end
 			end
 			false => match stream_id == second_stream_id
-				true => match increment == 0
+				true => match window_update_increment_is_invalid(increment)
 					true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-					false => match increment > max_receive_flow_control_window() - second_stream_window
+					false => match stream_window_refill_overflows(second_stream_window, increment)
 						true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - second_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window + increment, second_priority, third_stream_id, third_stream_window, third_priority)))
+						false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, refilled_stream_window(second_stream_window, increment), second_priority, third_stream_id, third_stream_window, third_priority)))
 					end
 				end
 				false => match stream_id == third_stream_id
-					true => match increment == 0
+					true => match window_update_increment_is_invalid(increment)
 						true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-						false => match increment > max_receive_flow_control_window() - third_stream_window
+						false => match stream_window_refill_overflows(third_stream_window, increment)
 							true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - third_stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-							false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, third_stream_window + increment, third_priority)))
+							false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ThreeOpenStreamReceiveWindows(first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, third_stream_id, refilled_stream_window(third_stream_window, increment), third_priority)))
 						end
 					end
 					false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
@@ -4357,11 +4522,11 @@ fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, pre
 			end
 		end
 		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id)) => match stream_id == open_stream_id
-			true => match increment == 0
+			true => match window_update_increment_is_invalid(increment)
 				true => ReceiveFlowControlFailed(InvalidWindowUpdateIncrement(offset, stream_id, increment, 1, max_receive_flow_control_window(), "open-stream", "window_update_increment_nonzero", preview))
-				false => match increment > max_receive_flow_control_window() - stream_window
+				false => match stream_window_refill_overflows(stream_window, increment)
 					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window", byte_view_to_chunk(preview)))
-					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window + increment, priority, promised_stream_id)))
+					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, refilled_stream_window(stream_window, increment), priority, promised_stream_id)))
 				end
 			end
 			false => match stream_id == promised_stream_id
@@ -11501,7 +11666,44 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn verify_flow_control_domain_cases() -> Result<(), String>
+	let accepted_connection: () = match connection_window_credit(0)
+		Ok(_) => ()
+		Err(_) => Err("expected zero connection window credit to be accepted")?
+	end
+	let rejected_connection: () = match connection_window_credit(-1)
+		Ok(_) => Err("expected negative connection window credit to be rejected")?
+		Err(_) => ()
+	end
+	let accepted_negative_stream: () = match stream_window_credit(-1)
+		Ok(_) => ()
+		Err(_) => Err("expected negative stream window credit to be accepted")?
+	end
+	let rejected_stream: () = match stream_window_credit(-2147483648)
+		Ok(_) => Err("expected stream window credit below the lower bound to be rejected")?
+		Err(_) => ()
+	end
+	let accepted_initial_size: () = match initial_window_size(max_flow_control_value())
+		Ok(_) => ()
+		Err(_) => Err("expected maximum initial window size to be accepted")?
+	end
+	let rejected_initial_size: () = match initial_window_size(2147483648)
+		Ok(_) => Err("expected oversized initial window size to be rejected")?
+		Err(_) => ()
+	end
+	let accepted_increment: () = match window_update_increment_value(1)
+		Ok(_) => ()
+		Err(_) => Err("expected minimum window update increment to be accepted")?
+	end
+	let rejected_increment: () = match window_update_increment_value(0)
+		Ok(_) => Err("expected zero window update increment to be rejected")?
+		Err(_) => ()
+	end
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
+	let verified_flow_control_domains: () = verify_flow_control_domain_cases()?
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
 	let preface_unknown: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000030a2300000000aabbcc")?), empty_state())?

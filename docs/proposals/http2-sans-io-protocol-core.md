@@ -105,21 +105,12 @@ out of the schema language. The initial slice may use opaque header blocks or
 a deliberately small fixture codec, but it should not introduce a
 schema-backed HPACK special case.
 
-## Discussion Result: Flow-Control Numeric Domain Types
+## Implemented: Flow-Control Numeric Domain Types
 
-Flow-control values should be distinct domain values even though they share an
-`Int` representation. The core should at least separate current window credit,
-configured initial window size, and incoming window-update increments. Current
-stream windows may become negative after a SETTINGS initial-window-size
-reduction, while connection windows and advertised limits keep their own
-bounds. Constructors and transition contracts own those range checks; schemas
-only read the bytes.
-
-This should keep wire layout in schema primitives, protocol meaning in ordinary
-Veln types, and diagnostics precise: schema failures report malformed encoded
-fields, while protocol failures report window overflow, negative-credit
-blocking, or limit violations with the active connection state as related
-context.
+The completed flow-control numeric domain-type slice is archived under
+[HTTP/2 Flow-Control Numeric Domain Types](../reference/implemented-proposals/http2-flow-control-numeric-domain-types.md).
+Current behavior is specified by `../specification/execution.md` and checked by
+`../../examples/specification/run/http2-protocol-core/`.
 
 ## Implemented: Header-Block Continuation State
 
