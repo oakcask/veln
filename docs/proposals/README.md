@@ -638,6 +638,8 @@ compare it with `../specification/` before changing behavior.
   reuse, plus the source-visible dynamic-name literal receive core for checked
   literal-without-indexing, literal-with-indexing, and literal-never-indexed
   forms whose names come from the carried bounded dynamic table, plus the
+  source-visible dynamic-name Huffman-value receive core for checked
+  Huffman-marked values and bounded dynamic-state insertion, plus the
   source-visible exact static-indexed outbound encode helper for the finite
   HPACK static table entries with fixed values across outbound HEADERS and
   server-side `PUSH_PROMISE`,
@@ -667,6 +669,9 @@ compare it with `../specification/` before changing behavior.
   The completed source-visible dynamic-name literal receive core slice is
   archived under
   [HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md).
+  The completed source-visible dynamic-name Huffman-value receive slice is
+  archived under
+  [HTTP/2 HPACK Dynamic-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-name-huffman-values.md).
   The completed source-visible static-name indexing core slice is archived
   under
   [HTTP/2 HPACK Static-Name Indexing Core](../reference/implemented-proposals/http2-hpack-static-name-indexing-core.md).

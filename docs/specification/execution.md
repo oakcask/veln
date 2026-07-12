@@ -411,7 +411,10 @@ enough.
   while retaining the existing table entry for later `0xbe` reuse.
   Literal-with-indexing inserts the fresh name/value pair using the same
   bounded accounting rule, then exposes the inserted entry through `0xbe`
-  while retaining the older entry as `0xbf` when the table has room. The
+  while retaining the older entry as `0xbf` when the table has room. These
+  dynamic-name forms accept raw visible-ASCII values and bounded
+  Huffman-marked values decoded by the existing checked HPACK Huffman boundary;
+  malformed Huffman values remain on the focused fixture fallback path. The
   checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.

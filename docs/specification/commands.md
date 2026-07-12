@@ -294,7 +294,12 @@ requiring the full command reference on the first read.
   dynamic-table mutation only for literal-with-indexing, dynamic-indexed reuse
   of the inserted Huffman-valued raw literal, focused malformed-Huffman
   fallback projection, and final CONTINUATION routing through the
-  source-visible raw literal-name boundary before fixture fallback.
+  source-visible raw literal-name boundary before fixture fallback. The same
+  checked boundary accepts dynamic-name Huffman-marked values for
+  literal-without-indexing, literal-with-indexing, and literal-never-indexed;
+  only literal-with-indexing inserts the decoded value, and completed HEADERS
+  plus final CONTINUATION routing use the source-visible boundary before
+  fixture fallback.
   `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
   `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
   `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the

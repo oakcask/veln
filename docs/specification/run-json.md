@@ -1160,7 +1160,12 @@ resolved from the carried bounded dynamic table: literal-without-indexing and
 literal-never-indexed decode fresh values while retaining the existing entry
 for later `0xbe` reuse, and literal-with-indexing inserts `:path: /again`,
 reuses it through `0xbe`, and keeps the older `:path: /target` entry
-available through `0xbf` when the table has room.
+available through `0xbf` when the table has room. The same standalone
+boundary checks dynamic-name Huffman-marked values for all three forms:
+literal-without-indexing and literal-never-indexed retain the carried dynamic
+name entry, literal-with-indexing inserts the decoded Huffman value for later
+`0xbe` reuse, and malformed Huffman padding remains on the focused fixture
+fallback path.
 The same standalone boundary checks the source-visible HPACK integer core:
 seven-bit indexed fields, five-bit table-size updates, and seven-bit
 literal-length shapes decode and encode through the shared bounded helper, and
@@ -1171,7 +1176,10 @@ The HTTP/2 aggregate case checks completed HEADERS and final CONTINUATION
 routing through that same source-visible raw literal-name boundary before
 fixture fallback, and completed HEADERS routing through the same
 source-visible dynamic indexed boundary before fixture fallback for accepted
-multi-continuation and out-of-range dynamic indexed fields. Those boundary
+multi-continuation and out-of-range dynamic indexed fields. It also checks
+completed HEADERS and final CONTINUATION routing for dynamic-name
+Huffman-marked values before fixture fallback, including dynamic indexed reuse
+of the inserted `:path: test` entry after both routes. Those boundary
 checks are ordinary program stdout, not
 `details.protocol_diagnostic`, because they do not return a
 `RuntimeDiagnostic(...)` payload.

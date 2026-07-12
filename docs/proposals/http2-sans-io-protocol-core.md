@@ -426,7 +426,9 @@ through `0xc0`, accepts the checked dynamic-name literal-with-indexing block
 `0x7f 0x00 0x05 "PATCH"` and `0x7f 0x01 0x06 "/third"` for dynamic index
 values `63` and `64`, accepts checked dynamic-name literal-without-indexing
 and literal-never-indexed blocks that reuse `:path` without inserting
-replacement dynamic entries, and retains older entries when the bounded
+replacement dynamic entries, accepts checked dynamic-name Huffman-marked
+values through literal-without-indexing, literal-with-indexing, and
+literal-never-indexed receive forms, and retains older entries when the bounded
 fixture table has room, while dynamic entries evicted by a reduced fixture
 table size use the focused dynamic-index diagnostic. Reducing the fixture
 table size to
@@ -901,7 +903,8 @@ The checked fixture boundary also includes source-visible raw new-name
 literal-with-indexing and literal-never-indexed receive paths that keep dynamic
 table state in ordinary Veln values, plus source-visible dynamic-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
-receive paths whose names come from the carried bounded dynamic table.
+receive paths whose names come from the carried bounded dynamic table,
+including Huffman-marked values decoded by the checked HPACK Huffman boundary.
 The remaining HPACK work in this proposal starts after the fixture boundary
 and the source-visible static decoder and Huffman boundary records archived
 under
@@ -1171,12 +1174,14 @@ The Huffman-value raw literal-name slice is archived under
 [HTTP/2 HPACK Dynamic Raw Literal-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-raw-literal-name-huffman-values.md).
 The dynamic-name literal receive core slice is archived under
 [HTTP/2 HPACK Dynamic-Name Literal Core](../reference/implemented-proposals/http2-hpack-dynamic-name-literal-core.md).
+The dynamic-name Huffman-value slice is archived under
+[HTTP/2 HPACK Dynamic-Name Huffman Values](../reference/implemented-proposals/http2-hpack-dynamic-name-huffman-values.md).
 
 The remaining scope below is still planned work for the full protocol core and
 full HPACK behavior beyond the bounded source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
-Huffman-value, dynamic-name literal receive, and dynamic-table accounting core
-slices.
+Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value, and
+dynamic-table accounting core slices.
 
 ## Completion Criteria
 
