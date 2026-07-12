@@ -45,6 +45,7 @@ Format-neutral generated encode helpers are exposed only for schemas without a
 `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
 `Dict<String, List<scalar>>` fields,
 `Dict<String, Vec<scalar>>` fields,
+`Dict<String, Vec<Option<scalar>>>` fields,
 `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
 payloads are supported format-neutral encode shapes,
 `List<Result<Ok, Err>>`, `Vec<Result<Ok, Err>>`, and
@@ -138,6 +139,7 @@ scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
 `Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
 `Dict<String, Vec<scalar>>`,
+`Dict<String, Vec<Option<scalar>>>`,
 `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
 supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
 `Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each result
@@ -214,6 +216,7 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-recursive-result-encode/`,
 `examples/specification/run/format-neutral-schema-result-container-encode/`,
 `examples/specification/run/format-neutral-schema-source-adt-encode/`,
+`examples/specification/run/format-neutral-schema-dict-vec-option-encode/`,
 `examples/specification/check/format-neutral-schema-container-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-recursive-result-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-result-container-encode-fields/`,

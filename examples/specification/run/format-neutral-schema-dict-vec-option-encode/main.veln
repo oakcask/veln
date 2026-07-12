@@ -1,0 +1,51 @@
+# Format-neutral schema encode helpers accept Dict<String, Vec<Option<scalar>>> fields.
+use stdio
+
+schema DictVecOptionPacket
+	scores: Dict<String, Vec<Option<Int>>>
+end
+
+fn add_present_score(total: Int, item: Option<Int>) -> Int
+	match item
+		Some(score) => total + score
+		None => total
+	end
+end
+
+fn count_missing_score(total: Int, item: Option<Int>) -> Int
+	match item
+		Some(_) => total
+		None => total + 1
+	end
+end
+
+fn encoded_score_sum(result: Result<{scores: Dict<String, Vec<Option<Int>>>}, String>, key: String) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.scores, key)
+			Some(values) => vec_fold(values, 0, add_present_score)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+fn encoded_missing_count(result: Result<{scores: Dict<String, Vec<Option<Int>>>}, String>, key: String) -> Int
+	match result
+		Ok(packet) => match dict_get(packet.scores, key)
+			Some(values) => vec_fold(values, 0, count_missing_score)
+			None => -1
+		end
+		Err(_) => -2
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let direct_packet: {scores: Dict<String, Vec<Option<Int>>>} = {scores: {"math": [Some(11), None, Some(13)]}}
+	let explicit_packet: {scores: Dict<String, Vec<Option<Int>>>} = {scores: {"science": [None, Some(5)]}}
+	let direct: Result<{scores: Dict<String, Vec<Option<Int>>>}, String> = byte_encode_dict_vec_option_packet(direct_packet)
+	let explicit: Result<{scores: Dict<String, Vec<Option<Int>>>}, String> = encode DictVecOptionPacket from explicit_packet
+	stdio::println(int_to_string(encoded_score_sum(direct, "math")))
+	stdio::println(int_to_string(encoded_missing_count(direct, "math")))
+	stdio::println(int_to_string(encoded_score_sum(explicit, "science")))
+	stdio::println(int_to_string(encoded_missing_count(explicit, "science")))
+end

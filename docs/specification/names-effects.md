@@ -336,6 +336,7 @@ compiler-known calls.
   `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
   `Dict<String, List<scalar>>` fields, `Dict<String, Vec<scalar>>` fields,
+  `Dict<String, Vec<Option<scalar>>>` fields,
   `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
   payloads are supported format-neutral encode shapes,
   `List<Result<Ok, Err>>`, `Vec<Result<Ok, Err>>`, and
