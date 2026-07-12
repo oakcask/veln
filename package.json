@@ -1,6 +1,6 @@
 {
   "private": true,
-  "packageManager": "pnpm@11.1.2",
+  "packageManager": "pnpm@11.10.0",
   "scripts": {
     "test:vscode": "pnpm --filter veln-language test",
     "vsix": "pnpm --filter veln-language vsix"
