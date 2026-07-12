@@ -1,0 +1,98 @@
+pub type StreamId
+	ValidatedStreamId(Int)
+end
+
+pub type StreamRef
+	ConnectionStream
+	RealStream(StreamId)
+end
+
+pub fn stream_id(value: Int) -> Result<StreamId, String>
+	match value > 0 and value <= 2147483647
+		true => Ok(ValidatedStreamId(value))
+		false => Err("stream id must be between 1 and 2147483647")
+	end
+end
+
+pub fn client_stream_id(value: Int) -> Result<StreamId, String>
+	let stream_id: StreamId = stream_id(value)?
+	match (value / 2) * 2 != value
+		true => Ok(stream_id)
+		false => Err("client-initiated stream id must be odd")
+	end
+end
+
+pub fn server_stream_id(value: Int) -> Result<StreamId, String>
+	let stream_id: StreamId = stream_id(value)?
+	match (value / 2) * 2 == value
+		true => Ok(stream_id)
+		false => Err("server-initiated stream id must be even")
+	end
+end
+
+pub fn connection_stream_ref() -> StreamRef
+	ConnectionStream
+end
+
+pub fn real_stream_ref(stream_id: StreamId) -> StreamRef
+	RealStream(stream_id)
+end
+
+pub fn stream_id_value(stream_id: StreamId) -> Int
+	match stream_id
+		ValidatedStreamId(value) => value
+	end
+end
+
+pub fn stream_ref_value(stream_ref: StreamRef) -> Int
+	match stream_ref
+		ConnectionStream => 0
+		RealStream(ValidatedStreamId(value)) => value
+	end
+end
+
+pub fn stream_ref_is_connection(stream_ref: StreamRef) -> Bool
+	match stream_ref
+		ConnectionStream => true
+		RealStream(_) => false
+	end
+end
+
+pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
+	match stream_ref
+		ConnectionStream => false
+		RealStream(_) => true
+	end
+end
+
+pub fn verify_stream_domain_cases() -> Result<(), String>
+	match stream_ref_is_connection(connection_stream_ref())
+		true => verify_accepted_stream_ids()
+		false => Err("connection stream reference was not classified as connection-only")
+	end
+end
+
+fn verify_accepted_stream_ids() -> Result<(), String>
+	let client_stream: StreamId = client_stream_id(1)?
+	let server_stream: StreamId = server_stream_id(2)?
+	match stream_id_value(client_stream) == 1 and stream_id_value(server_stream) == 2
+		true => verify_rejected_stream_ids()
+		false => Err("accepted stream ids did not retain their values")
+	end
+end
+
+fn verify_rejected_stream_ids() -> Result<(), String>
+	match client_stream_id(0)
+		Ok(_) => Err("zero entered the stream id domain")
+		Err(_) => match server_stream_id(2147483648)
+			Ok(_) => Err("an out-of-range value entered the stream id domain")
+			Err(_) => match client_stream_id(2)
+				Ok(_) => Err("an even value entered the client stream id domain")
+				Err(_) => match server_stream_id(3)
+					Ok(_) => Err("an odd value entered the server stream id domain")
+					Err(_) => Ok(())
+				end
+			end
+		end
+	end
+end

@@ -421,6 +421,8 @@ behavior.
   [network-channel-select-timeout-result.md](network-channel-select-timeout-result.md).
 - Network channel select timeout cancellable:
   [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
+- HTTP/2 stream domain values:
+  [http2-stream-domain-values.md](http2-stream-domain-values.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 - HTTP/2 header-block continuation state:

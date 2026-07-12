@@ -670,6 +670,8 @@ compare it with `../specification/` before changing behavior.
   broader protocol-core behavior and full HPACK behavior beyond the checked
   fixture and source-visible boundaries, including full HPACK compression and
   unbounded dynamic-table behavior.
+  The completed stream-identifier domain-value slice is archived under
+  [HTTP/2 Stream Domain Values](../reference/implemented-proposals/http2-stream-domain-values.md).
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
   The completed source-visible static-name Huffman literal slice is archived

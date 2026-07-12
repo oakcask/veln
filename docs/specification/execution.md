@@ -532,6 +532,18 @@ enough.
   clears retained entries and keeps later literal-with-indexing HEADERS
   encodes on the literal path. An entry that fits the reduced capacity is
   retained and reused through the outbound HEADERS path.
+- The checked HTTP/2 protocol core represents validated real streams with an
+  ordinary `StreamId` value backed by `Int` and represents a frame target with
+  `StreamRef`, which distinguishes the connection stream from a real stream.
+  Binary frame schemas still decode `UInt31be` fields to `Int`; the receive
+  boundary constructs the domain values before stream-state admission.
+  Client-initiated and server-initiated constructors reject zero, values above
+  the 31-bit HTTP/2 maximum, and endpoint-invalid parity. The connection
+  reference cannot satisfy the real-stream branch, while a real `StreamId`
+  cannot satisfy the connection-only branch. Existing failures retain
+  `http2.protocol.invalid_stream_id`, its focused required-domain fact,
+  endpoint role, active state, and rule provenance. The executable evidence is
+  under `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit
