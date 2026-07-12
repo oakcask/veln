@@ -1,0 +1,43 @@
+# Recursive binary schema helpers decode through repeated nested payloads.
+use stdio
+
+schema RecursivePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: Dispatch(kind, length, 1 => UInt8, 2 => RecursivePacket)
+end
+
+schema PacketBatch
+	format binary
+
+	count: UInt8
+	items: Repeat(count, RecursivePacket)
+end
+
+fn list_count(items: List<{length: Int, kind: Int, payload: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + list_count(tail)
+	end
+end
+
+fn payload_sum(items: List<{length: Int, kind: Int, payload: Int}>) -> Int
+	match items
+		Nil => 0
+		Cons(head, tail) => head.payload + payload_sum(tail)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("020101090302010107")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let batch: {count: Int, items: List<{length: Int, kind: Int, payload: Int}>} = byte_decode_packet_batch(view)?
+	stdio::print(int_to_string(batch.count))
+	stdio::print(" ")
+	stdio::print(int_to_string(list_count(batch.items)))
+	stdio::print(" ")
+	stdio::println(int_to_string(payload_sum(batch.items)))
+	Ok(())
+end

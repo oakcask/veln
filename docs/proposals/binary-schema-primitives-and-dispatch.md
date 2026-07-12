@@ -28,6 +28,8 @@ under
 The completed bounded `Repeat` representation-only lowercase reserved payload
 slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
+The completed same-module recursive repeated nested payload helper coverage is
+archived under the same repeat helper record.
 The completed direct visible `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`,
 `UInt56be`, and `UInt64be` generated helper parity slices are archived under
 [Binary Schema Big-Endian Width Parity](../reference/implemented-proposals/binary-schema-big-endian-width-parity.md).

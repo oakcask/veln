@@ -177,6 +177,16 @@ enough.
   do not expose a visible list field.
   Repeated `ByteView(left_length - right_length)` payloads expose
   `List<ByteView>` and report truncation with the repeated element index.
+  Repeated nested payloads may name a same-module recursive binary schema when
+  that nested schema already exposes a finite same-module recursive dispatch
+  helper shape through a length-bounded field and a non-recursive primitive base
+  case. The repeated field exposes `List<NestedRecord>` using that finite
+  nested schema-local visible record shape, and failures inside a recursive
+  repeated element preserve the repeated field path, element index, nested
+  schema names, and failing nested field path. The checked cases are
+  `examples/specification/run/binary-schema-recursive-repeat-nested-decode/`
+  and
+  `examples/specification/run/binary-schema-recursive-repeat-nested-failure-json/`.
 - Direct nested binary schema fields name an eligible same-module or public
   imported nested binary schema, consume that nested schema in place, and
   expose the nested schema-local visible record at the field.

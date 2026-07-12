@@ -327,7 +327,8 @@ compare it with `../specification/` before changing behavior.
   three-byte, four-byte, five-byte, six-byte, seven-byte, and eight-byte
   group decode and encode,
   bounded `Repeat(count_field, Payload)` primitive, same-module nested schema
-  field, and public imported nested schema field decode and encode slices,
+  field, public imported nested schema field, and same-module recursive nested
+  schema field decode and encode slices,
   bounded `Repeat(left_count - right_count, Payload)`,
   `Repeat(left_count + right_count, Payload)`, and
   `Repeat(left_count * right_count, Payload)` decode and encode with
@@ -425,7 +426,8 @@ compare it with `../specification/` before changing behavior.
   `ByteView(left_length / right_length)` payload helper slice is archived under
   [Binary Schema Imported Dispatch ByteView Quotient Payload Helpers](../reference/implemented-proposals/binary-schema-imported-dispatch-byteview-quotient-payload-helpers.md).
   The completed bounded repeat helper binding slice, including
-  representation-only lowercase reserved repeat payloads, is archived under
+  representation-only lowercase reserved repeat payloads and same-module
+  recursive repeated nested payload helpers, is archived under
   [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
   The completed bounded repeat `ByteView(left_length - right_length)` payload
   helper slice is archived under
