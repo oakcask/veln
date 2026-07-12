@@ -590,6 +590,18 @@ enough.
   outbound streams. Missing, closed, and reset outbound stream credit retain
   their existing later-DATA rejection shape after that SETTINGS transition.
   The checked case is `examples/specification/run/http2-protocol-core/`.
+- The same executable core represents connection window credit, stream window
+  credit, configured initial window size, and received `WINDOW_UPDATE`
+  increments as distinct ordinary values backed by `Int`. Their constructors
+  keep connection credit and initial sizes within zero and the HTTP/2 31-bit
+  maximum, require increments to be nonzero and within that maximum, and allow
+  stream credit to become negative after an initial-window reduction. DATA
+  blocking and debit, SETTINGS deltas, and connection- and stream-level credit
+  refill pass through these domains while preserving the existing observable
+  protocol failures. The checked case directly covers accepted and rejected
+  constructors, negative stream credit and DATA blocking, successful refill,
+  and connection and stream overflow rejection under
+  `examples/specification/run/http2-protocol-core/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
   Multiple peer SETTINGS frames received before consumption coalesce to that
