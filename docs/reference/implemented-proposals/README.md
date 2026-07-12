@@ -565,6 +565,12 @@ behavior.
   [http2-outbound-hpack-dynamic-name-indexed-literal.md](http2-outbound-hpack-dynamic-name-indexed-literal.md).
 - HTTP/2 outbound HPACK dynamic-name never-indexed literal:
   [http2-outbound-hpack-dynamic-name-never-indexed-literal.md](http2-outbound-hpack-dynamic-name-never-indexed-literal.md).
+- HTTP/2 outbound HPACK dynamic-name Huffman values:
+  [http2-outbound-hpack-dynamic-name-huffman-values.md](http2-outbound-hpack-dynamic-name-huffman-values.md).
+- HTTP/2 outbound HPACK Huffman literal names:
+  [http2-outbound-hpack-huffman-literal-names.md](http2-outbound-hpack-huffman-literal-names.md).
+- HTTP/2 outbound HPACK representation selection:
+  [http2-outbound-hpack-representation-selection.md](http2-outbound-hpack-representation-selection.md).
 - HTTP/2 outbound HPACK ordinary indexed literal:
   [http2-outbound-hpack-ordinary-indexed-literal.md](http2-outbound-hpack-ordinary-indexed-literal.md).
 - HTTP/2 outbound HPACK static-name literal:

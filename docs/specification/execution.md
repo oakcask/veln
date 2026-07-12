@@ -471,12 +471,17 @@ enough.
   encoding directly for a supported string, bounded byte input, and an
   unsupported string returned as a fixture encode failure. The
   source-visible HPACK fixture encoder also accepts the checked outbound
-  dynamic-name literal-with-indexing and literal-never-indexed slices under
+  dynamic-name literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed slices under
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
-  returned encode state through outbound HEADERS for both forms and
+  returned encode state through outbound HEADERS and
   server-side `PUSH_PROMISE` framing for the literal-with-indexing form in
-  `examples/specification/run/http2-protocol-core/`. The never-indexed
-  dynamic-name encode leaves the prior dynamic entry reusable as `0xbe`.
+  `examples/specification/run/http2-protocol-core/`. All three dynamic-name
+  forms accept values from the checked source-visible Huffman encoder. The
+  literal-with-indexing form inserts the decoded name and value for later
+  `0xbe` reuse; the other forms leave the prior dynamic entry reusable.
+  Missing dynamic-name state and unsupported Huffman input remain fixture
+  encode failures before a HEADERS block is emitted.
   The same fixture encoder
   accepts a checked ordinary new-name literal-with-indexing header list for
   visible-ASCII field-name and value pairs that pass the outbound ordinary
@@ -485,6 +490,26 @@ enough.
   same header list from that returned state emits dynamic indexed byte `0xbe`
   through the outbound HEADERS path. Unsupported ordinary names remain HPACK
   fixture encode failures before HEADERS bytes are emitted. The same fixture
+  encoder accepts checked new literal names from the source-visible Huffman
+  encoder across literal-without-indexing, literal-with-indexing, and
+  literal-never-indexed. Each form composes the Huffman name with raw and
+  Huffman literal values. Only literal-with-indexing inserts the decoded pair
+  for later `0xbe` reuse; the other forms retain an empty dynamic table, and
+  unsupported Huffman-name input returns a fixture failure without output or
+  mutation of the carried state. The checked indexed block and its returned
+  state are routed through outbound HEADERS. The same fixture
+  encoder exposes a bounded ordered-list selector that accepts two headers,
+  carried immutable state, and the active dynamic-table capacity. It selects
+  exact static indexed, exact dynamic indexed, static-name literal,
+  dynamic-name literal, then new-name literal in that order. The selected
+  literal policy is raw literal-with-indexing, so only the three literal
+  choices insert. Two carried-state blocks check static and dynamic exact
+  reuse alongside new-name and dynamic-name insertion. The outbound HEADERS
+  header-list path tries this selector before its existing fixture encoder
+  fallback and carries the selected state between both blocks.
+  Reduced-capacity insertion uses the existing eviction
+  rules. Invalid names and a capacity that disagrees with the carried state
+  fail without changing the reusable input state. The same fixture
   encoder observes the current outbound dynamic-table capacity after a checked
   table-size update: a later literal-with-indexing entry larger than the
   capacity is not retained for dynamic-index reuse, and a zero-capacity update

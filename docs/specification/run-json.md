@@ -699,6 +699,21 @@ inserted as the newest dynamic entry, later reused as `0xbe`, and the older
 checks a dynamic-name literal-never-indexed encode for `:path: /secret`: it
 emits the never-indexed dynamic-name bytes, does not insert `/secret`, and
 keeps the earlier `:path: /target` entry reusable as `0xbe`. Outbound HPACK
+dynamic-name Huffman-value stdout covers literal-without-indexing,
+literal-with-indexing, and literal-never-indexed. The indexed form inserts
+`:path: test` for later `0xbe` reuse, while the other forms retain the older
+`:path: /target` entry. The same run routes all three encoded blocks through
+outbound HEADERS and keeps missing dynamic-name state and unsupported Huffman
+input on no-output fixture failure paths. Outbound HPACK
+representation-selector stdout records the exact seed block containing static
+indexed `:method: GET` and a new-name `x-trace: ok` insertion. A second block
+records exact dynamic reuse followed by dynamic-name insertion of
+`x-trace: again`. The focused boundary also covers static-name precedence,
+reduced-capacity eviction, invalid-name failure, capacity mismatch, and reuse
+of the original carried state after failures. The aggregate case tries the
+selector before the existing fixture encoder fallback, routes both mixed
+blocks through outbound HEADERS, and records their exact frame bytes.
+Outbound HPACK
 dynamic table-size update requests use the same result boundary: an accepted
 update returns a fixture encode state that later HEADERS and `PUSH_PROMISE`
 encodes consume before frame splitting, while an over-limit update remains a
@@ -1190,6 +1205,14 @@ of the inserted `:path: test` entry after both routes. Those boundary
 checks are ordinary program stdout, not
 `details.protocol_diagnostic`, because they do not return a
 `RuntimeDiagnostic(...)` payload.
+The focused outbound fixture coverage also checks new Huffman literal names
+for literal-without-indexing, literal-with-indexing, and
+literal-never-indexed with both raw and Huffman values. Its stdout records
+exact bytes, empty dynamic tables for the two non-inserting forms, insertion
+and `0xbe` reuse for literal-with-indexing, and retained carried state after
+unsupported Huffman-name input fails without output. The HTTP/2 aggregate
+case routes the indexed `test: ok` block and its later dynamic-index reuse
+through outbound HEADERS and reports the returned fixture state.
 Missing, malformed, and out-of-range dynamic-name continuations use ids
 `hpack.fixture.dynamic_name_continuation_missing`,
 `hpack.fixture.dynamic_name_continuation_malformed`, and

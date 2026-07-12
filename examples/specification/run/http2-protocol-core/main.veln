@@ -368,6 +368,10 @@ type OutboundPushPromiseHpackTransition
 	OutboundPushPromiseHpackTransition(OutboundPushPromiseDecision, HpackFixtureState)
 end
 
+type OutboundHeadersHpackTransition
+	OutboundHeadersHpackTransition(OutboundHeadersDecision, HpackEncodeTransition)
+end
+
 type OutboundPushPromisePreflight
 	OutboundPushPromiseReady
 	OutboundPushPromisePreflightRejected(OutboundPushPromiseDecision)
@@ -2260,6 +2264,23 @@ fn send_headers_from_header_list(stream_id: Int, headers: HpackHeaderList, end_s
 			Err(error) => Err(error)
 		end
 		Err(failure) => Ok(Err(failure))
+	end
+end
+
+fn send_headers_from_selected_header_list_with_state(stream_id: Int, headers: HpackHeaderList, state: HpackFixtureState, active_capacity: Int, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
+	match hpack_fixture::encode_selected_header_list_with_state(headers, state, active_capacity, 0)
+		Ok(transition) => send_headers_from_selected_transition(stream_id, transition, end_stream, peer_settings, receive_credit)
+		Err(_) => match hpack_fixture::encode_header_list_with_state(headers, state, 0)
+			Ok(fallback_transition) => send_headers_from_selected_transition(stream_id, fallback_transition, end_stream, peer_settings, receive_credit)
+			Err(failure) => Ok(Err(failure))
+		end
+	end
+end
+
+fn send_headers_from_selected_transition(stream_id: Int, transition: HpackEncodeTransition, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
+	match send_headers(stream_id, hpack_fixture::encode_transition_bytes(transition), end_stream, peer_settings, receive_credit)
+		Ok(decision) => Ok(Ok(OutboundHeadersHpackTransition(decision, transition)))
+		Err(error) => Err(error)
 	end
 end
 
@@ -7975,6 +7996,25 @@ fn require_outbound_push_promise_hpack_transition(result: Result<OutboundPushPro
 	end
 end
 
+fn require_outbound_headers_hpack_transition(result: Result<OutboundHeadersHpackTransition, HpackFixtureFailure>) -> Result<OutboundHeadersHpackTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected outbound HEADERS HPACK state transition")
+	end
+end
+
+fn outbound_headers_hpack_decision(transition: OutboundHeadersHpackTransition) -> OutboundHeadersDecision
+	match transition
+		OutboundHeadersHpackTransition(decision, _) => decision
+	end
+end
+
+fn outbound_headers_hpack_encode_transition(transition: OutboundHeadersHpackTransition) -> HpackEncodeTransition
+	match transition
+		OutboundHeadersHpackTransition(_, encode_transition) => encode_transition
+	end
+end
+
 fn outbound_push_promise_hpack_decision(transition: OutboundPushPromiseHpackTransition) -> OutboundPushPromiseDecision
 	match transition
 		OutboundPushPromiseHpackTransition(decision, _) => decision
@@ -10044,6 +10084,88 @@ fn print_outbound_headers_dynamic_name_indexed_cases(outbound_dynamic_encode_sta
 	let outbound_headers_hpack_dynamic_name_older: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(outbound_dynamic_name_older_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_dynamic_name_newest))?
 	print_outbound_headers("outbound-headers-hpack-stateful-dynamic-name-older", outbound_headers_hpack_dynamic_name_older)
 	let ignored_headers_hpack_dynamic_name_older_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-stateful-dynamic-name-older", outbound_headers_hpack_dynamic_name_older, "000001010400000001bf")?
+	let ignored_huffman_name_cases: () = print_outbound_headers_huffman_name_cases(outbound_headers_hpack_dynamic_name_older)?
+	let ignored_dynamic_name_huffman_cases: () = print_outbound_headers_dynamic_name_huffman_cases(outbound_dynamic_encode_state, outbound_headers_hpack_stateful_dynamic)?
+	let ignored_selected_cases: () = print_outbound_headers_selected_cases(outbound_headers_hpack_dynamic_name_older)?
+	Ok(())
+end
+
+fn print_outbound_headers_selected_cases(outbound_receive_credit: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let seed_result: Result<OutboundHeadersHpackTransition, HpackFixtureFailure> = send_headers_from_selected_header_list_with_state(1, hpack_fixture::outbound_selected_seed_headers(), hpack_fixture::initial_encode_state(), 4096, false, empty_peer_settings(), outbound_headers_receive_credit(outbound_receive_credit))?
+	let seed_transition: OutboundHeadersHpackTransition = require_outbound_headers_hpack_transition(seed_result)?
+	let seed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = Ok(outbound_headers_hpack_encode_transition(seed_transition))
+	let seed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-selected-seed", seed_encode, "824007782d7472616365026f6b")?
+	print_outbound_hpack_encode_state_entries("outbound-headers-hpack-selected-seed-state", seed_state)
+	let seed_headers: OutboundHeadersDecision = outbound_headers_hpack_decision(seed_transition)
+	print_outbound_headers("outbound-headers-hpack-selected-seed", seed_headers)
+	let ignored_seed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-selected-seed", seed_headers, "00000d010400000001824007782d7472616365026f6b")?
+
+	let carried_result: Result<OutboundHeadersHpackTransition, HpackFixtureFailure> = send_headers_from_selected_header_list_with_state(1, hpack_fixture::outbound_selected_carried_headers(), seed_state, 4096, false, empty_peer_settings(), outbound_headers_receive_credit(seed_headers))?
+	let carried_transition: OutboundHeadersHpackTransition = require_outbound_headers_hpack_transition(carried_result)?
+	let carried_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = Ok(outbound_headers_hpack_encode_transition(carried_transition))
+	let carried_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-selected-carried", carried_encode, "be7e05616761696e")?
+	print_outbound_hpack_encode_state_entries("outbound-headers-hpack-selected-carried-state", carried_state)
+	let carried_headers: OutboundHeadersDecision = outbound_headers_hpack_decision(carried_transition)
+	print_outbound_headers("outbound-headers-hpack-selected-carried", carried_headers)
+	let ignored_carried_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-selected-carried", carried_headers, "000008010400000001be7e05616761696e")?
+	Ok(())
+end
+
+fn print_outbound_headers_dynamic_name_huffman_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let without_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_test_huffman_headers(), outbound_dynamic_encode_state, 0)
+	let without_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-without-indexing-path-test", without_encode, "0f2f8349509f")?
+	let without_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(without_encode)?
+	let without_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(without_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_headers_hpack_stateful_dynamic))?
+	print_outbound_headers("outbound-headers-hpack-dynamic-name-huffman-without-indexing", without_headers)
+	let ignored_without_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-dynamic-name-huffman-without-indexing", without_headers, "0000060104000000010f2f8349509f")?
+	let without_retained: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), without_state, 0)
+	let ignored_without_retained_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-without-indexing-retains-path-target", without_retained, "be")?
+
+	let never_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_test_never_indexed_huffman_headers(), outbound_dynamic_encode_state, 0)
+	let never_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-never-indexed-path-test", never_encode, "1f2f8349509f")?
+	let never_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(never_encode)?
+	let never_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(never_transition), false, empty_peer_settings(), outbound_headers_receive_credit(without_headers))?
+	print_outbound_headers("outbound-headers-hpack-dynamic-name-huffman-never-indexed", never_headers)
+	let ignored_never_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-dynamic-name-huffman-never-indexed", never_headers, "0000060104000000011f2f8349509f")?
+	let never_retained: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_path_target_headers(), never_state, 0)
+	let ignored_never_retained_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-never-indexed-retains-path-target", never_retained, "be")?
+
+	let indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_test_indexed_huffman_headers(), outbound_dynamic_encode_state, 0)
+	let indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-indexed-path-test", indexed_encode, "7e8349509f")?
+	let indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(indexed_encode)?
+	let indexed_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(indexed_transition), false, empty_peer_settings(), outbound_headers_receive_credit(never_headers))?
+	print_outbound_headers("outbound-headers-hpack-dynamic-name-huffman-indexed", indexed_headers)
+	let ignored_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-dynamic-name-huffman-indexed", indexed_headers, "0000050104000000017e8349509f")?
+	let reuse_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_dynamic_indexed_path_test_probe_headers(), indexed_state, 0)
+	let reuse_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-indexed-reuses-path-test", reuse_encode, "be")?
+	let reuse_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(reuse_encode)?
+	let reuse_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(reuse_transition), false, empty_peer_settings(), outbound_headers_receive_credit(indexed_headers))?
+	print_outbound_headers("outbound-headers-hpack-dynamic-name-huffman-indexed-reuse", reuse_headers)
+	let ignored_reuse_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-dynamic-name-huffman-indexed-reuse", reuse_headers, "000001010400000001be")?
+	print_outbound_hpack_encode_state("outbound-headers-hpack-dynamic-name-huffman-indexed-reuse-state", reuse_state)
+
+	let missing: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_test_huffman_headers(), hpack_fixture::initial_encode_state(), 0)
+	let ignored_missing: () = print_outbound_hpack_encode_expected_failure("outbound-headers-hpack-dynamic-name-huffman-missing", missing)?
+	let unsupported: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_unsupported_huffman_headers(), outbound_dynamic_encode_state, 0)
+	let ignored_unsupported: () = print_outbound_hpack_encode_expected_failure("outbound-headers-hpack-dynamic-name-huffman-unsupported", unsupported)?
+	Ok(())
+end
+
+fn print_outbound_headers_huffman_name_cases(outbound_receive_credit: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
+	let indexed_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_indexed_huffman_name_test_headers(), hpack_fixture::initial_encode_state(), 0)
+	let indexed_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-huffman-name-indexed-test-ok", indexed_encode, "408349509f026f6b")?
+	print_outbound_hpack_encode_state_entries("outbound-headers-hpack-huffman-name-indexed-state", indexed_state)
+	let indexed_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(indexed_encode)?
+	let indexed_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(indexed_transition), false, empty_peer_settings(), outbound_headers_receive_credit(outbound_receive_credit))?
+	print_outbound_headers("outbound-headers-hpack-huffman-name-indexed", indexed_headers)
+	let ignored_indexed_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-huffman-name-indexed", indexed_headers, "000008010400000001408349509f026f6b")?
+	let reuse_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_dynamic_indexed_test_ok_probe_headers(), indexed_state, 0)
+	let reuse_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-huffman-name-indexed-reuses-test-ok", reuse_encode, "be")?
+	print_outbound_hpack_encode_state_entries("outbound-headers-hpack-huffman-name-indexed-reuse-state", reuse_state)
+	let reuse_transition: HpackEncodeTransition = require_outbound_hpack_encode_transition(reuse_encode)?
+	let reuse_headers: OutboundHeadersDecision = send_headers(1, hpack_fixture::encode_transition_bytes(reuse_transition), false, empty_peer_settings(), outbound_headers_receive_credit(indexed_headers))?
+	print_outbound_headers("outbound-headers-hpack-huffman-name-indexed-reuse", reuse_headers)
+	let ignored_reuse_chunk: () = print_outbound_headers_chunk("http2-headers-hpack-huffman-name-indexed-reuse", reuse_headers, "000001010400000001be")?
 	Ok(())
 end
 
