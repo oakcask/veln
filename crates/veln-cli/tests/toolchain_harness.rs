@@ -4038,6 +4038,34 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic" => {
+            let args = expect_arity(name, args, 8)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("setting_identifier", parse_veln_value(args[1])?),
+                    (
+                        "setting_name",
+                        JsonValue::String(args[2].trim().to_string()),
+                    ),
+                    (
+                        "endpoint_role",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    ("frame_kind", parse_veln_value(args[4])?),
+                    (
+                        "active_state",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[6].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[7])?),
+                ],
+            ))
+        }
         "RuntimeHttp2ProtocolPriorityDependencyDiagnostic" => {
             let args = expect_arity(name, args, 6)?;
             Ok(result_value_object(

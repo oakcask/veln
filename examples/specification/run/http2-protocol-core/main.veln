@@ -223,6 +223,11 @@ type PrefaceState
 	AfterPreface
 end
 
+type Http2EndpointRole
+	ServerEndpoint
+	ClientEndpoint
+end
+
 type Http2DecodeState
 	State(ByteChunk, Int, PrefaceState, PendingContinuation, HpackFixtureState, ReceiveLimitEntry, PeerSettingsState, ConnectionShutdownState, ReceiveFlowControl, PeerStreamAdmissionState)
 end
@@ -252,6 +257,7 @@ type Http2ProtocolFailure
 	InvalidRequestHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview_chunk: ByteChunk}
 	InvalidResponseHeaderList {offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, preview_chunk: ByteChunk}
 	UnexpectedSettingsAck(Int, String, String, ByteView)
+	SettingsNotAllowedForEndpoint {offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	InvalidPriorityDependency {offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	StreamAfterGoaway {offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview_chunk: ByteChunk}
 	FrameSizeExceeded {offset: Int, observed_length: Int, receive_limit: ReceiveLimitEntry, frame_kind: Int, stream_id: Int}
@@ -498,15 +504,23 @@ fn encode_push_promise_payload(payload: {promised_stream_id: Int}) -> Result<Byt
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
+	receive_for_role(input, state, ServerEndpoint)
+end
+
+fn receive_client(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
+	receive_for_role(input, state, ClientEndpoint)
+end
+
+fn receive_for_role(input: Http2Input, state: Http2DecodeState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	match input
-		InputChunk(bytes) => receive_chunk(bytes, state)
+		InputChunk(bytes) => receive_chunk(bytes, state, endpoint_role)
 		InputEnd => receive_end(state)
 	end
 end
 
-fn receive_chunk(bytes: ByteChunk, state: Http2DecodeState) -> Result<Http2Step, String>
+fn receive_chunk(bytes: ByteChunk, state: Http2DecodeState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => receive_available(byte_append(pending, bytes), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => receive_available(byte_append(pending, bytes), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 	end
 end
 
@@ -530,10 +544,10 @@ fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState
 	end
 end
 
-fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
+fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	match preface_state
-		ExpectPreface => validate_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
-		AfterPreface => decode_available(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+		ExpectPreface => validate_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
+		AfterPreface => decode_available(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 	end
 end
 
@@ -541,25 +555,25 @@ fn client_connection_preface_count() -> Int
 	24
 end
 
-fn validate_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
+fn validate_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	let matched: Int = matched_preface_count(pending, available, 0)?
 	match matched < available
 		true => match matched < client_connection_preface_count()
 			true => Ok(Failed(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), InvalidPreface(next_offset + matched, expected_preface_byte(matched), read_byte(pending, matched)?, matched)))
-			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 		end
 		false => match available < client_connection_preface_count()
 			true => Ok(Waiting(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
-			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 		end
 	end
 end
 
-fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
+fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let preface_count: ByteCount = byte_count(client_connection_preface_count())?
 	let suffix: ByteChunk = byte_drop(pending, preface_count)?
-	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 end
 
 fn matched_preface_count(pending: ByteChunk, available: Int, index: Int) -> Result<Int, String>
@@ -609,15 +623,15 @@ fn expected_preface_byte(index: Int) -> Int
 	end
 end
 
-fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
+fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available < 9
 		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
-		false => decode_header(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+		false => decode_header(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 	end
 end
 
-fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
+fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	let zero: ByteOffset = byte_offset(0)?
 	let base_offset: ByteOffset = byte_offset(next_offset)?
@@ -627,7 +641,7 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let max_frame_size: Int = receive_limit_value(receive_limit)
 	match header.length > max_frame_size
 		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
-		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, available, header.length, header.kind, header.flags, header.stream_id, byte_view_to_chunk(view))
+		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, available, header.length, header.kind, header.flags, header.stream_id, byte_view_to_chunk(view), endpoint_role)
 	end
 end
 
@@ -812,28 +826,28 @@ fn header_table_receive_limit() -> ReceiveLimitEntry
 	ReceiveLimit(160, LocalConfiguration)
 end
 
-fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
+fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
 		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
-		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, frame_count_int, header_preview)
+		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, frame_count_int, header_preview, endpoint_role)
 	end
 end
 
-fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
+fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int, header_preview: ByteChunk, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
 	let payload: ByteChunk = frame_payload_chunk(pending, length)?
 	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	let stream_id_decision: ProtocolStreamIdDecision = validate_stream_id_domain(next_offset, kind, stream_id, receive_flow_control)
 	match stream_id_decision
-		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, consumed_state, header_preview)
+		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, consumed_state, header_preview, endpoint_role)
 		ProtocolStreamIdFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
 
-fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk) -> Result<Http2Step, String>
-	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags)?
+fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
+	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags, endpoint_role)?
 	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, flags, stream_id)?
 	let payload_decision: ProtocolPayloadDecision = validate_protocol_payload(next_offset, payload, length, kind, flags, stream_id)?
 	match settings_decision
@@ -1561,12 +1575,12 @@ fn validate_fixed_payload_length(offset: Int, payload: ByteChunk, length: Int, k
 	end
 end
 
-fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int) -> Result<SettingsRangeDecision, String>
+fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	match kind
 		4 => match settings_ack_set(flags)
 			true => Ok(SettingsValueOk)
 			false => match settings_payload_has_complete_items(length)
-				true => validate_settings_items(pending, next_offset, 9, 9 + length)
+				true => validate_settings_items(pending, next_offset, 9, 9 + length, endpoint_role)
 				false => Ok(SettingsValueOk)
 			end
 		end
@@ -1588,17 +1602,17 @@ fn settings_payload_has_partial_item(length: Int) -> Bool
 	end
 end
 
-fn validate_settings_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int) -> Result<SettingsRangeDecision, String>
+fn validate_settings_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	match item_wire_offset == payload_end_offset
 		true => Ok(SettingsValueOk)
-		false => match validate_single_settings_value(pending, next_offset, item_wire_offset)?
-			SettingsValueOk => validate_settings_items(pending, next_offset, item_wire_offset + 6, payload_end_offset)
+		false => match validate_single_settings_value(pending, next_offset, item_wire_offset, endpoint_role)?
+			SettingsValueOk => validate_settings_items(pending, next_offset, item_wire_offset + 6, payload_end_offset, endpoint_role)
 			SettingsValueFailed(error) => Ok(SettingsValueFailed(error))
 		end
 	end
 end
 
-fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wire_offset: Int) -> Result<SettingsRangeDecision, String>
+fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	let item_offset: ByteOffset = byte_offset(item_wire_offset)?
 	let item_count: ByteCount = byte_count(6)?
 	let item: ByteView = byte_view(pending, item_offset, item_count)?
@@ -1610,8 +1624,15 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wir
 	match identifier
 		5 => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
 		4 => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
-		2 => validate_enable_push_setting(next_offset + item_wire_offset, value, item)
+		2 => validate_enable_push_setting_for_role(next_offset + item_wire_offset, value, item, endpoint_role)
 		_ => Ok(SettingsValueOk)
+	end
+end
+
+fn validate_enable_push_setting_for_role(item_offset: Int, value: Int, preview: ByteView, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
+	match endpoint_role
+		ClientEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", preview)))
+		ServerEndpoint => validate_enable_push_setting(item_offset, value, preview)
 	end
 end
 
@@ -5522,6 +5543,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance, preview_chunk) => failure_rule_provenance(error)
@@ -6139,6 +6161,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => failure_rule_provenance(error)
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => failure_rule_provenance(error)
 		UnexpectedSettingsAck(_, _, _, _) => failure_rule_provenance(error)
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance, preview_chunk) => failure_rule_provenance(error)
@@ -6639,6 +6662,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "http2.protocol.invalid_request_header_list"
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "http2.protocol.invalid_response_header_list"
 			UnexpectedSettingsAck(_, _, _, _) => "http2.protocol.unexpected_settings_ack"
+			SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "http2.protocol.settings_not_allowed_for_endpoint"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "http2.protocol.stream_after_goaway"
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "http2.peer_limit.frame_size_exceeded"
@@ -6693,6 +6717,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => offset
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => offset
 		UnexpectedSettingsAck(offset, _, _, _) => offset
+		SettingsNotAllowedForEndpoint(offset, _, _, _, _, _, _, _) => offset
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => offset
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => offset
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => offset
@@ -6721,6 +6746,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -6749,6 +6775,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => frame_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
+		SettingsNotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 2
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 1
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => frame_kind
@@ -6777,6 +6804,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => stream_id
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => stream_id
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => stream_id
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => stream_id
@@ -6805,6 +6833,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => dependency_stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => last_stream_id
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -6833,6 +6862,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => frame_kind
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => frame_kind
 		UnexpectedSettingsAck(_, _, _, _) => 4
+		SettingsNotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 2
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 1
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -6861,6 +6891,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -6889,6 +6920,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 			UnexpectedSettingsAck(_, _, _, _) => 0
+			SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -6917,6 +6949,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => stream_id
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => observed_length
@@ -6945,6 +6978,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => dependency_stream_id
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => last_stream_id
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => receive_limit_value(receive_limit)
@@ -6973,6 +7007,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => request_header_active_state(failed_header_fact, decoded_header_names)
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => active_state
 			UnexpectedSettingsAck(_, active_state, _, _) => active_state
+			SettingsNotAllowedForEndpoint(_, _, _, _, _, active_state, _, _) => active_state
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => active_state
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => shutdown_state
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7053,6 +7088,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => request_header_rule_provenance(failed_header_fact)
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => response_header_rule_provenance(failed_header_fact)
 			UnexpectedSettingsAck(_, _, rule_provenance, _) => rule_provenance
+			SettingsNotAllowedForEndpoint(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => rule_provenance
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => rule_provenance
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7084,6 +7120,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => receive_limit_provenance_label(receive_limit)
@@ -7112,6 +7149,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -7140,6 +7178,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
+		SettingsNotAllowedForEndpoint(_, _, setting_name, _, _, _, _, _) => setting_name
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7168,6 +7207,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -7196,6 +7236,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -7224,6 +7265,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
@@ -7252,6 +7294,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "none"
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "none"
 		UnexpectedSettingsAck(_, _, _, _) => "none"
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7459,6 +7502,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_response_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
 			UnexpectedSettingsAck(offset, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview))
+			SettingsNotAllowedForEndpoint(offset, setting_identifier, setting_name, endpoint_role, frame_kind, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_settings_not_allowed_for_endpoint(offset, setting_identifier, setting_name, endpoint_role, frame_kind, active_state, rule_provenance, preview))
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => accept_runtime_diagnostic(project_priority_dependency_payload(offset, stream_id, dependency_stream_id, active_state, rule_provenance, byte_view_to_chunk(preview)))
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => accept_runtime_diagnostic(http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, byte_chunk_view(preview_chunk)?))
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => accept_runtime_diagnostic(http2_peer_limit_frame_size_exceeded(offset, observed_length, receive_limit_value(receive_limit), frame_kind, stream_id, receive_limit_provenance_label(receive_limit), diagnostic_context_pending_view(context)?))
@@ -7528,6 +7572,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "request pseudo-header list"
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "response pseudo-header list"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
+			SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => "none"
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7556,6 +7601,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => "server"
 			InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => "server"
 			UnexpectedSettingsAck(_, _, _, _) => "none"
+			SettingsNotAllowedForEndpoint(_, _, _, endpoint_role, _, _, _, _) => endpoint_role
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => "none"
 		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance, preview_chunk) => endpoint_role
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "none"
@@ -7585,6 +7631,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => 0
 		InvalidResponseHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, active_state, preview_chunk) => 0
 		UnexpectedSettingsAck(_, _, _, _) => 0
+		SettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
 		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview) => 0
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => 0
 		FlowControlWindowExceeded(offset, frame_kind, stream_id, observed_length, allowed_window_credit, active_state, rule_provenance, preview_chunk) => 0
@@ -8024,6 +8071,27 @@ fn print_settings_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(int_to_string(failure_accepted_max_value(failure)))
 	stdio::print(" peer_limit ")
 	stdio::println(failure_peer_limit_provenance(failure))
+end
+
+fn print_settings_role_failure(label: String, step: Http2Step) -> () effects [stdio]
+	let failure: Http2ProtocolFailure = step_failure(step)
+	stdio::print(label)
+	stdio::print(" id ")
+	stdio::print(failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" setting_identifier ")
+	stdio::print(int_to_string(failure_setting_identifier(failure)))
+	stdio::print(" setting_name ")
+	stdio::print(failure_setting_name(failure))
+	stdio::print(" endpoint ")
+	stdio::print(failure_endpoint_role(failure))
+	stdio::print(" frame_kind ")
+	stdio::print(int_to_string(failure_actual_kind(failure)))
+	stdio::print(" active_state ")
+	stdio::print(failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::println(failure_rule_provenance(failure))
 end
 
 fn print_receive_windows(label: String, state: Http2DecodeState) -> () effects [stdio]
@@ -12263,6 +12331,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let peer_enable_push: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000200000000")?), frame_state())?
 	print_step("peer-enable-push", peer_enable_push)
 	print_peer_settings("peer-enable-push", step_state(peer_enable_push))
+	let server_enable_push: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000200000001")?), frame_state())?
+	print_step("server-settings-enable-push-accepted", server_enable_push)
+	print_peer_settings("server-settings-enable-push-accepted", step_state(server_enable_push))
+	let client_enable_push: Http2Step = receive_client(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000200000001")?), frame_state())?
+	print_settings_role_failure("client-settings-enable-push-rejected", client_enable_push)
+	print_peer_settings("client-settings-enable-push-rejected", step_state(client_enable_push))
+	let ignored_client_enable_push_diagnostic: () = http2_protocol_diagnostic(step_failure(client_enable_push), DiagnosticContext(step_state(client_enable_push)))?
 	let enable_push_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_enable_push))?
 	print_step("enable-push-settings-ack", enable_push_settings_ack)
 	print_peer_settings("enable-push-settings-ack", step_state(enable_push_settings_ack))

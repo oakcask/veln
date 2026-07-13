@@ -857,6 +857,7 @@ http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, obse
 http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2_protocol_settings_not_allowed_for_endpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
@@ -1287,6 +1288,9 @@ returned diagnostic values,
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
 `http2.protocol.unexpected_settings_ack` failures from returned diagnostic
 values,
+`RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...)` for
+projecting `http2.protocol.settings_not_allowed_for_endpoint` failures from
+returned diagnostic values,
 `RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for projecting
 `http2.protocol.invalid_priority_dependency` failures from returned diagnostic
 values, and
@@ -1302,6 +1306,7 @@ values, and
 `http2_protocol_invalid_window_update_increment(...)`,
 `http2_protocol_content_length_mismatch(...)`,
 `http2_protocol_unexpected_settings_ack(...)`,
+`http2_protocol_settings_not_allowed_for_endpoint(...)`,
 `http2_protocol_invalid_priority_dependency(...)`,
 `http2_protocol_stream_after_goaway(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,

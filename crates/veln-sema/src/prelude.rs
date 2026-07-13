@@ -737,6 +737,19 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
             vec![T::int(), T::string(), T::string(), types.byte_view.clone()],
             unit_runtime_diagnostic_result(),
         )),
+        "http2_protocol_settings_not_allowed_for_endpoint" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_runtime_diagnostic_result(),
+        )),
         "http2_protocol_invalid_priority_dependency" => Some((
             vec![
                 T::int(),

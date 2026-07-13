@@ -832,6 +832,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_request_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_request_header_list"),
     "http2_protocol_invalid_response_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_response_header_list"),
     "http2_protocol_unexpected_settings_ack" => veln_stdlib::prelude_source("http2_protocol_unexpected_settings_ack"),
+    "http2_protocol_settings_not_allowed_for_endpoint" => veln_stdlib::prelude_source("http2_protocol_settings_not_allowed_for_endpoint"),
     "http2_protocol_invalid_priority_dependency" => veln_stdlib::prelude_source("http2_protocol_invalid_priority_dependency"),
     "http2_protocol_stream_after_goaway" => veln_stdlib::prelude_source("http2_protocol_stream_after_goaway"),
     "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),

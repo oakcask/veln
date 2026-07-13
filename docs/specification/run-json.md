@@ -1086,7 +1086,17 @@ fields. The checked human and JSON examples return a source-visible
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
 `http2_protocol_unexpected_settings_ack(...)` standard helper returns the same
-source-visible payload directly. A PRIORITY frame
+source-visible payload directly. A peer-sent `SETTINGS_ENABLE_PUSH` item on a
+client receive path uses id
+`http2.protocol.settings_not_allowed_for_endpoint` and records
+`byte_offset.value`, `setting_identifier`, `setting_name`, `endpoint_role`,
+`frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
+`rule_provenance`, plus a structured bounded `byte_preview` of the inspected
+six-byte SETTINGS item. The checked human and JSON examples return a
+source-visible
+`RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...)` payload,
+and the `http2_protocol_settings_not_allowed_for_endpoint(...)` helper returns
+the same value directly. A PRIORITY frame
 whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,

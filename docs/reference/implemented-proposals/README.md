@@ -599,6 +599,8 @@ behavior.
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
 - HTTP/2 SETTINGS item-length validation:
   [http2-settings-item-length-validation.md](http2-settings-item-length-validation.md).
+- HTTP/2 client SETTINGS_ENABLE_PUSH rejection:
+  [http2-client-settings-enable-push-rejection.md](http2-client-settings-enable-push-rejection.md).
 - HTTP/2 local SETTINGS batch send:
   [http2-local-settings-batch-send.md](http2-local-settings-batch-send.md).
 - HTTP/2 outbound DATA flow control:

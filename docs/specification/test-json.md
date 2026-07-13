@@ -64,6 +64,7 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
   `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
   `../../examples/specification/run/http2-protocol-core-settings-item-length-json/`,
+  `../../examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`,
   `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
   `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
   `../../examples/specification/run/http2-protocol-core-flow-control-json/`,

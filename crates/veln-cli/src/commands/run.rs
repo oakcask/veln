@@ -1381,6 +1381,29 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 self.push_preview_state_and_provenance(&mut diagnostic)?;
                 Some(diagnostic)
             }
+            "http2.protocol.settings_not_allowed_for_endpoint" => {
+                let setting_identifier = self.number("setting_identifier")?;
+                let setting_name = self.string("setting_name")?;
+                let endpoint_role = self.string("endpoint_role")?;
+                let frame_kind = self.number("frame_kind")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "{setting_name} is not allowed for {endpoint_role} endpoints at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "{setting_name} ({setting_identifier}) appeared in frame kind {frame_kind}."
+                )));
+                push_byte_preview_note(&mut diagnostic, self.entries);
+                diagnostic
+                    .related
+                    .push(note_json(format!("Endpoint role: {endpoint_role}.")));
+                self.push_active_state(&mut diagnostic)?;
+                let rule_provenance = self.string("rule_provenance")?;
+                diagnostic
+                    .related
+                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+                Some(diagnostic)
+            }
             _ => None,
         }
     }
@@ -6886,6 +6909,69 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_settings_ack_requires_outstanding_local_settings")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_settings_endpoint_role_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.settings_not_allowed_for_endpoint"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(15)),
+                ]),
+            ),
+            ("setting_identifier", JsonValue::Number(2)),
+            ("setting_name", JsonValue::string("SETTINGS_ENABLE_PUSH")),
+            ("endpoint_role", JsonValue::string("client")),
+            ("frame_kind", JsonValue::Number(4)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("byte_preview", byte_preview("000200000001")),
+            ("active_state", JsonValue::string("peer-settings")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_client_must_not_receive_settings_enable_push"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset 15".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.protocol.settings_not_allowed_for_endpoint"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "SETTINGS_ENABLE_PUSH is not allowed for client endpoints at byte offset 15"
+        );
+        assert_eq!(diagnostic.related.len(), 5);
+        assert!(diagnostic.related[0].to_json().contains("(2)"));
+        assert!(diagnostic.related[0].to_json().contains("frame kind 4"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 02 00 00 00 01")
+        );
+        assert!(diagnostic.related[2].to_json().contains("client"));
+        assert!(diagnostic.related[3].to_json().contains("peer-settings"));
+        assert!(
+            diagnostic.related[4]
+                .to_json()
+                .contains("rfc9113_client_must_not_receive_settings_enable_push")
         );
     }
 
