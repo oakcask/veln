@@ -1039,6 +1039,12 @@ stream id as `stream_id`, the retained local high-water value as
 `previous_peer_stream_id`, server `endpoint_role`, `active_state`,
 `rule_provenance`, and the bounded preview fields. The focused JSON case is
 `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-json/`.
+For outbound local HEADERS stream-id reuse or regression, the same diagnostic
+payload carries the attempted client-initiated id as `stream_id`, the retained
+local high-water value as `previous_peer_stream_id`, client `endpoint_role`,
+`active_state`, `rule_provenance`, and the bounded preview fields. The focused
+JSON case is
+`examples/specification/run/http2-protocol-core-outbound-local-stream-id-ordering-json/`.
 After receiving GOAWAY or after locally sending GOAWAY, a peer-created
 HEADERS stream, local outbound HEADERS send-intent, local outbound
 `PRIORITY` send-intent, stream-level outbound `WINDOW_UPDATE` receive-credit

@@ -69,7 +69,9 @@ requiring the full command reference on the first read.
   `WINDOW_UPDATE`, and server-side outbound `PUSH_PROMISE` send-intents above
   received or locally sent GOAWAY boundaries, plus server-side outbound
   promised stream id ordering with retained connection state and focused
-  human and JSON diagnostic projections,
+  human and JSON diagnostic projections, plus client-side outbound HEADERS
+  local stream admission and retained stream-id ordering with focused human
+  and JSON projections,
   standard helper-returned frame-size, SETTINGS value, and header-table
   runtime diagnostic payloads,
   HPACK dynamic index lookup failures with dynamic table entry counts, and

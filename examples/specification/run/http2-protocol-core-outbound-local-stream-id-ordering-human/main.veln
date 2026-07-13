@@ -1,0 +1,25 @@
+# An outbound local stream ordering failure projects focused client context.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.peer_stream_id_not_increasing",
+		error,
+		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(0, 1, 3, "client", "idle-stream", "rfc9113_outbound_local_stream_ids_increase", byte_chunk([]))
+	)
+end
+
+fn frame_header() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000001010400000001")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteChunk = frame_header()?
+	Err(RuntimeDiagnostic(
+		"http2.protocol.peer_stream_id_not_increasing",
+		"HTTP/2 outbound local stream id 1 is not greater than previous id 3 at byte offset 0",
+		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(0, 1, 3, "client", "idle-stream", "rfc9113_outbound_local_stream_ids_increase", preview)
+	))
+end

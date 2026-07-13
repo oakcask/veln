@@ -726,6 +726,16 @@ streams, already closed or reset streams, and generated frame-header
 representation failures before accepted bytes are produced. Unsupported
 fixture header-list values return typed HPACK fixture encode failures instead
 of HTTP/2 protocol diagnostics.
+The client-side connection form of that send-intent also accepts idle nonzero
+client-initiated stream ids as new local streams. It retains the greatest
+successfully started local id across close and reset, keeps existing open
+stream HEADERS on the lifecycle path, and rejects reused or lower new ids with
+`http2.protocol.peer_stream_id_not_increasing`. Domain, endpoint role, GOAWAY,
+peer concurrent-stream limit, HPACK, frame-size, splitting, and generated
+encoding checks complete before high-water, lifecycle, receive-credit, HPACK,
+or output state commits. Rejected higher ids remain retryable. The completed
+slice is archived under
+[HTTP/2 Outbound Local Stream ID Ordering](../reference/implemented-proposals/http2-outbound-local-stream-id-ordering.md).
 The implemented slice also includes the narrow server-side outbound
 `PUSH_PROMISE` send-intent. Ordinary source accepts a nonzero currently open
 client-created associated stream, a nonzero server-initiated promised stream

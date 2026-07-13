@@ -567,7 +567,8 @@ compare it with `../specification/` before changing behavior.
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, HEADERS with the PRIORITY flag, GOAWAY, local
-  GOAWAY outbound HEADERS boundary,
+  GOAWAY outbound HEADERS boundary, client-side outbound HEADERS local-stream
+  admission and retained stream-id ordering,
   server-side `PUSH_PROMISE` rejection,
   outbound `PRIORITY` post-GOAWAY send-intent boundary,
   server-side outbound

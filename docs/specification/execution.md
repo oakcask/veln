@@ -600,6 +600,25 @@ enough.
   `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-json/`.
+- The client-side outbound HEADERS connection state accepts an idle nonzero
+  client-initiated stream id as a new local stream and retains the greatest id
+  whose complete send intent was accepted. First and increasing ids advance
+  that value only after HPACK encoding, frame splitting, peer frame-size and
+  concurrent-stream checks, GOAWAY admission, stream-id encoding, and output
+  construction succeed. Reused or lower new ids use
+  `http2.protocol.peer_stream_id_not_increasing` without exposing the encoded
+  bytes or committing HPACK, peer-settings, shutdown, receive-credit,
+  lifecycle, or ordering state. Closing or resetting the latest stream does
+  not lower the retained value, while HEADERS on its currently open stream
+  keeps the existing lifecycle path without a new-stream ordering check.
+  Server endpoints cannot use this path to start regular streams. Rejected
+  higher ids remain eligible for corrected retry, and accepted split
+  HEADERS/CONTINUATION output advances the value once. The broad executable
+  evidence is `examples/specification/run/http2-protocol-core/`; focused human
+  and JSON projections are under
+  `examples/specification/run/http2-protocol-core-outbound-local-stream-id-ordering-human/`
+  and
+  `examples/specification/run/http2-protocol-core-outbound-local-stream-id-ordering-json/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit
