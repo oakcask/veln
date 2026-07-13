@@ -1,0 +1,25 @@
+# An outbound promised stream ordering failure projects structured server context.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.peer_stream_id_not_increasing",
+		error,
+		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(0, 2, 4, "server", "idle-stream", "rfc9113_outbound_promised_stream_ids_increase", byte_chunk([]))
+	)
+end
+
+fn frame_header() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000005050400000001")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteChunk = frame_header()?
+	Err(RuntimeDiagnostic(
+		"http2.protocol.peer_stream_id_not_increasing",
+		"HTTP/2 outbound promised stream id 2 is not greater than previous id 4 at byte offset 0",
+		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(0, 2, 4, "server", "idle-stream", "rfc9113_outbound_promised_stream_ids_increase", preview)
+	))
+end
