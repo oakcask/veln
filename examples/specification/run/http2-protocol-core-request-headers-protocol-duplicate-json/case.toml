@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.failed_header_fact"
+equals = "duplicate_protocol_pseudo_header"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.header_name"
+equals = ":protocol"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.decoded_header_names"
+equals = ":method,:protocol,:protocol,:scheme,:path,:authority"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.rule_provenance"
+equals = "rfc8441_extended_connect_pseudo_headers"

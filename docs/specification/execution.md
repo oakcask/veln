@@ -760,6 +760,17 @@ enough.
 
 ## Runtime Output
 
+The checked HTTP/2 protocol core supports
+`SETTINGS_ENABLE_CONNECT_PROTOCOL` (`0x8`) as negotiated sans-I/O state.
+Values `0` and `1` are accepted and other values use the structured SETTINGS
+range diagnostic. Only servers advertise the setting; endpoint-role rejection
+emits no bytes and preserves connection state. Once a server has locally
+advertised value `1`, completed HEADERS and final CONTINUATION request blocks
+may use extended CONNECT with exactly one non-empty `:protocol` plus
+`:scheme`, `:path`, and `:authority`. The same validation rejects `:protocol`
+on non-CONNECT requests and rejects extended CONNECT before negotiation, while
+ordinary CONNECT retains its existing shape.
+
 - `veln run` entries project returned `Result`, `ByteChunk`,
   `List<ByteChunk>`, HTTP/2 protocol diagnostics, and runtime diagnostic
   values through the command output boundary described in

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_request_header_list]: request header list is missing required extended CONNECT :authority at byte offset 12", "note: Frame kind 1 on stream 1 decoded request header names: :method,:protocol,:scheme,:path.", "note: Active protocol state: request-headers.", "note: Rule provenance: rfc8441_extended_connect_pseudo_headers."]

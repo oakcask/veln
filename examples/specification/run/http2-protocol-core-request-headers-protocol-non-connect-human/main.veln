@@ -1,0 +1,9 @@
+# Non-CONNECT :protocol failures project focused request-header diagnostics.
+
+type Http2ProtocolFailure
+	InvalidRequestHeaderList {message: String, offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, preview: ByteChunk}
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 :protocol requires CONNECT at byte offset 12", RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_on_non_connect_request", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_protocol_requires_connect", byte_chunk([]))))
+end
