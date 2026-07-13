@@ -517,18 +517,25 @@ enough.
   unsupported Huffman-name input returns a fixture failure without output or
   mutation of the carried state. The checked indexed block and its returned
   state are routed through outbound HEADERS. The same fixture
-  encoder exposes a bounded ordered-list selector that accepts two headers,
-  carried immutable state, and the active dynamic-table capacity. It selects
+  encoder exposes an ordered header-field list that accepts any finite number
+  of already-validated name/value pairs, carried immutable state, and the
+  active peer-advertised dynamic-table capacity. It selects
   exact static indexed, exact dynamic indexed, static-name literal,
   dynamic-name literal, then new-name literal in that order. The selected
   literal policy is raw literal-with-indexing, so only the three literal
-  choices insert. Two carried-state blocks check static and dynamic exact
-  reuse alongside new-name and dynamic-name insertion. The outbound HEADERS
-  header-list path tries this selector before its existing fixture encoder
-  fallback and carries the selected state between both blocks.
-  Reduced-capacity insertion uses the existing eviction
-  rules. Invalid names and a capacity that disagrees with the carried state
-  fail without changing the reusable input state. The same fixture
+  choices insert. Multi-field and carried-state blocks check static and
+  dynamic exact reuse alongside new-name and dynamic-name insertion. Outbound
+  request and response HEADERS and server-side `PUSH_PROMISE` route the
+  ordered list through the same frame splitting and CONTINUATION paths as
+  pre-encoded blocks. Reduced-capacity insertion uses the existing eviction
+  rules. When the peer lowers its advertised capacity, the next ordered block
+  starts with a table-size update and evicts retained entries before encoding
+  fields; an encoder-selected size below a later increased peer limit remains
+  valid. Explicit table-size updates can also evict retained entries or clear
+  the table.
+  Invalid names, unsupported strings, and capacity mismatches return no frame
+  bytes and expose no partially updated HPACK or protocol state; the reusable
+  input state remains unchanged. The same fixture
   encoder observes the current outbound dynamic-table capacity after a checked
   table-size update: a later literal-with-indexing entry larger than the
   capacity is not retained for dynamic-index reuse, and a zero-capacity update

@@ -506,9 +506,9 @@ compare it with `../specification/` before changing behavior.
   table names with raw visible-ASCII values,
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
-  broader protocol-core behavior and full HPACK behavior beyond the checked
-  fixture and source-visible boundaries, including full HPACK compression and
-  unbounded dynamic-table behavior.
+  broader protocol-core behavior and remaining HPACK behavior beyond the
+  checked supported-string boundaries, including automatic outbound Huffman
+  selection.
   The completed stream-identifier domain-value slice is archived under
   [HTTP/2 Stream Domain Values](../reference/implemented-proposals/http2-stream-domain-values.md).
   The completed source-visible static table decode slice is archived under
@@ -594,6 +594,9 @@ compare it with `../specification/` before changing behavior.
   The completed bounded outbound representation-selection slice is archived
   under
   [HTTP/2 Outbound HPACK Representation Selection](../reference/implemented-proposals/http2-outbound-hpack-representation-selection.md).
+  The completed production outbound ordered header-list encoder is archived
+  under
+  [HTTP/2 Production Outbound HPACK Header-List Encoding](../reference/implemented-proposals/http2-production-outbound-hpack-header-list-encoding.md).
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).

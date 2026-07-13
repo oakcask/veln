@@ -587,6 +587,8 @@ behavior.
   [http2-outbound-hpack-huffman-literal-names.md](http2-outbound-hpack-huffman-literal-names.md).
 - HTTP/2 outbound HPACK representation selection:
   [http2-outbound-hpack-representation-selection.md](http2-outbound-hpack-representation-selection.md).
+- HTTP/2 production outbound HPACK header-list encoding:
+  [http2-production-outbound-hpack-header-list-encoding.md](http2-production-outbound-hpack-header-list-encoding.md).
 - HTTP/2 outbound HPACK ordinary indexed literal:
   [http2-outbound-hpack-ordinary-indexed-literal.md](http2-outbound-hpack-ordinary-indexed-literal.md).
 - HTTP/2 outbound HPACK static-name literal:

@@ -15,12 +15,25 @@ pub type HpackHeaderList
 	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
 end
 
+pub type HpackHeaderFields
+	EmptyHeaderFields
+	HeaderField(header: HpackHeader, remaining: HpackHeaderFields)
+end
+
 pub fn hpack_header(name: String, value: String) -> HpackHeader
 	HpackHeader(name, value)
 end
 
 pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
 	HpackHeaderList(first, second, wire_size)
+end
+
+pub fn empty_header_fields() -> HpackHeaderFields
+	EmptyHeaderFields
+end
+
+pub fn prepend_header_field(header: HpackHeader, remaining: HpackHeaderFields) -> HpackHeaderFields
+	HeaderField(header, remaining)
 end
 
 pub type HpackDecodeTransition
@@ -2154,6 +2167,58 @@ pub fn encode_selected_header_list_with_state(headers: HpackHeaderList, state: H
 				Err(failure) => Err(failure)
 			end
 		end
+	end
+end
+
+pub fn encode_header_fields_with_state(headers: HpackHeaderFields, state: HpackFixtureState, active_capacity: Int, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match header_fields_capacity_is_valid(state, active_capacity)
+		false => encode_header_fields_capacity_failure(headers, state, offset)
+		true => match header_fields_require_capacity_reduction(state, active_capacity)
+			false => encode_header_fields(headers, state, offset)
+			true => match encode_table_size_update_with_state(active_capacity, active_capacity, state, offset)
+				Err(failure) => Err(failure)
+				Ok(size_transition) => match encode_header_fields(headers, encode_transition_state(size_transition), offset)
+					Err(failure) => Err(failure)
+					Ok(fields_transition) => Ok(HpackEncodeTransition(byte_append(encode_transition_bytes(size_transition), encode_transition_bytes(fields_transition)), encode_transition_state(fields_transition)))
+				end
+			end
+		end
+	end
+end
+
+fn encode_header_fields(headers: HpackHeaderFields, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match headers
+		EmptyHeaderFields => Ok(HpackEncodeTransition(byte_chunk([]), state))
+		HeaderField(header, remaining) => match encode_selected_header(header, header_failure_context(header), state, offset)
+			Ok(first_transition) => match encode_header_fields(remaining, encode_transition_state(first_transition), offset)
+				Ok(remaining_transition) => Ok(HpackEncodeTransition(byte_append(encode_transition_bytes(first_transition), encode_transition_bytes(remaining_transition)), encode_transition_state(remaining_transition)))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn encode_header_fields_capacity_failure(headers: HpackHeaderFields, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match headers
+		EmptyHeaderFields => encode_header_list_transition(unsupported_header_list_encoding(header_failure_context(HpackHeader("", "")), offset), state)
+		HeaderField(header, _) => encode_header_list_transition(unsupported_header_list_encoding(header_failure_context(header), offset), state)
+	end
+end
+
+fn header_failure_context(header: HpackHeader) -> HpackHeaderList
+	HpackHeaderList(header, HpackHeader(":encoder", "ordered-header-list"), 0)
+end
+
+fn header_fields_capacity_is_valid(state: HpackFixtureState, active_capacity: Int) -> Bool
+	match state
+		HpackFixtureState(table_size, _, _) => active_capacity >= 0 and table_size >= 0
+	end
+end
+
+fn header_fields_require_capacity_reduction(state: HpackFixtureState, active_capacity: Int) -> Bool
+	match state
+		HpackFixtureState(table_size, _, _) => table_size > active_capacity
 	end
 end
 
