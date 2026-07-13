@@ -599,9 +599,6 @@ compare it with `../specification/` before changing behavior.
   Automatic raw-or-Huffman selection for its literal strings is archived
   under
   [HTTP/2 Automatic Outbound HPACK Huffman Selection](../reference/implemented-proposals/http2-automatic-outbound-hpack-huffman-selection.md).
-  The completed production inbound ordered header-list decoder is archived
-  under
-  [HTTP/2 Production Inbound HPACK Header-List Decoding](../reference/implemented-proposals/http2-production-inbound-hpack-header-list-decoding.md).
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).

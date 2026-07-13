@@ -1213,20 +1213,13 @@ through the existing CONTINUATION framing paths. Encoding failures expose no
 partial frame output or committed state.
 Its completed automatic literal-string selection is archived under
 [HTTP/2 Automatic Outbound HPACK Huffman Selection](../reference/implemented-proposals/http2-automatic-outbound-hpack-huffman-selection.md).
-The completed production inbound ordered header-list decoder is archived under
-[HTTP/2 Production Inbound HPACK Header-List Decoding](../reference/implemented-proposals/http2-production-inbound-hpack-header-list-decoding.md).
-It replaces the fixed two-header decode result with a recursive ordinary value,
-carries byte-accounted state across finite blocks, routes production request
-and response HEADERS plus final CONTINUATION assembly, and exposes no partial
-list or next state after a late-field failure.
-
 The remaining scope below is still planned work for the full protocol core and
 remaining HPACK behavior beyond the source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
 Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value,
 outbound dynamic-name Huffman-value, outbound Huffman literal-name, and
 production outbound ordered-list representation selection, automatic literal
-string selection, production inbound ordered-list decoding, and dynamic-table
+string selection, and dynamic-table
 accounting core slices. Another
 same-shaped list-width extension is not a follow-up target.
 
