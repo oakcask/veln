@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed same-module hand-written codec
-`NeedEnd` readiness slice from `../../proposals/codec-execution-boundary.md`.
+`NeedEnd` readiness slice from the superseded codec execution design.
 Current behavior is specified by `../../specification/execution.md` and the
 checked executable examples under `../../../examples/specification/run/`.
 

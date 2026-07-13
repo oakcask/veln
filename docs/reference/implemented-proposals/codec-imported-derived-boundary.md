@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed imported derived codec execution slice
-from `../../proposals/codec-execution-boundary.md`. Source-level `codec`
+from the superseded codec execution design. Source-level `codec`
 declarations are no longer current source syntax; current schema operation
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed same-module hand-written codec encode
-resume slice from `../../proposals/codec-execution-boundary.md`. Current
+resume slice from the superseded codec execution design. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable examples under `../../../examples/specification/`.
