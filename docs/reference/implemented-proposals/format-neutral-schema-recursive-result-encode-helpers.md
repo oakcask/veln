@@ -39,8 +39,9 @@ boundary.
   checks generated helper IR lowering for direct and explicit encode paths,
   source ADT result payloads, and unsupported result payload rejection.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, format-neutral encode shapes beyond the
-implemented supported-shape boundary, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

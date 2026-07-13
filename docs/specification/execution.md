@@ -153,23 +153,12 @@ enough.
   shape through the pass-through boundary.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept a schema-local visible record shape and return
-  `Result<T, String>` when every field is a scalar leaf, `Option<scalar>`,
-  `Option<List<scalar>>`, `List<scalar>`, `List<Option<scalar>>`,
-  `List<Option<List<scalar>>>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
-  `Vec<Vec<scalar>>`,
-  `Dict<String, scalar>`,
-  `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
-  `Dict<String, Vec<scalar>>`,
-  `Dict<String, Vec<Option<scalar>>>`,
-  `Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
-  supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
-  `Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each
-  result payload is a supported format-neutral encode shape, or an anonymous
-  record whose fields are supported format-neutral encode shapes.
-  Same-module source ADT fields and public imported source ADT fields
-  referenced through written `use` paths are supported when every constructor
-  payload is a supported format-neutral encode shape. The supported scalar
-  leaves are `Int`, `Bool`, `Float`, and `String`.
+  `Result<T, String>` when every field is a recursive visible shape made from
+  `Int`, `Bool`, `Float`, and `String` leaves, anonymous records, `Option<T>`,
+  `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible
+  same-module or public imported source ADTs. Every recursively visited child
+  or constructor payload must also be eligible; container depth is not
+  otherwise limited.
   The helper returns the supplied record on success and does not produce binary
   bytes.
 - Repeated fields written as `[Payload; count]` normalize to the same generated

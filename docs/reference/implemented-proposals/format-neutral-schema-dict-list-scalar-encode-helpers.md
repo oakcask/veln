@@ -20,7 +20,8 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice does not add arbitrary recursive format-neutral encode eligibility.
+At this historical slice, arbitrary recursive format-neutral encode eligibility
+was not yet available.
 Shapes such as `Dict<String, Dict<String, Int>>`,
 `Option<Dict<String, List<Int>>>`, and non-string dictionary keys remain
 outside the generated encode helper surface.
@@ -31,16 +32,15 @@ outside the generated encode helper surface.
   checks successful direct helper calls and explicit schema encode expressions
   over `Dict<String, List<scalar>>` fields.
 - `../../../examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`
-  checks that non-string dictionary keys and nested dictionary value shapes
-  remain outside the generated encode helper boundary.
+  checks that non-string dictionary keys remain outside the generated encode
+  helper boundary while nested eligible dictionary values are accepted.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   generated helper resolution for all supported scalar list dictionary values
-  plus adjacent rejected dictionary boundaries.
+  plus the current recursive dictionary boundary.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond the implemented scalar, supported container,
-dictionary-option, dictionary-list, option-dictionary, scalar-result,
-result-option, anonymous record, and source ADT shapes, binary schema fields
-outside the implemented helper slices, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

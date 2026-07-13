@@ -19,7 +19,7 @@ format-neutral decode helper and returns `Result<T, String>`, preserving the
 supplied record on success without producing binary bytes. Explicit
 `encode Schema from value` expressions use the same helper boundary.
 
-At this slice, recursive format-neutral encode helper shapes beyond the
+At this historical slice, recursive format-neutral encode helper shapes beyond the
 supported dictionary slice, such as `Dict<String, Option<Int>>`, were still
 unsupported and did not expose a generated helper. Dictionaries with
 non-`String` keys remain unsupported. Later container and dictionary-option
@@ -31,14 +31,14 @@ encode helper slices are tracked in sibling implemented proposal records.
   checks direct helper calls and explicit schema encode expressions over
   `Dict<String, scalar>` fields.
 - `../../../examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`
-  checks that non-string dictionary keys and unsupported dictionary value
-  shapes remain outside the generated encode helper boundary.
+  checks that non-string dictionary keys remain outside the generated encode
+  helper boundary while nested eligible values are accepted.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper signature generation plus Core and IR lowering.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond the implemented scalar, supported container, scalar-result,
-and anonymous record shapes, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

@@ -328,21 +328,11 @@ compiler-known calls.
   `encode Schema from value` expressions are the matching public encode
   surface for schema-local values and accept the same schema-reference paths.
   Format-neutral schema encode helpers accept and return schema-local visible
-  records through `Result<T, String>` for scalar leaves, `Option<scalar>`
-  fields, `Option<List<scalar>>` fields, `List<scalar>` fields,
-  `List<Option<scalar>>` fields, `List<Option<List<scalar>>>` fields,
-  `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
-  `Vec<Vec<scalar>>` fields,
-  `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
-  `Dict<String, List<scalar>>` fields, `Dict<String, Vec<scalar>>` fields,
-  `Dict<String, Vec<Option<scalar>>>` fields,
-  `Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
-  payloads are supported format-neutral encode shapes,
-  `List<Result<Ok, Err>>`, `Vec<Result<Ok, Err>>`, and
-  `Dict<String, Result<Ok, Err>>` fields when each result payload is a
-  supported format-neutral encode shape, and anonymous record fields whose
-  fields are supported format-neutral encode shapes without
-  producing binary bytes.
+  records through `Result<T, String>` when every field recursively contains
+  only supported scalar leaves, anonymous records, `Option<T>`, `List<T>`,
+  `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible source ADTs.
+  Every child and ADT constructor payload must satisfy the same boundary; the
+  helper does not produce binary bytes.
   Generated binary schema encode
   helpers for the exact-width
   unsigned primitive, supported reserved-bit,

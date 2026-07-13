@@ -21,15 +21,3 @@ end
 fn explicit_key(packet: {items: Dict<Int, Result<Int, String>>}) -> Result<{items: Dict<Int, Result<Int, String>>}, String>
 	encode UnsupportedKeyPacket from packet
 end
-
-schema UnsupportedRecursiveContainerPayloadPacket
-	metadata: {items: Vec<Result<List<Result<Int, String>>, String>>}
-end
-
-fn direct_recursive_container_payload(packet: {metadata: {items: Vec<Result<List<Result<Int, String>>, String>>}}) -> Result<{metadata: {items: Vec<Result<List<Result<Int, String>>, String>>}}, String>
-	byte_encode_unsupported_recursive_container_payload_packet(packet)
-end
-
-fn explicit_recursive_container_payload(packet: {metadata: {items: Vec<Result<List<Result<Int, String>>, String>>}}) -> Result<{metadata: {items: Vec<Result<List<Result<Int, String>>, String>>}}, String>
-	encode UnsupportedRecursiveContainerPayloadPacket from packet
-end

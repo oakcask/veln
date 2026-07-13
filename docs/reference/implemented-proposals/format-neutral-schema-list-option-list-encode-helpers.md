@@ -22,10 +22,8 @@ accepts the schema-local visible record shape, returns `Result<TRecord,
 String>`, and preserves the supplied record on success without producing
 binary bytes.
 
-This slice does not add arbitrary recursive `List<Option<T>>` encode
-eligibility. Shapes such as `List<Option<Dict<String, Int>>>` and
-`List<Option<Result<Int, String>>>` remain outside the generated encode helper
-boundary.
+At this historical slice, arbitrary recursive `List<Option<T>>` encode
+eligibility was not yet available.
 
 ## Evidence
 
@@ -33,16 +31,13 @@ boundary.
   checks direct helper calls and explicit schema encode expressions over
   top-level and anonymous record `List<Option<List<scalar>>>` fields across
   the supported scalar leaves.
-- `../../../examples/specification/check/format-neutral-schema-list-option-encode-boundary/`
-  keeps adjacent dictionary and result payloads inside `List<Option<T>>`
-  outside the generated encode helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper resolution, Core lowering, and IR lowering for all supported scalar
   list option list fields.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond the implemented scalar, supported container, dictionary,
-result, anonymous record, and source ADT shapes, binary schema fields outside
-the implemented helper slices, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

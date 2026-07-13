@@ -34,8 +34,9 @@ after this slice. That follow-up is recorded in
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper resolution for accepted result-option fields.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, format-neutral encode shapes beyond the
-implemented supported-shape boundary, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

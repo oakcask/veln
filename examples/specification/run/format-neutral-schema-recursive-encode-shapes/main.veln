@@ -1,0 +1,27 @@
+# Format-neutral schema encode eligibility recurses through mixed containers and source ADTs.
+use stdio
+
+type Tree
+	Leaf(value: Int)
+	Branch(children: List<Tree>)
+end
+
+schema RecursivePacket
+	payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>
+end
+
+fn outcome(result: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String>) -> String
+	match result
+		Ok(_) => "ok"
+		Err(message) => message
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let direct_packet: {payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>} = {payload: Some(list_cons([{"tree": Ok(Branch(list_cons(Leaf(3), list_nil()))), "fallback": Err(list_cons(Some(5), list_cons(None, list_nil())))}], list_nil()))}
+	let explicit_packet: {payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>} = {payload: None}
+	let direct: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = byte_encode_recursive_packet(direct_packet)
+	let explicit: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = encode RecursivePacket from explicit_packet
+	stdio::println(outcome(direct))
+	stdio::println(outcome(explicit))
+end

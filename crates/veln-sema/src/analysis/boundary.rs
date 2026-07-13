@@ -959,9 +959,9 @@ pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
     schema_span: &SourceSpan,
     field: &SchemaField,
 ) -> Diagnostic {
-    let supported = "supported format-neutral encode shape";
+    let supported = "recursive format-neutral visible shape";
     let boundary_message = format!(
-        "Generated format-neutral encode helpers for schema `{schema_name}` accept scalar leaves, Option<scalar>, Option<List<scalar>>, List<scalar>, List<Option<scalar>>, List<Option<List<scalar>>>, Vec<scalar>, Vec<Option<scalar>>, Vec<Vec<scalar>>, Dict<String, scalar>, Dict<String, Option<scalar>>, Dict<String, List<scalar>>, Dict<String, Vec<scalar>>, Dict<String, Vec<Option<scalar>>>, Option<Dict<String, scalar>>, Result<Ok, Err> when both payloads are supported format-neutral encode shapes, List<Result<Ok, Err>>, Vec<Result<Ok, Err>>, Dict<String, Result<Ok, Err>>, anonymous record fields whose fields are supported format-neutral encode shapes, and same-module or public imported source ADTs referenced through written use paths when every constructor payload is a supported format-neutral encode shape."
+        "Generated format-neutral encode helpers for schema `{schema_name}` accept recursive visible shapes made from Int, Bool, Float, and String leaves, anonymous records, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<Ok, Err>, and eligible same-module or public imported source ADTs when every recursively visited child or constructor payload is also eligible."
     );
     let mut diagnostic = Diagnostic::new(
         "schema.format_neutral_encode_helper",

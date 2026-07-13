@@ -3158,165 +3158,6 @@ fn format_neutral_schema_scalar_type(ty: &Type) -> bool {
     )
 }
 
-fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
-    if format_neutral_schema_scalar_type(ty) {
-        return Some(ty.clone());
-    }
-    match ty {
-        Type::Named { name, args }
-            if name == "Option"
-                && args.len() == 1
-                && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_scalar_list_type(&args[0])
-                    || format_neutral_schema_scalar_dict_type(&args[0])) =>
-        {
-            Some(ty.clone())
-        }
-        Type::Named { name, args }
-            if name == "List"
-                && args.len() == 1
-                && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_list_type(&args[0])) =>
-        {
-            Some(ty.clone())
-        }
-        Type::Named { name, args }
-            if name == "Vec"
-                && args.len() == 1
-                && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_type(&args[0])
-                    || matches!(&args[0], Type::Named { name, args }
-                        if name == "Vec"
-                            && args.len() == 1
-                            && format_neutral_schema_scalar_type(&args[0]))) =>
-        {
-            Some(ty.clone())
-        }
-        Type::Named { name, .. }
-            if name == "Dict"
-                && (format_neutral_schema_scalar_dict_type(ty)
-                    || format_neutral_schema_option_scalar_dict_type(ty)
-                    || format_neutral_schema_scalar_list_dict_type(ty)
-                    || format_neutral_schema_scalar_vec_dict_type(ty)
-                    || format_neutral_schema_option_scalar_vec_dict_type(ty)) =>
-        {
-            Some(ty.clone())
-        }
-        Type::Named { name, args }
-            if name == "Result"
-                && args.len() == 2
-                && format_neutral_schema_plain_encode_field_type(&args[0]).is_some()
-                && format_neutral_schema_plain_encode_field_type(&args[1]).is_some() =>
-        {
-            Some(Type::named(
-                "Result",
-                vec![
-                    format_neutral_schema_plain_encode_field_type(&args[0])?,
-                    format_neutral_schema_plain_encode_field_type(&args[1])?,
-                ],
-            ))
-        }
-        Type::Record(fields) => Some(Type::Record(
-            fields
-                .iter()
-                .map(|(name, field_ty)| {
-                    Some((
-                        name.clone(),
-                        format_neutral_schema_plain_encode_field_type(field_ty)?,
-                    ))
-                })
-                .collect::<Option<Vec<_>>>()?,
-        )),
-        _ => None,
-    }
-}
-
-fn format_neutral_schema_option_scalar_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Option"
-                && args.len() == 1
-                && format_neutral_schema_scalar_type(&args[0])
-    )
-}
-
-fn format_neutral_schema_scalar_list_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "List"
-                && args.len() == 1
-                && format_neutral_schema_scalar_type(&args[0])
-    )
-}
-
-fn format_neutral_schema_option_scalar_list_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Option"
-                && args.len() == 1
-                && format_neutral_schema_scalar_list_type(&args[0])
-    )
-}
-
-fn format_neutral_schema_scalar_dict_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && format_neutral_schema_scalar_type(&args[1])
-    )
-}
-
-fn format_neutral_schema_option_scalar_dict_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && format_neutral_schema_option_scalar_type(&args[1])
-    )
-}
-
-fn format_neutral_schema_scalar_list_dict_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && format_neutral_schema_scalar_list_type(&args[1])
-    )
-}
-
-fn format_neutral_schema_scalar_vec_dict_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && matches!(&args[1], Type::Named { name, args } if name == "Vec" && args.len() == 1 && format_neutral_schema_scalar_type(&args[0]))
-    )
-}
-
-fn format_neutral_schema_option_scalar_vec_dict_type(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args }
-            if name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty())
-                && matches!(&args[1], Type::Named { name, args } if name == "Vec" && args.len() == 1 && format_neutral_schema_option_scalar_type(&args[0]))
-    )
-}
-
 pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -3324,13 +3165,12 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     text: &str,
 ) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_encode_shape_type_for_schema(
+    format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
         adts,
         &ty,
         &mut Vec::new(),
-        true,
     )
 }
 
@@ -3344,195 +3184,6 @@ fn format_neutral_schema_encode_type_is_source_adt_candidate(ty: &Type) -> bool 
     matches!(ty, Type::Named { name, .. } if !matches!(
         name.as_str(),
         "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
-    ))
-}
-
-fn format_neutral_schema_source_adt_encode_type(
-    module: &SurfaceModule,
-    current_module: Option<&str>,
-    adts: &AdtRegistry,
-    ty: &Type,
-    stack: &mut Vec<(Option<String>, String, usize)>,
-    allow_result_containers: bool,
-) -> Option<Type> {
-    let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
-    let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
-    let key = (
-        descriptor.module_name.clone(),
-        descriptor.type_name.clone(),
-        descriptor.type_parameters.len(),
-    );
-    if stack.contains(&key) {
-        return Some(descriptor_ty);
-    }
-    stack.push(key);
-    let supported = descriptor.variants.iter().all(|variant| {
-        variant
-            .payload_fields
-            .iter()
-            .enumerate()
-            .all(|(index, _field)| {
-                let Some(payload_ty) = adt::payload_type(
-                    &descriptor_ty,
-                    adt::AdtConstructor {
-                        descriptor,
-                        variant,
-                    },
-                    index,
-                ) else {
-                    return false;
-                };
-                format_neutral_schema_encode_shape_type_for_schema(
-                    module,
-                    descriptor.module_name.as_deref(),
-                    adts,
-                    &payload_ty,
-                    stack,
-                    allow_result_containers,
-                )
-                .is_some()
-            })
-    });
-    stack.pop();
-    supported.then_some(descriptor_ty)
-}
-
-fn format_neutral_schema_encode_shape_type_for_schema(
-    module: &SurfaceModule,
-    current_module: Option<&str>,
-    adts: &AdtRegistry,
-    ty: &Type,
-    stack: &mut Vec<(Option<String>, String, usize)>,
-    allow_result_containers: bool,
-) -> Option<Type> {
-    if let Some(ty) = format_neutral_schema_plain_encode_field_type(ty) {
-        return Some(ty);
-    }
-    match ty {
-        Type::Named { name, args }
-            if allow_result_containers
-                && matches!(name.as_str(), "List" | "Vec")
-                && args.len() == 1 =>
-        {
-            Some(Type::named(
-                name.clone(),
-                vec![
-                    format_neutral_schema_encode_container_result_type_for_schema(
-                        module,
-                        current_module,
-                        adts,
-                        &args[0],
-                        stack,
-                    )?,
-                ],
-            ))
-        }
-        Type::Named { name, args }
-            if allow_result_containers
-                && name == "Dict"
-                && args.len() == 2
-                && matches!(&args[0], Type::Named { name, args } if name == "String" && args.is_empty()) =>
-        {
-            Some(Type::named(
-                "Dict",
-                vec![
-                    args[0].clone(),
-                    format_neutral_schema_encode_container_result_type_for_schema(
-                        module,
-                        current_module,
-                        adts,
-                        &args[1],
-                        stack,
-                    )?,
-                ],
-            ))
-        }
-        Type::Named { name, args } if name == "Result" && args.len() == 2 => Some(Type::named(
-            "Result",
-            vec![
-                format_neutral_schema_encode_shape_type_for_schema(
-                    module,
-                    current_module,
-                    adts,
-                    &args[0],
-                    stack,
-                    false,
-                )?,
-                format_neutral_schema_encode_shape_type_for_schema(
-                    module,
-                    current_module,
-                    adts,
-                    &args[1],
-                    stack,
-                    false,
-                )?,
-            ],
-        )),
-        Type::Named { .. } if format_neutral_schema_encode_type_is_source_adt_candidate(ty) => {
-            format_neutral_schema_source_adt_encode_type(
-                module,
-                current_module,
-                adts,
-                ty,
-                stack,
-                false,
-            )
-        }
-        Type::Record(fields) => Some(Type::Record(
-            fields
-                .iter()
-                .map(|(name, field_ty)| {
-                    Some((
-                        name.clone(),
-                        format_neutral_schema_encode_shape_type_for_schema(
-                            module,
-                            current_module,
-                            adts,
-                            field_ty,
-                            stack,
-                            allow_result_containers,
-                        )?,
-                    ))
-                })
-                .collect::<Option<Vec<_>>>()?,
-        )),
-        _ => None,
-    }
-}
-
-fn format_neutral_schema_encode_container_result_type_for_schema(
-    module: &SurfaceModule,
-    current_module: Option<&str>,
-    adts: &AdtRegistry,
-    ty: &Type,
-    stack: &mut Vec<(Option<String>, String, usize)>,
-) -> Option<Type> {
-    let Type::Named { name, args } = ty else {
-        return None;
-    };
-    if name != "Result" || args.len() != 2 {
-        return None;
-    }
-    Some(Type::named(
-        "Result",
-        vec![
-            format_neutral_schema_encode_shape_type_for_schema(
-                module,
-                current_module,
-                adts,
-                &args[0],
-                stack,
-                false,
-            )?,
-            format_neutral_schema_encode_shape_type_for_schema(
-                module,
-                current_module,
-                adts,
-                &args[1],
-                stack,
-                false,
-            )?,
-        ],
     ))
 }
 
@@ -3578,12 +3229,19 @@ fn format_neutral_schema_first_unsupported_encode_field(
         .cloned()
 }
 
+#[derive(Clone, PartialEq, Eq)]
+struct FormatNeutralSchemaAdtFrame {
+    module_name: Option<String>,
+    type_name: String,
+    type_arguments: Vec<Type>,
+}
+
 fn format_neutral_schema_visible_shape_type_for_schema(
     module: &SurfaceModule,
     current_module: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    stack: &mut Vec<(Option<String>, String, usize)>,
+    stack: &mut Vec<FormatNeutralSchemaAdtFrame>,
 ) -> Option<Type> {
     match ty {
         Type::Named { name, args }
@@ -3675,19 +3333,43 @@ fn format_neutral_schema_source_adt_type(
     current_module: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    stack: &mut Vec<(Option<String>, String, usize)>,
+    stack: &mut Vec<FormatNeutralSchemaAdtFrame>,
 ) -> Option<Type> {
     let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
     let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
-    let key = (
-        descriptor.module_name.clone(),
-        descriptor.type_name.clone(),
-        descriptor.type_parameters.len(),
-    );
-    if stack.contains(&key) {
+    let Type::Named {
+        args: type_arguments,
+        ..
+    } = &descriptor_ty
+    else {
+        return None;
+    };
+    let frame = FormatNeutralSchemaAdtFrame {
+        module_name: descriptor.module_name.clone(),
+        type_name: descriptor.type_name.clone(),
+        type_arguments: type_arguments.clone(),
+    };
+    if stack.contains(&frame) {
         return Some(descriptor_ty);
     }
-    stack.push(key);
+    if stack.iter().any(|active| {
+        active.module_name == frame.module_name && active.type_name == frame.type_name
+    }) {
+        return type_arguments
+            .iter()
+            .all(|arg| {
+                format_neutral_schema_visible_shape_type_for_schema(
+                    module,
+                    descriptor.module_name.as_deref(),
+                    adts,
+                    arg,
+                    stack,
+                )
+                .is_some()
+            })
+            .then_some(descriptor_ty);
+    }
+    stack.push(frame);
     let supported = descriptor.variants.iter().all(|variant| {
         variant
             .payload_fields
