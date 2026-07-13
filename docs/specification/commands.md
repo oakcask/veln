@@ -270,7 +270,11 @@ requiring the full command reference on the first read.
   forms that do not require later fixture dynamic-table reuse; accepted
   visible ASCII decimal values update the existing content-length
   body-accounting state, while non-decimal visible values use the existing
-  request header-list validation diagnostic. The same aggregate run case also
+  request header-list validation diagnostic. The aggregate case also checks
+  ordinary `CONNECT` request-header validation on completed HEADERS and final
+  CONTINUATION paths. A non-empty `:authority` without `:scheme` or `:path`
+  is accepted; missing or empty `:authority` and present `:scheme` or `:path`
+  use focused request-header diagnostics. The same aggregate run case also
   checks the source-visible HPACK Huffman encode boundary directly:
   successful calls print payload-only `ByteChunk` output for supported string
   and bounded byte input, while unsupported string input prints the returned

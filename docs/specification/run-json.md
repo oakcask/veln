@@ -881,10 +881,19 @@ after a regular header, an uppercase ordinary header name, and an ordinary
 header name outside the HTTP field-name token shape, plus a
 connection-specific ordinary header name and invalid `te` value on an inbound
 request, empty `:method`, invalid `:scheme`, empty `:path`, invalid
-`:authority`, and invalid and mismatched `content-length` values; the larger
+`:authority`, ordinary `CONNECT` with missing or empty `:authority`, ordinary
+`CONNECT` with forbidden `:scheme` or `:path`, and invalid and mismatched
+`content-length` values; the larger
 protocol-core fixture also checks the integrated completed HEADERS and final
 CONTINUATION paths, including accepted `:scheme` values `http` and `https`,
-accepted `te: trailers`, and accepted `content-length` values. The aggregate
+accepted `te: trailers`, accepted `content-length` values, and accepted
+ordinary `CONNECT` with a non-empty `:authority` and no `:scheme` or `:path`.
+The ordinary `CONNECT` failures use stable facts
+`connect_authority_missing`, `connect_authority_empty`,
+`connect_scheme_present`, and `connect_path_present`, with header names,
+decoded names, stream context, and
+`rfc9113_connect_request_pseudo_headers` provenance kept in structured
+protocol-diagnostic details. The aggregate
 protocol-core run case also checks source-visible HPACK static-name
 `:scheme` literals after a static request `:method` and before a static
 request `:path`: decoded values `http` and `https` are accepted, while other

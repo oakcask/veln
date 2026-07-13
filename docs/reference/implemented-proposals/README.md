@@ -637,6 +637,8 @@ behavior.
   [http2-client-promised-stream-id-ordering.md](http2-client-promised-stream-id-ordering.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
+- HTTP/2 CONNECT request header validation:
+  [http2-connect-request-header-validation.md](http2-connect-request-header-validation.md).
 - HTTP/2 response header validation:
   [http2-response-header-validation.md](http2-response-header-validation.md).
 - HTTP/2 TE header validation:

@@ -546,6 +546,9 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Content-Length Body Accounting](../reference/implemented-proposals/http2-content-length-body-accounting.md).
   The completed response `:status` value validation slice is archived under
   [HTTP/2 Response Header Validation](../reference/implemented-proposals/http2-response-header-validation.md).
+  The completed ordinary `CONNECT` request-header validation slice is archived
+  under
+  [HTTP/2 CONNECT Request Header Validation](../reference/implemented-proposals/http2-connect-request-header-validation.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

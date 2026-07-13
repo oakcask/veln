@@ -353,6 +353,12 @@ enough.
   header-list path, accepting checked visible ASCII authority values and
   rejecting the checked invalid visible ASCII value with
   `authority_value_invalid` on completed HEADERS and final CONTINUATION paths.
+  Ordinary `CONNECT` request validation uses a distinct pseudo-header shape:
+  `:method: CONNECT` requires a non-empty `:authority` and rejects any
+  present `:scheme` or `:path`. The same validation runs after a completed
+  HEADERS block and after the final CONTINUATION block. Rejection preserves
+  the carried HPACK, stream, and output state at the request-header failure
+  boundary.
   Stateful HTTP/2 response decoding validates `:status` pseudo-header values
   after fixture decode and after source-visible HPACK static-name literal
   decode. Accepted response lists keep exactly three ASCII decimal digits, and

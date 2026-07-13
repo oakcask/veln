@@ -907,7 +907,7 @@ outbound behavior beyond the checked fixture encoder boundaries named above,
 outbound table-size behavior beyond the checked fixture encoder update,
 zero-capacity insertion, and reduced-capacity insertion boundaries, and
 production header validation beyond
-ordinary request,
+ordinary request including ordinary `CONNECT`,
 response,
 and trailer header-name shape, the source-visible `te` value rule, the
 source-visible response `:status` value shape, request and response
@@ -916,6 +916,7 @@ source-visible response `:status` value shape, request and response
 The completed request-header and response-header validation slices are
 current behavior under `../specification/` and
 `../reference/implemented-proposals/http2-request-header-validation.md` plus
+`../reference/implemented-proposals/http2-connect-request-header-validation.md` plus
 `../reference/implemented-proposals/http2-response-header-validation.md` plus
 `../reference/implemented-proposals/http2-te-header-validation.md` plus
 `../reference/implemented-proposals/http2-content-length-header-validation.md`:
@@ -937,7 +938,10 @@ fixture-marked `:method` values with failed fact `method_value_empty`, empty
 fixture-marked `:path` values with failed fact `path_value_empty` after
 `:path` presence has been confirmed, and fixture-marked or source-visible
 HPACK static-name literal invalid `:authority` values with failed fact
-`authority_value_invalid`. Response validation
+`authority_value_invalid`. Ordinary `CONNECT` validation instead requires a
+non-empty `:authority` and omits `:scheme` and `:path`, rejecting each invalid
+shape through stable CONNECT-specific request-header facts on completed
+HEADERS and final CONTINUATION paths. Response validation
 rejects missing or duplicate `:status`, request-only `:authority`, `:method`,
 `:scheme`, or `:path`, response pseudo-headers after regular headers,
 uppercase ordinary header names, and ordinary header names outside the HTTP
