@@ -589,14 +589,19 @@ enough.
   above-boundary HEADERS frame while graceful shutdown still has an active
   in-boundary stream. The checked case is
   `examples/specification/run/http2-protocol-core/`.
-- The same checked HTTP/2 protocol core keeps outbound DATA send-window
-  accounting separate from inbound receive-window accounting. Accepted
-  outbound DATA consumes connection and tracked open-stream send credit,
-  peer `WINDOW_UPDATE` restores only the matching send-credit side, and
-  peer `SETTINGS_INITIAL_WINDOW_SIZE` applies its delta only to tracked open
-  outbound streams. Missing, closed, and reset outbound stream credit retain
-  their existing later-DATA rejection shape after that SETTINGS transition.
-  The checked case is `examples/specification/run/http2-protocol-core/`.
+- The same checked HTTP/2 protocol core keeps one shared outbound connection
+  window and a list of independently tracked outbound stream states. DATA
+  consumes only the shared connection credit and the selected stream's send
+  window and optional `content-length` count. Peer connection-level
+  `WINDOW_UPDATE` changes only shared credit, stream-level `WINDOW_UPDATE`
+  changes only the matching stream, and `SETTINGS_INITIAL_WINDOW_SIZE` applies
+  its delta to every tracked open stream while preserving unrelated lifecycle
+  and body-accounting facts. A reduction may make individual stream credit
+  negative; a later update can restore that stream independently. Zero,
+  overflow, unknown-stream, closed-stream, and reset-stream updates remain
+  rejected without changing credit. The executable case checks three
+  simultaneous streams as a minimum evidence set rather than a representation
+  limit: `examples/specification/run/http2-protocol-core/`.
 - The same executable core represents connection window credit, stream window
   credit, configured initial window size, and received `WINDOW_UPDATE`
   increments as distinct ordinary values backed by `Int`. Their constructors
