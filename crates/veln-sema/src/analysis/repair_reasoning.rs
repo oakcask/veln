@@ -2334,11 +2334,24 @@ pub(super) fn split_repair_numeric_operator<'a>(
 }
 
 pub(super) fn operator_is_binary(left: &str, operator: &str) -> bool {
-    operator != "-"
-        || left
-            .chars()
-            .next_back()
-            .is_some_and(|ch| ch.is_ascii_digit() || ch == ')' || ch == '"')
+    if operator != "-" {
+        return true;
+    }
+    let left = left.trim_end();
+    if left
+        .chars()
+        .next_back()
+        .is_some_and(|ch| ch.is_ascii_digit() || ch == ')' || ch == '"')
+    {
+        return true;
+    }
+    let literal_start = left
+        .char_indices()
+        .rev()
+        .take_while(|(_, ch)| ch.is_ascii_alphanumeric())
+        .last()
+        .map_or(left.len(), |(index, _)| index);
+    parse_integer_literal(&left[literal_start..]).is_ok()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
