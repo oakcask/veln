@@ -644,6 +644,19 @@ enough.
   `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
   and
   `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
+- The receive transition is role-aware for peer SETTINGS. A client endpoint
+  rejects a peer-sent `SETTINGS_ENABLE_PUSH` item at that six-byte item's
+  offset before applying any peer-advertised setting or state derived from the
+  frame. The typed `http2.protocol.settings_not_allowed_for_endpoint` failure
+  carries the setting identifier and name, endpoint role, SETTINGS frame kind,
+  active state, rule provenance, and a bounded item preview. A server endpoint
+  continues to accept `SETTINGS_ENABLE_PUSH` values `0` and `1`; unknown
+  identifiers, SETTINGS ACK behavior, and the existing value-range checks are
+  unchanged. The integrated, JSON, and human cases are
+  `examples/specification/run/http2-protocol-core/`,
+  `examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`,
+  and
+  `examples/specification/run/http2-protocol-core-settings-enable-push-role-human/`.
 - The same checked HTTP/2 protocol core accepts a local outbound PING request
   send-intent only when the opaque payload is exactly eight bytes. An accepted
   intent returns one immutable output chunk containing a length-`8`, kind-`6`,

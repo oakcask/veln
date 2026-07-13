@@ -570,8 +570,7 @@ compare it with `../specification/` before changing behavior.
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
   promised response HEADERS admission including local disable-push receive
-  policy, and
-  half-closed-by-peer outbound DATA send-intent slices,
+  policy, and half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, request-trailer, and response-trailer
   header-list validation,
   the source-visible request `:path` value rule, the source-visible request

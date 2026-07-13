@@ -1,0 +1,103 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "RuntimeDiagnostic(http2.protocol.settings_not_allowed_for_endpoint, HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset 15, RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(15, 2, SETTINGS_ENABLE_PUSH, client, 4, peer-settings, rfc9113_client_must_not_receive_settings_enable_push, ByteChunk([Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(1)])))"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.kind"
+equals = "protocol_diagnostic"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.id"
+equals = "http2.protocol.settings_not_allowed_for_endpoint"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_offset.value"
+equals = 15
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.setting_identifier"
+equals = 2
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.setting_name"
+equals = "SETTINGS_ENABLE_PUSH"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.endpoint_role"
+equals = "client"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.frame_kind"
+equals = 4
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.stream_id"
+equals = 0
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.stream_ref"
+equals = "connection"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "000200000001"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.active_state"
+equals = "peer-settings"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.rule_provenance"
+equals = "rfc9113_client_must_not_receive_settings_enable_push"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.constructor"
+equals = "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.setting_identifier"
+equals = 2
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.endpoint_role"
+equals = "client"
+
+[[result_value_assert]]
+value_path = "error.details.value"
+path = "value.detail.preview.bytes.5.value"
+equals = 1

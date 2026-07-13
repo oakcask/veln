@@ -244,6 +244,14 @@ out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+The role-aware SETTINGS receive slice is implemented as well. A client rejects
+a peer-sent `SETTINGS_ENABLE_PUSH` item at its item offset before applying any
+peer-advertised setting from that frame. The focused typed diagnostic carries
+the setting identity, client role, SETTINGS frame kind, active state, rule
+provenance, and bounded item preview. The server receive path still accepts
+values `0` and `1`; unknown identifiers, ACK behavior, and other supported
+range checks are unchanged. The completed slice is archived under
+[HTTP/2 Client SETTINGS_ENABLE_PUSH Rejection](../reference/implemented-proposals/http2-client-settings-enable-push-rejection.md).
 It keeps peer-advertised `SETTINGS_MAX_HEADER_LIST_SIZE` separate from the
 local receive policy for inbound header blocks: the executable slice accepts a
 header block at the local policy boundary, rejects a completed CONTINUATION

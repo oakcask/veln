@@ -123,6 +123,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(byte_offset: Int, stream_id: Int, observed_window_increment: Int, accepted_min_window_increment: Int, accepted_max_window_increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(byte_offset: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
 end
@@ -343,6 +344,10 @@ end
 
 pub fn http2_protocol_unexpected_settings_ack(offset: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_unexpected_settings_ack(offset, active_state, rule_provenance, preview)
+end
+
+pub fn http2_protocol_settings_not_allowed_for_endpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::http2_protocol_settings_not_allowed_for_endpoint(offset, setting_identifier, setting_name, endpoint_role, frame_kind, active_state, rule_provenance, preview)
 end
 
 pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
