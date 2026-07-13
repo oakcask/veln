@@ -40,6 +40,15 @@ pub type HpackDecodeTransition
 	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
 end
 
+pub type HpackProductionHeaderList
+	HpackProductionHeaderList(fields: HpackHeaderFields, wire_size: Int)
+	HpackCompatibilityHeaderList(fields: HpackHeaderFields, wire_size: Int)
+end
+
+pub type HpackProductionDecodeTransition
+	HpackProductionDecodeTransition(headers: HpackProductionHeaderList, state: HpackFixtureState)
+end
+
 pub type HpackEncodeTransition
 	HpackEncodeTransition(encoded: ByteChunk, state: HpackFixtureState)
 end
@@ -4010,6 +4019,378 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 	end
 end
 
+fn production_string_literal_end_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
+	match decode_hpack_string_length_at(block, observed_size, index, offset)
+		Ok(length) => match string_length_prefix_size(length) + string_length_encoded_count(length) <= observed_size
+			true => Ok(string_length_prefix_size(length) + string_length_encoded_count(length))
+			false => Err(MalformedRawStringValue(offset, observed_size, byte_at_or_missing(block, index), "fixture HPACK raw string value", "hpack_fixture", block))
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn production_literal_field_end(block: ByteChunk, observed_size: Int, name_index: HpackIntegerPrefix, offset: Int) -> Result<Int, HpackFixtureFailure>
+	match integer_prefix_value(name_index) == 0
+		false => production_string_literal_end_at(block, observed_size, integer_prefix_size(name_index), offset)
+		true => match production_string_literal_end_at(block, observed_size, integer_prefix_size(name_index), offset)
+			Ok(name_end) => production_string_literal_end_at(block, observed_size, name_end, offset)
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn production_header_field_end(block: ByteChunk, observed_size: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte >= 128
+		true => match decode_hpack_prefixed_integer(first_byte - 128, 127, block, observed_size, 1, offset)
+			Ok(index) => Ok(integer_prefix_size(index))
+			Err(failure) => Err(failure)
+		end
+		false => match first_byte >= 64
+			true => match decode_hpack_prefixed_integer(first_byte - 64, 63, block, observed_size, 1, offset)
+				Ok(name_index) => production_literal_field_end(block, observed_size, name_index, offset)
+				Err(failure) => Err(failure)
+			end
+			false => match first_byte >= 32
+				true => match table_size_update_prefix_at(block, observed_size, 0, offset)
+					Ok(update) => Ok(integer_prefix_size(update))
+					Err(failure) => Err(failure)
+				end
+				false => match first_byte >= 16
+					true => match decode_hpack_prefixed_integer(first_byte - 16, 15, block, observed_size, 1, offset)
+						Ok(name_index) => production_literal_field_end(block, observed_size, name_index, offset)
+						Err(failure) => Err(failure)
+					end
+					false => match decode_hpack_prefixed_integer(first_byte, 15, block, observed_size, 1, offset)
+						Ok(name_index) => production_literal_field_end(block, observed_size, name_index, offset)
+						Err(failure) => Err(failure)
+					end
+				end
+			end
+		end
+	end
+end
+
+fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, offset: Int, fields_seen: Bool, leading_updates: Int) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	match observed_size == 0
+		true => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(EmptyHeaderFields, 0), state))
+		false => match production_header_field_end(block, observed_size, offset)
+			Ok(field_size) => match byte_count(field_size)
+				Ok(field_count) => match byte_take(block, field_count)
+					Ok(field) => match byte_drop(block, field_count)
+						Ok(remaining) => match byte_at_or_missing(block, 0) >= 32 and byte_at_or_missing(block, 0) < 64
+							true => match table_size_update_prefix_at(field, field_size, 0, offset)
+								Ok(update) => match fields_seen or leading_updates >= 2
+									true => Err(TableSizeUpdateNotAtStart(offset, observed_size, byte_at_or_missing(block, 0), integer_prefix_value(update), "fixture HPACK table-size update at header block start", "hpack_fixture", block))
+									false => match production_decode_fields(remaining, state_with_table_size(state, integer_prefix_value(update)), offset + field_size, false, leading_updates + 1)
+										Ok(next_transition) => match next_transition
+											HpackProductionDecodeTransition(HpackProductionHeaderList(fields, wire_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(fields, field_size + wire_size), final_state))
+										end
+										Err(failure) => Err(failure)
+									end
+								end
+								Err(failure) => Err(failure)
+							end
+							false => match decode_header_block(field, state, offset)
+								Ok(field_transition) => match production_decode_fields(remaining, transition_state(field_transition), offset + field_size, true, leading_updates)
+									Ok(remaining_transition) => match remaining_transition
+										HpackProductionDecodeTransition(HpackProductionHeaderList(remaining_fields, remaining_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(HeaderField(HpackHeader(header_list_first_name(transition_headers(field_transition)), header_list_first_value(transition_headers(field_transition))), remaining_fields), field_size + remaining_size), final_state))
+									end
+									Err(failure) => Err(failure)
+								end
+								Err(failure) => Err(failure)
+							end
+						end
+						Err(_) => Err(UnsupportedHeaderBlock(offset, observed_size, byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+					end
+					Err(_) => Err(UnsupportedHeaderBlock(offset, observed_size, byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+				end
+				Err(_) => Err(UnsupportedHeaderBlock(offset, observed_size, byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture", block))
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+pub fn decode_production_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
+	production_decode_fields(block, state, offset, false, 0)
+end
+
+pub fn production_transition_headers(transition: HpackProductionDecodeTransition) -> HpackProductionHeaderList
+	match transition
+		HpackProductionDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn production_transition_state(transition: HpackProductionDecodeTransition) -> HpackFixtureState
+	match transition
+		HpackProductionDecodeTransition(_, state) => state
+	end
+end
+
+pub fn production_header_list_wire_size(headers: HpackProductionHeaderList) -> Int
+	match headers
+		HpackProductionHeaderList(_, wire_size) => wire_size
+		HpackCompatibilityHeaderList(_, wire_size) => wire_size
+	end
+end
+
+fn production_header_fields_count(fields: HpackHeaderFields) -> Int
+	match fields
+		EmptyHeaderFields => 0
+		HeaderField(_, remaining) => 1 + production_header_fields_count(remaining)
+	end
+end
+
+pub fn production_header_list_count(headers: HpackProductionHeaderList) -> Int
+	match headers
+		HpackProductionHeaderList(fields, _) => production_header_fields_count(fields)
+		HpackCompatibilityHeaderList(fields, _) => production_header_fields_count(fields)
+	end
+end
+
+fn production_header_field_at(fields: HpackHeaderFields, index: Int) -> Option<HpackHeader>
+	match fields
+		EmptyHeaderFields => None
+		HeaderField(header, remaining) => match index == 0
+			true => Some(header)
+			false => production_header_field_at(remaining, index - 1)
+		end
+	end
+end
+
+pub fn production_header_list_name_at(headers: HpackProductionHeaderList, index: Int) -> Option<String>
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackHeader(name, _)) => Some(name)
+			None => None
+		end
+		HpackCompatibilityHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackHeader(name, _)) => Some(name)
+			None => None
+		end
+	end
+end
+
+pub fn production_header_list_value_at(headers: HpackProductionHeaderList, index: Int) -> Option<String>
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackHeader(_, value)) => Some(value)
+			None => None
+		end
+		HpackCompatibilityHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackHeader(_, value)) => Some(value)
+			None => None
+		end
+	end
+end
+
+pub fn production_header_list_from_fixture(headers: HpackHeaderList) -> HpackProductionHeaderList
+	match headers
+		HpackHeaderList(first, second, wire_size) => HpackCompatibilityHeaderList(HeaderField(first, HeaderField(second, EmptyHeaderFields)), wire_size)
+	end
+end
+
+fn production_compatibility_header_list(headers: HpackProductionHeaderList) -> Option<HpackHeaderList>
+	match headers
+		HpackCompatibilityHeaderList(HeaderField(first, HeaderField(second, EmptyHeaderFields)), wire_size) => Some(HpackHeaderList(first, second, wire_size))
+		_ => None
+	end
+end
+
+fn production_fields_has_name(fields: HpackHeaderFields, expected: String) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, _), remaining) => name == expected or production_fields_has_name(remaining, expected)
+	end
+end
+
+fn production_fields_name_count(fields: HpackHeaderFields, expected: String) -> Int
+	match fields
+		EmptyHeaderFields => 0
+		HeaderField(HpackHeader(name, _), remaining) => match name == expected
+			true => 1 + production_fields_name_count(remaining, expected)
+			false => production_fields_name_count(remaining, expected)
+		end
+	end
+end
+
+fn production_fields_value(fields: HpackHeaderFields, expected: String) -> Option<String>
+	match fields
+		EmptyHeaderFields => None
+		HeaderField(HpackHeader(name, value), remaining) => match name == expected
+			true => Some(value)
+			false => production_fields_value(remaining, expected)
+		end
+	end
+end
+
+fn production_header_list_has_name(headers: HpackProductionHeaderList, expected: String) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_has_name(fields, expected)
+		HpackCompatibilityHeaderList(fields, _) => production_fields_has_name(fields, expected)
+	end
+end
+
+fn production_header_list_name_count(headers: HpackProductionHeaderList, expected: String) -> Int
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_name_count(fields, expected)
+		HpackCompatibilityHeaderList(fields, _) => production_fields_name_count(fields, expected)
+	end
+end
+
+fn production_header_list_value(headers: HpackProductionHeaderList, expected: String) -> Option<String>
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_value(fields, expected)
+		HpackCompatibilityHeaderList(fields, _) => production_fields_value(fields, expected)
+	end
+end
+
+fn production_name_is_pseudo(name: String) -> Bool
+	name == ":authority" or name == ":method" or name == ":scheme" or name == ":path" or name == ":status" or name == ":protocol"
+end
+
+fn production_fields_have_pseudo_after_regular(fields: HpackHeaderFields, regular_seen: Bool) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => regular_seen or production_fields_have_pseudo_after_regular(remaining, regular_seen)
+			false => production_fields_have_pseudo_after_regular(remaining, true)
+		end
+	end
+end
+
+fn production_name_has_uppercase_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	match index >= count
+		true => false
+		false => match byte_at_or_missing(bytes, index) >= 65 and byte_at_or_missing(bytes, index) <= 90
+			true => true
+			false => production_name_has_uppercase_bytes(bytes, index + 1, count)
+		end
+	end
+end
+
+fn production_name_has_uppercase(name: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(name)
+		Ok(bytes) => production_name_has_uppercase_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+		Err(_) => false
+	end
+end
+
+fn production_fields_have_uppercase_ordinary(fields: HpackHeaderFields) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_have_uppercase_ordinary(remaining)
+			false => production_name_has_uppercase(name) or production_fields_have_uppercase_ordinary(remaining)
+		end
+	end
+end
+
+fn production_fields_have_invalid_token_ordinary(fields: HpackHeaderFields) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_have_invalid_token_ordinary(remaining)
+			false => match byte_chunk_from_visible_ascii_string(name)
+				Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0 and ordinary_header_name_token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+					true => production_fields_have_invalid_token_ordinary(remaining)
+					false => true
+				end
+				Err(_) => true
+			end
+		end
+	end
+end
+
+fn production_fields_have_connection_specific(fields: HpackHeaderFields) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, _), remaining) => ordinary_header_name_is_connection_specific(name) or production_fields_have_connection_specific(remaining)
+	end
+end
+
+fn production_fields_have_invalid_te(fields: HpackHeaderFields) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, value), remaining) => match name == "te" and value != "trailers"
+			true => true
+			false => production_fields_have_invalid_te(remaining)
+		end
+	end
+end
+
+fn production_fields_first_invalid_name(fields: HpackHeaderFields) -> String
+	match fields
+		EmptyHeaderFields => ""
+		HeaderField(HpackHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_first_invalid_name(remaining)
+			false => match production_name_has_uppercase(name)
+				true => name
+				false => match byte_chunk_from_visible_ascii_string(name)
+					Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0 and ordinary_header_name_token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+						true => production_fields_first_invalid_name(remaining)
+						false => name
+					end
+					Err(_) => name
+				end
+			end
+		end
+	end
+end
+
+fn production_fields_first_connection_specific(fields: HpackHeaderFields) -> String
+	match fields
+		EmptyHeaderFields => ""
+		HeaderField(HpackHeader(name, _), remaining) => match ordinary_header_name_is_connection_specific(name)
+			true => name
+			false => production_fields_first_connection_specific(remaining)
+		end
+	end
+end
+
+fn production_fields_have_invalid_content_length(fields: HpackHeaderFields) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, value), remaining) => match name == "content-length" and content_length_value_is_invalid(value)
+			true => true
+			false => production_fields_have_invalid_content_length(remaining)
+		end
+	end
+end
+
+fn production_fields_have_mismatched_content_length(fields: HpackHeaderFields, accepted: Option<String>) -> Bool
+	match fields
+		EmptyHeaderFields => false
+		HeaderField(HpackHeader(name, value), remaining) => match name == "content-length"
+			false => production_fields_have_mismatched_content_length(remaining, accepted)
+			true => match accepted
+				None => production_fields_have_mismatched_content_length(remaining, Some(value))
+				Some(previous) => previous != value or production_fields_have_mismatched_content_length(remaining, accepted)
+			end
+		end
+	end
+end
+
+fn production_fields_accepted_content_length(fields: HpackHeaderFields, accepted: Int) -> Int
+	match fields
+		EmptyHeaderFields => accepted
+		HeaderField(HpackHeader(name, value), remaining) => match name == "content-length"
+			false => production_fields_accepted_content_length(remaining, accepted)
+			true => match content_length_accepted_value(value)
+				parsed => match parsed < 0
+					true => -1
+					false => match accepted < 0 or accepted == parsed
+					true => production_fields_accepted_content_length(remaining, parsed)
+					false => -1
+				end
+				end
+			end
+		end
+	end
+end
+
 pub fn transition_headers(transition: HpackDecodeTransition) -> HpackHeaderList
 	match transition
 		HpackDecodeTransition(headers, _) => headers
@@ -4701,6 +5082,395 @@ fn extended_connect_decoded_names(marker: String) -> String
 		"protocol,scheme,authority" => ":method,:protocol,:scheme,:authority"
 		"protocol,scheme,path" => ":method,:protocol,:scheme,:path"
 		_ => ":method,:protocol"
+	end
+end
+
+pub fn production_header_list_is_table_size_update(headers: HpackProductionHeaderList) -> Bool
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_is_table_size_update(compatibility)
+		None => false
+	end
+end
+
+pub fn production_header_list_is_request(headers: HpackProductionHeaderList) -> Bool
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_is_request(compatibility)
+		None => match production_header_list_name_at(headers, 0)
+			Some(":status") => false
+			_ => production_header_list_has_name(headers, ":method")
+		end
+	end
+end
+
+pub fn production_header_list_is_response(headers: HpackProductionHeaderList) -> Bool
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_is_response(compatibility)
+		None => match production_header_list_name_at(headers, 0)
+			Some(":status") => true
+			_ => false
+		end
+	end
+end
+
+pub fn production_header_list_is_trailer(headers: HpackProductionHeaderList) -> Bool
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_is_trailer(compatibility)
+		None => false
+	end
+end
+
+pub fn production_header_list_has_authority(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":authority") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_authority(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_method(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":method") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_method(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_scheme(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":scheme") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_scheme(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_path(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":path") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_path(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_status(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":status") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_status(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_is_connect_request(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":method")
+		Some("CONNECT") => true
+		_ => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_is_connect_request(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_protocol(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":protocol") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_protocol(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_duplicate_protocol(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_name_count(headers, ":protocol") > 1 or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_duplicate_protocol(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_empty_protocol(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":protocol")
+		Some("") => true
+		_ => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_empty_protocol(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_connect_request_has_authority(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":authority") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => connect_request_has_authority(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_connect_request_has_empty_authority(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":authority")
+		Some("") => true
+		_ => match production_compatibility_header_list(headers)
+			Some(compatibility) => connect_request_has_empty_authority(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_connect_request_has_scheme(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":scheme") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => connect_request_has_scheme(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_connect_request_has_path(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_name(headers, ":path") or (match production_compatibility_header_list(headers)
+		Some(compatibility) => connect_request_has_path(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_duplicate_pseudo_header(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_name_count(headers, ":authority") > 1 or production_header_list_name_count(headers, ":method") > 1 or production_header_list_name_count(headers, ":scheme") > 1 or production_header_list_name_count(headers, ":path") > 1 or production_header_list_name_count(headers, ":status") > 1 or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_duplicate_pseudo_header(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_duplicate_status(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_name_count(headers, ":status") > 1 or (match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_duplicate_status(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_pseudo_header_after_regular(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_pseudo_after_regular(fields, false) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_pseudo_header_after_regular(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_pseudo_header_after_regular(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_uppercase_ordinary_header(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_uppercase_ordinary(fields) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_uppercase_ordinary_header(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_uppercase_ordinary_header(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_invalid_token_ordinary_header(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_invalid_token_ordinary(fields) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_token_ordinary_header(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_token_ordinary_header(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_connection_specific_header(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_connection_specific(fields) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_connection_specific_header(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_connection_specific_header(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_connection_specific_header_name(headers: HpackProductionHeaderList) -> String
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_fields_first_connection_specific(fields)
+			"" => match production_compatibility_header_list(headers)
+				Some(compatibility) => header_list_connection_specific_header_name(compatibility)
+				None => ""
+			end
+			name => name
+		end
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_connection_specific_header_name(compatibility)
+			None => ""
+		end
+	end
+end
+
+pub fn production_header_list_has_invalid_te_header_value(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_invalid_te(fields) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_te_header_value(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_te_header_value(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_invalid_scheme_value(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":scheme")
+		Some(value) => value != "http" and value != "https"
+		None => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_scheme_value(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_empty_method_value(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":method")
+		Some("") => true
+		_ => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_empty_method_value(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_empty_path_value(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":path")
+		Some("") => true
+		_ => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_empty_path_value(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_invalid_authority_value(headers: HpackProductionHeaderList) -> Bool
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_has_invalid_authority_value(compatibility)
+		None => false
+	end
+end
+
+pub fn production_header_list_has_invalid_status_value(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":status")
+		Some(value) => not response_status_value_is_valid(value)
+		None => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_status_value(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_header_list_has_invalid_content_length(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_invalid_content_length(fields) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_content_length(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_content_length(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_request_header_list_has_invalid_content_length(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_invalid_content_length(headers) or (match production_compatibility_header_list(headers)
+		Some(compatibility) => request_header_list_has_invalid_content_length(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_has_mismatched_content_length(headers: HpackProductionHeaderList) -> Bool
+	match headers
+		HpackProductionHeaderList(fields, _) => production_fields_have_mismatched_content_length(fields, None) or (match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_mismatched_content_length(compatibility)
+			None => false
+		end)
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_mismatched_content_length(compatibility)
+			None => false
+		end
+	end
+end
+
+pub fn production_request_header_list_has_mismatched_content_length(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_mismatched_content_length(headers) or (match production_compatibility_header_list(headers)
+		Some(compatibility) => request_header_list_has_mismatched_content_length(compatibility)
+		None => false
+	end)
+end
+
+pub fn production_header_list_accepted_content_length(headers: HpackProductionHeaderList) -> Int
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_fields_accepted_content_length(fields, -1)
+			accepted => match accepted < 0
+			true => match production_compatibility_header_list(headers)
+				Some(compatibility) => header_list_accepted_content_length(compatibility)
+				None => -1
+			end
+			false => accepted
+			end
+		end
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_accepted_content_length(compatibility)
+			None => -1
+		end
+	end
+end
+
+pub fn production_header_list_invalid_ordinary_header_name(headers: HpackProductionHeaderList) -> String
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_fields_first_invalid_name(fields)
+			"" => match production_compatibility_header_list(headers)
+				Some(compatibility) => header_list_invalid_ordinary_header_name(compatibility)
+				None => ""
+			end
+			name => name
+		end
+		HpackCompatibilityHeaderList(_, _) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_invalid_ordinary_header_name(compatibility)
+			None => ""
+		end
+	end
+end
+
+pub fn production_header_list_has_pseudo_header(headers: HpackProductionHeaderList) -> Bool
+	production_header_list_has_authority(headers) or production_header_list_has_method(headers) or production_header_list_has_scheme(headers) or production_header_list_has_path(headers) or production_header_list_has_status(headers) or production_header_list_has_protocol(headers)
+end
+
+pub fn production_header_list_first_pseudo_header_name(headers: HpackProductionHeaderList) -> String
+	match production_header_list_name_at(headers, 0)
+		Some(name) => match production_name_is_pseudo(name)
+			true => name
+			false => match production_header_list_has_authority(headers)
+				true => ":authority"
+				false => match production_header_list_has_method(headers)
+					true => ":method"
+					false => match production_header_list_has_scheme(headers)
+						true => ":scheme"
+						false => match production_header_list_has_path(headers)
+							true => ":path"
+							false => match production_header_list_has_status(headers)
+								true => ":status"
+								false => ":protocol"
+							end
+						end
+					end
+				end
+			end
+		end
+		None => ""
+	end
+end
+
+pub fn production_header_list_decoded_names(headers: HpackProductionHeaderList) -> String
+	match production_compatibility_header_list(headers)
+		Some(compatibility) => header_list_decoded_names(compatibility)
+		None => match production_header_list_name_at(headers, 0)
+			Some(name) => name
+			None => ""
+		end
 	end
 end
 
