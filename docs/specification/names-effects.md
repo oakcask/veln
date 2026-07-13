@@ -332,6 +332,7 @@ compiler-known calls.
   fields, `Option<List<scalar>>` fields, `List<scalar>` fields,
   `List<Option<scalar>>` fields, `List<Option<List<scalar>>>` fields,
   `Vec<scalar>` fields, `Vec<Option<scalar>>` fields,
+  `Vec<Vec<scalar>>` fields,
   `Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
   `Dict<String, List<scalar>>` fields, `Dict<String, Vec<scalar>>` fields,
   `Dict<String, Vec<Option<scalar>>>` fields,

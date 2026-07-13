@@ -20,9 +20,9 @@ The helper preserves the schema-local visible record shape, returns
 producing binary bytes. Direct top-level `Vec<scalar>` fields continue to use
 the same existing helper boundary.
 
-This slice does not add arbitrary recursive `Vec<T>` encode eligibility.
-Nested shapes such as `Vec<Vec<Int>>` remain outside the generated
-format-neutral encode helper surface.
+This slice did not add recursive `Vec<T>` encode eligibility. The later
+bounded `Vec<Vec<scalar>>` slice is recorded in
+[Format-Neutral Schema Recursive Vec Scalar Encode Helpers](format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
 
 ## Evidence
 
@@ -31,7 +31,7 @@ format-neutral encode helper surface.
   anonymous record field containing `Vec<Int>`, `Vec<Bool>`, `Vec<Float>`, and
   `Vec<String>` fields.
 - `../../../examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`
-  keeps a nested recursive `Vec<Vec<Int>>` shape outside the generated encode
+  keeps a three-deep `Vec<Vec<Vec<Int>>>` shape outside the generated encode
   helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper resolution plus Core and IR lowering for nested anonymous-record

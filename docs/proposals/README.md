@@ -102,7 +102,7 @@ compare it with `../specification/` before changing behavior.
   imported source ADT visible-shape fields, scalar-only, `Option<scalar>`,
   `List<scalar>`, `List<Option<scalar>>`,
   `List<Option<List<scalar>>>`, `Vec<scalar>`,
-  `Vec<Option<scalar>>`,
+  `Vec<Option<scalar>>`, `Vec<Vec<scalar>>`,
   `Dict<String, scalar>`, `Dict<String, Option<scalar>>`,
   `Dict<String, List<scalar>>`, `Dict<String, Vec<scalar>>`,
   `Dict<String, Vec<Option<scalar>>>`,
@@ -201,6 +201,9 @@ compare it with `../specification/` before changing behavior.
   The completed format-neutral `Vec<Option<scalar>>` encode helper slice is
   archived under
   [Format-Neutral Schema Option Vec Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-vec-encode-helpers.md).
+  The completed bounded recursive `Vec<Vec<scalar>>` encode helper slice is
+  archived under
+  [Format-Neutral Schema Recursive Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
   The completed format-neutral `Dict<String, scalar>` encode helper slice is
   archived under
   [Format-Neutral Schema Dict Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-dict-scalar-encode-helpers.md).

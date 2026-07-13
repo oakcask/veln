@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "unresolved call_target `byte_encode_unsupported_nested_vec_packet`", "schema encode expression cannot resolve `UnsupportedNestedVecPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+contains = ["\"id\":\"name.unresolved\"", "\"id\":\"schema.format_neutral_encode_helper\"", "\"id\":\"schema.encode_expression\"", "unresolved call_target `byte_encode_unsupported_nested_vec_packet`", "format-neutral schema field `metadata` cannot expose a generated encode helper because `{ items : Vec<Vec<Vec<Int>>> }` is not a supported format-neutral encode shape", "Vec<Vec<scalar>>", "schema encode expression cannot resolve `UnsupportedNestedVecPacket` as an eligible schema encode helper", "\"reason\":\"unsupported_format_neutral_encode_field_type\"", "\"reason\":\"unresolved_schema\""]
 
 [stderr]
 format = "empty"
@@ -21,6 +21,12 @@ id = "name.unresolved"
 severity = "error"
 kind = "name"
 message = "unresolved call_target `byte_encode_unsupported_nested_vec_packet`"
+
+[[diagnostics]]
+id = "schema.format_neutral_encode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `metadata` cannot expose a generated encode helper because `{ items : Vec<Vec<Vec<Int>>> }` is not a supported format-neutral encode shape"
 
 [[diagnostics]]
 id = "schema.encode_expression"

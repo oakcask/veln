@@ -156,6 +156,7 @@ enough.
   `Result<T, String>` when every field is a scalar leaf, `Option<scalar>`,
   `Option<List<scalar>>`, `List<scalar>`, `List<Option<scalar>>`,
   `List<Option<List<scalar>>>`, `Vec<scalar>`, `Vec<Option<scalar>>`,
+  `Vec<Vec<scalar>>`,
   `Dict<String, scalar>`,
   `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
   `Dict<String, Vec<scalar>>`,
