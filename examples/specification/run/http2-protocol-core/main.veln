@@ -5152,7 +5152,7 @@ end
 
 fn hpack_carry_only_state(state: Http2DecodeState) -> Http2DecodeState
 	match state
-		State(_, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, _), _) => State(byte_chunk([]), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow), NoPeerStreamAdmitted)
+		State(_, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, _), _) => State(byte_chunk([]), next_offset, preface_state, continuation, hpack_state, receive_limit, with_highest_peer_created_stream_id(peer_settings, 0), shutdown_state, ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow), NoPeerStreamAdmitted)
 	end
 end
 
