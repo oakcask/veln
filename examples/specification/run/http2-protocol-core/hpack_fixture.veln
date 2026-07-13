@@ -242,6 +242,10 @@ fn request_headers_with_invalid_authority() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":authority", "bad authority"), HpackHeader(":request", "method,scheme,path,authority:invalid"), 9)
 end
 
+fn connect_request_headers(marker: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", marker), 9)
+end
+
 fn request_headers_missing_method() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":path", "/"), 9)
 end
@@ -596,6 +600,10 @@ end
 
 fn decoded_request_headers_with_invalid_authority(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(request_headers_with_invalid_authority(), next_state(state)))
+end
+
+fn decoded_connect_request_headers(marker: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(connect_request_headers(marker), next_state(state)))
 end
 
 fn decoded_request_headers_missing_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -3565,6 +3573,14 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				true => decoded_request_headers_with_invalid_authority(state)
 				false => unsupported(block, offset)
 			end
+			101 => match observed_size
+				3 => decoded_connect_request_headers("authority", state)
+				4 => decoded_connect_request_headers("missing-authority", state)
+				5 => decoded_connect_request_headers("authority:", state)
+				6 => decoded_connect_request_headers("authority,scheme", state)
+				7 => decoded_connect_request_headers("authority,path", state)
+				_ => unsupported(block, offset)
+			end
 			49 => match observed_size == 2
 				true => decoded_request_headers_missing_method(state)
 				false => unsupported(block, offset)
@@ -4017,6 +4033,7 @@ end
 
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
@@ -4038,6 +4055,44 @@ pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:trailers"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path,te:gzip"), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", value), _) => request_content_length_label(value)
+		_ => false
+	end
+end
+
+pub fn header_list_is_connect_request(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
+		_ => false
+	end
+end
+
+pub fn connect_request_has_authority(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority:"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,scheme"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,path"), _) => true
+		_ => false
+	end
+end
+
+pub fn connect_request_has_empty_authority(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority:"), _) => true
+		_ => false
+	end
+end
+
+pub fn connect_request_has_scheme(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,scheme"), _) => true
+		_ => false
+	end
+end
+
+pub fn connect_request_has_path(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,path"), _) => true
 		_ => false
 	end
 end
@@ -4083,6 +4138,7 @@ end
 
 pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
@@ -4377,6 +4433,11 @@ end
 
 pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority"), _) => ":method,:authority"
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "missing-authority"), _) => ":method"
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority:"), _) => ":method,:authority"
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,scheme"), _) => ":method,:authority,:scheme"
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,path"), _) => ":method,:authority,:path"
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", value), _) => production_request_content_length_decoded_names(value)
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("content-length", value), _) => production_response_content_length_decoded_names(value)
 		HpackHeaderList(HpackHeader(":status", _), HpackHeader("cache-control", _), _) => ":status,cache-control"

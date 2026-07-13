@@ -1305,7 +1305,9 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 			false => match hpack_fixture::header_list_has_status(headers)
 				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				false => match hpack_fixture::header_list_has_method(headers)
+				false => match hpack_fixture::header_list_is_connect_request(headers)
+					true => validate_completed_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block)
+					false => match hpack_fixture::header_list_has_method(headers)
 					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 					true => match hpack_fixture::header_list_has_scheme(headers)
 						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
@@ -1344,8 +1346,25 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 						end
 					end
 				end
+				end
 			end
 		end
+		end
+	end
+end
+
+fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
+	match hpack_fixture::connect_request_has_authority(headers)
+		false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_missing", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+		true => match hpack_fixture::connect_request_has_empty_authority(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_empty", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::connect_request_has_scheme(headers)
+				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_scheme_present", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+				false => match hpack_fixture::connect_request_has_path(headers)
+					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_path_present", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+					false => RequestHeaderListOk
+				end
+			end
 		end
 	end
 end
@@ -7589,6 +7608,10 @@ end
 
 fn request_header_rule_provenance(failed_header_fact: String) -> String
 	match failed_header_fact
+		"connect_authority_missing" => "rfc9113_connect_request_pseudo_headers"
+		"connect_authority_empty" => "rfc9113_connect_request_pseudo_headers"
+		"connect_scheme_present" => "rfc9113_connect_request_pseudo_headers"
+		"connect_path_present" => "rfc9113_connect_request_pseudo_headers"
 		"ordinary_header_name_not_lowercase" => "rfc9113_field_name_lowercase"
 		"ordinary_header_name_invalid_token" => "rfc9110_field_name_token"
 		"connection_specific_header" => "rfc9113_connection_specific_header_fields"
@@ -12722,6 +12745,30 @@ fn print_request_header_validation_cases(state: Http2DecodeState) -> Result<(), 
 	print_step("request-headers-ordinary-valid", request_headers_regular)
 	let ignored_request_headers_regular: () = emit_header_block("http2-request-headers-ordinary-valid", request_headers_regular, "3b3c3d")?
 	print_hpack_transition("request-headers-ordinary-valid", request_headers_regular)
+	let connect_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001656667")?), state)?
+	print_step("request-headers-connect-valid", connect_headers)
+	let ignored_connect_headers: () = emit_header_block("http2-request-headers-connect-valid", connect_headers, "656667")?
+	print_hpack_transition("request-headers-connect-valid", connect_headers)
+	let connect_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000165")?), state)?
+	print_step("request-headers-connect-continuation-start", connect_continuation_start)
+	let connect_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000016667")?), step_state(connect_continuation_start))?
+	print_step("request-headers-connect-continuation-done", connect_continuation_done)
+	let ignored_connect_continuation: () = emit_header_block("http2-request-headers-connect-continuation", connect_continuation_done, "656667")?
+	print_hpack_transition("request-headers-connect-continuation-done", connect_continuation_done)
+	let connect_missing_authority: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000165666768")?), state)?
+	print_request_header_failure("request-headers-connect-missing-authority", connect_missing_authority)
+	let ignored_connect_missing_state: () = require_peer_stream_failure_preserves_connection_state("CONNECT missing-authority rejection changed connection state", state, step_state(connect_missing_authority))?
+	let connect_empty_authority: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000016566676869")?), state)?
+	print_request_header_failure("request-headers-connect-empty-authority", connect_empty_authority)
+	let ignored_connect_empty_state: () = require_peer_stream_failure_preserves_connection_state("CONNECT empty-authority rejection changed connection state", state, step_state(connect_empty_authority))?
+	let connect_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000601040000000165666768696a")?), state)?
+	print_request_header_failure("request-headers-connect-scheme", connect_scheme)
+	let ignored_connect_scheme_state: () = require_peer_stream_failure_preserves_connection_state("CONNECT scheme rejection changed connection state", state, step_state(connect_scheme))?
+	let connect_path_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001656667")?), state)?
+	print_step("request-headers-connect-path-start", connect_path_start)
+	let connect_path_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000168696a6b")?), step_state(connect_path_start))?
+	print_request_header_failure("request-headers-connect-path", connect_path_done)
+	let ignored_connect_path_state: () = require_peer_stream_failure_preserves_connection_state("CONNECT path rejection changed connection state", step_state(connect_path_start), step_state(connect_path_done))?
 	let request_headers_scheme_http: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040104000000015b5c5d5e")?), state)?
 	print_step("request-headers-scheme-http", request_headers_scheme_http)
 	let ignored_request_headers_scheme_http: () = emit_header_block("http2-request-headers-scheme-http", request_headers_scheme_http, "5b5c5d5e")?

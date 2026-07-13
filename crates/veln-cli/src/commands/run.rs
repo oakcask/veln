@@ -1972,6 +1972,18 @@ fn protocol_header_list_message(
     byte_offset: i64,
 ) -> String {
     match failed_fact {
+        "connect_authority_missing" => {
+            format!("{subject} is missing required CONNECT :authority at byte offset {byte_offset}")
+        }
+        "connect_authority_empty" => {
+            format!("{subject} contains empty CONNECT :authority at byte offset {byte_offset}")
+        }
+        "connect_scheme_present" => {
+            format!("{subject} contains forbidden CONNECT :scheme at byte offset {byte_offset}")
+        }
+        "connect_path_present" => {
+            format!("{subject} contains forbidden CONNECT :path at byte offset {byte_offset}")
+        }
         "missing_required_pseudo_header" => {
             format!("{subject} is missing {header_name} at byte offset {byte_offset}")
         }
