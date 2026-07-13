@@ -551,6 +551,22 @@ enough.
   `http2.protocol.invalid_stream_id`, its focused required-domain fact,
   endpoint role, active state, and rule provenance. The executable evidence is
   under `examples/specification/run/http2-protocol-core/`.
+- The same checked core records the greatest peer-created stream id admitted
+  by an initial HEADERS frame. A new idle peer-created stream is admitted only
+  when its id is greater than that connection-wide maximum. The maximum
+  survives closed and reset stream states; lower and previously admitted ids
+  use `http2.protocol.invalid_stream_id` with an idle-stream fact and
+  `peer_created_stream_ids_increase` provenance while retaining the offending
+  frame as pending input without advancing decode progress or changing HPACK,
+  shutdown, lifecycle, or admission state. Existing
+  stream-id domain failures, continuation ownership, known-stream lifecycle
+  failures, GOAWAY boundaries, and the concurrent-stream limit retain their
+  earlier checks. Ordinary evidence is in
+  `examples/specification/run/http2-protocol-core/`; human and JSON diagnostic
+  evidence is in
+  `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
+  and
+  `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit
@@ -629,6 +645,29 @@ enough.
   `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
   and
   `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
+- The receive transition is role-aware for peer SETTINGS. A client endpoint
+  rejects a peer-sent `SETTINGS_ENABLE_PUSH` item at that six-byte item's
+  offset before applying any peer-advertised setting or state derived from the
+  frame. The typed `http2.protocol.settings_not_allowed_for_endpoint` failure
+  carries the setting identifier and name, endpoint role, SETTINGS frame kind,
+  active state, rule provenance, and a bounded item preview. A server endpoint
+  continues to accept `SETTINGS_ENABLE_PUSH` values `0` and `1`; unknown
+  identifiers, SETTINGS ACK behavior, and the existing value-range checks are
+  unchanged. The integrated, JSON, and human cases are
+  `examples/specification/run/http2-protocol-core/`,
+  `examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`,
+  and
+  `examples/specification/run/http2-protocol-core-settings-enable-push-role-human/`.
+- The same checked HTTP/2 protocol core accepts a local outbound PING request
+  send-intent only when the opaque payload is exactly eight bytes. An accepted
+  intent returns one immutable output chunk containing a length-`8`, kind-`6`,
+  flags-`0`, stream-`0` frame header followed by the unchanged payload. Short
+  and long payloads return a typed
+  `http2.protocol.invalid_payload_length` outbound rejection before frame
+  encoding and emit no output chunks. Existing inbound PING validation,
+  automatic ACK emission for non-ACK PING frames, and no-response handling for
+  received PING ACK frames remain checked by
+  `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core accepts received `PRIORITY` frames on
   nonzero client-initiated streams when the frame has the fixed five-byte
   payload and does not depend on itself. The decoded frame exposes dependency

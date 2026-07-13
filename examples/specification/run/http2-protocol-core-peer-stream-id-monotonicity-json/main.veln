@@ -1,0 +1,49 @@
+# HTTP/2 peer-created stream id monotonicity failures project structured runtime details.
+
+type Http2ProtocolFailure
+	InvalidStreamId {offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, preview: ByteView}
+end
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		error,
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(9, 1, 3, "peer-created stream id greater than every previously admitted peer-created stream id", "server", "idle-stream", "peer_created_stream_ids_increase", byte_chunk([]))
+	)
+end
+
+fn invalid_stream_id_payload(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, preview: ByteView) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_stream_id",
+		"HTTP/2 invalid stream id at byte offset 9",
+		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(offset, frame_kind, stream_id, required_domain, endpoint_role, "idle-stream", "peer_created_stream_ids_increase", byte_view_to_chunk(preview))
+	)
+end
+
+fn input_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000010400000003")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn input_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
+	match failure
+		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, preview) => Err(invalid_stream_id_payload(offset, frame_kind, stream_id, required_domain, endpoint_role, preview))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteView = input_view(input_bytes()?)?
+	project(InvalidStreamId(9, 1, 3, "peer-created stream id greater than every previously admitted peer-created stream id", "server", preview))
+end

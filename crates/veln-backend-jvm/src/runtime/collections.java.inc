@@ -3317,6 +3317,47 @@
         ));
     }
 
+    public static Object http2ProtocolSettingsNotAllowedForEndpoint(
+        Object offset,
+        Object settingIdentifier,
+        Object settingName,
+        Object endpointRole,
+        Object frameKind,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long identifier = asLong(settingIdentifier);
+        String name = asString(settingName);
+        String role = asString(endpointRole);
+        long kind = asLong(frameKind);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset " + byteOffset;
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(identifier),
+                name,
+                role,
+                Long.valueOf(kind),
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.settings_not_allowed_for_endpoint",
+                message,
+                detail
+            }
+        ));
+    }
+
     public static Object http2ProtocolInvalidRequestHeaderList(
         Object offset,
         Object frameKind,

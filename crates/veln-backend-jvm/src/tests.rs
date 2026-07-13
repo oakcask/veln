@@ -2718,6 +2718,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolUnexpectedSettingsAck",
         ),
         (
+            "http2_protocol_settings_not_allowed_for_endpoint",
+            "http2ProtocolSettingsNotAllowedForEndpoint",
+        ),
+        (
             "http2_protocol_invalid_priority_dependency",
             "http2ProtocolInvalidPriorityDependency",
         ),

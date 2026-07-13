@@ -36,7 +36,6 @@ ordinary-source decode-state slices. Planned coverage still includes:
   or outbound DATA `content-length` body accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
-- stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local

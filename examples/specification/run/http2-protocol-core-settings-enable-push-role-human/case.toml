@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.settings_not_allowed_for_endpoint]: SETTINGS_ENABLE_PUSH is not allowed for client endpoints at byte offset 15", "note: SETTINGS_ENABLE_PUSH (2) appeared in frame kind 4.", "note: Nearby bytes: 00 02 00 00 00 01 (showing 6 of 6 byte(s), complete).", "note: Endpoint role: client.", "note: Active protocol state: peer-settings.", "note: Rule provenance: rfc9113_client_must_not_receive_settings_enable_push."]
