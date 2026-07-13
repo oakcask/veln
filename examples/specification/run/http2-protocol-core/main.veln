@@ -11973,6 +11973,13 @@ fn production_invalid_header_fields() -> HpackHeaderFields
 	)
 end
 
+fn production_unsupported_string_header_fields() -> HpackHeaderFields
+	hpack_fixture::prepend_header_field(
+		hpack_fixture::hpack_header(":method", "GET"),
+		hpack_fixture::prepend_header_field(hpack_fixture::hpack_header("server", "\n\n"), hpack_fixture::empty_header_fields())
+	)
+end
+
 fn production_eviction_header_fields() -> HpackHeaderFields
 	hpack_fixture::prepend_header_field(
 		hpack_fixture::hpack_header("x-trace", "ok"),
@@ -12014,6 +12021,21 @@ fn check_atomic_production_hpack_failure() -> Result<(), String>
 	end
 end
 
+fn check_atomic_production_headers_failure() -> Result<(), String>
+	let initial: HpackFixtureState = hpack_fixture::initial_encode_state()
+	let receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
+	match send_headers_from_header_fields_with_state(1, production_unsupported_string_header_fields(), initial, false, empty_peer_settings(), receive_credit)?
+		Ok(_) => Err("expected production HPACK HEADERS string failure")
+		Err(_) => match send_headers_from_header_fields_with_state(1, production_single_method_header_fields(), initial, false, empty_peer_settings(), receive_credit)?
+			Err(_) => Err("expected reusable production HPACK HEADERS state")
+			Ok(retry) => match require_hpack_bytes(outbound_headers_hpack_encode_transition(retry), "82")
+				Err(error) => Err(error)
+				Ok(_) => require_production_hpack_state(hpack_fixture::encode_transition_state(outbound_headers_hpack_encode_transition(retry)), 1, 0)
+			end
+		end
+	end
+end
+
 fn check_production_headers_frames(headers: HpackHeaderFields, state: HpackFixtureState, expected_payload_length: Int) -> Result<(), String>
 	let result: Result<OutboundHeadersHpackTransition, HpackFixtureFailure> = send_headers_from_header_fields_with_state(1, headers, state, false, small_peer_max_frame_size_settings(2), outbound_receive_credit_with_open_stream(10, 1, 20))?
 	let transition: OutboundHeadersHpackTransition = require_outbound_headers_hpack_transition(result)?
@@ -12048,7 +12070,7 @@ end
 fn check_production_outbound_header_fields() -> Result<(), String>
 	let initial: HpackFixtureState = hpack_fixture::initial_encode_state()
 	let seed: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_seed_header_fields(), initial, 4096, 0))?
-	let ignored_seed_bytes: () = require_hpack_bytes(seed, "8244072f7461726765744007782d7472616365026f6b7e05616761696e")?
+	let ignored_seed_bytes: () = require_hpack_bytes(seed, "8244856123b262a74085f2b26c190b026f6b7e841cc3355f")?
 	let seed_state: HpackFixtureState = hpack_fixture::encode_transition_state(seed)
 	let ignored_seed_state: () = require_production_hpack_state(seed_state, 4, 3)?
 
@@ -12065,8 +12087,9 @@ fn check_production_outbound_header_fields() -> Result<(), String>
 	let ignored_zero_state: () = require_production_hpack_state(hpack_fixture::encode_transition_state(zero_encoded), 6, 0)?
 
 	let ignored_atomic_failure: () = check_atomic_production_hpack_failure()?
+	let ignored_atomic_headers_failure: () = check_atomic_production_headers_failure()?
 	let ignored_peer_capacity_reduction: () = check_production_peer_capacity_reduction(seed_state)?
-	let ignored_request_headers_frames: () = check_production_headers_frames(production_seed_header_fields(), initial, 29)?
+	let ignored_request_headers_frames: () = check_production_headers_frames(production_seed_header_fields(), initial, 24)?
 	let ignored_response_headers_frames: () = check_production_headers_frames(production_response_header_fields(), initial, 5)?
 	check_production_push_promise_frames(initial)
 end

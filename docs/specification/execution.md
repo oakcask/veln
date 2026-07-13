@@ -522,9 +522,13 @@ enough.
   active peer-advertised dynamic-table capacity. It selects
   exact static indexed, exact dynamic indexed, static-name literal,
   dynamic-name literal, then new-name literal in that order. The selected
-  literal policy is raw literal-with-indexing, so only the three literal
-  choices insert. Multi-field and carried-state blocks check static and
-  dynamic exact reuse alongside new-name and dynamic-name insertion. Outbound
+  literal policy is literal-with-indexing, so only the three literal choices
+  insert. Each literal string independently compares its complete raw and
+  HPACK Huffman encodings, selects Huffman only when it is smaller, and keeps
+  raw encoding on ties. Exact static-indexed and exact dynamic-indexed fields
+  retain their representation priority. Multi-field and carried-state blocks
+  check static and dynamic exact reuse alongside new-name and dynamic-name
+  insertion. Outbound
   request and response HEADERS and server-side `PUSH_PROMISE` route the
   ordered list through the same frame splitting and CONTINUATION paths as
   pre-encoded blocks. Reduced-capacity insertion uses the existing eviction
@@ -533,9 +537,11 @@ enough.
   fields; an encoder-selected size below a later increased peer limit remains
   valid. Explicit table-size updates can also evict retained entries or clear
   the table.
-  Invalid names, unsupported strings, and capacity mismatches return no frame
-  bytes and expose no partially updated HPACK or protocol state; the reusable
-  input state remains unchanged. The same fixture
+  The checked outbound HEADERS cases cover a smaller Huffman value, a raw tie,
+  mixed Huffman-name/raw-value selection, Huffman dynamic-name values, and
+  later exact dynamic reuse. Invalid names, unsupported strings, and capacity
+  mismatches return no frame bytes and expose no partially updated HPACK or
+  protocol state; the reusable input state remains unchanged. The same fixture
   encoder observes the current outbound dynamic-table capacity after a checked
   table-size update: a later literal-with-indexing entry larger than the
   capacity is not retained for dynamic-index reuse, and a zero-capacity update

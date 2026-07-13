@@ -2189,7 +2189,7 @@ end
 fn encode_header_fields(headers: HpackHeaderFields, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
 	match headers
 		EmptyHeaderFields => Ok(HpackEncodeTransition(byte_chunk([]), state))
-		HeaderField(header, remaining) => match encode_selected_header(header, header_failure_context(header), state, offset)
+		HeaderField(header, remaining) => match encode_automatic_header(header, header_failure_context(header), state, offset)
 			Ok(first_transition) => match encode_header_fields(remaining, encode_transition_state(first_transition), offset)
 				Ok(remaining_transition) => Ok(HpackEncodeTransition(byte_append(encode_transition_bytes(first_transition), encode_transition_bytes(remaining_transition)), encode_transition_state(remaining_transition)))
 				Err(failure) => Err(failure)
@@ -2240,6 +2240,77 @@ fn encode_selected_header(header: HpackHeader, headers: HpackHeaderList, state: 
 						true => encode_selected_dynamic_name(name, value, headers, state, offset)
 						false => encode_selected_new_name(name, value, headers, state, offset)
 					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_automatic_header(header: HpackHeader, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match header
+		HpackHeader(name, value) => match hpack_static_exact_index(name, value) >= 0
+			true => encode_selected_static_exact(name, value, headers, state, offset)
+			false => match matching_dynamic_header_index(state, name, value) >= 0
+				true => encode_selected_dynamic_exact(name, value, headers, state, offset)
+				false => match hpack_static_name_index(name) >= 0
+					true => encode_automatic_static_name(name, value, headers, state, offset)
+					false => match matching_dynamic_name_index(state, name) >= 0
+						true => encode_automatic_dynamic_name(name, value, headers, state, offset)
+						false => encode_automatic_new_name(name, value, headers, state, offset)
+					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_automatic_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_hpack_raw_string_literal(value, offset)
+		Ok(raw) => match encode_hpack_huffman_string_literal(value, offset)
+			Ok(huffman) => match byte_count_to_int(byte_chunk_count(huffman)) < byte_count_to_int(byte_chunk_count(raw))
+				true => Ok(huffman)
+				false => Ok(raw)
+			end
+			Err(_) => Ok(raw)
+		end
+		Err(raw_failure) => match encode_hpack_huffman_string_literal(value, offset)
+			Ok(huffman) => Ok(huffman)
+			Err(_) => Err(raw_failure)
+		end
+	end
+end
+
+fn encode_automatic_static_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encode_hpack_integer_with_prefix(hpack_static_name_index(name), 63, 64, offset)
+		Ok(prefix) => match encode_automatic_string_literal(value, offset)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), state_with_dynamic_entry(state, name, value)))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_automatic_dynamic_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	let hpack_name_index: Int = matching_dynamic_name_index(state, name) + 62
+	match encode_hpack_integer_with_prefix(hpack_name_index, 63, 64, offset)
+		Ok(prefix) => match encode_automatic_string_literal(value, offset)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), state_with_dynamic_entry(state, name, value)))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_automatic_new_name(name: String, value: String, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match accepted_ordinary_header_name_bytes(name)
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+		Ok(_) => match byte_write_u8_be(64)
+			Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+			Ok(prefix) => match encode_automatic_string_literal(name, offset)
+				Err(failure) => Err(failure)
+				Ok(encoded_name) => match encode_automatic_string_literal(value, offset)
+					Err(failure) => Err(failure)
+					Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(byte_append(prefix, encoded_name), encoded_value), state_with_dynamic_entry(state, name, value)))
 				end
 			end
 		end
