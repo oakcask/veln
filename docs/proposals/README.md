@@ -658,6 +658,9 @@ compare it with `../specification/` before changing behavior.
   unbounded dynamic-table behavior.
   The completed stream-identifier domain-value slice is archived under
   [HTTP/2 Stream Domain Values](../reference/implemented-proposals/http2-stream-domain-values.md).
+  The completed server-side peer-created stream id ordering slice is archived
+  under
+  [HTTP/2 Peer-Created Stream ID Ordering](../reference/implemented-proposals/http2-peer-created-stream-id-ordering.md).
   The completed source-visible static table decode slice is archived under
   [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md).
   The completed source-visible static-name Huffman literal slice is archived

@@ -1451,6 +1451,43 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "previous_peer_stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "endpoint_role".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitFrameSizeDiagnostic".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![

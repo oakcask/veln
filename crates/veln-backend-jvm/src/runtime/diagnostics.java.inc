@@ -376,6 +376,9 @@
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic")) {
             return runtimeHttp2ProtocolInvalidStreamIdDiagnostic(id, (Adt) detail);
         }
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic")) {
+            return runtimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(id, (Adt) detail);
+        }
         if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
@@ -603,6 +606,35 @@
                 DiagnosticDetail.number("stream_id", streamId),
                 DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                 DiagnosticDetail.string("required_stream_id_domain", requiredDomain),
+                DiagnosticDetail.string("endpoint_role", endpointRole),
+                DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
+                DiagnosticDetail.string("active_state", activeState),
+                DiagnosticDetail.string("rule_provenance", ruleProvenance)
+            )
+        );
+    }
+
+    private static ProtocolDiagnostic runtimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(
+        String id,
+        Adt detail
+    ) {
+        if (!id.equals("http2.protocol.peer_stream_id_not_increasing")) {
+            return null;
+        }
+        long byteOffset = asLong(detail.payloads[0]);
+        long streamId = asLong(detail.payloads[1]);
+        long previousPeerStreamId = asLong(detail.payloads[2]);
+        String endpointRole = asString(detail.payloads[3]);
+        String activeState = asString(detail.payloads[4]);
+        String ruleProvenance = asString(detail.payloads[5]);
+        String nearbyContext = byteChunkPreviewTrace(detail.payloads[6], 8);
+        return new ProtocolDiagnostic(
+            id,
+            byteOffset,
+            java.util.Arrays.asList(
+                DiagnosticDetail.number("stream_id", streamId),
+                DiagnosticDetail.string("stream_ref", "stream"),
+                DiagnosticDetail.number("previous_peer_stream_id", previousPeerStreamId),
                 DiagnosticDetail.string("endpoint_role", endpointRole),
                 DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                 DiagnosticDetail.string("active_state", activeState),

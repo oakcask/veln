@@ -119,7 +119,7 @@ type PeerAdvertisedMaxHeaderListSize
 end
 
 type PeerSettingsState
-	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, LocalSentEnablePush)
+	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, LocalSentEnablePush, Int)
 end
 
 type OutstandingLocalSettingsBatch
@@ -250,6 +250,7 @@ type Http2ProtocolFailure
 	ContinuationExpected {offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, preview_chunk: ByteChunk}
 	InvalidFrameKind {offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String}
 	InvalidStreamId {offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String}
+	PeerStreamIdNotIncreasing {offset: Int, stream_id: Int, previous_stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview_chunk: ByteChunk}
 	InvalidPayloadLength {offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	InvalidWindowUpdateIncrement {offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView}
 	InvalidDataPadding {offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteView}
@@ -287,6 +288,11 @@ end
 type ProtocolStreamIdDecision
 	ProtocolStreamIdOk
 	ProtocolStreamIdFailed(Http2ProtocolFailure)
+end
+
+type PeerStreamOrderingDecision
+	PeerStreamOrderingOk
+	PeerStreamOrderingFailed(Http2ProtocolFailure)
 end
 
 type ShutdownStateDecision
@@ -650,7 +656,7 @@ fn protocol_default_frame_size_limit() -> ReceiveLimitEntry
 end
 
 fn empty_peer_settings() -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
 
 fn default_receive_flow_control() -> ReceiveFlowControl
@@ -1024,18 +1030,30 @@ end
 
 fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, peer_stream_admission: PeerStreamAdmissionState, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
-	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state), peer_stream_admission)?
-	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state), next_receive_flow_control)?
-			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?, update_peer_stream_admission(kind, stream_id, completed_is_trailer, state_receive_flow_control(consumed_state), peer_stream_admission)), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
-			ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
-		end
-		ReceiveFlowControlFailed(error) => match error
-			InvalidStreamId(_, _, _, _, _, _, rule_provenance) => match rule_provenance == "peer_created_stream_ids_increase"
-				true => Ok(Failed(peer_stream_admission_rejected_state(pending, frame_offset, consumed_state, peer_stream_admission), error))
-				false => Ok(Failed(consumed_state, error))
+	match validate_peer_stream_id_order(frame_offset, length, kind, flags, stream_id, state_peer_settings(consumed_state), state_receive_flow_control(consumed_state))?
+		PeerStreamOrderingOk => match update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state), peer_stream_admission)?
+			ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state), next_receive_flow_control)?
+				ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), record_peer_created_stream_id(kind, stream_id, state_receive_flow_control(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?), next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?, update_peer_stream_admission(kind, stream_id, completed_is_trailer, state_receive_flow_control(consumed_state), peer_stream_admission)), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+				ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
 			end
-			_ => Ok(Failed(consumed_state, error))
+			ReceiveFlowControlFailed(error) => match error
+				InvalidStreamId(_, _, _, _, _, _, rule_provenance) => match rule_provenance == "peer_created_stream_ids_increase"
+					true => Ok(Failed(peer_stream_admission_rejected_state(pending, frame_offset, consumed_state, peer_stream_admission), error))
+					false => Ok(Failed(consumed_state, error))
+				end
+				_ => Ok(Failed(consumed_state, error))
+			end
+		end
+		PeerStreamOrderingFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn validate_peer_stream_id_order(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<PeerStreamOrderingDecision, String>
+	match kind == 1 and stream_id_is_client_initiated(stream_id) and not receive_flow_control_tracks_stream(stream_id, receive_flow_control)
+		false => Ok(PeerStreamOrderingOk)
+		true => match stream_id <= highest_peer_created_stream_id(peer_settings)
+			false => Ok(PeerStreamOrderingOk)
+			true => Ok(PeerStreamOrderingFailed(PeerStreamIdNotIncreasing(offset, stream_id, highest_peer_created_stream_id(peer_settings), "server", "idle-stream", "rfc9113_peer_stream_ids_increase", byte_view_to_chunk(frame_header_preview(length, kind, flags, stream_id)?))))
 		end
 	end
 end
@@ -1043,6 +1061,38 @@ end
 fn peer_stream_admission_rejected_state(pending: ByteChunk, frame_offset: Int, consumed_state: Http2DecodeState, peer_stream_admission: PeerStreamAdmissionState) -> Http2DecodeState
 	match consumed_state
 		State(_, _, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, _) => State(pending, frame_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+	end
+end
+
+fn receive_flow_control_tracks_stream(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => false
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _, _)) => stream_id == open_stream_id
+		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _)) => stream_id == first_stream_id or stream_id == second_stream_id
+		ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _, third_stream_id, _, _)) => stream_id == first_stream_id or stream_id == second_stream_id or stream_id == third_stream_id
+		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => stream_id == open_stream_id or stream_id == promised_stream_id
+		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => stream_id == open_stream_id
+		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => stream_id == closed_stream_id
+		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => stream_id == reset_stream_id
+	end
+end
+
+fn highest_peer_created_stream_id(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, _, _, _, _, _, _, stream_id) => stream_id
+	end
+end
+
+fn record_peer_created_stream_id(kind: Int, stream_id: Int, previous_receive_flow_control: ReceiveFlowControl, peer_settings: PeerSettingsState) -> PeerSettingsState
+	match kind == 1 and stream_id_is_client_initiated(stream_id) and not receive_flow_control_tracks_stream(stream_id, previous_receive_flow_control)
+		false => peer_settings
+		true => with_highest_peer_created_stream_id(peer_settings, stream_id)
+	end
+end
+
+fn with_highest_peer_created_stream_id(peer_settings: PeerSettingsState, stream_id: Int) -> PeerSettingsState
+	match peer_settings
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, _) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, stream_id)
 	end
 end
 
@@ -1694,13 +1744,13 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, item_wire_o
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier
-			5 => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push))
-			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push))
-			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => match identifier
+			5 => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push, highest_peer_stream_id))
+			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push, highest_peer_stream_id))
 			_ => Ok(peer_settings)
 		end
 	end
@@ -1746,56 +1796,56 @@ end
 
 fn active_peer_initial_window_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _) => 65535
-		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _) => value
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _, _) => 65535
+		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _, _) => value
 	end
 end
 
 fn active_peer_max_frame_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _) => 16384
-		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _) => value
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _, _) => 16384
+		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _, _) => value
 	end
 end
 
 fn active_peer_header_table_size(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _) => 4096
-		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _) => value
+		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _, _) => 4096
+		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _, _) => value
 	end
 end
 
 fn peer_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
-		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _) => value == 0
-		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => false
+		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _, _) => value == 0
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _, _) => false
 	end
 end
 
 fn local_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
-		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _)) => value == 0
-		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => false
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _), _) => value == 0
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => false
 	end
 end
 
 fn local_enable_push_value(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _)) => value
-		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => 0
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _), _) => value
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => 0
 	end
 end
 
 fn local_enable_push_offset(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
-		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(_, item_offset)) => item_offset
-		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush) => 0
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(_, item_offset), _) => item_offset
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => 0
 	end
 end
 
 fn with_local_enable_push(peer_settings: PeerSettingsState, value: Int, item_offset: Int) -> PeerSettingsState
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, _) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, LocalSentEnablePush(value, item_offset))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, _, highest_peer_stream_id) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, LocalSentEnablePush(value, item_offset), highest_peer_stream_id)
 	end
 end
 
@@ -3500,13 +3550,13 @@ fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, pee
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push) => match identifier
-			5 => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push))
-			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push))
-			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push))
-			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => match identifier
+			5 => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push, highest_peer_stream_id))
+			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push, highest_peer_stream_id))
 			_ => Ok(peer_settings)
 		end
 	end
@@ -5063,6 +5113,10 @@ fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
 	end
 end
 
+fn state_highest_peer_created_stream_id(state: Http2DecodeState) -> Int
+	highest_peer_created_stream_id(state_peer_settings(state))
+end
+
 fn state_hpack_fixture_state(state: Http2DecodeState) -> HpackFixtureState
 	match state
 		State(_, _, _, _, hpack_state, _, _, _, _, _) => hpack_state
@@ -5536,6 +5590,7 @@ fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => failure_rule_provenance(error)
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => failure_rule_provenance(error)
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => failure_rule_provenance(error)
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
@@ -6154,6 +6209,7 @@ fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => failure_rule_provenance(error)
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => failure_rule_provenance(error)
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => failure_rule_provenance(error)
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => failure_rule_provenance(error)
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => failure_rule_provenance(error)
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => failure_rule_provenance(error)
@@ -6655,6 +6711,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "http2.protocol.continuation_expected"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "http2.protocol.invalid_frame_kind"
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "http2.protocol.invalid_stream_id"
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => "http2.protocol.peer_stream_id_not_increasing"
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "http2.protocol.invalid_payload_length"
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "http2.protocol.invalid_window_update_increment"
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "http2.protocol.invalid_data_padding"
@@ -6710,6 +6767,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => offset
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => offset
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => offset
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => offset
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => offset
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => offset
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => offset
@@ -6739,6 +6797,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 0
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6768,6 +6827,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => actual_kind
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => actual_kind
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => frame_kind
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 1
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => frame_kind
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 8
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6797,6 +6857,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => actual_stream
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => stream_id
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => stream_id
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => stream_id
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => stream_id
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => stream_id
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => stream_id
@@ -6826,6 +6887,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => expected_stream
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => previous_stream_id
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6855,6 +6917,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 9
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => expected_kind
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => frame_kind
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 1
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => frame_kind
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 8
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6884,6 +6947,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => started_kind
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 0
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6913,6 +6977,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => started_offset
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 0
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -6941,7 +7006,8 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
-		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => stream_id
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => observed_length
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => observed_increment
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => pad_length
@@ -6971,6 +7037,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => previous_stream_id
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => expected_length
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accepted_min_increment
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => remaining_payload_length
@@ -7000,6 +7067,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "headers"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => active_state
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => active_state
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => active_state
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => active_state
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => active_state
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => active_state
@@ -7081,6 +7149,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "rfc9113_continuation_sequence"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => rule_provenance
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => rule_provenance
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => rule_provenance
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => rule_provenance
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => rule_provenance
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => rule_provenance
@@ -7113,6 +7182,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => "none"
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "none"
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "none"
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
@@ -7142,6 +7212,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 0
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -7171,6 +7242,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => "none"
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "none"
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "none"
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
@@ -7200,6 +7272,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => stream_id
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => observed_increment
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -7229,6 +7302,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => previous_stream_id + 1
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accepted_min_increment
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -7258,6 +7332,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 2147483647
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accepted_max_increment
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -7287,6 +7362,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => "none"
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "none"
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "none"
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
@@ -7497,6 +7573,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => accept_runtime_diagnostic(http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), state_continuation_count(diagnostic_context_state(context)), context_rule_provenance(failure, diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?))
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?))
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => accept_runtime_diagnostic(Err(RuntimeDiagnostic("http2.protocol.peer_stream_id_not_increasing", "HTTP/2 peer-created stream id is not increasing", RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk))))
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview))
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2_protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview))
 			InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => accept_runtime_diagnostic(http2_protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))
@@ -7565,6 +7642,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => required_domain
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => "greater than previous peer-created stream id"
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "none"
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "none"
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
@@ -7594,6 +7672,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 			InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => endpoint_role
+			PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => endpoint_role
 			InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => "none"
 			InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => "none"
 			InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => "none"
@@ -7624,6 +7703,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => 0
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => 0
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => 0
 		InvalidDataPadding(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview) => 0
@@ -8729,6 +8809,12 @@ fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [std
 	stdio::print(int_to_string(state_open_stream_count(state)))
 	stdio::print(" open_stream ")
 	stdio::println(int_to_string(state_open_stream_id(state)))
+end
+
+fn print_peer_stream_high_water(label: String, state: Http2DecodeState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" highest_peer_created_stream_id ")
+	stdio::println(int_to_string(state_highest_peer_created_stream_id(state)))
 end
 
 fn print_two_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
@@ -10727,15 +10813,15 @@ fn print_outbound_push_promise_static_accept_encoding_case(outbound_receive_cred
 end
 
 fn small_peer_max_frame_size_settings(value: Int) -> PeerSettingsState
-	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
+	PeerSettings(PeerMaxFrameSize(value, 0), NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
 
 fn peer_header_table_size_settings(value: Int) -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
 
 fn peer_enable_push_settings(value: Int) -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
 
 fn print_peer_header_table_size_outbound_hpack_cases() -> Result<(), String> effects [stdio]
@@ -11414,6 +11500,48 @@ fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> e
 	print_step("peer-stream-third-admit", peer_stream_third_admit)
 	print_three_peer_streams("peer-stream-third-admit", step_state(peer_stream_third_admit))
 	print_three_peer_priorities("peer-stream-third-admit", step_state(peer_stream_third_admit))
+	print_peer_stream_high_water("peer-stream-third-admit", step_state(peer_stream_third_admit))
+	let peer_stream_high_first: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	print_step("peer-stream-high-first", peer_stream_high_first)
+	print_peer_stream_high_water("peer-stream-high-first", step_state(peer_stream_high_first))
+	let peer_stream_high_reuse: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(peer_stream_high_first))?
+	print_step("peer-stream-high-reuse", peer_stream_high_reuse)
+	print_peer_stream_high_water("peer-stream-high-reuse", step_state(peer_stream_high_reuse))
+	let peer_stream_lower_even: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), step_state(peer_stream_high_first))?
+	print_stream_id_failure("peer-stream-lower-even", peer_stream_lower_even)
+	let peer_stream_lower_oversized: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001010400000003")?), step_state(peer_stream_high_first))?
+	print_failure("peer-stream-lower-oversized", peer_stream_lower_oversized)
+	let peer_stream_lower_short_priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401240000000300000003")?), step_state(peer_stream_high_first))?
+	print_failure("peer-stream-lower-short-priority", peer_stream_lower_short_priority)
+	let peer_stream_lower_malformed_hpack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000003048100")?), step_state(peer_stream_high_first))?
+	print_failure("peer-stream-lower-malformed-hpack", peer_stream_lower_malformed_hpack)
+	let peer_stream_higher: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(peer_stream_high_first))?
+	print_step("peer-stream-higher", peer_stream_higher)
+	print_peer_stream_high_water("peer-stream-higher", step_state(peer_stream_higher))
+	let peer_stream_lower_idle: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_high_first))?
+	print_failure("peer-stream-lower-idle", peer_stream_lower_idle)
+	print_peer_stream_high_water("peer-stream-lower-idle", step_state(peer_stream_lower_idle))
+	print_peer_streams("peer-stream-lower-idle", step_state(peer_stream_lower_idle))
+	print_receive_windows("peer-stream-lower-idle", step_state(peer_stream_lower_idle))
+	print_hpack_state_counts("peer-stream-lower-idle", step_state(peer_stream_high_first), step_state(peer_stream_lower_idle))
+	let peer_stream_lower_idle_repeated: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_high_first))?
+	print_failure("peer-stream-lower-idle-repeated", peer_stream_lower_idle_repeated)
+	print_peer_stream_high_water("peer-stream-lower-idle-repeated", step_state(peer_stream_lower_idle_repeated))
+	let peer_stream_closed_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010500000005")?), frame_state())?
+	print_closed_by_peer_stream("peer-stream-closed-high", step_state(peer_stream_closed_high))
+	print_peer_stream_high_water("peer-stream-closed-high", step_state(peer_stream_closed_high))
+	let peer_stream_lower_after_close: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_closed_high))?
+	print_failure("peer-stream-lower-after-close", peer_stream_lower_after_close)
+	print_peer_stream_high_water("peer-stream-lower-after-close", step_state(peer_stream_lower_after_close))
+	let peer_stream_closed_reuse: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(peer_stream_closed_high))?
+	print_failure("peer-stream-closed-reuse", peer_stream_closed_reuse)
+	let peer_stream_reset_high_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let peer_stream_reset_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000500000008")?), step_state(peer_stream_reset_high_open))?
+	print_rst_stream("peer-stream-reset-high", peer_stream_reset_high)
+	print_peer_stream_high_water("peer-stream-reset-high", step_state(peer_stream_reset_high))
+	let peer_stream_lower_after_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_reset_high))?
+	print_failure("peer-stream-lower-after-reset", peer_stream_lower_after_reset)
+	print_peer_stream_high_water("peer-stream-lower-after-reset", step_state(peer_stream_lower_after_reset))
 	let peer_stream_second_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000030102")?), step_state(peer_stream_third_admit))?
 	print_step("peer-stream-second-data", peer_stream_second_data)
 	print_three_peer_streams("peer-stream-second-data", step_state(peer_stream_second_data))
@@ -11429,6 +11557,7 @@ fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> e
 	print_priority_state("peer-stream-third-priority", step_state(peer_stream_third_priority))
 	let peer_stream_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(peer_stream_third_priority))?
 	print_failure("peer-stream-limit", peer_stream_limit)
+	print_peer_stream_high_water("peer-stream-limit", step_state(peer_stream_limit))
 	print_three_peer_streams("peer-stream-limit", step_state(peer_stream_limit))
 	print_three_peer_priorities("peer-stream-limit", step_state(peer_stream_limit))
 	Ok(())
@@ -12141,6 +12270,10 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	print_shutdown_state("goaway-below-boundary-trailers-drain", step_state(goaway_below_trailers))
 	let goaway_graceful_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway_existing_shutdown))?
 	print_goaway_stream_failure("goaway-graceful-late-headers", goaway_graceful_late_headers)
+	let goaway_ordering_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000010000000b")?), step_state(goaway_existing_headers))?
+	let goaway_ordering_lower_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(goaway_ordering_shutdown))?
+	print_failure("goaway-peer-stream-ordering", goaway_ordering_lower_headers)
+	print_peer_stream_high_water("goaway-peer-stream-ordering", step_state(goaway_ordering_lower_headers))
 	let goaway_data_end_stream_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
 	let goaway_data_end_stream_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_data_end_stream_headers))?
 	let goaway_data_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020001000000050102")?), step_state(goaway_data_end_stream_shutdown))?

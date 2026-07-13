@@ -551,18 +551,20 @@ enough.
   `http2.protocol.invalid_stream_id`, its focused required-domain fact,
   endpoint role, active state, and rule provenance. The executable evidence is
   under `examples/specification/run/http2-protocol-core/`.
-- The same checked core records the greatest peer-created stream id admitted
-  by an initial HEADERS frame. A new idle peer-created stream is admitted only
-  when its id is greater than that connection-wide maximum. The maximum
-  survives closed and reset stream states; lower and previously admitted ids
-  use `http2.protocol.invalid_stream_id` with an idle-stream fact and
-  `peer_created_stream_ids_increase` provenance without consuming input or
-  changing decode, HPACK, shutdown, lifecycle, or admission state. Existing
-  stream-id domain failures, continuation ownership, known-stream lifecycle
-  failures, GOAWAY boundaries, and the concurrent-stream limit retain their
-  earlier checks. Ordinary evidence is in
-  `examples/specification/run/http2-protocol-core/`; human and JSON diagnostic
-  evidence is in
+- The same receive core retains the greatest accepted client-initiated stream
+  id independently of the currently open stream set. A HEADERS frame that
+  would create a new peer-created stream must use an id greater than that
+  retained value; reuse of a tracked stream id continues through its existing
+  lifecycle rules. Closing or resetting the greatest stream does not lower the
+  retained value. Frame-size, stream-id-domain, payload, HPACK, and completed
+  header-list validation run before this ordering check. For an otherwise
+  valid untracked stream, ordering runs before the concurrent-stream limit and
+  GOAWAY admission checks. Rejection uses
+  `http2.protocol.peer_stream_id_not_increasing` and preserves stream,
+  flow-control, HPACK, shutdown, and retained high-water state apart from
+  ordinary input-consumption state. The broad checked case is
+  `examples/specification/run/http2-protocol-core/`; focused human and JSON
+  projections are under
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
   and
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.

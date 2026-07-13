@@ -36,6 +36,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   or outbound DATA `content-length` body accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
+- remaining stream identifier behavior
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
@@ -796,6 +797,16 @@ reference, current open peer-created stream count, attempted and allowed
 concurrent-stream counts, endpoint role, active protocol state,
 receive-limit provenance, and rule provenance in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details.
+Accepted new peer-created HEADERS streams also advance a connection-level
+greatest peer-created stream id that remains available after the stream closes
+or resets. A later idle HEADERS stream must use a greater id, while a tracked
+stream reuse continues to the existing lifecycle decision. Frame-size,
+stream-id-domain, payload, HPACK, and completed header-list validation precede
+the ordering check; the ordering check precedes concurrent-stream and GOAWAY
+admission for an otherwise valid new stream. Ordering rejection preserves the
+previous high-water, stream, flow-control, HPACK, and shutdown state apart from
+ordinary input-consumption semantics. The completed slice is archived under
+[HTTP/2 Peer-Created Stream ID Ordering](../reference/implemented-proposals/http2-peer-created-stream-id-ordering.md).
 Except for the implemented PRIORITY idle-stream receive slice below,
 non-HEADERS frames on idle streams keep using the existing invalid frame-kind
 failure.
