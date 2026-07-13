@@ -365,8 +365,8 @@ compiler-known calls.
   schema. Same-module recursive dispatch payload slices with a length-bounded
   recursive field and a primitive base case expose that finite primitive
   payload shape. Lowercase dispatch payload spelling normalizes exact-width
-  `uint...` and `flag...` payloads to the same helper behavior as compatible
-  upper-case exact-width primitive payloads, and byte-aligned
+  `uint...` payloads to the same helper behavior as compatible upper-case
+  exact-width primitive payloads, and byte-aligned
   `uint... reserves <value>` payloads validate or emit fixed bytes while
   exposing `()` as the payload value. A direct binary schema
   `ReservedBits(width, value)` immediately before `UInt8` omits the reserved

@@ -223,9 +223,9 @@ enough.
   `examples/specification/run/binary-schema-anonymous-record-encode-out-of-range-json/`,
   and
   `examples/specification/check/binary-schema-anonymous-record-encode-boundary/`.
-- Dispatch payload cases written with lowercase exact-width `uint...` and
-  `flag...` primitive spelling normalize to the same generated decode and
-  encode helper behavior as compatible upper-case exact-width payload spelling.
+- Dispatch payload cases written with lowercase exact-width `uint...` primitive
+  spelling normalize to the same generated decode and encode helper behavior as
+  compatible upper-case exact-width payload spelling.
   Byte-aligned lowercase `uint... reserves <value>` dispatch payloads validate
   the fixed payload bytes during decode, emit those bytes during encode, and
   expose `()` as the payload value. Direct subbyte spellings from

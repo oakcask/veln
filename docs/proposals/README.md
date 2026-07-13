@@ -88,8 +88,8 @@ compare it with `../specification/` before changing behavior.
   schema primitive declaration and execution boundaries, existing codec
   compatibility schema import/reference visibility checks, generated
   field-local validation, generated `validate_<schema>` decoded-record
-  validation, visible flag bitset decode bindings, bounded repeat generated
-  helper bindings including subtractive `ByteView` payloads, supported
+  validation, exact-width unsigned `Int` decode bindings, bounded repeat
+  generated helper bindings including subtractive `ByteView` payloads, supported
   representation-only reserved-bit generated helper bindings, direct nested
   binary schema helper bindings, binary anonymous record decode and encode helper
   bindings, generated
