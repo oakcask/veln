@@ -31,20 +31,34 @@ committed.
   CONNECT shapes, SETTINGS ACK capability retention, HEADERS and CONTINUATION
   parity, atomic rejection, and the ordinary CONNECT regression path.
 - Focused human and JSON cases check diagnostics for
-  [unnegotiated extended CONNECT](../../../examples/specification/run/http2-protocol-core-request-headers-extended-not-negotiated-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-extended-not-negotiated-json/),
-  [`:protocol` on a non-CONNECT request](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-non-connect-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-non-connect-json/),
-  [duplicate `:protocol`](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-duplicate-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-duplicate-json/),
-  [empty `:protocol`](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-empty-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-protocol-empty-json/),
-  [missing extended CONNECT `:scheme`](../../../examples/specification/run/http2-protocol-core-request-headers-extended-scheme-missing-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-extended-scheme-missing-json/),
-  [missing extended CONNECT `:path`](../../../examples/specification/run/http2-protocol-core-request-headers-extended-path-missing-human/),
-  [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-extended-path-missing-json/),
-  [missing extended CONNECT `:authority`](../../../examples/specification/run/http2-protocol-core-request-headers-extended-authority-missing-human/),
-  and [its structured projection](../../../examples/specification/run/http2-protocol-core-request-headers-extended-authority-missing-json/).
+  unnegotiated extended CONNECT under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-not-negotiated-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-not-negotiated-json/`;
+  non-CONNECT `:protocol` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-non-connect-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-non-connect-json/`;
+  duplicate `:protocol` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-duplicate-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-duplicate-json/`;
+  empty `:protocol` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-empty-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-protocol-empty-json/`;
+  missing `:scheme` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-scheme-missing-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-scheme-missing-json/`;
+  missing `:path` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-path-missing-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-path-missing-json/`;
+  and missing `:authority` under
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-authority-missing-human/`
+  and
+  `../../../examples/specification/run/http2-protocol-core-request-headers-extended-authority-missing-json/`.
 
 ## Remaining Work
 
