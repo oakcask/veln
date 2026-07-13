@@ -1,0 +1,19 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "-1\n2\n7\n5\n-9223372036854775808\n-2\n9223372036854775807\n3\n2\n6\n"

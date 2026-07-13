@@ -41,6 +41,63 @@ fn lexes_binary_and_hexadecimal_integer_candidates_as_complete_tokens() {
 }
 
 #[test]
+fn lexes_compound_operators_with_longest_matching_tokens() {
+    let source = SourceFile::new(
+        "operators.veln",
+        "-> => :: == != <= << >= >>> >> > |> | & ^ ~",
+    );
+
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Eof))
+        .map(|token| (token.kind, token.text))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            (TokenKind::Arrow, "->".to_string()),
+            (TokenKind::FatArrow, "=>".to_string()),
+            (TokenKind::DoubleColon, "::".to_string()),
+            (TokenKind::EqualEqual, "==".to_string()),
+            (TokenKind::BangEqual, "!=".to_string()),
+            (TokenKind::LessEqual, "<=".to_string()),
+            (TokenKind::ShiftLeft, "<<".to_string()),
+            (TokenKind::GreaterEqual, ">=".to_string()),
+            (TokenKind::ShiftRightLogical, ">>>".to_string()),
+            (TokenKind::ShiftRight, ">>".to_string()),
+            (TokenKind::Greater, ">".to_string()),
+            (TokenKind::PipeGreater, "|>".to_string()),
+            (TokenKind::Pipe, "|".to_string()),
+            (TokenKind::Ampersand, "&".to_string()),
+            (TokenKind::Caret, "^".to_string()),
+            (TokenKind::Tilde, "~".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn nested_generic_closers_remain_type_syntax_next_to_shift_operators() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(values: List<Receiver<Int>>) -> Result<Option<Int>, String>\n",
+            "  Ok(Some((8 >> 1) + (8 >>> 1)))\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        first_function(&output).params[0].ty.as_deref(),
+        Some("List<Receiver<Int>>")
+    );
+}
+
+#[test]
 fn reports_one_focused_diagnostic_for_each_malformed_prefixed_integer() {
     let cases = [
         (
@@ -620,10 +677,10 @@ fn format_tree_canonicalizes_binary_schema_compatibility_primitives() {
             "schema Wire\n",
             "  format binary\n",
             "  count: UInt8\n",
-            "  flags: Flag16le\n",
+            "  flags: UInt16le\n",
             "  padding: ReservedBits( 16 , 43981 )\n",
             "  values: Repeat( count , UInt24be )\n",
-            "  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => Flag8 )\n",
+            "  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => UInt8 )\n",
             "  wrapped: List<UInt8>\n",
             "  qualified: wire::UInt8\n",
             "end\n",
@@ -645,10 +702,10 @@ fn format_tree_canonicalizes_binary_schema_compatibility_primitives() {
             "\tformat binary\n",
             "\n",
             "\tcount: uint8\n",
-            "\tflags: flag16le\n",
+            "\tflags: uint16le\n",
             "\tpadding: uint16be reserves 43981\n",
             "\tvalues: [uint24be; count]\n",
-            "\tpayload: Dispatch(count, 1 => uint8, 2 => uint16be reserves 43981, 3 => flag8)\n",
+            "\tpayload: Dispatch(count, 1 => uint8, 2 => uint16be reserves 43981, 3 => uint8)\n",
             "\twrapped: List<UInt8>\n",
             "\tqualified: wire::UInt8\n",
             "end\n",
@@ -1954,6 +2011,52 @@ fn parses_records_lists_and_formats_precedence() {
             ..
         } if matches!(right.kind, ExprKind::Binary { op: BinaryOp::Add, .. })
     ));
+}
+
+#[test]
+fn parses_the_complete_binary_precedence_ladder() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> Bool\n",
+            "  a |> b or c and d == e < f + g * h\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn main() -> Bool\n",
+            "\ta |> b or c and d == e < f + g * h\n",
+            "end\n",
+        )
+    );
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let mut current = expr;
+    let mut right_spine = Vec::new();
+    while let ExprKind::Binary { op, right, .. } = &current.kind {
+        right_spine.push(*op);
+        current = right;
+    }
+    assert_eq!(
+        right_spine,
+        vec![
+            BinaryOp::PipeGreater,
+            BinaryOp::Or,
+            BinaryOp::And,
+            BinaryOp::Equal,
+            BinaryOp::Less,
+            BinaryOp::Add,
+            BinaryOp::Multiply,
+        ]
+    );
 }
 
 #[test]

@@ -32,7 +32,7 @@ message = "repeat count field `later_count` must be an earlier decoded `Int` fie
 id = "schema.repeat_reference"
 severity = "error"
 kind = "name"
-message = "repeat count field `flags` decodes as `Flag8`, not `Int`"
+message = "repeat count field `flags` decodes as `ByteView`, not `Int`"
 
 [[diagnostics]]
 id = "schema.repeat_reference"
@@ -50,7 +50,7 @@ message = "repeat count operand `later_count` must be an earlier decoded `Int` f
 id = "schema.repeat_reference"
 severity = "error"
 kind = "name"
-message = "repeat count operand `flags` decodes as `Flag8`, not `Int`"
+message = "repeat count operand `flags` decodes as `ByteView`, not `Int`"
 
 [[diagnostics]]
 id = "schema.byte_view_reference"
@@ -76,7 +76,7 @@ line = 60
 id = "schema.byte_view_reference"
 severity = "error"
 kind = "name"
-message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+message = "ByteView length operand `flags` decodes as `ByteView`, not `Int`"
 
 [diagnostics.span]
 file = "main.veln"
@@ -106,7 +106,7 @@ line = 83
 id = "schema.byte_view_reference"
 severity = "error"
 kind = "name"
-message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+message = "ByteView length operand `flags` decodes as `ByteView`, not `Int`"
 
 [diagnostics.span]
 file = "main.veln"
@@ -136,7 +136,7 @@ line = 106
 id = "schema.byte_view_reference"
 severity = "error"
 kind = "name"
-message = "ByteView length operand `flags` decodes as `Flag8`, not `Int`"
+message = "ByteView length operand `flags` decodes as `ByteView`, not `Int`"
 
 [diagnostics.span]
 file = "main.veln"
@@ -158,7 +158,7 @@ message = "dispatch tag field `later_tag` must be an earlier decoded `Int` field
 id = "schema.dispatch_reference"
 severity = "error"
 kind = "name"
-message = "dispatch tag field `flags` decodes as `Flag8`, not `Int`"
+message = "dispatch tag field `flags` decodes as `ByteView`, not `Int`"
 
 [[diagnostics]]
 id = "schema.dispatch_reference"
@@ -176,7 +176,7 @@ message = "dispatch tag field `later_extension_tag` must be an earlier decoded `
 id = "schema.dispatch_reference"
 severity = "error"
 kind = "name"
-message = "dispatch tag field `extension_tag_flags` decodes as `Flag8`, not `Int`"
+message = "dispatch tag field `extension_tag_value` decodes as `ByteView`, not `Int`"
 
 [[diagnostics]]
 id = "schema.dispatch_reference"
@@ -194,4 +194,4 @@ message = "dispatch length field `later_extension_length` must be an earlier dec
 id = "schema.dispatch_reference"
 severity = "error"
 kind = "name"
-message = "dispatch length field `extension_length_flags` decodes as `Flag8`, not `Int`"
+message = "dispatch length field `extension_length_value` decodes as `ByteView`, not `Int`"

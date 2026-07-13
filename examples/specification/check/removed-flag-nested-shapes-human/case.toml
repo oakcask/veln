@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.removed_flag_primitive]: binary schema primitive `flag8` was removed; use `uint8`", "error[schema.removed_flag_primitive]: binary schema primitive `Flag16be` was removed; use `uint16be`", "binary schema primitive `flag24le` was removed; use `uint24le`", "binary schema primitive `Flag32be` was removed; use `uint32be`", "binary schema primitive `flag40le` was removed; use `uint40le`", "binary schema primitive `Flag48be` was removed; use `uint48be`", "binary schema primitive `flag56le` was removed; use `uint56le`", "binary schema primitive `Flag64be` was removed; use `uint64be`", "binary schema primitive `flag24be` was removed; use `uint24be`", "binary schema primitive `Flag32le` was removed; use `uint32le`", "binary schema primitive `flag40be` was removed; use `uint40be`", "binary schema primitive `Flag48le` was removed; use `uint48le`"]
+
+[stderr]
+format = "empty"

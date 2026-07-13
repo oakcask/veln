@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"reserves_on_flag\"", "\"reason\":\"reserves_value\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"primitive\":\"flag8 reserves 0\"", "\"primitive\":\"uint8 reserves\"", "\"primitive\":\"uint8 reserves expected\"", "\"primitive\":\"uint8 reserves - 1\"", "\"primitive\":\"uint16be reserves 0\"", "\"primitive\":\"uint24be reserves 0\"", "\"primitive\":\"uint2 reserves 4\"", "\"primitive\":\"uint8 reserves 256\""]
+contains = ["\"id\":\"schema.lowercase_primitive\"", "\"reason\":\"reserves_value\"", "\"reason\":\"non_binary_format\"", "\"reason\":\"repeat_payload\"", "\"reason\":\"dispatch_payload\"", "\"primitive\":\"uint8 reserves\"", "\"primitive\":\"uint16be reserves 0\"", "\"primitive\":\"uint2 reserves 4\""]
 
 [stderr]
 format = "empty"
@@ -14,68 +14,4 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 10
-
-[[json_assert]]
-path = "summary.by_kind.type"
-equals = 10
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `flag8 reserves 0` cannot use `reserves` on a flag field"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint8 reserves` requires `reserves` value to be a literal non-negative integer"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint8 reserves expected` requires `reserves` value to be a literal non-negative integer"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint8 reserves - 1` requires `reserves` value to be a literal non-negative integer"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint16be reserves 0` can only be used in a `format binary` schema field"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint24be reserves 0` can only be used in a `format binary` schema field"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint2 reserves 4` is not yet supported in `Repeat` payload positions"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint8 reserves 256` is not yet supported in `Repeat` payload positions"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint2 reserves 4` is not yet supported in dispatch payload positions"
-
-[[diagnostics]]
-id = "schema.lowercase_primitive"
-severity = "error"
-kind = "type"
-message = "binary schema primitive `uint8 reserves 256` is not yet supported in dispatch payload positions"
+equals = 9

@@ -66,10 +66,12 @@ produced count, and a resumable state record carrying `encoded_offset`.
   through the derived codec item from nonzero bounded view offsets, including
   successful `Decoded`, non-consuming short-input readiness, and helper
   `Invalid(DecodeError)` projection at the explicit absolute base offset.
-- `../../../examples/specification/run/derived-codec-flag-boundary/` checks
-  successful flag-bitset decode, consumed count, short-input readiness,
-  successful encode, output chunk projection, and helper encode failure
-  projection through the derived codec item.
+- The former derived flag-helper fixture was removed by
+  [integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
+  Current replacement and migration evidence lives under
+  `../../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`
+  and
+  `../../../examples/specification/check/removed-flag-vocabulary-diagnostics/`.
 - `../../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
   checks quotient-sized `ByteView` encode success, length-mismatch helper
   failure projection, and division-by-zero helper failure projection through

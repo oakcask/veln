@@ -309,10 +309,8 @@ compiler-known calls.
   prefixes for parsing, tracks absolute `ByteOffset` separately, and collects
   outgoing immutable chunks in `List<ByteChunk>` action values. Generated
   binary schema decode helpers return schema-local value fields, including
-  `Int` exact-width fields and `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`,
-  `Flag24le`, `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`,
-  `Flag48le`, `Flag56be`, `Flag56le`, `Flag64be`, or `Flag64le` bitset
-  fields; compatibility generated decode-step helpers expose the same value
+  `Int` exact-width unsigned fields; compatibility generated decode-step
+  helpers expose the same value
   shape through `DecodeStep<T>` for open input. Format-neutral schema decode
   helpers accept and return schema-local visible records through
   `Result<T, String>` when all fields are recursive visible shapes made from
@@ -344,36 +342,9 @@ compiler-known calls.
   supported format-neutral encode shape, and anonymous record fields whose
   fields are supported format-neutral encode shapes without
   producing binary bytes.
-  Pure source-backed prelude helpers
-  `flag8_is_set`, `flag8_set`,
-  `flag8_bits`, `flag8_from_bits`, `flag16be_is_set`, `flag16be_set`,
-  `flag16be_bits`, `flag16be_from_bits`, `flag16le_is_set`,
-  `flag16le_set`, `flag16le_bits`, `flag16le_from_bits`,
-  `flag24be_is_set`, `flag24be_set`, `flag24be_bits`,
-  `flag24be_from_bits`, `flag24le_is_set`, `flag24le_set`,
-  `flag24le_bits`, `flag24le_from_bits`,
-  `flag32be_is_set`, `flag32be_set`, `flag32be_bits`,
-  `flag32be_from_bits`, `flag32le_is_set`, `flag32le_set`,
-  `flag32le_bits`, `flag32le_from_bits`, `flag40be_is_set`,
-  `flag40be_set`, `flag40be_bits`, `flag40be_from_bits`,
-  `flag40le_is_set`, `flag40le_set`, `flag40le_bits`,
-  `flag40le_from_bits`, `flag48be_is_set`,
-  `flag48be_set`, `flag48be_bits`, `flag48be_from_bits`,
-  `flag48le_is_set`, `flag48le_set`, `flag48le_bits`,
-  `flag48le_from_bits`, `flag56be_is_set`, `flag56be_set`,
-  `flag56be_bits`, `flag56be_from_bits`, `flag56le_is_set`,
-  `flag56le_set`, `flag56le_bits`, `flag56le_from_bits`,
-  `flag64be_is_set`, `flag64be_set`,
-  `flag64be_bits`, `flag64be_from_bits`, `flag64le_is_set`,
-  `flag64le_set`, `flag64le_bits`, and `flag64le_from_bits` require no
-  effects. The checked
-  bit-index helpers return `Result` values for invalid indexes, and the
-  raw-bit constructors return `Result` values for out-of-range integers.
   Generated binary schema encode
   helpers for the exact-width
-  primitive, `Flag8`, `Flag16be`, `Flag16le`, `Flag24be`, `Flag24le`,
-  `Flag32be`, `Flag32le`, `Flag40be`, `Flag40le`, `Flag48be`, `Flag48le`,
-  `Flag56be`, `Flag56le`, `Flag64be`, `Flag64le`, supported reserved-bit,
+  unsigned primitive, supported reserved-bit,
   length-bounded
   `ByteView`, bounded repeated fields written as `Repeat(count, Payload)` or
   `[Payload; count]`, closed dispatch, extension dispatch, and eligible nested

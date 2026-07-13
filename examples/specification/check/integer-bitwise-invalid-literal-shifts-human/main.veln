@@ -1,0 +1,7 @@
+fn too_large() -> Int
+	1 << 64
+end
+
+fn negative() -> Int
+	1 >>> -1
+end

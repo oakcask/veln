@@ -568,6 +568,7 @@ impl<'a> CoreLowerer<'a> {
         let expected_operand = match op {
             veln_ast::PrefixOp::Not => CoreType::bool(),
             veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected, &[inner]),
+            veln_ast::PrefixOp::BitwiseNot => CoreType::int(),
         };
         if expected_operand == CoreType::float()
             && let Some(name) = float_prefix_prelude_name(op)
@@ -1930,6 +1931,12 @@ fn is_ordering_op(op: BinaryOp) -> bool {
 fn binary_operand_and_result(op: BinaryOp, numeric_type: CoreType) -> (CoreType, CoreType) {
     match op {
         BinaryOp::Or | BinaryOp::And => (CoreType::bool(), CoreType::bool()),
+        BinaryOp::BitwiseOr
+        | BinaryOp::BitwiseXor
+        | BinaryOp::BitwiseAnd
+        | BinaryOp::ShiftLeft
+        | BinaryOp::ShiftRight
+        | BinaryOp::ShiftRightLogical => (CoreType::int(), CoreType::int()),
         BinaryOp::Equal | BinaryOp::NotEqual => (CoreType::Unknown, CoreType::bool()),
         BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
             (numeric_type, CoreType::bool())

@@ -12,9 +12,8 @@ use crate::types::{
     SchemaRepeatSpec, Type, byte_view_multiple_constraint, byte_view_schema_primitive,
     closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
-    format_neutral_schema_field_type_for_schema, parse_type_annotation,
-    recursive_dispatch_decode_only_payload_case_is_eligible,
+    extension_dispatch_schema_primitive, format_neutral_schema_field_type_for_schema,
+    parse_type_annotation, recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
     schema_dispatch_payload_schema, schema_length_expression_references,
@@ -71,7 +70,6 @@ fn format_neutral_schema_decode_spec(
                 width: 0,
                 max_value: 0,
                 little_endian: false,
-                flag_type: String::new(),
                 predicate: field
                     .where_clause
                     .as_ref()
@@ -164,7 +162,6 @@ fn ir_schema_reserved_bits_field(
         width: 0,
         max_value: 0,
         little_endian: false,
-        flag_type: String::new(),
         predicate: None,
         length_field: None,
         length_multiple: None,
@@ -185,7 +182,6 @@ fn ir_schema_exact_width_field(field: &SchemaField) -> Option<Option<IrSchemaDec
         width,
         max_value: exact_width_schema_primitive_max_value(&field.ty)?,
         little_endian: exact_width_schema_primitive_little_endian(&field.ty),
-        flag_type: flag_schema_primitive(&field.ty).unwrap_or("").to_string(),
         predicate: field
             .where_clause
             .as_ref()
@@ -216,7 +212,6 @@ fn ir_schema_byte_view_field(
         width: 0,
         max_value: 0,
         little_endian: false,
-        flag_type: String::new(),
         predicate: None,
         length_field: Some(length_expr.render()),
         length_multiple: field
@@ -260,7 +255,6 @@ fn ir_schema_repeat_field(
             width: 0,
             max_value: 0,
             little_endian: false,
-            flag_type: String::new(),
             predicate: None,
             length_field: None,
             length_multiple: None,
@@ -288,7 +282,6 @@ fn ir_schema_nested_schema_field(
             width: 0,
             max_value: 0,
             little_endian: false,
-            flag_type: String::new(),
             predicate: None,
             length_field: None,
             length_multiple: None,
@@ -314,7 +307,6 @@ fn ir_schema_anonymous_record_field(
             width: 0,
             max_value: 0,
             little_endian: false,
-            flag_type: String::new(),
             predicate: None,
             length_field: None,
             length_multiple: None,
@@ -343,7 +335,7 @@ fn ir_schema_anonymous_record_spec_inner(
                 name: ty_name,
                 args,
             } => {
-                if !args.is_empty() || flag_schema_primitive(&ty_name).is_some() {
+                if !args.is_empty() {
                     return None;
                 }
                 let width = exact_width_schema_primitive(&ty_name)?;
@@ -353,7 +345,6 @@ fn ir_schema_anonymous_record_spec_inner(
                     width,
                     max_value: exact_width_schema_primitive_max_value(&ty_name)?,
                     little_endian: exact_width_schema_primitive_little_endian(&ty_name),
-                    flag_type: String::new(),
                     predicate: None,
                     length_field: None,
                     length_multiple: None,
@@ -371,7 +362,6 @@ fn ir_schema_anonymous_record_spec_inner(
                     width: 0,
                     max_value: 0,
                     little_endian: false,
-                    flag_type: String::new(),
                     predicate: None,
                     length_field: None,
                     length_multiple: None,
@@ -420,7 +410,6 @@ fn ir_schema_dispatch_field(
             width: 0,
             max_value: 0,
             little_endian: false,
-            flag_type: String::new(),
             predicate: None,
             length_field: None,
             length_multiple: None,

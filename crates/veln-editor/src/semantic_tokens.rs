@@ -544,6 +544,13 @@ impl<'a> Classifier<'a> {
             | TokenKind::Arrow
             | TokenKind::FatArrow
             | TokenKind::PipeGreater
+            | TokenKind::Pipe
+            | TokenKind::Ampersand
+            | TokenKind::Caret
+            | TokenKind::Tilde
+            | TokenKind::ShiftLeft
+            | TokenKind::ShiftRight
+            | TokenKind::ShiftRightLogical
             | TokenKind::Question
             | TokenKind::Equal
             | TokenKind::EqualEqual

@@ -14,6 +14,8 @@ behavior.
 
 ## Records
 
+- Integer bitwise operators and flag vocabulary removal:
+  [integer-bitwise-operators-and-flag-removal.md](integer-bitwise-operators-and-flag-removal.md).
 - Binary and hexadecimal integer literals:
   [binary-and-hexadecimal-integer-literals.md](binary-and-hexadecimal-integer-literals.md).
 - JVM backend migration:

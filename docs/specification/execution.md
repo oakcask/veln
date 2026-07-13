@@ -93,6 +93,13 @@ enough.
 
 ## Binary Schemas
 
+- Every exact-width unsigned primitive from `uint8` through `uint64be` and
+  `uint64le` decodes to `Int` and accepts `Int` on encode. This holds for
+  direct, repeated, anonymous-record, nested, closed-dispatch,
+  extension-dispatch, explicit-operation, and derived-helper paths.
+  Endianness changes byte representation only; bit zero remains the decoded
+  value's least-significant bit in both byte orders.
+
 - Explicit schema decode expressions lower to the generated decode-step
   boundary for the referenced eligible binary schema. They use the supplied
   `ByteView` as bounded input and the supplied `ByteOffset` for consumed-count

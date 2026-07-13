@@ -22,6 +22,21 @@ test("TextMate grammar recognizes complete binary and hexadecimal integers", () 
   );
 });
 
+test("TextMate grammar recognizes bitwise and shift operators", () => {
+  const grammarPath = fileURLToPath(
+    new URL("./syntaxes/veln.tmLanguage.json", import.meta.url),
+  );
+  const grammar = JSON.parse(fs.readFileSync(grammarPath, "utf8"));
+  const operatorPattern = grammar.repository.operators.patterns.find(
+    (pattern) => pattern.name === "keyword.operator.veln",
+  );
+  const operator = new RegExp(`^(?:${operatorPattern.match})$`);
+
+  for (const token of ["~", "&", "|", "^", "<<", ">>", ">>>"]) {
+    assert.match(token, operator);
+  }
+});
+
 test("maps published LSP diagnostics into a VSCode diagnostic collection", () => {
   const { exports, vscode } = loadExtension();
   const collection = new FakeDiagnosticCollection();

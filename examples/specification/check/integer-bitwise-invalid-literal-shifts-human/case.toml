@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[type.invalid_shift_count]: shift count 64 is outside the permitted range 0 through 63", "error[type.invalid_shift_count]: shift count -1 is outside the permitted range 0 through 63"]
+
+[stderr]
+format = "empty"

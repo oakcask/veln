@@ -1,6 +1,0 @@
-# Flag56le helper functions report range failures through human command output.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag56le = flag56le_set(Flag56le(0), -1)?
-	Ok(())
-end

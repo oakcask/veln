@@ -685,6 +685,64 @@ fn binary_schema_accepts_reserved_bits_literal_primitive() {
 }
 
 #[test]
+fn binary_schema_rejects_removed_flag_primitives_in_nested_shapes() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema NestedFlags\n",
+            "  format binary\n",
+            "  count: uint8\n",
+            "  kind: uint8\n",
+            "  length: uint8\n",
+            "  direct_lower: flag8\n",
+            "  direct_upper: Flag16be\n",
+            "  canonical_repeat: [flag24le; count]\n",
+            "  legacy_repeat: Repeat(count, Flag32be)\n",
+            "  anonymous: {lower: flag40le, nested: {upper: Flag48be}}\n",
+            "  closed: Dispatch(kind, 1 => flag56le)\n",
+            "  extension: ExtensionDispatch(kind, length, 1 => Flag64be)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let removed = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.removed_flag_primitive")
+        .collect::<Vec<_>>();
+
+    assert_eq!(removed.len(), 8, "{diagnostics:#?}");
+    for (primitive, replacement) in [
+        ("flag8", "uint8"),
+        ("Flag16be", "uint16be"),
+        ("flag24le", "uint24le"),
+        ("Flag32be", "uint32be"),
+        ("flag40le", "uint40le"),
+        ("Flag48be", "uint48be"),
+        ("flag56le", "uint56le"),
+        ("Flag64be", "uint64be"),
+    ] {
+        assert!(removed.iter().any(|diagnostic| {
+            diagnostic.message
+                == format!("binary schema primitive `{primitive}` was removed; use `{replacement}`")
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"replacement\":\"{replacement}\""))
+        }));
+    }
+    assert!(
+        diagnostics.iter().all(|diagnostic| !matches!(
+            diagnostic.id.as_str(),
+            "schema.repeat_payload" | "schema.dispatch_payload"
+        )),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -1441,7 +1499,8 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
             "\n",
             "schema WrongKindCountPacket\n",
             "  format binary\n",
-            "  flags: Flag8\n",
+            "  length: UInt8\n",
+            "  flags: ByteView(length)\n",
             "  items: Repeat(flags, UInt8)\n",
             "end\n",
             "\n",
@@ -1555,7 +1614,7 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count field `flags` decodes as `Flag8`, not `Int`",
+            "repeat count field `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(

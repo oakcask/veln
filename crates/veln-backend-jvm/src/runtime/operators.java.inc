@@ -37,6 +37,10 @@
         return Boolean.valueOf(!asBool(value));
     }
 
+    public static Object bitwiseNot(Object value) {
+        return Long.valueOf(~asLong(value));
+    }
+
     public static Object negate(Object value) {
         if (isFloating(value)) {
             return floatNegate(value);
@@ -120,6 +124,41 @@
 
     public static Object or(Object left, Object right) {
         return Boolean.valueOf(asBool(left) || asBool(right));
+    }
+
+    public static Object bitwiseAnd(Object left, Object right) {
+        return Long.valueOf(asLong(left) & asLong(right));
+    }
+
+    public static Object bitwiseOr(Object left, Object right) {
+        return Long.valueOf(asLong(left) | asLong(right));
+    }
+
+    public static Object bitwiseXor(Object left, Object right) {
+        return Long.valueOf(asLong(left) ^ asLong(right));
+    }
+
+    private static int checkedShiftCount(Object value, String operator) {
+        long count = asLong(value);
+        if (count < 0 || count > 63) {
+            throw new RuntimeFailure(
+                "invalid shift count " + count + " for operator `" + operator
+                    + "`; expected a value between 0 and 63"
+            );
+        }
+        return (int) count;
+    }
+
+    public static Object shiftLeft(Object left, Object right) {
+        return Long.valueOf(asLong(left) << checkedShiftCount(right, "<<"));
+    }
+
+    public static Object shiftRight(Object left, Object right) {
+        return Long.valueOf(asLong(left) >> checkedShiftCount(right, ">>"));
+    }
+
+    public static Object shiftRightLogical(Object left, Object right) {
+        return Long.valueOf(asLong(left) >>> checkedShiftCount(right, ">>>"));
     }
 
     public static Object pipe(Object left, Object right) {

@@ -76,7 +76,7 @@ SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValid
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
-LowercaseSchemaPrimitive ::= ("uint" | "flag") IntLiteral ("be" | "le")?
+LowercaseSchemaPrimitive ::= "uint" IntLiteral ("be" | "le")?
 LowercaseReservedBitsPrimitive ::= "uint" IntLiteral ("be" | "le")? "reserves" IntLiteral
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
@@ -104,7 +104,10 @@ LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 LetPattern    ::= "_" | BindingName | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
-PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
+BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
+                  | "<" | "<=" | ">" | ">=" | "<<" | ">>" | ">>>"
+                  | "+" | "-" | "*" | "/"
+PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
 PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If

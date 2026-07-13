@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.invalid_shift_count\"", "\"operator\":\"<<\"", "\"operator\":\">>>\"", "\"actual_count\":64", "\"actual_count\":-1", "\"minimum_count\":0", "\"maximum_count\":63"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2

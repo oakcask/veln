@@ -1228,11 +1228,11 @@ impl<'a> Parser<'a> {
                 TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
                     depth += 1;
                 }
-                TokenKind::RParen
-                | TokenKind::RBracket
-                | TokenKind::RBrace
-                | TokenKind::Greater => {
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
+                }
+                kind if closing_angle_count(kind) > 0 => {
+                    depth = depth.saturating_sub(closing_angle_count(kind));
                 }
                 _ => {}
             }
@@ -1944,14 +1944,16 @@ impl<'a> ExprParser<'a> {
     }
 
     fn parse_prefix(&mut self) -> Expr {
-        if self.at(TokenKind::Not) || self.at(TokenKind::Minus) {
+        if self.at(TokenKind::Not) || self.at(TokenKind::Minus) || self.at(TokenKind::Tilde) {
             let token = self.bump();
             let op = if token.kind == TokenKind::Not {
                 PrefixOp::Not
-            } else {
+            } else if token.kind == TokenKind::Minus {
                 PrefixOp::Negate
+            } else {
+                PrefixOp::BitwiseNot
             };
-            let expr = self.parse_expr(13);
+            let expr = self.parse_expr(25);
             return Expr {
                 span: self.source.span(token.range.cover(lhs_range(&expr))),
                 kind: ExprKind::Prefix {
@@ -2095,18 +2097,19 @@ impl<'a> ExprParser<'a> {
                 TokenKind::LBracket => bracket_depth += 1,
                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),
                 TokenKind::Less => angle_depth += 1,
-                TokenKind::Greater
-                    if paren_depth == 0
-                        && brace_depth == 0
-                        && bracket_depth == 0
-                        && angle_depth == 0 =>
+                kind if closing_angle_count(kind) > angle_depth
+                    && paren_depth == 0
+                    && brace_depth == 0
+                    && bracket_depth == 0 =>
                 {
                     return self
                         .tokens
                         .get(cursor + 1)
                         .is_some_and(|next| next.kind == TokenKind::LParen);
                 }
-                TokenKind::Greater => angle_depth = angle_depth.saturating_sub(1),
+                kind if closing_angle_count(kind) > 0 => {
+                    angle_depth = angle_depth.saturating_sub(closing_angle_count(kind));
+                }
                 TokenKind::Newline | TokenKind::Eof => return false,
                 _ => {}
             }
@@ -2177,8 +2180,16 @@ impl<'a> ExprParser<'a> {
                     angle_depth += 1;
                     current.push_str(&token.text);
                 }
-                TokenKind::Greater => {
-                    angle_depth = angle_depth.saturating_sub(1);
+                kind if closing_angle_count(kind) > 0 => {
+                    let closing_count = closing_angle_count(kind);
+                    if closing_count > angle_depth {
+                        current.push_str(&">".repeat(angle_depth));
+                        if !current.is_empty() {
+                            args.push(normalize_type_text(vec![current]));
+                        }
+                        return (args, end);
+                    }
+                    angle_depth -= closing_count;
                     current.push_str(&token.text);
                 }
                 _ => current.push_str(&token.text),
@@ -2916,16 +2927,22 @@ impl<'a> ExprParser<'a> {
             TokenKind::PipeGreater => Some((BinaryOp::PipeGreater, 1, 2)),
             TokenKind::Or => Some((BinaryOp::Or, 3, 4)),
             TokenKind::And => Some((BinaryOp::And, 5, 6)),
-            TokenKind::EqualEqual => Some((BinaryOp::Equal, 7, 8)),
-            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 7, 8)),
-            TokenKind::Less => Some((BinaryOp::Less, 9, 10)),
-            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 9, 10)),
-            TokenKind::Greater => Some((BinaryOp::Greater, 9, 10)),
-            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 9, 10)),
-            TokenKind::Plus => Some((BinaryOp::Add, 11, 12)),
-            TokenKind::Minus => Some((BinaryOp::Subtract, 11, 12)),
-            TokenKind::Star => Some((BinaryOp::Multiply, 13, 14)),
-            TokenKind::Slash => Some((BinaryOp::Divide, 13, 14)),
+            TokenKind::Pipe => Some((BinaryOp::BitwiseOr, 7, 8)),
+            TokenKind::Caret => Some((BinaryOp::BitwiseXor, 9, 10)),
+            TokenKind::Ampersand => Some((BinaryOp::BitwiseAnd, 11, 12)),
+            TokenKind::EqualEqual => Some((BinaryOp::Equal, 13, 14)),
+            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 13, 14)),
+            TokenKind::Less => Some((BinaryOp::Less, 15, 16)),
+            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 15, 16)),
+            TokenKind::Greater => Some((BinaryOp::Greater, 15, 16)),
+            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 15, 16)),
+            TokenKind::ShiftLeft => Some((BinaryOp::ShiftLeft, 17, 18)),
+            TokenKind::ShiftRight => Some((BinaryOp::ShiftRight, 17, 18)),
+            TokenKind::ShiftRightLogical => Some((BinaryOp::ShiftRightLogical, 17, 18)),
+            TokenKind::Plus => Some((BinaryOp::Add, 19, 20)),
+            TokenKind::Minus => Some((BinaryOp::Subtract, 19, 20)),
+            TokenKind::Star => Some((BinaryOp::Multiply, 21, 22)),
+            TokenKind::Slash => Some((BinaryOp::Divide, 21, 22)),
             _ => None,
         }
     }
@@ -3142,9 +3159,9 @@ impl<'a> ContractPredicateParser<'a> {
     }
 
     fn parse_prefix(&mut self) {
-        if self.at(TokenKind::Not) || self.at(TokenKind::Minus) {
+        if self.at(TokenKind::Not) || self.at(TokenKind::Minus) || self.at(TokenKind::Tilde) {
             self.bump();
-            self.parse_predicate(13);
+            self.parse_predicate(25);
             return;
         }
         self.parse_postfix();
@@ -3317,16 +3334,22 @@ impl<'a> ContractPredicateParser<'a> {
         match self.tokens.get(self.cursor)?.kind {
             TokenKind::Or => Some((BinaryOp::Or, 3, 4)),
             TokenKind::And => Some((BinaryOp::And, 5, 6)),
-            TokenKind::EqualEqual => Some((BinaryOp::Equal, 7, 8)),
-            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 7, 8)),
-            TokenKind::Less => Some((BinaryOp::Less, 9, 10)),
-            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 9, 10)),
-            TokenKind::Greater => Some((BinaryOp::Greater, 9, 10)),
-            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 9, 10)),
-            TokenKind::Plus => Some((BinaryOp::Add, 11, 12)),
-            TokenKind::Minus => Some((BinaryOp::Subtract, 11, 12)),
-            TokenKind::Star => Some((BinaryOp::Multiply, 13, 14)),
-            TokenKind::Slash => Some((BinaryOp::Divide, 13, 14)),
+            TokenKind::Pipe => Some((BinaryOp::BitwiseOr, 7, 8)),
+            TokenKind::Caret => Some((BinaryOp::BitwiseXor, 9, 10)),
+            TokenKind::Ampersand => Some((BinaryOp::BitwiseAnd, 11, 12)),
+            TokenKind::EqualEqual => Some((BinaryOp::Equal, 13, 14)),
+            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 13, 14)),
+            TokenKind::Less => Some((BinaryOp::Less, 15, 16)),
+            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 15, 16)),
+            TokenKind::Greater => Some((BinaryOp::Greater, 15, 16)),
+            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 15, 16)),
+            TokenKind::ShiftLeft => Some((BinaryOp::ShiftLeft, 17, 18)),
+            TokenKind::ShiftRight => Some((BinaryOp::ShiftRight, 17, 18)),
+            TokenKind::ShiftRightLogical => Some((BinaryOp::ShiftRightLogical, 17, 18)),
+            TokenKind::Plus => Some((BinaryOp::Add, 19, 20)),
+            TokenKind::Minus => Some((BinaryOp::Subtract, 19, 20)),
+            TokenKind::Star => Some((BinaryOp::Multiply, 21, 22)),
+            TokenKind::Slash => Some((BinaryOp::Divide, 21, 22)),
             _ => None,
         }
     }
@@ -3446,6 +3469,15 @@ fn is_schema_where_identifier(text: &str) -> bool {
         return false;
     }
     chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn closing_angle_count(kind: TokenKind) -> usize {
+    match kind {
+        TokenKind::Greater => 1,
+        TokenKind::ShiftRight => 2,
+        TokenKind::ShiftRightLogical => 3,
+        _ => 0,
+    }
 }
 
 fn normalize_type_text(parts: Vec<String>) -> String {

@@ -2003,6 +2003,20 @@ mod tests {
     }
 
     #[test]
+    fn static_contract_reasoning_evaluates_integer_bitwise_expressions() {
+        for predicate in [
+            "(~0 & 255) == 255",
+            "(1 << 63) == -9223372036854775808",
+            "(-8 >> 2) == -2",
+            "(-1 >>> 1) == 9223372036854775807",
+            "(6 | 3) == 7 and (6 ^ 3) == 5",
+        ] {
+            assert!(predicate_is_statically_true(predicate), "{predicate}");
+        }
+        assert!(!predicate_is_statically_true("1 << 64 == 1"));
+    }
+
+    #[test]
     fn high_arity_exhaustive_case_splits_are_statically_true() {
         for fields in [
             &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],
@@ -2263,6 +2277,35 @@ fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
     if let Some(number) = StaticNumber::parse(predicate) {
         return Some(number);
     }
+    if contains_binary_bitwise_operator(predicate) {
+        for operator in ["|", "^", "&"] {
+            if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+                let left = static_numeric_expression(left)?.as_i64()?;
+                let right = static_numeric_expression(right)?.as_i64()?;
+                let value = match operator {
+                    "|" => left | right,
+                    "^" => left ^ right,
+                    "&" => left & right,
+                    _ => unreachable!("operator is selected from the bitwise set"),
+                };
+                return Some(StaticNumber::integer(value));
+            }
+        }
+        for operator in [">>>", ">>", "<<"] {
+            if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+                let left = static_numeric_expression(left)?.as_i64()?;
+                let right = static_numeric_expression(right)?.as_i64()?;
+                let count = u32::try_from(right).ok().filter(|count| *count <= 63)?;
+                let value = match operator {
+                    ">>>" => ((left as u64) >> count) as i64,
+                    ">>" => left >> count,
+                    "<<" => left.wrapping_shl(count),
+                    _ => unreachable!("operator is selected from the shift set"),
+                };
+                return Some(StaticNumber::integer(value));
+            }
+        }
+    }
     for operator in ["+", "-"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             let left = static_numeric_expression(left)?;
@@ -2287,6 +2330,11 @@ fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
     }
     if let Some(rest) = predicate.strip_prefix('-') {
         return static_numeric_expression(rest)?.negate();
+    }
+    if let Some(rest) = predicate.strip_prefix('~') {
+        return Some(StaticNumber::integer(
+            !static_numeric_expression(rest)?.as_i64()?,
+        ));
     }
     None
 }
@@ -2484,6 +2532,19 @@ impl PartialOrd for StaticNumber {
 }
 
 impl StaticNumber {
+    fn integer(value: i64) -> Self {
+        Self {
+            mantissa: i128::from(value),
+            scale: 0,
+        }
+    }
+
+    fn as_i64(self) -> Option<i64> {
+        (self.scale == 0)
+            .then(|| i64::try_from(self.mantissa).ok())
+            .flatten()
+    }
+
     fn parse(text: &str) -> Option<Self> {
         let (negative, digits) = text
             .strip_prefix('-')
@@ -2889,6 +2950,7 @@ pub(crate) fn predicate_type_with_calls(
         .or_else(|| predicate_unary_type(predicate, bindings, call_type))
         .or_else(|| predicate_boolean_type(predicate, bindings, call_type))
         .or_else(|| predicate_comparison_type(predicate, bindings, call_type))
+        .or_else(|| predicate_bitwise_type(predicate, bindings, call_type))
         .or_else(|| predicate_arithmetic_type(predicate, bindings, call_type))
         .or_else(|| predicate_field_access_type(predicate, bindings, call_type))
         .or_else(|| predicate_contract_call_type(predicate, call_type))
@@ -2920,6 +2982,10 @@ fn predicate_unary_type(
         let ty = predicate_type_with_calls(rest, bindings, call_type)?;
         return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
             .then_some(ty);
+    }
+    if let Some(rest) = predicate.strip_prefix('~') {
+        return (predicate_type_with_calls(rest, bindings, call_type)? == Type::int())
+            .then(Type::int);
     }
     if let Some(rest) = predicate.strip_prefix("not ") {
         return boolean_unary_type(rest, bindings, call_type);
@@ -2983,6 +3049,35 @@ fn predicate_arithmetic_type(
         }
     }
     None
+}
+
+fn predicate_bitwise_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    if !contains_binary_bitwise_operator(predicate) {
+        return None;
+    }
+    for operators in [&["|"][..], &["^"][..], &["&"][..], &[">>>", ">>", "<<"][..]] {
+        for operator in operators {
+            if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+                let left = predicate_type_with_calls(left, bindings, call_type)?;
+                let right = predicate_type_with_calls(right, bindings, call_type)?;
+                return (left == Type::int() && right == Type::int()).then(Type::int);
+            }
+        }
+    }
+    None
+}
+
+fn contains_binary_bitwise_operator(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.iter().enumerate().any(|(index, byte)| match byte {
+        b'|' | b'^' | b'&' => true,
+        b'<' | b'>' => bytes.get(index + 1) == Some(byte),
+        _ => false,
+    })
 }
 
 fn predicate_field_access_type(
@@ -3073,7 +3168,7 @@ fn split_top_level_operator<'a>(predicate: &'a str, operator: &str) -> Option<(&
             '"' => in_string = true,
             ')' => depth += 1,
             '(' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && predicate[index..].starts_with(operator) => {
+            _ if depth == 0 && contract_operator_at(predicate, index, operator) => {
                 let left = predicate[..index].trim();
                 let right = predicate[index + operator.len()..].trim();
                 if !left.is_empty() && !right.is_empty() {
@@ -3084,6 +3179,20 @@ fn split_top_level_operator<'a>(predicate: &'a str, operator: &str) -> Option<(&
         }
     }
     None
+}
+
+fn contract_operator_at(text: &str, index: usize, operator: &str) -> bool {
+    if !text[index..].starts_with(operator) {
+        return false;
+    }
+    let next = text[index + operator.len()..].chars().next();
+    match operator {
+        ">" => !matches!(next, Some('>' | '=')),
+        ">>" => next != Some('>'),
+        "<" => !matches!(next, Some('<' | '=')),
+        "|" => next != Some('>'),
+        _ => true,
+    }
 }
 
 fn split_top_level_keyword_operator<'a>(

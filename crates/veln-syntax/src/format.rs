@@ -872,13 +872,7 @@ fn canonical_dispatch_schema_field_type_call(text: &str, name: &str) -> Option<S
 }
 
 fn canonical_compatible_schema_primitive(text: &str) -> Option<String> {
-    let (family, rest) = if let Some(rest) = text.strip_prefix("UInt") {
-        ("uint", rest)
-    } else if let Some(rest) = text.strip_prefix("Flag") {
-        ("flag", rest)
-    } else {
-        return None;
-    };
+    let rest = text.strip_prefix("UInt")?;
     let width_len = rest
         .char_indices()
         .take_while(|(_, ch)| ch.is_ascii_digit())
@@ -888,13 +882,10 @@ fn canonical_compatible_schema_primitive(text: &str) -> Option<String> {
     let suffix = &rest[width_len..];
     let width_bits = width.parse::<u16>().ok()?;
     let supported = matches!(
-        (family, width_bits, suffix),
-        ("uint", 1..=8, "")
-            | ("uint", 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64, "be" | "le")
-            | ("flag", 8, "")
-            | ("flag", 16 | 24 | 32 | 40 | 48 | 56 | 64, "be" | "le")
+        (width_bits, suffix),
+        (1..=8, "") | (16 | 24 | 31 | 32 | 40 | 48 | 56 | 64, "be" | "le")
     );
-    supported.then(|| format!("{family}{width}{suffix}"))
+    supported.then(|| format!("uint{width}{suffix}"))
 }
 
 fn exact_call_inner<'a>(text: &'a str, name: &str) -> Option<&'a str> {
@@ -1443,6 +1434,10 @@ fn format_prefix_expr(op: PrefixOp, inner: &Expr, prec: u8, indent: usize) -> St
             "-{}",
             format_expr_prec(inner, prec, ExprSide::Right, indent)
         ),
+        PrefixOp::BitwiseNot => format!(
+            "~{}",
+            format_expr_prec(inner, prec, ExprSide::Right, indent)
+        ),
     }
 }
 
@@ -1461,19 +1456,23 @@ fn expr_prec(expr: &Expr) -> u8 {
             BinaryOp::PipeGreater => 1,
             BinaryOp::Or => 3,
             BinaryOp::And => 5,
-            BinaryOp::Equal | BinaryOp::NotEqual => 7,
-            BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => 9,
-            BinaryOp::Add | BinaryOp::Subtract => 11,
-            BinaryOp::Multiply | BinaryOp::Divide => 13,
+            BinaryOp::BitwiseOr => 7,
+            BinaryOp::BitwiseXor => 9,
+            BinaryOp::BitwiseAnd => 11,
+            BinaryOp::Equal | BinaryOp::NotEqual => 13,
+            BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => 15,
+            BinaryOp::ShiftLeft | BinaryOp::ShiftRight | BinaryOp::ShiftRightLogical => 17,
+            BinaryOp::Add | BinaryOp::Subtract => 19,
+            BinaryOp::Multiply | BinaryOp::Divide => 21,
         },
-        ExprKind::Prefix { .. } => 15,
+        ExprKind::Prefix { .. } => 25,
         ExprKind::Call { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
-        | ExprKind::Try(_) => 17,
-        ExprKind::Match { .. } | ExprKind::If { .. } => 19,
-        _ => 19,
+        | ExprKind::Try(_) => 27,
+        ExprKind::Match { .. } | ExprKind::If { .. } => 29,
+        _ => 29,
     }
 }
 
@@ -1515,12 +1514,18 @@ fn binary_op_text(op: BinaryOp) -> &'static str {
         BinaryOp::PipeGreater => "|>",
         BinaryOp::Or => "or",
         BinaryOp::And => "and",
+        BinaryOp::BitwiseOr => "|",
+        BinaryOp::BitwiseXor => "^",
+        BinaryOp::BitwiseAnd => "&",
         BinaryOp::Equal => "==",
         BinaryOp::NotEqual => "!=",
         BinaryOp::Less => "<",
         BinaryOp::LessEqual => "<=",
         BinaryOp::Greater => ">",
         BinaryOp::GreaterEqual => ">=",
+        BinaryOp::ShiftLeft => "<<",
+        BinaryOp::ShiftRight => ">>",
+        BinaryOp::ShiftRightLogical => ">>>",
         BinaryOp::Add => "+",
         BinaryOp::Subtract => "-",
         BinaryOp::Multiply => "*",

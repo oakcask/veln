@@ -1,6 +1,0 @@
-# Flag48be raw-bit construction rejects values outside the six-byte range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag48be = flag48be_from_bits(281474976710656)?
-	Ok(())
-end

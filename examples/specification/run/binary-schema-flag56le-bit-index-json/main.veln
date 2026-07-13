@@ -1,6 +1,0 @@
-# Flag56le helper functions reject indexes outside the seven-byte bit range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Bool = flag56le_is_set(Flag56le(0), 56)?
-	Ok(())
-end

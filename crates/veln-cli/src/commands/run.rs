@@ -2360,12 +2360,14 @@ impl RunJsonReport {
     }
 
     fn runtime_error(exit_code: i32, stdout: String, stderr: String, message: String) -> Self {
+        let details = invalid_shift_runtime_details(&message)
+            .unwrap_or_else(|| JsonValue::object([("phase", JsonValue::string("runtime"))]));
         Self {
             status: "failed",
             exit_code,
             stdout,
             stderr,
-            error: Some(RunJsonError::runtime(message)),
+            error: Some(RunJsonError::runtime(message, details)),
         }
     }
 
@@ -2421,11 +2423,11 @@ impl RunJsonError {
         }
     }
 
-    fn runtime(message: String) -> Self {
+    fn runtime(message: String, details: JsonValue) -> Self {
         Self {
             kind: "runtime".to_string(),
             message,
-            details: JsonValue::object([("phase", JsonValue::string("runtime"))]),
+            details,
         }
     }
 
@@ -2444,6 +2446,24 @@ impl RunJsonError {
             ("details", self.details.clone()),
         ])
     }
+}
+
+fn invalid_shift_runtime_details(message: &str) -> Option<JsonValue> {
+    let count_text = message.strip_prefix("invalid shift count ")?;
+    let (count_text, operator_text) = count_text.split_once(" for operator `")?;
+    let (operator, suffix) = operator_text.split_once('`')?;
+    if suffix != "; expected a value between 0 and 63" {
+        return None;
+    }
+    let count = count_text.parse::<i64>().ok()?;
+    Some(JsonValue::object([
+        ("phase", JsonValue::string("runtime")),
+        ("id", JsonValue::string("runtime.invalid_shift_count")),
+        ("operator", JsonValue::string(operator)),
+        ("actual_count", JsonValue::Number(count)),
+        ("minimum_count", JsonValue::Number(0)),
+        ("maximum_count", JsonValue::Number(63)),
+    ]))
 }
 
 fn entry_arg_scalar(ty: &str) -> Option<EntryArgScalar> {

@@ -7,10 +7,10 @@ Current implemented behavior is specified under
 `../specification/source-surface.md`, `../specification/execution.md`, and
 checked examples under `../../examples/specification/`.
 
-The planned replacement of visible flag primitives with unsigned fields and
-`Int` bitwise operators belongs to
-[Integer Bitwise Operators And Flag Removal](integer-bitwise-operators-and-flag-removal.md),
-not to the remaining primitive work tracked here.
+The replacement of legacy visible flag primitives with unsigned fields and
+`Int` bitwise operators is complete and archived under
+[Integer Bitwise Operators And Flag Removal](../reference/implemented-proposals/integer-bitwise-operators-and-flag-removal.md),
+not in the remaining primitive work tracked here.
 
 Completed primitive, flag, reserved-bit, repeat, byte-view, dispatch, and
 recursive dispatch helper slices are archived under

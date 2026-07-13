@@ -6911,7 +6911,7 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
             "  section_length: UInt8\n",
             "  payload_length: UInt8\n",
             "  kind: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: UInt8\n",
             "  sample_count: UInt8\n",
             "  samples: Repeat(sample_count, UInt16be)\n",
             "  padding: ReservedBits(8, 0)\n",
@@ -6920,11 +6920,11 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
             "end\n",
             "\n",
             "\n",
-            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}>\n",
+            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{section_length: Int, payload_length: Int, kind: Int, flags: Int, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}>\n",
             "  decode TelemetryEnvelope from view at base\n",
             "end\n",
             "\n",
-            "pub fn encode_main(packet: {section_length: Int, payload_length: Int, kind: Int, flags: Flag8, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "pub fn encode_main(packet: {section_length: Int, payload_length: Int, kind: Int, flags: Int, sample_count: Int, samples: List<Int>, metadata: ByteView, payload: SchemaDispatchPayload<{channel: Int, reading: Int}>}) -> Result<ByteChunk, EncodeError>\n",
             "  encode TelemetryEnvelope from packet\n",
             "end\n",
         ),
@@ -7656,7 +7656,7 @@ fn generated_schema_decode_helpers_reject_byte_view_multiple_constraints() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  payload: ByteView(length) where payload_count multiple of flags\n",
             "end\n",
             "\n",
@@ -7711,7 +7711,7 @@ fn generated_schema_decode_helpers_reject_byte_view_multiple_constraints() {
         ),
         (
             "incompatible_field_reference",
-            "ByteView multiple operand `flags` decodes as `Flag8`, not `Int`",
+            "ByteView multiple operand `flags` decodes as `ByteView`, not `Int`",
         ),
         (
             "unsupported_multiple_predicate",
@@ -7835,7 +7835,7 @@ fn canonical_repeat_syntax_preserves_payload_then_count_order() {
 
     assert!(repeat_schema_primitive("[uint16be count]").is_none());
     assert!(repeat_schema_primitive("[uint16be; count; extra]").is_none());
-    assert!(repeat_schema_primitive("Repeat(count, flag16be)").is_none());
+    assert!(repeat_schema_primitive("Repeat(count, uint1)").is_none());
 }
 
 #[test]
@@ -7967,7 +7967,7 @@ fn generated_schema_decode_helpers_reject_canonical_repeat_count_references() {
             "  format binary\n",
             "\n",
             "  row_count: uint8\n",
-            "  flags: flag8\n",
+            "  flags: ByteView(row_count)\n",
             "  items: [uint16be; row_count * flags]\n",
             "end\n",
         ),
@@ -7988,7 +7988,7 @@ fn generated_schema_decode_helpers_reject_canonical_repeat_count_references() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat count operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8200,7 +8200,7 @@ fn generated_schema_decode_helpers_reject_added_byte_view_operands() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  payload: ByteView(length + flags)\n",
             "end\n",
         ),
@@ -8221,7 +8221,7 @@ fn generated_schema_decode_helpers_reject_added_byte_view_operands() {
         ),
         (
             "incompatible_field_reference",
-            "ByteView length operand `flags` decodes as `Flag8`, not `Int`",
+            "ByteView length operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8267,7 +8267,7 @@ fn generated_schema_decode_helpers_reject_quotient_byte_view_operands() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  payload: ByteView(length / flags)\n",
             "end\n",
         ),
@@ -8288,7 +8288,7 @@ fn generated_schema_decode_helpers_reject_quotient_byte_view_operands() {
         ),
         (
             "incompatible_field_reference",
-            "ByteView length operand `flags` decodes as `Flag8`, not `Int`",
+            "ByteView length operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8334,7 +8334,7 @@ fn generated_schema_decode_helpers_reject_subtracted_repeat_count_operands() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  items: Repeat(length - flags, UInt16be)\n",
             "end\n",
         ),
@@ -8355,7 +8355,7 @@ fn generated_schema_decode_helpers_reject_subtracted_repeat_count_operands() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat count operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8401,7 +8401,7 @@ fn generated_schema_decode_helpers_reject_added_repeat_count_operands() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  items: Repeat(length + flags, UInt16be)\n",
             "end\n",
         ),
@@ -8422,7 +8422,7 @@ fn generated_schema_decode_helpers_reject_added_repeat_count_operands() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat count operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8471,7 +8471,7 @@ fn generated_schema_decode_helpers_reject_added_repeat_byte_view_length_operands
             "\n",
             "  count: UInt8\n",
             "  left_length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(left_length)\n",
             "  items: Repeat(count, ByteView(left_length + flags))\n",
             "end\n",
         ),
@@ -8492,7 +8492,7 @@ fn generated_schema_decode_helpers_reject_added_repeat_byte_view_length_operands
         ),
         (
             "incompatible_field_reference",
-            "repeat ByteView length operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat ByteView length operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8538,7 +8538,7 @@ fn generated_schema_decode_helpers_reject_product_repeat_count_operands() {
             "  format binary\n",
             "\n",
             "  row_count: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(row_count)\n",
             "  items: Repeat(row_count * flags, UInt16be)\n",
             "end\n",
         ),
@@ -8559,7 +8559,7 @@ fn generated_schema_decode_helpers_reject_product_repeat_count_operands() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat count operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -8605,7 +8605,7 @@ fn generated_schema_decode_helpers_reject_quotient_repeat_count_operands() {
             "  format binary\n",
             "\n",
             "  length: UInt8\n",
-            "  flags: Flag8\n",
+            "  flags: ByteView(length)\n",
             "  items: Repeat(length / flags, UInt16be)\n",
             "end\n",
         ),
@@ -8626,7 +8626,7 @@ fn generated_schema_decode_helpers_reject_quotient_repeat_count_operands() {
         ),
         (
             "incompatible_field_reference",
-            "repeat count operand `flags` decodes as `Flag8`, not `Int`",
+            "repeat count operand `flags` decodes as `ByteView`, not `Int`",
         ),
     ] {
         assert!(
@@ -10617,13 +10617,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "end\n",
             "pub fn main(items: Vec<Int>, other: Vec<Int>, table: Dict<String, Int>, ",
             "list: List<Int>, one_byte: Byte, chunk: ByteChunk, other_chunk: ByteChunk, ",
-            "view: ByteView, count: ByteCount, offset: ByteOffset, flags: Flag8, flags16: Flag16be, ",
-            "flags16le: Flag16le, flags24: Flag24be, flags24le: Flag24le, ",
-            "flags32: Flag32be, flags32le: Flag32le, ",
-            "flags40: Flag40be, flags40le: Flag40le, ",
-            "flags48: Flag48be, flags48le: Flag48le, ",
-            "flags56: Flag56be, flags56le: Flag56le, ",
-            "flags64: Flag64be, flags64le: Flag64le, ",
+            "view: ByteView, count: ByteCount, offset: ByteOffset, ",
             "mapper: fn(Int) -> String, keep: fn(Int) -> Bool, folder: fn(String, Int) -> String, ",
             "dict_mapper: fn(String, Int) -> String, dict_keep: fn(String, Int) -> Bool, ",
             "dict_folder: fn(String, String, Int) -> String, ",
@@ -10638,36 +10632,6 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "res: Result<Int, AppError>, err_map: fn(AppError) -> String, ",
             "res_next: fn(Int) -> Result<String, AppError>) -> {",
             "count: Int, empty: Bool, byte_value: Result<Byte, String>, byte_int: Int, ",
-            "flag_is_set: Result<Bool, String>, flag_set: Result<Flag8, String>, ",
-            "flag_bits: Int, flag_from_bits: Result<Flag8, String>, ",
-            "flag16_is_set: Result<Bool, String>, flag16_set: Result<Flag16be, String>, ",
-            "flag16_bits: Int, flag16_from_bits: Result<Flag16be, String>, ",
-            "flag16le_is_set: Result<Bool, String>, flag16le_set: Result<Flag16le, String>, ",
-            "flag16le_bits: Int, flag16le_from_bits: Result<Flag16le, String>, ",
-            "flag24_is_set: Result<Bool, String>, flag24_set: Result<Flag24be, String>, ",
-            "flag24_bits: Int, flag24_from_bits: Result<Flag24be, String>, ",
-            "flag24le_is_set: Result<Bool, String>, flag24le_set: Result<Flag24le, String>, ",
-            "flag24le_bits: Int, flag24le_from_bits: Result<Flag24le, String>, ",
-            "flag32_is_set: Result<Bool, String>, flag32_set: Result<Flag32be, String>, ",
-            "flag32_bits: Int, flag32_from_bits: Result<Flag32be, String>, ",
-            "flag32le_is_set: Result<Bool, String>, flag32le_set: Result<Flag32le, String>, ",
-            "flag32le_bits: Int, flag32le_from_bits: Result<Flag32le, String>, ",
-            "flag40_is_set: Result<Bool, String>, flag40_set: Result<Flag40be, String>, ",
-            "flag40_bits: Int, flag40_from_bits: Result<Flag40be, String>, ",
-            "flag40le_is_set: Result<Bool, String>, flag40le_set: Result<Flag40le, String>, ",
-            "flag40le_bits: Int, flag40le_from_bits: Result<Flag40le, String>, ",
-            "flag48_is_set: Result<Bool, String>, flag48_set: Result<Flag48be, String>, ",
-            "flag48_bits: Int, flag48_from_bits: Result<Flag48be, String>, ",
-            "flag48le_is_set: Result<Bool, String>, flag48le_set: Result<Flag48le, String>, ",
-            "flag48le_bits: Int, flag48le_from_bits: Result<Flag48le, String>, ",
-            "flag56_is_set: Result<Bool, String>, flag56_set: Result<Flag56be, String>, ",
-            "flag56_bits: Int, flag56_from_bits: Result<Flag56be, String>, ",
-            "flag56le_is_set: Result<Bool, String>, flag56le_set: Result<Flag56le, String>, ",
-            "flag56le_bits: Int, flag56le_from_bits: Result<Flag56le, String>, ",
-            "flag64_is_set: Result<Bool, String>, flag64_set: Result<Flag64be, String>, ",
-            "flag64_bits: Int, flag64_from_bits: Result<Flag64be, String>, ",
-            "flag64le_is_set: Result<Bool, String>, flag64le_set: Result<Flag64le, String>, ",
-            "flag64le_bits: Int, flag64le_from_bits: Result<Flag64le, String>, ",
             "chunk_value: ByteChunk, chunk_count: ByteCount, appended: ByteChunk, ",
             "hex_chunk: Result<ByteChunk, String>, ascii_text: Result<String, String>, ",
             "ascii_chunk: Result<ByteChunk, String>, ",
@@ -10725,36 +10689,6 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "res_nexted: Result<String, AppError>}\n",
             "  {count: vec_len(items), empty: vec_is_empty(items), ",
             "byte_value: byte(1), byte_int: byte_to_int(one_byte), ",
-            "flag_is_set: flag8_is_set(flags, 3), flag_set: flag8_set(flags, 5), ",
-            "flag_bits: flag8_bits(flags), flag_from_bits: flag8_from_bits(40), ",
-            "flag16_is_set: flag16be_is_set(flags16, 11), flag16_set: flag16be_set(flags16, 15), ",
-            "flag16_bits: flag16be_bits(flags16), flag16_from_bits: flag16be_from_bits(32769), ",
-            "flag16le_is_set: flag16le_is_set(flags16le, 11), flag16le_set: flag16le_set(flags16le, 15), ",
-            "flag16le_bits: flag16le_bits(flags16le), flag16le_from_bits: flag16le_from_bits(32769), ",
-            "flag24_is_set: flag24be_is_set(flags24, 23), flag24_set: flag24be_set(flags24, 0), ",
-            "flag24_bits: flag24be_bits(flags24), flag24_from_bits: flag24be_from_bits(8388609), ",
-            "flag24le_is_set: flag24le_is_set(flags24le, 23), flag24le_set: flag24le_set(flags24le, 0), ",
-            "flag24le_bits: flag24le_bits(flags24le), flag24le_from_bits: flag24le_from_bits(8388609), ",
-            "flag32_is_set: flag32be_is_set(flags32, 31), flag32_set: flag32be_set(flags32, 0), ",
-            "flag32_bits: flag32be_bits(flags32), flag32_from_bits: flag32be_from_bits(2147483649), ",
-            "flag32le_is_set: flag32le_is_set(flags32le, 31), flag32le_set: flag32le_set(flags32le, 0), ",
-            "flag32le_bits: flag32le_bits(flags32le), flag32le_from_bits: flag32le_from_bits(2147483649), ",
-            "flag40_is_set: flag40be_is_set(flags40, 39), flag40_set: flag40be_set(flags40, 0), ",
-            "flag40_bits: flag40be_bits(flags40), flag40_from_bits: flag40be_from_bits(549755813889), ",
-            "flag40le_is_set: flag40le_is_set(flags40le, 39), flag40le_set: flag40le_set(flags40le, 0), ",
-            "flag40le_bits: flag40le_bits(flags40le), flag40le_from_bits: flag40le_from_bits(549755813889), ",
-            "flag48_is_set: flag48be_is_set(flags48, 47), flag48_set: flag48be_set(flags48, 0), ",
-            "flag48_bits: flag48be_bits(flags48), flag48_from_bits: flag48be_from_bits(140737488355329), ",
-            "flag48le_is_set: flag48le_is_set(flags48le, 47), flag48le_set: flag48le_set(flags48le, 0), ",
-            "flag48le_bits: flag48le_bits(flags48le), flag48le_from_bits: flag48le_from_bits(140737488355329), ",
-            "flag56_is_set: flag56be_is_set(flags56, 55), flag56_set: flag56be_set(flags56, 0), ",
-            "flag56_bits: flag56be_bits(flags56), flag56_from_bits: flag56be_from_bits(36028797018963969), ",
-            "flag56le_is_set: flag56le_is_set(flags56le, 55), flag56le_set: flag56le_set(flags56le, 0), ",
-            "flag56le_bits: flag56le_bits(flags56le), flag56le_from_bits: flag56le_from_bits(36028797018963969), ",
-            "flag64_is_set: flag64be_is_set(flags64, 63), flag64_set: flag64be_set(flags64, 62), ",
-            "flag64_bits: flag64be_bits(flags64), flag64_from_bits: flag64be_from_bits(4611686018427387904), ",
-            "flag64le_is_set: flag64le_is_set(flags64le, 63), flag64le_set: flag64le_set(flags64le, 62), ",
-            "flag64le_bits: flag64le_bits(flags64le), flag64le_from_bits: flag64le_from_bits(4611686018427387904), ",
             "chunk_value: byte_chunk([one_byte]), chunk_count: byte_chunk_count(chunk), ",
             "appended: byte_append(chunk, other_chunk), hex_chunk: byte_chunk_from_hex(\"00 ff\"), ",
             "ascii_text: byte_chunk_to_visible_ascii_string(chunk), ascii_chunk: byte_chunk_from_visible_ascii_string(\"A\"), ",

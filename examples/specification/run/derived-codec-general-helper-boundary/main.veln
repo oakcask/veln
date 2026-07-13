@@ -15,7 +15,7 @@ schema TelemetryEnvelope
 	section_length: UInt8
 	payload_length: UInt8
 	kind: UInt8
-	flags: Flag8
+	flags: uint8
 	sample_count: UInt8
 	samples: Repeat(sample_count, UInt16be)
 	padding: ReservedBits(8, 0)
@@ -52,13 +52,13 @@ fn payload_reading(payload: SchemaDispatchPayload<{ channel : Int, reading : Int
 	end
 end
 
-fn flag_bits(flags: Flag8) -> Int
+fn raw_bits(flags: Int) -> Int
 	match flags
-		Flag8(bits) => bits
+		bits => bits
 	end
 end
 
-fn emit_decoded(packet: { section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }, consumed: ByteCount) -> () effects [stdio]
+fn emit_decoded(packet: { section_length : Int, payload_length : Int, kind : Int, flags : Int, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }, consumed: ByteCount) -> () effects [stdio]
 	stdio::print("decoded ")
 	stdio::print(int_to_string(packet.section_length))
 	stdio::print(" ")
@@ -66,7 +66,7 @@ fn emit_decoded(packet: { section_length : Int, payload_length : Int, kind : Int
 	stdio::print(" ")
 	stdio::print(int_to_string(packet.kind))
 	stdio::print(" ")
-	stdio::print(int_to_string(flag_bits(packet.flags)))
+	stdio::print(int_to_string(raw_bits(packet.flags)))
 	stdio::print(" ")
 	stdio::print(int_to_string(packet.sample_count))
 	stdio::print(" ")
@@ -187,7 +187,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let expected_hex: String = "05030128020102030400aabbb13412"
 	let bytes: ByteChunk = byte_chunk_from_hex(expected_hex)?
 	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(15)?)?
-	let complete: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = decode TelemetryEnvelope from view at byte_offset(0)?
+	let complete: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Int, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = decode TelemetryEnvelope from view at byte_offset(0)?
 	let complete_output: () = match complete
 		Decoded(packet, consumed) => emit_decoded(packet, consumed)
 		NeedMore(_) => stdio::println("unexpected decode readiness")
@@ -195,7 +195,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	end
 
 	let short_view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(8)?)?
-	let waiting: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Flag8, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = decode TelemetryEnvelope from short_view at byte_offset(31)?
+	let waiting: DecodeStep<{ section_length : Int, payload_length : Int, kind : Int, flags : Int, sample_count : Int, samples : List<Int>, metadata : ByteView, payload : SchemaDispatchPayload<{ channel : Int, reading : Int }> }> = decode TelemetryEnvelope from short_view at byte_offset(31)?
 	let waiting_output: () = match waiting
 		NeedMore(NeedBytes(count)) => emit_need_bytes(count)
 		NeedMore(NeedEnd) => stdio::println("need_more need_end 0 consumed 0")
@@ -207,7 +207,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let samples: List<Int> = list_cons(258, list_cons(772, list_nil()))
 	let metadata: ByteView = byte_view(byte_chunk_from_hex("aabb")?, byte_offset(0)?, byte_count(2)?)?
 	let payload: SchemaDispatchPayload<{ channel : Int, reading : Int }> = Known({ channel: 17, reading: 4660 })
-	let encoded: EncodeStep<()> = encode_result_step(encode TelemetryEnvelope from { section_length: 5, payload_length: 3, kind: 1, flags: Flag8(40), sample_count: 2, samples: samples, metadata: metadata, payload: payload })
+	let encoded: EncodeStep<()> = encode_result_step(encode TelemetryEnvelope from { section_length: 5, payload_length: 3, kind: 1, flags: 40, sample_count: 2, samples: samples, metadata: metadata, payload: payload })
 	let encoded_output: () = match encoded
 		Encoded(Cons(chunk, Nil)) => emit_encoded_chunk("derived-general-helper", chunk, expected_hex)?
 		Encoded(_) => stdio::println("unexpected encoded chunk count")
@@ -215,7 +215,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 		Invalid(_) => stdio::println("unexpected encode failure")
 	end
 
-	let invalid_encoded: EncodeStep<()> = encode_result_step(encode TelemetryEnvelope from { section_length: 5, payload_length: 3, kind: 1, flags: Flag8(40), sample_count: 3, samples: samples, metadata: metadata, payload: payload })
+	let invalid_encoded: EncodeStep<()> = encode_result_step(encode TelemetryEnvelope from { section_length: 5, payload_length: 3, kind: 1, flags: 40, sample_count: 3, samples: samples, metadata: metadata, payload: payload })
 	let invalid_output: () = match invalid_encoded
 		Invalid(EncodeError(id, path, reason)) => emit_invalid_encode(id, path, reason)
 		Encoded(_) => stdio::println("unexpected invalid encoded")

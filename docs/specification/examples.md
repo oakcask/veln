@@ -8,6 +8,23 @@ behavior.
 
 ## Binary Schema Routes
 
+- Integer bitwise semantics and chained and mixed runtime-checked contracts:
+  `../../examples/specification/run/integer-bitwise-operators/`.
+- Literal and dynamic invalid shift diagnostics:
+  `../../examples/specification/check/integer-bitwise-invalid-literal-shifts/`,
+  `../../examples/specification/check/integer-bitwise-invalid-literal-shifts-human/`,
+  `../../examples/specification/run/integer-bitwise-invalid-dynamic-shift-human/`,
+  and
+  `../../examples/specification/run/integer-bitwise-invalid-dynamic-shift-json/`.
+- Exact-width unsigned replacement shapes and both-byte-order bit operations:
+  `../../examples/specification/check/binary-schema-uint-replacement-shapes/`
+  and
+  `../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`.
+- Removed flag vocabulary diagnostics across direct and nested schema shapes,
+  explicit operations, and derived helpers:
+  `../../examples/specification/check/removed-flag-vocabulary-diagnostics/`
+  and
+  `../../examples/specification/check/removed-flag-nested-shapes-human/`.
 - Schema-local helper projection:
   `../../examples/specification/run/binary-schema-local-projection-boundary/`.
 - Parser rejection for schema-level `map to`:

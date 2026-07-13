@@ -40,6 +40,13 @@ positions are in
 human plus JSON diagnostics are checked by the matching `integer-radix-*`
 cases under `examples/specification/`.
 
+## Integer Bitwise Tokens
+
+Expressions accept unary `~` and binary `&`, `|`, `^`, `<<`, `>>`, and
+`>>>`. Lexing chooses the longest token, preserving `|>` as pipeline and
+distinguishing `>>>`, `>>`, `>=`, and `>`. Adjacent closing angles in nested
+generic types remain type delimiters rather than shift expressions.
+
 ## Schemas
 
 Top-level `schema Name` and `pub schema Name` declarations are source module
@@ -80,8 +87,8 @@ fields.
 Schema field lines contain a field name, `:`, type text, and an optional
 field-local `where` predicate. One schema-level `validate` predicate may
 appear after fields. Binary schema field vocabulary includes the implemented
-exact-width unsigned primitives, lowercase `uint...` fields, visible flag
-bitset primitives, lowercase `flag...` fields, `uint... reserves <value>`
+exact-width unsigned primitives, lowercase `uint...` fields,
+`uint... reserves <value>`
 reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
 canonical repeated fields `[Payload; count]`, direct nested binary schema
 fields, recursive anonymous record fields whose leaves are exact-width
@@ -123,8 +130,8 @@ primitive payload spellings that are accepted by canonical repeated-field
 syntax. They also accept supported lowercase `uint... reserves <value>`
 payloads as representation-only repeated payloads.
 Closed and extension dispatch payload cases accept the same lowercase
-exact-width `uint...` and `flag...` spelling wherever the compatible
-upper-case exact-width primitive payload spelling is accepted. Byte-aligned
+exact-width `uint...` spelling wherever the compatible upper-case exact-width
+primitive payload spelling is accepted. Byte-aligned
 lowercase `uint... reserves <value>` payloads are accepted wherever direct
 reserved-bit dispatch payloads are supported; direct dispatch payloads also
 accept subbyte spellings from `uint1 reserves 0` through

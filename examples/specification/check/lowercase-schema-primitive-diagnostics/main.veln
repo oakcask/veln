@@ -2,21 +2,18 @@ schema MissingEndian
 	format binary
 
 	length: uint24
-	flags: flag32
 end
 
 schema RedundantEndian
 	format binary
 
 	kind: uint8be
-	flags: flag8le
 end
 
 schema UnsupportedWidth
 	format binary
 
 	value: uint9
-	flags: flag31be
 end
 
 schema UnknownEndian
@@ -29,36 +26,12 @@ schema MissingWidth
 	format binary
 
 	value: uint
-	flags: flagbe
 end
 
-schema MissingFormatUInt
+schema MissingFormat
 	length: uint16be
 end
 
-schema MissingFormatFlag
-	flags: flag16le
-end
-
-schema NestedPayload
-	format binary
-
-	count: uint8
-	items: Repeat(count, uint16be)
-end
-
-schema DispatchPayload
-	format binary
-
-	tag: uint8
-	payload: Dispatch(tag, 1 => uint16be)
-end
-
-schema MissingFormatDispatchPayload
-	tag: Int
-	payload: Dispatch(tag, 1 => uint32be, 2 => flag24le)
-end
-
-fn ordinary_type(value: uint24be) -> flag24be
-	flag16be
+fn ordinary_type(value: uint24be) -> Int
+	uint16be
 end

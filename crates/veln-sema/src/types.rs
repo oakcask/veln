@@ -2390,6 +2390,12 @@ fn infer_private_signature_expr_type(
             | veln_ast::BinaryOp::GreaterEqual
             | veln_ast::BinaryOp::Or
             | veln_ast::BinaryOp::And => Type::bool(),
+            veln_ast::BinaryOp::BitwiseOr
+            | veln_ast::BinaryOp::BitwiseXor
+            | veln_ast::BinaryOp::BitwiseAnd
+            | veln_ast::BinaryOp::ShiftLeft
+            | veln_ast::BinaryOp::ShiftRight
+            | veln_ast::BinaryOp::ShiftRightLogical => Type::int(),
             veln_ast::BinaryOp::Add
             | veln_ast::BinaryOp::Subtract
             | veln_ast::BinaryOp::Multiply
@@ -3132,9 +3138,7 @@ fn binary_schema_anonymous_record_type(fields: Vec<(String, Type)>) -> Option<Ve
 fn binary_schema_anonymous_record_leaf_type(ty: &Type) -> Option<()> {
     match ty {
         Type::Named { name, args }
-            if args.is_empty()
-                && exact_width_schema_primitive(name).is_some()
-                && flag_schema_primitive(name).is_none() =>
+            if args.is_empty() && exact_width_schema_primitive(name).is_some() =>
         {
             Some(())
         }
@@ -3786,12 +3790,7 @@ fn schema_decode_record_fields_inner_after_push(
             continue;
         }
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
-                Type::named(flag_type, Vec::new())
-            } else {
-                Type::int()
-            };
-            (width, ty)
+            (width, Type::int())
         } else if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
             if length_expr
                 .references()
@@ -4334,12 +4333,7 @@ fn schema_encode_schema_fields(
         }
         if exact_width_schema_primitive(&field.ty).is_some() {
             exact_width_field_names.push(field.name.clone());
-            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
-                Type::named(flag_type, Vec::new())
-            } else {
-                Type::int()
-            };
-            fields.push((field.name.clone(), ty));
+            fields.push((field.name.clone(), Type::int()));
             continue;
         }
         if let Some(repeat) = repeat_schema_primitive(&field.ty) {
@@ -4488,14 +4482,7 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         Some(name) => exact_width_schema_primitive(name),
         None => match ty.trim() {
             "UInt1" | "UInt2" | "UInt3" | "UInt4" | "UInt5" | "UInt6" | "UInt7" => Some(1),
-            "UInt8" | "Flag8" => Some(1),
-            "Flag16be" | "Flag16le" => Some(2),
-            "Flag24be" | "Flag24le" => Some(3),
-            "Flag32be" | "Flag32le" => Some(4),
-            "Flag40be" | "Flag40le" => Some(5),
-            "Flag48be" | "Flag48le" => Some(6),
-            "Flag56be" | "Flag56le" => Some(7),
-            "Flag64be" | "Flag64le" => Some(8),
+            "UInt8" => Some(1),
             "UInt16be" | "UInt16le" => Some(2),
             "UInt24be" | "UInt24le" => Some(3),
             "UInt31be" | "UInt31le" | "UInt32be" | "UInt32le" => Some(4),
@@ -4514,62 +4501,14 @@ pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
     matches!(
         name,
         "UInt16le"
-            | "Flag16le"
-            | "Flag24le"
             | "UInt24le"
             | "UInt31le"
             | "UInt32le"
             | "UInt40le"
-            | "Flag40le"
-            | "Flag48le"
             | "UInt48le"
             | "UInt56le"
-            | "Flag56le"
-            | "Flag32le"
             | "UInt64le"
-            | "Flag64le"
     )
-}
-
-pub(crate) fn flag_schema_primitive(ty: &str) -> Option<&'static str> {
-    if let Some(canonical) = canonical_schema_primitive_name(ty) {
-        return match canonical.as_str() {
-            "Flag8" => Some("Flag8"),
-            "Flag16be" => Some("Flag16be"),
-            "Flag16le" => Some("Flag16le"),
-            "Flag24be" => Some("Flag24be"),
-            "Flag24le" => Some("Flag24le"),
-            "Flag32be" => Some("Flag32be"),
-            "Flag32le" => Some("Flag32le"),
-            "Flag40be" => Some("Flag40be"),
-            "Flag40le" => Some("Flag40le"),
-            "Flag48be" => Some("Flag48be"),
-            "Flag48le" => Some("Flag48le"),
-            "Flag56be" => Some("Flag56be"),
-            "Flag56le" => Some("Flag56le"),
-            "Flag64be" => Some("Flag64be"),
-            "Flag64le" => Some("Flag64le"),
-            _ => None,
-        };
-    }
-    match ty.trim() {
-        "Flag8" => Some("Flag8"),
-        "Flag16be" => Some("Flag16be"),
-        "Flag16le" => Some("Flag16le"),
-        "Flag24be" => Some("Flag24be"),
-        "Flag24le" => Some("Flag24le"),
-        "Flag32be" => Some("Flag32be"),
-        "Flag32le" => Some("Flag32le"),
-        "Flag40be" => Some("Flag40be"),
-        "Flag40le" => Some("Flag40le"),
-        "Flag48be" => Some("Flag48be"),
-        "Flag48le" => Some("Flag48le"),
-        "Flag56be" => Some("Flag56be"),
-        "Flag56le" => Some("Flag56le"),
-        "Flag64be" => Some("Flag64be"),
-        "Flag64le" => Some("Flag64le"),
-        _ => None,
-    }
 }
 
 pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
@@ -4583,14 +4522,7 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
             "UInt5" => Some(5),
             "UInt6" => Some(6),
             "UInt7" => Some(7),
-            "UInt8" | "Flag8" => Some(8),
-            "Flag16be" | "Flag16le" => Some(16),
-            "Flag24be" | "Flag24le" => Some(24),
-            "Flag32be" | "Flag32le" => Some(32),
-            "Flag40be" | "Flag40le" => Some(40),
-            "Flag48be" | "Flag48le" => Some(48),
-            "Flag56be" | "Flag56le" => Some(56),
-            "Flag64be" | "Flag64le" => Some(64),
+            "UInt8" => Some(8),
             "UInt16be" | "UInt16le" => Some(16),
             "UInt24be" | "UInt24le" => Some(24),
             "UInt31be" | "UInt31le" => Some(31),
@@ -4615,14 +4547,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
             "UInt5" => Some(0x1f),
             "UInt6" => Some(0x3f),
             "UInt7" => Some(0x7f),
-            "UInt8" | "Flag8" => Some(0xff),
-            "Flag16be" | "Flag16le" => Some(0xffff),
-            "Flag24be" | "Flag24le" => Some(0xffffff),
-            "Flag32be" | "Flag32le" => Some(0xffffffff),
-            "Flag40be" | "Flag40le" => Some(0xffffffffff),
-            "Flag48be" | "Flag48le" => Some(0xffffffffffff),
-            "Flag56be" | "Flag56le" => Some(0xffffffffffffff),
-            "Flag64be" | "Flag64le" => Some(i64::MAX),
+            "UInt8" => Some(0xff),
             "UInt16be" | "UInt16le" => Some(0xffff),
             "UInt24be" | "UInt24le" => Some(0xffffff),
             "UInt31be" | "UInt31le" => Some(0x7fffffff),
@@ -4651,7 +4576,7 @@ pub(crate) enum LowercaseSchemaPrimitiveError {
     MissingEndian,
     RedundantEndian,
     UnsupportedWidth,
-    ReservesOnFlag,
+    RemovedFlag,
     ReservesValue,
 }
 
@@ -4659,8 +4584,7 @@ impl LowercaseSchemaPrimitive {
     pub(crate) fn canonical_name(&self) -> String {
         let family = match self.family {
             "uint" => "UInt",
-            "flag" => "Flag",
-            _ => unreachable!("schema primitive families are fixed"),
+            _ => unreachable!("schema primitive family is fixed"),
         };
         match self.endian {
             Some(endian) => format!("{family}{}{endian}", self.width_bits),
@@ -4726,6 +4650,9 @@ pub(crate) fn lowercase_schema_primitive(
     if width_bits > 8 && endian.is_none() {
         return Some(Err(LowercaseSchemaPrimitiveError::MissingEndian));
     }
+    if family == "flag" {
+        return Some(Err(LowercaseSchemaPrimitiveError::RemovedFlag));
+    }
     Some(Ok(LowercaseSchemaPrimitive {
         spelling: spelling.to_string(),
         family,
@@ -4753,9 +4680,6 @@ pub(crate) fn lowercase_reserved_bits_schema_primitive(
         Ok(primitive) => primitive,
         Err(reason) => return Some(Err(reason)),
     };
-    if primitive.family != "uint" {
-        return Some(Err(LowercaseSchemaPrimitiveError::ReservesOnFlag));
-    }
     let Some(value) = parse_reserved_bits_integer(value_text) else {
         return Some(Err(LowercaseSchemaPrimitiveError::ReservesValue));
     };
@@ -4969,9 +4893,7 @@ fn repeat_schema_primitive_from_parts(
 ) -> Option<SchemaRepeatSpec> {
     let count_expr = schema_length_expression(count_field)?;
     let payload = if let Some(width) = exact_width_schema_primitive(primitive) {
-        if exact_width_schema_primitive_bit_width(primitive)? < 8
-            || flag_schema_primitive(primitive).is_some()
-        {
+        if exact_width_schema_primitive_bit_width(primitive)? < 8 {
             return None;
         }
         SchemaRepeatPayload::Primitive {
@@ -5232,9 +5154,7 @@ fn bit_packed_group_field_width(field: &veln_ast::SchemaField) -> Option<i64> {
         let max_value = reserved_bits_max_value(bit_width)?;
         return (expected_value <= max_value).then_some(bit_width);
     }
-    if exact_width_schema_primitive_little_endian(&field.ty)
-        || flag_schema_primitive(&field.ty).is_some()
-    {
+    if exact_width_schema_primitive_little_endian(&field.ty) {
         return None;
     }
     let bit_width = i64::from(exact_width_schema_primitive_bit_width(&field.ty)?);
@@ -5262,8 +5182,6 @@ fn supported_prefix_reserved_group(
     }
     if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
         || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
-        || flag_schema_primitive(&first_visible_field.ty).is_some()
-        || flag_schema_primitive(&second_visible_field.ty).is_some()
     {
         return false;
     }
@@ -5311,8 +5229,6 @@ fn supported_suffix_reserved_group(
     }
     if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
         || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
-        || flag_schema_primitive(&first_visible_field.ty).is_some()
-        || flag_schema_primitive(&second_visible_field.ty).is_some()
     {
         return false;
     }
@@ -5409,8 +5325,6 @@ fn supported_middle_reserved_bits(
     }
     if exact_width_schema_primitive_little_endian(&previous_field.ty)
         || exact_width_schema_primitive_little_endian(&next_field.ty)
-        || flag_schema_primitive(&previous_field.ty).is_some()
-        || flag_schema_primitive(&next_field.ty).is_some()
     {
         return false;
     }
@@ -5447,10 +5361,10 @@ fn supported_byte_interleaved_reserved_group(
     else {
         return false;
     };
-    if [first_field, byte_field, last_field].iter().any(|field| {
-        exact_width_schema_primitive_little_endian(&field.ty)
-            || flag_schema_primitive(&field.ty).is_some()
-    }) {
+    if [first_field, byte_field, last_field]
+        .iter()
+        .any(|field| exact_width_schema_primitive_little_endian(&field.ty))
+    {
         return false;
     }
     let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_field.ty) else {
@@ -7229,9 +7143,6 @@ mod tests {
             ("uint8", "UInt8"),
             ("uint24be", "UInt24be"),
             ("uint31le", "UInt31le"),
-            ("flag8", "Flag8"),
-            ("flag16be", "Flag16be"),
-            ("flag64le", "Flag64le"),
         ];
 
         for (text, canonical) in cases {
@@ -7255,6 +7166,91 @@ mod tests {
                 exact_width_schema_primitive_max_value(text),
                 exact_width_schema_primitive_max_value(canonical)
             );
+        }
+    }
+
+    #[test]
+    fn rejects_removed_flag_schema_primitives() {
+        for text in ["flag8", "flag16be", "flag64le"] {
+            assert_eq!(
+                lowercase_schema_primitive(text),
+                Some(Err(LowercaseSchemaPrimitiveError::RemovedFlag))
+            );
+            assert_eq!(canonical_schema_primitive_name(text), None);
+        }
+    }
+
+    #[test]
+    fn preserves_all_exact_width_uint_primitive_shapes() {
+        let cases = [
+            ("uint8", "UInt8", 1, 8, false, 0xff),
+            ("uint16be", "UInt16be", 2, 16, false, 0xffff),
+            ("uint16le", "UInt16le", 2, 16, true, 0xffff),
+            ("uint24be", "UInt24be", 3, 24, false, 0xffffff),
+            ("uint24le", "UInt24le", 3, 24, true, 0xffffff),
+            ("uint32be", "UInt32be", 4, 32, false, 0xffffffff),
+            ("uint32le", "UInt32le", 4, 32, true, 0xffffffff),
+            ("uint40be", "UInt40be", 5, 40, false, 0xffffffffff),
+            ("uint40le", "UInt40le", 5, 40, true, 0xffffffffff),
+            ("uint48be", "UInt48be", 6, 48, false, 0xffffffffffff),
+            ("uint48le", "UInt48le", 6, 48, true, 0xffffffffffff),
+            ("uint56be", "UInt56be", 7, 56, false, 0xffffffffffffff),
+            ("uint56le", "UInt56le", 7, 56, true, 0xffffffffffffff),
+            ("uint64be", "UInt64be", 8, 64, false, i64::MAX),
+            ("uint64le", "UInt64le", 8, 64, true, i64::MAX),
+        ];
+
+        for (text, canonical, width, bit_width, little_endian, max_value) in cases {
+            assert_eq!(
+                canonical_schema_primitive_name(text).as_deref(),
+                Some(canonical),
+                "{text}"
+            );
+            assert_eq!(exact_width_schema_primitive(text), Some(width), "{text}");
+            assert_eq!(
+                exact_width_schema_primitive_bit_width(text),
+                Some(bit_width),
+                "{text}"
+            );
+            assert_eq!(
+                exact_width_schema_primitive_little_endian(text),
+                little_endian,
+                "{text}"
+            );
+            assert_eq!(
+                exact_width_schema_primitive_max_value(text),
+                Some(max_value),
+                "{text}"
+            );
+
+            let repeated = repeat_schema_primitive(&format!("[{text}; count]"))
+                .expect("replacement primitive should be repeatable");
+            assert_eq!(repeated.count_field, "count", "{text}");
+            assert_eq!(
+                repeated.payload,
+                SchemaRepeatPayload::Primitive {
+                    width,
+                    max_value,
+                    little_endian,
+                },
+                "{text}"
+            );
+            assert!(schema_repeat_payload_accepts_lowercase_primitive(text));
+
+            let dispatch =
+                closed_dispatch_schema_primitive(&format!("Dispatch(kind, 1 => {text})"))
+                    .expect("replacement primitive should be dispatchable");
+            assert_eq!(dispatch.tag_field, "kind", "{text}");
+            assert_eq!(dispatch.cases.len(), 1, "{text}");
+            assert_eq!(
+                dispatch.cases[0].payload,
+                SchemaDispatchCasePayload::Primitive {
+                    width,
+                    little_endian,
+                },
+                "{text}"
+            );
+            assert!(schema_dispatch_payload_accepts_lowercase_primitive(text));
         }
     }
 
@@ -7311,14 +7307,10 @@ mod tests {
     fn rejects_malformed_lowercase_schema_primitives_with_focused_reasons() {
         let cases = [
             ("uint", LowercaseSchemaPrimitiveError::MissingWidth),
-            ("flagbe", LowercaseSchemaPrimitiveError::MissingWidth),
             ("uint16ne", LowercaseSchemaPrimitiveError::UnknownEndian),
             ("uint24", LowercaseSchemaPrimitiveError::MissingEndian),
-            ("flag32", LowercaseSchemaPrimitiveError::MissingEndian),
             ("uint8be", LowercaseSchemaPrimitiveError::RedundantEndian),
-            ("flag8le", LowercaseSchemaPrimitiveError::RedundantEndian),
             ("uint9", LowercaseSchemaPrimitiveError::UnsupportedWidth),
-            ("flag31be", LowercaseSchemaPrimitiveError::UnsupportedWidth),
         ];
 
         for (text, reason) in cases {
@@ -7326,7 +7318,6 @@ mod tests {
             assert_eq!(canonical_schema_primitive_name(text), None);
         }
         assert_eq!(lowercase_schema_primitive("uint_value"), None);
-        assert_eq!(lowercase_schema_primitive("flag_bits"), None);
     }
 
     #[test]
@@ -7334,7 +7325,7 @@ mod tests {
         let cases = [
             (
                 "flag8 reserves 0",
-                LowercaseSchemaPrimitiveError::ReservesOnFlag,
+                LowercaseSchemaPrimitiveError::RemovedFlag,
             ),
             (
                 "uint8 reserves",

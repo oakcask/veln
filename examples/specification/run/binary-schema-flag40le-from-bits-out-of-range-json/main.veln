@@ -1,6 +1,0 @@
-# Flag40le raw-bit construction rejects values outside the five-byte range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag40le = flag40le_from_bits(1099511627776)?
-	Ok(())
-end

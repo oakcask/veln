@@ -1,0 +1,47 @@
+# Decoded unsigned fields use the same bit numbering in both byte orders.
+use stdio
+
+schema Controls
+	format binary
+
+	big: uint16be
+	little: uint16le
+end
+
+fn bool_text(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn encoded_count(encoded: Result<ByteChunk, EncodeError>) -> Int
+	match encoded
+		Ok(chunk) => byte_count_to_int(byte_chunk_count(chunk))
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12343412")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let controls: {big: Int, little: Int} = byte_decode_controls(view)?
+	let big_inspected: Bool = (controls.big & (1 << 2)) != 0
+	let little_inspected: Bool = (controls.little & (1 << 2)) != 0
+	let big_set: Int = controls.big | (1 << 15)
+	let little_set: Int = controls.little | (1 << 15)
+	let big_cleared: Int = controls.big & ~(1 << 4)
+	let little_cleared: Int = controls.little & ~(1 << 4)
+	let big_toggled: Int = controls.big ^ (1 << 0)
+	let little_toggled: Int = controls.little ^ (1 << 0)
+	stdio::println(bool_text(big_inspected and little_inspected))
+	stdio::println(int_to_string(big_set))
+	stdio::println(int_to_string(little_set))
+	stdio::println(int_to_string(big_cleared))
+	stdio::println(int_to_string(little_cleared))
+	stdio::println(int_to_string(big_toggled))
+	stdio::println(int_to_string(little_toggled))
+	stdio::println(int_to_string(encoded_count(byte_encode_controls({big: big_set, little: little_toggled}))))
+	Ok(())
+end

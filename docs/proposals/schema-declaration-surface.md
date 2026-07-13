@@ -119,9 +119,6 @@ The implemented first slice covers:
   reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
 
-The completed visible flag bitset decode binding slice is archived under
-[Binary Schema Flag Decode Bindings](../reference/implemented-proposals/binary-schema-flag-decode-bindings.md).
-
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
 

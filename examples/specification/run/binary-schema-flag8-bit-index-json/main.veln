@@ -1,6 +1,0 @@
-# Flag8 helper functions reject indexes outside the one-byte bit range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Bool = flag8_is_set(Flag8(0), 8)?
-	Ok(())
-end

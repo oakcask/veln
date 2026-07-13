@@ -16,8 +16,9 @@ end
 schema NonIntByteViewPayload
 	format binary
 
-	flags: Flag8
-	payload: ByteView(flags)
+	length: UInt8
+	value: ByteView(length)
+	payload: ByteView(value)
 end
 
 schema UnsupportedReservedPayload

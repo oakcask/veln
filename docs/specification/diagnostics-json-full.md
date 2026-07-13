@@ -38,3 +38,15 @@ ambiguity uses `slot_kind = "match_scrutinee"`, `candidates`, and
 Checked examples under `examples/specification/check/` pin these shapes for
 local bindings, private helper parameters and returns, constructor ambiguity,
 empty collection ambiguity, and match scrutinee ambiguity.
+
+## Integer Bitwise And Removed Vocabulary Diagnostics
+
+`type.invalid_shift_count` details contain `operator`, `actual_count`,
+`minimum_count`, and `maximum_count`. The reported span is the literal count
+expression.
+
+`schema.removed_flag_primitive`, `type.removed_flag_vocabulary`, and
+`name.removed_flag_vocabulary` identify removed source vocabulary and include
+its replacement. Helper migration details also set
+`requires_explicit_range_check` when the old nominal width check must be
+reintroduced by source code.
