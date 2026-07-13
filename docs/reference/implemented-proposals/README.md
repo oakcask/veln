@@ -14,6 +14,8 @@ behavior.
 
 ## Records
 
+- Binary and hexadecimal integer literals:
+  [binary-and-hexadecimal-integer-literals.md](binary-and-hexadecimal-integer-literals.md).
 - JVM backend migration:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), then
   [jvm-bytecode-backend-full.md](jvm-bytecode-backend-full.md) only for

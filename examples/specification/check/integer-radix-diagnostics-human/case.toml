@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[parse.integer_literal]: hexadecimal integer literal requires at least one digit", "error[parse.integer_literal]: `2` is not a valid binary integer digit", "note: Accepted integer form: 0 or 1.", "error[parse.integer_literal]: `g` is not a valid hexadecimal integer digit", "note: Accepted integer form: 0 through 9, a through f, or A through F.", "error[parse.integer_literal]: uppercase binary integer literal prefix is unsupported", "error[parse.integer_literal]: digit separators are not supported in binary integer literals", "error[parse.integer_literal]: hexadecimal floating-point literals are unsupported", "error[parse.integer_literal]: binary integer literal exceeds the maximum Int value 9223372036854775807"]
+
+[stderr]
+format = "empty"

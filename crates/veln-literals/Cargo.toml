@@ -1,12 +1,8 @@
 [package]
-name = "veln-syntax"
+name = "veln-literals"
 edition.workspace = true
 version.workspace = true
 publish = false
-
-[dependencies]
-veln-literals.workspace = true
-veln-source.workspace = true
 
 [lints]
 workspace = true

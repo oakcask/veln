@@ -4,6 +4,7 @@ use crate::{
     SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter,
     Visibility,
 };
+use veln_literals::parse_integer_literal;
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
     let comments = LineComments::from_tree(tree);
@@ -830,10 +831,16 @@ fn canonical_reserved_bits_schema_field_type_call(text: &str) -> Option<String> 
     };
     let width = width.trim();
     let value = value.trim();
-    if !is_ascii_unsigned_integer(width) || !is_ascii_unsigned_integer(value) {
+    let Ok(width_literal) = parse_integer_literal(width) else {
+        return None;
+    };
+    if parse_integer_literal(value).is_err() {
         return None;
     }
-    let Ok(width) = width.parse::<u16>() else {
+    if width != width_literal.value.to_string() {
+        return Some(format!("ReservedBits({width}, {value})"));
+    }
+    let Ok(width) = u16::try_from(width_literal.value) else {
         return None;
     };
     let endian = match width {
@@ -952,10 +959,6 @@ fn split_top_level_args(text: &str) -> Vec<String> {
     }
     args.push(text[start..].trim().to_string());
     args
-}
-
-fn is_ascii_unsigned_integer(text: &str) -> bool {
-    !text.is_empty() && text.chars().all(|ch| ch.is_ascii_digit())
 }
 
 fn consume_type_path(text: &str, mut cursor: usize) -> usize {

@@ -25,6 +25,7 @@ use crate::types::{
 };
 use std::collections::BTreeSet;
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
+use veln_literals::parse_integer_literal;
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -3239,10 +3240,9 @@ fn reserved_bits_primitive(ty: &str) -> Option<Result<(i64, i64), ReservedBitsAr
 }
 
 fn parse_reserved_bits_integer(text: &str) -> Result<i64, ()> {
-    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
-        return Err(());
-    }
-    text.parse::<i64>().map_err(|_| ())
+    parse_integer_literal(text)
+        .map(|literal| literal.value)
+        .map_err(|_| ())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -7,6 +7,21 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
+test("TextMate grammar recognizes complete binary and hexadecimal integers", () => {
+  const grammarPath = fileURLToPath(
+    new URL("./syntaxes/veln.tmLanguage.json", import.meta.url),
+  );
+  const grammar = JSON.parse(fs.readFileSync(grammarPath, "utf8"));
+  const integerPattern = grammar.repository.numbers.patterns.find(
+    (pattern) => pattern.name === "constant.numeric.integer.veln",
+  );
+
+  assert.equal(
+    integerPattern.match,
+    "\\b(?:0b[01]+|0x[0-9A-Fa-f]+|[0-9]+)\\b",
+  );
+});
+
 test("maps published LSP diagnostics into a VSCode diagnostic collection", () => {
   const { exports, vscode } = loadExtension();
   const collection = new FakeDiagnosticCollection();

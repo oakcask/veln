@@ -1143,7 +1143,7 @@ impl<'a> FunctionChecker<'a> {
         if trimmed.starts_with('"') {
             return Type::string();
         }
-        if trimmed.chars().all(|ch| ch.is_ascii_digit()) {
+        if veln_literals::parse_integer_literal(trimmed).is_ok() {
             return Type::int();
         }
         if matches!(trimmed, "true" | "false") {

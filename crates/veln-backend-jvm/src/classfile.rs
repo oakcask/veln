@@ -8,6 +8,7 @@ use veln_ir::{
     IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
     IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
+use veln_literals::parse_integer_literal;
 
 use crate::api::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
 use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
@@ -672,7 +673,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_int_literal(&mut self, code: &mut MethodCode, value: &str) {
-        code.ldc_long(value.parse::<i64>().unwrap_or(0));
+        code.ldc_long(
+            parse_integer_literal(value)
+                .map(|literal| literal.value)
+                .unwrap_or(0),
+        );
         code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
     }
 
@@ -1801,7 +1806,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             }
             IrPatternKind::IntLiteral(text) => {
                 value.emit_load(code);
-                code.ldc_long(text.parse::<i64>().unwrap_or(0));
+                code.ldc_long(
+                    parse_integer_literal(text)
+                        .map(|literal| literal.value)
+                        .unwrap_or(0),
+                );
                 code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
                 code.invokestatic(
                     "java/util/Objects",
@@ -2234,7 +2243,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             );
         } else if text.starts_with('"') && text.ends_with('"') {
             code.ldc_string(&veln_string_literal_value(text));
-        } else if let Ok(value) = text.parse::<i64>() {
+        } else if let Some(value) = contract_integer_value(text) {
             code.ldc_long(value);
             code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         } else if let Ok(value) = text.parse::<f64>() {
@@ -2298,6 +2307,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+fn contract_integer_value(text: &str) -> Option<i64> {
+    if let Some(magnitude) = text.strip_prefix('-') {
+        return parse_integer_literal(magnitude.trim())
+            .ok()
+            .and_then(|literal| literal.value.checked_neg());
+    }
+    parse_integer_literal(text)
+        .ok()
+        .map(|literal| literal.value)
 }
 
 pub(crate) fn classify_tail_recursion(function: &IrFunction) -> TailRecursionEligibility {

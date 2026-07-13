@@ -59,7 +59,7 @@
         },
         {
           "name": "constant.numeric.integer.veln",
-          "match": "\\b[0-9]+\\b"
+          "match": "\\b(?:0b[01]+|0x[0-9A-Fa-f]+|[0-9]+)\\b"
         }
       ]
     },

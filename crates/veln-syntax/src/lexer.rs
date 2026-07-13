@@ -1,3 +1,4 @@
+use veln_literals::{IntegerLiteralError, parse_integer_literal};
 use veln_source::{SourceFile, TextRange};
 
 use crate::{Lexed, Token, TokenKind};
@@ -86,6 +87,49 @@ fn read_string(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
 fn read_number(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + first.len_utf8();
     let mut is_float = false;
+
+    if first == '0'
+        && chars
+            .peek()
+            .is_some_and(|(_, next)| matches!(*next, 'b' | 'B' | 'x' | 'X'))
+    {
+        chars.next();
+        end += 1;
+        while let Some((index, next)) = chars.peek().copied() {
+            if next.is_ascii_alphanumeric() || next == '_' {
+                chars.next();
+                end = index + next.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if chars.peek().is_some_and(|(_, next)| *next == '.') {
+            let mut lookahead = chars.clone();
+            lookahead.next();
+            if lookahead
+                .peek()
+                .is_some_and(|(_, next)| next.is_ascii_digit())
+            {
+                chars.next();
+                end += 1;
+                while let Some((index, next)) = chars.peek().copied() {
+                    if next.is_ascii_digit() {
+                        chars.next();
+                        end = index + next.len_utf8();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        let candidate = &text[start..end];
+        let kind = match parse_integer_literal(candidate) {
+            Ok(_) | Err(IntegerLiteralError::OutOfRange { .. }) => TokenKind::Int,
+            Err(_) => TokenKind::MalformedInt,
+        };
+        return token(kind, candidate, start, end);
+    }
+
     while let Some((index, next)) = chars.peek().copied() {
         if next.is_ascii_digit() {
             chars.next();

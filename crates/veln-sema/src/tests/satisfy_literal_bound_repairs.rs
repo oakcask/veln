@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn compares_prefixed_integer_bounds_by_value_for_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int, fallback: Int) -> Int\n",
+            "  require limit <= 0x0A\n",
+            "  _value satisfy candidate => candidate < 0b10100\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\""
+    )));
+}
+
+#[test]
 fn marks_aliased_strict_integer_lower_bound_as_adjacent_inclusive_satisfy_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -308,6 +335,34 @@ fn marks_literal_arithmetic_bound_as_satisfy_repair_evidence() {
         ),
     );
     let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_hexadecimal_literal_subtraction_bound_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max > 0xA - 1\n",
+            "  _value satisfy candidate => candidate > 9\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
 
     let diagnostics = analyze_surface_module(&module);

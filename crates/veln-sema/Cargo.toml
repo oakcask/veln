@@ -9,6 +9,7 @@ veln-ast.workspace = true
 veln-core.workspace = true
 veln-diagnostics.workspace = true
 veln-ir.workspace = true
+veln-literals.workspace = true
 veln-project.workspace = true
 veln-source.workspace = true
 veln-stdlib.workspace = true

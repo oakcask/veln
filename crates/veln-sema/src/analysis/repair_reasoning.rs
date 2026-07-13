@@ -1,4 +1,5 @@
 use super::*;
+use veln_literals::parse_integer_literal;
 
 pub(super) fn contract_callee_segments(callee: &str) -> Vec<String> {
     callee.split("::").map(ToString::to_string).collect()
@@ -2333,11 +2334,24 @@ pub(super) fn split_repair_numeric_operator<'a>(
 }
 
 pub(super) fn operator_is_binary(left: &str, operator: &str) -> bool {
-    operator != "-"
-        || left
-            .chars()
-            .next_back()
-            .is_some_and(|ch| ch.is_ascii_digit() || ch == ')' || ch == '"')
+    if operator != "-" {
+        return true;
+    }
+    let left = left.trim_end();
+    if left
+        .chars()
+        .next_back()
+        .is_some_and(|ch| ch.is_ascii_digit() || ch == ')' || ch == '"')
+    {
+        return true;
+    }
+    let literal_start = left
+        .char_indices()
+        .rev()
+        .take_while(|(_, ch)| ch.is_ascii_alphanumeric())
+        .last()
+        .map_or(left.len(), |(index, _)| index);
+    parse_integer_literal(&left[literal_start..]).is_ok()
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2527,6 +2541,18 @@ pub(super) fn parse_repair_number_literal(text: &str) -> Option<RepairNumber> {
         .map_or((false, text), |digits| (true, digits.trim_start()));
     if digits.is_empty() {
         return None;
+    }
+    if !digits.contains('.')
+        && let Ok(literal) = parse_integer_literal(digits)
+    {
+        return Some(RepairNumber {
+            mantissa: if negative {
+                -i128::from(literal.value)
+            } else {
+                i128::from(literal.value)
+            },
+            scale: 0,
+        });
     }
     let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
     if integer.is_empty()

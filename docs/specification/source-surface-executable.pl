@@ -84,7 +84,10 @@ grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
-grammar_line(47, "IntLiteral    ::= ASCII decimal digit+").
+grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral").
+grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
+grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
+grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").

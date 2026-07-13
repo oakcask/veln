@@ -1,6 +1,31 @@
 use super::*;
 
 #[test]
+fn contract_static_analysis_compares_integer_radices_by_value() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int\n",
+            "require 0b1010 == 10 and 0x0A == 10\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(
+        core.functions[0].contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
+    );
+}
+
+#[test]
 fn contract_predicate_accepts_qualified_function_value_arguments() {
     let main_source = SourceFile::new(
         "main.veln",

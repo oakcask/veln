@@ -22,6 +22,24 @@ is not enough.
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
 
+## Integer Literals
+
+`Int` literals accept decimal digits, lowercase `0b` plus binary digits, or
+lowercase `0x` plus mixed-case hexadecimal digits. All three spellings use the
+same nonnegative range through `9223372036854775807` and compare or match by
+value. Leading zeroes, radix prefixes, and hexadecimal digit case are retained
+by formatting.
+
+Malformed prefixed candidates remain one token. Missing or invalid digits,
+uppercase prefixes, separators, prefixed float forms, and out-of-range values
+produce one `parse.integer_literal` diagnostic at the failed source fact. The
+checked expression and pattern behavior is in
+`examples/specification/run/integer-radix-equivalence/`; representative schema
+positions are in
+`examples/specification/check/integer-radix-schema-positions/`; formatter and
+human plus JSON diagnostics are checked by the matching `integer-radix-*`
+cases under `examples/specification/`.
+
 ## Schemas
 
 Top-level `schema Name` and `pub schema Name` declarations are source module

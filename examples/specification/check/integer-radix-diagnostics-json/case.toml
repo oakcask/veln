@@ -1,0 +1,29 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["binary integer literal requires at least one digit", "`2` is not a valid binary integer digit", "`g` is not a valid hexadecimal integer digit", "uppercase hexadecimal integer literal prefix is unsupported", "digit separators are not supported in hexadecimal integer literals", "binary floating-point literals are unsupported", "hexadecimal integer literal exceeds the maximum Int value 9223372036854775807", "\"parser_context\":\"integer_literal\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.integer_literal"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.message"
+equals = "Accepted integer form: 0 or 1."
+
+[[json_assert]]
+path = "diagnostics.6.id"
+equals = "parse.integer_literal"

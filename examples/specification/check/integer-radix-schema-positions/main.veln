@@ -1,0 +1,19 @@
+schema Packet
+  format binary
+
+  kind: UInt8
+  reserved: uint8 reserves 0xFF
+  payload: Dispatch(kind, 0x01 => UInt8, 0b10 => UInt16be)
+end
+
+schema Chunk
+  format binary
+
+  length: UInt8
+  payload: ByteView(length) where payload_count multiple of 0b10
+end
+
+pub fn identity(value: Int) -> Int
+require value >= 0x00
+  value
+end
