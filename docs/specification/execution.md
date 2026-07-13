@@ -582,6 +582,23 @@ enough.
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
+- The server-side outbound `PUSH_PROMISE` connection state separately retains
+  the greatest successfully reserved local promised stream id. The first and
+  increasing server-initiated ids advance that value only after the complete
+  send intent has produced accepted frame bytes; repeated or lower ids use
+  `http2.protocol.peer_stream_id_not_increasing` without exposing those bytes
+  or committing HPACK, peer-settings, shutdown, associated-stream,
+  promised-stream lifecycle, receive-credit, or ordering state. Domain,
+  associated-stream lifecycle, peer `SETTINGS_ENABLE_PUSH`, GOAWAY, HPACK,
+  frame-size, and generated encoding failures keep their focused paths. A
+  higher id rejected by one of those validations remains eligible for a
+  corrected retry, and accepted split `PUSH_PROMISE`/CONTINUATION output
+  advances the retained id once. The broad executable evidence is
+  `examples/specification/run/http2-protocol-core/`; focused server human and
+  JSON projections are under
+  `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-human/`
+  and
+  `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-json/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit

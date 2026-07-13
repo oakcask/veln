@@ -406,6 +406,22 @@ type OutboundPushPromiseHpackTransition
 	OutboundPushPromiseHpackTransition(OutboundPushPromiseDecision, HpackFixtureState)
 end
 
+type OutboundPromisedStreamState
+	NoOutboundPromisedStream
+	ReservedOutboundPromisedStream(Int)
+	OpenOutboundPromisedStream(Int)
+	ClosedOutboundPromisedStream(Int)
+	ResetOutboundPromisedStream(Int, Int)
+end
+
+type OutboundPushPromiseConnectionState
+	OutboundPushPromiseConnectionState(Int, OutboundPromisedStreamState, PeerSettingsState, ConnectionShutdownState, OutboundReceiveCredit, HpackFixtureState)
+end
+
+type OutboundPushPromiseConnectionTransition
+	OutboundPushPromiseConnectionTransition(OutboundPushPromiseDecision, OutboundPushPromiseConnectionState)
+end
+
 type OutboundHeadersHpackTransition
 	OutboundHeadersHpackTransition(OutboundHeadersDecision, HpackEncodeTransition)
 end
@@ -2763,6 +2779,165 @@ end
 
 fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPushPromiseDecision, String>
 	send_push_promise_with_shutdown(stream_id, promised_stream_id, header_block, peer_settings, OpenConnection, receive_credit)
+end
+
+fn initial_outbound_push_promise_connection_state(peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> OutboundPushPromiseConnectionState
+	OutboundPushPromiseConnectionState(0, NoOutboundPromisedStream, peer_settings, shutdown_state, receive_credit, hpack_fixture::initial_encode_state())
+end
+
+fn outbound_push_promise_connection_high_water(state: OutboundPushPromiseConnectionState) -> Int
+	match state
+		OutboundPushPromiseConnectionState(high_water, _, _, _, _, _) => high_water
+	end
+end
+
+fn outbound_push_promise_connection_promised_state(state: OutboundPushPromiseConnectionState) -> OutboundPromisedStreamState
+	match state
+		OutboundPushPromiseConnectionState(_, promised_state, _, _, _, _) => promised_state
+	end
+end
+
+fn outbound_push_promise_connection_peer_settings(state: OutboundPushPromiseConnectionState) -> PeerSettingsState
+	match state
+		OutboundPushPromiseConnectionState(_, _, peer_settings, _, _, _) => peer_settings
+	end
+end
+
+fn outbound_push_promise_connection_shutdown(state: OutboundPushPromiseConnectionState) -> ConnectionShutdownState
+	match state
+		OutboundPushPromiseConnectionState(_, _, _, shutdown_state, _, _) => shutdown_state
+	end
+end
+
+fn outbound_push_promise_connection_receive_credit(state: OutboundPushPromiseConnectionState) -> OutboundReceiveCredit
+	match state
+		OutboundPushPromiseConnectionState(_, _, _, _, receive_credit, _) => receive_credit
+	end
+end
+
+fn outbound_push_promise_connection_hpack(state: OutboundPushPromiseConnectionState) -> HpackFixtureState
+	match state
+		OutboundPushPromiseConnectionState(_, _, _, _, _, hpack_state) => hpack_state
+	end
+end
+
+fn with_outbound_push_promise_connection_lifecycle(state: OutboundPushPromiseConnectionState, promised_state: OutboundPromisedStreamState) -> OutboundPushPromiseConnectionState
+	match state
+		OutboundPushPromiseConnectionState(high_water, _, peer_settings, shutdown_state, receive_credit, hpack_state) => OutboundPushPromiseConnectionState(high_water, promised_state, peer_settings, shutdown_state, receive_credit, hpack_state)
+	end
+end
+
+fn with_outbound_push_promise_connection_shutdown(state: OutboundPushPromiseConnectionState, shutdown_state: ConnectionShutdownState) -> OutboundPushPromiseConnectionState
+	match state
+		OutboundPushPromiseConnectionState(high_water, promised_state, peer_settings, _, receive_credit, hpack_state) => OutboundPushPromiseConnectionState(high_water, promised_state, peer_settings, shutdown_state, receive_credit, hpack_state)
+	end
+end
+
+fn with_outbound_push_promise_connection_peer_settings(state: OutboundPushPromiseConnectionState, peer_settings: PeerSettingsState) -> OutboundPushPromiseConnectionState
+	match state
+		OutboundPushPromiseConnectionState(high_water, promised_state, _, shutdown_state, receive_credit, hpack_state) => OutboundPushPromiseConnectionState(high_water, promised_state, peer_settings, shutdown_state, receive_credit, hpack_state)
+	end
+end
+
+fn send_push_promise_on_connection(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, state: OutboundPushPromiseConnectionState) -> Result<OutboundPushPromiseConnectionTransition, String>
+	let decision: OutboundPushPromiseDecision = send_push_promise_with_shutdown(stream_id, promised_stream_id, header_block, outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))?
+	apply_outbound_push_promise_ordering(decision, state, outbound_push_promise_connection_hpack(state))
+end
+
+fn send_push_promise_header_list_on_connection(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, state: OutboundPushPromiseConnectionState) -> Result<Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure>, String>
+	let payload_length: Int = hpack_fixture::header_list_wire_size(headers) + 4
+	match outbound_push_promise_preflight(stream_id, promised_stream_id, payload_length, outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
+		OutboundPushPromisePreflightRejected(decision) => Ok(Ok(OutboundPushPromiseConnectionTransition(decision, state)))
+		OutboundPushPromiseReady => match hpack_fixture::encode_header_list_with_state(headers, outbound_push_promise_connection_hpack(state), 0)
+			Err(failure) => Ok(Err(failure))
+			Ok(hpack_transition) => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
+				Err(error) => Err(error)
+				Ok(decision) => match apply_outbound_push_promise_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
+					Ok(transition) => Ok(Ok(transition))
+					Err(error) => Err(error)
+				end
+			end
+		end
+	end
+end
+
+fn apply_outbound_push_promise_ordering(decision: OutboundPushPromiseDecision, state: OutboundPushPromiseConnectionState, accepted_hpack_state: HpackFixtureState) -> Result<OutboundPushPromiseConnectionTransition, String>
+	match decision
+		OutboundPushPromiseAccepted(stream_id, promised_stream_id, payload_length, receive_credit, chunk) => match promised_stream_id <= outbound_push_promise_connection_high_water(state)
+			true => Ok(OutboundPushPromiseConnectionTransition(OutboundPushPromiseRejected(stream_id, promised_stream_id, payload_length, PeerStreamIdNotIncreasing(0, promised_stream_id, outbound_push_promise_connection_high_water(state), "server", "idle-stream", "rfc9113_outbound_promised_stream_ids_increase", empty_header_block())), state))
+			false => match state
+				OutboundPushPromiseConnectionState(_, _, peer_settings, shutdown_state, _, _) => Ok(OutboundPushPromiseConnectionTransition(OutboundPushPromiseAccepted(stream_id, promised_stream_id, payload_length, receive_credit, chunk), OutboundPushPromiseConnectionState(promised_stream_id, ReservedOutboundPromisedStream(promised_stream_id), peer_settings, shutdown_state, receive_credit, accepted_hpack_state)))
+			end
+		end
+		OutboundPushPromiseRejected(_, _, _, _) => Ok(OutboundPushPromiseConnectionTransition(decision, state))
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => Ok(OutboundPushPromiseConnectionTransition(decision, state))
+	end
+end
+
+fn outbound_push_promise_connection_decision(transition: OutboundPushPromiseConnectionTransition) -> OutboundPushPromiseDecision
+	match transition
+		OutboundPushPromiseConnectionTransition(decision, _) => decision
+	end
+end
+
+fn outbound_push_promise_connection_state(transition: OutboundPushPromiseConnectionTransition) -> OutboundPushPromiseConnectionState
+	match transition
+		OutboundPushPromiseConnectionTransition(_, state) => state
+	end
+end
+
+fn outbound_promised_stream_state_label(state: OutboundPromisedStreamState) -> String
+	match state
+		NoOutboundPromisedStream => "none"
+		ReservedOutboundPromisedStream(_) => "reserved"
+		OpenOutboundPromisedStream(_) => "open"
+		ClosedOutboundPromisedStream(_) => "closed"
+		ResetOutboundPromisedStream(_, _) => "reset"
+	end
+end
+
+fn outbound_promised_stream_state_id(state: OutboundPromisedStreamState) -> Int
+	match state
+		NoOutboundPromisedStream => 0
+		ReservedOutboundPromisedStream(stream_id) => stream_id
+		OpenOutboundPromisedStream(stream_id) => stream_id
+		ClosedOutboundPromisedStream(stream_id) => stream_id
+		ResetOutboundPromisedStream(stream_id, _) => stream_id
+	end
+end
+
+fn outbound_promised_stream_reset_code(state: OutboundPromisedStreamState) -> Int
+	match state
+		NoOutboundPromisedStream => 0
+		ReservedOutboundPromisedStream(_) => 0
+		OpenOutboundPromisedStream(_) => 0
+		ClosedOutboundPromisedStream(_) => 0
+		ResetOutboundPromisedStream(_, error_code) => error_code
+	end
+end
+
+fn outbound_push_promise_connection_shutdown_label(state: OutboundPushPromiseConnectionState) -> String
+	match outbound_push_promise_connection_shutdown(state)
+		OpenConnection => "open"
+		GracefulShutdown(_, _) => "graceful_shutdown"
+		DrainedShutdown(_, _) => "drained_shutdown"
+	end
+end
+
+fn outbound_push_promise_connection_shutdown_last_stream(state: OutboundPushPromiseConnectionState) -> Int
+	match outbound_push_promise_connection_shutdown(state)
+		OpenConnection => 0
+		GracefulShutdown(last_stream_id, _) => last_stream_id
+		DrainedShutdown(last_stream_id, _) => last_stream_id
+	end
+end
+
+fn outbound_push_promise_connection_shutdown_error(state: OutboundPushPromiseConnectionState) -> Int
+	match outbound_push_promise_connection_shutdown(state)
+		OpenConnection => 0
+		GracefulShutdown(_, error_code) => error_code
+		DrainedShutdown(_, error_code) => error_code
+	end
 end
 
 fn send_push_promise_with_shutdown(stream_id: Int, promised_stream_id: Int, header_block: ByteChunk, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_credit: OutboundReceiveCredit) -> Result<OutboundPushPromiseDecision, String>
@@ -9355,6 +9530,55 @@ fn require_client_push_equal_string(label: String, actual: String, expected: Str
 	end
 end
 
+fn require_outbound_push_promise_hpack_connection_transition(result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure>) -> Result<OutboundPushPromiseConnectionTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected outbound PUSH_PROMISE connection transition")
+	end
+end
+
+fn require_outbound_push_promise_accepted(label: String, transition: OutboundPushPromiseConnectionTransition, expected_id: Int) -> Result<(), String>
+	match outbound_push_promise_connection_decision(transition)
+		OutboundPushPromiseAccepted(_, promised_stream_id, _, _, _) => require_client_push_equal_int(label, promised_stream_id, expected_id)
+		OutboundPushPromiseRejected(_, _, _, _) => Err(label)
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => Err(label)
+	end
+end
+
+fn require_outbound_push_promise_failure(label: String, transition: OutboundPushPromiseConnectionTransition, expected_id: String) -> Result<(), String>
+	match outbound_push_promise_connection_decision(transition)
+		OutboundPushPromiseAccepted(_, _, _, _, _) => Err(label)
+		OutboundPushPromiseRejected(_, _, _, failure) => require_client_push_equal_string(label, failure_id(failure), expected_id)
+		OutboundPushPromiseEncodeFailed(_, _, _, _) => Err(label)
+	end
+end
+
+fn require_outbound_push_promise_state_preserved(label: String, before_state: OutboundPushPromiseConnectionState, after_state: OutboundPushPromiseConnectionState) -> Result<(), String>
+	let before_promised: OutboundPromisedStreamState = outbound_push_promise_connection_promised_state(before_state)
+	let after_promised: OutboundPromisedStreamState = outbound_push_promise_connection_promised_state(after_state)
+	let before_hpack: HpackFixtureState = outbound_push_promise_connection_hpack(before_state)
+	let after_hpack: HpackFixtureState = outbound_push_promise_connection_hpack(after_state)
+	let before_credit: OutboundReceiveCredit = outbound_push_promise_connection_receive_credit(before_state)
+	let after_credit: OutboundReceiveCredit = outbound_push_promise_connection_receive_credit(after_state)
+	let ignored_high_water: () = require_client_push_equal_int(label, outbound_push_promise_connection_high_water(after_state), outbound_push_promise_connection_high_water(before_state))?
+	let ignored_promised_label: () = require_client_push_equal_string(label, outbound_promised_stream_state_label(after_promised), outbound_promised_stream_state_label(before_promised))?
+	let ignored_promised_id: () = require_client_push_equal_int(label, outbound_promised_stream_state_id(after_promised), outbound_promised_stream_state_id(before_promised))?
+	let ignored_promised_reset: () = require_client_push_equal_int(label, outbound_promised_stream_reset_code(after_promised), outbound_promised_stream_reset_code(before_promised))?
+	let ignored_peer_max_frame_size: () = require_client_push_equal_int(label, active_peer_max_frame_size(outbound_push_promise_connection_peer_settings(after_state)), active_peer_max_frame_size(outbound_push_promise_connection_peer_settings(before_state)))?
+	let ignored_peer_high_water: () = require_client_push_equal_int(label, highest_peer_created_stream_id(outbound_push_promise_connection_peer_settings(after_state)), highest_peer_created_stream_id(outbound_push_promise_connection_peer_settings(before_state)))?
+	let ignored_shutdown_label: () = require_client_push_equal_string(label, outbound_push_promise_connection_shutdown_label(after_state), outbound_push_promise_connection_shutdown_label(before_state))?
+	let ignored_shutdown_last_stream: () = require_client_push_equal_int(label, outbound_push_promise_connection_shutdown_last_stream(after_state), outbound_push_promise_connection_shutdown_last_stream(before_state))?
+	let ignored_shutdown_error: () = require_client_push_equal_int(label, outbound_push_promise_connection_shutdown_error(after_state), outbound_push_promise_connection_shutdown_error(before_state))?
+	let ignored_connection_window: () = require_client_push_equal_int(label, outbound_receive_connection_window(after_credit), outbound_receive_connection_window(before_credit))?
+	let ignored_open_stream: () = require_client_push_equal_int(label, outbound_receive_open_stream_id(after_credit), outbound_receive_open_stream_id(before_credit))?
+	let ignored_closed_stream: () = require_client_push_equal_int(label, outbound_receive_closed_stream_id(after_credit), outbound_receive_closed_stream_id(before_credit))?
+	let ignored_reset_stream: () = require_client_push_equal_int(label, outbound_receive_reset_stream_id(after_credit), outbound_receive_reset_stream_id(before_credit))?
+	let ignored_stream_window: () = require_client_push_equal_int(label, outbound_receive_stream_window(after_credit), outbound_receive_stream_window(before_credit))?
+	let ignored_hpack_table_size: () = require_client_push_equal_int(label, hpack_fixture::state_table_size(after_hpack), hpack_fixture::state_table_size(before_hpack))?
+	let ignored_hpack_encode_count: () = require_client_push_equal_int(label, hpack_fixture::state_encode_count(after_hpack), hpack_fixture::state_encode_count(before_hpack))?
+	require_client_push_equal_int(label, hpack_fixture::state_dynamic_table_entry_count(after_hpack), hpack_fixture::state_dynamic_table_entry_count(before_hpack))
+end
+
 fn require_client_push_ordering_rejection_preserves_state(label: String, before_state: Http2DecodeState, after_state: Http2DecodeState) -> Result<(), String>
 	let before_hpack: HpackFixtureState = state_hpack_fixture_state(before_state)
 	let after_hpack: HpackFixtureState = state_hpack_fixture_state(after_state)
@@ -11461,7 +11685,70 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	print_outbound_push_promise("outbound-push-promise-promised-encode-error", outbound_push_promise_promised_encode_error)
 	let outbound_push_promise_promised_odd_encode_error: OutboundPushPromiseDecision = send_push_promise(1, 2147483649, byte_chunk_from_hex("82")?, empty_peer_settings(), outbound_receive_credit)?
 	print_outbound_push_promise("outbound-push-promise-promised-odd-encode-error", outbound_push_promise_promised_odd_encode_error)
+	let ignored_ordering_cases: () = verify_outbound_push_promise_ordering_cases()?
 	Ok(())
+end
+
+fn verify_outbound_push_promise_ordering_cases() -> Result<(), String>
+	let initial_state: OutboundPushPromiseConnectionState = initial_outbound_push_promise_connection_state(empty_peer_settings(), OpenConnection, outbound_receive_credit_with_open_stream(10, 1, 20))
+	let first: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("82")?, initial_state)?
+	let ignored_first: () = require_outbound_push_promise_accepted("first outbound promised stream id was rejected", first, 2)?
+	let first_state: OutboundPushPromiseConnectionState = outbound_push_promise_connection_state(first)
+	let ignored_first_high_water: () = require_client_push_equal_int("first outbound promised stream id did not advance high-water", outbound_push_promise_connection_high_water(first_state), 2)?
+	let ignored_first_lifecycle: () = require_client_push_equal_string("first outbound promised stream was not reserved", outbound_promised_stream_state_label(outbound_push_promise_connection_promised_state(first_state)), "reserved")?
+	let increasing: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 4, byte_chunk_from_hex("84")?, first_state)?
+	let ignored_increasing: () = require_outbound_push_promise_accepted("increasing outbound promised stream id was rejected", increasing, 4)?
+	let increasing_state: OutboundPushPromiseConnectionState = outbound_push_promise_connection_state(increasing)
+	let repeated: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 4, byte_chunk_from_hex("86")?, increasing_state)?
+	let ignored_repeated: () = require_outbound_push_promise_failure("repeated outbound promised stream id was accepted", repeated, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_repeated_chunk: String = checked_hex_label(outbound_push_promise_chunk(outbound_push_promise_connection_decision(repeated)), "")?
+	let ignored_repeated_state: () = require_outbound_push_promise_state_preserved("repeated outbound promised stream id changed connection state", increasing_state, outbound_push_promise_connection_state(repeated))?
+	let lower: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("86")?, increasing_state)?
+	let ignored_lower: () = require_outbound_push_promise_failure("lower outbound promised stream id was accepted", lower, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_lower_state: () = require_outbound_push_promise_state_preserved("lower outbound promised stream id changed connection state", increasing_state, outbound_push_promise_connection_state(lower))?
+	let closed_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_lifecycle(increasing_state, ClosedOutboundPromisedStream(4))
+	let lower_after_close: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("82")?, closed_state)?
+	let ignored_lower_after_close: () = require_outbound_push_promise_failure("closed promised-stream lifecycle lost ordering high-water", lower_after_close, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_lower_after_close_state: () = require_outbound_push_promise_state_preserved("ordering rejection changed closed promised-stream lifecycle", closed_state, outbound_push_promise_connection_state(lower_after_close))?
+	let reset_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_lifecycle(increasing_state, ResetOutboundPromisedStream(4, 8))
+	let lower_after_reset: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("82")?, reset_state)?
+	let ignored_lower_after_reset: () = require_outbound_push_promise_failure("reset promised-stream lifecycle lost ordering high-water", lower_after_reset, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_lower_after_reset_state: () = require_outbound_push_promise_state_preserved("ordering rejection changed reset promised-stream lifecycle", reset_state, outbound_push_promise_connection_state(lower_after_reset))?
+	let parity_failure: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 3, byte_chunk_from_hex("82")?, increasing_state)?
+	let ignored_parity_failure: () = require_outbound_push_promise_failure("promised stream parity must precede ordering", parity_failure, "http2.protocol.invalid_stream_id")?
+	let disabled_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_peer_settings(increasing_state, peer_enable_push_settings(0))
+	let disabled_failure: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("82")?, disabled_state)?
+	let ignored_disabled_failure: () = require_outbound_push_promise_failure("SETTINGS_ENABLE_PUSH must precede ordering", disabled_failure, "http2.protocol.invalid_frame_kind")?
+	let ignored_disabled_state: () = require_outbound_push_promise_state_preserved("SETTINGS_ENABLE_PUSH rejection changed ordering state", disabled_state, outbound_push_promise_connection_state(disabled_failure))?
+	let goaway_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_shutdown(increasing_state, GracefulShutdown(0, 11))
+	let goaway_failure: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 2, byte_chunk_from_hex("82")?, goaway_state)?
+	let ignored_goaway_failure: () = require_outbound_push_promise_failure("GOAWAY must precede ordering", goaway_failure, "http2.protocol.stream_after_goaway")?
+	let ignored_goaway_state: () = require_outbound_push_promise_state_preserved("GOAWAY rejection changed ordering state", goaway_state, outbound_push_promise_connection_state(goaway_failure))?
+	let frame_size_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_peer_settings(increasing_state, small_peer_max_frame_size_settings(3))
+	let frame_size_failure: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 6, byte_chunk_from_hex("828486")?, frame_size_state)?
+	let ignored_frame_size_failure: () = require_outbound_push_promise_failure("frame-size validation must precede ordering", frame_size_failure, "http2.peer_limit.frame_size_exceeded")?
+	let ignored_frame_size_state: () = require_outbound_push_promise_state_preserved("rejected higher promised id changed ordering state", frame_size_state, outbound_push_promise_connection_state(frame_size_failure))?
+	let retry_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_peer_settings(outbound_push_promise_connection_state(frame_size_failure), small_peer_max_frame_size_settings(5))
+	let retry: OutboundPushPromiseConnectionTransition = send_push_promise_on_connection(1, 6, byte_chunk_from_hex("828486")?, retry_state)?
+	let ignored_retry: () = require_outbound_push_promise_accepted("rejected higher promised id was not eligible for retry", retry, 6)?
+	let ignored_retry_chunk: String = checked_hex_label(outbound_push_promise_chunk(outbound_push_promise_connection_decision(retry)), "00000505000000000100000006820000020904000000018486")?
+	let hpack_initial: OutboundPushPromiseConnectionState = initial_outbound_push_promise_connection_state(empty_peer_settings(), OpenConnection, outbound_receive_credit_with_open_stream(10, 1, 20))
+	let hpack_first_result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_list_on_connection(1, 2, hpack_fixture::outbound_literal_indexed_path_target_headers(), hpack_initial)?
+	let hpack_first: OutboundPushPromiseConnectionTransition = require_outbound_push_promise_hpack_connection_transition(hpack_first_result)?
+	let ignored_hpack_first: () = require_outbound_push_promise_accepted("stateful HPACK promised stream was rejected", hpack_first, 2)?
+	let hpack_first_state: OutboundPushPromiseConnectionState = outbound_push_promise_connection_state(hpack_first)
+	let hpack_repeated_result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_list_on_connection(1, 2, hpack_fixture::outbound_literal_indexed_path_target_headers(), hpack_first_state)?
+	let hpack_repeated: OutboundPushPromiseConnectionTransition = require_outbound_push_promise_hpack_connection_transition(hpack_repeated_result)?
+	let ignored_hpack_repeated: () = require_outbound_push_promise_failure("stateful HPACK repeated promised id was accepted", hpack_repeated, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_hpack_repeated_state: () = require_outbound_push_promise_state_preserved("ordering rejection committed HPACK state", hpack_first_state, outbound_push_promise_connection_state(hpack_repeated))?
+	let hpack_invalid: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_list_on_connection(1, 4, hpack_fixture::outbound_unsupported_static_headers(), hpack_first_state)?
+	match hpack_invalid
+		Ok(_) => Err("HPACK validation must precede outbound promised stream ordering")
+		Err(_) => match send_push_promise_on_connection(1, 4, byte_chunk_from_hex("88")?, hpack_first_state)
+			Err(error) => Err(error)
+			Ok(hpack_retry) => require_outbound_push_promise_accepted("HPACK-rejected promised id was not eligible for retry", hpack_retry, 4)
+		end
+	end
 end
 
 fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
