@@ -16,31 +16,31 @@ spellings for `Int` values. Current behavior is specified under
 - Current diagnostic routes:
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 
-## Problem
+## Historical Problem
 
-Veln integer literals currently use decimal digits only. Code that describes
-bit masks, binary schema constants, byte values, and protocol identifiers must
-therefore translate naturally bit-oriented values into decimal. That obscures
-the relationship between the source and the represented bits, especially when
-the value is used with the proposed integer bitwise operators.
+Veln integer literals previously used decimal digits only. Code that described
+bit masks, binary schema constants, byte values, and protocol identifiers had
+to translate naturally bit-oriented values into decimal. That obscured the
+relationship between the source and the represented bits, especially alongside
+the separately proposed integer bitwise operators.
 
-Binary and hexadecimal spellings should denote the same `Int` values as
-decimal literals without introducing new integer types or backend-dependent
-interpretations.
+The change was intended to make binary and hexadecimal spellings denote the
+same `Int` values as decimal literals without introducing new integer types or
+backend-dependent interpretations.
 
-## Goals
+## Delivered Scope
 
-- Accept `0b` binary and `0x` hexadecimal integer literals.
-- Give all integer literal spellings the same `Int` type and value range.
-- Use the new spellings consistently in expressions, patterns, and
+- Accepted `0b` binary and `0x` hexadecimal integer literals.
+- Gave all integer literal spellings the same `Int` type and value range.
+- Applied the new spellings consistently in expressions, patterns, and
   integer-literal schema arguments and constraints.
-- Reject malformed prefixed literals as one focused source error rather than
+- Rejected malformed prefixed literals as one focused source error rather than
   tokenizing a valid prefix of the text.
-- Preserve an author's accepted radix spelling during formatting.
+- Preserved an author's accepted radix spelling during formatting.
 
 ## Syntax
 
-The integer literal grammar becomes:
+The implemented integer literal grammar is:
 
 ```text
 IntLiteral       ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
@@ -57,8 +57,8 @@ letter cases are accepted for hexadecimal digits, so `0xcafe`, `0xCAFE`, and
 `0xCafe` have the same value. At least one digit must follow a prefix. Leading
 zeroes are accepted in every radix.
 
-Digit separators are not part of this proposal. An underscore in a numeric
-candidate is invalid rather than ignored.
+Digit separators were excluded. An underscore in a numeric candidate is
+invalid rather than ignored.
 
 Examples of accepted literals include:
 
@@ -80,7 +80,7 @@ Consequently, `0b102`, `0xg1`, `0x12z`, and `0b10_01` must not be split into a
 shorter valid integer followed by another token. `0b` and `0x` are likewise
 malformed integer candidates, not decimal zero followed by an identifier.
 
-Prefixed floating-point literals are not added. A radix candidate immediately
+Prefixed floating-point literals were not added. A radix candidate immediately
 followed by a decimal point and digit sequence, such as `0x1.2` or `0b1.0`, is
 rejected as one malformed numeric sequence rather than interpreted as a
 hexadecimal or binary floating-point value.
@@ -101,8 +101,8 @@ above the existing positive `Int` limit is an out-of-range literal even if it
 contains no more than 64 binary digits or 16 hexadecimal digits.
 
 A leading `-` remains the existing unary negation operator and is not part of
-the literal token. This proposal does not change the range or edge cases of
-negative decimal literals.
+the literal token. The change did not alter the range or edge cases of negative
+decimal literals.
 
 Equivalent spellings compare and match by value:
 
@@ -134,13 +134,14 @@ an ordinary nonnegative integer literal, including:
 - compile-time checks that require a literal integer operand
 
 Decimal widths embedded in schema primitive names, such as the `16` in
-`uint16be`, remain decimal name components. This proposal does not add forms
-such as `uint0x10be`.
+`uint16be`, remain decimal name components. The implementation did not add
+forms such as `uint0x10be`.
 
-All consumers that inspect an integer literal must use one shared radix-aware
-conversion rule. A consumer must not accept a prefixed spelling syntactically
-and then silently treat it as zero, reject it as a decimal-only value, or
-compare its source text instead of its value.
+The implementation routes consumers that inspect an integer literal through
+one shared radix-aware conversion rule. This prevents a consumer from
+accepting a prefixed spelling syntactically and then silently treating it as
+zero, rejecting it as a decimal-only value, or comparing its source text
+instead of its value.
 
 ## Formatting And Editor Support
 
@@ -183,29 +184,16 @@ splitting the candidate.
   negation semantics.
 - Rewriting integer literals between radices during formatting.
 
-## Completion Criteria
+## Completion Evidence
 
-- The lexer and parser accept the proposed grammar and reject missing digits,
-  invalid digits, unsupported prefixes, separators, and prefixed float forms
-  without token-splitting cascades.
-- AST and lowered representations either retain the source spelling where
-  tooling needs it or carry an explicit normalized value; semantic consumers
-  do not depend on decimal-only string parsing.
-- Type analysis, literal patterns, constant evaluation, contract analysis,
-  repair reasoning, schema arguments and constraints, IR, and every backend
-  agree on the value and range of each accepted spelling.
-- The formatter preserves radix and digit spelling, and editor support
-  classifies each complete literal consistently.
-- Focused human and structured diagnostic coverage exists for a missing digit,
-  an invalid binary digit, an invalid hexadecimal digit, an unsupported
-  uppercase prefix, a separator, a prefixed float form, and an out-of-range
-  value.
-- Executable specification examples cover equivalent decimal, binary, and
-  hexadecimal values in expressions and patterns, plus representative schema
-  literal positions.
-- Current behavior is documented under `../../specification/` and executable
-  evidence is added under `../../../examples/specification/` before this proposal
-  leaves the active catalog.
-- The completed proposal record is archived under this implemented-proposal
-  directory, and the proposal is removed from the
-  active catalog when all completion criteria are satisfied.
+- Lexer, parser, formatter, editor, semantic analysis, repair reasoning,
+  lowering, IR, and JVM backend tests cover the shared value and spelling
+  behavior.
+- Focused human and structured diagnostic cases cover missing and invalid
+  digits, unsupported prefixes, separators, prefixed float forms, range
+  failures, and non-cascading recovery.
+- Executable cases cover equivalent expression and pattern values,
+  representative schema positions, and spelling-preserving formatting.
+- Current behavior and evidence are routed from the specification pages listed
+  under Read First.
+- The active proposal catalog no longer lists this completed work.
