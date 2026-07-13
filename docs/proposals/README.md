@@ -9,6 +9,10 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
+- [Binary And Hexadecimal Integer Literals](binary-and-hexadecimal-integer-literals.md):
+  add lowercase `0b` binary and `0x` hexadecimal spellings for existing `Int`
+  values, with shared range semantics, focused malformed-literal diagnostics,
+  and spelling-preserving formatting.
 - [Integer Bitwise Operators And Flag Removal](integer-bitwise-operators-and-flag-removal.md):
   add fixed 64-bit `Int` bitwise and shift operators, replace binary schema
   `flag...` fields with `uint...` fields, and remove the `FlagN` types,
