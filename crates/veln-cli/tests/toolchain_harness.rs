@@ -3762,6 +3762,30 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
                 ],
             ))
         }
+        "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic" => {
+            let args = expect_arity(name, args, 7)?;
+            Ok(result_value_object(
+                "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
+                vec![
+                    ("byte_offset", parse_veln_value(args[0])?),
+                    ("stream_id", parse_veln_value(args[1])?),
+                    ("previous_peer_stream_id", parse_veln_value(args[2])?),
+                    (
+                        "endpoint_role",
+                        JsonValue::String(args[3].trim().to_string()),
+                    ),
+                    (
+                        "active_state",
+                        JsonValue::String(args[4].trim().to_string()),
+                    ),
+                    (
+                        "rule_provenance",
+                        JsonValue::String(args[5].trim().to_string()),
+                    ),
+                    ("preview", parse_veln_value(args[6])?),
+                ],
+            ))
+        }
         "RuntimeHttp2PeerLimitFrameSizeDiagnostic" => {
             let args = expect_arity(name, args, 7)?;
             Ok(result_value_object(

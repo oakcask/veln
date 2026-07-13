@@ -429,6 +429,8 @@ behavior.
   [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
 - HTTP/2 stream domain values:
   [http2-stream-domain-values.md](http2-stream-domain-values.md).
+- HTTP/2 peer-created stream id ordering:
+  [http2-peer-created-stream-id-ordering.md](http2-peer-created-stream-id-ordering.md).
 - HTTP/2 unknown frame preservation:
   [http2-unknown-frame-preservation.md](http2-unknown-frame-preservation.md).
 - HTTP/2 header-block continuation state:
@@ -593,8 +595,6 @@ behavior.
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 outbound PING request:
   [http2-outbound-ping-request.md](http2-outbound-ping-request.md).
-- HTTP/2 peer stream id monotonicity:
-  [http2-peer-stream-id-monotonicity.md](http2-peer-stream-id-monotonicity.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
 - HTTP/2 SETTINGS item-length validation:
@@ -625,6 +625,8 @@ behavior.
   [http2-half-closed-local-priority-receive.md](http2-half-closed-local-priority-receive.md).
 - HTTP/2 client PUSH_PROMISE receive and promised response HEADERS admission:
   [http2-client-push-promise-receive.md](http2-client-push-promise-receive.md).
+- HTTP/2 client promised stream id ordering:
+  [http2-client-promised-stream-id-ordering.md](http2-client-promised-stream-id-ordering.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
 - HTTP/2 response header validation:

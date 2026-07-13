@@ -1404,6 +1404,24 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                     .push(note_json(format!("Rule provenance: {rule_provenance}.")));
                 Some(diagnostic)
             }
+            "http2.protocol.peer_stream_id_not_increasing" => {
+                let frame = self.frame_ref()?;
+                let previous_stream_id = self.number("previous_peer_stream_id")?;
+                let endpoint_role = self.string("endpoint_role")?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "peer-created stream id {} is not greater than {previous_stream_id} at byte offset {}",
+                    frame.stream_id, self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "The {endpoint_role} endpoint attempted to create idle stream {} after peer-created stream {previous_stream_id}.",
+                    frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                diagnostic.related.push(note_json(format!(
+                    "Use a new peer-created stream id greater than {previous_stream_id}."
+                )));
+                Some(diagnostic)
+            }
             _ => None,
         }
     }
@@ -6579,6 +6597,73 @@ mod tests {
                 .to_json()
                 .contains("server_receives_client_initiated_streams")
         );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_peer_stream_ordering_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.peer_stream_id_not_increasing"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("stream_id", JsonValue::Number(3)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("previous_peer_stream_id", JsonValue::Number(5)),
+            ("endpoint_role", JsonValue::string("server")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000104000000", 9, true),
+            ),
+            ("active_state", JsonValue::string("idle-stream")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_peer_stream_ids_increase"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 peer-created stream id is not increasing".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.protocol.peer_stream_id_not_increasing"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "peer-created stream id 3 is not greater than 5 at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 5);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("server endpoint attempted to create idle stream 3")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 00 01 04 00 00 00")
+        );
+        assert!(diagnostic.related[2].to_json().contains("idle-stream"));
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9113_peer_stream_ids_increase")
+        );
+        assert!(diagnostic.related[4].to_json().contains("greater than 5"));
     }
 
     #[test]

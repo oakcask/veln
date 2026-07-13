@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.protocol.invalid_stream_id]: invalid stream id at byte offset 9", "note: Frame kind 1 on stream 3 requires peer-created stream id greater than every previously admitted peer-created stream id for server.", "note: Nearby bytes: 00 00 00 01 04 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: idle-stream.", "note: Rule provenance: peer_created_stream_ids_increase."]
+contains = ["error[http2.protocol.peer_stream_id_not_increasing]: peer-created stream id 3 is not greater than 5 at byte offset 9", "note: The server endpoint attempted to create idle stream 3 after peer-created stream 5.", "note: Nearby bytes: 00 00 00 01 04 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: idle-stream.", "note: Rule provenance: rfc9113_peer_stream_ids_increase.", "note: Use a new peer-created stream id greater than 5."]

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.peer_stream_id_not_increasing]: peer-created stream id 2 is not greater than 4 at byte offset 16", "note: The client endpoint attempted to create idle stream 2 after peer-created stream 4.", "note: Nearby bytes: 00 00 07 05 04 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: idle-stream.", "note: Rule provenance: rfc9113_peer_stream_ids_increase.", "note: Use a new peer-created stream id greater than 4."]

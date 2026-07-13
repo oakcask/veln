@@ -36,6 +36,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   or outbound DATA `content-length` body accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
+- remaining stream identifier behavior
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, DATA and HEADERS
   `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
@@ -842,7 +843,6 @@ disable-push receive policy: after the client sends local
 `SETTINGS_ENABLE_PUSH = 0`, a peer-sent `PUSH_PROMISE` is rejected before
 promised-stream reservation through the existing invalid frame-kind diagnostic
 family with local settings provenance.
-
 The remaining scope below is still planned work for the full protocol core.
 
 ## Non-Goals
