@@ -6,6 +6,7 @@ use veln_ast::{
     SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
+use veln_literals::parse_integer_literal;
 use veln_source::SourceSpan;
 
 use crate::adt::{self, AdtRegistry};
@@ -4914,8 +4915,8 @@ pub(crate) fn byte_view_multiple_constraint(predicate: &str) -> Option<ByteViewM
     if divisor.is_empty() || divisor.contains(char::is_whitespace) {
         return None;
     }
-    if let Ok(value) = divisor.parse::<i64>() {
-        return (value > 0).then_some(ByteViewMultipleConstraint::Literal(value));
+    if let Ok(literal) = parse_integer_literal(divisor) {
+        return (literal.value > 0).then_some(ByteViewMultipleConstraint::Literal(literal.value));
     }
     is_simple_schema_field_reference(divisor)
         .then(|| ByteViewMultipleConstraint::Field(divisor.to_string()))
@@ -5500,10 +5501,9 @@ fn suffix_packed_reserved_storage_bit_width(bit_width: i64) -> Option<i64> {
 }
 
 fn parse_reserved_bits_integer(text: &str) -> Option<i64> {
-    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
-        return None;
-    }
-    text.parse::<i64>().ok()
+    parse_integer_literal(text)
+        .ok()
+        .map(|literal| literal.value)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -5708,10 +5708,9 @@ fn schema_call_inner<'a>(ty: &'a str, name: &str) -> Option<&'a str> {
 }
 
 fn parse_schema_tag(text: &str) -> Option<i64> {
-    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
-        return None;
-    }
-    text.parse::<i64>().ok()
+    parse_integer_literal(text)
+        .ok()
+        .map(|literal| literal.value)
 }
 
 fn is_schema_identifier(text: &str) -> bool {
@@ -7429,5 +7428,28 @@ mod tests {
             assert_eq!(source.as_type_source(), type_source);
             assert_eq!(source.as_hole_source(), hole_source);
         }
+    }
+
+    #[test]
+    fn schema_literal_positions_accept_binary_and_hexadecimal_values() {
+        assert_eq!(
+            reserved_bits_schema_primitive("ReservedBits(0b1000, 0xFF)"),
+            Some((8, 255))
+        );
+        assert_eq!(
+            byte_view_multiple_constraint("payload_count multiple of 0b100"),
+            Some(ByteViewMultipleConstraint::Literal(4))
+        );
+        let dispatch =
+            closed_dispatch_schema_primitive("Dispatch(kind, 0x0A => UInt8, 0b1011 => UInt16be)")
+                .expect("prefixed dispatch tags should be accepted");
+        assert_eq!(
+            dispatch
+                .cases
+                .iter()
+                .map(|case| case.tag)
+                .collect::<Vec<_>>(),
+            vec![10, 11]
+        );
     }
 }

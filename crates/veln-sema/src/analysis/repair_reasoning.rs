@@ -1,4 +1,5 @@
 use super::*;
+use veln_literals::parse_integer_literal;
 
 pub(super) fn contract_callee_segments(callee: &str) -> Vec<String> {
     callee.split("::").map(ToString::to_string).collect()
@@ -2527,6 +2528,18 @@ pub(super) fn parse_repair_number_literal(text: &str) -> Option<RepairNumber> {
         .map_or((false, text), |digits| (true, digits.trim_start()));
     if digits.is_empty() {
         return None;
+    }
+    if !digits.contains('.')
+        && let Ok(literal) = parse_integer_literal(digits)
+    {
+        return Some(RepairNumber {
+            mantissa: if negative {
+                -i128::from(literal.value)
+            } else {
+                i128::from(literal.value)
+            },
+            scale: 0,
+        });
     }
     let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
     if integer.is_empty()

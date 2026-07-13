@@ -89,14 +89,23 @@ fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
             ])]),
         ));
     }
-    Diagnostic::new(
+    let mut envelope = Diagnostic::new(
         diagnostic.id,
         Severity::Error,
         kind,
         diagnostic.message.clone(),
         diagnostic.span.clone(),
         JsonValue::object(details),
-    )
+    );
+    if diagnostic.parser_context == "integer_literal"
+        && let Some(expected) = diagnostic.expected.first()
+    {
+        envelope.related.push(JsonValue::object([(
+            "message",
+            JsonValue::string(format!("Accepted integer form: {expected}.")),
+        )]));
+    }
+    envelope
 }
 
 fn parse_repair_candidate_json(candidate: &ParseRepairCandidate) -> JsonValue {

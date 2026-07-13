@@ -62,7 +62,10 @@ UseDecl       ::= "use" ModulePath ImportSource? NL
 ImportSource  ::= "from" PackageString
 ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
-IntLiteral    ::= ASCII decimal digit+
+IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
+DecimalLiteral ::= ASCII decimal digit+
+BinaryLiteral ::= "0b" ("0" | "1")+
+HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?

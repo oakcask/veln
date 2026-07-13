@@ -485,9 +485,11 @@ impl<'a> Classifier<'a> {
     fn classify_current_token(&self) -> Option<SemanticToken> {
         let token = &self.tokens[self.cursor];
         match token.kind {
-            TokenKind::Whitespace | TokenKind::Newline | TokenKind::Eof | TokenKind::Invalid => {
-                None
-            }
+            TokenKind::Whitespace
+            | TokenKind::Newline
+            | TokenKind::Eof
+            | TokenKind::Invalid
+            | TokenKind::MalformedInt => None,
             TokenKind::Comment => Some(self.simple(token, SemanticTokenType::Comment)),
             TokenKind::String => Some(self.simple(token, SemanticTokenType::String)),
             TokenKind::Int | TokenKind::Float => {
@@ -897,6 +899,21 @@ mod tests {
             SemanticTokenType::Keyword,
             SemanticTokenModifiers::empty().bits()
         )));
+    }
+
+    #[test]
+    fn collector_classifies_complete_prefixed_integers_as_numbers() {
+        let source = SourceFile::new("main.veln", "fn values() -> Int\n  0b00101 + 0xCafe\nend\n");
+
+        let tokens = collect_text(&source);
+
+        for literal in ["0b00101", "0xCafe"] {
+            assert!(tokens.contains(&(
+                literal.to_string(),
+                SemanticTokenType::Number,
+                SemanticTokenModifiers::empty().bits(),
+            )));
+        }
     }
 
     #[test]

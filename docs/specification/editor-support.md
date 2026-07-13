@@ -52,8 +52,10 @@ The implemented semantic token types are standard LSP token types:
 | prelude function | `function` | `defaultLibrary` |
 
 Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
-operators with the matching standard LSP token types. The contextual `satisfy`
-marker and boolean literals are highlighted as keywords.
+operators with the matching standard LSP token types. Decimal, lowercase `0b`
+binary, and lowercase `0x` hexadecimal integer literals are each one `number`
+token. The contextual `satisfy` marker and boolean literals are highlighted as
+keywords.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.

@@ -47,6 +47,12 @@ See [diagnostics-json-full.md](diagnostics-json-full.md).
 See
 [diagnostics-json-full.md](diagnostics-json-full.md).
 
+Malformed binary and hexadecimal integer coverage is executable in
+`examples/specification/check/integer-radix-diagnostics-json/` and the matching
+human-output case. The `parse.integer_literal` details retain the complete
+numeric candidate, parser context, accepted form, and non-cascading recovery;
+related notes expose the accepted digit set or prefix where useful.
+
 ## Stable Details
 
 See

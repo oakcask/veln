@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use veln_literals::{IntegerLiteralError, parse_integer_literal};
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
@@ -113,8 +114,114 @@ struct FunctionReturn {
     effects: Option<Vec<String>>,
 }
 
+fn integer_literal_diagnostics(source: &SourceFile, tokens: &[Token]) -> Vec<ParseDiagnostic> {
+    tokens
+        .iter()
+        .filter(|token| matches!(token.kind, TokenKind::Int | TokenKind::MalformedInt))
+        .filter_map(|token| {
+            let error = parse_integer_literal(&token.text).err()?;
+            let (message, range, expected) = integer_literal_error_details(token, error);
+            let (strategy, dropped_token_count) =
+                if matches!(error, IntegerLiteralError::OutOfRange { .. }) {
+                    (RecoveryStrategy::None, 0)
+                } else {
+                    (RecoveryStrategy::SkipToken, 1)
+                };
+            Some(ParseDiagnostic {
+                id: "parse.integer_literal",
+                message,
+                span: Some(source.span(range)),
+                parser_context: "integer_literal",
+                unexpected: UnexpectedToken {
+                    kind: token.kind.label().to_string(),
+                    text: token.text.clone(),
+                },
+                expected,
+                recovery: Recovery {
+                    strategy,
+                    anchor: None,
+                    dropped_token_count,
+                },
+                repair_candidates: Vec::new(),
+            })
+        })
+        .collect()
+}
+
+fn integer_literal_error_details(
+    token: &Token,
+    error: IntegerLiteralError,
+) -> (String, TextRange, Vec<&'static str>) {
+    match error {
+        IntegerLiteralError::MissingDigits { radix } => (
+            format!(
+                "{} integer literal requires at least one digit",
+                radix.name()
+            ),
+            token.range,
+            vec![radix.accepted_digits()],
+        ),
+        IntegerLiteralError::UnsupportedUppercasePrefix { radix } => (
+            format!(
+                "uppercase {} integer literal prefix is unsupported",
+                radix.name()
+            ),
+            literal_error_character_range(token, 1),
+            vec![match radix {
+                veln_literals::IntegerRadix::Binary => "lowercase `0b` prefix",
+                veln_literals::IntegerRadix::Hexadecimal => "lowercase `0x` prefix",
+                veln_literals::IntegerRadix::Decimal => "decimal integer",
+            }],
+        ),
+        IntegerLiteralError::InvalidDigit {
+            radix,
+            byte_offset,
+            character,
+        } => (
+            format!(
+                "`{character}` is not a valid {} integer digit",
+                radix.name()
+            ),
+            literal_error_character_range(token, byte_offset),
+            vec![radix.accepted_digits()],
+        ),
+        IntegerLiteralError::Separator { radix, byte_offset } => (
+            format!(
+                "digit separators are not supported in {} integer literals",
+                radix.name()
+            ),
+            literal_error_character_range(token, byte_offset),
+            vec![radix.accepted_digits()],
+        ),
+        IntegerLiteralError::PrefixedFloat { radix, .. } => (
+            format!("{} floating-point literals are unsupported", radix.name()),
+            token.range,
+            vec!["integer literal"],
+        ),
+        IntegerLiteralError::OutOfRange { radix } => (
+            format!(
+                "{} integer literal exceeds the maximum Int value {}",
+                radix.name(),
+                i64::MAX
+            ),
+            token.range,
+            vec!["Int value at or below 9223372036854775807"],
+        ),
+    }
+}
+
+fn literal_error_character_range(token: &Token, byte_offset: usize) -> TextRange {
+    let start = token.range.start + byte_offset;
+    let length = token.text[byte_offset..]
+        .chars()
+        .next()
+        .map_or(0, char::len_utf8);
+    TextRange::new(start, start + length)
+}
+
 impl<'a> Parser<'a> {
     fn new(source: &'a SourceFile, tokens: Vec<Token>) -> Self {
+        let diagnostics = integer_literal_diagnostics(source, &tokens);
         let parse_tokens = tokens
             .iter()
             .filter(|token| !token.kind.is_trivia())
@@ -125,7 +232,7 @@ impl<'a> Parser<'a> {
             tokens: parse_tokens,
             lossless_tokens: tokens,
             cursor: 0,
-            diagnostics: Vec::new(),
+            diagnostics,
         }
     }
 
@@ -2447,6 +2554,13 @@ impl<'a> ExprParser<'a> {
                     span: self.source.span(token.range),
                 }
             }
+            TokenKind::MalformedInt => {
+                self.bump();
+                Pattern {
+                    kind: PatternKind::Wildcard,
+                    span: self.source.span(token.range),
+                }
+            }
             TokenKind::Float => {
                 self.bump();
                 Pattern {
@@ -3097,6 +3211,9 @@ impl<'a> ContractPredicateParser<'a> {
             TokenKind::String | TokenKind::Int | TokenKind::Float | TokenKind::Ident => {
                 self.parse_name_path_or_literal();
             }
+            TokenKind::MalformedInt => {
+                self.bump();
+            }
             TokenKind::LParen => {
                 self.bump();
                 if self.eat(TokenKind::RParen).is_some() {
@@ -3314,7 +3431,7 @@ fn is_byte_view_multiple_predicate_text(text: &str) -> bool {
     if divisor.is_empty() || divisor.contains(char::is_whitespace) {
         return false;
     }
-    if divisor.parse::<i64>().is_ok() {
+    if parse_integer_literal(divisor).is_ok() {
         return true;
     }
     is_schema_where_identifier(divisor)

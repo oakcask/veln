@@ -1,4 +1,5 @@
 use veln_ast::ContractKind;
+use veln_literals::parse_integer_literal;
 
 use crate::types::{Binding, Type};
 
@@ -2490,6 +2491,18 @@ impl StaticNumber {
         if digits.is_empty() {
             return None;
         }
+        if !digits.contains('.')
+            && let Ok(literal) = parse_integer_literal(digits)
+        {
+            return Some(Self {
+                mantissa: if negative {
+                    -i128::from(literal.value)
+                } else {
+                    i128::from(literal.value)
+                },
+                scale: 0,
+            });
+        }
         let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
         if integer.is_empty()
             || !integer.chars().all(|ch| ch.is_ascii_digit())
@@ -2774,6 +2787,19 @@ pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {
             index = string_literal_end(predicate, index).unwrap_or(predicate.len());
             continue;
         }
+        if bytes[index] == b'0'
+            && bytes
+                .get(index + 1)
+                .is_some_and(|byte| matches!(*byte, b'b' | b'B' | b'x' | b'X'))
+        {
+            index += 2;
+            while index < bytes.len()
+                && ((bytes[index] as char).is_ascii_alphanumeric() || bytes[index] == b'_')
+            {
+                index += 1;
+            }
+            continue;
+        }
         let ch = bytes[index] as char;
         if ch.is_ascii_alphabetic() || ch == '_' {
             let start = index;
@@ -2879,7 +2905,7 @@ fn predicate_literal_type(predicate: &str) -> Option<Type> {
     if is_complete_string_literal(predicate) {
         return Some(Type::string());
     }
-    if predicate.chars().all(|ch| ch.is_ascii_digit()) {
+    if parse_integer_literal(predicate).is_ok() {
         return Some(Type::int());
     }
     is_float_literal(predicate).then(Type::float)

@@ -9,6 +9,7 @@ use veln_core::{
     CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_literals::parse_integer_literal;
 
 use crate::adt::{self, AdtVariantKind, ConstructorLookup};
 use crate::call_resolution::CoreCallSignature;
@@ -535,11 +536,10 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_int_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
-        self.core_expr(
-            expr,
-            CoreType::int(),
-            CoreExprKind::IntLiteral(value.to_string()),
-        )
+        let value = parse_integer_literal(value)
+            .map(|literal| literal.value.to_string())
+            .unwrap_or_else(|_| value.to_string());
+        self.core_expr(expr, CoreType::int(), CoreExprKind::IntLiteral(value))
     }
 
     fn lower_float_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
@@ -1669,7 +1669,11 @@ impl<'a> CoreLowerer<'a> {
                 PatternKind::Wildcard => CorePatternKind::Wildcard,
                 PatternKind::Binding(name) => CorePatternKind::Binding(name.clone()),
                 PatternKind::StringLiteral(value) => CorePatternKind::StringLiteral(value.clone()),
-                PatternKind::IntLiteral(value) => CorePatternKind::IntLiteral(value.clone()),
+                PatternKind::IntLiteral(value) => CorePatternKind::IntLiteral(
+                    parse_integer_literal(value)
+                        .map(|literal| literal.value.to_string())
+                        .unwrap_or_else(|_| value.clone()),
+                ),
                 PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
                 PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
                 PatternKind::Unit => CorePatternKind::Unit,

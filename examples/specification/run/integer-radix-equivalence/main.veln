@@ -1,0 +1,12 @@
+fn classify(value: Int) -> String
+  match value
+    0x0A => "ten"
+    _ => "other"
+  end
+end
+
+pub fn main() -> () effects [stdio]
+  stdio::println(int_to_string(0b1010))
+  stdio::println(int_to_string(0x000A))
+  stdio::println(classify(10))
+end

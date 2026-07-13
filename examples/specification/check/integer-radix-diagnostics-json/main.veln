@@ -1,0 +1,27 @@
+fn missing() -> Int
+  0b
+end
+
+fn invalid_binary() -> Int
+  0b102
+end
+
+fn invalid_hexadecimal() -> Int
+  0xg1
+end
+
+fn uppercase_prefix() -> Int
+  0X10
+end
+
+fn separator() -> Int
+  0x1_0
+end
+
+fn prefixed_float() -> Int
+  0b1.0
+end
+
+fn out_of_range() -> Int
+  0x8000000000000000
+end

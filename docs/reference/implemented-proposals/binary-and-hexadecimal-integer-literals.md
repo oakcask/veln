@@ -1,10 +1,20 @@
 # Binary And Hexadecimal Integer Literals
 
-Status: proposed
+Status: implemented
 
-This proposal adds binary and hexadecimal source spellings for `Int` values.
-Current implemented behavior remains specified under `../specification/` until
-this proposal is implemented.
+This record tracks the completed addition of binary and hexadecimal source
+spellings for `Int` values. Current behavior is specified under
+`../../specification/` and checked by examples under
+`../../../examples/specification/`.
+
+## Read First
+
+- Current literal grammar, value behavior, and executable cases:
+  [../../specification/source-surface.md](../../specification/source-surface.md).
+- Current editor classification:
+  [../../specification/editor-support.md](../../specification/editor-support.md).
+- Current diagnostic routes:
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 
 ## Problem
 
@@ -193,9 +203,9 @@ splitting the candidate.
 - Executable specification examples cover equivalent decimal, binary, and
   hexadecimal values in expressions and patterns, plus representative schema
   literal positions.
-- Current behavior is documented under `../specification/` and executable
-  evidence is added under `../../examples/specification/` before this proposal
+- Current behavior is documented under `../../specification/` and executable
+  evidence is added under `../../../examples/specification/` before this proposal
   leaves the active catalog.
-- The completed proposal record is archived under
-  `../reference/implemented-proposals/`, and this proposal is removed from the
+- The completed proposal record is archived under this implemented-proposal
+  directory, and the proposal is removed from the
   active catalog when all completion criteria are satisfied.

@@ -2373,6 +2373,34 @@ fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn bounded(value: Int) -> Int\n",
+        "require value >= -0x0A\n",
+        "require value <= 0b1010\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(bounded(0)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-prefixed-contract", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "0\n");
+}
+
+#[test]
 fn bytecode_backend_entry_invariant_failure_blames_caller_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Bool) -> Bool\n",
