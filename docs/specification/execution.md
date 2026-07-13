@@ -551,6 +551,21 @@ enough.
   `http2.protocol.invalid_stream_id`, its focused required-domain fact,
   endpoint role, active state, and rule provenance. The executable evidence is
   under `examples/specification/run/http2-protocol-core/`.
+- The same checked core records the greatest peer-created stream id admitted
+  by an initial HEADERS frame. A new idle peer-created stream is admitted only
+  when its id is greater than that connection-wide maximum. The maximum
+  survives closed and reset stream states; lower and previously admitted ids
+  use `http2.protocol.invalid_stream_id` with an idle-stream fact and
+  `peer_created_stream_ids_increase` provenance without consuming input or
+  changing decode, HPACK, shutdown, lifecycle, or admission state. Existing
+  stream-id domain failures, continuation ownership, known-stream lifecycle
+  failures, GOAWAY boundaries, and the concurrent-stream limit retain their
+  earlier checks. Ordinary evidence is in
+  `examples/specification/run/http2-protocol-core/`; human and JSON diagnostic
+  evidence is in
+  `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
+  and
+  `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit

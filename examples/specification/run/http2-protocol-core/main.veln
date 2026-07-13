@@ -177,6 +177,11 @@ type ReceiveFlowControl
 	ReceiveFlowControl(Int, OpenStreamReceiveWindow)
 end
 
+type PeerStreamAdmissionState
+	NoPeerStreamAdmitted
+	HighestPeerStreamId(Int)
+end
+
 type OutboundReceiveCreditStream
 	NoOutboundReceiveCreditStream
 	OutboundReceiveCreditOpenStream(Int, Int)
@@ -219,7 +224,7 @@ type PrefaceState
 end
 
 type Http2DecodeState
-	State(ByteChunk, Int, PrefaceState, PendingContinuation, HpackFixtureState, ReceiveLimitEntry, PeerSettingsState, ConnectionShutdownState, ReceiveFlowControl)
+	State(ByteChunk, Int, PrefaceState, PendingContinuation, HpackFixtureState, ReceiveLimitEntry, PeerSettingsState, ConnectionShutdownState, ReceiveFlowControl, PeerStreamAdmissionState)
 end
 
 type Http2Input
@@ -441,27 +446,27 @@ type Http2ConnectionStep
 end
 
 fn empty_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, ExpectPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, ExpectPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn frame_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn local_config_state(max_frame_size: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn local_settings_state(max_frame_size: Int, item_offset: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn receive_window_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window, NoStreamPriority)))
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window, NoStreamPriority)), HighestPeerStreamId(stream_id))
 end
 
 fn client_push_receive_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, stream_window, NoStreamPriority, 0)))
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(stream_id, stream_window, NoStreamPriority, 0)), NoPeerStreamAdmitted)
 end
 
 fn encode_frame_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> Result<ByteChunk, EncodeError>
@@ -501,34 +506,34 @@ end
 
 fn receive_chunk(bytes: ByteChunk, state: Http2DecodeState) -> Result<Http2Step, String>
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control) => receive_available(byte_append(pending, bytes), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => receive_available(byte_append(pending, bytes), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
 fn receive_end(state: Http2DecodeState) -> Result<Http2Step, String>
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control) => end_pending(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => end_pending(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
-fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available
 		0 => match continuation
-			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-			Continuation(_, _, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
+			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
+			Continuation(_, _, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
 		end
 		_ => match preface_state
-			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPartialPreface(next_offset, available)))
-			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available, pending)))
+			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPartialPreface(next_offset, available)))
+			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
 		end
 	end
 end
 
-fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	match preface_state
-		ExpectPreface => validate_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
-		AfterPreface => decode_available(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		ExpectPreface => validate_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+		AfterPreface => decode_available(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
@@ -536,25 +541,25 @@ fn client_connection_preface_count() -> Int
 	24
 end
 
-fn validate_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn validate_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	let matched: Int = matched_preface_count(pending, available, 0)?
 	match matched < available
 		true => match matched < client_connection_preface_count()
-			true => Ok(Failed(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), InvalidPreface(next_offset + matched, expected_preface_byte(matched), read_byte(pending, matched)?, matched)))
-			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+			true => Ok(Failed(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), InvalidPreface(next_offset + matched, expected_preface_byte(matched), read_byte(pending, matched)?, matched)))
+			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 		end
 		false => match available < client_connection_preface_count()
-			true => Ok(Waiting(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+			true => Ok(Waiting(State(pending, next_offset, ExpectPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
+			false => consume_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 		end
 	end
 end
 
-fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let preface_count: ByteCount = byte_count(client_connection_preface_count())?
 	let suffix: ByteChunk = byte_drop(pending, preface_count)?
-	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 end
 
 fn matched_preface_count(pending: ByteChunk, available: Int, index: Int) -> Result<Int, String>
@@ -604,15 +609,15 @@ fn expected_preface_byte(index: Int) -> Int
 	end
 end
 
-fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available < 9
-		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-		false => decode_header(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
+		false => decode_header(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
-fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	let zero: ByteOffset = byte_offset(0)?
 	let base_offset: ByteOffset = byte_offset(next_offset)?
@@ -621,8 +626,8 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = decode_http2_frame_header(view, base_offset)?
 	let max_frame_size: Int = receive_limit_value(receive_limit)
 	match header.length > max_frame_size
-		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
-		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, available, header.length, header.kind, header.flags, header.stream_id, byte_view_to_chunk(view))
+		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
+		false => decode_sized_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, available, header.length, header.kind, header.flags, header.stream_id, byte_view_to_chunk(view))
 	end
 end
 
@@ -807,27 +812,27 @@ fn header_table_receive_limit() -> ReceiveLimitEntry
 	ReceiveLimit(160, LocalConfiguration)
 end
 
-fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
+fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
-		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, frame_count_int, header_preview)
+		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
+		false => decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, frame_count_int, header_preview)
 	end
 end
 
-fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
+fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
 	let payload: ByteChunk = frame_payload_chunk(pending, length)?
-	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	let stream_id_decision: ProtocolStreamIdDecision = validate_stream_id_domain(next_offset, kind, stream_id, receive_flow_control)
 	match stream_id_decision
-		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, consumed_state, header_preview)
+		ProtocolStreamIdOk => decode_complete_frame_after_stream_id(pending, suffix, payload, next_offset, frame_count_int, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, consumed_state, header_preview)
 		ProtocolStreamIdFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
 
-fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk) -> Result<Http2Step, String>
+fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState, header_preview: ByteChunk) -> Result<Http2Step, String>
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags)?
 	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, flags, stream_id)?
 	let payload_decision: ProtocolPayloadDecision = validate_protocol_payload(next_offset, payload, length, kind, flags, stream_id)?
@@ -835,7 +840,7 @@ fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, 
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
 				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, peer_settings, receive_flow_control, header_preview)
-					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
+					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
 					Err(error) => Ok(Failed(consumed_state, error))
 				end
 				PriorityDependencyFailed(error) => Ok(Failed(consumed_state, error))
@@ -846,10 +851,10 @@ fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, 
 	end
 end
 
-fn complete_after_data_padding(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState, payload: ByteChunk) -> Result<Http2Step, String>
+fn complete_after_data_padding(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState, payload: ByteChunk) -> Result<Http2Step, String>
 	let padding_decision: PaddingDecision = validate_data_padding(next_offset, payload, length, kind, flags, stream_id, receive_flow_control)?
 	match padding_decision
-		PaddingOk => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state)
+		PaddingOk => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state)
 		PaddingFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
@@ -967,25 +972,25 @@ fn stream_id_is_client_initiated(stream_id: Int) -> Bool
 	(stream_id / 2) * 2 != stream_id
 end
 
-fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let excessive_table_size: Int = hpack_fixture::first_table_size_update_above(completed_header_block, receive_limit_value(header_table_receive_limit()), next_offset)
 	match excessive_table_size >= 0
 		true => Ok(Failed(consumed_state, HeaderTableSizeExceeded(next_offset, excessive_table_size, header_table_receive_limit(), kind, stream_id, "hpack_dynamic_table_size_update", completed_header_block)))
-		false => complete_receive_flow_control_update_after_table_size_check(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state)
+		false => complete_receive_flow_control_update_after_table_size_check(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state)
 	end
 end
 
-fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_is_trailer: Bool, completed_promised_stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	match decode_completed_header_list(next_offset, kind, flags, stream_id, completed_header_block, hpack_state)
 		HeaderListDecodeOk(decoded_header_list_size, next_hpack_state, headers) => match validate_header_table_size_update(next_offset, kind, flags, stream_id, completed_header_block, headers, next_hpack_state)
 			HeaderTableSizeOk => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size, completed_header_block)
 				HeaderListSizeOk => match validate_trailer_end_stream(next_offset, kind, stream_id, headers, completed_is_trailer, state_receive_flow_control(consumed_state))
 					TrailerEndStreamOk => match validate_trailer_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block, completed_is_trailer, state_receive_flow_control(consumed_state))
 						TrailerHeaderListOk => match completed_is_trailer
-							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, consumed_state)
+							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, peer_stream_admission, consumed_state)
 							false => match validate_request_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block)
 								RequestHeaderListOk => match validate_response_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block)
-									ResponseHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, consumed_state)
+									ResponseHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, peer_stream_admission, consumed_state)
 									ResponseHeaderListFailed(error) => Ok(Failed(consumed_state, error))
 								end
 								RequestHeaderListFailed(error) => Ok(Failed(consumed_state, error))
@@ -1003,15 +1008,27 @@ fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChun
 	end
 end
 
-fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, peer_stream_admission: PeerStreamAdmissionState, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
-	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state))?
+	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state), peer_stream_admission)?
 	match flow_control_decision
 		ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state), next_receive_flow_control)?
-			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+			ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?, next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?, update_peer_stream_admission(kind, stream_id, completed_is_trailer, state_receive_flow_control(consumed_state), peer_stream_admission)), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 			ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
 		end
-		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
+		ReceiveFlowControlFailed(error) => match error
+			InvalidStreamId(_, _, _, _, _, _, rule_provenance) => match rule_provenance == "peer_created_stream_ids_increase"
+				true => Ok(Failed(peer_stream_admission_rejected_state(pending, frame_offset, consumed_state, peer_stream_admission), error))
+				false => Ok(Failed(consumed_state, error))
+			end
+			_ => Ok(Failed(consumed_state, error))
+		end
+	end
+end
+
+fn peer_stream_admission_rejected_state(pending: ByteChunk, frame_offset: Int, consumed_state: Http2DecodeState, peer_stream_admission: PeerStreamAdmissionState) -> Http2DecodeState
+	match consumed_state
+		State(_, _, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, _) => State(pending, frame_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
@@ -1763,7 +1780,7 @@ end
 
 fn update_local_enable_push_state(state: Http2DecodeState, value: Int, item_offset: Int) -> Http2DecodeState
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, with_local_enable_push(peer_settings, value, item_offset), shutdown_state, receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, with_local_enable_push(peer_settings, value, item_offset), shutdown_state, receive_flow_control, peer_stream_admission)
 	end
 end
 
@@ -1829,8 +1846,8 @@ end
 
 fn outbound_send_credit_for_closed_by_peer_stream(state: Http2DecodeState) -> OutboundSendCredit
 	match state
-		State(_, _, _, _, _, _, peer_settings, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _))) => outbound_send_credit_with_open_stream(65535, stream_id, active_peer_initial_window_size(peer_settings))
-		State(_, _, _, _, _, _, _, _, _) => outbound_send_credit_without_stream(0)
+		State(_, _, _, _, _, _, peer_settings, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _)), _) => outbound_send_credit_with_open_stream(65535, stream_id, active_peer_initial_window_size(peer_settings))
+		State(_, _, _, _, _, _, _, _, _, _) => outbound_send_credit_without_stream(0)
 	end
 end
 
@@ -2342,7 +2359,7 @@ end
 
 fn goaway_sent_state(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Http2DecodeState
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, _, receive_flow_control) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, complete_shutdown_drain(GracefulShutdown(last_stream_id, error_code), receive_flow_control), receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, _, receive_flow_control, peer_stream_admission) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, complete_shutdown_drain(GracefulShutdown(last_stream_id, error_code), receive_flow_control), receive_flow_control, peer_stream_admission)
 	end
 end
 
@@ -3591,15 +3608,15 @@ end
 
 fn record_local_end_stream(state: Http2DecodeState, stream_id: Int) -> Http2DecodeState
 	match state
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority))) => match stream_id == open_stream_id
-			true => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)))
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)), peer_stream_admission) => match stream_id == open_stream_id
+			true => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)), peer_stream_admission)
 			false => state
 		end
-		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, _))) => match stream_id == open_stream_id
-			true => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)))
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, _)), peer_stream_admission) => match stream_id == open_stream_id
+			true => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, HalfClosedLocalStreamReceiveWindow(open_stream_id, stream_window, priority)), peer_stream_admission)
 			false => state
 		end
-		State(_, _, _, _, _, _, _, _, _) => state
+		State(_, _, _, _, _, _, _, _, _, _) => state
 	end
 end
 
@@ -4037,9 +4054,9 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 	end
 end
 
-fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
 	match kind
-		1 => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control)
+		1 => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control, peer_stream_admission)
 		0 => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
 		3 => reset_receive_stream(pending, offset, stream_id, receive_flow_control)
 		8 => update_window_receive_credit(pending, offset, stream_id, receive_flow_control)
@@ -4063,18 +4080,18 @@ fn reserve_push_promise_stream(offset: Int, stream_id: Int, promised_stream_id: 
 	end
 end
 
-fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
 	let headers_priority: StreamPriorityState = headers_priority_from_frame(pending, length, flags)?
 	let preview_chunk: ByteChunk = byte_view_to_chunk(frame_header_preview(length, 1, flags, stream_id)?)
 	let header_priority_state: StreamPriorityState = stream_priority_with_header_side(headers, completed_is_trailer, headers_priority)
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 			ReceiveFlowControlOk(_) => initial_receive_stream_window_decision(offset, connection_window, stream_id, header_priority_state, end_stream, accepted_content_length)
 			ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 		end
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
 			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
-			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+			false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 				ReceiveFlowControlOk(_) => initial_second_receive_stream_window_decision(offset, connection_window, open_stream_id, stream_window, priority, stream_id, header_priority_state, end_stream, accepted_content_length)
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
@@ -4083,7 +4100,7 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 			true => Ok(ReceiveFlowControlOk(receive_flow_control))
 			false => match stream_id == second_stream_id
 				true => Ok(ReceiveFlowControlOk(receive_flow_control))
-				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+				false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 					ReceiveFlowControlOk(_) => initial_third_receive_stream_window_decision(offset, connection_window, first_stream_id, first_stream_window, first_priority, second_stream_id, second_stream_window, second_priority, stream_id, header_priority_state, end_stream, accepted_content_length)
 					ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 				end
@@ -4106,7 +4123,7 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 			true => receive_stream_window_after_headers_decision(offset, connection_window, open_stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority_state), end_stream, accepted_content_length)
 			false => match stream_id == promised_stream_id
 				true => receive_promised_stream_headers_decision(offset, connection_window, open_stream_id, stream_window, priority, promised_stream_id, header_priority_state, end_stream, accepted_content_length)
-				false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+				false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 					ReceiveFlowControlOk(_) => initial_second_receive_stream_window_decision(offset, connection_window, open_stream_id, stream_window, priority, stream_id, header_priority_state, end_stream, accepted_content_length)
 					ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 				end
@@ -4114,21 +4131,21 @@ fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int,
 		end
 		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => match stream_id == open_stream_id
 			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "half-closed-local-stream", "half_closed_local_data_only")))
-			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+			false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => match stream_id == closed_stream_id
 			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames")))
-			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+			false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
 		end
 		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => match stream_id == reset_stream_id
 			true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
-			false => match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+			false => match validate_new_peer_stream(offset, stream_id, shutdown_state, peer_stream_admission, preview_chunk)
 				ReceiveFlowControlOk(_) => Ok(ReceiveFlowControlFailed(ConcurrentStreamsExceeded(offset, stream_id, 2, concurrent_stream_receive_limit(), "server", "open-stream", concurrent_stream_receive_limit_provenance(), "peer_created_stream_receive_limit", preview_chunk)))
 				ReceiveFlowControlFailed(error) => Ok(ReceiveFlowControlFailed(error))
 			end
@@ -4359,6 +4376,45 @@ fn validate_new_stream_after_goaway(offset: Int, stream_id: Int, shutdown_state:
 			false => ReceiveFlowControlOk(default_receive_flow_control())
 		end
 		DrainedShutdown(last_stream_id, _) => ReceiveFlowControlFailed(StreamAfterGoaway(offset, stream_id, last_stream_id, "drained_shutdown", "server", "goaway_last_stream_id", preview_chunk))
+	end
+end
+
+fn validate_new_peer_stream(offset: Int, stream_id: Int, shutdown_state: ConnectionShutdownState, peer_stream_admission: PeerStreamAdmissionState, preview_chunk: ByteChunk) -> ReceiveFlowControlDecision
+	match validate_new_stream_after_goaway(offset, stream_id, shutdown_state, preview_chunk)
+		ReceiveFlowControlFailed(error) => ReceiveFlowControlFailed(error)
+		ReceiveFlowControlOk(_) => match peer_stream_admission
+			NoPeerStreamAdmitted => ReceiveFlowControlOk(default_receive_flow_control())
+			HighestPeerStreamId(highest_stream_id) => match stream_id > highest_stream_id
+				true => ReceiveFlowControlOk(default_receive_flow_control())
+				false => ReceiveFlowControlFailed(InvalidStreamId(offset, 1, stream_id, "peer-created stream id greater than every previously admitted peer-created stream id", "server", "idle-stream", "peer_created_stream_ids_increase"))
+			end
+		end
+	end
+end
+
+fn update_peer_stream_admission(kind: Int, stream_id: Int, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> PeerStreamAdmissionState
+	match kind == 1 and not completed_is_trailer and not peer_stream_is_known(stream_id, receive_flow_control)
+		true => match peer_stream_admission
+			NoPeerStreamAdmitted => HighestPeerStreamId(stream_id)
+			HighestPeerStreamId(highest_stream_id) => match stream_id > highest_stream_id
+				true => HighestPeerStreamId(stream_id)
+				false => peer_stream_admission
+			end
+		end
+		false => peer_stream_admission
+	end
+end
+
+fn peer_stream_is_known(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => false
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _, _)) => stream_id == open_stream_id
+		ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _)) => stream_id == first_stream_id or stream_id == second_stream_id
+		ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(first_stream_id, _, _, second_stream_id, _, _, third_stream_id, _, _)) => stream_id == first_stream_id or stream_id == second_stream_id or stream_id == third_stream_id
+		ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(open_stream_id, _, _, promised_stream_id)) => stream_id == open_stream_id or stream_id == promised_stream_id
+		ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(open_stream_id, _, _)) => stream_id == open_stream_id
+		ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(closed_stream_id, _)) => stream_id == closed_stream_id
+		ReceiveFlowControl(_, ResetStreamReceiveWindow(reset_stream_id, _)) => stream_id == reset_stream_id
 	end
 end
 
@@ -4824,151 +4880,151 @@ end
 
 fn state_pending_count(state: Http2DecodeState) -> Int
 	match state
-		State(pending, _, _, _, _, _, _, _, _) => byte_count_to_int(byte_chunk_count(pending))
+		State(pending, _, _, _, _, _, _, _, _, _) => byte_count_to_int(byte_chunk_count(pending))
 	end
 end
 
 fn state_pending_chunk(state: Http2DecodeState) -> ByteChunk
 	match state
-		State(pending, _, _, _, _, _, _, _, _) => pending
+		State(pending, _, _, _, _, _, _, _, _, _) => pending
 	end
 end
 
 fn state_next_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, next_offset, _, _, _, _, _, _, _) => next_offset
+		State(_, next_offset, _, _, _, _, _, _, _, _) => next_offset
 	end
 end
 
 fn state_receive_limit(state: Http2DecodeState) -> ReceiveLimitEntry
 	match state
-		State(_, _, _, _, _, receive_limit, _, _, _) => receive_limit
+		State(_, _, _, _, _, receive_limit, _, _, _, _) => receive_limit
 	end
 end
 
 fn state_preface_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, ExpectPreface, _, _, _, _, _, _) => "expect"
-		State(_, _, AfterPreface, _, _, _, _, _, _) => "done"
+		State(_, _, ExpectPreface, _, _, _, _, _, _, _) => "expect"
+		State(_, _, AfterPreface, _, _, _, _, _, _, _) => "done"
 	end
 end
 
 fn state_continuation_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, _, NoContinuation, _, _, _, _, _) => "none"
-		State(_, _, _, Continuation(_, _, _, _, _, _, _), _, _, _, _, _) => "active"
+		State(_, _, _, NoContinuation, _, _, _, _, _, _) => "none"
+		State(_, _, _, Continuation(_, _, _, _, _, _, _), _, _, _, _, _, _) => "active"
 	end
 end
 
 fn state_continuation_count(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, NoContinuation, _, _, _, _, _) => 0
-		State(_, _, _, Continuation(_, _, _, _, _, _, accumulated), _, _, _, _, _) => byte_count_to_int(byte_chunk_count(accumulated))
+		State(_, _, _, NoContinuation, _, _, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, _, _, _, _, _, accumulated), _, _, _, _, _, _) => byte_count_to_int(byte_chunk_count(accumulated))
 	end
 end
 
 fn state_continuation_stream(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, NoContinuation, _, _, _, _, _) => 0
-		State(_, _, _, Continuation(stream_id, _, _, _, _, _, _), _, _, _, _, _) => stream_id
+		State(_, _, _, NoContinuation, _, _, _, _, _, _) => 0
+		State(_, _, _, Continuation(stream_id, _, _, _, _, _, _), _, _, _, _, _, _) => stream_id
 	end
 end
 
 fn state_continuation_started_kind(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, NoContinuation, _, _, _, _, _) => 0
-		State(_, _, _, Continuation(_, started_kind, _, _, _, _, _), _, _, _, _, _) => started_kind
+		State(_, _, _, NoContinuation, _, _, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, started_kind, _, _, _, _, _), _, _, _, _, _, _) => started_kind
 	end
 end
 
 fn state_continuation_started_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, NoContinuation, _, _, _, _, _) => 0
-		State(_, _, _, Continuation(_, _, started_offset, _, _, _, _), _, _, _, _, _) => started_offset
+		State(_, _, _, NoContinuation, _, _, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, _, started_offset, _, _, _, _), _, _, _, _, _, _) => started_offset
 	end
 end
 
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _), _, _, _) => value
 	end
 end
 
 fn state_peer_max_frame_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _, _, _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _, _, _, _, _), _, _, _) => item_offset
 	end
 end
 
 fn state_peer_initial_window_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _), _, _, _) => value
 	end
 end
 
 fn state_peer_initial_window_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _, _, _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _, _, _, _, _), _, _, _) => item_offset
 	end
 end
 
 fn state_peer_enable_push(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _), _, _, _) => value
 	end
 end
 
 fn state_peer_enable_push_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _, _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _, _, _, _), _, _, _) => item_offset
 	end
 end
 
 fn state_peer_max_concurrent_streams(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _, _), _, _, _) => value
 	end
 end
 
 fn state_peer_max_concurrent_streams_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, item_offset), _, _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, item_offset), _, _, _), _, _, _) => item_offset
 	end
 end
 
 fn state_peer_header_table_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _), _, _, _) => value
 	end
 end
 
 fn state_peer_header_table_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(_, item_offset), _, _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, PeerHeaderTableSize(_, item_offset), _, _), _, _, _) => item_offset
 	end
 end
 
 fn state_peer_max_header_list_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(value, _), _), _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(value, _), _), _, _, _) => value
 	end
 end
 
 fn state_peer_max_header_list_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _) => 0
-		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(_, item_offset), _), _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(_, item_offset), _), _, _, _) => item_offset
 	end
 end
 
@@ -4982,19 +5038,19 @@ end
 
 fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
 	match state
-		State(_, _, _, _, _, _, peer_settings, _, _) => peer_settings
+		State(_, _, _, _, _, _, peer_settings, _, _, _) => peer_settings
 	end
 end
 
 fn state_hpack_fixture_state(state: Http2DecodeState) -> HpackFixtureState
 	match state
-		State(_, _, _, _, hpack_state, _, _, _, _) => hpack_state
+		State(_, _, _, _, hpack_state, _, _, _, _, _) => hpack_state
 	end
 end
 
 fn hpack_carry_only_state(state: Http2DecodeState) -> Http2DecodeState
 	match state
-		State(_, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, _)) => State(byte_chunk([]), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow))
+		State(_, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, _), _) => State(byte_chunk([]), next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow), NoPeerStreamAdmitted)
 	end
 end
 
@@ -5091,21 +5147,28 @@ end
 
 fn state_shutdown_state_value(state: Http2DecodeState) -> ConnectionShutdownState
 	match state
-		State(_, _, _, _, _, _, _, shutdown_state, _) => shutdown_state
+		State(_, _, _, _, _, _, _, shutdown_state, _, _) => shutdown_state
 	end
 end
 
 fn state_receive_flow_control(state: Http2DecodeState) -> ReceiveFlowControl
 	match state
-		State(_, _, _, _, _, _, _, _, receive_flow_control) => receive_flow_control
+		State(_, _, _, _, _, _, _, _, receive_flow_control, _) => receive_flow_control
+	end
+end
+
+fn state_highest_peer_stream_id(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, _, _, _, _, NoPeerStreamAdmitted) => 0
+		State(_, _, _, _, _, _, _, _, _, HighestPeerStreamId(stream_id)) => stream_id
 	end
 end
 
 fn state_shutdown_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, _, _, _, _, _, OpenConnection, _) => "open"
-		State(_, _, _, _, _, _, _, GracefulShutdown(_, _), _) => "graceful_shutdown"
-		State(_, _, _, _, _, _, _, DrainedShutdown(_, _), _) => "drained_shutdown"
+		State(_, _, _, _, _, _, _, OpenConnection, _, _) => "open"
+		State(_, _, _, _, _, _, _, GracefulShutdown(_, _), _, _) => "graceful_shutdown"
+		State(_, _, _, _, _, _, _, DrainedShutdown(_, _), _, _) => "drained_shutdown"
 	end
 end
 
@@ -5119,9 +5182,9 @@ end
 
 fn state_shutdown_last_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, OpenConnection, _) => 0
-		State(_, _, _, _, _, _, _, GracefulShutdown(last_stream_id, _), _) => last_stream_id
-		State(_, _, _, _, _, _, _, DrainedShutdown(last_stream_id, _), _) => last_stream_id
+		State(_, _, _, _, _, _, _, OpenConnection, _, _) => 0
+		State(_, _, _, _, _, _, _, GracefulShutdown(last_stream_id, _), _, _) => last_stream_id
+		State(_, _, _, _, _, _, _, DrainedShutdown(last_stream_id, _), _, _) => last_stream_id
 	end
 end
 
@@ -5135,9 +5198,9 @@ end
 
 fn state_shutdown_error_code(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, OpenConnection, _) => 0
-		State(_, _, _, _, _, _, _, GracefulShutdown(_, error_code), _) => error_code
-		State(_, _, _, _, _, _, _, DrainedShutdown(_, error_code), _) => error_code
+		State(_, _, _, _, _, _, _, OpenConnection, _, _) => 0
+		State(_, _, _, _, _, _, _, GracefulShutdown(_, error_code), _, _) => error_code
+		State(_, _, _, _, _, _, _, DrainedShutdown(_, error_code), _, _) => error_code
 	end
 end
 
@@ -5151,169 +5214,169 @@ end
 
 fn state_connection_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(connection_window, _)) => connection_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(connection_window, _), _) => connection_window
 	end
 end
 
 fn state_stream_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, stream_window, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, stream_window, _, _, _, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, stream_window, _, _, _, _, _, _, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, stream_window, _, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, stream_window, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, stream_window))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, stream_window, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, stream_window, _, _, _, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, stream_window, _, _, _, _, _, _, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, stream_window, _, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, stream_window, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, stream_window)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
 fn state_content_length_expected(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_expected(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _))) => stream_priority_content_length_expected(first_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, _, _, _, _))) => stream_priority_content_length_expected(first_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_content_length_expected(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_expected(priority)
-		State(_, _, _, _, _, _, _, _, _) => -1
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_content_length_expected(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _)), _) => stream_priority_content_length_expected(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, _, _, _, _)), _) => stream_priority_content_length_expected(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_content_length_expected(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_content_length_expected(priority)
+		State(_, _, _, _, _, _, _, _, _, _) => -1
 	end
 end
 
 fn state_content_length_observed(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_observed(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _))) => stream_priority_content_length_observed(first_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, _, _, _, _))) => stream_priority_content_length_observed(first_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_content_length_observed(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_content_length_observed(priority)
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_content_length_observed(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, _)), _) => stream_priority_content_length_observed(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, _, _, _, _)), _) => stream_priority_content_length_observed(first_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_content_length_observed(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_content_length_observed(priority)
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_open_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(stream_id, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(stream_id, _, _, _, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(stream_id, _, _, _, _, _, _, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(stream_id, _, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(stream_id, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(stream_id, _, _, _, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(stream_id, _, _, _, _, _, _, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(stream_id, _, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
 fn state_second_open_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, stream_id, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, stream_id, _, _, _, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, stream_id, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, stream_id, _, _, _, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_third_open_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, stream_id, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, stream_id, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_reserved_by_peer_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, promised_stream_id))) => promised_stream_id
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, promised_stream_id)), _) => promised_stream_id
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_second_stream_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, stream_window, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, stream_window, _, _, _, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, stream_window, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, stream_window, _, _, _, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_third_stream_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, stream_window, _))) => stream_window
-		State(_, _, _, _, _, _, _, _, _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, stream_window, _)), _) => stream_window
+		State(_, _, _, _, _, _, _, _, _, _) => 0
 	end
 end
 
 fn state_open_stream_count(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 1
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 2
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _))) => 3
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 1
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _)), _) => 1
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _)), _) => 2
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _)), _) => 3
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _)), _) => 1
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
 fn state_half_closed_local_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(stream_id, _, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(stream_id, _, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
 fn state_closed_by_peer_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _))) => stream_id
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(stream_id, _)), _) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
 fn state_reset_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(stream_id, _))) => stream_id
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(stream_id, _)), _) => stream_id
 	end
 end
 
 fn state_reset_error_code(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, error_code))) => error_code
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, _, _, _, _, _, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, error_code)), _) => error_code
 	end
 end
 
 fn state_priority_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_label(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_label(first_priority, second_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority))) => first_tracked_priority_label(first_tracked_priority(first_priority, second_priority), third_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_label(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_label(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => "none"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => "none"
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => "none"
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_label(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority)), _) => first_tracked_priority_label(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority)), _) => first_tracked_priority_label(first_tracked_priority(first_priority, second_priority), third_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_label(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_label(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => "none"
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => "none"
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => "none"
 	end
 end
 
@@ -5342,14 +5405,14 @@ end
 
 fn state_priority_dependency_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_dependency_stream_id(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_dependency_stream_id(first_priority, second_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority))) => first_tracked_priority_dependency_stream_id(first_tracked_priority(first_priority, second_priority), third_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_dependency_stream_id(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_dependency_stream_id(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_dependency_stream_id(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority)), _) => first_tracked_priority_dependency_stream_id(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority)), _) => first_tracked_priority_dependency_stream_id(first_tracked_priority(first_priority, second_priority), third_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_dependency_stream_id(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_dependency_stream_id(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
@@ -5371,14 +5434,14 @@ end
 
 fn state_priority_exclusive(state: Http2DecodeState) -> Bool
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_exclusive(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_exclusive(first_priority, second_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority))) => first_tracked_priority_exclusive(first_tracked_priority(first_priority, second_priority), third_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_exclusive(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_exclusive(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => false
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => false
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => false
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_exclusive(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority)), _) => first_tracked_priority_exclusive(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority)), _) => first_tracked_priority_exclusive(first_tracked_priority(first_priority, second_priority), third_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_exclusive(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_exclusive(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => false
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => false
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => false
 	end
 end
 
@@ -5400,14 +5463,14 @@ end
 
 fn state_priority_weight(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority))) => stream_priority_weight(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority))) => first_tracked_priority_weight(first_priority, second_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority))) => first_tracked_priority_weight(first_tracked_priority(first_priority, second_priority), third_priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _))) => stream_priority_weight(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority))) => stream_priority_weight(priority)
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _))) => 0
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _))) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, _, priority)), _) => stream_priority_weight(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, TwoOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority)), _) => first_tracked_priority_weight(first_priority, second_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(_, _, first_priority, _, _, second_priority, _, _, third_priority)), _) => first_tracked_priority_weight(first_tracked_priority(first_priority, second_priority), third_priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, priority, _)), _) => stream_priority_weight(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, HalfClosedLocalStreamReceiveWindow(_, _, priority)), _) => stream_priority_weight(priority)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClosedByPeerStreamReceiveWindow(_, _)), _) => 0
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ResetStreamReceiveWindow(_, _)), _) => 0
 	end
 end
 
@@ -7973,6 +8036,24 @@ fn print_receive_windows(label: String, state: Http2DecodeState) -> () effects [
 	stdio::println(int_to_string(state_stream_window(state)))
 end
 
+fn print_peer_stream_admission_state(label: String, state: Http2DecodeState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" highest_peer_stream_id ")
+	stdio::print(int_to_string(state_highest_peer_stream_id(state)))
+	stdio::print(" next ")
+	stdio::print(int_to_string(state_next_offset(state)))
+	stdio::print(" pending ")
+	stdio::print(int_to_string(state_pending_count(state)))
+	stdio::print(" open_stream_count ")
+	stdio::print(int_to_string(state_open_stream_count(state)))
+	stdio::print(" open_stream ")
+	stdio::print(int_to_string(state_open_stream_id(state)))
+	stdio::print(" closed_stream ")
+	stdio::print(int_to_string(state_closed_by_peer_stream_id(state)))
+	stdio::print(" reset_stream ")
+	stdio::println(int_to_string(state_reset_stream_id(state)))
+end
+
 fn print_content_length_body_state(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" content_length_expected ")
@@ -8620,8 +8701,8 @@ end
 
 fn print_three_peer_priorities(label: String, state: Http2DecodeState) -> () effects [stdio]
 	match state
-		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(first_stream_id, _, first_priority, second_stream_id, _, second_priority, third_stream_id, _, third_priority))) => print_three_peer_priority_slots(label, first_stream_id, first_priority, second_stream_id, second_priority, third_stream_id, third_priority)
-		State(_, _, _, _, _, _, _, _, _) => stdio::println(label)
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ThreeOpenStreamReceiveWindows(first_stream_id, _, first_priority, second_stream_id, _, second_priority, third_stream_id, _, third_priority)), _) => print_three_peer_priority_slots(label, first_stream_id, first_priority, second_stream_id, second_priority, third_stream_id, third_priority)
+		State(_, _, _, _, _, _, _, _, _, _) => stdio::println(label)
 	end
 end
 
@@ -12025,6 +12106,41 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_peer_stream_id_monotonicity_cases() -> Result<(), String>
+	let increasing_one: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
+	let increasing_three: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(increasing_one))?
+	let increasing_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(increasing_three))?
+	print_step("peer-stream-id-increasing-one", increasing_one)
+	print_step("peer-stream-id-increasing-three", increasing_three)
+	print_step("peer-stream-id-increasing-five", increasing_five)
+	print_peer_stream_admission_state("peer-stream-id-increasing", step_state(increasing_five))
+
+	let higher_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let lower_three: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(higher_five))?
+	print_stream_id_failure("peer-stream-id-lower", lower_three)
+	print_peer_stream_admission_state("peer-stream-id-lower-preserved", step_state(lower_three))
+
+	let closed_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010500000005")?), frame_state())?
+	let lower_after_closed: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(closed_five))?
+	print_stream_id_failure("peer-stream-id-lower-after-closed", lower_after_closed)
+	print_peer_stream_admission_state("peer-stream-id-lower-after-closed-preserved", step_state(lower_after_closed))
+
+	let open_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let reset_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000500000008")?), step_state(open_five))?
+	let lower_after_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(reset_five))?
+	print_stream_id_failure("peer-stream-id-lower-after-reset", lower_after_reset)
+	print_peer_stream_admission_state("peer-stream-id-lower-after-reset-preserved", step_state(lower_after_reset))
+
+	let reuse_one: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
+	let reuse_three: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(reuse_one))?
+	let reuse_five: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(reuse_three))?
+	let reset_one: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000100000008")?), step_state(reuse_five))?
+	let reused_three: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(reset_one))?
+	print_stream_id_failure("peer-stream-id-reused", reused_three)
+	print_peer_stream_admission_state("peer-stream-id-reused-preserved", step_state(reused_three))
+	Ok(())
+end
+
 fn verify_flow_control_domain_cases() -> Result<(), String>
 	let accepted_connection: () = match connection_window_credit(0)
 		Ok(_) => ()
@@ -12193,6 +12309,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_outbound_send_intent_cases: () = print_outbound_send_intent_cases()?
 	let ignored_initial_window_update_cases: () = print_initial_window_update_cases()?
 	let ignored_stream_id_domain_cases: () = print_stream_id_domain_cases(header_start)?
+	let ignored_peer_stream_id_monotonicity_cases: () = print_peer_stream_id_monotonicity_cases()?
 	let ignored_data_receive_cases: () = print_data_receive_cases()?
 	let window_update_connection: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000000000005")?), receive_window_state(10, 1, 20))?
 	print_step("window-update-connection", window_update_connection)

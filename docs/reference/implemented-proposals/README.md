@@ -593,6 +593,8 @@ behavior.
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 outbound PING request:
   [http2-outbound-ping-request.md](http2-outbound-ping-request.md).
+- HTTP/2 peer stream id monotonicity:
+  [http2-peer-stream-id-monotonicity.md](http2-peer-stream-id-monotonicity.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
 - HTTP/2 SETTINGS item-length validation:
