@@ -9,6 +9,10 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
+- [Integer Bitwise Operators And Flag Removal](integer-bitwise-operators-and-flag-removal.md):
+  add fixed 64-bit `Int` bitwise and shift operators, replace binary schema
+  `flag...` fields with `uint...` fields, and remove the `FlagN` types,
+  constructors, patterns, helpers, and compatibility spellings.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for callback inputs outside the
   compiler-known, concrete declared-helper signature including visible public

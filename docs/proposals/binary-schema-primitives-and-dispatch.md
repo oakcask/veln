@@ -7,6 +7,11 @@ Current implemented behavior is specified under
 `../specification/source-surface.md`, `../specification/execution.md`, and
 checked examples under `../../examples/specification/`.
 
+The planned replacement of visible flag primitives with unsigned fields and
+`Int` bitwise operators belongs to
+[Integer Bitwise Operators And Flag Removal](integer-bitwise-operators-and-flag-removal.md),
+not to the remaining primitive work tracked here.
+
 Completed primitive, flag, reserved-bit, repeat, byte-view, dispatch, and
 recursive dispatch helper slices are archived under
 `../reference/implemented-proposals/`.
@@ -60,7 +65,6 @@ Remaining work belongs here when it adds or completes binary schema behavior
 for:
 
 - exact-width unsigned primitive families
-- visible flag bitset primitives and checked bit helpers
 - representation-only fixed or reserved bits
 - length-bounded `ByteView` fields and payload multiple validation
 - bounded `Repeat` fields
@@ -107,6 +111,8 @@ base case so helper derivation remains finite.
 - Schema-level `map to` syntax, mapping expressions, selected mappings,
   mapping projection diagnostics, or inverse projection rules.
 - General bitstream parsing outside the declared primitive vocabulary.
+- New visible flag wrappers or checked flag-helper families; the existing
+  family is removed by the dedicated bitwise-operator proposal.
 - Signed integers, floating-point encodings, variable-length integers, or text
   encodings before a concrete protocol slice requires them.
 - Protocol-state validation that belongs in ordinary source functions.
