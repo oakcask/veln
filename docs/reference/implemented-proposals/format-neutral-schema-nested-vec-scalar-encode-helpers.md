@@ -20,7 +20,8 @@ The helper preserves the schema-local visible record shape, returns
 producing binary bytes. Direct top-level `Vec<scalar>` fields continue to use
 the same existing helper boundary.
 
-This slice did not add recursive `Vec<T>` encode eligibility. The later
+At this historical slice, recursive `Vec<T>` encode eligibility was not yet
+available. The later
 bounded `Vec<Vec<scalar>>` slice is recorded in
 [Format-Neutral Schema Recursive Vec Scalar Encode Helpers](format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
 
@@ -30,15 +31,13 @@ bounded `Vec<Vec<scalar>>` slice is recorded in
   checks direct helper calls and explicit schema encode expressions over an
   anonymous record field containing `Vec<Int>`, `Vec<Bool>`, `Vec<Float>`, and
   `Vec<String>` fields.
-- `../../../examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`
-  keeps a three-deep `Vec<Vec<Vec<Int>>>` shape outside the generated encode
-  helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper resolution plus Core and IR lowering for nested anonymous-record
   `Vec<scalar>` fields.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-encode shapes, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

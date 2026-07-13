@@ -3,8 +3,8 @@
 Status: implemented
 
 This record preserves the completed format-neutral source ADT helper slice
-from `../../proposals/schema-declaration-surface.md`. Current
-behavior is specified by `../../specification/source-surface.md`,
+from `../../proposals/schema-declaration-surface.md`. Current behavior is
+specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 
 ## Outcome
@@ -26,11 +26,13 @@ targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 Format-neutral schemas without a `format` clause may also expose generated
 `byte_encode_<schema>` helpers and explicit `encode Schema from value` support
 for same-module source ADT fields and public imported source ADT fields
-referenced through written `use` paths. Encode support is narrower than decode:
-the source ADT constructor payloads must be supported format-neutral encode
-shapes. Unsupported constructor payloads, private imported source ADTs, missing
-paths, and non-ADT targets use the `schema.format_neutral_encode_helper`
-diagnostic family when the matching decode boundary is also unsupported.
+referenced through written `use` paths. Decode and encode validate source ADT
+constructor payloads with the same recursive visible-shape rule. Unsupported
+fields keep direction-specific diagnostic families: decode uses
+`schema.format_neutral_decode_helper`, while generated and explicit encode
+resolution uses `schema.format_neutral_encode_helper`. This historical slice's
+completed encode behavior is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
 
 ## Evidence
 
@@ -53,6 +55,8 @@ diagnostic family when the matching decode boundary is also unsupported.
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for arbitrary recursive
-format-neutral encode shapes, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+The recursive format-neutral encode boundary is complete and recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for binary schema
+fields outside the implemented helper slices and later schema composition
+surfaces.

@@ -338,6 +338,8 @@ behavior.
   [format-neutral-schema-result-container-encode-helpers.md](format-neutral-schema-result-container-encode-helpers.md).
 - Format-neutral schema encode helper diagnostics:
   [format-neutral-schema-encode-helper-diagnostics.md](format-neutral-schema-encode-helper-diagnostics.md).
+- Recursive format-neutral schema encode shapes:
+  [recursive-format-neutral-schema-encode-shapes.md](recursive-format-neutral-schema-encode-shapes.md).
 - Codec hand-written encode resume:
   [codec-hand-written-encode-resume.md](codec-hand-written-encode-resume.md).
 - Codec hand-written `NeedEnd` boundary:

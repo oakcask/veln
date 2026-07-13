@@ -20,7 +20,8 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice did not add arbitrary recursive encode eligibility. Shapes such
+At this historical slice, arbitrary recursive encode eligibility was not yet
+available. Shapes such
 as `Option<List<List<Int>>>`, `List<Option<Int>>`,
 `Dict<String, Option<Int>>`, and `Result<List<Int>, String>` were outside
 the generated format-neutral encode helper surface at this slice. Later
@@ -38,15 +39,13 @@ implemented proposal records.
 - `../../../examples/specification/run/format-neutral-schema-result-scalar-encode/`
   checks successful `Result<scalar, scalar>` fields, including `Ok` and `Err`
   payloads.
-- `../../../examples/specification/check/format-neutral-schema-container-encode-boundary/`
-  keeps an adjacent unsupported recursive container shape outside the encode
-  helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
-  checks generated helper resolution for accepted container encode shapes and
-  rejection of a deeper recursive container shape.
+  retains helper resolution coverage for these container shapes; deeper mixed
+  shapes are covered by the superseding recursive boundary record.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-encode shapes, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

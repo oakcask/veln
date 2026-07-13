@@ -21,7 +21,8 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice did not add arbitrary recursive format-neutral encode eligibility.
+At this historical slice, arbitrary recursive format-neutral encode eligibility
+was not yet available.
 Shapes such as `Dict<String, Option<Int>>`,
 `Option<Dict<String, Option<Int>>>`, `Option<Dict<String, List<Int>>>`, and
 non-string dictionary keys were outside the generated encode helper surface at
@@ -35,17 +36,16 @@ sibling implemented proposal record.
   over top-level and anonymous-record `Option<Dict<String, scalar>>` fields,
   including present and absent option payloads.
 - `../../../examples/specification/check/format-neutral-schema-option-dict-encode-boundary/`
-  checks that non-string dictionary keys and recursive dictionary values remain
-  outside the generated encode helper boundary.
+  checks that non-string dictionary keys remain outside the generated encode
+  helper boundary while nested eligible dictionary values are accepted.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   generated helper resolution for accepted top-level and record-shaped
-  option-dictionary encode fields, plus adjacent rejected dictionary
-  boundaries.
+  option-dictionary encode fields plus the current recursive dictionary
+  boundary.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond the implemented scalar, supported container,
-option-dictionary, scalar-result, result-option, anonymous record, and source
-ADT shapes, binary schema fields outside the implemented helper slices, and
-later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

@@ -20,25 +20,23 @@ The helper accepts the schema-local visible record shape, returns
 `Result<T, String>`, and preserves the supplied record on success without
 producing binary bytes.
 
-This slice does not add arbitrary recursive dictionary or vector encode
-eligibility. A later slice accepts `Dict<String, Vec<Option<scalar>>>`.
-Shapes such as `Dict<String, Vec<List<Int>>>` and non-string dictionary keys
-remain outside the generated encode helper surface.
+At this historical slice, arbitrary recursive dictionary or vector encode
+eligibility was not yet available. A later slice accepted
+`Dict<String, Vec<Option<scalar>>>`. Non-string dictionary keys remain outside
+the generated encode helper surface.
 
 ## Evidence
 
 - `../../../examples/specification/run/format-neutral-schema-dict-vec-scalar-encode/`
   checks successful direct helper calls and explicit schema encode expressions
   over `Dict<String, Vec<scalar>>` fields.
-- `../../../examples/specification/check/format-neutral-schema-dict-vec-encode-boundary/`
-  checks that `Dict<String, Vec<List<Int>>>` remains outside the generated
-  encode helper boundary and reports `schema.format_neutral_encode_helper`.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   generated helper resolution for all supported scalar vector dictionary
   values plus adjacent dictionary-vector coverage.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, arbitrary recursive format-neutral
-encode shapes, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

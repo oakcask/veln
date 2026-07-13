@@ -21,14 +21,12 @@ accepts the schema-local visible record shape, returns `Result<TRecord,
 String>`, and preserves the supplied record on success without producing
 binary bytes.
 
-This slice did not add arbitrary recursive `List<Option<T>>` encode
-eligibility. A later completed slice added the bounded
+At this historical slice, arbitrary recursive `List<Option<T>>` encode
+eligibility was not yet available. A later completed slice added the bounded
 `List<Option<List<scalar>>>` shape and is archived under
 [Format-Neutral Schema List Option List Encode Helpers](format-neutral-schema-list-option-list-encode-helpers.md).
-Shapes such as `List<Option<Dict<String, Int>>>` and
-`List<Option<Result<Int, String>>>` remain outside the generated encode helper
-boundary. Non-string dictionary keys remain outside the format-neutral visible
-shape boundary and are covered by existing dictionary boundary examples.
+Non-string dictionary keys remain outside the format-neutral visible shape
+boundary and are covered by existing dictionary boundary examples.
 
 ## Evidence
 
@@ -36,18 +34,15 @@ shape boundary and are covered by existing dictionary boundary examples.
   checks direct helper calls and explicit schema encode expressions over
   top-level and anonymous record `List<Option<scalar>>` fields, and later also
   checks the bounded `List<Option<List<scalar>>>` slice.
-- `../../../examples/specification/check/format-neutral-schema-list-option-encode-boundary/`
-  checks adjacent dictionary and result payloads inside `List<Option<T>>` stay
-  outside the generated encode helper boundary.
 - `../../../examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`
   keeps non-string dictionary keys outside the format-neutral helper surface.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper resolution, Core lowering, and IR lowering for all supported scalar
   option list fields.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for format-neutral encode
-helpers beyond the implemented scalar, supported container, dictionary,
-result, anonymous record, and source ADT shapes, binary schema fields outside
-the implemented helper slices, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

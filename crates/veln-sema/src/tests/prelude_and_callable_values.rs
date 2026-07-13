@@ -956,7 +956,7 @@ fn generated_schema_encode_helpers_resolve_from_nested_vec_scalar_encode_declara
 }
 
 #[test]
-fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_container_fields() {
+fn generated_format_neutral_schema_encode_helpers_accept_deep_recursive_container_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -964,7 +964,11 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_containe
             "  items: Option<List<List<Int>>>\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {items: Option<List<List<Int>>>}) -> Result<{items: Option<List<List<Int>>>}, String>\n",
+            "pub fn direct(packet: {items: Option<List<List<Int>>>}) -> Result<{items: Option<List<List<Int>>>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {items: Option<List<List<Int>>>}) -> Result<{items: Option<List<List<Int>>>}, String>\n",
             "  encode Packet from packet\n",
             "end\n",
         ),
@@ -974,15 +978,25 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_containe
 
     let lowered = lower_checked_surface_module(&module);
 
-    let diagnostic = lowered
-        .diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.id == "schema.encode_expression")
-        .expect("unsupported format-neutral encode helper should be rejected");
-    assert_eq!(
-        diagnostic.message,
-        "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
-    );
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
 }
 
 #[test]
@@ -1053,7 +1067,7 @@ fn generated_format_neutral_schema_encode_helpers_accept_nested_scalar_vec_field
 }
 
 #[test]
-fn generated_format_neutral_schema_encode_helpers_reject_three_deep_vec_fields() {
+fn generated_format_neutral_schema_encode_helpers_accept_three_deep_vec_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1071,15 +1085,23 @@ fn generated_format_neutral_schema_encode_helpers_reject_three_deep_vec_fields()
 
     let lowered = lower_checked_surface_module(&module);
 
-    let diagnostic = lowered
-        .diagnostics
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let function = ir
+        .functions
         .iter()
-        .find(|diagnostic| diagnostic.id == "schema.encode_expression")
-        .expect("unsupported format-neutral encode helper should be rejected");
-    assert_eq!(
-        diagnostic.message,
-        "schema encode expression cannot resolve `Packet` as an eligible schema encode helper"
-    );
+        .find(|function| function.name == "main")
+        .expect("function should be in IR");
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaNeutralEncode(name),
+            args,
+        } if name == "Packet" && args.len() == 1
+    ));
 }
 
 #[test]
@@ -1403,20 +1425,8 @@ fn generated_format_neutral_schema_encode_helpers_reject_dict_boundaries() {
     for (field_type, record_type) in [
         ("Dict<Int, String>", "{items: Dict<Int, String>}"),
         (
-            "Dict<String, Dict<String, Int>>",
-            "{items: Dict<String, Dict<String, Int>>}",
-        ),
-        (
-            "Dict<String, Vec<List<Int>>>",
-            "{items: Dict<String, Vec<List<Int>>>}",
-        ),
-        (
             "Option<Dict<Int, String>>",
             "{items: Option<Dict<Int, String>>}",
-        ),
-        (
-            "Option<Dict<String, Option<Int>>>",
-            "{items: Option<Dict<String, Option<Int>>>}",
         ),
     ] {
         let source = SourceFile::new(
@@ -1704,6 +1714,150 @@ fn generated_format_neutral_schema_encode_helpers_accept_same_module_source_adts
 }
 
 #[test]
+fn generated_format_neutral_schema_encode_helpers_accept_recursive_source_adts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Tree\n",
+            "  Leaf(value: Int)\n",
+            "  Branch(children: List<Tree>)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  forest: Option<Dict<String, Vec<List<Tree>>>>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {forest: Option<Dict<String, Vec<List<Tree>>>>}) -> Result<{forest: Option<Dict<String, Vec<List<Tree>>>>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {forest: Option<Dict<String, Vec<List<Tree>>>>}) -> Result<{forest: Option<Dict<String, Vec<List<Tree>>>>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_accept_recursive_source_adts_with_growing_type_arguments()
+ {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Growing<A>\n",
+            "  Stop(value: A)\n",
+            "  Next(value: Growing<Option<A>>)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: Growing<Int>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {payload: Growing<Int>}) -> Result<{payload: Growing<Int>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {payload: Growing<Int>}) -> Result<{payload: Growing<Int>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_recursive_source_adts_with_unsupported_changed_type_arguments()
+ {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Expanding<A>\n",
+            "  Next(value: Expanding<fn(Int) -> String>)\n",
+            "end\n",
+            "\n",
+            "schema BadPacket\n",
+            "  payload: Expanding<Int>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {payload: Expanding<Int>}) -> Result<{payload: Expanding<Int>}, String>\n",
+            "  byte_encode_bad_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {payload: Expanding<Int>}) -> Result<{payload: Expanding<Int>}, String>\n",
+            "  encode BadPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+    let field_span = module.schemas[0].fields[0].span.clone();
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.format_neutral_encode_helper")
+        .expect("unsupported recursive payload should be rejected");
+    assert_eq!(diagnostic.span, Some(field_span));
+    assert_eq!(
+        diagnostic.message,
+        "format-neutral schema field `payload` cannot expose a generated encode helper because `Expanding<Int>` is not a recursive format-neutral visible shape"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "unsupported schema must not lower to typed IR"
+    );
+}
+
+#[test]
 fn generated_format_neutral_schema_encode_helpers_accept_public_imported_source_adts() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -1797,13 +1951,12 @@ fn generated_format_neutral_schema_encode_helpers_reject_source_adts_with_unsupp
         .expect("unsupported format-neutral encode helper should be rejected");
     assert_eq!(
         diagnostic.message,
-        "format-neutral schema field `payload` cannot expose a generated encode helper because `CallbackPayload` is not a supported format-neutral encode shape"
+        "format-neutral schema field `payload` cannot expose a generated encode helper because `CallbackPayload` is not a recursive format-neutral visible shape"
     );
     assert!(diagnostic.related.iter().any(|related| {
         let related = related.to_json();
-        related.contains("Option<scalar>")
-            && related.contains("Option<List<scalar>>")
-            && related.contains("List<Option<List<scalar>>>")
+        related.contains("Option<T>")
+            && related.contains("Dict<String, T>")
             && related.contains("same-module or public imported source ADTs")
     }));
 }

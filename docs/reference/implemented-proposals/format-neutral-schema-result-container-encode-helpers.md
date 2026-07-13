@@ -20,7 +20,8 @@ The helper remains a validation/pass-through boundary over the supplied
 schema-local visible record shape. It returns `Result<TRecord, String>` and
 does not produce binary bytes.
 
-This slice does not add arbitrary recursive container encode eligibility.
+At this historical slice, arbitrary recursive container encode eligibility was
+not yet available.
 Function payloads, non-string dictionary keys, and result payloads that depend
 on the newly added result-container shape remain outside the generated encode
 helper boundary.
@@ -35,14 +36,15 @@ helper boundary.
   checks that direct and explicit encode paths preserve the schema-local
   visible record through the generated helper boundary.
 - `../../../examples/specification/check/format-neutral-schema-result-container-encode-boundary/case.toml`
-  checks that unsupported function payloads, non-string dictionary keys, and
-  recursive result-container payloads remain outside the helper boundary.
+  checks that unsupported function payloads and non-string dictionary keys
+  remain outside the helper boundary while nested eligible results are accepted.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs`
   checks generated helper IR lowering for the accepted result-container
   encode shapes.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, format-neutral encode shapes beyond the
-implemented supported-shape boundary, and later schema composition surfaces.
+The completed recursive eligibility rule is recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for its binary
+helper and later schema-composition work.

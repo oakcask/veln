@@ -9,15 +9,3 @@ end
 fn explicit_key(packet: {items: Dict<Int, String>}) -> Result<{items: Dict<Int, String>}, String>
 	encode UnsupportedKeyPacket from packet
 end
-
-schema UnsupportedNestedDictValuePacket
-	items: Dict<String, Dict<String, Int>>
-end
-
-fn direct_value(packet: {items: Dict<String, Dict<String, Int>>}) -> Result<{items: Dict<String, Dict<String, Int>>}, String>
-	byte_encode_unsupported_nested_dict_value_packet(packet)
-end
-
-fn explicit_value(packet: {items: Dict<String, Dict<String, Int>>}) -> Result<{items: Dict<String, Dict<String, Int>>}, String>
-	encode UnsupportedNestedDictValuePacket from packet
-end

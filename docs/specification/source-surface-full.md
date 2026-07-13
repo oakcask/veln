@@ -39,19 +39,12 @@ recursive visible shapes made from scalar leaves, anonymous record fields,
 payloads are recursive visible shapes. Same-module source ADTs and public
 imported source ADTs referenced through written `use` paths are supported in
 those positions when every constructor payload is a recursive visible shape.
-Format-neutral generated encode helpers are limited to scalar leaves and
-`Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
-`List<Option<scalar>>`, `List<Option<List<scalar>>>`, `Vec<scalar>`,
-`Vec<Option<scalar>>`, `Vec<Vec<scalar>>`, `Dict<String, scalar>`,
-`Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
-`Dict<String, Vec<scalar>>`, `Dict<String, Vec<Option<scalar>>>`,
-`Option<Dict<String, scalar>>`,
-`Result<Ok, Err>` when both payloads are
-supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
-`Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each result
-payload is a supported format-neutral encode shape, or anonymous record fields
-whose fields are supported format-neutral encode shapes. The supported scalar leaves are
-`Int`, `Bool`, `Float`, and `String`.
+Format-neutral generated encode helpers use the same recursive visible-shape
+boundary: `Int`, `Bool`, `Float`, and `String` leaves, anonymous records,
+`Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and
+eligible same-module or public imported source ADTs. Every recursively visited
+child or constructor payload must also be eligible; container depth is not
+otherwise limited.
 
 ## Executable Grammar
 

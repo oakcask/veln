@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "format-neutral schema field `items` cannot expose a generated decode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape", "unresolved call_target `byte_encode_unsupported_key_packet`", "unresolved call_target `byte_encode_unsupported_nested_dict_value_packet`", "schema encode expression cannot resolve `UnsupportedKeyPacket` as an eligible schema encode helper", "schema encode expression cannot resolve `UnsupportedNestedDictValuePacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"schema.format_neutral_encode_helper\"", "\"id\":\"name.unresolved\"", "\"id\":\"schema.encode_expression\"", "format-neutral schema field `items` cannot expose a generated decode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape", "format-neutral schema field `items` cannot expose a generated encode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape", "unresolved call_target `byte_encode_unsupported_key_packet`", "schema encode expression cannot resolve `UnsupportedKeyPacket` as an eligible schema encode helper", "\"reason\":\"unresolved_schema\""]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 4
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
@@ -29,19 +29,13 @@ kind = "name"
 message = "unresolved call_target `byte_encode_unsupported_key_packet`"
 
 [[diagnostics]]
+id = "schema.format_neutral_encode_helper"
+severity = "error"
+kind = "type"
+message = "format-neutral schema field `items` cannot expose a generated encode helper because `Dict<Int, String>` is not a recursive format-neutral visible shape"
+
+[[diagnostics]]
 id = "schema.encode_expression"
 severity = "error"
 kind = "type"
 message = "schema encode expression cannot resolve `UnsupportedKeyPacket` as an eligible schema encode helper"
-
-[[diagnostics]]
-id = "name.unresolved"
-severity = "error"
-kind = "name"
-message = "unresolved call_target `byte_encode_unsupported_nested_dict_value_packet`"
-
-[[diagnostics]]
-id = "schema.encode_expression"
-severity = "error"
-kind = "type"
-message = "schema encode expression cannot resolve `UnsupportedNestedDictValuePacket` as an eligible schema encode helper"

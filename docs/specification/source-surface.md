@@ -62,26 +62,12 @@ shape; private imported source ADTs, missing paths, non-ADT targets, and source
 ADTs with unsupported payloads remain unsupported helper fields and are
 declaration diagnostics.
 Format-neutral generated encode helpers are exposed only for schemas without a
-`format` clause whose fields are scalar leaves, `Option<scalar>` fields,
-`Option<List<scalar>>` fields, `List<scalar>` fields,
-`List<Option<scalar>>` fields, `List<Option<List<scalar>>>` fields,
-`Vec<scalar>` fields,
-`Vec<Option<scalar>>` fields,
-`Vec<Vec<scalar>>` fields,
-`Dict<String, scalar>` fields, `Dict<String, Option<scalar>>` fields,
-`Dict<String, List<scalar>>` fields,
-`Dict<String, Vec<scalar>>` fields,
-`Dict<String, Vec<Option<scalar>>>` fields,
-`Option<Dict<String, scalar>>` fields, `Result<Ok, Err>` fields when both
-payloads are supported format-neutral encode shapes,
-`List<Result<Ok, Err>>`, `Vec<Result<Ok, Err>>`, and
-`Dict<String, Result<Ok, Err>>` fields when each result payload is a supported
-format-neutral encode shape, or anonymous record fields whose fields are
-supported format-neutral encode shapes.
-Same-module source ADT fields and public imported source ADT fields referenced
-through written `use` paths are also supported when every constructor payload
-is a supported format-neutral encode shape. The supported scalar leaves are
-`Int`, `Bool`, `Float`, and `String`.
+`format` clause whose fields are recursive visible shapes made from `Int`,
+`Bool`, `Float`, and `String` leaves, anonymous records, `Option<T>`, `List<T>`,
+`Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible same-module or
+public imported source ADTs referenced through written `use` paths. Every
+recursively visited child or constructor payload must also be eligible. There
+is no separate container-depth limit.
 When present, the single `format binary` clause must appear before schema
 fields.
 
@@ -158,22 +144,11 @@ record shape for eligible binary schemas and returns
 `Result<ByteChunk, EncodeError>`. For format-neutral schemas without a
 `format` clause, the same expression accepts and returns the schema-local
 visible record shape as `Result<T, String>` without producing binary bytes
-when every field is one of the supported format-neutral encode shapes:
-scalar leaves, `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
-`List<Option<scalar>>`, `List<Option<List<scalar>>>`, `Vec<scalar>`,
-`Vec<Option<scalar>>`, `Vec<Vec<scalar>>`,
-`Dict<String, scalar>`,
-`Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
-`Dict<String, Vec<scalar>>`,
-`Dict<String, Vec<Option<scalar>>>`,
-`Option<Dict<String, scalar>>`, `Result<Ok, Err>` when both payloads are
-supported format-neutral encode shapes, `List<Result<Ok, Err>>`,
-`Vec<Result<Ok, Err>>`, and `Dict<String, Result<Ok, Err>>` when each result
-payload is a supported format-neutral encode shape, or anonymous record fields
-whose fields are supported format-neutral encode shapes, including those same
-result-container shapes, plus same-module source ADT fields and public
-imported source ADT fields referenced through written `use` paths when every
-constructor payload is a supported format-neutral encode shape.
+when every field is a recursive visible shape made from the supported scalar
+leaves, anonymous records, `Option<T>`, `List<T>`, `Vec<T>`,
+`Dict<String, T>`, `Result<Ok, Err>`, and eligible same-module or public
+imported source ADTs. Every recursively visited child or constructor payload
+must also be eligible.
 Qualified public schema paths are accepted when the imported schema or public
 schema alias is visible.
 The executable coverage is
@@ -199,8 +174,9 @@ coverage is
 `examples/specification/run/format-neutral-schema-result-option-encode/`,
 `examples/specification/run/format-neutral-schema-recursive-result-encode/`,
 `examples/specification/run/format-neutral-schema-result-container-encode/`,
-and
-`examples/specification/run/format-neutral-schema-source-adt-encode/`. The
+`examples/specification/run/format-neutral-schema-source-adt-encode/`, and
+`examples/specification/run/format-neutral-schema-recursive-encode-shapes/`.
+The
 HTTP/2 frame header schema boundary is checked through explicit decode
 operations under
 `examples/specification/run/binary-schema-frame-header-decode/`,
@@ -245,21 +221,16 @@ The checked format-neutral generated helper cases are
 `examples/specification/run/format-neutral-schema-result-container-encode/`,
 `examples/specification/run/format-neutral-schema-source-adt-encode/`,
 `examples/specification/run/format-neutral-schema-dict-vec-option-encode/`,
-`examples/specification/check/format-neutral-schema-container-encode-boundary/`,
+`examples/specification/run/format-neutral-schema-recursive-encode-shapes/`,
 `examples/specification/check/format-neutral-schema-recursive-result-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-result-container-encode-fields/`,
 `examples/specification/check/format-neutral-schema-result-container-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-list-scalar-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-list-option-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-dict-vec-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-option-dict-encode-boundary/`,
 `examples/specification/check/format-neutral-schema-vec-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-fields/`,
 `examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics/`,
 `examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics-human/`,
-`examples/specification/check/format-neutral-schema-container-encode-boundary-human/`,
 and
 `examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`.
 Schema-level `map to` clauses, selected

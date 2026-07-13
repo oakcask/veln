@@ -28,11 +28,13 @@ implemented proposal records.
   checks direct helper calls and explicit schema encode expressions over a
   scalar-only format-neutral schema.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
-  helper signature generation, Core and IR lowering, and rejection of
-  container-shaped format-neutral encode helpers.
+  helper signature generation, Core and IR lowering, and the superseding
+  recursive visible-shape eligibility rule.
 
-## Remaining Work
+## Superseding Work
 
-The broader schema declaration proposal remains open for arbitrary recursive
-format-neutral encode shapes, binary schema fields outside the implemented
-helper slices, and later schema composition surfaces.
+The recursive format-neutral encode boundary is complete and recorded in
+[Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
+The broader schema declaration proposal remains open only for binary schema
+fields outside the implemented helper slices and later schema composition
+surfaces.
