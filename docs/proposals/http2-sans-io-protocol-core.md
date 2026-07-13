@@ -893,17 +893,18 @@ table state in ordinary Veln values, plus source-visible dynamic-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 receive paths whose names come from the carried bounded dynamic table,
 including Huffman-marked values decoded by the checked HPACK Huffman boundary.
-The remaining HPACK work in this proposal starts after the fixture boundary
-and the source-visible static decoder and Huffman boundary records archived
+The remaining HPACK work in this proposal starts after the fixture boundary,
+the production outbound ordered header-list encoder, and the source-visible
+static decoder and Huffman boundary records archived
 under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md),
 [HTTP/2 HPACK Huffman Decode Boundary](../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md),
 and
 [HTTP/2 HPACK Huffman Encode Boundary](../reference/implemented-proposals/http2-hpack-huffman-encode-boundary.md):
-full HPACK compression, unbounded dynamic-table behavior, HPACK behavior beyond
-the checked fixture string literal, bounded source-visible static-name
-literals outside the completed decode and outbound helper slices, broader
-outbound behavior beyond the checked fixture encoder boundaries named above,
+HPACK behavior beyond the checked supported-string boundary, source-visible
+static-name literals outside the completed decode and outbound helper slices,
+automatic outbound Huffman selection beyond the explicit supported-string
+boundary,
 outbound table-size behavior beyond the checked fixture encoder update,
 zero-capacity insertion, and reduced-capacity insertion boundaries, and
 production header validation beyond
@@ -1123,7 +1124,7 @@ installation, rejects a third update as misplaced, and keeps the input state
 unchanged on the first excessive, malformed, or misplaced update through
 standalone HPACK, completed HEADERS, and final CONTINUATION paths. Another
 same-shaped update-count extension is not planned; broader support requires
-the later full HPACK compression policy.
+the later general inbound HPACK update-sequence policy.
 Completed source-visible HPACK static decode slices are archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md)
 and
@@ -1205,15 +1206,23 @@ It selects exact static, exact dynamic, static-name literal, dynamic-name
 literal, and new-name literal representations in deterministic order across
 two-header lists, carries bounded state between blocks, and routes selected
 blocks through outbound HEADERS.
+The completed production ordered header-list encoder is archived under
+[HTTP/2 Production Outbound HPACK Header-List Encoding](../reference/implemented-proposals/http2-production-outbound-hpack-header-list-encoding.md).
+It replaces the fixed two-header selection boundary with a recursive ordinary
+value, carries byte-accounted dynamic state across arbitrary finite blocks,
+and routes request and response HEADERS plus server-side `PUSH_PROMISE`
+through the existing CONTINUATION framing paths. Encoding failures expose no
+partial frame output or committed state.
 
 The remaining scope below is still planned work for the full protocol core and
-full HPACK behavior beyond the bounded source-visible integer, static,
+remaining HPACK behavior beyond the source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
 Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value,
 outbound dynamic-name Huffman-value, outbound Huffman literal-name, and
-bounded outbound representation selection, and dynamic-table accounting core
-slices. Full or unbounded compression policy remains planned; another
-same-shaped bounded selector is not a follow-up target.
+production outbound ordered-list representation selection, and dynamic-table
+accounting core slices. Automatic Huffman selection and unsupported string
+coverage remain planned; another same-shaped list-width extension is not a
+follow-up target.
 
 ## Completion Criteria
 
