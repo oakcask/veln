@@ -46,13 +46,6 @@ ordinary-source decode-state slices. Planned coverage still includes:
   send-intent rejection above received or locally sent GOAWAY boundaries,
   half-closed-local inbound DATA receive after local `END_STREAM`, and
   outbound DATA on a closed-by-peer stream before local `END_STREAM`
-- remaining outbound flow control and broader stream-window interactions
-  beyond the implemented outbound DATA send-intent splitting and PADDED DATA
-  send-intent slices, outbound DATA send-window accounting, outbound
-  DATA send-credit refill from peer `WINDOW_UPDATE`, outbound `RST_STREAM`
-  reset send intent, inbound DATA, stream-level `WINDOW_UPDATE`, outbound
-  `WINDOW_UPDATE` receive-credit intent, and `SETTINGS_INITIAL_WINDOW_SIZE`
-  receive-window accounting and outbound send-window delta accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive
   lifecycle, repeated outbound GOAWAY send-intent boundary,
   outbound GOAWAY send-intent state, and outbound HEADERS, DATA,
@@ -559,17 +552,21 @@ matching outbound DATA send credit after a no-output over-window rejection,
 while a local outbound `WINDOW_UPDATE` intent updates receive credit only and
 does not make later outbound DATA fit.
 Received peer `SETTINGS_INITIAL_WINDOW_SIZE` changes now also apply their delta
-to tracked open outbound stream send credit. A smaller advertised value can
-make existing stream send credit negative and reject the same DATA intent
-through the existing no-output stream send-window shape; a later stream-level
-peer `WINDOW_UPDATE` can restore enough credit for that DATA to emit bytes
-again, and a larger advertised value raises the existing send credit by the
-same delta.
+to every tracked open outbound stream. The list-backed stream representation
+has no fixture arity limit. DATA debit selects one stream while preserving all
+other stream windows, lifecycle states, and optional `content-length` facts;
+connection credit remains shared. A smaller advertised value can make one or
+more stream credits negative, and a later stream-level peer `WINDOW_UPDATE`
+restores only its matching stream. The checked three-stream evidence also
+preserves zero-increment, overflow, unknown-stream, closed-stream, and
+reset-stream rejection without credit mutation.
 The completed half-closed-by-peer outbound DATA send-intent slice is archived
 under
 `../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md`.
 The completed outbound DATA flow-control send-window slice is archived under
 `../reference/implemented-proposals/http2-outbound-data-flow-control.md`.
+The completed multi-stream outbound flow-control slice is archived under
+`../reference/implemented-proposals/http2-multi-stream-outbound-flow-control.md`.
 The completed outbound DATA post-GOAWAY send-intent boundary is archived under
 `../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md`.
 The implemented outbound HEADERS send-intent slice also observes received and

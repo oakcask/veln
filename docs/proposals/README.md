@@ -702,6 +702,9 @@ compare it with `../specification/` before changing behavior.
   The completed outbound DATA send-credit refill from peer `WINDOW_UPDATE` and
   `SETTINGS_INITIAL_WINDOW_SIZE` delta slices are covered by
   [HTTP/2 Outbound DATA Flow Control](../reference/implemented-proposals/http2-outbound-data-flow-control.md).
+  The completed list-backed multi-stream outbound DATA credit slice is
+  archived under
+  [HTTP/2 Multi-Stream Outbound Flow Control](../reference/implemented-proposals/http2-multi-stream-outbound-flow-control.md).
   The completed flow-control numeric domain-type slice is archived under
   [HTTP/2 Flow-Control Numeric Domain Types](../reference/implemented-proposals/http2-flow-control-numeric-domain-types.md).
   The completed outbound DATA post-GOAWAY send-intent boundary is archived
