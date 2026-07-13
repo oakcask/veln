@@ -658,6 +658,8 @@ compare it with `../specification/` before changing behavior.
   unbounded dynamic-table behavior.
   The completed stream-identifier domain-value slice is archived under
   [HTTP/2 Stream Domain Values](../reference/implemented-proposals/http2-stream-domain-values.md).
+  The completed client promised stream id ordering slice is archived under
+  [HTTP/2 Client Promised Stream ID Ordering](../reference/implemented-proposals/http2-client-promised-stream-id-ordering.md).
   The completed server-side peer-created stream id ordering slice is archived
   under
   [HTTP/2 Peer-Created Stream ID Ordering](../reference/implemented-proposals/http2-peer-created-stream-id-ordering.md).

@@ -971,13 +971,18 @@ peer-created stream ordering slice uses id
 `byte_offset.value`, `stream_id`, `stream_ref`,
 `previous_peer_stream_id`, `endpoint_role`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` of the attempted
-HEADERS frame header. Source-visible
+HEADERS or `PUSH_PROMISE` frame header. Source-visible
 `RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(...)` payloads keep
 the rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the
 same fields. Focused human and JSON examples are under
 `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
 and
 `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.
+The client promised-stream ordering projection reuses the same payload and
+fields with endpoint role `client`; focused human and JSON examples are under
+`examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
+and
+`examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
 The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,

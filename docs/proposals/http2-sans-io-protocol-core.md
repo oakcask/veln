@@ -853,6 +853,8 @@ disable-push receive policy: after the client sends local
 `SETTINGS_ENABLE_PUSH = 0`, a peer-sent `PUSH_PROMISE` is rejected before
 promised-stream reservation through the existing invalid frame-kind diagnostic
 family with local settings provenance.
+The completed client promised stream id ordering slice is archived under
+[HTTP/2 Client Promised Stream ID Ordering](../reference/implemented-proposals/http2-client-promised-stream-id-ordering.md).
 
 The remaining scope below is still planned work for the full protocol core.
 

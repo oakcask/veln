@@ -1030,10 +1030,10 @@ end
 
 fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, peer_stream_admission: PeerStreamAdmissionState, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
-	match validate_peer_stream_id_order(frame_offset, length, kind, flags, stream_id, state_peer_settings(consumed_state), state_receive_flow_control(consumed_state))?
+	match validate_peer_stream_id_order(frame_offset, length, kind, flags, stream_id, completed_promised_stream_id, state_peer_settings(consumed_state), state_receive_flow_control(consumed_state))?
 		PeerStreamOrderingOk => match update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state), peer_stream_admission)?
 			ReceiveFlowControlOk(next_receive_flow_control) => match update_shutdown_state(pending, frame_offset, length, kind, state_shutdown_state_value(consumed_state), next_receive_flow_control)?
-				ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), record_peer_created_stream_id(kind, stream_id, state_receive_flow_control(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?), next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?, update_peer_stream_admission(kind, stream_id, completed_is_trailer, state_receive_flow_control(consumed_state), peer_stream_admission)), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+				ShutdownStateOk(next_shutdown_state) => Ok(FrameDecoded(State(state_pending_chunk(consumed_state), state_next_offset(consumed_state), AfterPreface, next_continuation, next_hpack_state, state_receive_limit(consumed_state), record_peer_created_stream_id(kind, stream_id, completed_promised_stream_id, state_receive_flow_control(consumed_state), update_peer_settings(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state))?), next_shutdown_state, update_initial_window_receive_credit(pending, frame_offset, length, kind, flags, state_peer_settings(consumed_state), next_receive_flow_control)?, update_peer_stream_admission(kind, stream_id, completed_is_trailer, state_receive_flow_control(consumed_state), peer_stream_admission)), frame_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 				ShutdownStateFailed(error) => Ok(Failed(consumed_state, error))
 			end
 			ReceiveFlowControlFailed(error) => match error
@@ -1048,9 +1048,9 @@ fn complete_after_header_list_size(pending: ByteChunk, next_continuation: Pendin
 	end
 end
 
-fn validate_peer_stream_id_order(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<PeerStreamOrderingDecision, String>
+fn validate_peer_stream_id_order(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<PeerStreamOrderingDecision, String>
 	match kind == 1 and stream_id_is_client_initiated(stream_id) and not receive_flow_control_tracks_stream(stream_id, receive_flow_control)
-		false => Ok(PeerStreamOrderingOk)
+		false => validate_promised_stream_id_order(offset, length, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
 		true => match stream_id <= highest_peer_created_stream_id(peer_settings)
 			false => Ok(PeerStreamOrderingOk)
 			true => Ok(PeerStreamOrderingFailed(PeerStreamIdNotIncreasing(offset, stream_id, highest_peer_created_stream_id(peer_settings), "server", "idle-stream", "rfc9113_peer_stream_ids_increase", byte_view_to_chunk(frame_header_preview(length, kind, flags, stream_id)?))))
@@ -1061,6 +1061,16 @@ end
 fn peer_stream_admission_rejected_state(pending: ByteChunk, frame_offset: Int, consumed_state: Http2DecodeState, peer_stream_admission: PeerStreamAdmissionState) -> Http2DecodeState
 	match consumed_state
 		State(_, _, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, _) => State(pending, frame_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+	end
+end
+
+fn validate_promised_stream_id_order(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<PeerStreamOrderingDecision, String>
+	match promised_stream_id > 0 and not receive_flow_control_tracks_stream(promised_stream_id, receive_flow_control)
+		false => Ok(PeerStreamOrderingOk)
+		true => match promised_stream_id <= highest_peer_created_stream_id(peer_settings)
+			false => Ok(PeerStreamOrderingOk)
+			true => Ok(PeerStreamOrderingFailed(PeerStreamIdNotIncreasing(offset, promised_stream_id, highest_peer_created_stream_id(peer_settings), "client", "idle-stream", "rfc9113_peer_stream_ids_increase", byte_view_to_chunk(frame_header_preview(length, kind, flags, stream_id)?))))
+		end
 	end
 end
 
@@ -1083,10 +1093,17 @@ fn highest_peer_created_stream_id(peer_settings: PeerSettingsState) -> Int
 	end
 end
 
-fn record_peer_created_stream_id(kind: Int, stream_id: Int, previous_receive_flow_control: ReceiveFlowControl, peer_settings: PeerSettingsState) -> PeerSettingsState
+fn record_peer_created_stream_id(kind: Int, stream_id: Int, promised_stream_id: Int, previous_receive_flow_control: ReceiveFlowControl, peer_settings: PeerSettingsState) -> PeerSettingsState
 	match kind == 1 and stream_id_is_client_initiated(stream_id) and not receive_flow_control_tracks_stream(stream_id, previous_receive_flow_control)
-		false => peer_settings
+		false => record_promised_stream_id(promised_stream_id, previous_receive_flow_control, peer_settings)
 		true => with_highest_peer_created_stream_id(peer_settings, stream_id)
+	end
+end
+
+fn record_promised_stream_id(promised_stream_id: Int, previous_receive_flow_control: ReceiveFlowControl, peer_settings: PeerSettingsState) -> PeerSettingsState
+	match promised_stream_id > 0 and not receive_flow_control_tracks_stream(promised_stream_id, previous_receive_flow_control)
+		false => peer_settings
+		true => with_highest_peer_created_stream_id(peer_settings, promised_stream_id)
 	end
 end
 
@@ -4143,8 +4160,11 @@ end
 
 fn reserve_push_promise_stream(offset: Int, stream_id: Int, promised_stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match receive_flow_control
-		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, _)) => match stream_id == open_stream_id
-			true => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id))))
+		ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, current_promised_stream_id)) => match stream_id == open_stream_id
+			true => match promised_stream_id == current_promised_stream_id and promised_stream_id > 0
+				true => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 5, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_rejects_repeated_push_promise")))
+				false => Ok(ReceiveFlowControlOk(ReceiveFlowControl(connection_window, ClientPushAssociatedStreamReceiveWindow(open_stream_id, stream_window, priority, promised_stream_id))))
+			end
 			false => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 5, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		end
 		ReceiveFlowControl(_, _) => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 5, stream_id, 1, "server-receive", "server_receives_no_push_promise")))
@@ -5115,6 +5135,13 @@ end
 
 fn state_highest_peer_created_stream_id(state: Http2DecodeState) -> Int
 	highest_peer_created_stream_id(state_peer_settings(state))
+end
+
+fn state_promised_stream_id(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, _, _, _, ReceiveFlowControl(_, ClientPushAssociatedStreamReceiveWindow(_, _, _, promised_stream_id)), _) => promised_stream_id
+		State(_, _, _, _, _, _, _, _, _, _) => 0
+	end
 end
 
 fn state_hpack_fixture_state(state: Http2DecodeState) -> HpackFixtureState
@@ -9276,6 +9303,35 @@ fn require_failure_with_id(label: String, step: Http2Step, expected_id: String) 
 	end
 end
 
+fn require_client_push_equal_int(label: String, actual: Int, expected: Int) -> Result<(), String>
+	match actual == expected
+		true => Ok(())
+		false => Err(label)
+	end
+end
+
+fn require_client_push_equal_string(label: String, actual: String, expected: String) -> Result<(), String>
+	match actual == expected
+		true => Ok(())
+		false => Err(label)
+	end
+end
+
+fn require_client_push_ordering_rejection_preserves_state(label: String, before_state: Http2DecodeState, after_state: Http2DecodeState) -> Result<(), String>
+	let before_hpack: HpackFixtureState = state_hpack_fixture_state(before_state)
+	let after_hpack: HpackFixtureState = state_hpack_fixture_state(after_state)
+	let ignored_high_water: () = require_client_push_equal_int(label, state_highest_peer_created_stream_id(after_state), state_highest_peer_created_stream_id(before_state))?
+	let ignored_promised_stream: () = require_client_push_equal_int(label, state_promised_stream_id(after_state), state_promised_stream_id(before_state))?
+	let ignored_connection_window: () = require_client_push_equal_int(label, state_connection_window(after_state), state_connection_window(before_state))?
+	let ignored_stream_window: () = require_client_push_equal_int(label, state_stream_window(after_state), state_stream_window(before_state))?
+	let ignored_hpack_table_size: () = require_client_push_equal_int(label, hpack_fixture::state_table_size(after_hpack), hpack_fixture::state_table_size(before_hpack))?
+	let ignored_hpack_decode_count: () = require_client_push_equal_int(label, hpack_fixture::state_decode_count(after_hpack), hpack_fixture::state_decode_count(before_hpack))?
+	let ignored_hpack_dynamic_entries: () = require_client_push_equal_int(label, hpack_fixture::state_dynamic_table_entry_count(after_hpack), hpack_fixture::state_dynamic_table_entry_count(before_hpack))?
+	let ignored_shutdown_label: () = require_client_push_equal_string(label, state_shutdown_label(after_state), state_shutdown_label(before_state))?
+	let ignored_shutdown_last_stream: () = require_client_push_equal_int(label, state_shutdown_last_stream_id(after_state), state_shutdown_last_stream_id(before_state))?
+	require_client_push_equal_int(label, state_shutdown_error_code(after_state), state_shutdown_error_code(before_state))
+end
+
 fn require_request_header_failure_fact(label: String, step: Http2Step, expected_fact: String) -> Result<(), String>
 	match step
 		FrameDecoded(_, _, _, _, _, _, _, _) => Err(label)
@@ -11625,6 +11681,34 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_accepted_header_block: () = emit_header_block("http2-client-push-promise-header-block", client_push_promise_accepted, "303132")?
 	print_hpack_transition("client-push-promise-accepted", client_push_promise_accepted)
 	print_reserved_by_peer_stream("client-push-promise-accepted", step_state(client_push_promise_accepted))
+	print_peer_stream_high_water("client-push-promise-accepted", step_state(client_push_promise_accepted))
+	let client_push_promise_increasing: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000004303132")?), step_state(client_push_promise_accepted))?
+	print_step("client-push-promise-increasing", client_push_promise_increasing)
+	print_reserved_by_peer_stream("client-push-promise-increasing", step_state(client_push_promise_increasing))
+	print_peer_stream_high_water("client-push-promise-increasing", step_state(client_push_promise_increasing))
+	let client_push_promise_lower_untracked: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000002303132")?), step_state(client_push_promise_increasing))?
+	print_failure("client-push-promise-lower-untracked", client_push_promise_lower_untracked)
+	let ignored_client_push_promise_lower_untracked: () = require_failure_with_id("client promised lower untracked id must fail ordering", client_push_promise_lower_untracked, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_client_push_promise_lower_state: () = require_client_push_ordering_rejection_preserves_state("client promised lower rejection changed connection state", step_state(client_push_promise_increasing), step_state(client_push_promise_lower_untracked))?
+	print_reserved_by_peer_stream("client-push-promise-lower-untracked", step_state(client_push_promise_lower_untracked))
+	print_peer_stream_high_water("client-push-promise-lower-untracked", step_state(client_push_promise_lower_untracked))
+	let client_push_promise_repeated_tracked: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000004303132")?), step_state(client_push_promise_increasing))?
+	print_failure("client-push-promise-repeated-tracked", client_push_promise_repeated_tracked)
+	let ignored_client_push_promise_repeated_tracked: () = require_failure_with_id("client promised tracked reuse must follow lifecycle", client_push_promise_repeated_tracked, "http2.protocol.invalid_frame_kind")?
+	let client_push_promise_lower_malformed_hpack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005050400000001000000027f")?), step_state(client_push_promise_increasing))?
+	print_failure("client-push-promise-lower-malformed-hpack", client_push_promise_lower_malformed_hpack)
+	let ignored_client_push_promise_lower_malformed_hpack: () = require_failure_with_id("client promised malformed HPACK must precede ordering", client_push_promise_lower_malformed_hpack, "hpack.fixture.unsupported_header_block")?
+	let client_push_promise_lower_invalid_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080504000000010000000232333435")?), step_state(client_push_promise_increasing))?
+	print_request_header_failure("client-push-promise-lower-invalid-headers", client_push_promise_lower_invalid_headers)
+	let ignored_client_push_promise_lower_invalid_headers: () = require_request_header_failure_fact("client promised invalid request headers must precede ordering", client_push_promise_lower_invalid_headers, "response_only_pseudo_header")?
+	let client_push_promise_higher_invalid_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080504000000010000000632333435")?), step_state(client_push_promise_increasing))?
+	print_request_header_failure("client-push-promise-higher-invalid-headers", client_push_promise_higher_invalid_headers)
+	let ignored_client_push_promise_higher_invalid_headers: () = require_request_header_failure_fact("client promised higher invalid request headers must fail validation", client_push_promise_higher_invalid_headers, "response_only_pseudo_header")?
+	let ignored_client_push_promise_higher_invalid_state: () = require_client_push_ordering_rejection_preserves_state("client promised rejected higher header list changed connection state", step_state(client_push_promise_increasing), step_state(client_push_promise_higher_invalid_headers))?
+	let client_push_promise_higher_retry: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000006303132")?), step_state(client_push_promise_higher_invalid_headers))?
+	print_step("client-push-promise-higher-retry", client_push_promise_higher_retry)
+	print_reserved_by_peer_stream("client-push-promise-higher-retry", step_state(client_push_promise_higher_retry))
+	print_peer_stream_high_water("client-push-promise-higher-retry", step_state(client_push_promise_higher_retry))
 	let client_push_promise_regular_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007050400000001000000023b3c3d")?), client_push_state)?
 	print_step("client-push-promise-regular-accepted", client_push_promise_regular_accepted)
 	let ignored_regular_accepted_header_block: () = emit_header_block("http2-client-push-promise-regular-header-block", client_push_promise_regular_accepted, "3b3c3d")?
@@ -11651,11 +11735,18 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_promised_headers_block: () = emit_header_block("http2-client-push-promised-headers", client_push_promised_headers, "353637")?
 	print_hpack_transition("client-push-promised-headers", client_push_promised_headers)
 	print_two_peer_streams("client-push-promised-headers", step_state(client_push_promised_headers))
+	print_peer_stream_high_water("client-push-promised-headers", step_state(client_push_promised_headers))
 	let client_push_promised_headers_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000002353637")?), step_state(client_push_promise_accepted))?
 	print_step("client-push-promised-headers-end-stream", client_push_promised_headers_end_stream)
 	let ignored_promised_headers_end_stream_block: () = emit_header_block("http2-client-push-promised-headers-end-stream", client_push_promised_headers_end_stream, "353637")?
 	print_hpack_transition("client-push-promised-headers-end-stream", client_push_promised_headers_end_stream)
 	print_closed_by_peer_stream("client-push-promised-headers-end-stream", step_state(client_push_promised_headers_end_stream))
+	print_peer_stream_high_water("client-push-promised-headers-end-stream", step_state(client_push_promised_headers_end_stream))
+	let client_push_promised_open_for_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000002353637")?), step_state(client_push_promise_accepted))?
+	let client_push_promised_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000403000000000200000008")?), step_state(client_push_promised_open_for_reset))?
+	print_step("client-push-promised-reset", client_push_promised_reset)
+	print_rst_stream("client-push-promised-reset", client_push_promised_reset)
+	print_peer_stream_high_water("client-push-promised-reset", step_state(client_push_promised_reset))
 	let client_push_promised_data_before_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000000000002aa")?), step_state(client_push_promise_accepted))?
 	print_failure("client-push-promised-data-before-headers", client_push_promised_data_before_headers)
 	let client_push_promise_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006050000000001000000023031")?), client_push_state)?
@@ -11665,6 +11756,12 @@ fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let ignored_continuation_header_block: () = emit_header_block("http2-client-push-promise-continuation-header-block", client_push_promise_continuation_done, "303132")?
 	print_hpack_transition("client-push-promise-continuation-done", client_push_promise_continuation_done)
 	print_reserved_by_peer_stream("client-push-promise-continuation-done", step_state(client_push_promise_continuation_done))
+	print_peer_stream_high_water("client-push-promise-continuation-done", step_state(client_push_promise_continuation_done))
+	let client_push_promise_increasing_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006050000000001000000043031")?), step_state(client_push_promise_accepted))?
+	let client_push_promise_increasing_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(client_push_promise_increasing_continuation_start))?
+	print_step("client-push-promise-increasing-continuation", client_push_promise_increasing_continuation_done)
+	print_reserved_by_peer_stream("client-push-promise-increasing-continuation", step_state(client_push_promise_increasing_continuation_done))
+	print_peer_stream_high_water("client-push-promise-increasing-continuation", step_state(client_push_promise_increasing_continuation_done))
 	let client_push_promise_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000000000002303132")?), client_push_state)?
 	print_stream_id_failure("client-push-promise-zero-stream", client_push_promise_zero_stream)
 	let client_push_promise_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000200000002303132")?), client_push_state)?

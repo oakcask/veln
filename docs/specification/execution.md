@@ -568,6 +568,20 @@ enough.
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
   and
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.
+- In the client receive fixture, the same connection-level high-water state
+  retains the greatest accepted server-initiated promised stream id. A valid
+  `PUSH_PROMISE` that would reserve an untracked promised stream must increase
+  that value; tracked promised-stream reuse remains on its lifecycle failure
+  path. Promised stream id domain checks, local disable-push policy, associated
+  stream state, HPACK decode, and promised request-header validation precede
+  ordering. Rejection preserves promised-stream, flow-control, HPACK,
+  settings, shutdown, and high-water state apart from ordinary consumed input,
+  and a rejected higher id remains eligible for a valid retry. The broad
+  checked case is `examples/specification/run/http2-protocol-core/`; focused
+  client human and JSON projections are under
+  `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
+  and
+  `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
 - The checked HTTP/2 protocol core rejects server-side outbound `PUSH_PROMISE`
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit

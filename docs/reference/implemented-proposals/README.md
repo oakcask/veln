@@ -627,6 +627,8 @@ behavior.
   [http2-half-closed-local-priority-receive.md](http2-half-closed-local-priority-receive.md).
 - HTTP/2 client PUSH_PROMISE receive and promised response HEADERS admission:
   [http2-client-push-promise-receive.md](http2-client-push-promise-receive.md).
+- HTTP/2 client promised stream id ordering:
+  [http2-client-promised-stream-id-ordering.md](http2-client-promised-stream-id-ordering.md).
 - HTTP/2 request header validation:
   [http2-request-header-validation.md](http2-request-header-validation.md).
 - HTTP/2 response header validation:

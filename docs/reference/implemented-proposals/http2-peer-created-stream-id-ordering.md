@@ -46,6 +46,7 @@ in related notes.
 
 ## Remaining Scope
 
-Local stream-id allocation, client receive ordering for promised streams, and
-protocol behavior outside the checked server receive boundary remain in the
-active HTTP/2 proposal.
+Local stream-id allocation and protocol behavior outside the checked server
+receive boundary remain in the active HTTP/2 proposal. Client receive ordering
+for promised streams is recorded separately under
+`http2-client-promised-stream-id-ordering.md`.
