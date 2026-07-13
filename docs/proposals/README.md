@@ -563,7 +563,7 @@ compare it with `../specification/` before changing behavior.
   ordinary-source receive-state, diagnostics, settings, stream lifecycle,
   HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, receive flow-control, send-intent,
-  `RST_STREAM`, HEADERS with the PRIORITY flag, PING, GOAWAY, local
+  `RST_STREAM`, HEADERS with the PRIORITY flag, GOAWAY, local
   GOAWAY outbound HEADERS boundary,
   server-side `PUSH_PROMISE` rejection,
   outbound `PRIORITY` post-GOAWAY send-intent boundary,

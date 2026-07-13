@@ -410,6 +410,12 @@ type OutboundPingAckDecision
 	OutboundPingAckEncodeFailed(EncodeError)
 end
 
+type OutboundPingDecision
+	OutboundPingAccepted(Int, ByteChunk)
+	OutboundPingRejected(Int, Http2ProtocolFailure)
+	OutboundPingEncodeFailed(Int, EncodeError)
+end
+
 type OutboundSettingsDecision
 	OutboundSettingsAccepted(Int, Int, Http2ConnectionState, ByteChunk)
 	OutboundSettingsRejected(Http2ProtocolFailure)
@@ -2285,6 +2291,22 @@ fn encode_ping_ack_payload(payload: ByteChunk) -> Result<OutboundPingAckDecision
 	match encoded_header
 		Ok(header) => Ok(OutboundPingAckAccepted(byte_append(header, payload)))
 		Err(error) => Ok(OutboundPingAckEncodeFailed(error))
+	end
+end
+
+fn send_ping(payload: ByteChunk) -> Result<OutboundPingDecision, String>
+	let payload_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	match payload_length == 8
+		true => encode_ping_intent(payload, payload_length)
+		false => Ok(OutboundPingRejected(payload_length, InvalidPayloadLength(0, 6, 0, payload_length, 8, "connection-control", "outbound_ping_payload_length", byte_view(payload, byte_offset(0)?, byte_count(payload_length)?)?)))
+	end
+end
+
+fn encode_ping_intent(payload: ByteChunk, payload_length: Int) -> Result<OutboundPingDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 8, kind: 6, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundPingAccepted(payload_length, byte_append(header, payload)))
+		Err(error) => Ok(OutboundPingEncodeFailed(payload_length, error))
 	end
 end
 
@@ -6426,6 +6448,62 @@ fn outbound_ping_ack_encode_detail(decision: OutboundPingAckDecision) -> String
 	end
 end
 
+fn outbound_ping_status(decision: OutboundPingDecision) -> String
+	match decision
+		OutboundPingAccepted(_, _) => "accepted"
+		OutboundPingRejected(_, _) => "rejected"
+		OutboundPingEncodeFailed(_, _) => "encode_error"
+	end
+end
+
+fn outbound_ping_reason(decision: OutboundPingDecision) -> String
+	match decision
+		OutboundPingAccepted(_, _) => "none"
+		OutboundPingRejected(_, error) => failure_id(error)
+		OutboundPingEncodeFailed(_, error) => encode_error_id(error)
+	end
+end
+
+fn outbound_ping_payload_length(decision: OutboundPingDecision) -> Int
+	match decision
+		OutboundPingAccepted(payload_length, _) => payload_length
+		OutboundPingRejected(_, error) => failure_observed_length(error)
+		OutboundPingEncodeFailed(payload_length, _) => payload_length
+	end
+end
+
+fn outbound_ping_expected_payload_length(decision: OutboundPingDecision) -> Int
+	match decision
+		OutboundPingAccepted(_, _) => 8
+		OutboundPingRejected(_, error) => failure_allowed_length(error)
+		OutboundPingEncodeFailed(_, _) => 8
+	end
+end
+
+fn outbound_ping_chunk(decision: OutboundPingDecision) -> ByteChunk
+	match decision
+		OutboundPingAccepted(_, chunk) => chunk
+		OutboundPingRejected(_, _) => byte_chunk([])
+		OutboundPingEncodeFailed(_, _) => byte_chunk([])
+	end
+end
+
+fn outbound_ping_encode_path(decision: OutboundPingDecision) -> String
+	match decision
+		OutboundPingAccepted(_, _) => "none"
+		OutboundPingRejected(_, _) => "none"
+		OutboundPingEncodeFailed(_, error) => encode_error_path(error)
+	end
+end
+
+fn outbound_ping_encode_detail(decision: OutboundPingDecision) -> String
+	match decision
+		OutboundPingAccepted(_, _) => "none"
+		OutboundPingRejected(_, _) => "none"
+		OutboundPingEncodeFailed(_, error) => encode_error_reason(error)
+	end
+end
+
 fn outbound_settings_status(decision: OutboundSettingsDecision) -> String
 	match decision
 		OutboundSettingsAccepted(_, _, _, _) => "accepted"
@@ -8450,6 +8528,30 @@ fn print_outbound_ping_ack_chunks(label: String, decision: OutboundPingAckDecisi
 		OutboundPingAckAccepted(_) => emit_encoded_header(label, outbound_ping_ack_chunk(decision), expected_hex)
 		OutboundPingAckNoResponse => print_empty_output_chunks(label)
 		OutboundPingAckEncodeFailed(_) => print_empty_output_chunks(label)
+	end
+end
+
+fn print_outbound_ping(label: String, decision: OutboundPingDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-ping ")
+	stdio::print(outbound_ping_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_ping_reason(decision))
+	stdio::print(" observed_length ")
+	stdio::print(int_to_string(outbound_ping_payload_length(decision)))
+	stdio::print(" expected_length ")
+	stdio::print(int_to_string(outbound_ping_expected_payload_length(decision)))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_ping_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_ping_encode_detail(decision))
+end
+
+fn print_outbound_ping_chunk(label: String, decision: OutboundPingDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	match decision
+		OutboundPingAccepted(_, _) => emit_encoded_header(label, outbound_ping_chunk(decision), expected_hex)
+		OutboundPingRejected(_, _) => print_empty_output_chunks(label)
+		OutboundPingEncodeFailed(_, _) => print_empty_output_chunks(label)
 	end
 end
 
@@ -11104,6 +11206,20 @@ fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 	let ignored_outbound_headers_cases: () = print_outbound_headers_cases()?
 	let ignored_outbound_push_promise_cases: () = print_outbound_push_promise_cases()?
 	let ignored_outbound_goaway_cases: () = print_outbound_goaway_cases()?
+	let ignored_outbound_ping_cases: () = print_outbound_ping_cases()?
+	Ok(())
+end
+
+fn print_outbound_ping_cases() -> Result<(), String> effects [stdio]
+	let outbound_ping_accepted: OutboundPingDecision = send_ping(byte_chunk_from_hex("0102030405060708")?)?
+	print_outbound_ping("outbound-ping-accepted", outbound_ping_accepted)
+	let ignored_outbound_ping_accepted_chunk: () = print_outbound_ping_chunk("http2-outbound-ping", outbound_ping_accepted, "0000080600000000000102030405060708")?
+	let outbound_ping_short: OutboundPingDecision = send_ping(byte_chunk_from_hex("01020304050607")?)?
+	print_outbound_ping("outbound-ping-short", outbound_ping_short)
+	let ignored_outbound_ping_short_chunk: () = print_outbound_ping_chunk("http2-outbound-ping-short", outbound_ping_short, "")?
+	let outbound_ping_long: OutboundPingDecision = send_ping(byte_chunk_from_hex("010203040506070809")?)?
+	print_outbound_ping("outbound-ping-long", outbound_ping_long)
+	let ignored_outbound_ping_long_chunk: () = print_outbound_ping_chunk("http2-outbound-ping-long", outbound_ping_long, "")?
 	Ok(())
 end
 

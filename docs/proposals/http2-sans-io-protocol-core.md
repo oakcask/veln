@@ -626,6 +626,12 @@ header with length `8`, kind `6`, ACK flag `1`, and stream id `0`, appends
 the original eight-byte opaque payload, and emits exactly one immutable output
 chunk. Received PING ACK frames remain observable as received ACKs and emit no
 response chunk.
+The local outbound PING request send-intent is implemented as well. It accepts
+exactly eight opaque bytes, emits one immutable chunk containing the flags-`0`
+PING header and unchanged payload, and returns a typed payload-length rejection
+with no output for short or long payloads. The completed slice is archived
+under
+[HTTP/2 Outbound PING Request](../reference/implemented-proposals/http2-outbound-ping-request.md).
 The implemented slice also accepts DATA frames on an already-open stream and
 decrements both connection and stream receive-window credit by the payload
 length. PADDED DATA consumes receive-window credit for the full DATA payload,
