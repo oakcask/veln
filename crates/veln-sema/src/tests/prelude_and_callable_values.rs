@@ -986,15 +986,82 @@ fn generated_format_neutral_schema_encode_helpers_reject_deep_recursive_containe
 }
 
 #[test]
-fn generated_format_neutral_schema_encode_helpers_reject_deep_vec_fields() {
+fn generated_format_neutral_schema_encode_helpers_accept_nested_scalar_vec_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "schema Packet\n",
             "  items: Vec<Vec<Int>>\n",
+            "  flags: Vec<Vec<Bool>>\n",
+            "  ratios: Vec<Vec<Float>>\n",
+            "  labels: Vec<Vec<String>>\n",
+            "  metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {items: Vec<Vec<Int>>}) -> Result<{items: Vec<Vec<Int>>}, String>\n",
+            "pub fn direct(packet: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}) -> Result<{items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}) -> Result<{items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert!(matches!(
+            &expr.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_reject_three_deep_vec_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  items: Vec<Vec<Vec<Int>>>\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {items: Vec<Vec<Vec<Int>>>}) -> Result<{items: Vec<Vec<Vec<Int>>>}, String>\n",
             "  encode Packet from packet\n",
             "end\n",
         ),

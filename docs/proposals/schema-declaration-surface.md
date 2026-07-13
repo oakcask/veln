@@ -94,6 +94,7 @@ The implemented first slice covers:
   `List<Option<scalar>>` field, `List<Option<List<scalar>>>` field,
   `Vec<scalar>` field,
   `Vec<Option<scalar>>` field,
+  `Vec<Vec<scalar>>` field,
   `Dict<String, scalar>` field, `Dict<String, Option<scalar>>` field,
   `Dict<String, List<scalar>>` field,
   `Dict<String, Vec<scalar>>` field,
@@ -227,6 +228,10 @@ is archived under
 The completed format-neutral `Vec<Option<scalar>>` encode helper slice is
 archived under
 [Format-Neutral Schema Option Vec Encode Helpers](../reference/implemented-proposals/format-neutral-schema-option-vec-encode-helpers.md).
+
+The completed bounded recursive `Vec<Vec<scalar>>` encode helper slice is
+archived under
+[Format-Neutral Schema Recursive Vec Scalar Encode Helpers](../reference/implemented-proposals/format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
 
 The completed format-neutral `Dict<String, scalar>` encode helper slice is
 archived under

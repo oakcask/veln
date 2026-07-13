@@ -314,6 +314,8 @@ behavior.
   [format-neutral-schema-nested-vec-scalar-encode-helpers.md](format-neutral-schema-nested-vec-scalar-encode-helpers.md).
 - Format-neutral schema `Vec<Option<scalar>>` encode helpers:
   [format-neutral-schema-option-vec-encode-helpers.md](format-neutral-schema-option-vec-encode-helpers.md).
+- Format-neutral schema bounded recursive `Vec<Vec<scalar>>` encode helpers:
+  [format-neutral-schema-recursive-vec-scalar-encode-helpers.md](format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
 - Format-neutral schema `Dict<String, scalar>` encode helpers:
   [format-neutral-schema-dict-scalar-encode-helpers.md](format-neutral-schema-dict-scalar-encode-helpers.md).
 - Format-neutral schema `Dict<String, Option<scalar>>` encode helpers:

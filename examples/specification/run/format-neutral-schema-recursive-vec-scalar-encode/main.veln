@@ -1,0 +1,26 @@
+# Format-neutral schema encode helpers accept Vec<Vec<scalar>> fields directly and in records.
+use stdio
+
+schema RecursiveVecPacket
+	items: Vec<Vec<Int>>
+	flags: Vec<Vec<Bool>>
+	ratios: Vec<Vec<Float>>
+	labels: Vec<Vec<String>>
+	metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}
+end
+
+fn outer_count(result: Result<{items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}, String>) -> Int
+	match result
+		Ok(packet) => vec_len(packet.items) + vec_len(packet.flags) + vec_len(packet.ratios) + vec_len(packet.labels) + vec_len(packet.metadata.items) + vec_len(packet.metadata.flags) + vec_len(packet.metadata.ratios) + vec_len(packet.metadata.labels)
+		Err(_) => -1
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}} = {items: [[2, 3], [5]], flags: [[true, false]], ratios: [[1.25], [0.5, 2.0]], labels: [["alpha"], ["beta"]], metadata: {items: [[7]], flags: [[false], [true]], ratios: [[3.5]], labels: [["nested"]]}}
+	let empty_packet: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}} = {items: [], flags: [], ratios: [], labels: [], metadata: {items: [], flags: [], ratios: [], labels: []}}
+	let encoded: Result<{items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}, String> = byte_encode_recursive_vec_packet(packet)
+	let explicit: Result<{items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>, metadata: {items: Vec<Vec<Int>>, flags: Vec<Vec<Bool>>, ratios: Vec<Vec<Float>>, labels: Vec<Vec<String>>}}, String> = encode RecursiveVecPacket from empty_packet
+	stdio::println(int_to_string(outer_count(encoded)))
+	stdio::println(int_to_string(outer_count(explicit)))
+end

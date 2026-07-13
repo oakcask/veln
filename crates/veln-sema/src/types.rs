@@ -3185,7 +3185,11 @@ fn format_neutral_schema_plain_encode_field_type(ty: &Type) -> Option<Type> {
             if name == "Vec"
                 && args.len() == 1
                 && (format_neutral_schema_scalar_type(&args[0])
-                    || format_neutral_schema_option_scalar_type(&args[0])) =>
+                    || format_neutral_schema_option_scalar_type(&args[0])
+                    || matches!(&args[0], Type::Named { name, args }
+                        if name == "Vec"
+                            && args.len() == 1
+                            && format_neutral_schema_scalar_type(&args[0]))) =>
         {
             Some(ty.clone())
         }

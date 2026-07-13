@@ -42,7 +42,7 @@ those positions when every constructor payload is a recursive visible shape.
 Format-neutral generated encode helpers are limited to scalar leaves and
 `Option<scalar>`, `Option<List<scalar>>`, `List<scalar>`,
 `List<Option<scalar>>`, `List<Option<List<scalar>>>`, `Vec<scalar>`,
-`Vec<Option<scalar>>`, `Dict<String, scalar>`,
+`Vec<Option<scalar>>`, `Vec<Vec<scalar>>`, `Dict<String, scalar>`,
 `Dict<String, Option<scalar>>`, `Dict<String, List<scalar>>`,
 `Dict<String, Vec<scalar>>`, `Dict<String, Vec<Option<scalar>>>`,
 `Option<Dict<String, scalar>>`,

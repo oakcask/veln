@@ -19,10 +19,9 @@ The helper accepts the schema-local visible record shape, returns
 producing binary bytes. Explicit `encode Schema from value` expressions use
 the same helper boundary.
 
-This slice does not add arbitrary recursive `Vec<T>` encode eligibility.
-Shapes such as `Vec<Vec<Int>>`, `Vec<Result<Int, String>>`, source ADT encode
-fields, and binary schema fields remain outside this generated helper
-boundary.
+This slice did not add recursive `Vec<T>` encode eligibility. The later
+bounded `Vec<Vec<scalar>>` slice is recorded in
+[Format-Neutral Schema Recursive Vec Scalar Encode Helpers](format-neutral-schema-recursive-vec-scalar-encode-helpers.md).
 
 ## Evidence
 
@@ -30,10 +29,10 @@ boundary.
   checks direct helper calls and explicit schema encode expressions over
   `Vec<Option<scalar>>` fields.
 - `../../../examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`
-  checks adjacent supported `Vec<Option<Int>>` helper resolution and keeps
-  `Vec<Vec<Int>>` outside the generated encode helper boundary.
+  keeps `Vec<Vec<Vec<Int>>>` outside the generated encode helper boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
-  helper signature generation, Core and IR lowering, and nested `Vec` rejection.
+  helper signature generation, Core and IR lowering, bounded recursive `Vec`
+  acceptance, and deeper `Vec` rejection.
 
 ## Remaining Work
 

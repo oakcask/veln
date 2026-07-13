@@ -32,7 +32,8 @@ later `Vec<Option<scalar>>` encode slice is recorded in
   checks direct helper calls and explicit schema encode expressions over
   `Vec<scalar>` fields.
 - `../../../examples/specification/check/format-neutral-schema-vec-scalar-encode-boundary/`
-  keeps a nested `Vec` shape outside the generated encode helper boundary.
+  keeps a three-deep nested `Vec` shape outside the generated encode helper
+  boundary.
 - `../../../crates/veln-sema/src/tests/prelude_and_callable_values.rs` checks
   helper signature generation plus Core and IR lowering.
 
