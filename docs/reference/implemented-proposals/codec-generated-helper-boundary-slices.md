@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves completed generated-helper-backed codec execution slices
-from `../../proposals/codec-execution-boundary.md`. Source-level `codec`
+from the superseded codec execution design. Source-level `codec`
 declarations are no longer current source syntax; current schema operation
 behavior is specified by `../../specification/execution.md`,
 `../../specification/source-surface.md`, `../../specification/examples.md`,

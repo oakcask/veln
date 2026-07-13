@@ -909,18 +909,3 @@ compare it with `../specification/` before changing behavior.
   under `../specification/`.
 - A completed proposal record moves to
   `../reference/implemented-proposals/`.
-
-## Closed Routes
-
-- [Schema Binary Pattern Boundary](schema-binary-pattern-boundary.md): closed
-  route for the completed source-level `codec` cleanup and explicit schema
-  operation boundary. Current behavior is specified under
-  `../specification/source-surface.md` and `../specification/execution.md`;
-  the completed record is archived under
-  [schema-binary-pattern-boundary.md](../reference/implemented-proposals/schema-binary-pattern-boundary.md).
-- [Codec Execution Boundary](codec-execution-boundary.md): superseded route
-  for the former source-level `codec` declaration design. Current schema
-  operation behavior is specified under
-  `../specification/source-surface.md` and `../specification/execution.md`;
-  completed codec-era records are archived under
-  `../reference/implemented-proposals/`.

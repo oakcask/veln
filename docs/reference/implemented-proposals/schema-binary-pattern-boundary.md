@@ -15,8 +15,7 @@ layout, local validation, field paths, dispatch, and byte-count ownership.
 Executable protocol APIs, parser state, projection into domain values, and
 stateful encoding live in ordinary Veln functions.
 
-This record closes the remaining design direction from
-[Codec Execution Boundary](../../proposals/codec-execution-boundary.md) and
+This record supersedes the former source-level `codec` declaration design and
 narrows the schema surface described by
 [Schema Declaration Surface](../../proposals/schema-declaration-surface.md)
 to representation patterns plus explicit schema operations.

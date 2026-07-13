@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed imported hand-written codec execution
-slice from `../../proposals/codec-execution-boundary.md`. Current behavior is
+slice from the superseded codec execution design. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable examples under `../../../examples/specification/`.
