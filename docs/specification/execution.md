@@ -629,6 +629,16 @@ enough.
   `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
   and
   `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
+- The same checked HTTP/2 protocol core accepts a local outbound PING request
+  send-intent only when the opaque payload is exactly eight bytes. An accepted
+  intent returns one immutable output chunk containing a length-`8`, kind-`6`,
+  flags-`0`, stream-`0` frame header followed by the unchanged payload. Short
+  and long payloads return a typed
+  `http2.protocol.invalid_payload_length` outbound rejection before frame
+  encoding and emit no output chunks. Existing inbound PING validation,
+  automatic ACK emission for non-ACK PING frames, and no-response handling for
+  received PING ACK frames remain checked by
+  `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core accepts received `PRIORITY` frames on
   nonzero client-initiated streams when the frame has the fixed five-byte
   payload and does not depend on itself. The decoded frame exposes dependency
