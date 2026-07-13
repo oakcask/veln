@@ -597,6 +597,8 @@ behavior.
   [http2-outbound-push-promise-goaway-boundary.md](http2-outbound-push-promise-goaway-boundary.md).
 - HTTP/2 outbound promised stream id ordering:
   [http2-outbound-promised-stream-id-ordering.md](http2-outbound-promised-stream-id-ordering.md).
+- HTTP/2 outbound local stream id ordering:
+  [http2-outbound-local-stream-id-ordering.md](http2-outbound-local-stream-id-ordering.md).
 - HTTP/2 outbound PRIORITY GOAWAY boundary:
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 outbound PING request:
