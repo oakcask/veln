@@ -1972,6 +1972,27 @@ fn protocol_header_list_message(
     byte_offset: i64,
 ) -> String {
     match failed_fact {
+        "protocol_on_non_connect_request" => format!(
+            "{subject} contains :protocol on a non-CONNECT request at byte offset {byte_offset}"
+        ),
+        "duplicate_protocol_pseudo_header" => {
+            format!("{subject} contains duplicate :protocol at byte offset {byte_offset}")
+        }
+        "protocol_value_empty" => {
+            format!("{subject} contains empty :protocol at byte offset {byte_offset}")
+        }
+        "extended_connect_scheme_missing" => format!(
+            "{subject} is missing required extended CONNECT :scheme at byte offset {byte_offset}"
+        ),
+        "extended_connect_path_missing" => format!(
+            "{subject} is missing required extended CONNECT :path at byte offset {byte_offset}"
+        ),
+        "extended_connect_authority_missing" => format!(
+            "{subject} is missing required extended CONNECT :authority at byte offset {byte_offset}"
+        ),
+        "extended_connect_not_negotiated" => format!(
+            "{subject} uses extended CONNECT before negotiation at byte offset {byte_offset}"
+        ),
         "connect_authority_missing" => {
             format!("{subject} is missing required CONNECT :authority at byte offset {byte_offset}")
         }

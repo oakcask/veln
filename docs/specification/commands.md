@@ -408,6 +408,13 @@ requiring the full command reference on the first read.
 
 ## Read When
 
+The HTTP/2 run examples cover extended CONNECT negotiation through
+`SETTINGS_ENABLE_CONNECT_PROTOCOL`, including accepted HEADERS and final
+CONTINUATION completion, local server advertisement, endpoint-role and value
+rejection, required `:protocol`, `:scheme`, `:path`, and `:authority` facts,
+and the unchanged ordinary CONNECT path. Focused human and JSON cases expose
+the failed header fact, header name, negotiation state, and rule provenance.
+
 - Use [json-output.md](json-output.md) to choose the implemented reference for
   `check --json`, `run --json`, `test --json`, or `repair --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on

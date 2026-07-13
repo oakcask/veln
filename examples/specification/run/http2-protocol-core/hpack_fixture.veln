@@ -246,6 +246,10 @@ fn connect_request_headers(marker: String) -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", marker), 9)
 end
 
+fn protocol_request_headers(method: String, marker: String) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", method), HpackHeader(":extended-connect", marker), 12)
+end
+
 fn request_headers_missing_method() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":scheme", "https"), HpackHeader(":path", "/"), 9)
 end
@@ -604,6 +608,10 @@ end
 
 fn decoded_connect_request_headers(marker: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	Ok(HpackDecodeTransition(connect_request_headers(marker), next_state(state)))
+end
+
+fn decoded_protocol_request_headers(method: String, marker: String, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(protocol_request_headers(method, marker), next_state(state)))
 end
 
 fn decoded_request_headers_missing_method(state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
@@ -3581,6 +3589,16 @@ pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: I
 				7 => decoded_connect_request_headers("authority,path", state)
 				_ => unsupported(block, offset)
 			end
+			118 => match observed_size
+				3 => decoded_protocol_request_headers("CONNECT", "protocol,scheme,path,authority", state)
+				4 => decoded_protocol_request_headers("CONNECT", "protocol:,scheme,path,authority", state)
+				5 => decoded_protocol_request_headers("CONNECT", "protocol,protocol,scheme,path,authority", state)
+				6 => decoded_protocol_request_headers("CONNECT", "protocol,path,authority", state)
+				7 => decoded_protocol_request_headers("CONNECT", "protocol,scheme,authority", state)
+				8 => decoded_protocol_request_headers("CONNECT", "protocol,scheme,path", state)
+				9 => decoded_protocol_request_headers("GET", "protocol,scheme,path,authority", state)
+				_ => unsupported(block, offset)
+			end
 			49 => match observed_size == 2
 				true => decoded_request_headers_missing_method(state)
 				false => unsupported(block, offset)
@@ -4034,6 +4052,7 @@ end
 pub fn header_list_is_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":extended-connect", _), _) => true
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":request", "scheme,path"), _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
@@ -4062,6 +4081,28 @@ end
 pub fn header_list_is_connect_request(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", _), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_protocol(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(_, HpackHeader(":extended-connect", _), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_duplicate_protocol(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(_, HpackHeader(":extended-connect", "protocol,protocol,scheme,path,authority"), _) => true
+		_ => false
+	end
+end
+
+pub fn header_list_has_empty_protocol(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(_, HpackHeader(":extended-connect", "protocol:,scheme,path,authority"), _) => true
 		_ => false
 	end
 end
@@ -4072,6 +4113,11 @@ pub fn connect_request_has_authority(headers: HpackHeaderList) -> Bool
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority:"), _) => true
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,scheme"), _) => true
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,path"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol:,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,authority"), _) => true
 		_ => false
 	end
 end
@@ -4086,6 +4132,11 @@ end
 pub fn connect_request_has_scheme(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,scheme"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol:,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,path"), _) => true
 		_ => false
 	end
 end
@@ -4093,6 +4144,11 @@ end
 pub fn connect_request_has_path(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority,path"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol:,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,protocol,scheme,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,path,authority"), _) => true
+		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":extended-connect", "protocol,scheme,path"), _) => true
 		_ => false
 	end
 end
@@ -4139,6 +4195,7 @@ end
 pub fn header_list_has_method(headers: HpackHeaderList) -> Bool
 	match headers
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", _), _) => true
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":extended-connect", _), _) => true
 		HpackHeaderList(HpackHeader(":request", "method,scheme,path"), HpackHeader("content-length", _), _) => true
 		HpackHeaderList(HpackHeader(":method", _), _, _) => true
 		HpackHeaderList(HpackHeader(":authority", _), HpackHeader(":request", "method,scheme,path,authority"), _) => true
@@ -4433,6 +4490,7 @@ end
 
 pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 	match headers
+		HpackHeaderList(HpackHeader(":method", _), HpackHeader(":extended-connect", marker), _) => extended_connect_decoded_names(marker)
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority"), _) => ":method,:authority"
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "missing-authority"), _) => ":method"
 		HpackHeaderList(HpackHeader(":method", "CONNECT"), HpackHeader(":connect", "authority:"), _) => ":method,:authority"
@@ -4495,6 +4553,18 @@ pub fn header_list_decoded_names(headers: HpackHeaderList) -> String
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "connection"), _) => "server,connection"
 		HpackHeaderList(HpackHeader("server", _), HpackHeader(":trailers", "te:gzip"), _) => "server,te"
 		HpackHeaderList(HpackHeader(first_name, _), _, _) => first_name
+	end
+end
+
+fn extended_connect_decoded_names(marker: String) -> String
+	match marker
+		"protocol,scheme,path,authority" => ":method,:protocol,:scheme,:path,:authority"
+		"protocol:,scheme,path,authority" => ":method,:protocol,:scheme,:path,:authority"
+		"protocol,protocol,scheme,path,authority" => ":method,:protocol,:protocol,:scheme,:path,:authority"
+		"protocol,path,authority" => ":method,:protocol,:path,:authority"
+		"protocol,scheme,authority" => ":method,:protocol,:scheme,:authority"
+		"protocol,scheme,path" => ":method,:protocol,:scheme,:path"
+		_ => ":method,:protocol"
 	end
 end
 

@@ -96,11 +96,15 @@ end
 type PeerAdvertisedEnablePush
 	NoPeerEnablePush
 	PeerEnablePush(Int, Int)
+	PeerEnableConnectProtocol(Int, Int)
+	PeerEnablePushAndConnectProtocol(Int, Int, Int, Int)
 end
 
 type LocalSentEnablePush
 	NoLocalSentEnablePush
 	LocalSentEnablePush(Int, Int)
+	LocalSentEnableConnectProtocol(Int, Int)
+	LocalSentEnablePushAndConnectProtocol(Int, Int, Int, Int)
 end
 
 type PeerAdvertisedMaxConcurrentStreams
@@ -138,6 +142,7 @@ type OutboundLocalSettingsItem
 	OutboundSettingsMaxConcurrentStreams(Int)
 	OutboundSettingsMaxFrameSize(Int)
 	OutboundSettingsMaxHeaderListSize(Int)
+	OutboundSettingsEnableConnectProtocol(Int)
 end
 
 type PendingPeerSettingsAck
@@ -1045,7 +1050,7 @@ fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChun
 					TrailerEndStreamOk => match validate_trailer_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block, completed_is_trailer, state_receive_flow_control(consumed_state))
 						TrailerHeaderListOk => match completed_is_trailer
 							true => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, peer_stream_admission, consumed_state)
-							false => match validate_request_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block)
+							false => match validate_request_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block, peer_settings)
 								RequestHeaderListOk => match validate_response_header_list(next_offset, kind, flags, stream_id, headers, completed_header_block)
 									ResponseHeaderListOk => complete_after_header_list_size(pending, next_continuation, next_hpack_state, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_promised_stream_id, headers, completed_is_trailer, peer_stream_admission, consumed_state)
 									ResponseHeaderListFailed(error) => Ok(Failed(consumed_state, error))
@@ -1291,22 +1296,24 @@ fn validate_completed_header_table_size_update(offset: Int, kind: Int, stream_id
 	end
 end
 
-fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
+fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
 	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_request(headers)
 		false => RequestHeaderListOk
-		true => validate_completed_request_header_list(offset, kind, stream_id, headers, completed_header_block)
+		true => validate_completed_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
 	end
 end
 
-fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
+fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
 	match hpack_fixture::header_list_has_duplicate_pseudo_header(headers)
 		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 		false => match hpack_fixture::header_list_has_pseudo_header_after_regular(headers)
 			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 			false => match hpack_fixture::header_list_has_status(headers)
 				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				false => match hpack_fixture::header_list_is_connect_request(headers)
-					true => validate_completed_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block)
+				false => match hpack_fixture::header_list_has_protocol(headers) and not hpack_fixture::header_list_is_connect_request(headers)
+					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_on_non_connect_request", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+					false => match hpack_fixture::header_list_is_connect_request(headers)
+					true => validate_completed_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
 					false => match hpack_fixture::header_list_has_method(headers)
 					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 					true => match hpack_fixture::header_list_has_scheme(headers)
@@ -1347,13 +1354,21 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 					end
 				end
 				end
+				end
 			end
 		end
 		end
 	end
 end
 
-fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
+fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match hpack_fixture::header_list_has_protocol(headers)
+		true => validate_completed_extended_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
+		false => validate_completed_ordinary_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block)
+	end
+end
+
+fn validate_completed_ordinary_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
 	match hpack_fixture::connect_request_has_authority(headers)
 		false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_missing", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 		true => match hpack_fixture::connect_request_has_empty_authority(headers)
@@ -1363,6 +1378,28 @@ fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream
 				false => match hpack_fixture::connect_request_has_path(headers)
 					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_path_present", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
 					false => RequestHeaderListOk
+				end
+			end
+		end
+	end
+end
+
+fn validate_completed_extended_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match hpack_fixture::header_list_has_duplicate_protocol(headers)
+		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_protocol_pseudo_header", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+		false => match hpack_fixture::header_list_has_empty_protocol(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_value_empty", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::connect_request_has_scheme(headers)
+				false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_scheme_missing", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+				true => match hpack_fixture::connect_request_has_path(headers)
+					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_path_missing", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+					true => match hpack_fixture::connect_request_has_authority(headers)
+						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_authority_missing", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+						true => match local_enable_connect_protocol_enabled(peer_settings)
+							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_not_negotiated", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+							true => RequestHeaderListOk
+						end
+					end
 				end
 			end
 		end
@@ -1748,7 +1785,15 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wir
 		5 => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
 		4 => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
 		2 => validate_enable_push_setting_for_role(next_offset + item_wire_offset, value, item, endpoint_role)
+		8 => validate_enable_connect_protocol_setting_for_role(next_offset + item_wire_offset, value, item, endpoint_role)
 		_ => Ok(SettingsValueOk)
+	end
+end
+
+fn validate_enable_connect_protocol_setting_for_role(item_offset: Int, value: Int, preview: ByteView, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
+	match endpoint_role
+		ServerEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "server", 4, "peer-settings", "rfc8441_client_must_not_send_settings_enable_connect_protocol", preview)))
+		ClientEndpoint => validate_enable_connect_protocol_setting(item_offset, value, preview, "peer_settings")
 	end
 end
 
@@ -1780,6 +1825,16 @@ fn validate_enable_push_setting(item_offset: Int, value: Int, preview: ByteView)
 	match value > 1
 		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
 		false => Ok(SettingsValueOk)
+	end
+end
+
+fn validate_enable_connect_protocol_setting(item_offset: Int, value: Int, preview: ByteView, provenance: String) -> Result<SettingsRangeDecision, String>
+	match value < 0
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, provenance, preview)))
+		false => match value > 1
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, provenance, preview)))
+			false => Ok(SettingsValueOk)
+		end
 	end
 end
 
@@ -1820,12 +1875,31 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, item_wire_o
 		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => match identifier
 			5 => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + item_wire_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + item_wire_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
-			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, with_peer_enable_push(enable_push, value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + item_wire_offset), header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, next_offset + item_wire_offset), max_header_list_size, local_enable_push, highest_peer_stream_id))
 			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, next_offset + item_wire_offset), local_enable_push, highest_peer_stream_id))
+			8 => Ok(PeerSettings(max_frame_size, initial_window_size, with_peer_enable_connect_protocol(enable_push, value, next_offset + item_wire_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			_ => Ok(peer_settings)
 		end
+	end
+end
+
+fn with_peer_enable_push(state: PeerAdvertisedEnablePush, value: Int, item_offset: Int) -> PeerAdvertisedEnablePush
+	match state
+		NoPeerEnablePush => PeerEnablePush(value, item_offset)
+		PeerEnablePush(_, _) => PeerEnablePush(value, item_offset)
+		PeerEnableConnectProtocol(connect_value, connect_offset) => PeerEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+		PeerEnablePushAndConnectProtocol(_, _, connect_value, connect_offset) => PeerEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+	end
+end
+
+fn with_peer_enable_connect_protocol(state: PeerAdvertisedEnablePush, value: Int, item_offset: Int) -> PeerAdvertisedEnablePush
+	match state
+		NoPeerEnablePush => PeerEnableConnectProtocol(value, item_offset)
+		PeerEnablePush(push_value, push_offset) => PeerEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
+		PeerEnableConnectProtocol(_, _) => PeerEnableConnectProtocol(value, item_offset)
+		PeerEnablePushAndConnectProtocol(push_value, push_offset, _, _) => PeerEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
 	end
 end
 
@@ -1898,6 +1972,8 @@ end
 fn peer_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
 		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _, _) => value == 0
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(value, _, _, _), _, _, _, _, _) => value == 0
+		PeerSettings(_, _, PeerEnableConnectProtocol(_, _), _, _, _, _, _) => false
 		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _, _) => false
 	end
 end
@@ -1905,6 +1981,8 @@ end
 fn local_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
 		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _), _) => value == 0
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePushAndConnectProtocol(value, _, _, _), _) => value == 0
+		PeerSettings(_, _, _, _, _, _, LocalSentEnableConnectProtocol(_, _), _) => false
 		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => false
 	end
 end
@@ -1912,6 +1990,8 @@ end
 fn local_enable_push_value(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
 		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, _), _) => value
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePushAndConnectProtocol(value, _, _, _), _) => value
+		PeerSettings(_, _, _, _, _, _, LocalSentEnableConnectProtocol(_, _), _) => 0
 		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => 0
 	end
 end
@@ -1919,13 +1999,63 @@ end
 fn local_enable_push_offset(peer_settings: PeerSettingsState) -> Int
 	match peer_settings
 		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(_, item_offset), _) => item_offset
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePushAndConnectProtocol(_, item_offset, _, _), _) => item_offset
+		PeerSettings(_, _, _, _, _, _, LocalSentEnableConnectProtocol(_, _), _) => 0
 		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => 0
 	end
 end
 
 fn with_local_enable_push(peer_settings: PeerSettingsState, value: Int, item_offset: Int) -> PeerSettingsState
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, _, highest_peer_stream_id) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, LocalSentEnablePush(value, item_offset), highest_peer_stream_id)
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_settings_with_enable_push(local_enable_push, value, item_offset), highest_peer_stream_id)
+	end
+end
+
+fn local_settings_with_enable_push(state: LocalSentEnablePush, value: Int, item_offset: Int) -> LocalSentEnablePush
+	match state
+		NoLocalSentEnablePush => LocalSentEnablePush(value, item_offset)
+		LocalSentEnablePush(_, _) => LocalSentEnablePush(value, item_offset)
+		LocalSentEnableConnectProtocol(connect_value, connect_offset) => LocalSentEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+		LocalSentEnablePushAndConnectProtocol(_, _, connect_value, connect_offset) => LocalSentEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+	end
+end
+
+fn local_enable_connect_protocol_enabled(peer_settings: PeerSettingsState) -> Bool
+	match peer_settings
+		PeerSettings(_, _, _, _, _, _, LocalSentEnableConnectProtocol(value, _), _) => value == 1
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePushAndConnectProtocol(_, _, value, _), _) => value == 1
+		PeerSettings(_, _, _, _, _, _, _, _) => false
+	end
+end
+
+fn peer_enable_connect_protocol_value(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, _, PeerEnableConnectProtocol(value, _), _, _, _, _, _) => value
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, _, value, _), _, _, _, _, _) => value
+		PeerSettings(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+fn peer_enable_connect_protocol_offset(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, _, PeerEnableConnectProtocol(_, item_offset), _, _, _, _, _) => item_offset
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, _, _, item_offset), _, _, _, _, _) => item_offset
+		PeerSettings(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+fn with_local_enable_connect_protocol(peer_settings: PeerSettingsState, value: Int, item_offset: Int) -> PeerSettingsState
+	match peer_settings
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_settings_with_enable_connect_protocol(local_enable_push, value, item_offset), highest_peer_stream_id)
+	end
+end
+
+fn local_settings_with_enable_connect_protocol(state: LocalSentEnablePush, value: Int, item_offset: Int) -> LocalSentEnablePush
+	match state
+		NoLocalSentEnablePush => LocalSentEnableConnectProtocol(value, item_offset)
+		LocalSentEnablePush(push_value, push_offset) => LocalSentEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
+		LocalSentEnableConnectProtocol(_, _) => LocalSentEnableConnectProtocol(value, item_offset)
+		LocalSentEnablePushAndConnectProtocol(push_value, push_offset, _, _) => LocalSentEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
 	end
 end
 
@@ -2186,7 +2316,11 @@ fn send_local_max_frame_size_and_enable_push_settings(max_frame_size_value: Int,
 end
 
 fn send_local_settings_batch(items: List<OutboundLocalSettingsItem>, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_settings_batch_items(items, 0)?
+	send_local_settings_batch_for_role(items, ServerEndpoint, connection)
+end
+
+fn send_local_settings_batch_for_role(items: List<OutboundLocalSettingsItem>, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match validate_local_settings_batch_items_for_role(items, 0, endpoint_role)?
 		SettingsValueOk => match connection
 			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_settings_batch_intent(items, decode_state, outstanding_settings, pending_ack)
 		end
@@ -2195,16 +2329,24 @@ fn send_local_settings_batch(items: List<OutboundLocalSettingsItem>, connection:
 end
 
 fn validate_local_settings_batch_items(items: List<OutboundLocalSettingsItem>, item_offset: Int) -> Result<SettingsRangeDecision, String>
+	validate_local_settings_batch_items_for_role(items, item_offset, ServerEndpoint)
+end
+
+fn validate_local_settings_batch_items_for_role(items: List<OutboundLocalSettingsItem>, item_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	match items
 		Nil => Ok(SettingsValueOk)
-		Cons(item, tail) => match validate_local_settings_batch_item(item, item_offset)?
-			SettingsValueOk => validate_local_settings_batch_items(tail, item_offset + 6)
+		Cons(item, tail) => match validate_local_settings_batch_item_for_role(item, item_offset, endpoint_role)?
+			SettingsValueOk => validate_local_settings_batch_items_for_role(tail, item_offset + 6, endpoint_role)
 			SettingsValueFailed(error) => Ok(SettingsValueFailed(error))
 		end
 	end
 end
 
 fn validate_local_settings_batch_item(item: OutboundLocalSettingsItem, item_offset: Int) -> Result<SettingsRangeDecision, String>
+	validate_local_settings_batch_item_for_role(item, item_offset, ServerEndpoint)
+end
+
+fn validate_local_settings_batch_item_for_role(item: OutboundLocalSettingsItem, item_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	match item
 		OutboundSettingsHeaderTableSize(value) => validate_local_u32_setting(item_offset, 1, "SETTINGS_HEADER_TABLE_SIZE", value)
 		OutboundSettingsEnablePush(value) => validate_local_enable_push_setting(item_offset, value)
@@ -2212,6 +2354,10 @@ fn validate_local_settings_batch_item(item: OutboundLocalSettingsItem, item_offs
 		OutboundSettingsMaxConcurrentStreams(value) => validate_local_u32_setting(item_offset, 3, "SETTINGS_MAX_CONCURRENT_STREAMS", value)
 		OutboundSettingsMaxFrameSize(value) => validate_local_max_frame_size_setting(item_offset, value)
 		OutboundSettingsMaxHeaderListSize(value) => validate_local_u32_setting(item_offset, 6, "SETTINGS_MAX_HEADER_LIST_SIZE", value)
+		OutboundSettingsEnableConnectProtocol(value) => match endpoint_role
+			ServerEndpoint => validate_enable_connect_protocol_setting(item_offset, value, empty_byte_preview()?, "local_settings")
+			ClientEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "client", 4, "local-settings", "rfc8441_only_servers_send_settings_enable_connect_protocol", empty_byte_preview()?)))
+		end
 	end
 end
 
@@ -2246,6 +2392,7 @@ end
 fn apply_local_settings_item_to_state(item: OutboundLocalSettingsItem, item_offset: Int, decode_state: Http2DecodeState) -> Http2DecodeState
 	match item
 		OutboundSettingsEnablePush(value) => update_local_enable_push_state(decode_state, value, item_offset)
+		OutboundSettingsEnableConnectProtocol(value) => update_local_enable_connect_protocol_state(decode_state, value, item_offset)
 		_ => decode_state
 	end
 end
@@ -2279,6 +2426,7 @@ fn local_settings_item_identifier(item: OutboundLocalSettingsItem) -> Int
 		OutboundSettingsMaxConcurrentStreams(_) => 3
 		OutboundSettingsMaxFrameSize(_) => 5
 		OutboundSettingsMaxHeaderListSize(_) => 6
+		OutboundSettingsEnableConnectProtocol(_) => 8
 	end
 end
 
@@ -2290,7 +2438,19 @@ fn local_settings_item_value(item: OutboundLocalSettingsItem) -> Int
 		OutboundSettingsMaxConcurrentStreams(value) => value
 		OutboundSettingsMaxFrameSize(value) => value
 		OutboundSettingsMaxHeaderListSize(value) => value
+		OutboundSettingsEnableConnectProtocol(value) => value
 	end
+end
+
+fn update_local_enable_connect_protocol_state(state: Http2DecodeState, value: Int, item_offset: Int) -> Http2DecodeState
+	match state
+		State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission) => State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, with_local_enable_connect_protocol(peer_settings, value, item_offset), shutdown_state, receive_flow_control, peer_stream_admission)
+	end
+end
+
+fn send_local_enable_connect_protocol_setting(value: Int, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	let items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsEnableConnectProtocol(value), Nil)
+	send_local_settings_batch_for_role(items, endpoint_role, connection)
 end
 
 fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
@@ -4038,10 +4198,11 @@ fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, pee
 		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id) => match identifier
 			5 => Ok(PeerSettings(PeerMaxFrameSize(value, item_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, item_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
-			2 => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, with_peer_enable_push(enable_push, value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, item_offset), header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, item_offset), max_header_list_size, local_enable_push, highest_peer_stream_id))
 			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, item_offset), local_enable_push, highest_peer_stream_id))
+			8 => Ok(PeerSettings(max_frame_size, initial_window_size, with_peer_enable_connect_protocol(enable_push, value, item_offset), max_concurrent_streams, header_table_size, max_header_list_size, local_enable_push, highest_peer_stream_id))
 			_ => Ok(peer_settings)
 		end
 	end
@@ -5535,6 +5696,8 @@ fn state_peer_enable_push(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _, _) => 0
 		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _), _, _, _) => value
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnableConnectProtocol(_, _), _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePushAndConnectProtocol(value, _, _, _), _, _, _, _), _, _, _) => value
 	end
 end
 
@@ -5542,6 +5705,8 @@ fn state_peer_enable_push_offset(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _, _, _, _), _, _, _) => 0
 		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _, _, _, _), _, _, _) => item_offset
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnableConnectProtocol(_, _), _, _, _, _), _, _, _) => 0
+		State(_, _, _, _, _, _, PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, item_offset, _, _), _, _, _, _), _, _, _) => item_offset
 	end
 end
 
@@ -7585,9 +7750,12 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 end
 
 fn request_header_active_state(failed_header_fact: String, decoded_header_names: String) -> String
-	match request_header_failure_is_trailer(failed_header_fact, decoded_header_names)
-		true => "request-trailers"
-		false => "request-headers"
+	match failed_header_fact
+		"extended_connect_not_negotiated" => "local-connect-protocol-disabled"
+		_ => match request_header_failure_is_trailer(failed_header_fact, decoded_header_names)
+			true => "request-trailers"
+			false => "request-headers"
+		end
 	end
 end
 
@@ -7608,6 +7776,13 @@ end
 
 fn request_header_rule_provenance(failed_header_fact: String) -> String
 	match failed_header_fact
+		"protocol_on_non_connect_request" => "rfc8441_protocol_requires_connect"
+		"duplicate_protocol_pseudo_header" => "rfc8441_extended_connect_pseudo_headers"
+		"protocol_value_empty" => "rfc8441_extended_connect_pseudo_headers"
+		"extended_connect_scheme_missing" => "rfc8441_extended_connect_pseudo_headers"
+		"extended_connect_path_missing" => "rfc8441_extended_connect_pseudo_headers"
+		"extended_connect_authority_missing" => "rfc8441_extended_connect_pseudo_headers"
+		"extended_connect_not_negotiated" => "rfc8441_extended_connect_negotiation"
 		"connect_authority_missing" => "rfc9113_connect_request_pseudo_headers"
 		"connect_authority_empty" => "rfc9113_connect_request_pseudo_headers"
 		"connect_scheme_present" => "rfc9113_connect_request_pseudo_headers"
@@ -9997,6 +10172,92 @@ fn require_request_header_failure_detail(label: String, step: Http2Step, expecte
 			_ => Err(label)
 		end
 	end
+end
+
+fn require_outbound_settings_accepted(label: String, decision: OutboundSettingsDecision, expected_identifier: Int, expected_value: Int) -> Result<(), String>
+	match decision
+		OutboundSettingsAccepted(identifier, value, _, chunk) => match identifier == expected_identifier and value == expected_value and byte_count_to_int(byte_chunk_count(chunk)) == 15
+			true => Ok(())
+			false => Err(label)
+		end
+		OutboundSettingsRejected(_) => Err(label)
+		OutboundSettingsEncodeFailed(_) => Err(label)
+	end
+end
+
+fn require_outbound_settings_rejected_for_role(label: String, decision: OutboundSettingsDecision, expected_role: String) -> Result<(), String>
+	match decision
+		OutboundSettingsAccepted(_, _, _, _) => Err(label)
+		OutboundSettingsEncodeFailed(_) => Err(label)
+		OutboundSettingsRejected(failure) => match failure
+			SettingsNotAllowedForEndpoint(_, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", endpoint_role, _, _, _, _) => match endpoint_role == expected_role
+				true => Ok(())
+				false => Err(label)
+			end
+			_ => Err(label)
+		end
+	end
+end
+
+fn require_extended_connect_negotiation_cases() -> Result<(), String>
+	let server_setting: OutboundSettingsDecision = send_local_enable_connect_protocol_setting(1, ServerEndpoint, connection_state(frame_state()))?
+	let ignored_server_setting: () = require_outbound_settings_accepted("server extended CONNECT setting was not accepted", server_setting, 8, 1)?
+	let negotiated_state: Http2DecodeState = connection_decode_state(outbound_settings_connection(server_setting))
+	let accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), negotiated_state)?
+	let ignored_accepted: () = require_frame_decoded("negotiated extended CONNECT was rejected", accepted)?
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000176")?), negotiated_state)?
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000017778")?), step_state(continuation_start))?
+	let ignored_continuation: () = require_frame_decoded("negotiated extended CONNECT continuation was rejected", continuation_done)?
+	let unnegotiated: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), frame_state())?
+	let ignored_unnegotiated: () = require_request_header_failure_detail("unnegotiated extended CONNECT was accepted", unnegotiated, "extended_connect_not_negotiated", ":protocol", "rfc8441_extended_connect_negotiation")?
+	let ignored_unnegotiated_atomicity: () = require_peer_stream_failure_preserves_connection_state("unnegotiated extended CONNECT changed connection state", frame_state(), step_state(unnegotiated))?
+	let unnegotiated_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000176")?), frame_state())?
+	let unnegotiated_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000017778")?), step_state(unnegotiated_continuation_start))?
+	let ignored_unnegotiated_continuation: () = require_request_header_failure_detail("unnegotiated extended CONNECT continuation was accepted", unnegotiated_continuation_done, "extended_connect_not_negotiated", ":protocol", "rfc8441_extended_connect_negotiation")?
+	let ignored_unnegotiated_continuation_atomicity: () = require_peer_stream_failure_preserves_connection_state("unnegotiated extended CONNECT continuation changed connection state", step_state(unnegotiated_continuation_start), step_state(unnegotiated_continuation_done))?
+	let setting_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(server_setting))?
+	let ignored_setting_ack: () = require_frame_decoded("extended CONNECT setting ACK was rejected", connection_step_decode_step(setting_ack))?
+	let accepted_after_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), connection_decode_state(connection_step_state(setting_ack)))?
+	let ignored_accepted_after_ack: () = require_frame_decoded("extended CONNECT capability was lost after SETTINGS ACK", accepted_after_ack)?
+	let disabled_setting: OutboundSettingsDecision = send_local_enable_connect_protocol_setting(0, ServerEndpoint, connection_state(frame_state()))?
+	let disabled_request: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), connection_decode_state(outbound_settings_connection(disabled_setting)))?
+	let ignored_disabled_request: () = require_request_header_failure_fact("disabled extended CONNECT setting allowed a request", disabled_request, "extended_connect_not_negotiated")?
+	let ordered_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsMaxFrameSize(32768), Cons(OutboundSettingsEnableConnectProtocol(1), Cons(OutboundSettingsMaxHeaderListSize(8192), Nil)))
+	let ordered_setting: OutboundSettingsDecision = send_local_settings_batch_for_role(ordered_items, ServerEndpoint, connection_state(frame_state()))?
+	let ordered_request: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), connection_decode_state(outbound_settings_connection(ordered_setting)))?
+	let ignored_ordered_request: () = require_frame_decoded("ordered local setting batch lost extended CONNECT capability", ordered_request)?
+	let empty_protocol: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000176777879")?), negotiated_state)?
+	let ignored_empty_protocol: () = require_request_header_failure_fact("empty extended CONNECT protocol was accepted", empty_protocol, "protocol_value_empty")?
+	let duplicate_protocol: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005010400000001767778797a")?), negotiated_state)?
+	let ignored_duplicate_protocol: () = require_request_header_failure_fact("duplicate extended CONNECT protocol was accepted", duplicate_protocol, "duplicate_protocol_pseudo_header")?
+	let missing_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010400000001767778797a7b")?), negotiated_state)?
+	let ignored_missing_scheme: () = require_request_header_failure_fact("extended CONNECT without scheme was accepted", missing_scheme, "extended_connect_scheme_missing")?
+	let missing_path: Http2Step = receive(InputChunk(byte_chunk_from_hex("000007010400000001767778797a7b7c")?), negotiated_state)?
+	let ignored_missing_path: () = require_request_header_failure_fact("extended CONNECT without path was accepted", missing_path, "extended_connect_path_missing")?
+	let missing_authority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008010400000001767778797a7b7c7d")?), negotiated_state)?
+	let ignored_missing_authority: () = require_request_header_failure_fact("extended CONNECT without authority was accepted", missing_authority, "extended_connect_authority_missing")?
+	let non_connect_protocol: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009010400000001767778797a7b7c7d7e")?), negotiated_state)?
+	let ignored_non_connect: () = require_request_header_failure_fact(":protocol on non-CONNECT was accepted", non_connect_protocol, "protocol_on_non_connect_request")?
+	let ordinary_connect: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001656667")?), frame_state())?
+	let ignored_ordinary_connect: () = require_frame_decoded("ordinary CONNECT changed under extended negotiation", ordinary_connect)?
+	let client_received_setting: Http2Step = receive_client(InputChunk(byte_chunk_from_hex("000006040000000000000800000001")?), frame_state())?
+	let ignored_client_received_setting: () = require_frame_decoded("client rejected server extended CONNECT setting", client_received_setting)?
+	let ignored_peer_setting_value: () = require_equal_int("client did not retain peer extended CONNECT setting value", peer_enable_connect_protocol_value(state_peer_settings(step_state(client_received_setting))), 1)?
+	let ignored_peer_setting_offset: () = require_equal_int("client did not retain peer extended CONNECT setting offset", peer_enable_connect_protocol_offset(state_peer_settings(step_state(client_received_setting))), 9)?
+	let server_received_setting: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000800000001")?), frame_state())?
+	let ignored_server_received_setting: () = require_failure_with_id("server accepted client extended CONNECT setting", server_received_setting, "http2.protocol.settings_not_allowed_for_endpoint")?
+	let invalid_received_setting: Http2Step = receive_client(InputChunk(byte_chunk_from_hex("000006040000000000000800000002")?), frame_state())?
+	let ignored_invalid_received_setting: () = require_failure_with_id("client accepted invalid extended CONNECT setting value", invalid_received_setting, "http2.peer_limit.settings_value_out_of_range")?
+	let invalid_local_setting: OutboundSettingsDecision = send_local_enable_connect_protocol_setting(2, ServerEndpoint, connection_state(frame_state()))?
+	let invalid_local_setting_check: Result<(), String> = match invalid_local_setting
+		OutboundSettingsRejected(SettingsValueOutOfRange(_, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", 2, 0, 1, _, _)) => Ok(())
+		_ => Err("server accepted invalid local extended CONNECT setting value")
+	end
+	let ignored_invalid_local_setting: () = invalid_local_setting_check?
+	let ignored_invalid_local_setting_bytes: () = require_equal_int("invalid local extended CONNECT setting emitted bytes", byte_count_to_int(byte_chunk_count(outbound_settings_chunk(invalid_local_setting))), 0)?
+	let client_local_setting: OutboundSettingsDecision = send_local_enable_connect_protocol_setting(1, ClientEndpoint, connection_state(frame_state()))?
+	let ignored_client_local_setting: () = require_outbound_settings_rejected_for_role("client advertised extended CONNECT setting", client_local_setting, "client")?
+	require_equal_int("client extended CONNECT setting rejection emitted bytes", byte_count_to_int(byte_chunk_count(outbound_settings_chunk(client_local_setting))), 0)
 end
 
 fn require_hpack_static_request_scheme_validation(state: Http2DecodeState) -> Result<(), String>
@@ -13333,6 +13594,7 @@ fn verify_flow_control_domain_cases() -> Result<(), String>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
+	let ignored_extended_connect_negotiation_cases: () = require_extended_connect_negotiation_cases()?
 	let verified_flow_control_domains: () = verify_flow_control_domain_cases()?
 	let verified_outbound_multi_stream_flow_control: () = verify_outbound_multi_stream_flow_control()?
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?

@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.failed_header_fact"
+equals = "protocol_on_non_connect_request"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.header_name"
+equals = ":protocol"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.rule_provenance"
+equals = "rfc8441_protocol_requires_connect"

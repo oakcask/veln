@@ -549,6 +549,9 @@ compare it with `../specification/` before changing behavior.
   The completed ordinary `CONNECT` request-header validation slice is archived
   under
   [HTTP/2 CONNECT Request Header Validation](../reference/implemented-proposals/http2-connect-request-header-validation.md).
+  The completed `SETTINGS_ENABLE_CONNECT_PROTOCOL` and extended CONNECT
+  request-header slice is archived under
+  [HTTP/2 Extended CONNECT Negotiation](../reference/implemented-proposals/http2-extended-connect-negotiation.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).
