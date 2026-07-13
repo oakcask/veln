@@ -5,7 +5,7 @@ schema ClosedDispatchPacket
 	format binary
 
 	kind: UInt8
-	payload: Dispatch(kind, 1 => uint16be, 2 => uint32be, 3 => uint24le, 4 => uint32le, 5 => flag16le)
+	payload: Dispatch(kind, 1 => uint16be, 2 => uint32be, 3 => uint24le, 4 => uint32le, 5 => uint16le)
 end
 
 fn emit_packet(packet: {kind: Int, payload: Int}) -> () effects [stdio]

@@ -319,7 +319,6 @@ type ByteSignature<T> = (Vec<T>, T);
 trait BytePreludeType: Clone {
     fn named(name: &'static str) -> Self;
     fn record(fields: Vec<(&'static str, Self)>) -> Self;
-    fn bool() -> Self;
     fn int() -> Self;
     fn string() -> Self;
     fn unit() -> Self;
@@ -341,10 +340,6 @@ impl BytePreludeType for Type {
                 .map(|(name, ty)| (name.to_string(), ty))
                 .collect(),
         )
-    }
-
-    fn bool() -> Self {
-        Type::bool()
     }
 
     fn int() -> Self {
@@ -390,10 +385,6 @@ impl BytePreludeType for CoreType {
         )
     }
 
-    fn bool() -> Self {
-        CoreType::bool()
-    }
-
     fn int() -> Self {
         CoreType::int()
     }
@@ -425,21 +416,6 @@ impl BytePreludeType for CoreType {
 
 struct BytePreludeTypes<T> {
     byte: T,
-    flag8: T,
-    flag16be: T,
-    flag16le: T,
-    flag24be: T,
-    flag24le: T,
-    flag32be: T,
-    flag32le: T,
-    flag40be: T,
-    flag40le: T,
-    flag48be: T,
-    flag48le: T,
-    flag56be: T,
-    flag56le: T,
-    flag64be: T,
-    flag64le: T,
     byte_chunk: T,
     byte_view: T,
     byte_count: T,
@@ -450,53 +426,17 @@ impl<T: BytePreludeType> BytePreludeTypes<T> {
     fn new() -> Self {
         Self {
             byte: T::named("Byte"),
-            flag8: T::named("Flag8"),
-            flag16be: T::named("Flag16be"),
-            flag16le: T::named("Flag16le"),
-            flag24be: T::named("Flag24be"),
-            flag24le: T::named("Flag24le"),
-            flag32be: T::named("Flag32be"),
-            flag32le: T::named("Flag32le"),
-            flag40be: T::named("Flag40be"),
-            flag40le: T::named("Flag40le"),
-            flag48be: T::named("Flag48be"),
-            flag48le: T::named("Flag48le"),
-            flag56be: T::named("Flag56be"),
-            flag56le: T::named("Flag56le"),
-            flag64be: T::named("Flag64be"),
-            flag64le: T::named("Flag64le"),
             byte_chunk: T::named("ByteChunk"),
             byte_view: T::named("ByteView"),
             byte_count: T::named("ByteCount"),
             byte_offset: T::named("ByteOffset"),
         }
     }
-
-    fn flags(&self) -> [(&'static str, &T); 15] {
-        [
-            ("flag8", &self.flag8),
-            ("flag16be", &self.flag16be),
-            ("flag16le", &self.flag16le),
-            ("flag24be", &self.flag24be),
-            ("flag24le", &self.flag24le),
-            ("flag32be", &self.flag32be),
-            ("flag32le", &self.flag32le),
-            ("flag40be", &self.flag40be),
-            ("flag40le", &self.flag40le),
-            ("flag48be", &self.flag48be),
-            ("flag48le", &self.flag48le),
-            ("flag56be", &self.flag56be),
-            ("flag56le", &self.flag56le),
-            ("flag64be", &self.flag64be),
-            ("flag64le", &self.flag64le),
-        ]
-    }
 }
 
 fn byte_prelude_signature<T: BytePreludeType>(name: &str) -> Option<ByteSignature<T>> {
     let types = BytePreludeTypes::new();
     byte_constructor_signature(name, &types)
-        .or_else(|| byte_flag_signature(name, &types))
         .or_else(|| byte_chunk_signature(name, &types))
         .or_else(|| byte_view_signature(name, &types))
         .or_else(|| byte_chunk_list_signature(name, &types))
@@ -525,25 +465,6 @@ fn byte_constructor_signature<T: BytePreludeType>(
         "byte_to_int" => Some((vec![types.byte.clone()], T::int())),
         _ => None,
     }
-}
-
-fn byte_flag_signature<T: BytePreludeType>(
-    name: &str,
-    types: &BytePreludeTypes<T>,
-) -> Option<ByteSignature<T>> {
-    for (prefix, flag) in types.flags() {
-        let Some(suffix) = name.strip_prefix(prefix) else {
-            continue;
-        };
-        return match suffix {
-            "_is_set" => Some((vec![flag.clone(), T::int()], result_string(T::bool()))),
-            "_set" => Some((vec![flag.clone(), T::int()], result_string(flag.clone()))),
-            "_bits" => Some((vec![flag.clone()], T::int())),
-            "_from_bits" => Some((vec![T::int()], result_string(flag.clone()))),
-            _ => None,
-        };
-    }
-    None
 }
 
 fn byte_chunk_signature<T: BytePreludeType>(

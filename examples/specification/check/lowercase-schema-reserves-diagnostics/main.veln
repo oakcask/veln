@@ -1,9 +1,3 @@
-schema FlagReserve
-	format binary
-
-	flags: flag8 reserves 0
-end
-
 schema InvalidReserveValue
 	format binary
 

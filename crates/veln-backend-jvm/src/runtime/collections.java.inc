@@ -161,7 +161,6 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
-        final String flagType;
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
         final SchemaRepeatSpec repeat;
@@ -173,7 +172,7 @@
         final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, "", predicate, null, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, false, predicate, null, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -183,7 +182,7 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, predicate, null, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -194,84 +193,9 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, "", predicate, null, null, null, "", "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, predicate, null, null, null, "", "", 0, 0L, fixedValue);
         }
 
-        SchemaFieldSpec(
-            String name,
-            int width,
-            long maxValue,
-            boolean littleEndian,
-            boolean flag8,
-            SchemaPredicate predicate
-        ) {
-            this(
-                name,
-                width,
-                maxValue,
-                littleEndian,
-                flag8 ? "Flag8" : "",
-                predicate,
-                null,
-                null,
-                null,
-                "",
-                "",
-                0,
-                0L,
-                null
-            );
-        }
-
-        SchemaFieldSpec(
-            String name,
-            int width,
-            long maxValue,
-            boolean littleEndian,
-            String flagType,
-            SchemaPredicate predicate
-        ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, null, "", "", 0, 0L, null);
-        }
-
-        SchemaFieldSpec(
-            String name,
-            int width,
-            long maxValue,
-            boolean littleEndian,
-            boolean flag8,
-            SchemaPredicate predicate,
-            Long fixedValue
-        ) {
-            this(
-                name,
-                width,
-                maxValue,
-                littleEndian,
-                flag8 ? "Flag8" : "",
-                predicate,
-                null,
-                null,
-                null,
-                "",
-                "",
-                0,
-                0L,
-                fixedValue
-            );
-        }
-
-        SchemaFieldSpec(
-            String name,
-            int width,
-            long maxValue,
-            boolean littleEndian,
-            String flagType,
-            SchemaPredicate predicate,
-            Long fixedValue
-        ) {
-            this(name, width, maxValue, littleEndian, flagType, predicate, null, null, null, "", "", 0, 0L, fixedValue);
-        }
 
         SchemaFieldSpec(
             String name,
@@ -280,7 +204,7 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, "", predicate, dispatch, null, null, "", "", 0, 0L, null);
+            this(name, width, maxValue, false, predicate, dispatch, null, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
@@ -288,19 +212,19 @@
         }
 
         SchemaFieldSpec(String name, String lengthField, String lengthMultiple) {
-            this(name, 0, 0L, false, "", null, null, null, null, lengthField, lengthMultiple, 0, 0L, null);
+            this(name, 0, 0L, false, null, null, null, null, lengthField, lengthMultiple, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, SchemaRepeatSpec repeat) {
-            this(name, 0, 0L, false, "", null, null, repeat, null, "", "", 0, 0L, null);
+            this(name, 0, 0L, false, null, null, repeat, null, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, BinarySchemaSpec payloadSchema) {
-            this(name, 0, 0L, false, "", null, null, null, payloadSchema, "", "", 0, 0L, null);
+            this(name, 0, 0L, false, null, null, null, payloadSchema, "", "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, "", null, null, null, null, "", "", reservedBitWidth, reservedValue, null);
+            this(name, 0, 0L, false, null, null, null, null, "", "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -308,7 +232,6 @@
             int width,
             long maxValue,
             boolean littleEndian,
-            String flagType,
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch,
             SchemaRepeatSpec repeat,
@@ -323,7 +246,6 @@
             this.width = width;
             this.maxValue = maxValue;
             this.littleEndian = littleEndian;
-            this.flagType = flagType;
             this.predicate = predicate;
             this.dispatch = dispatch;
             this.repeat = repeat;
@@ -351,14 +273,6 @@
             return payloadSchema != null;
         }
 
-        boolean isFlagBitset() {
-            return dispatch == null
-                && repeat == null
-                && payloadSchema == null
-                && lengthField.isEmpty()
-                && reservedBitWidth == 0
-                && !flagType.isEmpty();
-        }
     }
 
     private static final class SchemaRepeatSpec {
@@ -508,7 +422,6 @@
             || visible.dispatch != null
             || visible.repeat != null
             || visible.isLengthBoundedView()
-            || visible.isFlagBitset()
             || visible.width != 1
             || visible.maxValue != 0xffL
             || visible.littleEndian) {
@@ -571,7 +484,6 @@
             || visible.dispatch != null
             || visible.repeat != null
             || visible.isLengthBoundedView()
-            || visible.isFlagBitset()
             || visible.width != 1
             || visible.maxValue != 0xffL
             || visible.littleEndian
@@ -598,7 +510,6 @@
             || field.dispatch != null
             || field.repeat != null
             || field.isLengthBoundedView()
-            || field.isFlagBitset()
             || field.littleEndian
             || field.width < 1
             || field.width > 4) {
@@ -1447,665 +1358,6 @@
         return Long.valueOf(asLong(asAdt(value, "Byte").payloads[0]));
     }
 
-    public static Object flag8IsSet(Object flags, Object index) {
-        Object maskResult = flag8BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag8Bits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag8Set(Object flags, Object index) {
-        Object maskResult = flag8BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag8Bits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag8Object(bits + mask));
-    }
-
-    public static Object flag8RawBits(Object flags) {
-        return Long.valueOf(flag8Bits(flags));
-    }
-
-    public static Object flag8FromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 255) {
-            return err("flag8 bits must be between 0 and 255");
-        }
-        return ok(flag8Object(bits));
-    }
-
-    private static Object flag8BitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 7) {
-            return err("flag bit index must be between 0 and 7");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag16beIsSet(Object flags, Object index) {
-        Object maskResult = flag16beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag16beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag16beSet(Object flags, Object index) {
-        Object maskResult = flag16beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag16beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag16beObject(bits + mask));
-    }
-
-    public static Object flag16beRawBits(Object flags) {
-        return Long.valueOf(flag16beBits(flags));
-    }
-
-    public static Object flag16beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 65535) {
-            return err("flag16be bits must be between 0 and 65535");
-        }
-        return ok(flag16beObject(bits));
-    }
-
-    private static Object flag16beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 15) {
-            return err("flag bit index must be between 0 and 15");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag16leIsSet(Object flags, Object index) {
-        Object maskResult = flag16leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag16leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag16leSet(Object flags, Object index) {
-        Object maskResult = flag16leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag16leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag16leObject(bits + mask));
-    }
-
-    public static Object flag16leRawBits(Object flags) {
-        return Long.valueOf(flag16leBits(flags));
-    }
-
-    public static Object flag16leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 65535) {
-            return err("flag16le bits must be between 0 and 65535");
-        }
-        return ok(flag16leObject(bits));
-    }
-
-    private static Object flag16leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 15) {
-            return err("flag bit index must be between 0 and 15");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag24beIsSet(Object flags, Object index) {
-        Object maskResult = flag24beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag24beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag24beSet(Object flags, Object index) {
-        Object maskResult = flag24beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag24beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag24beObject(bits + mask));
-    }
-
-    public static Object flag24beRawBits(Object flags) {
-        return Long.valueOf(flag24beBits(flags));
-    }
-
-    public static Object flag24beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 16777215) {
-            return err("flag24be bits must be between 0 and 16777215");
-        }
-        return ok(flag24beObject(bits));
-    }
-
-    private static Object flag24beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 23) {
-            return err("flag bit index must be between 0 and 23");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag24leIsSet(Object flags, Object index) {
-        Object maskResult = flag24leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag24leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag24leSet(Object flags, Object index) {
-        Object maskResult = flag24leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag24leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag24leObject(bits + mask));
-    }
-
-    public static Object flag24leRawBits(Object flags) {
-        return Long.valueOf(flag24leBits(flags));
-    }
-
-    public static Object flag24leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 16777215) {
-            return err("flag24le bits must be between 0 and 16777215");
-        }
-        return ok(flag24leObject(bits));
-    }
-
-    private static Object flag24leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 23) {
-            return err("flag bit index must be between 0 and 23");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag32beIsSet(Object flags, Object index) {
-        Object maskResult = flag32beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag32beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag32beSet(Object flags, Object index) {
-        Object maskResult = flag32beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag32beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag32beObject(bits + mask));
-    }
-
-    public static Object flag32beRawBits(Object flags) {
-        return Long.valueOf(flag32beBits(flags));
-    }
-
-    public static Object flag32beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 4294967295L) {
-            return err("flag32be bits must be between 0 and 4294967295");
-        }
-        return ok(flag32beObject(bits));
-    }
-
-    private static Object flag32beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 31) {
-            return err("flag bit index must be between 0 and 31");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag32leIsSet(Object flags, Object index) {
-        Object maskResult = flag32leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag32leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag32leSet(Object flags, Object index) {
-        Object maskResult = flag32leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag32leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag32leObject(bits + mask));
-    }
-
-    public static Object flag32leRawBits(Object flags) {
-        return Long.valueOf(flag32leBits(flags));
-    }
-
-    public static Object flag32leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 4294967295L) {
-            return err("flag32le bits must be between 0 and 4294967295");
-        }
-        return ok(flag32leObject(bits));
-    }
-
-    private static Object flag32leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 31) {
-            return err("flag bit index must be between 0 and 31");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag40beIsSet(Object flags, Object index) {
-        Object maskResult = flag40beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag40beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag40beSet(Object flags, Object index) {
-        Object maskResult = flag40beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag40beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag40beObject(bits + mask));
-    }
-
-    public static Object flag40beRawBits(Object flags) {
-        return Long.valueOf(flag40beBits(flags));
-    }
-
-    public static Object flag40beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 1099511627775L) {
-            return err("flag40be bits must be between 0 and 1099511627775");
-        }
-        return ok(flag40beObject(bits));
-    }
-
-    private static Object flag40beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 39) {
-            return err("flag bit index must be between 0 and 39");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag40leIsSet(Object flags, Object index) {
-        Object maskResult = flag40leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag40leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag40leSet(Object flags, Object index) {
-        Object maskResult = flag40leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag40leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag40leObject(bits + mask));
-    }
-
-    public static Object flag40leRawBits(Object flags) {
-        return Long.valueOf(flag40leBits(flags));
-    }
-
-    public static Object flag40leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 1099511627775L) {
-            return err("flag40le bits must be between 0 and 1099511627775");
-        }
-        return ok(flag40leObject(bits));
-    }
-
-    private static Object flag40leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 39) {
-            return err("flag bit index must be between 0 and 39");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag48beIsSet(Object flags, Object index) {
-        Object maskResult = flag48beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag48beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag48beSet(Object flags, Object index) {
-        Object maskResult = flag48beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag48beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag48beObject(bits + mask));
-    }
-
-    public static Object flag48beRawBits(Object flags) {
-        return Long.valueOf(flag48beBits(flags));
-    }
-
-    public static Object flag48beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 281474976710655L) {
-            return err("flag48be bits must be between 0 and 281474976710655");
-        }
-        return ok(flag48beObject(bits));
-    }
-
-    private static Object flag48beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 47) {
-            return err("flag bit index must be between 0 and 47");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag48leIsSet(Object flags, Object index) {
-        Object maskResult = flag48leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag48leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag48leSet(Object flags, Object index) {
-        Object maskResult = flag48leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag48leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag48leObject(bits + mask));
-    }
-
-    public static Object flag48leRawBits(Object flags) {
-        return Long.valueOf(flag48leBits(flags));
-    }
-
-    public static Object flag48leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 281474976710655L) {
-            return err("flag48le bits must be between 0 and 281474976710655");
-        }
-        return ok(flag48leObject(bits));
-    }
-
-    private static Object flag48leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 47) {
-            return err("flag bit index must be between 0 and 47");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag56beIsSet(Object flags, Object index) {
-        Object maskResult = flag56beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag56beBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag56beSet(Object flags, Object index) {
-        Object maskResult = flag56beBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag56beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag56beObject(bits + mask));
-    }
-
-    public static Object flag56beRawBits(Object flags) {
-        return Long.valueOf(flag56beBits(flags));
-    }
-
-    public static Object flag56beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 72057594037927935L) {
-            return err("flag56be bits must be between 0 and 72057594037927935");
-        }
-        return ok(flag56beObject(bits));
-    }
-
-    private static Object flag56beBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 55) {
-            return err("flag bit index must be between 0 and 55");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag56leIsSet(Object flags, Object index) {
-        Object maskResult = flag56leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag56leBits(flags);
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag56leSet(Object flags, Object index) {
-        Object maskResult = flag56leBitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag56leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag56leObject(bits + mask));
-    }
-
-    public static Object flag56leRawBits(Object flags) {
-        return Long.valueOf(flag56leBits(flags));
-    }
-
-    public static Object flag56leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0 || bits > 72057594037927935L) {
-            return err("flag56le bits must be between 0 and 72057594037927935");
-        }
-        return ok(flag56leObject(bits));
-    }
-
-    private static Object flag56leBitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 55) {
-            return err("flag bit index must be between 0 and 55");
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    public static Object flag64beIsSet(Object flags, Object index) {
-        Object maskResult = flag64BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long bitIndex = asLong(index);
-        long bits = flag64beBits(flags);
-        if (bitIndex == 63) {
-            return ok(Boolean.valueOf(bits < 0));
-        }
-        long mask = asLong(resultValue(maskResult));
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag64beSet(Object flags, Object index) {
-        Object maskResult = flag64BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long bitIndex = asLong(index);
-        if (bitIndex == 63) {
-            return err(flag64BitsError("flag64be"));
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag64beBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag64beObject(bits + mask));
-    }
-
-    public static Object flag64beRawBits(Object flags) {
-        return Long.valueOf(flag64beBits(flags));
-    }
-
-    public static Object flag64beFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0) {
-            return err(flag64BitsError("flag64be"));
-        }
-        return ok(flag64beObject(bits));
-    }
-
-    public static Object flag64leIsSet(Object flags, Object index) {
-        Object maskResult = flag64BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long bitIndex = asLong(index);
-        long bits = flag64leBits(flags);
-        if (bitIndex == 63) {
-            return ok(Boolean.valueOf(bits < 0));
-        }
-        long mask = asLong(resultValue(maskResult));
-        return ok(Boolean.valueOf(((bits / mask) - (bits / (mask * 2)) * 2) == 1));
-    }
-
-    public static Object flag64leSet(Object flags, Object index) {
-        Object maskResult = flag64BitMask(index);
-        if (!isOk(maskResult)) {
-            return maskResult;
-        }
-        long bitIndex = asLong(index);
-        if (bitIndex == 63) {
-            return err(flag64BitsError("flag64le"));
-        }
-        long mask = asLong(resultValue(maskResult));
-        long bits = flag64leBits(flags);
-        if (((bits / mask) - (bits / (mask * 2)) * 2) == 1) {
-            return ok(flags);
-        }
-        return ok(flag64leObject(bits + mask));
-    }
-
-    public static Object flag64leRawBits(Object flags) {
-        return Long.valueOf(flag64leBits(flags));
-    }
-
-    public static Object flag64leFromBits(Object value) {
-        long bits = asLong(value);
-        if (bits < 0) {
-            return err(flag64BitsError("flag64le"));
-        }
-        return ok(flag64leObject(bits));
-    }
-
-    private static Object flag64BitMask(Object index) {
-        long bitIndex = asLong(index);
-        if (bitIndex < 0 || bitIndex > 63) {
-            return err("flag bit index must be between 0 and 63");
-        }
-        if (bitIndex == 63) {
-            return ok(Long.valueOf(Long.MIN_VALUE));
-        }
-        return ok(Long.valueOf(1L << bitIndex));
-    }
-
-    private static String flag64BitsError(String name) {
-        return name + " bits must be between 0 and 18446744073709551615";
-    }
 
     public static Object byteChunk(Object bytes) {
         return byteChunkObject(asList(bytes));
@@ -2656,7 +1908,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -2682,7 +1933,6 @@
             widths,
             maxValues,
             littleEndianValues,
-            flag8Values,
             repeatCountFields,
             repeatWidths,
             repeatMaxValues,
@@ -2716,7 +1966,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -2742,7 +1991,6 @@
             widths,
             maxValues,
             littleEndianValues,
-            flag8Values,
             repeatCountFields,
             repeatWidths,
             repeatMaxValues,
@@ -2893,7 +2141,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -2917,7 +2164,6 @@
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> maxValueValues = asList(maxValues);
         java.util.List<Object> littleEndianValueList = asList(littleEndianValues);
-        java.util.List<Object> flag8ValueList = asList(flag8Values);
         java.util.List<Object> repeatCountFieldValues = asList(repeatCountFields);
         java.util.List<Object> repeatWidthValues = asList(repeatWidths);
         java.util.List<Object> repeatMaxValueValues = asList(repeatMaxValues);
@@ -2939,7 +2185,6 @@
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != maxValueValues.size()
             || fieldNameValues.size() != littleEndianValueList.size()
-            || fieldNameValues.size() != flag8ValueList.size()
             || fieldNameValues.size() != repeatCountFieldValues.size()
             || fieldNameValues.size() != repeatWidthValues.size()
             || fieldNameValues.size() != repeatMaxValueValues.size()
@@ -2977,7 +2222,6 @@
             SchemaPredicate predicate = null;
             Long fixedValue = null;
             boolean littleEndian = asBool(littleEndianValueList.get(index));
-            String flagType = schemaFlagTypeFromMetadata(flag8ValueList.get(index));
             String repeatCountField = asString(repeatCountFieldValues.get(index));
             String repeatByteViewLengthField =
                 asString(repeatByteViewLengthFieldValues.get(index));
@@ -3083,7 +2327,6 @@
                 width,
                 maxValue,
                 littleEndian,
-                flagType,
                 predicate,
                 fixedValue
             );
@@ -3498,7 +2741,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -3524,7 +2766,6 @@
             widths,
             maxValues,
             littleEndianValues,
-            flag8Values,
             repeatCountFields,
             repeatWidths,
             repeatMaxValues,
@@ -3558,7 +2799,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -3584,7 +2824,6 @@
             widths,
             maxValues,
             littleEndianValues,
-            flag8Values,
             repeatCountFields,
             repeatWidths,
             repeatMaxValues,
@@ -5917,12 +5156,7 @@
             );
         }
         decoded.put(field.name, Long.valueOf(fieldValue));
-        values.put(
-            field.name,
-            field.isFlagBitset()
-                ? schemaFlagObject(field, fieldValue)
-                : Long.valueOf(fieldValue)
-        );
+        values.put(field.name, Long.valueOf(fieldValue));
 
         if (field.predicate != null) {
             boolean passed;
@@ -6780,12 +6014,7 @@
                 );
             }
             decoded.put(field.name, Long.valueOf(fieldValue));
-            values.put(
-                field.name,
-                field.isFlagBitset()
-                    ? schemaFlagObject(field, fieldValue)
-                    : Long.valueOf(fieldValue)
-            );
+            values.put(field.name, Long.valueOf(fieldValue));
 
             if (field.predicate != null) {
                 boolean passed;
@@ -7636,7 +6865,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -7662,7 +6890,6 @@
             widths,
             maxValues,
             littleEndianValues,
-            flag8Values,
             repeatCountFields,
             repeatWidths,
             repeatMaxValues,
@@ -7690,7 +6917,6 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
-        Object flag8Values,
         Object repeatCountFields,
         Object repeatWidths,
         Object repeatMaxValues,
@@ -7717,8 +6943,6 @@
             maxValues == null ? null : asList(maxValues);
         java.util.List<Object> littleEndianValueList =
             littleEndianValues == null ? null : asList(littleEndianValues);
-        java.util.List<Object> flag8ValueList =
-            flag8Values == null ? null : asList(flag8Values);
         java.util.List<Object> repeatCountFieldValues =
             repeatCountFields == null ? null : asList(repeatCountFields);
         java.util.List<Object> repeatWidthValues =
@@ -7756,7 +6980,6 @@
             || fieldNameValues.size() != dispatchCaseWidthValues.size()
             || (littleEndianValueList != null
                 && fieldNameValues.size() != littleEndianValueList.size())
-            || (flag8ValueList != null && fieldNameValues.size() != flag8ValueList.size())
             || (repeatCountFieldValues != null
                 && fieldNameValues.size() != repeatCountFieldValues.size())
             || (repeatWidthValues != null && fieldNameValues.size() != repeatWidthValues.size())
@@ -7808,9 +7031,6 @@
                 : repeatSchemaSpecValues.get(index);
             boolean littleEndian =
                 littleEndianValueList != null && asBool(littleEndianValueList.get(index));
-            String flagType = flag8ValueList == null
-                ? ""
-                : schemaFlagTypeFromMetadata(flag8ValueList.get(index));
             if (reservedBitWidth > 0L) {
                 if (reservedBitWidth > Integer.MAX_VALUE
                     || !supportedReservedBits((int) reservedBitWidth, reservedValue)) {
@@ -7960,7 +7180,6 @@
                     (int) width,
                     unsignedMaxValue((int) width),
                     false,
-                    false,
                     predicate,
                     fixedValue
                 );
@@ -7970,7 +7189,6 @@
                     (int) width,
                     asLong(maxValueValues.get(index)),
                     littleEndian,
-                    flagType,
                     predicate,
                     fixedValue
                 );
@@ -8092,7 +7310,7 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 24) {
+        if (values.size() != 23) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -8118,8 +7336,7 @@
             values.get(19),
             values.get(20),
             values.get(21),
-            values.get(22),
-            values.get(23)
+            values.get(22)
         );
     }
 
@@ -9183,156 +8400,11 @@
     }
 
     private static Object schemaFieldEncodeValue(Object value, SchemaFieldSpec field) {
-        return field.isFlagBitset() ? Long.valueOf(schemaFlagBits(value, field.flagType)) : value;
+        return value;
     }
 
     private static Long schemaEncodedIntValue(Object value, SchemaFieldSpec field) {
-        if (field.isFlagBitset()) {
-            return null;
-        }
         return value instanceof Long ? (Long) value : null;
-    }
-
-    private static String schemaFlagTypeFromMetadata(Object value) {
-        if (value instanceof java.lang.Boolean) {
-            return asBool(value) ? "Flag8" : "";
-        }
-        return asString(value);
-    }
-
-    private static Object schemaFlagObject(SchemaFieldSpec field, long bits) {
-        return flagObject(field.flagType, bits);
-    }
-
-    private static Object flag8Object(long bits) {
-        return flagObject("Flag8", bits);
-    }
-
-    private static long flag8Bits(Object value) {
-        return schemaFlagBits(value, "Flag8");
-    }
-
-    private static Object flag16beObject(long bits) {
-        return flagObject("Flag16be", bits);
-    }
-
-    private static long flag16beBits(Object value) {
-        return schemaFlagBits(value, "Flag16be");
-    }
-
-    private static Object flag16leObject(long bits) {
-        return flagObject("Flag16le", bits);
-    }
-
-    private static long flag16leBits(Object value) {
-        return schemaFlagBits(value, "Flag16le");
-    }
-
-    private static Object flag24beObject(long bits) {
-        return flagObject("Flag24be", bits);
-    }
-
-    private static long flag24beBits(Object value) {
-        return schemaFlagBits(value, "Flag24be");
-    }
-
-    private static Object flag24leObject(long bits) {
-        return flagObject("Flag24le", bits);
-    }
-
-    private static long flag24leBits(Object value) {
-        return schemaFlagBits(value, "Flag24le");
-    }
-
-    private static Object flag32beObject(long bits) {
-        return flagObject("Flag32be", bits);
-    }
-
-    private static long flag32beBits(Object value) {
-        return schemaFlagBits(value, "Flag32be");
-    }
-
-    private static Object flag32leObject(long bits) {
-        return flagObject("Flag32le", bits);
-    }
-
-    private static long flag32leBits(Object value) {
-        return schemaFlagBits(value, "Flag32le");
-    }
-
-    private static Object flag40beObject(long bits) {
-        return flagObject("Flag40be", bits);
-    }
-
-    private static long flag40beBits(Object value) {
-        return schemaFlagBits(value, "Flag40be");
-    }
-
-    private static Object flag40leObject(long bits) {
-        return flagObject("Flag40le", bits);
-    }
-
-    private static long flag40leBits(Object value) {
-        return schemaFlagBits(value, "Flag40le");
-    }
-
-    private static Object flag48beObject(long bits) {
-        return flagObject("Flag48be", bits);
-    }
-
-    private static long flag48beBits(Object value) {
-        return schemaFlagBits(value, "Flag48be");
-    }
-
-    private static Object flag48leObject(long bits) {
-        return flagObject("Flag48le", bits);
-    }
-
-    private static long flag48leBits(Object value) {
-        return schemaFlagBits(value, "Flag48le");
-    }
-
-    private static Object flag56beObject(long bits) {
-        return flagObject("Flag56be", bits);
-    }
-
-    private static long flag56beBits(Object value) {
-        return schemaFlagBits(value, "Flag56be");
-    }
-
-    private static Object flag56leObject(long bits) {
-        return flagObject("Flag56le", bits);
-    }
-
-    private static long flag56leBits(Object value) {
-        return schemaFlagBits(value, "Flag56le");
-    }
-
-    private static Object flag64beObject(long bits) {
-        return flagObject("Flag64be", bits);
-    }
-
-    private static long flag64beBits(Object value) {
-        return schemaFlagBits(value, "Flag64be");
-    }
-
-    private static Object flag64leObject(long bits) {
-        return flagObject("Flag64le", bits);
-    }
-
-    private static long flag64leBits(Object value) {
-        return schemaFlagBits(value, "Flag64le");
-    }
-
-    private static Object flagObject(String flagType, long bits) {
-        return adt(flagType + "::" + flagType, new Object[] { Long.valueOf(bits) });
-    }
-
-    private static long schemaFlagBits(Object value, String flagType) {
-        if (isAdtNamed(value, flagType)) {
-            return asLong(asAdt(value, flagType).payloads[0]);
-        }
-        return asLong(asAdt(value, flagType + "::" + flagType).payloads[0]);
     }
 
     private static Object encodeError(String id, String fieldPath, String reason) {

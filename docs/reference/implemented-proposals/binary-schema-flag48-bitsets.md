@@ -2,15 +2,16 @@
 
 Status: implemented
 
-This record preserves the completed `Flag48be` and `Flag48le` visible flag
-bitset slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior
-is specified by `../../specification/source-surface.md`,
+This record preserves the former `Flag48be` and `Flag48le` visible flag bitset
+slice from `../../proposals/binary-schema-primitives-and-dispatch.md`. That
+slice was superseded by
+[integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
+Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/names-effects.md`, `../../specification/execution.md`,
 and the checked executable examples under
 `../../../examples/specification/run/`.
 
-## Outcome
+## Historical Outcome
 
 `Flag48be` and `Flag48le` are accepted as `format binary` schema field
 primitive names for opt-in visible flag bitsets. Generated decode helpers
@@ -27,31 +28,19 @@ Direct structural decode and encode mappings carry `Flag48be` and `Flag48le`
 fields with the same schema-local value shape as the surrounding flag helper
 families.
 
-## Evidence
+## Superseding Evidence
 
-- `../../../examples/specification/run/binary-schema-flag48be-decode/` and
-  `../../../examples/specification/run/binary-schema-flag48le-decode/` check
-  six-byte big-endian and little-endian decode into visible flag values.
-- `../../../examples/specification/run/binary-schema-flag48be-encode/` and
-  `../../../examples/specification/run/binary-schema-flag48le-encode/` check
-  six-byte big-endian and little-endian encode output.
-- `../../../examples/specification/run/binary-schema-flag48be-bit-helpers/`
-  and `../../../examples/specification/run/binary-schema-flag48le-bit-helpers/`
-  check successful helper reads, writes, raw-bit extraction, raw-bit
-  construction, and generated encode use.
-- `../../../examples/specification/run/binary-schema-flag48be-from-bits-out-of-range-json/`,
-  `../../../examples/specification/run/binary-schema-flag48le-from-bits-out-of-range-json/`,
-  `../../../examples/specification/run/binary-schema-flag48be-bit-index-json/`,
-  `../../../examples/specification/run/binary-schema-flag48le-bit-index-json/`,
-  `../../../examples/specification/run/binary-schema-flag48be-bit-index-human/`,
-  and `../../../examples/specification/run/binary-schema-flag48le-bit-index-human/`
-  check helper failure reporting.
-- `../../../examples/specification/run/binary-schema-flag48be-encode-out-of-range/`
-  and `../../../examples/specification/run/binary-schema-flag48le-encode-out-of-range/`
-  check generated encode range failures.
+- `../../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`
+  checks the replacement exact-width unsigned fields and ordinary integer bit
+  operations in both byte orders.
+- `../../../examples/specification/check/removed-flag-vocabulary-diagnostics/`
+  and
+  `../../../examples/specification/check/removed-flag-nested-shapes-human/`
+  check removal diagnostics and replacement names.
+- The superseding implemented proposal record preserves the migration map and
+  the reason the original dedicated flag fixtures were removed.
 
-## Remaining Work
+## Supersession
 
-The broader binary schema primitives and dispatch proposal remains open for
-flag widths and mapping behavior outside the implemented generated-helper
-slices.
+The former flag family is historical only. Current schema code uses
+`uint48be` or `uint48le` and represents decoded values as `Int`.

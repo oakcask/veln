@@ -53,6 +53,11 @@ human-output case. The `parse.integer_literal` details retain the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes expose the accepted digit set or prefix where useful.
 
+Invalid literal shift counts use `type.invalid_shift_count` with the operator,
+actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
+constructors, patterns, and helpers use focused removed-vocabulary diagnostics
+with replacement details instead of generic unresolved-name output.
+
 ## Stable Details
 
 See

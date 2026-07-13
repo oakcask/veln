@@ -2539,6 +2539,14 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Constructor { name, args } => {
                 let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type)
                 else {
+                    if removed_flag_type_replacement(&name.join("::")).is_some() {
+                        self.push_removed_flag_vocabulary(
+                            pattern.node_id,
+                            pattern.span.clone(),
+                            &name.join("::"),
+                            "pattern",
+                        );
+                    }
                     return args
                         .iter()
                         .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
@@ -2789,6 +2797,7 @@ impl<'a> FunctionChecker<'a> {
         let operand_type = match op {
             veln_ast::PrefixOp::Not => Type::bool(),
             veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected_result, &[expr]),
+            veln_ast::PrefixOp::BitwiseNot => Type::int(),
         };
         if operand_type == Type::float()
             && let Some(name) = float_prefix_prelude_name(op)
@@ -2818,6 +2827,23 @@ impl<'a> FunctionChecker<'a> {
             return self.infer_pipeline(left, right, expected_result);
         }
 
+        if let Some(count) = invalid_literal_shift_count(op, right) {
+            let operator = shift_operator_text(op).expect("shift operator should have text");
+            self.diagnostics.push(Diagnostic::new(
+                "type.invalid_shift_count",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("shift count {count} is outside the permitted range 0 through 63"),
+                Some(right.span.clone()),
+                JsonValue::object([
+                    ("operator", JsonValue::string(operator)),
+                    ("actual_count", JsonValue::Number(count)),
+                    ("minimum_count", JsonValue::Number(0)),
+                    ("maximum_count", JsonValue::Number(63)),
+                ]),
+            ));
+        }
+
         let numeric_type = if is_ordering_op(op) {
             self.numeric_operand_type(None, &[left, right])
         } else {
@@ -2833,6 +2859,12 @@ impl<'a> FunctionChecker<'a> {
         }
         let (operand_type, result_type) = match op {
             BinaryOp::Or | BinaryOp::And => (Type::bool(), Type::bool()),
+            BinaryOp::BitwiseOr
+            | BinaryOp::BitwiseXor
+            | BinaryOp::BitwiseAnd
+            | BinaryOp::ShiftLeft
+            | BinaryOp::ShiftRight
+            | BinaryOp::ShiftRightLogical => (Type::int(), Type::int()),
             BinaryOp::Equal | BinaryOp::NotEqual => (Type::Unknown, Type::bool()),
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
                 (numeric_type, Type::bool())
@@ -3146,6 +3178,10 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
+        if removed_flag_migration(symbol).is_some() {
+            self.push_removed_flag_vocabulary(node_id, span, symbol, namespace);
+            return;
+        }
         if namespace == "value"
             && let Some(primitive) = exact_width_binary_primitive_name(symbol)
         {
@@ -3187,6 +3223,48 @@ impl<'a> FunctionChecker<'a> {
                 ("candidates", JsonValue::array([])),
             ]),
         ));
+    }
+
+    fn push_removed_flag_vocabulary(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        symbol: &str,
+        namespace: &'static str,
+    ) {
+        let (replacement, requires_range_check) =
+            removed_flag_migration(symbol).unwrap_or(("Int binding", true));
+        let mut diagnostic = Diagnostic::new(
+            "name.removed_flag_vocabulary",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("removed flag vocabulary `{symbol}`; use `{replacement}`"),
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(node_id.display("name"))),
+                ("symbol", JsonValue::string(symbol)),
+                ("namespace", JsonValue::string(namespace)),
+                ("replacement", JsonValue::string(replacement)),
+                (
+                    "requires_explicit_range_check",
+                    JsonValue::Bool(requires_range_check),
+                ),
+            ]),
+        );
+        if requires_range_check {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("migration_validation")),
+                (
+                    "message",
+                    JsonValue::string(
+                        "Keep an explicit protocol-width range check when the removed helper or wrapper previously validated the bit index or raw value.",
+                    ),
+                ),
+                ("span", span_json(&span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn push_ambiguous_name(
@@ -3612,6 +3690,63 @@ impl<'a> FunctionChecker<'a> {
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
             ContractValidation::Valid
         )
+    }
+}
+
+fn shift_operator_text(op: BinaryOp) -> Option<&'static str> {
+    match op {
+        BinaryOp::ShiftLeft => Some("<<"),
+        BinaryOp::ShiftRight => Some(">>"),
+        BinaryOp::ShiftRightLogical => Some(">>>"),
+        _ => None,
+    }
+}
+
+fn invalid_literal_shift_count(op: BinaryOp, expr: &Expr) -> Option<i64> {
+    shift_operator_text(op)?;
+    let value = match &expr.kind {
+        ExprKind::IntLiteral(text) => veln_literals::parse_integer_literal(text).ok()?.value,
+        ExprKind::Prefix {
+            op: veln_ast::PrefixOp::Negate,
+            expr,
+        } => match &expr.kind {
+            ExprKind::IntLiteral(text) => -veln_literals::parse_integer_literal(text).ok()?.value,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    (!(0..=63).contains(&value)).then_some(value)
+}
+
+fn removed_flag_migration(symbol: &str) -> Option<(&'static str, bool)> {
+    if removed_flag_type_replacement(symbol).is_some() {
+        return Some(("Int", true));
+    }
+    for prefix in [
+        "flag8", "flag16be", "flag16le", "flag24be", "flag24le", "flag32be", "flag32le",
+        "flag40be", "flag40le", "flag48be", "flag48le", "flag56be", "flag56le", "flag64be",
+        "flag64le",
+    ] {
+        let Some(suffix) = symbol.strip_prefix(prefix) else {
+            continue;
+        };
+        return match suffix {
+            "_is_set" => Some(("(value & (1 << index)) != 0", true)),
+            "_set" => Some(("value | (1 << index)", true)),
+            "_bits" => Some(("value", false)),
+            "_from_bits" => Some(("value", true)),
+            _ => None,
+        };
+    }
+    None
+}
+
+fn removed_flag_type_replacement(symbol: &str) -> Option<&'static str> {
+    match symbol.rsplit("::").next()? {
+        "Flag8" | "Flag16be" | "Flag16le" | "Flag24be" | "Flag24le" | "Flag32be" | "Flag32le"
+        | "Flag40be" | "Flag40le" | "Flag48be" | "Flag48le" | "Flag56be" | "Flag56le"
+        | "Flag64be" | "Flag64le" => Some("Int"),
+        _ => None,
     }
 }
 

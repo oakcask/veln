@@ -3,7 +3,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::classfile::{TailRecursionEligibility, classify_tail_recursion};
+use crate::classfile::{TailRecursionEligibility, classify_tail_recursion, split_contract_binary};
 use crate::java::{
     java_type_identifier, sanitize_identifier_text, unique_java_identifier,
     veln_string_literal_value,
@@ -2401,6 +2401,54 @@ fn bytecode_backend_evaluates_prefixed_contract_integers_when_java_is_available(
 }
 
 #[test]
+fn bytecode_backend_evaluates_chained_and_mixed_bitwise_contracts_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn shifted_quarter(value: Int) -> Int\n",
+        "require value >> 1 >> 1 == 2\n",
+        "  value >> 2\n",
+        "end\n",
+        "fn mixed_bits(value: Int) -> Int\n",
+        "require (value >>> 1 & 3 ^ 1) == 2\n",
+        "require ((~value & 15) | (1 << 4)) == 25\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(shifted_quarter(8)))\n",
+        "  stdio::println(int_to_string(mixed_bits(6)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-bitwise-contract", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "2\n6\n");
+}
+
+#[test]
+fn contract_binary_splitting_prefers_longest_tokens_and_left_associativity() {
+    assert_eq!(
+        split_contract_binary("value >> 1 >> 1", ">>"),
+        Some(("value >> 1", "1"))
+    );
+    assert_eq!(split_contract_binary("value >>> 1", ">"), None);
+    assert_eq!(split_contract_binary("value >>> 1", ">>"), None);
+    assert_eq!(
+        split_contract_binary("value >>> 1", ">>>"),
+        Some(("value", "1"))
+    );
+    assert_eq!(split_contract_binary("value |> helper", "|"), None);
+}
+
+#[test]
 fn bytecode_backend_entry_invariant_failure_blames_caller_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: Bool) -> Bool\n",
@@ -2518,66 +2566,6 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("float_greater_equal", "floatGreaterEqual"),
         ("byte", "byteValue"),
         ("byte_to_int", "byteToInt"),
-        ("flag8_is_set", "flag8IsSet"),
-        ("flag8_set", "flag8Set"),
-        ("flag8_bits", "flag8RawBits"),
-        ("flag8_from_bits", "flag8FromBits"),
-        ("flag16be_is_set", "flag16beIsSet"),
-        ("flag16be_set", "flag16beSet"),
-        ("flag16be_bits", "flag16beRawBits"),
-        ("flag16be_from_bits", "flag16beFromBits"),
-        ("flag16le_is_set", "flag16leIsSet"),
-        ("flag16le_set", "flag16leSet"),
-        ("flag16le_bits", "flag16leRawBits"),
-        ("flag16le_from_bits", "flag16leFromBits"),
-        ("flag24be_is_set", "flag24beIsSet"),
-        ("flag24be_set", "flag24beSet"),
-        ("flag24be_bits", "flag24beRawBits"),
-        ("flag24be_from_bits", "flag24beFromBits"),
-        ("flag24le_is_set", "flag24leIsSet"),
-        ("flag24le_set", "flag24leSet"),
-        ("flag24le_bits", "flag24leRawBits"),
-        ("flag24le_from_bits", "flag24leFromBits"),
-        ("flag32be_is_set", "flag32beIsSet"),
-        ("flag32be_set", "flag32beSet"),
-        ("flag32be_bits", "flag32beRawBits"),
-        ("flag32be_from_bits", "flag32beFromBits"),
-        ("flag32le_is_set", "flag32leIsSet"),
-        ("flag32le_set", "flag32leSet"),
-        ("flag32le_bits", "flag32leRawBits"),
-        ("flag32le_from_bits", "flag32leFromBits"),
-        ("flag40be_is_set", "flag40beIsSet"),
-        ("flag40be_set", "flag40beSet"),
-        ("flag40be_bits", "flag40beRawBits"),
-        ("flag40be_from_bits", "flag40beFromBits"),
-        ("flag40le_is_set", "flag40leIsSet"),
-        ("flag40le_set", "flag40leSet"),
-        ("flag40le_bits", "flag40leRawBits"),
-        ("flag40le_from_bits", "flag40leFromBits"),
-        ("flag48be_is_set", "flag48beIsSet"),
-        ("flag48be_set", "flag48beSet"),
-        ("flag48be_bits", "flag48beRawBits"),
-        ("flag48be_from_bits", "flag48beFromBits"),
-        ("flag48le_is_set", "flag48leIsSet"),
-        ("flag48le_set", "flag48leSet"),
-        ("flag48le_bits", "flag48leRawBits"),
-        ("flag48le_from_bits", "flag48leFromBits"),
-        ("flag56be_is_set", "flag56beIsSet"),
-        ("flag56be_set", "flag56beSet"),
-        ("flag56be_bits", "flag56beRawBits"),
-        ("flag56be_from_bits", "flag56beFromBits"),
-        ("flag56le_is_set", "flag56leIsSet"),
-        ("flag56le_set", "flag56leSet"),
-        ("flag56le_bits", "flag56leRawBits"),
-        ("flag56le_from_bits", "flag56leFromBits"),
-        ("flag64be_is_set", "flag64beIsSet"),
-        ("flag64be_set", "flag64beSet"),
-        ("flag64be_bits", "flag64beRawBits"),
-        ("flag64be_from_bits", "flag64beFromBits"),
-        ("flag64le_is_set", "flag64leIsSet"),
-        ("flag64le_set", "flag64leSet"),
-        ("flag64le_bits", "flag64leRawBits"),
-        ("flag64le_from_bits", "flag64leFromBits"),
         ("byte_chunk", "byteChunk"),
         ("byte_chunk_count", "byteChunkCount"),
         ("byte_append", "byteAppend"),

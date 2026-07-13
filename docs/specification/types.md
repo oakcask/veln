@@ -114,7 +114,10 @@ full type reference.
   checks records by required fields. Function compatibility preserves
   fixed-arity versus variadic shape. `Path` is distinct from `String`; the
   runtime path representation is not source-visible.
-- Operators use the implemented `Bool`, `Int`, and `Float` rules.
+- Integer bitwise operators `~`, `&`, `|`, `^`, `<<`, `>>`, and `>>>` accept
+  `Int` operands and return `Int` with fixed signed 64-bit two's-complement
+  semantics. Literal shift counts outside `0..63` are rejected during
+  checking; dynamic invalid counts fail at runtime instead of being masked.
 
 ## Read When
 
@@ -124,7 +127,8 @@ full type reference.
   [types-full.md](types-full.md#inference).
 - Record, dictionary, function, and field-access assignment compatibility:
   [types-full.md](types-full.md#assignment-compatibility).
-- Unary, boolean, comparison, arithmetic, equality, pipeline, and float rules:
+- Unary, boolean, bitwise, shift, comparison, arithmetic, equality, pipeline,
+  and float rules:
   [types-full.md](types-full.md#operators).
 
 ## Skip Unless Needed

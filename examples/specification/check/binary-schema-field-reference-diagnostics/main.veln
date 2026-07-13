@@ -19,7 +19,7 @@ schema WrongRepeatCount
 	format binary
 
 	available_count: UInt8
-	flags: Flag8
+	flags: ByteView(available_count)
 	items: Repeat(flags, UInt8)
 end
 
@@ -42,7 +42,7 @@ schema WrongRepeatAddOperand
 	format binary
 
 	available_count: UInt8
-	flags: Flag8
+	flags: ByteView(available_count)
 	items: Repeat(available_count + flags, UInt8)
 end
 
@@ -65,7 +65,7 @@ schema WrongByteViewLength
 	format binary
 
 	available_length: UInt8
-	flags: Flag8
+	flags: ByteView(available_length)
 	payload: ByteView(flags)
 end
 
@@ -88,7 +88,7 @@ schema WrongByteViewAddOperand
 	format binary
 
 	available_length: UInt8
-	flags: Flag8
+	flags: ByteView(available_length)
 	payload: ByteView(available_length + flags)
 end
 
@@ -111,7 +111,7 @@ schema WrongByteViewProductOperand
 	format binary
 
 	available_length: UInt8
-	flags: Flag8
+	flags: ByteView(available_length)
 	payload: ByteView(available_length * flags)
 end
 
@@ -134,7 +134,7 @@ schema WrongDispatchTag
 	format binary
 
 	available_tag: UInt8
-	flags: Flag8
+	flags: ByteView(available_tag)
 	payload: Dispatch(flags, 1 => UInt8)
 end
 
@@ -160,8 +160,8 @@ schema WrongExtensionTag
 
 	available_tag: UInt8
 	length: UInt8
-	extension_tag_flags: Flag8
-	payload: ExtensionDispatch(extension_tag_flags, length, 1 => UInt8)
+	extension_tag_value: ByteView(length)
+	payload: ExtensionDispatch(extension_tag_value, length, 1 => UInt8)
 end
 
 schema MissingExtensionLength
@@ -186,6 +186,6 @@ schema WrongExtensionLength
 
 	kind: UInt8
 	available_length: UInt8
-	extension_length_flags: Flag8
-	payload: ExtensionDispatch(kind, extension_length_flags, 1 => UInt8)
+	extension_length_value: ByteView(available_length)
+	payload: ExtensionDispatch(kind, extension_length_value, 1 => UInt8)
 end

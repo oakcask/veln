@@ -4,10 +4,10 @@ use stdio
 schema WireFormat
   format binary
   count: UInt8
-  flags: Flag16le
+  flags: UInt16le
   reserved: ReservedBits( 16, 43981 )
   items: Repeat( count, UInt24be )
-  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => Flag8 )
+  payload: Dispatch( count, 1 => UInt8, 2 => ReservedBits(16, 43981), 3 => UInt8 )
 end
 
 pub fn main(raw: String) -> Result<{ value : Int, tags : Vec<String> }, AppError> effects [stdio]

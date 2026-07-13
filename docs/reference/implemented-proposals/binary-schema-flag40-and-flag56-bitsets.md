@@ -2,15 +2,17 @@
 
 Status: implemented
 
-This record preserves the completed `Flag40be`, `Flag40le`, `Flag56be`, and
+This record preserves the former `Flag40be`, `Flag40le`, `Flag56be`, and
 `Flag56le` visible flag bitset slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior
-is specified by `../../specification/source-surface.md`,
+`../../proposals/binary-schema-primitives-and-dispatch.md`. That slice was
+superseded by
+[integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
+Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/names-effects.md`, `../../specification/execution.md`,
 and the checked executable examples under
 `../../../examples/specification/run/`.
 
-## Outcome
+## Historical Outcome
 
 `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` are accepted as
 `format binary` schema field primitive names for opt-in visible flag bitsets.
@@ -28,37 +30,19 @@ five-byte or seven-byte unsigned range. Direct structural decode and encode
 mappings carry these flag fields with the same schema-local value shape as the
 surrounding flag helper families.
 
-## Evidence
+## Superseding Evidence
 
-- `../../../examples/specification/run/binary-schema-flag40be-decode/`,
-  `../../../examples/specification/run/binary-schema-flag40le-decode/`,
-  `../../../examples/specification/run/binary-schema-flag56be-decode/`, and
-  `../../../examples/specification/run/binary-schema-flag56le-decode/` check
-  five-byte and seven-byte decode into visible flag values.
-- `../../../examples/specification/run/binary-schema-flag40be-encode/`,
-  `../../../examples/specification/run/binary-schema-flag40le-encode/`,
-  `../../../examples/specification/run/binary-schema-flag56be-encode/`, and
-  `../../../examples/specification/run/binary-schema-flag56le-encode/` check
-  five-byte and seven-byte encode output.
-- The matching `binary-schema-flag40*-mapped-record-*` and
-  `binary-schema-flag56*-mapped-record-*` executable examples check direct
-  structural mappings in both directions.
-- `../../../examples/specification/run/binary-schema-flag40be-bit-helpers/`,
-  `../../../examples/specification/run/binary-schema-flag40le-bit-helpers/`,
-  `../../../examples/specification/run/binary-schema-flag56be-bit-helpers/`,
-  and `../../../examples/specification/run/binary-schema-flag56le-bit-helpers/`
-  check successful helper reads, writes, raw-bit extraction, raw-bit
-  construction, and generated encode use.
-- The matching `from-bits-out-of-range`, `bit-index-json`, and
-  `bit-index-human` executable examples check helper failure reporting.
-- `../../../examples/specification/run/binary-schema-flag40be-encode-out-of-range/`,
-  `../../../examples/specification/run/binary-schema-flag40le-encode-out-of-range/`,
-  `../../../examples/specification/run/binary-schema-flag56be-encode-out-of-range/`,
-  and `../../../examples/specification/run/binary-schema-flag56le-encode-out-of-range/`
-  check generated encode range failures.
+- `../../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`
+  checks the replacement exact-width unsigned fields and ordinary integer bit
+  operations in both byte orders.
+- `../../../examples/specification/check/removed-flag-vocabulary-diagnostics/`
+  and
+  `../../../examples/specification/check/removed-flag-nested-shapes-human/`
+  check removal diagnostics and replacement names.
+- The superseding implemented proposal record preserves the migration map and
+  the reason the original dedicated flag fixtures were removed.
 
-## Remaining Work
+## Supersession
 
-The broader binary schema primitives and dispatch proposal remains open for
-flag vocabulary and mapping behavior outside the implemented generated-helper
-slices.
+The former flag family is historical only. Current schema code uses the
+corresponding `uint...` primitive and represents decoded values as `Int`.

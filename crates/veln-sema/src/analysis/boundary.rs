@@ -6,7 +6,7 @@ use crate::types::{
     SchemaDispatchSpec, SchemaRepeatPayload, binary_schema_anonymous_record_decode_type,
     byte_view_multiple_constraint, byte_view_schema_primitive, closed_dispatch_schema_primitive,
     exact_width_schema_primitive, exact_width_schema_primitive_bit_width,
-    extension_dispatch_schema_primitive, flag_schema_primitive,
+    extension_dispatch_schema_primitive,
     format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema, lowercase_reserved_bits_schema_primitive,
@@ -619,6 +619,20 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
         let mut decoded_fields = BTreeMap::<String, Type>::new();
         let adts = AdtRegistry::from_module(module);
         for field in &schema.fields {
+            let removed_flag_primitives = removed_flag_schema_primitives(&field.ty);
+            if !removed_flag_primitives.is_empty() {
+                for primitive in removed_flag_primitives {
+                    let replacement = removed_flag_schema_replacement(primitive)
+                        .expect("collected flag primitive should have a replacement");
+                    diagnostics.push(removed_flag_schema_primitive_diagnostic(
+                        primitive,
+                        replacement,
+                        schema,
+                        field,
+                    ));
+                }
+                continue;
+            }
             if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
                 match (format_name, reserved) {
                     (Some("binary"), Ok(reserved)) => {
@@ -676,16 +690,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
             }
             if let Some(primitive) = lowercase_schema_primitive(&field.ty) {
                 match (format_name, primitive) {
-                    (Some("binary"), Ok(primitive)) => {
+                    (Some("binary"), Ok(_primitive)) => {
                         check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                        if primitive.family == "flag" {
-                            decoded_fields.insert(
-                                field.name.clone(),
-                                Type::named(primitive.canonical_name(), Vec::new()),
-                            );
-                        } else {
-                            decoded_fields.insert(field.name.clone(), Type::int());
-                        }
+                        decoded_fields.insert(field.name.clone(), Type::int());
                     }
                     (Some("binary"), Err(reason)) => {
                         diagnostics.push(lowercase_schema_primitive_diagnostic(
@@ -717,22 +724,6 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                             reason,
                         ));
                     }
-                }
-                continue;
-            }
-            if let Some(flag_type) = flag_schema_primitive(&field.ty) {
-                if format_name == Some("binary") {
-                    check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                    decoded_fields.insert(field.name.clone(), Type::named(flag_type, Vec::new()));
-                } else {
-                    diagnostics.push(exact_width_schema_primitive_diagnostic(
-                        flag_type,
-                        Some(schema),
-                        Some(field),
-                        field.node_id.display("schema-field"),
-                        field.span.clone(),
-                        "non_binary_format",
-                    ));
                 }
                 continue;
             }
@@ -2623,12 +2614,7 @@ fn unsupported_dispatch_payload_helper_field(
             continue;
         }
         if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            let ty = if let Some(flag_type) = flag_schema_primitive(&field.ty) {
-                Type::named(flag_type, Vec::new())
-            } else {
-                Type::int()
-            };
-            decoded_fields.insert(field.name.clone(), ty);
+            decoded_fields.insert(field.name.clone(), Type::int());
             if width == 0 {
                 return None;
             }
@@ -2880,6 +2866,71 @@ fn push_schema_type_reference_diagnostics(
             use_kind,
         ));
     }
+    let mut removed_flag_types = Vec::new();
+    collect_removed_flag_type_references(&ty, &mut removed_flag_types);
+    for removed in removed_flag_types {
+        diagnostics.push(Diagnostic::new(
+            "type.removed_flag_vocabulary",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("removed flag type `{removed}`; use `Int`"),
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(node_id.clone())),
+                ("symbol", JsonValue::string(removed)),
+                ("replacement", JsonValue::string("Int")),
+                ("requires_explicit_range_check", JsonValue::Bool(true)),
+                ("use_kind", JsonValue::string(use_kind)),
+            ]),
+        ));
+    }
+}
+
+fn collect_removed_flag_type_references<'a>(ty: &'a Type, removed: &mut Vec<&'a str>) {
+    match ty {
+        Type::Named { name, args } => {
+            if matches!(
+                name.as_str(),
+                "Flag8"
+                    | "Flag16be"
+                    | "Flag16le"
+                    | "Flag24be"
+                    | "Flag24le"
+                    | "Flag32be"
+                    | "Flag32le"
+                    | "Flag40be"
+                    | "Flag40le"
+                    | "Flag48be"
+                    | "Flag48le"
+                    | "Flag56be"
+                    | "Flag56le"
+                    | "Flag64be"
+                    | "Flag64le"
+            ) {
+                removed.push(name);
+            }
+            for arg in args {
+                collect_removed_flag_type_references(arg, removed);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field_ty) in fields {
+                collect_removed_flag_type_references(field_ty, removed);
+            }
+        }
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } => {
+            for param in params {
+                collect_removed_flag_type_references(param, removed);
+            }
+            collect_removed_flag_type_references(return_type, removed);
+        }
+        Type::Unknown => {}
+    }
 }
 
 fn collect_schema_type_references<'a>(
@@ -2991,7 +3042,7 @@ pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
         LowercaseSchemaPrimitiveError::MissingEndian => "missing_endian",
         LowercaseSchemaPrimitiveError::RedundantEndian => "redundant_endian",
         LowercaseSchemaPrimitiveError::UnsupportedWidth => "unsupported_width",
-        LowercaseSchemaPrimitiveError::ReservesOnFlag => "reserves_on_flag",
+        LowercaseSchemaPrimitiveError::RemovedFlag => "removed_flag_primitive",
         LowercaseSchemaPrimitiveError::ReservesValue => "reserves_value",
     };
     let message = match reason {
@@ -3012,8 +3063,10 @@ pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
         LowercaseSchemaPrimitiveError::UnsupportedWidth => {
             format!("binary schema primitive `{primitive}` uses an unsupported width")
         }
-        LowercaseSchemaPrimitiveError::ReservesOnFlag => {
-            format!("binary schema primitive `{primitive}` cannot use `reserves` on a flag field")
+        LowercaseSchemaPrimitiveError::RemovedFlag => {
+            let replacement =
+                removed_flag_schema_replacement(primitive).unwrap_or("uint primitive");
+            format!("binary schema primitive `{primitive}` was removed; use `{replacement}`")
         }
         LowercaseSchemaPrimitiveError::ReservesValue => {
             format!(
@@ -3030,6 +3083,33 @@ pub(in crate::analysis) fn lowercase_schema_primitive_diagnostic(
         reason_text,
         message,
     )
+}
+
+pub(crate) fn removed_flag_schema_replacement(primitive: &str) -> Option<&'static str> {
+    match primitive.trim() {
+        "flag8" | "Flag8" => Some("uint8"),
+        "flag16be" | "Flag16be" => Some("uint16be"),
+        "flag16le" | "Flag16le" => Some("uint16le"),
+        "flag24be" | "Flag24be" => Some("uint24be"),
+        "flag24le" | "Flag24le" => Some("uint24le"),
+        "flag32be" | "Flag32be" => Some("uint32be"),
+        "flag32le" | "Flag32le" => Some("uint32le"),
+        "flag40be" | "Flag40be" => Some("uint40be"),
+        "flag40le" | "Flag40le" => Some("uint40le"),
+        "flag48be" | "Flag48be" => Some("uint48be"),
+        "flag48le" | "Flag48le" => Some("uint48le"),
+        "flag56be" | "Flag56be" => Some("uint56be"),
+        "flag56le" | "Flag56le" => Some("uint56le"),
+        "flag64be" | "Flag64be" => Some("uint64be"),
+        "flag64le" | "Flag64le" => Some("uint64le"),
+        _ => None,
+    }
+}
+
+fn removed_flag_schema_primitives(text: &str) -> Vec<&str> {
+    text.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+        .filter(|candidate| removed_flag_schema_replacement(candidate).is_some())
+        .collect()
 }
 
 pub(in crate::analysis) fn lowercase_schema_primitive_position_diagnostic(
@@ -3080,13 +3160,52 @@ fn lowercase_schema_primitive_diagnostic_with_message(
     if let Some(field) = field {
         details.push(("field", JsonValue::string(field.name.clone())));
     }
+    if reason == "removed_flag_primitive"
+        && let Some(replacement) = removed_flag_schema_replacement(primitive)
+    {
+        details.push(("replacement", JsonValue::string(replacement)));
+    }
     Diagnostic::new(
-        "schema.lowercase_primitive",
+        if reason == "removed_flag_primitive" {
+            "schema.removed_flag_primitive"
+        } else {
+            "schema.lowercase_primitive"
+        },
         Severity::Error,
         DiagnosticKind::Type,
         message,
         Some(span),
         JsonValue::object(details),
+    )
+}
+
+fn removed_flag_schema_primitive_diagnostic(
+    primitive: &str,
+    replacement: &str,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.removed_flag_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("binary schema primitive `{primitive}` was removed; use `{replacement}`"),
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("primitive", JsonValue::string(primitive)),
+            ("replacement", JsonValue::string(replacement)),
+            ("reason", JsonValue::string("removed_flag_primitive")),
+            (
+                "schema",
+                JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("field", JsonValue::string(field.name.clone())),
+        ]),
     )
 }
 

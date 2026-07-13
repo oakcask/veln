@@ -403,6 +403,7 @@ pub struct PatternField {
 pub enum PrefixOp {
     Not,
     Negate,
+    BitwiseNot,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -410,12 +411,18 @@ pub enum BinaryOp {
     PipeGreater,
     Or,
     And,
+    BitwiseOr,
+    BitwiseXor,
+    BitwiseAnd,
     Equal,
     NotEqual,
     Less,
     LessEqual,
     Greater,
     GreaterEqual,
+    ShiftLeft,
+    ShiftRight,
+    ShiftRightLogical,
     Add,
     Subtract,
     Multiply,

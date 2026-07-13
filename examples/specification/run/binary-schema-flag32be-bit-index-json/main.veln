@@ -1,6 +1,0 @@
-# Flag32be helper functions reject indexes outside the four-byte bit range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Bool = flag32be_is_set(Flag32be(0), 32)?
-	Ok(())
-end

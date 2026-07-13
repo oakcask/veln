@@ -446,7 +446,15 @@ Implemented operator typing:
 - `not` expects `Bool` and returns `Bool`.
 - Unary `-` expects `Int` and returns `Int`, or expects `Float` and returns
   `Float` when the expected result type or operand is clearly `Float`.
+- Unary `~` expects `Int` and complements all 64 bits.
 - `or` and `and` expect `Bool` operands and return `Bool`.
+- `&`, `^`, and `|` expect `Int` operands and return their bitwise AND, XOR,
+  and OR result as `Int`.
+- `<<`, `>>`, and `>>>` expect `Int` operands. `<<` discards shifted-out high
+  bits, `>>` extends the sign bit, and `>>>` fills high bits with zero. A
+  literal count outside `0..63` reports `type.invalid_shift_count` at the
+  count expression. A dynamic invalid count fails with
+  `runtime.invalid_shift_count`; shift counts are never masked modulo 64.
 - comparisons other than equality expect matching `Int` operands or matching
   `Float` operands and return `Bool`. A `Float` expected result does not apply
   to comparisons, so `Float` comparison is selected from the operand types.
@@ -468,3 +476,12 @@ require `Float` where `Float` is declared.
 Float arithmetic and comparison operators lower as calls to compiler-known
 prelude functions. `Float` values follow the backend floating-point value
 space, including infinities and NaN values.
+
+Integer bitwise operations use signed 64-bit two's-complement patterns on
+every backend. Their precedence from highest to lowest is prefix, multiply,
+add, shift, comparison, equality, `&`, `^`, `|`, `and`, `or`, and pipeline.
+The formatter writes spaces around binary operators and no space after unary
+`~`. Contract typing and runtime checks accept these operators, and static
+contract reasoning evaluates literal-only bitwise expressions. Repair
+reasoning leaves nonliteral bitwise predicates runtime-checked instead of
+inventing an arithmetic rewrite.

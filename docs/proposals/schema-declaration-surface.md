@@ -63,8 +63,8 @@ The implemented first slice covers:
   with the same supported field-local `where` predicate language used by
   generated binary decode helpers
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
-  schemas whose fields use implemented exact-width unsigned primitives,
-  visible flag bitset fields, supported representation-only
+  schemas whose fields use implemented exact-width unsigned `Int` primitives,
+  supported representation-only
   `ReservedBits(width, value)` fields,
   length-bounded `ByteView(length_field)` or
   `ByteView(left_length - right_length)` payload fields, bounded repeat
@@ -82,7 +82,7 @@ The implemented first slice covers:
   diagnostics for unsupported helper field types
 - generated `byte_encode_<schema>` helper bindings for source
   `format binary` schemas whose fields use implemented exact-width unsigned
-  primitives, visible flag bitset fields, supported representation-only
+  `Int` primitives, supported representation-only
   `ReservedBits(width, value)` fields, bounded repeat fields,
   length-bounded `ByteView` fields, direct nested binary schema fields,
   anonymous record fields whose leaves are implemented exact-width unsigned
@@ -118,9 +118,6 @@ The implemented first slice covers:
   implemented source surface. The completed documentation-comment schema
   reference slice is archived under
   [Schema Documentation References](../reference/implemented-proposals/schema-documentation-references.md).
-
-The completed visible flag bitset decode binding slice is archived under
-[Binary Schema Flag Decode Bindings](../reference/implemented-proposals/binary-schema-flag-decode-bindings.md).
 
 The completed bounded repeat helper binding slice is archived under
 [Binary Schema Repeat Helper Bindings](../reference/implemented-proposals/binary-schema-repeat-schema-payload-helpers.md).
@@ -278,7 +275,7 @@ schema-level `map to` clauses as recorded in
 This proposal remains open for:
 
 - generated runtime helper bindings for binary schema fields outside the
-  implemented exact-width unsigned primitive, visible flag bitset,
+  implemented exact-width unsigned `Int` primitive,
   supported representation-only reserved-bit, direct nested binary schema,
   anonymous record decode and encode, bounded repeat, length-bounded `ByteView`, closed
   dispatch, and extension dispatch slices, and format-neutral encode helper
@@ -508,7 +505,7 @@ Implemented:
   field path, predicate text, owning supplied field value, and supplied decoded
   values on failure.
 - Source `format binary` schemas whose fields all use implemented exact-width
-  unsigned primitives, visible flag bitset fields, direct nested binary schema
+  unsigned `Int` primitives, direct nested binary schema
   fields, recursive anonymous record fields whose leaves are implemented
   exact-width unsigned primitives, supported representation-only
   `ReservedBits(width, value)` fields, or bounded repeat fields over
@@ -534,7 +531,7 @@ Implemented:
 Remaining:
 
 - General schema helpers can synthesize executable bindings for fields outside
-  the implemented exact-width unsigned primitive, visible flag bitset,
+  the implemented exact-width unsigned `Int` primitive,
   supported representation-only reserved-bit, direct nested binary schema,
   recursive anonymous record decode and encode, bounded repeat, length-bounded
   `ByteView`, closed dispatch, extension dispatch, and recursive

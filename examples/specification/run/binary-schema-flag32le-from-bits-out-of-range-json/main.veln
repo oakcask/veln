@@ -1,6 +1,0 @@
-# Flag32le raw-bit construction rejects values outside the four-byte range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag32le = flag32le_from_bits(4294967296)?
-	Ok(())
-end

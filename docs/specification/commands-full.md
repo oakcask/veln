@@ -129,7 +129,7 @@ writes each selected file only after all selected files have parsed without
 diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
 and binary precedence, postfix `?`, nested records, lists, calls, and
 idempotent formatting across multiple input files. In `format binary` schemas,
-supported compatibility spellings such as `UIntN`, `FlagN`, representable
+supported compatibility spellings such as `UIntN`, representable
 `ReservedBits(width, value)`, and `Repeat(count, Payload)` are formatted as
 canonical lowercase field text, including dispatch payload field text.
 

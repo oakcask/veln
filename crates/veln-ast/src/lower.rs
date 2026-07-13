@@ -99,6 +99,7 @@ fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {
     match op {
         SyntaxPrefixOp::Not => PrefixOp::Not,
         SyntaxPrefixOp::Negate => PrefixOp::Negate,
+        SyntaxPrefixOp::BitwiseNot => PrefixOp::BitwiseNot,
     }
 }
 
@@ -115,12 +116,18 @@ fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
         SyntaxBinaryOp::PipeGreater => BinaryOp::PipeGreater,
         SyntaxBinaryOp::Or => BinaryOp::Or,
         SyntaxBinaryOp::And => BinaryOp::And,
+        SyntaxBinaryOp::BitwiseOr => BinaryOp::BitwiseOr,
+        SyntaxBinaryOp::BitwiseXor => BinaryOp::BitwiseXor,
+        SyntaxBinaryOp::BitwiseAnd => BinaryOp::BitwiseAnd,
         SyntaxBinaryOp::Equal => BinaryOp::Equal,
         SyntaxBinaryOp::NotEqual => BinaryOp::NotEqual,
         SyntaxBinaryOp::Less => BinaryOp::Less,
         SyntaxBinaryOp::LessEqual => BinaryOp::LessEqual,
         SyntaxBinaryOp::Greater => BinaryOp::Greater,
         SyntaxBinaryOp::GreaterEqual => BinaryOp::GreaterEqual,
+        SyntaxBinaryOp::ShiftLeft => BinaryOp::ShiftLeft,
+        SyntaxBinaryOp::ShiftRight => BinaryOp::ShiftRight,
+        SyntaxBinaryOp::ShiftRightLogical => BinaryOp::ShiftRightLogical,
         SyntaxBinaryOp::Add => BinaryOp::Add,
         SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
         SyntaxBinaryOp::Multiply => BinaryOp::Multiply,

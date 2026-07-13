@@ -1,0 +1,16 @@
+command = ["run", "--json", "main", "main.veln", "--", "64"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+contains = ["\"kind\":\"runtime\"", "\"id\":\"runtime.invalid_shift_count\"", "\"operator\":\">>>\"", "\"actual_count\":64", "\"minimum_count\":0", "\"maximum_count\":63"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"

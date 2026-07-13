@@ -1,25 +1,22 @@
-# Lower-case binary schema primitives normalize to the same helpers as the
-# upper-case compatibility spellings.
+# Lower-case binary schema primitives decode exact-width unsigned fields to Int.
 use stdio
 
 schema LowercasePrimitivePacket
 	format binary
 
 	length: uint24be
-	flags: flag16le
+	flags: uint16le
 	kind: uint8
 end
 
-fn flag_bits(flags: Flag16le) -> Int
-	match flags
-		Flag16le(bits) => bits
-	end
+fn raw_bits(value: Int) -> Int
+	value
 end
 
-fn emit_packet(packet: {length: Int, flags: Flag16le, kind: Int}) -> () effects [stdio]
+fn emit_packet(packet: {length: Int, flags: Int, kind: Int}) -> () effects [stdio]
 	stdio::print(int_to_string(packet.length))
 	stdio::print(" ")
-	stdio::print(int_to_string(flag_bits(packet.flags)))
+	stdio::print(int_to_string(raw_bits(packet.flags)))
 	stdio::print(" ")
 	stdio::println(int_to_string(packet.kind))
 end
@@ -29,7 +26,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let offset: ByteOffset = byte_offset(0)?
 	let count: ByteCount = byte_count(6)?
 	let view: ByteView = byte_view(bytes, offset, count)?
-	let packet: {length: Int, flags: Flag16le, kind: Int} = byte_decode_lowercase_primitive_packet(view)?
+	let packet: {length: Int, flags: Int, kind: Int} = byte_decode_lowercase_primitive_packet(view)?
 	emit_packet(packet)
 	Ok(())
 end

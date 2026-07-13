@@ -1,6 +1,0 @@
-# Flag32be helper functions report range failures through human command output.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag32be = flag32be_set(Flag32be(0), -1)?
-	Ok(())
-end

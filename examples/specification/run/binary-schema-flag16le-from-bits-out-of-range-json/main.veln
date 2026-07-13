@@ -1,6 +1,0 @@
-# Flag16le raw-bit construction rejects values outside the two-byte range.
-
-pub fn main() -> Result<(), String>
-	let ignored: Flag16le = flag16le_from_bits(65536)?
-	Ok(())
-end

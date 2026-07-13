@@ -23,8 +23,8 @@ plus explicit schema `decode` and `encode` expressions for executable decode
 and encode entry points.
 
 `format binary` dispatch payload cases accept lowercase exact-width `uint...`
-and `flag...` primitive spelling in the same positions as compatible
-upper-case exact-width primitive payload spelling. They also accept
+primitive spelling in the same positions as compatible upper-case exact-width
+primitive payload spelling. They also accept
 byte-aligned lowercase `uint... reserves <value>` spelling and subbyte
 spellings from `uint1 reserves 0` through `uint7 reserves 127` in direct
 reserved-bit dispatch payload positions when the reserved value fits the
@@ -76,7 +76,7 @@ SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValid
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
-LowercaseSchemaPrimitive ::= ("uint" | "flag") IntLiteral ("be" | "le")?
+LowercaseSchemaPrimitive ::= "uint" IntLiteral ("be" | "le")?
 LowercaseReservedBitsPrimitive ::= "uint" IntLiteral ("be" | "le")? "reserves" IntLiteral
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 RepeatPrimitive ::= "Repeat" "(" CountExpr "," TypeText ")"
@@ -104,7 +104,10 @@ LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 LetPattern    ::= "_" | BindingName | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
-PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
+BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
+                  | "<" | "<=" | ">" | ">=" | "<<" | ">>" | ">>>"
+                  | "+" | "-" | "*" | "/"
+PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
 PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If

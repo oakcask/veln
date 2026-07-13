@@ -1,0 +1,31 @@
+# Integer bitwise operators use signed 64-bit two's-complement semantics.
+use stdio
+
+fn halve_even(value: Int) -> Int
+	require (value & 1) == 0
+	value >>> 1
+end
+
+fn shifted_quarter(value: Int) -> Int
+	require value >> 1 >> 1 == 2
+	value >> 2
+end
+
+fn mixed_bits(value: Int) -> Int
+	require (value >>> 1 & 3 ^ 1) == 2
+	require ((~value & 15) | (1 << 4)) == 25
+	value
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(~0))
+	stdio::println(int_to_string(6 & 3))
+	stdio::println(int_to_string(6 | 3))
+	stdio::println(int_to_string(6 ^ 3))
+	stdio::println(int_to_string(1 << 63))
+	stdio::println(int_to_string(-8 >> 2))
+	stdio::println(int_to_string(-1 >>> 1))
+	stdio::println(int_to_string(halve_even(6)))
+	stdio::println(int_to_string(shifted_quarter(8)))
+	stdio::println(int_to_string(mixed_bits(6)))
+end

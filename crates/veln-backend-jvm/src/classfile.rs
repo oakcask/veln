@@ -792,6 +792,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let method = match op {
             PrefixOp::Not => "not",
             PrefixOp::Negate => "negate",
+            PrefixOp::BitwiseNot => "bitwiseNot",
         };
         self.emit_unary_runtime(code, method, expr);
     }
@@ -910,7 +911,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_max_values(code, schema);
         self.emit_schema_field_little_endian_values(code, schema);
-        self.emit_schema_field_flag8_values(code, schema);
         self.emit_schema_repeat_count_fields(code, schema);
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
@@ -932,7 +932,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            &object_method_descriptor(25),
+            &object_method_descriptor(24),
         );
     }
 
@@ -954,7 +954,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_max_values(code, schema);
         self.emit_schema_field_little_endian_values(code, schema);
-        self.emit_schema_field_flag8_values(code, schema);
         self.emit_schema_repeat_count_fields(code, schema);
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
@@ -976,7 +975,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            &object_method_descriptor(26),
+            &object_method_descriptor(25),
         );
     }
 
@@ -997,7 +996,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_max_values(code, schema);
         self.emit_schema_field_little_endian_values(code, schema);
-        self.emit_schema_field_flag8_values(code, schema);
         self.emit_schema_repeat_count_fields(code, schema);
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
@@ -1018,7 +1016,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
-            &object_method_descriptor(24),
+            &object_method_descriptor(23),
         );
     }
 
@@ -1061,7 +1059,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             self.emit_schema_field_widths(code, schema);
             self.emit_schema_field_max_values(code, schema);
             self.emit_schema_field_little_endian_values(code, schema);
-            self.emit_schema_field_flag8_values(code, schema);
             self.emit_schema_repeat_count_fields(code, schema);
             self.emit_schema_repeat_widths(code, schema);
             self.emit_schema_repeat_max_values(code, schema);
@@ -1082,7 +1079,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             code.invokestatic(
                 &self.program.options.runtime_class,
                 "byteEncodeStepDeclaredBinarySchemaBudgeted",
-                &object_method_descriptor(25),
+                &object_method_descriptor(24),
             );
             return;
         };
@@ -1092,7 +1089,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_max_values(code, schema);
         self.emit_schema_field_little_endian_values(code, schema);
-        self.emit_schema_field_flag8_values(code, schema);
         self.emit_schema_repeat_count_fields(code, schema);
         self.emit_schema_repeat_widths(code, schema);
         self.emit_schema_repeat_max_values(code, schema);
@@ -1113,7 +1109,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeStepDeclaredBinarySchema",
-            &object_method_descriptor(24),
+            &object_method_descriptor(23),
         );
     }
 
@@ -1186,21 +1182,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             } else {
                 code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
             }
-        });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
-    }
-
-    fn emit_schema_field_flag8_values(
-        &mut self,
-        code: &mut MethodCode,
-        schema: &IrSchemaDecodeSpec,
-    ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            code.ldc_string(&schema.fields[index].flag_type);
         });
         code.invokestatic(
             &self.program.options.runtime_class,
@@ -1606,31 +1587,30 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, 24, |this, code, index| match index {
+        self.emit_object_array(code, 23, |this, code, index| match index {
             0 => code.ldc_string(&schema.schema_name),
             1 => this.emit_schema_field_names(code, schema),
             2 => this.emit_schema_field_widths(code, schema),
             3 => this.emit_schema_field_max_values(code, schema),
             4 => this.emit_schema_field_little_endian_values(code, schema),
-            5 => this.emit_schema_field_flag8_values(code, schema),
-            6 => this.emit_schema_repeat_count_fields(code, schema),
-            7 => this.emit_schema_repeat_widths(code, schema),
-            8 => this.emit_schema_repeat_max_values(code, schema),
-            9 => this.emit_schema_repeat_little_endian_values(code, schema),
-            10 => this.emit_schema_repeat_reserved_values(code, schema),
-            11 => this.emit_schema_repeat_byte_view_length_fields(code, schema),
-            12 => this.emit_schema_repeat_schema_specs(code, schema),
-            13 => this.emit_schema_reserved_bit_widths(code, schema),
-            14 => this.emit_schema_reserved_values(code, schema),
-            15 => this.emit_schema_field_predicates(code, schema),
-            16 => this.emit_schema_byte_view_multiples(code, schema),
-            17 => this.emit_schema_validation(code, schema),
-            18 => this.emit_schema_dispatch_tag_fields(code, schema),
-            19 => this.emit_schema_dispatch_length_fields(code, schema),
-            20 => this.emit_schema_dispatch_case_tags(code, schema),
-            21 => this.emit_schema_dispatch_case_widths(code, schema),
-            22 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
-            23 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            5 => this.emit_schema_repeat_count_fields(code, schema),
+            6 => this.emit_schema_repeat_widths(code, schema),
+            7 => this.emit_schema_repeat_max_values(code, schema),
+            8 => this.emit_schema_repeat_little_endian_values(code, schema),
+            9 => this.emit_schema_repeat_reserved_values(code, schema),
+            10 => this.emit_schema_repeat_byte_view_length_fields(code, schema),
+            11 => this.emit_schema_repeat_schema_specs(code, schema),
+            12 => this.emit_schema_reserved_bit_widths(code, schema),
+            13 => this.emit_schema_reserved_values(code, schema),
+            14 => this.emit_schema_field_predicates(code, schema),
+            15 => this.emit_schema_byte_view_multiples(code, schema),
+            16 => this.emit_schema_validation(code, schema),
+            17 => this.emit_schema_dispatch_tag_fields(code, schema),
+            18 => this.emit_schema_dispatch_length_fields(code, schema),
+            19 => this.emit_schema_dispatch_case_tags(code, schema),
+            20 => this.emit_schema_dispatch_case_widths(code, schema),
+            21 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
+            22 => this.emit_schema_dispatch_case_schema_specs(code, schema),
             _ => unreachable!(),
         });
         code.invokestatic(
@@ -2176,7 +2156,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_contract_value(&mut self, code: &mut MethodCode, text: &str) {
-        let text = text.trim();
+        let text = strip_contract_outer_parens(text.trim());
         if let Some(rest) = text.strip_prefix("not ") {
             self.emit_contract_value(code, rest);
             code.invokestatic(
@@ -2187,12 +2167,18 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             return;
         }
         for (op_text, op) in [
+            ("|", BinaryOp::BitwiseOr),
+            ("^", BinaryOp::BitwiseXor),
+            ("&", BinaryOp::BitwiseAnd),
             ("==", BinaryOp::Equal),
             ("!=", BinaryOp::NotEqual),
             (">=", BinaryOp::GreaterEqual),
             ("<=", BinaryOp::LessEqual),
             (">", BinaryOp::Greater),
             ("<", BinaryOp::Less),
+            (">>>", BinaryOp::ShiftRightLogical),
+            (">>", BinaryOp::ShiftRight),
+            ("<<", BinaryOp::ShiftLeft),
             ("+", BinaryOp::Add),
             ("-", BinaryOp::Subtract),
             ("*", BinaryOp::Multiply),
@@ -2208,6 +2194,15 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 );
                 return;
             }
+        }
+        if let Some(rest) = text.strip_prefix('~') {
+            self.emit_contract_value(code, rest);
+            code.invokestatic(
+                &self.program.options.runtime_class,
+                "bitwiseNot",
+                "(Ljava/lang/Object;)Ljava/lang/Object;",
+            );
+            return;
         }
         if let Some((callee, args)) = parse_contract_call(text) {
             for arg in &args {
@@ -2522,12 +2517,13 @@ fn object_method_descriptor(arg_count: usize) -> String {
     descriptor
 }
 
-fn split_contract_binary<'a>(text: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
+pub(crate) fn split_contract_binary<'a>(text: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
     let mut depth = 0usize;
     let mut in_string = false;
     let mut escaped = false;
     let bytes = text.as_bytes();
     let mut index = 0usize;
+    let mut split = None;
     while index + op.len() <= text.len() {
         let ch = text[index..].chars().next()?;
         if in_string {
@@ -2545,18 +2541,69 @@ fn split_contract_binary<'a>(text: &'a str, op: &str) -> Option<(&'a str, &'a st
             '"' => in_string = true,
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && bytes[index..].starts_with(op.as_bytes()) => {
+            _ if depth == 0 && contract_operator_at(bytes, index, op.as_bytes()) => {
                 let left = text[..index].trim();
                 let right = text[index + op.len()..].trim();
                 if !left.is_empty() && !right.is_empty() {
-                    return Some((left, right));
+                    split = Some((left, right));
                 }
             }
             _ => {}
         }
         index += ch.len_utf8();
     }
-    None
+    split
+}
+
+fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
+    if !text[index..].starts_with(operator) {
+        return false;
+    }
+    let previous = index
+        .checked_sub(1)
+        .and_then(|index| text.get(index))
+        .copied();
+    let next = text.get(index + operator.len()).copied();
+    match operator {
+        b">" => previous != Some(b'>') && !matches!(next, Some(b'>' | b'=')),
+        b">>" | b">>>" => previous != Some(b'>') && next != Some(b'>'),
+        b"<" => previous != Some(b'<') && !matches!(next, Some(b'<' | b'=')),
+        b"<<" => previous != Some(b'<') && next != Some(b'<'),
+        b"|" => next != Some(b'>'),
+        _ => true,
+    }
+}
+
+fn strip_contract_outer_parens(mut text: &str) -> &str {
+    loop {
+        let Some(inner) = text
+            .strip_prefix('(')
+            .and_then(|text| text.strip_suffix(')'))
+        else {
+            return text;
+        };
+        let mut depth = 0usize;
+        let mut closes_at_end = false;
+        for (index, ch) in text.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        closes_at_end = index + ch.len_utf8() == text.len();
+                        if !closes_at_end {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !closes_at_end {
+            return text;
+        }
+        text = inner.trim();
+    }
 }
 
 fn parse_contract_call(text: &str) -> Option<(&str, Vec<&str>)> {

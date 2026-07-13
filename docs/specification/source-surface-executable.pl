@@ -98,7 +98,7 @@ grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? S
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
 grammar_line(105, "SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive").
-grammar_line(106, "LowercaseSchemaPrimitive ::= (\"uint\" | \"flag\") IntLiteral (\"be\" | \"le\")?").
+grammar_line(106, "LowercaseSchemaPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")?").
 grammar_line(106, "LowercaseReservedBitsPrimitive ::= \"uint\" IntLiteral (\"be\" | \"le\")? \"reserves\" IntLiteral").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(106, "RepeatPrimitive ::= \"Repeat\" \"(\" CountExpr \",\" TypeText \")\"").
@@ -126,7 +126,10 @@ grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" 
 grammar_line(240, "LetPattern    ::= \"_\" | BindingName | RecordPattern").
 grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
-grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\") PrefixExpr | PostfixExpr").
+grammar_line(265, "BinaryOp      ::= \"|>\" | \"or\" | \"and\" | \"|\" | \"^\" | \"&\" | \"==\" | \"!=\"").
+grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" | \">>\" | \">>>\"").
+grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
+grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
 grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
@@ -184,6 +187,9 @@ one_token(t(bang_equal, "!=")) --> ['!', '='].
 one_token(t(less_equal, "<=")) --> ['<', '='].
 one_token(t(greater_equal, ">=")) --> ['>', '='].
 one_token(t(pipe_greater, "|>")) --> ['|', '>'].
+one_token(t(shift_right_logical, ">>>")) --> ['>', '>', '>'].
+one_token(t(shift_right, ">>")) --> ['>', '>'].
+one_token(t(shift_left, "<<")) --> ['<', '<'].
 one_token(t(lparen, "(")) --> ['('].
 one_token(t(rparen, ")")) --> [')'].
 one_token(t(lbracket, "[")) --> ['['].
@@ -201,6 +207,10 @@ one_token(t(plus, "+")) --> ['+'].
 one_token(t(minus, "-")) --> ['-'].
 one_token(t(star, "*")) --> ['*'].
 one_token(t(slash, "/")) --> ['/'].
+one_token(t(pipe, "|")) --> ['|'].
+one_token(t(caret, "^")) --> ['^'].
+one_token(t(ampersand, "&")) --> ['&'].
+one_token(t(tilde, "~")) --> ['~'].
 one_token(t(invalid, Text)) --> [Char], { string_chars(Text, [Char]) }.
 
 string_token(t(string, Text)) -->
@@ -588,6 +598,7 @@ binary_tail --> [].
 
 prefix_expr --> tok(not), !, prefix_expr.
 prefix_expr --> tok(minus), !, prefix_expr.
+prefix_expr --> tok(tilde), !, prefix_expr.
 prefix_expr --> postfix_expr.
 
 postfix_expr --> primary_expr, postfix_tail.
@@ -712,12 +723,18 @@ module_path_tail --> [].
 binary_op --> tok(pipe_greater).
 binary_op --> tok(or).
 binary_op --> tok(and).
+binary_op --> tok(pipe).
+binary_op --> tok(caret).
+binary_op --> tok(ampersand).
 binary_op --> tok(equal_equal).
 binary_op --> tok(bang_equal).
 binary_op --> tok(less).
 binary_op --> tok(less_equal).
 binary_op --> tok(greater).
 binary_op --> tok(greater_equal).
+binary_op --> tok(shift_left).
+binary_op --> tok(shift_right).
+binary_op --> tok(shift_right_logical).
 binary_op --> tok(plus).
 binary_op --> tok(minus).
 binary_op --> tok(star).

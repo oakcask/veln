@@ -248,6 +248,14 @@ fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) 
 }
 
 fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token {
+    if ch == '>' && chars.peek().is_some_and(|(_, next)| *next == '>') {
+        chars.next();
+        if chars.peek().is_some_and(|(_, next)| *next == '>') {
+            chars.next();
+            return token(TokenKind::ShiftRightLogical, ">>>", start, start + 3);
+        }
+        return token(TokenKind::ShiftRight, ">>", start, start + 2);
+    }
     if let Some((next, kind)) = two_char_symbol_kind(ch, chars.peek().map(|(_, next)| *next)) {
         chars.next();
         return token(
@@ -269,6 +277,10 @@ fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token 
         ';' => TokenKind::Semicolon,
         '.' => TokenKind::Dot,
         ':' => TokenKind::Colon,
+        '|' => TokenKind::Pipe,
+        '&' => TokenKind::Ampersand,
+        '^' => TokenKind::Caret,
+        '~' => TokenKind::Tilde,
         '-' => TokenKind::Minus,
         '=' => TokenKind::Equal,
         '<' => TokenKind::Less,
@@ -291,6 +303,7 @@ fn two_char_symbol_kind(ch: char, next: Option<char>) -> Option<(char, TokenKind
         ('=', '=') => TokenKind::EqualEqual,
         ('!', '=') => TokenKind::BangEqual,
         ('<', '=') => TokenKind::LessEqual,
+        ('<', '<') => TokenKind::ShiftLeft,
         ('>', '=') => TokenKind::GreaterEqual,
         ('|', '>') => TokenKind::PipeGreater,
         _ => return None,

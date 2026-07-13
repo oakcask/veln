@@ -9,10 +9,6 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-- [Integer Bitwise Operators And Flag Removal](integer-bitwise-operators-and-flag-removal.md):
-  add fixed 64-bit `Int` bitwise and shift operators, replace binary schema
-  `flag...` fields with `uint...` fields, and remove the `FlagN` types,
-  constructors, patterns, helpers, and compatibility spellings.
 - [Local Inference And Annotation Elision](local-inference-and-annotation-elision.md):
   define remaining annotation-elision work for callback inputs outside the
   compiler-known, concrete declared-helper signature including visible public
@@ -92,8 +88,8 @@ compare it with `../specification/` before changing behavior.
   schema primitive declaration and execution boundaries, existing codec
   compatibility schema import/reference visibility checks, generated
   field-local validation, generated `validate_<schema>` decoded-record
-  validation, visible flag bitset decode bindings, bounded repeat generated
-  helper bindings including subtractive `ByteView` payloads, supported
+  validation, exact-width unsigned `Int` decode bindings, bounded repeat
+  generated helper bindings including subtractive `ByteView` payloads, supported
   representation-only reserved-bit generated helper bindings, direct nested
   binary schema helper bindings, binary anonymous record decode and encode helper
   bindings, generated
@@ -326,15 +322,6 @@ compare it with `../specification/` before changing behavior.
   `UInt8`, are followed by a non-byte-aligned
   `ReservedBits(width, value)` field
   ([Binary Schema Suffix Reserved Groups](../reference/implemented-proposals/binary-schema-suffix-reserved-groups.md)),
-  opt-in `Flag8` one-byte, `Flag16be` two-byte big-endian, `Flag16le`
-  two-byte little-endian, `Flag24be` three-byte big-endian, `Flag24le`
-  three-byte little-endian, `Flag32be` four-byte big-endian, `Flag32le`
-  four-byte little-endian, `Flag40be` five-byte big-endian, `Flag40le`
-  five-byte little-endian, `Flag48be` six-byte big-endian, `Flag48le`
-  six-byte little-endian, `Flag56be` seven-byte big-endian, `Flag56le`
-  seven-byte little-endian, `Flag64be` eight-byte big-endian, and `Flag64le`
-  eight-byte little-endian visible flag
-  bitset decode and encode, checked bit and raw-bit helpers,
   direction-specific nested dispatch payload decode helper eligibility with
   encode-helper diagnostics preserved for encode paths,
   standalone visible `UInt1` through `UInt7` decode and encode,
@@ -456,11 +443,6 @@ compare it with `../specification/` before changing behavior.
   The completed `UInt56be` and
   `UInt56le` exact-width primitive slice is archived under
   [Binary Schema UInt56 Primitives](../reference/implemented-proposals/binary-schema-u56-primitives.md).
-  The completed `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` flag
-  bitset slice is archived under
-  [Binary Schema Flag40 And Flag56 Bitsets](../reference/implemented-proposals/binary-schema-flag40-and-flag56-bitsets.md).
-  The completed `Flag48be` and `Flag48le` flag bitset slice is archived under
-  [Binary Schema Flag48 Bitsets](../reference/implemented-proposals/binary-schema-flag48-bitsets.md).
   The completed reserved-byte-prefix encode slice for `ReservedBits(2, 0)`
   and `ReservedBits(9, 0)` followed by `UInt8` is archived under
   [Binary Schema Reserved Byte Prefix Encode](../reference/implemented-proposals/binary-schema-reserved-byte-prefix-encode.md).
