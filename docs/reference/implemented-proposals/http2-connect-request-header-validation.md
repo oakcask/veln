@@ -28,10 +28,8 @@ request-header failure boundary.
   ordinary `CONNECT` requests after completed HEADERS and final CONTINUATION
   blocks, all four rejected pseudo-header shapes, and rejection-state
   preservation.
-- The focused
-  `../../../examples/specification/run/http2-protocol-core-request-headers-connect-*/`
-  cases check human diagnostics and JSON protocol-diagnostic details for each
-  rejected shape.
+- Focused human and JSON cases under the same specification run directory
+  check protocol-diagnostic details for each rejected shape.
 
 ## Remaining Work
 
