@@ -797,16 +797,6 @@ reference, current open peer-created stream count, attempted and allowed
 concurrent-stream counts, endpoint role, active protocol state,
 receive-limit provenance, and rule provenance in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details.
-Accepted new peer-created HEADERS streams also advance a connection-level
-greatest peer-created stream id that remains available after the stream closes
-or resets. A later idle HEADERS stream must use a greater id, while a tracked
-stream reuse continues to the existing lifecycle decision. Frame-size,
-stream-id-domain, payload, HPACK, and completed header-list validation precede
-the ordering check; the ordering check precedes concurrent-stream and GOAWAY
-admission for an otherwise valid new stream. Ordering rejection preserves the
-previous high-water, stream, flow-control, HPACK, and shutdown state apart from
-ordinary input-consumption semantics. The completed slice is archived under
-[HTTP/2 Peer-Created Stream ID Ordering](../reference/implemented-proposals/http2-peer-created-stream-id-ordering.md).
 Except for the implemented PRIORITY idle-stream receive slice below,
 non-HEADERS frames on idle streams keep using the existing invalid frame-kind
 failure.
@@ -853,9 +843,6 @@ disable-push receive policy: after the client sends local
 `SETTINGS_ENABLE_PUSH = 0`, a peer-sent `PUSH_PROMISE` is rejected before
 promised-stream reservation through the existing invalid frame-kind diagnostic
 family with local settings provenance.
-The completed client promised stream id ordering slice is archived under
-[HTTP/2 Client Promised Stream ID Ordering](../reference/implemented-proposals/http2-client-promised-stream-id-ordering.md).
-
 The remaining scope below is still planned work for the full protocol core.
 
 ## Non-Goals

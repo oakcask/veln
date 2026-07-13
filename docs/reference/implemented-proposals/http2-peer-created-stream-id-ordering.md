@@ -37,8 +37,9 @@ in related notes.
 
 - `../../../examples/specification/run/http2-protocol-core/` checks first and
   increasing admission, tracked reuse, lower idle rejection before and after
-  close or reset, repeated rejection, validation and admission precedence, and
-  state preservation after rejection.
+  close or reset, repeated rejection, completed header-list validation before
+  ordering, retry after a rejected higher id, validation and admission
+  precedence, and connection-state preservation after rejection.
 - `../../../examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
   checks the focused primary message and related human notes.
 - `../../../examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`

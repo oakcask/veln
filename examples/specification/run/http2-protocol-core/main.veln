@@ -9303,6 +9303,44 @@ fn require_failure_with_id(label: String, step: Http2Step, expected_id: String) 
 	end
 end
 
+fn require_equal_int(label: String, actual: Int, expected: Int) -> Result<(), String>
+	match actual == expected
+		true => Ok(())
+		false => Err(label)
+	end
+end
+
+fn require_equal_string(label: String, actual: String, expected: String) -> Result<(), String>
+	match actual == expected
+		true => Ok(())
+		false => Err(label)
+	end
+end
+
+fn require_peer_stream_failure_preserves_connection_state(label: String, before_state: Http2DecodeState, after_state: Http2DecodeState) -> Result<(), String>
+	let before_hpack: HpackFixtureState = state_hpack_fixture_state(before_state)
+	let after_hpack: HpackFixtureState = state_hpack_fixture_state(after_state)
+	let ignored_pending_count: () = require_equal_int(label, state_pending_count(after_state), state_pending_count(before_state))?
+	let ignored_high_water: () = require_equal_int(label, state_highest_peer_created_stream_id(after_state), state_highest_peer_created_stream_id(before_state))?
+	let ignored_open_count: () = require_equal_int(label, state_open_stream_count(after_state), state_open_stream_count(before_state))?
+	let ignored_open_stream: () = require_equal_int(label, state_open_stream_id(after_state), state_open_stream_id(before_state))?
+	let ignored_second_open_stream: () = require_equal_int(label, state_second_open_stream_id(after_state), state_second_open_stream_id(before_state))?
+	let ignored_third_open_stream: () = require_equal_int(label, state_third_open_stream_id(after_state), state_third_open_stream_id(before_state))?
+	let ignored_half_closed_local_stream: () = require_equal_int(label, state_half_closed_local_stream_id(after_state), state_half_closed_local_stream_id(before_state))?
+	let ignored_closed_by_peer_stream: () = require_equal_int(label, state_closed_by_peer_stream_id(after_state), state_closed_by_peer_stream_id(before_state))?
+	let ignored_reset_stream: () = require_equal_int(label, state_reset_stream_id(after_state), state_reset_stream_id(before_state))?
+	let ignored_connection_window: () = require_equal_int(label, state_connection_window(after_state), state_connection_window(before_state))?
+	let ignored_stream_window: () = require_equal_int(label, state_stream_window(after_state), state_stream_window(before_state))?
+	let ignored_second_stream_window: () = require_equal_int(label, state_second_stream_window(after_state), state_second_stream_window(before_state))?
+	let ignored_third_stream_window: () = require_equal_int(label, state_third_stream_window(after_state), state_third_stream_window(before_state))?
+	let ignored_hpack_table_size: () = require_equal_int(label, hpack_fixture::state_table_size(after_hpack), hpack_fixture::state_table_size(before_hpack))?
+	let ignored_hpack_decode_count: () = require_equal_int(label, hpack_fixture::state_decode_count(after_hpack), hpack_fixture::state_decode_count(before_hpack))?
+	let ignored_hpack_dynamic_entries: () = require_equal_int(label, hpack_fixture::state_dynamic_table_entry_count(after_hpack), hpack_fixture::state_dynamic_table_entry_count(before_hpack))?
+	let ignored_shutdown_label: () = require_equal_string(label, state_shutdown_label(after_state), state_shutdown_label(before_state))?
+	let ignored_shutdown_last_stream: () = require_equal_int(label, state_shutdown_last_stream_id(after_state), state_shutdown_last_stream_id(before_state))?
+	require_equal_int(label, state_shutdown_error_code(after_state), state_shutdown_error_code(before_state))
+end
+
 fn require_client_push_equal_int(label: String, actual: Int, expected: Int) -> Result<(), String>
 	match actual == expected
 		true => Ok(())
@@ -11571,6 +11609,16 @@ fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> e
 	print_failure("peer-stream-lower-short-priority", peer_stream_lower_short_priority)
 	let peer_stream_lower_malformed_hpack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000003048100")?), step_state(peer_stream_high_first))?
 	print_failure("peer-stream-lower-malformed-hpack", peer_stream_lower_malformed_hpack)
+	let ignored_peer_stream_lower_malformed_hpack: () = require_failure_with_id("peer-stream lower malformed HPACK must precede ordering", peer_stream_lower_malformed_hpack, "hpack.fixture.malformed_huffman_padding")?
+	let peer_stream_lower_invalid_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000332333435")?), step_state(peer_stream_high_first))?
+	let ignored_peer_stream_lower_invalid_headers: () = require_request_header_failure_fact("peer-stream lower invalid header list must precede ordering", peer_stream_lower_invalid_headers, "response_only_pseudo_header")?
+	let ignored_peer_stream_lower_invalid_headers_state: () = require_peer_stream_failure_preserves_connection_state("peer-stream lower invalid header list changed connection state", step_state(peer_stream_high_first), step_state(peer_stream_lower_invalid_headers))?
+	let peer_stream_higher_invalid_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401040000000732333435")?), step_state(peer_stream_high_first))?
+	let ignored_peer_stream_higher_invalid_headers: () = require_request_header_failure_fact("peer-stream higher invalid header list must fail validation", peer_stream_higher_invalid_headers, "response_only_pseudo_header")?
+	let ignored_peer_stream_higher_invalid_headers_state: () = require_peer_stream_failure_preserves_connection_state("peer-stream rejected higher header list changed connection state", step_state(peer_stream_high_first), step_state(peer_stream_higher_invalid_headers))?
+	let peer_stream_higher_retry: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(peer_stream_higher_invalid_headers))?
+	let ignored_peer_stream_higher_retry: () = require_frame_decoded("peer-stream rejected higher id advanced high-water", peer_stream_higher_retry)?
+	let ignored_peer_stream_higher_retry_high_water: () = require_equal_int("peer-stream higher retry did not advance high-water", state_highest_peer_created_stream_id(step_state(peer_stream_higher_retry)), 7)?
 	let peer_stream_higher: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(peer_stream_high_first))?
 	print_step("peer-stream-higher", peer_stream_higher)
 	print_peer_stream_high_water("peer-stream-higher", step_state(peer_stream_higher))
@@ -11598,6 +11646,8 @@ fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> e
 	let peer_stream_lower_after_reset: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(peer_stream_reset_high))?
 	print_failure("peer-stream-lower-after-reset", peer_stream_lower_after_reset)
 	print_peer_stream_high_water("peer-stream-lower-after-reset", step_state(peer_stream_lower_after_reset))
+	let peer_stream_reset_reuse: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(peer_stream_reset_high))?
+	let ignored_peer_stream_reset_reuse: () = require_failure_with_id("peer-stream reset reuse must follow lifecycle", peer_stream_reset_reuse, "http2.protocol.invalid_frame_kind")?
 	let peer_stream_second_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020000000000030102")?), step_state(peer_stream_third_admit))?
 	print_step("peer-stream-second-data", peer_stream_second_data)
 	print_three_peer_streams("peer-stream-second-data", step_state(peer_stream_second_data))
@@ -11613,6 +11663,8 @@ fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> e
 	print_priority_state("peer-stream-third-priority", step_state(peer_stream_third_priority))
 	let peer_stream_limit: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(peer_stream_third_priority))?
 	print_failure("peer-stream-limit", peer_stream_limit)
+	let ignored_peer_stream_limit: () = require_failure_with_id("peer-stream concurrent limit must follow ordering", peer_stream_limit, "http2.peer_limit.concurrent_streams_exceeded")?
+	let ignored_peer_stream_limit_state: () = require_peer_stream_failure_preserves_connection_state("peer-stream concurrent limit changed connection state", step_state(peer_stream_third_priority), step_state(peer_stream_limit))?
 	print_peer_stream_high_water("peer-stream-limit", step_state(peer_stream_limit))
 	print_three_peer_streams("peer-stream-limit", step_state(peer_stream_limit))
 	print_three_peer_priorities("peer-stream-limit", step_state(peer_stream_limit))
@@ -12367,9 +12419,13 @@ fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	print_shutdown_state("goaway-below-boundary-trailers-drain", step_state(goaway_below_trailers))
 	let goaway_graceful_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), step_state(goaway_existing_shutdown))?
 	print_goaway_stream_failure("goaway-graceful-late-headers", goaway_graceful_late_headers)
+	let ignored_goaway_graceful_late_headers: () = require_failure_with_id("peer-stream GOAWAY admission must follow ordering", goaway_graceful_late_headers, "http2.protocol.stream_after_goaway")?
+	let ignored_goaway_graceful_late_headers_state: () = require_peer_stream_failure_preserves_connection_state("peer-stream GOAWAY rejection changed connection state", step_state(goaway_existing_shutdown), step_state(goaway_graceful_late_headers))?
 	let goaway_ordering_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000010000000b")?), step_state(goaway_existing_headers))?
 	let goaway_ordering_lower_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000003")?), step_state(goaway_ordering_shutdown))?
 	print_failure("goaway-peer-stream-ordering", goaway_ordering_lower_headers)
+	let ignored_goaway_ordering_lower_headers: () = require_failure_with_id("peer-stream ordering must precede GOAWAY admission", goaway_ordering_lower_headers, "http2.protocol.peer_stream_id_not_increasing")?
+	let ignored_goaway_ordering_lower_headers_state: () = require_peer_stream_failure_preserves_connection_state("peer-stream ordering rejection changed shutdown state", step_state(goaway_ordering_shutdown), step_state(goaway_ordering_lower_headers))?
 	print_peer_stream_high_water("goaway-peer-stream-ordering", step_state(goaway_ordering_lower_headers))
 	let goaway_data_end_stream_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
 	let goaway_data_end_stream_shutdown: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(goaway_data_end_stream_headers))?
