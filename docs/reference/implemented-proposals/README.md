@@ -621,6 +621,8 @@ behavior.
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
 - HTTP/2 outbound PING request:
   [http2-outbound-ping-request.md](http2-outbound-ping-request.md).
+- HTTP/2 initial peer SETTINGS gate:
+  [http2-initial-peer-settings-gate.md](http2-initial-peer-settings-gate.md).
 - HTTP/2 SETTINGS ACK send state:
   [http2-settings-ack-send-state.md](http2-settings-ack-send-state.md).
 - HTTP/2 SETTINGS item-length validation:

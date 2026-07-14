@@ -1,0 +1,28 @@
+# The initial peer SETTINGS gate projects all observed frame and connection context.
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.initial_peer_settings_required",
+		error,
+		RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", byte_chunk([]))
+	)
+end
+
+fn frame_header() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000060100000000")
+		Ok(bytes) => match byte_offset(0)
+			Ok(offset) => match byte_count(9)
+				Ok(count) => match byte_view(bytes, offset, count)
+					Ok(view) => Ok(view)
+					Err(error) => Err(invalid_payload(error))
+				end
+				Err(error) => Err(invalid_payload(error))
+			end
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_protocol_initial_peer_settings_required(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", frame_header()?)
+end

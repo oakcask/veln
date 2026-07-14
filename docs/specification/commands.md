@@ -340,6 +340,7 @@ requiring the full command reference on the first read.
   outbound preview and active shutdown label carried by the returned value.
   The standard
   `http2_protocol_invalid_preface(...)`,
+  `http2_protocol_initial_peer_settings_required(...)`,
   `http2_protocol_continuation_expected(...)`, and
   `http2_protocol_invalid_frame_kind(...)`,
   `http2_protocol_invalid_stream_id(...)`,

@@ -107,6 +107,7 @@ pub type RuntimeDiagnosticDetail
 	RuntimeHttp2ProtocolClosedWithPendingDiagnostic(byte_offset: Int, pending_count: Int, active_continuation: String, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolPartialPrefaceDiagnostic(byte_offset: Int, pending_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(byte_offset: Int, expected_byte: Int, actual_byte: Int, matched_prefix_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolContinuationExpectedDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_stream_id: Int, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, required_stream_id_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
@@ -305,6 +306,10 @@ end
 
 pub fn http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, preview)
+end
+
+pub fn http2_protocol_initial_peer_settings_required(offset: Int, actual_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::http2_protocol_initial_peer_settings_required(offset, actual_kind, actual_flags, stream_id, endpoint_role, active_state, rule_provenance, preview)
 end
 
 pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>

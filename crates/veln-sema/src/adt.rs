@@ -1326,6 +1326,47 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
                     visibility: Visibility::Public,
                 },
                 AdtVariantDescriptor {
+                    name: "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "byte_offset".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "actual_frame_kind".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "actual_flags".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "stream_id".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "endpoint_role".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "active_state".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "rule_provenance".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::string()),
+                        },
+                        AdtPayloadField {
+                            name: "preview".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(_)"
+                        .to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolContinuationExpectedDiagnostic".to_string(),
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![

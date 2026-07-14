@@ -119,6 +119,8 @@ When the returned error value is an HTTP/2 protocol
 `http2.protocol.partial_preface`,
 `RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for
 `http2.protocol.invalid_preface`,
+`RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...)` for
+`http2.protocol.initial_peer_settings_required`,
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for
 `http2.protocol.continuation_expected`,
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for
@@ -164,6 +166,7 @@ where applicable.
 The `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
 `http2_protocol_invalid_preface(...)`,
+`http2_protocol_initial_peer_settings_required(...)`,
 `http2_protocol_continuation_expected(...)`,
 `http2_peer_limit_frame_size_exceeded(...)`,
 `http2_peer_limit_header_list_size_exceeded(...)`,

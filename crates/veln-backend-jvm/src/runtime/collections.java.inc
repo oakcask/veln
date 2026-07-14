@@ -3001,6 +3001,48 @@
         ));
     }
 
+    public static Object http2ProtocolInitialPeerSettingsRequired(
+        Object offset,
+        Object actualKind,
+        Object actualFlags,
+        Object streamId,
+        Object endpointRole,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long frameKind = asLong(actualKind);
+        long flags = asLong(actualFlags);
+        long stream = asLong(streamId);
+        String role = asString(endpointRole);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 initial peer frame must be non-ACK SETTINGS at byte offset "
+            + byteOffset;
+        Object detail = adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(frameKind),
+                Long.valueOf(flags),
+                Long.valueOf(stream),
+                role,
+                state,
+                provenance,
+                byteViewToChunk(preview)
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.initial_peer_settings_required",
+                message,
+                detail
+            }
+        ));
+    }
+
     public static Object http2ProtocolContinuationExpected(
         Object offset,
         Object actualKind,

@@ -231,6 +231,7 @@ end
 
 type PrefaceState
 	ExpectPreface
+	ExpectInitialPeerSettings
 	AfterPreface
 end
 
@@ -258,6 +259,7 @@ type Http2ProtocolFailure
 	ClosedWithPending(Int, Int, ByteChunk)
 	ClosedWithPartialPreface(Int, Int)
 	InvalidPreface(Int, Int, Int, Int)
+	InitialPeerSettingsRequired { offset: Int, actual_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview_chunk: ByteChunk }
 	ContinuationExpected { offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, preview_chunk: ByteChunk }
 	InvalidFrameKind { offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String }
 	InvalidStreamId { offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String }
@@ -516,6 +518,10 @@ fn frame_state() -> Http2DecodeState
 	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
+fn initial_peer_settings_state() -> Http2DecodeState
+	State(byte_chunk([]), 0, ExpectInitialPeerSettings, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+end
+
 fn receive_state_for_outbound_request(state: OutboundHeadersConnectionState) -> Http2DecodeState
 	let lifecycle: OutboundLocalStreamState = outbound_headers_connection_lifecycle(state)
 	let connection_window: Int = outbound_receive_connection_window(outbound_headers_connection_receive_credit(state))
@@ -617,6 +623,7 @@ fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState
 		end
 		_ => match preface_state
 			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPartialPreface(next_offset, available)))
+			ExpectInitialPeerSettings => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
 			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
 		end
 	end
@@ -625,6 +632,7 @@ end
 fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	match preface_state
 		ExpectPreface => validate_preface(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
+		ExpectInitialPeerSettings => decode_initial_peer_settings(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 		AfterPreface => decode_available(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 	end
 end
@@ -652,7 +660,7 @@ end
 fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
 	let preface_count: ByteCount = byte_count(client_connection_preface_count())?
 	let suffix: ByteChunk = byte_drop(pending, preface_count)?
-	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
+	decode_initial_peer_settings(suffix, next_offset + client_connection_preface_count(), continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role)
 end
 
 fn matched_preface_count(pending: ByteChunk, available: Int, index: Int) -> Result<Int, String>
@@ -702,6 +710,42 @@ fn expected_preface_byte(index: Int) -> Int
 		22 => 13
 		23 => 10
 		_ => 0
+	end
+end
+
+fn endpoint_role_label(endpoint_role: Http2EndpointRole) -> String
+	match endpoint_role
+		ServerEndpoint => "server"
+		ClientEndpoint => "client"
+	end
+end
+
+fn decode_initial_peer_settings(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole) -> Result<Http2Step, String>
+	let available: Int = byte_count_to_int(byte_chunk_count(pending))
+	let preserved_state: Http2DecodeState = State(pending, next_offset, ExpectInitialPeerSettings, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)
+	if available < 9
+		Ok(Waiting(preserved_state))
+	else
+		decode_initial_peer_settings_header(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, endpoint_role, available, preserved_state)
+	end
+end
+
+fn decode_initial_peer_settings_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState, endpoint_role: Http2EndpointRole, available: Int, preserved_state: Http2DecodeState) -> Result<Http2Step, String>
+	let header_count: ByteCount = byte_count(9)?
+	let header_view: ByteView = byte_view(pending, byte_offset(0)?, header_count)?
+	let header: { length : Int, kind : Int, flags : Int, stream_id : Int } = decode_http2_frame_header(header_view, byte_offset(next_offset)?)?
+	if header.length > receive_limit_value(receive_limit)
+		Ok(Failed(preserved_state, FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
+	else if available < 9 + header.length
+		Ok(Waiting(preserved_state))
+	else if header.kind != 4 or settings_ack_set(header.flags)
+		Ok(Failed(preserved_state, InitialPeerSettingsRequired(next_offset, header.kind, header.flags, header.stream_id, endpoint_role_label(endpoint_role), "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", byte_view_to_chunk(header_view))))
+	else
+		match decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, header.length, header.kind, header.flags, header.stream_id, 9 + header.length, byte_view_to_chunk(header_view), endpoint_role)?
+			FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame) => Ok(FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame))
+			Waiting(_) => Ok(Waiting(preserved_state))
+			Failed(_, failure) => Ok(Failed(preserved_state, failure))
+		end
 	end
 end
 
@@ -6265,6 +6309,7 @@ end
 fn state_preface_label(state: Http2DecodeState) -> String
 	match state
 		State(_, _, ExpectPreface, _, _, _, _, _, _, _) => "expect"
+		State(_, _, ExpectInitialPeerSettings, _, _, _, _, _, _, _) => "expect-initial-peer-settings"
 		State(_, _, AfterPreface, _, _, _, _, _, _, _) => "done"
 	end
 end
@@ -6791,6 +6836,7 @@ end
 
 fn outbound_data_failure_reason(error: Http2ProtocolFailure) -> String
 	match error
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "peer_max_frame_size"
 		ClosedWithPending(_, _, _) => failure_rule_provenance(error)
 		ClosedWithPartialPreface(_, _) => failure_rule_provenance(error)
@@ -7432,6 +7478,7 @@ end
 
 fn outbound_headers_failure_reason(error: Http2ProtocolFailure) -> String
 	match error
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => failure_rule_provenance(error)
 		FrameSizeExceeded(offset, observed_length, receive_limit, frame_kind, stream_id) => "peer_max_frame_size"
 		ClosedWithPending(_, _, _) => failure_rule_provenance(error)
 		ClosedWithPartialPreface(_, _) => failure_rule_provenance(error)
@@ -7938,6 +7985,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "http2.protocol.closed_with_pending"
 		ClosedWithPartialPreface(_, _) => "http2.protocol.partial_preface"
 		InvalidPreface(_, _, _, _) => "http2.protocol.invalid_preface"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "http2.protocol.initial_peer_settings_required"
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "http2.protocol.continuation_expected"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "http2.protocol.invalid_frame_kind"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "http2.protocol.invalid_stream_id"
@@ -7995,6 +8043,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(offset, _, _) => offset
 		ClosedWithPartialPreface(offset, _) => offset
 		InvalidPreface(offset, _, _, _) => offset
+		InitialPeerSettingsRequired(offset, _, _, _, _, _, _, _) => offset
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => offset
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => offset
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => offset
@@ -8025,6 +8074,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, pending_count, _) => pending_count
 		ClosedWithPartialPreface(_, pending_count) => pending_count
 		InvalidPreface(_, _, _, matched_count) => matched_count
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8055,6 +8105,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, actual_byte, _) => actual_byte
+		InitialPeerSettingsRequired(_, actual_kind, _, _, _, _, _, _) => actual_kind
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => actual_kind
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => actual_kind
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => frame_kind
@@ -8085,6 +8136,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, stream_id, _, _, _, _) => stream_id
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => actual_stream
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => stream_id
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => stream_id
@@ -8115,6 +8167,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => expected_stream
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8145,6 +8198,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, expected_byte, _, _) => expected_byte
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 4
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 9
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => expected_kind
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => frame_kind
@@ -8175,6 +8229,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => started_kind
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8205,6 +8260,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => started_offset
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8235,6 +8291,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8265,6 +8322,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => client_connection_preface_count()
 		InvalidPreface(_, _, _, _) => client_connection_preface_count()
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8295,6 +8353,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "connection-preface"
 		InvalidPreface(_, _, _, _) => "connection-preface"
+		InitialPeerSettingsRequired(_, _, _, _, _, active_state, _, _) => active_state
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "headers"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => active_state
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => active_state
@@ -8394,6 +8453,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "rfc9113_client_connection_preface"
 		InvalidPreface(_, _, _, _) => "rfc9113_client_connection_preface"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "rfc9113_continuation_sequence"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => rule_provenance
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => rule_provenance
@@ -8427,6 +8487,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "none"
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
@@ -8457,6 +8518,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8487,6 +8549,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "none"
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
@@ -8517,6 +8580,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8547,6 +8611,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8577,6 +8642,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -8607,6 +8673,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "none"
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => "none"
@@ -8794,6 +8861,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		ClosedWithPending(offset, pending_count, preview_chunk) => accept_runtime_diagnostic(http2_protocol_closed_with_pending(offset, pending_count, state_continuation_label(diagnostic_context_state(context)), context_expected_stream(failure, diagnostic_context_state(context)), context_started_kind(failure, diagnostic_context_state(context)), context_started_offset(failure, diagnostic_context_state(context)), state_continuation_count(diagnostic_context_state(context)), context_rule_provenance(failure, diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		ClosedWithPartialPreface(offset, pending_count) => accept_runtime_diagnostic(http2_protocol_partial_preface(offset, pending_count, diagnostic_context_pending_view(context)?))
 		InvalidPreface(offset, expected_byte, actual_byte, matched_count) => accept_runtime_diagnostic(http2_protocol_invalid_preface(offset, expected_byte, actual_byte, matched_count, diagnostic_context_pending_view(context)?))
+		InitialPeerSettingsRequired(offset, actual_kind, actual_flags, stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => accept_runtime_diagnostic(http2_protocol_initial_peer_settings_required(offset, actual_kind, actual_flags, stream_id, endpoint_role, active_state, rule_provenance, byte_chunk_view(preview_chunk)?))
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => accept_runtime_diagnostic(http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), state_continuation_count(diagnostic_context_state(context)), context_rule_provenance(failure, diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?))
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => accept_runtime_diagnostic(http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?))
@@ -8844,6 +8912,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "connection stream id zero"
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => required_domain
@@ -8874,6 +8943,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		ClosedWithPending(_, _, _) => "none"
 		ClosedWithPartialPreface(_, _) => "none"
 		InvalidPreface(_, _, _, _) => "none"
+		InitialPeerSettingsRequired(_, _, _, _, endpoint_role, _, _, _) => endpoint_role
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => "none"
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => "none"
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => endpoint_role
@@ -8905,6 +8975,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		ClosedWithPending(_, _, _) => 0
 		ClosedWithPartialPreface(_, _) => 0
 		InvalidPreface(_, _, _, _) => 0
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => 0
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => 0
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => 0
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => 0
@@ -15410,6 +15481,41 @@ fn verify_flow_control_domain_cases() -> Result<(), String>
 	Ok(())
 end
 
+fn verify_initial_peer_settings_cases() -> Result<(), String>
+	let initial_server_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500008000")?), initial_peer_settings_state())?
+	let ignored_initial_server_settings: () = require_frame_decoded("server initial SETTINGS frame was rejected", initial_server_settings)?
+	let ignored_initial_server_established: () = require_equal_string("server initial SETTINGS did not establish the connection", state_preface_label(step_state(initial_server_settings)), "done")?
+	let ignored_initial_server_setting_applied: () = require_equal_int("server initial SETTINGS item was not applied", state_peer_max_frame_size(step_state(initial_server_settings)), 32768)?
+	let initial_client_settings: Http2Step = receive_client(InputChunk(byte_chunk_from_hex("000000040000000000")?), initial_peer_settings_state())?
+	let ignored_initial_client_settings: () = require_frame_decoded("client initial SETTINGS frame was rejected", initial_client_settings)?
+	let ignored_initial_client_established: () = require_equal_string("client initial SETTINGS did not establish the connection", state_preface_label(step_state(initial_client_settings)), "done")?
+	let initial_non_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000060000000000")?), initial_peer_settings_state())?
+	let ignored_initial_non_settings_failure: () = require_failure_with_id("server accepted non-SETTINGS initial frame", initial_non_settings, "http2.protocol.initial_peer_settings_required")?
+	let ignored_initial_non_settings_role: () = require_equal_string("server initial-frame failure lost endpoint role", failure_endpoint_role(step_failure(initial_non_settings)), "server")?
+	let ignored_initial_non_settings_preserved: () = require_client_push_ordering_rejection_preserves_state("initial non-SETTINGS changed server connection state", initial_peer_settings_state(), step_state(initial_non_settings))?
+	let ignored_initial_non_settings_pending: () = require_equal_int("initial non-SETTINGS input was consumed", state_pending_count(step_state(initial_non_settings)), 9)?
+	let ignored_initial_non_settings_diagnostic: () = http2_protocol_diagnostic(step_failure(initial_non_settings), DiagnosticContext(step_state(initial_non_settings)))?
+	let initial_non_settings_client: Http2Step = receive_client(InputChunk(byte_chunk_from_hex("000000060000000000")?), initial_peer_settings_state())?
+	let ignored_initial_non_settings_client_failure: () = require_failure_with_id("client accepted non-SETTINGS initial frame", initial_non_settings_client, "http2.protocol.initial_peer_settings_required")?
+	let ignored_initial_non_settings_client_role: () = require_equal_string("client initial-frame failure lost endpoint role", failure_endpoint_role(step_failure(initial_non_settings_client)), "client")?
+	let ignored_initial_non_settings_client_preserved: () = require_client_push_ordering_rejection_preserves_state("initial non-SETTINGS changed client connection state", initial_peer_settings_state(), step_state(initial_non_settings_client))?
+	let initial_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), initial_peer_settings_state())?
+	let ignored_initial_settings_ack_failure: () = require_failure_with_id("initial SETTINGS ACK was accepted", initial_settings_ack, "http2.protocol.initial_peer_settings_required")?
+	let ignored_initial_settings_ack_preserved: () = require_client_push_ordering_rejection_preserves_state("initial SETTINGS ACK changed connection state", initial_peer_settings_state(), step_state(initial_settings_ack))?
+	let initial_settings_chunk: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000604")?), initial_peer_settings_state())?
+	let ignored_initial_settings_chunk_waiting: () = require_equal_string("incomplete initial SETTINGS did not wait", step_kind(initial_settings_chunk), "waiting")?
+	let ignored_initial_settings_chunk_state: () = require_equal_string("incomplete initial SETTINGS lost startup gate", state_preface_label(step_state(initial_settings_chunk)), "expect-initial-peer-settings")?
+	let ignored_initial_settings_chunk_pending: () = require_equal_int("incomplete initial SETTINGS lost pending input", state_pending_count(step_state(initial_settings_chunk)), 4)?
+	let initial_settings_chunk_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000000000000500008000")?), step_state(initial_settings_chunk))?
+	let ignored_initial_settings_chunk_done: () = require_frame_decoded("chunked initial SETTINGS did not complete", initial_settings_chunk_done)?
+	let ignored_initial_settings_chunk_established: () = require_equal_string("chunked initial SETTINGS did not establish the connection", state_preface_label(step_state(initial_settings_chunk_done)), "done")?
+	let initial_settings_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500003fff")?), initial_peer_settings_state())?
+	let ignored_initial_settings_range_failure: () = require_failure_with_id("invalid initial SETTINGS item lost range diagnostic precedence", initial_settings_range, "http2.peer_limit.settings_value_out_of_range")?
+	let ignored_initial_settings_range_preserved: () = require_client_push_ordering_rejection_preserves_state("invalid initial SETTINGS item changed connection state", initial_peer_settings_state(), step_state(initial_settings_range))?
+	let ignored_initial_settings_range_pending: () = require_equal_int("invalid initial SETTINGS item was consumed", state_pending_count(step_state(initial_settings_range)), 15)?
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let verified_production_inbound_header_fields: () = check_production_inbound_header_fields()?
 	let verified_production_inbound_http2_routes: () = check_production_inbound_http2_routes()?
@@ -15421,7 +15527,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let verified_outbound_multi_stream_flow_control: () = verify_outbound_multi_stream_flow_control()?
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
-	let preface_unknown: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000030a2300000000aabbcc")?), empty_state())?
+	let preface_unknown: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000000aabbcc")?), step_state(receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?))?
 	let preface_unknown_result: () = print_unknown_frame("preface-unknown", preface_unknown)?
 	let preface_partial: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20")?), empty_state())?
 	print_step("preface-partial", preface_partial)
@@ -15431,6 +15537,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("preface-mismatch", preface_mismatch)
 	let valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040000000000")?), frame_state())?
 	print_step("valid", valid)
+	let ignored_initial_peer_settings_cases: () = verify_initial_peer_settings_cases()?
 	let incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000004")?), frame_state())?
 	print_step("incomplete", incomplete)
 	let truncated: Http2Step = receive(InputEnd, step_state(incomplete))?

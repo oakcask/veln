@@ -818,6 +818,21 @@ enough.
   constructors, negative stream credit and DATA blocking, successful refill,
   and connection and stream overflow rejection under
   `examples/specification/run/http2-protocol-core/`.
+- After the client connection preface, the checked HTTP/2 receive state waits
+  for an initial peer SETTINGS frame instead of treating the connection as
+  established. An empty or item-bearing non-ACK SETTINGS frame passes through
+  the existing atomic SETTINGS validation and establishes the connection only
+  after the whole frame succeeds. Any other complete first frame, including a
+  SETTINGS ACK, fails with
+  `http2.protocol.initial_peer_settings_required`; the typed failure records
+  the observed frame kind, flags, stream id, endpoint role, startup state, and
+  rule provenance. Incomplete or rejected input retains the startup gate,
+  pending bytes, peer settings, HPACK, flow-control, stream, and shutdown state.
+  Existing frame-header and SETTINGS representation failures keep precedence.
+  The integrated and focused diagnostic evidence is under
+  `examples/specification/run/http2-protocol-core/`,
+  `examples/specification/run/http2-initial-peer-settings-gate-json/`, and
+  `examples/specification/run/http2-initial-peer-settings-gate-human/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
   Multiple peer SETTINGS frames received before consumption coalesce to that

@@ -822,6 +822,7 @@ source_prelude_symbol_set! {
     "http2_protocol_closed_with_pending" => veln_stdlib::prelude_source("http2_protocol_closed_with_pending"),
     "http2_protocol_partial_preface" => veln_stdlib::prelude_source("http2_protocol_partial_preface"),
     "http2_protocol_invalid_preface" => veln_stdlib::prelude_source("http2_protocol_invalid_preface"),
+    "http2_protocol_initial_peer_settings_required" => veln_stdlib::prelude_source("http2_protocol_initial_peer_settings_required"),
     "http2_protocol_continuation_expected" => veln_stdlib::prelude_source("http2_protocol_continuation_expected"),
     "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
     "http2_protocol_invalid_stream_id" => veln_stdlib::prelude_source("http2_protocol_invalid_stream_id"),
