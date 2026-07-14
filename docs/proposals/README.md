@@ -570,9 +570,6 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound DATA GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md).
   The completed GOAWAY receive lifecycle slice is archived under
   [HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
-  The completed GOAWAY opaque debug-data receive and send slice is archived
-  under
-  [HTTP/2 GOAWAY Opaque Debug Data](../reference/implemented-proposals/http2-goaway-opaque-debug-data.md).
   The completed GOAWAY drain completion slice is archived under
   [HTTP/2 GOAWAY Drain Completion](../reference/implemented-proposals/http2-goaway-drain-completion.md).
   The completed accepted `content-length` body accounting slices are archived
@@ -678,7 +675,9 @@ compare it with `../specification/` before changing behavior.
   boundary, production multi-chunk adapter event routing, production
   multi-event adapter task-helper routing, production multi-chunk
   read-failure runtime boundary, per-stream task handler-failure lifecycle
-  boundary, source-visible standard stream adapter routing helper,
+  boundary, concurrent stream task drain
+  ([Network Concurrent Stream Task Drain](../reference/implemented-proposals/network-concurrent-stream-task-drain.md)),
+  source-visible standard stream adapter routing helper,
   accepted-stream endpoint text inspection, cancellation owner status query,
   absolute monotonic deadline
   construction

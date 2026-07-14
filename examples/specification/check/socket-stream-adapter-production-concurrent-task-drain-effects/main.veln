@@ -1,0 +1,51 @@
+# Concurrent task drain keeps transport and task effects in the adapter.
+type HandlerOutput
+	Handled
+end
+
+type PendingWork
+	Pending(stream: NetStream, task: Task<Result<HandlerOutput, String>>, tail: PendingWork)
+	Drained
+end
+
+fn handle_stream(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+	Ok(Handled)
+end
+
+fn run_handler_task(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String> effects [concurrency]
+	handle_stream(context)
+end
+
+fn spawn_pending(stream: NetStream, tail: PendingWork) -> PendingWork effects [net, concurrency]
+	let input = match net::read_chunk_or_end(stream)
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+	let worker = task::spawn_with<Result<HandlerOutput, String>, { input: StreamInput, accepted: Int }>(run_handler_task, { input: input, accepted: 1 })
+	Pending(stream, worker, tail)
+end
+
+fn drain_pending(pending: PendingWork) -> () effects [net, concurrency]
+	match pending
+		Pending(stream, worker, tail) => close_after_join(stream, worker, tail)
+		Drained => ()
+	end
+end
+
+fn close_after_join(stream: NetStream, worker: Task<Result<HandlerOutput, String>>, tail: PendingWork) -> () effects [net, concurrency]
+	let _ = task::join(worker)
+	net::close_stream(stream)
+	drain_pending(tail)
+end
+
+pub fn handler_boundary(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+	handle_stream(context)
+end
+
+pub fn adapter_missing_concurrency(stream: NetStream) -> PendingWork effects [net]
+	spawn_pending(stream, Drained)
+end
+
+pub fn adapter_missing_net(stream: NetStream) -> PendingWork effects [concurrency]
+	spawn_pending(stream, Drained)
+end

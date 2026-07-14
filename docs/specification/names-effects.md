@@ -220,7 +220,12 @@ compiler-known calls.
   closes the accepted stream, observes deterministic listener end, and does
   not project later response bytes for the failed stream. The matching effect
   fixture rejects adapter entry points that omit either label while keeping
-  that handler boundary effect-free. A
+  that handler boundary effect-free. The concurrent stream task-drain adapter
+  retains accepted streams and `Task<Result<HandlerOutput, String>>` handles
+  in one recursive pending-work value until clean listener end, then joins,
+  writes, and closes in acceptance order. The adapter requires `net` and
+  `concurrency`; the ordinary-context application handler remains effect-free,
+  and a handler `Err` suppresses writes only for its stream. A
   standard stream routing helper case uses `stream_adapter_drain_actions` to
   drain one accepted production stream into ordered `StreamAdapterAction`
   values, filters response projection to `SendBytes` chunks through

@@ -1,0 +1,110 @@
+# Production loopback adapter drains pending per-stream tasks in acceptance order.
+use stdio
+
+type ResponseAction
+	SendBytes(bytes: ByteChunk)
+end
+
+type HandlerOutput
+	Handled(actions: List<ResponseAction>, accepted: Int)
+end
+
+type PendingWork
+	Pending(stream: NetStream, task: Task<Result<HandlerOutput, String>>, accepted: Int, tail: PendingWork)
+	Drained
+end
+
+fn handle_stream(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+	match context.accepted
+		2 => Err("handler rejected second stream")
+		_ => match context.input
+			Chunk(bytes) => Ok(Handled(list_cons(SendBytes(bytes), list_nil()), context.accepted))
+			End => Err("missing stream chunk")
+		end
+	end
+end
+
+fn run_handler_task(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String> effects [concurrency]
+	handle_stream(context)
+end
+
+fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
+	match net::read_chunk_or_end(stream)
+		Some(bytes) => Chunk(bytes)
+		None => End
+	end
+end
+
+fn spawn_stream_handler(stream: NetStream, accepted: Int) -> Task<Result<HandlerOutput, String>> effects [net, concurrency]
+	let context = { input: read_stream_input(stream), accepted: accepted }
+	task::spawn_with<Result<HandlerOutput, String>, { input: StreamInput, accepted: Int }>(run_handler_task, context)
+end
+
+fn accept_pending(listener: NetListener, accepted: Int) -> PendingWork effects [net, concurrency]
+	match net::accept_or_end(listener)
+		Some(stream) => Pending(stream, spawn_stream_handler(stream, accepted), accepted, accept_pending(listener, accepted + 1))
+		None => Drained
+	end
+end
+
+fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
+	match actions
+		Nil => list_nil()
+		Cons(action, tail) => match action
+			SendBytes(bytes) => list_cons(bytes, ordered_send_chunks(tail))
+		end
+	end
+end
+
+fn apply_success(stream: NetStream, output: HandlerOutput) -> Bool effects [net]
+	match output
+		Handled(actions, _) => write_close_success(stream, actions)
+	end
+end
+
+fn write_close_success(stream: NetStream, actions: List<ResponseAction>) -> Bool effects [net]
+	net::write_chunks(stream, ordered_send_chunks(actions))
+	net::close_stream(stream)
+	true
+end
+
+fn close_failed(stream: NetStream) -> Bool effects [net]
+	net::close_stream(stream)
+	false
+end
+
+fn drain_one(stream: NetStream, worker: Task<Result<HandlerOutput, String>>) -> Bool effects [net, concurrency]
+	match task::join(worker)
+		Ok(Ok(output)) => apply_success(stream, output)
+		Ok(Err(_)) => close_failed(stream)
+		Err(_) => close_failed(stream)
+	end
+end
+
+fn prepend_drain(success: Bool, tail: { drained: Int, successes: Int, failures: Int }) -> { drained: Int, successes: Int, failures: Int }
+	match success
+		true => { drained: 1 + tail.drained, successes: 1 + tail.successes, failures: tail.failures }
+		false => { drained: 1 + tail.drained, successes: tail.successes, failures: 1 + tail.failures }
+	end
+end
+
+fn drain_pending(pending: PendingWork) -> { drained: Int, successes: Int, failures: Int } effects [net, concurrency]
+	match pending
+		Pending(stream, worker, _, tail) => prepend_drain(drain_one(stream, worker), drain_pending(tail))
+		Drained => { drained: 0, successes: 0, failures: 0 }
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let pending: PendingWork = accept_pending(listener, 1)
+	net::close_listener(listener)
+	let summary = drain_pending(pending)
+	stdio::print("drained ")
+	stdio::print(int_to_string(summary.drained))
+	stdio::print(" successes ")
+	stdio::print(int_to_string(summary.successes))
+	stdio::print(" failures ")
+	stdio::println(int_to_string(summary.failures))
+	Ok(())
+end

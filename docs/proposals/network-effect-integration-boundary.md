@@ -42,7 +42,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   owner-drain cancellable deadline lifecycle boundary, production
   two-stream multi-cycle routing boundary, production multi-chunk routing
   read-failure boundary, production multi-event adapter task-helper boundary,
-  per-stream task handler-failure lifecycle boundary, accepted-stream address
+  per-stream task handler-failure lifecycle boundary, concurrent pending-task
+  drain lifecycle boundary, accepted-stream address
   metadata boundary, listener endpoint text inspection boundary,
   source-visible client connect boundary, the
   stream state inspection boundary, the
@@ -714,7 +715,8 @@ standard-library surface.
   current evidence for
   deterministic host-owned loopback streams. Remaining examples still need
   richer production adapter socket ownership beyond the checked
-  fixture-backed listener/stream handles, stream-task handler, clean
+  fixture-backed listener/stream handles, richer stream-task ownership beyond
+  the checked recursive pending-task drain, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
   lifecycle, channel-first routing, cancellable routing, accepted-stream
   lifecycle, cancellable channel-first completion, and source-visible

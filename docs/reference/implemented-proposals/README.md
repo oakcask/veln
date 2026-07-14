@@ -421,6 +421,8 @@ behavior.
   [network-adapter-accept-loop-helper.md](network-adapter-accept-loop-helper.md).
 - Network production two-stream multi-cycle routing:
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
+- Network concurrent stream task drain:
+  [network-concurrent-stream-task-drain.md](network-concurrent-stream-task-drain.md).
 - Network stream address metadata:
   [network-stream-address-metadata.md](network-stream-address-metadata.md).
 - Network listener address metadata:
@@ -639,8 +641,6 @@ behavior.
   [http2-outbound-window-update-goaway-boundary.md](http2-outbound-window-update-goaway-boundary.md).
 - HTTP/2 GOAWAY receive lifecycle:
   [http2-goaway-receive-lifecycle.md](http2-goaway-receive-lifecycle.md).
-- HTTP/2 GOAWAY opaque debug data:
-  [http2-goaway-opaque-debug-data.md](http2-goaway-opaque-debug-data.md).
 - HTTP/2 GOAWAY drain completion:
   [http2-goaway-drain-completion.md](http2-goaway-drain-completion.md).
 - HTTP/2 repeated outbound GOAWAY boundary:
