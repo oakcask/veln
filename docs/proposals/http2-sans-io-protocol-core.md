@@ -1118,11 +1118,12 @@ The completed two-consecutive-table-size-update slice is archived under
 [HTTP/2 HPACK Multiple Table Size Updates](../reference/implemented-proposals/http2-hpack-multiple-table-size-updates.md).
 It applies exactly two leading updates in wire order, decodes a following
 field with the final capacity, validates both updates before state
-installation, rejects a third update as misplaced, and keeps the input state
-unchanged on the first excessive, malformed, or misplaced update through
-standalone HPACK, completed HEADERS, and final CONTINUATION paths. Another
-same-shaped update-count extension is not planned; broader support requires
-the later general inbound HPACK update-sequence policy.
+installation, and keeps the input state unchanged on the first excessive,
+malformed, or misplaced update through standalone HPACK, completed HEADERS,
+and final CONTINUATION paths. Its fixed update-count boundary is superseded by
+[General Inbound HPACK Table-Size Update Sequences](../reference/implemented-proposals/http2-general-inbound-hpack-table-size-update-sequences.md),
+which consumes arbitrary finite leading sequences instead of extending the
+same-shaped count special case.
 Completed source-visible HPACK static decode slices are archived under
 [HTTP/2 HPACK Static Table Decode](../reference/implemented-proposals/http2-hpack-static-table-decode.md)
 and

@@ -10978,9 +10978,9 @@ fn require_hpack_multiple_table_size_cases(state: Http2DecodeState) -> Result<()
 	let after_field: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000401050000000b3e823f01")?), state)?
 	let ignored_after_field: () = require_failure_with_id("hpack-multiple-table-size-update-after-field", after_field, "hpack.fixture.table_size_update_not_at_start")?
 	let ignored_after_field_state: () = require_hpack_state_table_size(step_state(after_field), 4096)?
-	let third_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000501050000000d3e3f013f02")?), state)?
-	let ignored_third_update: () = require_failure_with_id("hpack-multiple-table-size-update-third", third_update, "hpack.fixture.table_size_update_not_at_start")?
-	let ignored_third_update_state: () = require_hpack_state_table_size(step_state(third_update), 4096)?
+	let third_update: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000801050000000d3e3f013f02828784")?), state)?
+	let ignored_third_update: () = require_completed_header_list_decode(third_update, state, ":method", "GET", 8)?
+	let ignored_third_update_state: () = require_hpack_state_table_size(step_state(third_update), 33)?
 	let failure_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000301010000000d3e3f82")?), state)?
 	let failure_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000309040000000d023e82")?), step_state(failure_continuation_start))?
 	let ignored_failure_continuation: () = require_failure_with_id("hpack-multiple-table-size-updates-failure-continuation-done", failure_continuation_done, "http2.peer_limit.header_table_size_exceeded")?
@@ -10990,11 +10990,11 @@ fn require_hpack_multiple_table_size_cases(state: Http2DecodeState) -> Result<()
 	let ignored_malformed_continuation: () = require_failure_with_id("hpack-multiple-table-size-updates-malformed-continuation-done", malformed_continuation_done, "hpack.fixture.table_size_update_malformed")?
 	let ignored_malformed_continuation_size: () = require_hpack_state_table_size(step_state(malformed_continuation_done), 4096)?
 	let ignored_malformed_continuation_entry: () = require_hpack_state_dynamic_entry_count(step_state(malformed_continuation_done), 1)?
-	let third_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030101000000113e3f01")?), seed_state)?
-	let third_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020904000000113f02")?), step_state(third_continuation_start))?
-	let ignored_third_continuation: () = require_failure_with_id("hpack-multiple-table-size-update-third-continuation-done", third_continuation_done, "hpack.fixture.table_size_update_not_at_start")?
-	let ignored_third_continuation_size: () = require_hpack_state_table_size(step_state(third_continuation_done), 4096)?
-	require_hpack_state_dynamic_entry_count(step_state(third_continuation_done), 1)
+	let third_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030101000000113e3f01")?), state)?
+	let third_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050904000000113f02828784")?), step_state(third_continuation_start))?
+	let ignored_third_continuation: () = require_completed_header_list_decode(third_continuation_done, state, ":method", "GET", 8)?
+	let ignored_third_continuation_size: () = require_hpack_state_table_size(step_state(third_continuation_done), 33)?
+	require_hpack_state_dynamic_entry_count(step_state(third_continuation_done), 0)
 end
 
 fn print_hpack_table_size_cases(state: Http2DecodeState) -> Result<(), String> effects [stdio]
@@ -12162,6 +12162,16 @@ fn require_production_inbound_transition(result: Result<HpackProductionDecodeTra
 	end
 end
 
+fn require_production_inbound_failure_location(result: Result<HpackProductionDecodeTransition, HpackFixtureFailure>, expected_offset: Int, expected_preview: String) -> Result<(), String>
+	match result
+		Ok(_) => Err("expected production inbound HPACK failure")
+		Err(failure) => match hpack_fixture::hpack_failure_offset(failure) == expected_offset and byte_chunks_equal(hpack_fixture::hpack_failure_preview(failure), byte_chunk_from_hex(expected_preview)?)?
+			true => Ok(())
+			false => Err("unexpected production inbound HPACK failure location")
+		end
+	end
+end
+
 fn check_production_inbound_header_fields() -> Result<(), String>
 	let initial: HpackFixtureState = hpack_fixture::initial_state()
 	let mixed_block: ByteChunk = byte_chunk_from_hex("8287844001780161be")?
@@ -12184,6 +12194,18 @@ fn check_production_inbound_header_fields() -> Result<(), String>
 		true => ()
 		false => Err("unexpected production inbound HPACK leading table-size update")?
 	end
+	let two_updates: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f213f0d82")?, initial, 11))?
+	let ignored_two_updates: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(two_updates)) == 44 and hpack_fixture::production_header_list_count(hpack_fixture::production_transition_headers(two_updates)) == 1
+		true => require_production_inbound_field(hpack_fixture::production_transition_headers(two_updates), 0, ":method", "GET")?
+		false => Err("unexpected production inbound HPACK two-update sequence")?
+	end
+	let many_updates: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f213f0d3e3f0182")?, initial, 16))?
+	let ignored_many_updates: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(many_updates)) == 32 and hpack_fixture::production_header_list_count(hpack_fixture::production_transition_headers(many_updates)) == 1
+		true => require_production_inbound_field(hpack_fixture::production_transition_headers(many_updates), 0, ":method", "GET")?
+		false => Err("unexpected production inbound HPACK general update sequence")?
+	end
+	let ignored_malformed_sequence: () = require_production_inbound_failure_location(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f013f023f80")?, initial, 40), 44, "3f80")?
+	let ignored_misplaced_update: () = require_production_inbound_failure_location(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f013f02823e")?, initial, 50), 55, "3e")?
 	let reused: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("be")?, mixed_state, 9))?
 	let ignored_reused: () = require_production_inbound_field(hpack_fixture::production_transition_headers(reused), 0, "x", "a")?
 	let evicted: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f01")?, mixed_state, 10))?
@@ -12204,6 +12226,16 @@ fn check_production_inbound_header_fields() -> Result<(), String>
 	end
 end
 
+fn require_production_update_route(label: String, kind: Int, block: ByteChunk) -> Result<(), String>
+	match decode_completed_header_list(30, kind, 4, 1, block, hpack_fixture::initial_state())
+		HeaderListDecodeOk(_, state, headers) => match hpack_fixture::state_table_size(state) == 32 and hpack_fixture::production_header_list_count(headers) == 1
+			true => require_production_inbound_field(headers, 0, ":method", "GET")
+			false => Err(label)
+		end
+		HeaderListDecodeFailed(_) => Err(label)
+	end
+end
+
 fn check_production_inbound_http2_routes() -> Result<(), String>
 	let request_block: ByteChunk = byte_chunk_from_hex("8287844001780161be")?
 	let ignored_request: () = match decode_completed_header_list(0, 1, 4, 1, request_block, hpack_fixture::initial_state())
@@ -12213,6 +12245,9 @@ fn check_production_inbound_http2_routes() -> Result<(), String>
 		end
 		HeaderListDecodeFailed(_) => Err("expected production inbound request HEADERS decode")?
 	end
+	let general_updates: ByteChunk = byte_chunk_from_hex("3f213f0d3e3f0182")?
+	let ignored_general_headers: () = require_production_update_route("production update sequence did not reach HEADERS", 1, general_updates)?
+	let ignored_general_push_promise: () = require_production_update_route("production update sequence did not reach PUSH_PROMISE", 5, general_updates)?
 	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000018287844001")?), frame_state())?
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004090400000001780161be")?), step_state(continuation_start))?
 	let ignored_continuation_frame: () = match continuation_done
@@ -12230,6 +12265,27 @@ fn check_production_inbound_http2_routes() -> Result<(), String>
 		FrameDecoded(_, _, _, _, _, _, _, _) => ()
 		Waiting(_) => Err("production response CONTINUATION remained incomplete")?
 		Failed(_, failure) => Err(failure_id(failure))?
+	end
+	let update_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000040100000000013f213f0d")?), frame_state())?
+	let update_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060904000000013e3f01828784")?), step_state(update_continuation_start))?
+	let ignored_update_continuation: () = match update_continuation_done
+		FrameDecoded(_, _, _, _, _, _, _, _) => match hpack_fixture::state_table_size(state_hpack_fixture_state(step_state(update_continuation_done))) == 32
+			true => ()
+			false => Err("production update sequence lost final CONTINUATION capacity")?
+		end
+		Waiting(_) => Err("production update sequence CONTINUATION remained incomplete")?
+		Failed(_, failure) => Err(failure_id(failure))?
+	end
+	let excessive_updates: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000013f013f023f820282")?), frame_state())?
+	let ignored_excessive_updates: () = require_failure_with_id("production late update limit failure", excessive_updates, "http2.peer_limit.header_table_size_exceeded")?
+	let malformed_updates: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000060104000000013f013f023f80")?), frame_state())?
+	let ignored_malformed_updates: () = require_failure_with_id("production late update malformed failure", malformed_updates, "hpack.fixture.table_size_update_malformed")?
+	let ignored_initial_reuse: () = match hpack_fixture::decode_production_header_block(byte_chunk_from_hex("82")?, hpack_fixture::initial_state(), 0)
+		Ok(retry) => match hpack_fixture::state_decode_count(hpack_fixture::production_transition_state(retry)) == 1
+			true => ()
+			false => Err("production update failure changed reusable input state")?
+		end
+		Err(_) => Err("production update failure made input state unusable")?
 	end
 	let request_uppercase: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000018287840001580161")?), frame_state())?
 	let ignored_request_uppercase: () = require_request_header_failure_fact("production later request uppercase field was hidden", request_uppercase, "ordinary_header_name_not_lowercase")?
