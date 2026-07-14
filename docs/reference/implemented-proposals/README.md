@@ -423,6 +423,8 @@ behavior.
   [network-production-two-stream-multi-cycle-routing.md](network-production-two-stream-multi-cycle-routing.md).
 - Network concurrent stream task drain:
   [network-concurrent-stream-task-drain.md](network-concurrent-stream-task-drain.md).
+- Network cancel pending stream tasks after drain failure:
+  [network-cancel-pending-stream-tasks-after-drain-failure.md](network-cancel-pending-stream-tasks-after-drain-failure.md).
 - Network stream address metadata:
   [network-stream-address-metadata.md](network-stream-address-metadata.md).
 - Network listener address metadata:

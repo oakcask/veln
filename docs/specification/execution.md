@@ -69,7 +69,13 @@ enough.
   shape. It reaches clean listener end before joining pending work, then
   drains in acceptance order. A handler failure suppresses writes only for
   its stream; every accepted stream is closed exactly once while successful
-  streams retain ordered response projection.
+  streams retain ordered response projection. That behavior belongs to the
+  non-cancelling drain case. The fail-fast pending-task cleanup case keeps the
+  same recursive ownership shape but, after the first handler `Err` or join
+  failure, cancels and joins every later task before closing its retained
+  stream. Writes completed before the failure remain visible; the failed and
+  later streams produce no response writes, listener close precedes pending
+  cleanup, and every accepted stream is closed exactly once.
   `stream_adapter_drain_actions` is the standard adapter-level stream routing
   helper: it drains one accepted production stream into ordered
   `StreamAdapterAction` values through channel-routed `StreamInput` values,

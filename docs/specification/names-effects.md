@@ -225,7 +225,12 @@ compiler-known calls.
   in one recursive pending-work value until clean listener end, then joins,
   writes, and closes in acceptance order. The adapter requires `net` and
   `concurrency`; the ordinary-context application handler remains effect-free,
-  and a handler `Err` suppresses writes only for its stream. A
+  and a handler `Err` suppresses writes only for its stream. A separate
+  fail-fast adapter case uses the same recursive pending-work shape and the
+  same `net` and `concurrency` effects. After the first handler `Err` or task
+  join failure, it calls `task::cancel` and then `task::join` for every later
+  task, closes every retained stream once, and suppresses all later response
+  writes while the ordinary handler remains effect-free. A
   standard stream routing helper case uses `stream_adapter_drain_actions` to
   drain one accepted production stream into ordered `StreamAdapterAction`
   values, filters response projection to `SendBytes` chunks through
