@@ -497,6 +497,12 @@ When a `veln run` entry returns a source-visible
 - `unsupported_feature`: the unsupported feature string when the id is
   `codec.unsupported_feature` and the source-visible reason carries the
   unsupported feature field
+- `consumed_count`: the logical value's consumed byte count when the id is
+  `codec.trailing_input` and the source-visible reason carries consistent
+  trailing-input counts
+- `remaining_count`: the positive byte count left after the logical value when
+  the id is `codec.trailing_input` and the source-visible reason carries
+  consistent trailing-input counts
 - `local_byte_offset`: the byte offset reported by helper context carried by
   the reason when present
 - `expected_count`: the byte count expected by helper context carried by the
@@ -594,6 +600,17 @@ only `reason` and do not invent feature facts. The checked direct result and
 `DecodeStep::Invalid(...)` examples are
 `examples/specification/run/codec-unsupported-feature-direct-json/` and
 `examples/specification/run/codec-unsupported-feature-step-json/`.
+For `codec.trailing_input`, a source-visible reason written as
+`consumed_count=<n>; available_count=<n>; remaining_count=<n>; reason=<text>`
+is projected as separate numeric `consumed_count`, `available_count`,
+`remaining_count`, and `reason` fields when the counts are nonnegative,
+remaining is positive, and consumed plus remaining equals available. Plain or
+malformed reason shapes keep only the original `reason` and do not invent
+count facts. The checked direct result and `DecodeStep::Invalid(...)` examples
+are `examples/specification/run/codec-trailing-input-direct-json/` and
+`examples/specification/run/codec-trailing-input-step-json/`; malformed
+fallback behavior is checked by
+`examples/specification/run/codec-trailing-input-malformed-direct-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice covers
 hand-written decode boundaries whose returned `Decoded` consumed count is

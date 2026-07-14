@@ -224,7 +224,20 @@ requiring the full command reference on the first read.
   `feature=<value>; reason=<text>` form; the checked direct result and
   `DecodeStep::Invalid(...)` examples are
   `examples/specification/run/codec-unsupported-feature-direct-human/` and
-  `examples/specification/run/codec-unsupported-feature-step-human/`. A
+  `examples/specification/run/codec-unsupported-feature-step-human/`.
+  Codec-owned trailing-input failures with id `codec.trailing_input` use
+  `trailing input at byte offset ...` as the primary human message and put
+  field path, consumed, available, and remaining byte counts, failure reason,
+  and the source-visible `DecodeError` value in related notes when the
+  source-visible reason uses the narrow
+  `consumed_count=<n>; available_count=<n>; remaining_count=<n>; reason=<text>`
+  form. Counts are projected only when remaining is positive and consumed plus
+  remaining equals available. The checked direct result and
+  `DecodeStep::Invalid(...)` examples are
+  `examples/specification/run/codec-trailing-input-direct-human/` and
+  `examples/specification/run/codec-trailing-input-step-human/`; the plain
+  reason fallback is checked by
+  `examples/specification/run/codec-trailing-input-plain-step-human/`. A
   source-visible `ByteView` range failure reports
   `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
   requested count, available count, and bounded nearby byte preview in related

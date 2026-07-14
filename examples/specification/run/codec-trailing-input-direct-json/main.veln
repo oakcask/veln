@@ -1,0 +1,15 @@
+# Direct trailing-input decode failures populate stable byte_diagnostic JSON.
+
+schema ManualPacketWire
+	format binary
+
+	payload: ByteView(8)
+end
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.trailing_input", offset(5), "ManualPacketWire.payload", "consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended"))
+end

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.trailing_input]: trailing input at byte offset 7", "note: Field path: schema `ManualPacketWire` / field `payload`.", "note: Trailing input reason: bounded input has trailing bytes.", "note: DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes)."]

@@ -1,0 +1,8 @@
+# DecodeStep Invalid trailing-input failures render focused diagnostics.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(6)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.trailing_input", offset, "ManualPacketWire.payload", "consumed_count=6; available_count=10; remaining_count=4; reason=frame decoder completed before the bounded input ended"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

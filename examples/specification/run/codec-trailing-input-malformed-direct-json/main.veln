@@ -1,0 +1,9 @@
+# Inconsistent trailing-input counts remain an unstructured reason.
+
+fn offset(value: Int) -> ByteOffset
+	byte_offset(value)?
+end
+
+pub fn main() -> Result<(), DecodeError>
+	Err(DecodeErrorWithReason("codec.trailing_input", offset(5), "ManualPacketWire.payload", "consumed_count=5; available_count=8; remaining_count=4; reason=inconsistent trailing byte counts"))
+end

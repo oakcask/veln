@@ -600,6 +600,15 @@ fn decode_error_result_failure_diagnostic(
             byte_offset,
         );
     }
+    if id == "codec.trailing_input" {
+        return trailing_input_result_failure_diagnostic(
+            failure,
+            byte_diagnostic,
+            byte_entries,
+            id,
+            byte_offset,
+        );
+    }
     if id == "codec.consumed_count_invalid" {
         return consumed_count_invalid_result_failure_diagnostic(
             failure,
@@ -1111,6 +1120,55 @@ fn unsupported_feature_result_failure_diagnostic(
         diagnostic
             .related
             .push(note_json(format!("Unsupported feature reason: {reason}.")));
+    }
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    if let Some(value) = result_failure_value(failure) {
+        diagnostic
+            .related
+            .push(note_json(format!("DecodeError value: {value}.")));
+    }
+    diagnostic
+}
+
+fn trailing_input_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("trailing input at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if let (Some(consumed_count), Some(available_count), Some(remaining_count)) = (
+        json_number(byte_entries, "consumed_count"),
+        json_number(byte_entries, "available_count"),
+        json_number(byte_entries, "remaining_count"),
+    ) {
+        diagnostic.related.push(note_json(format!(
+            "Consumed {consumed_count} of {available_count} available bytes; {remaining_count} bytes remain."
+        )));
+    }
+    if let Some(reason) = json_string(byte_entries, "reason") {
+        diagnostic
+            .related
+            .push(note_json(format!("Trailing input reason: {reason}.")));
     }
     push_decode_byte_context_notes(&mut diagnostic, byte_entries);
     if let Some(value) = result_failure_value(failure) {
@@ -3443,6 +3501,70 @@ mod tests {
         assert_eq!(
             diagnostic.related[3].to_json(),
             "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.unsupported_feature, ByteOffset(27), ManualPacketWire.extension, feature=dynamic_table_size_update; reason=dynamic table size updates are disabled for this profile).\"}"
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_trailing_input_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.trailing_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(5)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("consumed_count", JsonValue::Number(5)),
+            ("available_count", JsonValue::Number(8)),
+            ("remaining_count", JsonValue::Number(3)),
+            (
+                "reason",
+                JsonValue::string("packet decoder completed before the bounded input ended"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.payload"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.trailing_input");
+        assert_eq!(diagnostic.message, "trailing input at byte offset 5");
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Consumed 5 of 8 available bytes; 3 bytes remain.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Trailing input reason: packet decoder completed before the bounded input ended.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(5), ManualPacketWire.payload, consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended).\"}"
         );
     }
 

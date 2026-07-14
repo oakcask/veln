@@ -1,0 +1,35 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.trailing_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 6
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.consumed_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 10
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.remaining_count"
+equals = 4
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.reason"
+equals = "frame decoder completed before the bounded input ended"

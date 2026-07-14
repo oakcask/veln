@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.trailing_input]: trailing input at byte offset 6", "note: Field path: schema `ManualPacketWire` / field `payload`.", "note: Consumed 6 of 10 available bytes; 4 bytes remain.", "note: Trailing input reason: frame decoder completed before the bounded input ended.", "note: DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(6), ManualPacketWire.payload, consumed_count=6; available_count=10; remaining_count=4; reason=frame decoder completed before the bounded input ended)."]
