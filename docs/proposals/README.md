@@ -630,6 +630,9 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 SETTINGS ACK Send State](../reference/implemented-proposals/http2-settings-ack-send-state.md).
   The completed SETTINGS item-length validation slice is archived under
   [HTTP/2 SETTINGS Item-Length Validation](../reference/implemented-proposals/http2-settings-item-length-validation.md).
+  The completed duplicate known SETTINGS receive-ordering and atomic-rejection
+  slice is archived under
+  [HTTP/2 Duplicate SETTINGS Items](../reference/implemented-proposals/http2-duplicate-settings-items.md).
   The completed ordered local SETTINGS batch send-intent slice, including
   local four-byte SETTINGS value-field representability checks, is archived
   under

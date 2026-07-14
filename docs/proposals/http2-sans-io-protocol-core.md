@@ -260,6 +260,14 @@ block whose fixture-decoded header list size exceeds that local policy, and
 projects `http2.peer_limit.header_list_size_exceeded` with observed size,
 allowed size, stream reference, receive-limit provenance, and rule
 provenance in ordinary output, human diagnostics, and JSON details.
+Duplicate known SETTINGS receive behavior is implemented as well. Known items
+are processed in wire order with the last occurrence active, unknown items can
+remain interleaved, and repeated `SETTINGS_INITIAL_WINDOW_SIZE` deltas update
+every tracked open outbound stream without disturbing connection credit, body
+accounting, or closed and reset lifecycle. A later invalid duplicate rejects
+the frame at that item's offset without committing earlier peer state or
+derived credit. The completed slice is archived under
+[HTTP/2 Duplicate SETTINGS Items](../reference/implemented-proposals/http2-duplicate-settings-items.md).
 The imported HPACK fixture module also accepts the static indexed
 `:authority` with an empty value, `:method: GET`, `:method: POST`,
 `:path: /`, `:path: /index.html`,

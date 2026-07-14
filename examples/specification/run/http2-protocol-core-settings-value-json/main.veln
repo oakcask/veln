@@ -1,4 +1,4 @@
-# HTTP/2 SETTINGS peer-limit failures project structured runtime details.
+# A later invalid duplicate HTTP/2 SETTINGS item projects structured details.
 
 type Http2ProtocolFailure
 	SettingsValueOutOfRange {offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView}
@@ -7,7 +7,7 @@ end
 fn settings_value_payload(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.settings_value_out_of_range",
-		"HTTP/2 SETTINGS value outside accepted range at byte offset 9",
+		"HTTP/2 SETTINGS value outside accepted range at byte offset 15",
 		RuntimeHttp2PeerLimitSettingsValueDiagnostic(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, byte_view_to_chunk(preview))
 	)
 end
@@ -16,7 +16,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.settings_value_out_of_range",
 		error,
-		RuntimeHttp2PeerLimitSettingsValueDiagnostic(9, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([]))
+		RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([]))
 	)
 end
 
@@ -49,5 +49,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let item: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(item)?
-	project(SettingsValueOutOfRange(9, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", preview))
+	project(SettingsValueOutOfRange(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", preview))
 end
