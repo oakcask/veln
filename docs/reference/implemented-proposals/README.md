@@ -635,6 +635,8 @@ behavior.
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
 - HTTP/2 multi-stream outbound flow control:
   [http2-multi-stream-outbound-flow-control.md](http2-multi-stream-outbound-flow-control.md).
+- HTTP/2 SETTINGS initial-window overflow:
+  [http2-settings-initial-window-overflow.md](http2-settings-initial-window-overflow.md).
 - HTTP/2 list-backed inbound stream state:
   [http2-list-backed-inbound-stream-state.md](http2-list-backed-inbound-stream-state.md).
 - HTTP/2 flow-control numeric domain types:

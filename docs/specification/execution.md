@@ -779,10 +779,18 @@ enough.
   `WINDOW_UPDATE` changes only shared credit, stream-level `WINDOW_UPDATE`
   changes only the matching stream, and `SETTINGS_INITIAL_WINDOW_SIZE` applies
   its delta to every tracked open stream while preserving unrelated lifecycle
-  and body-accounting facts. A reduction may make individual stream credit
-  negative; a later update can restore that stream independently. Zero,
-  overflow, unknown-stream, closed-stream, and reset-stream updates remain
-  rejected without changing credit. The executable case checks three
+  and body-accounting facts. An increase that leaves every open stream at or
+  below the HTTP/2 maximum is accepted. If any open stream would exceed that
+  maximum, the SETTINGS-derived update reports
+  `http2.peer_limit.flow_control_window_exceeded` with the SETTINGS item
+  offset, frame kind, affected stream, attempted delta, allowed credit, and
+  `settings_initial_window_size_stream_window` rule; the whole batch preserves
+  all stream and connection credit, lifecycle, and body-accounting state.
+  Closed and reset streams do not participate in the adjustment. A reduction
+  may make individual stream credit negative; a later update can restore that
+  stream independently. Zero, overflow, unknown-stream, closed-stream, and
+  reset-stream WINDOW_UPDATE frames remain rejected without changing credit.
+  The executable case checks three
   simultaneous streams as a minimum evidence set rather than a representation
   limit: `examples/specification/run/http2-protocol-core/`.
 - The same executable core represents connection window credit, stream window

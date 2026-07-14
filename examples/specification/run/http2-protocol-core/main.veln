@@ -376,6 +376,7 @@ type OutboundSendCreditUpdateDecision
 	OutboundSendCreditUpdated(OutboundSendCredit)
 	OutboundSendCreditUnchanged(OutboundSendCredit)
 	OutboundSendCreditUpdateRejected(Http2ProtocolFailure)
+	OutboundSettingsSendCreditUpdateRejected(Http2ProtocolFailure, OutboundSendCredit)
 end
 
 type OutboundWindowUpdateIncrementDecision
@@ -4621,11 +4622,11 @@ end
 
 fn update_outbound_send_credit_from_received_settings(step: Http2Step, peer_settings: PeerSettingsState, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
 	match step
-		FrameDecoded(_, _, length, kind, flags, _, _, KnownFrame(_, _, _, payload)) => match kind
+		FrameDecoded(_, frame_offset, length, kind, flags, _, _, KnownFrame(_, _, _, payload)) => match kind
 			4 => if settings_ack_set(flags)
 				Ok(OutboundSendCreditUnchanged(send_credit))
 			else if settings_payload_has_complete_items(length)
-				update_outbound_send_credit_from_settings_items(byte_view_to_chunk(payload), 0, length, peer_settings, OutboundSendCreditUnchanged(send_credit))
+				preserve_rejected_settings_send_credit(update_outbound_send_credit_from_settings_items(byte_view_to_chunk(payload), frame_offset, 0, length, peer_settings, OutboundSendCreditUnchanged(send_credit))?, send_credit)
 			else
 				Ok(OutboundSendCreditUnchanged(send_credit))
 			end
@@ -4637,11 +4638,18 @@ fn update_outbound_send_credit_from_received_settings(step: Http2Step, peer_sett
 	end
 end
 
-fn update_outbound_send_credit_from_settings_items(payload: ByteChunk, item_offset: Int, payload_end_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
+fn preserve_rejected_settings_send_credit(decision: OutboundSendCreditUpdateDecision, original_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
+	match decision
+		OutboundSettingsSendCreditUpdateRejected(error, _) => Ok(OutboundSettingsSendCreditUpdateRejected(error, original_credit))
+		_ => Ok(decision)
+	end
+end
+
+fn update_outbound_send_credit_from_settings_items(payload: ByteChunk, frame_offset: Int, item_offset: Int, payload_end_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
 	if item_offset == payload_end_offset
 		Ok(decision)
 	else
-		update_outbound_send_credit_from_settings_items(payload, item_offset + 6, payload_end_offset, update_single_settings_payload_item(payload, item_offset, peer_settings)?, update_single_initial_window_send_credit(payload, item_offset, peer_settings, decision)?)
+		update_outbound_send_credit_from_settings_items(payload, frame_offset, item_offset + 6, payload_end_offset, update_single_settings_payload_item(payload, item_offset, peer_settings)?, update_single_initial_window_send_credit(payload, frame_offset + 9 + item_offset, item_offset, peer_settings, decision)?)
 	end
 end
 
@@ -4663,16 +4671,64 @@ fn update_single_settings_payload_item(payload: ByteChunk, item_offset: Int, pee
 	end
 end
 
-fn update_single_initial_window_send_credit(payload: ByteChunk, item_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
+fn update_single_initial_window_send_credit(payload: ByteChunk, setting_offset: Int, item_offset: Int, peer_settings: PeerSettingsState, decision: OutboundSendCreditUpdateDecision) -> Result<OutboundSendCreditUpdateDecision, String>
 	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, byte_count(2)?)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), byte_offset(2)?, byte_count(4)?)?)?
-	match identifier
-		4 => match initial_window_size(value)
-			Ok(size) => Ok(OutboundSendCreditUpdated(apply_initial_window_delta_to_outbound_send_credit(initial_window_size_value(size) - active_peer_initial_window_size(peer_settings), outbound_send_credit_update_credit(decision))?))
-			Err(_) => Err("validated initial window size is outside the HTTP/2 domain")
+	match decision
+		OutboundSettingsSendCreditUpdateRejected(_, _) => Ok(decision)
+		_ => match identifier
+			4 => match initial_window_size(value)
+				Ok(size) => apply_checked_initial_window_delta_to_outbound_send_credit(setting_offset, initial_window_size_value(size) - active_peer_initial_window_size(peer_settings), byte_view_to_chunk(item), outbound_send_credit_update_credit(decision))
+				Err(_) => Ok(OutboundSettingsSendCreditUpdateRejected(SettingsValueOutOfRange(setting_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, max_flow_control_value(), "peer_settings", item), outbound_send_credit_update_credit(decision)))
+			end
+			_ => Ok(decision)
 		end
-		_ => Ok(decision)
+	end
+end
+
+fn apply_checked_initial_window_delta_to_outbound_send_credit(offset: Int, delta: Int, preview: ByteChunk, send_credit: OutboundSendCredit) -> Result<OutboundSendCreditUpdateDecision, String>
+	match send_credit
+		OutboundSendCredit(_, streams) => match validate_initial_window_delta_for_outbound_streams(offset, delta, preview, streams)
+			ProtocolPayloadOk => Ok(OutboundSendCreditUpdated(apply_validated_initial_window_delta_to_outbound_send_credit(delta, send_credit)))
+			ProtocolPayloadFailed(error) => Ok(OutboundSettingsSendCreditUpdateRejected(error, send_credit))
+		end
+	end
+end
+
+fn apply_validated_initial_window_delta_to_outbound_send_credit(delta: Int, send_credit: OutboundSendCredit) -> OutboundSendCredit
+	match send_credit
+		OutboundSendCredit(connection_window, streams) => OutboundSendCredit(connection_window, apply_validated_initial_window_delta_to_outbound_streams(delta, streams))
+	end
+end
+
+fn apply_validated_initial_window_delta_to_outbound_streams(delta: Int, streams: List<OutboundReceiveCreditStream>) -> List<OutboundReceiveCreditStream>
+	match streams
+		Nil => Nil
+		Cons(stream, tail) => match stream
+			OutboundReceiveCreditOpenStream(stream_id, stream_window) => Cons(OutboundReceiveCreditOpenStream(stream_id, stream_window + delta), apply_validated_initial_window_delta_to_outbound_streams(delta, tail))
+			OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length) => Cons(OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window + delta, expected_length, observed_length), apply_validated_initial_window_delta_to_outbound_streams(delta, tail))
+			_ => Cons(stream, apply_validated_initial_window_delta_to_outbound_streams(delta, tail))
+		end
+	end
+end
+
+fn validate_initial_window_delta_for_outbound_streams(offset: Int, delta: Int, preview: ByteChunk, streams: List<OutboundReceiveCreditStream>) -> ProtocolPayloadDecision
+	match streams
+		Nil => ProtocolPayloadOk
+		Cons(stream, tail) => match stream
+			OutboundReceiveCreditOpenStream(stream_id, stream_window) => validate_initial_window_delta_for_outbound_stream(offset, delta, preview, stream_id, stream_window, tail)
+			OutboundReceiveCreditOpenStreamContentLength(stream_id, stream_window, _, _) => validate_initial_window_delta_for_outbound_stream(offset, delta, preview, stream_id, stream_window, tail)
+			_ => validate_initial_window_delta_for_outbound_streams(offset, delta, preview, tail)
+		end
+	end
+end
+
+fn validate_initial_window_delta_for_outbound_stream(offset: Int, delta: Int, preview: ByteChunk, stream_id: Int, stream_window: Int, tail: List<OutboundReceiveCreditStream>) -> ProtocolPayloadDecision
+	if stream_window + delta > max_flow_control_value()
+		ProtocolPayloadFailed(FlowControlWindowExceeded(offset, 4, stream_id, delta, max_flow_control_value() - stream_window, "open-stream", "settings_initial_window_size_stream_window", preview))
+	else
+		validate_initial_window_delta_for_outbound_streams(offset, delta, preview, tail)
 	end
 end
 
@@ -4766,6 +4822,7 @@ fn prepend_outbound_stream_update(stream: OutboundReceiveCreditStream, decision:
 		OutboundSendCreditUpdated(OutboundSendCredit(connection_window, streams)) => Ok(OutboundSendCreditUpdated(OutboundSendCredit(connection_window, Cons(stream, streams))))
 		OutboundSendCreditUnchanged(OutboundSendCredit(connection_window, streams)) => Ok(OutboundSendCreditUnchanged(OutboundSendCredit(connection_window, Cons(stream, streams))))
 		OutboundSendCreditUpdateRejected(_) => Ok(decision)
+		OutboundSettingsSendCreditUpdateRejected(_, _) => Ok(decision)
 	end
 end
 
@@ -6956,6 +7013,24 @@ end
 fn outbound_send_observed_length_for(send_credit: OutboundSendCredit, stream_id: Int) -> Int
 	match send_credit
 		OutboundSendCredit(_, streams) => outbound_observed_length_for(streams, stream_id)
+	end
+end
+
+fn outbound_send_expected_length_for(send_credit: OutboundSendCredit, stream_id: Int) -> Int
+	match send_credit
+		OutboundSendCredit(_, streams) => outbound_expected_length_for(streams, stream_id)
+	end
+end
+
+fn outbound_expected_length_for(streams: List<OutboundReceiveCreditStream>, stream_id: Int) -> Int
+	match streams
+		Nil => -1
+		Cons(OutboundReceiveCreditOpenStreamContentLength(candidate, _, expected_length, _), tail) => if candidate == stream_id
+			expected_length
+		else
+			outbound_expected_length_for(tail, stream_id)
+		end
+		Cons(_, tail) => outbound_expected_length_for(tail, stream_id)
 	end
 end
 
@@ -9390,6 +9465,7 @@ fn outbound_send_credit_update_status(decision: OutboundSendCreditUpdateDecision
 		OutboundSendCreditUpdated(_) => "updated"
 		OutboundSendCreditUnchanged(_) => "unchanged"
 		OutboundSendCreditUpdateRejected(_) => "rejected"
+		OutboundSettingsSendCreditUpdateRejected(_, _) => "rejected"
 	end
 end
 
@@ -9398,6 +9474,7 @@ fn outbound_send_credit_update_reason(decision: OutboundSendCreditUpdateDecision
 		OutboundSendCreditUpdated(_) => "none"
 		OutboundSendCreditUnchanged(_) => "not_window_update"
 		OutboundSendCreditUpdateRejected(error) => failure_rule_provenance(error)
+		OutboundSettingsSendCreditUpdateRejected(error, _) => failure_rule_provenance(error)
 	end
 end
 
@@ -9406,6 +9483,7 @@ fn outbound_send_credit_update_connection_window(decision: OutboundSendCreditUpd
 		OutboundSendCreditUpdated(send_credit) => outbound_send_connection_window(send_credit)
 		OutboundSendCreditUnchanged(send_credit) => outbound_send_connection_window(send_credit)
 		OutboundSendCreditUpdateRejected(_) => 0
+		OutboundSettingsSendCreditUpdateRejected(_, send_credit) => outbound_send_connection_window(send_credit)
 	end
 end
 
@@ -9414,6 +9492,7 @@ fn outbound_send_credit_update_open_stream(decision: OutboundSendCreditUpdateDec
 		OutboundSendCreditUpdated(send_credit) => outbound_send_open_stream_id(send_credit)
 		OutboundSendCreditUnchanged(send_credit) => outbound_send_open_stream_id(send_credit)
 		OutboundSendCreditUpdateRejected(_) => 0
+		OutboundSettingsSendCreditUpdateRejected(_, send_credit) => outbound_send_open_stream_id(send_credit)
 	end
 end
 
@@ -9422,6 +9501,7 @@ fn outbound_send_credit_update_stream_window(decision: OutboundSendCreditUpdateD
 		OutboundSendCreditUpdated(send_credit) => outbound_send_stream_window(send_credit)
 		OutboundSendCreditUnchanged(send_credit) => outbound_send_stream_window(send_credit)
 		OutboundSendCreditUpdateRejected(_) => 0
+		OutboundSettingsSendCreditUpdateRejected(_, send_credit) => outbound_send_stream_window(send_credit)
 	end
 end
 
@@ -9430,6 +9510,7 @@ fn outbound_send_credit_update_active_state(decision: OutboundSendCreditUpdateDe
 		OutboundSendCreditUpdated(_) => "none"
 		OutboundSendCreditUnchanged(_) => "none"
 		OutboundSendCreditUpdateRejected(error) => failure_active_state(error)
+		OutboundSettingsSendCreditUpdateRejected(error, _) => failure_active_state(error)
 	end
 end
 
@@ -9438,6 +9519,15 @@ fn outbound_send_credit_update_credit(decision: OutboundSendCreditUpdateDecision
 		OutboundSendCreditUpdated(send_credit) => send_credit
 		OutboundSendCreditUnchanged(send_credit) => send_credit
 		OutboundSendCreditUpdateRejected(_) => outbound_send_credit_without_stream(0)
+		OutboundSettingsSendCreditUpdateRejected(_, send_credit) => send_credit
+	end
+end
+
+fn outbound_send_credit_update_failure(decision: OutboundSendCreditUpdateDecision) -> Http2ProtocolFailure
+	match decision
+		OutboundSendCreditUpdateRejected(error) => error
+		OutboundSettingsSendCreditUpdateRejected(error, _) => error
+		_ => InvalidFrameKind(0, 4, 0, 4, "settings-send-credit", "expected_rejected_settings_send_credit_update")
 	end
 end
 
@@ -12312,6 +12402,7 @@ end
 fn require_outbound_credit_update_rejected(decision: OutboundSendCreditUpdateDecision, context: String) -> Result<(), String>
 	match decision
 		OutboundSendCreditUpdateRejected(_) => Ok(())
+		OutboundSettingsSendCreditUpdateRejected(_, _) => Ok(())
 		OutboundSendCreditUpdated(_) => Err(context)
 		OutboundSendCreditUnchanged(_) => Err(context)
 	end
@@ -12398,6 +12489,54 @@ fn verify_duplicate_settings_flow_control() -> Result<(), String> effects [stdio
 	print_settings_failure("settings-duplicate-initial-window-invalid", invalid_duplicate)
 	print_peer_settings("settings-duplicate-initial-window-invalid", step_state(invalid_duplicate))
 	print_outbound_send_credit_update("settings-duplicate-initial-window-invalid-credit", rejected_update)
+	Ok(())
+end
+
+fn verify_initial_window_overflow_flow_control() -> Result<(), String> effects [stdio]
+	let increased_initial_window: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400010000")?), frame_state())?
+	let exact_credit: OutboundSendCredit = outbound_send_credit_with_open_stream(31, 1, 2147483646)
+	let exact_update: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(increased_initial_window, empty_peer_settings(), exact_credit)?
+	let exact_updated_credit: OutboundSendCredit = outbound_send_credit_update_credit(exact_update)
+	let exact_window: () = require_equal_int("SETTINGS_INITIAL_WINDOW_SIZE exact maximum", outbound_send_stream_window_for(exact_updated_credit, 1), 2147483647)?
+	print_outbound_send_credit_update("settings-initial-window-exact-maximum", exact_update)
+
+	let overflow_credit: OutboundSendCredit = outbound_send_credit_with_open_stream(37, 1, 2147483647)
+	let overflow_update: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(increased_initial_window, empty_peer_settings(), overflow_credit)?
+	let overflow_rejected: () = require_outbound_credit_update_rejected(overflow_update, "expected SETTINGS_INITIAL_WINDOW_SIZE one-step overflow rejection")?
+	let overflow_preserved: OutboundSendCredit = outbound_send_credit_update_credit(overflow_update)
+	let overflow_connection_preserved: () = require_equal_int("SETTINGS_INITIAL_WINDOW_SIZE overflow connection window", outbound_send_connection_window(overflow_preserved), 37)?
+	let overflow_stream_preserved: () = require_equal_int("SETTINGS_INITIAL_WINDOW_SIZE overflow stream window", outbound_send_stream_window_for(overflow_preserved, 1), 2147483647)?
+	print_outbound_send_credit_update("settings-initial-window-one-step-overflow", overflow_update)
+	print_failure("settings-initial-window-one-step-overflow", Failed(frame_state(), outbound_send_credit_update_failure(overflow_update)))
+
+	let reset_credit: OutboundSendCredit = add_outbound_reset_stream(outbound_send_credit_without_stream(41), 9, 8)
+	let closed_credit: OutboundSendCredit = add_outbound_closed_stream(reset_credit, 7)
+	let later_overflow_credit: OutboundSendCredit = add_outbound_open_stream(closed_credit, 3, 2147483647)
+	let multi_stream_credit: OutboundSendCredit = add_outbound_content_length_stream(later_overflow_credit, 1, 2147483646, 6, 2)
+	let multi_stream_update: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(increased_initial_window, empty_peer_settings(), multi_stream_credit)?
+	let multi_stream_rejected: () = require_outbound_credit_update_rejected(multi_stream_update, "expected later stream SETTINGS_INITIAL_WINDOW_SIZE overflow rejection")?
+	let multi_stream_preserved: OutboundSendCredit = outbound_send_credit_update_credit(multi_stream_update)
+	let multi_connection_preserved: () = require_equal_int("rejected SETTINGS batch connection window", outbound_send_connection_window(multi_stream_preserved), 41)?
+	let earlier_stream_preserved: () = require_equal_int("rejected SETTINGS batch earlier stream window", outbound_send_stream_window_for(multi_stream_preserved, 1), 2147483646)?
+	let later_stream_preserved: () = require_equal_int("rejected SETTINGS batch later stream window", outbound_send_stream_window_for(multi_stream_preserved, 3), 2147483647)?
+	let expected_length_preserved: () = require_equal_int("rejected SETTINGS batch expected content length", outbound_send_expected_length_for(multi_stream_preserved, 1), 6)?
+	let observed_length_preserved: () = require_equal_int("rejected SETTINGS batch observed content length", outbound_send_observed_length_for(multi_stream_preserved, 1), 2)?
+	let closed_stream_preserved: () = require_equal_int("rejected SETTINGS batch closed stream", outbound_send_closed_stream_id(multi_stream_preserved), 7)?
+	let reset_stream_preserved: () = require_outbound_data_rejected(send_data(9, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(increased_initial_window)), multi_stream_preserved)?, "expected rejected SETTINGS batch to preserve reset stream lifecycle")?
+	print_outbound_send_credit_update("settings-initial-window-multi-stream-overflow", multi_stream_update)
+	print_failure("settings-initial-window-multi-stream-overflow", Failed(frame_state(), outbound_send_credit_update_failure(multi_stream_update)))
+	stdio::print("settings-initial-window-multi-stream-preserved connection_window ")
+	stdio::print(int_to_string(outbound_send_connection_window(multi_stream_preserved)))
+	stdio::print(" stream_1_window ")
+	stdio::print(int_to_string(outbound_send_stream_window_for(multi_stream_preserved, 1)))
+	stdio::print(" stream_3_window ")
+	stdio::print(int_to_string(outbound_send_stream_window_for(multi_stream_preserved, 3)))
+	stdio::print(" expected_body_length ")
+	stdio::print(int_to_string(outbound_send_expected_length_for(multi_stream_preserved, 1)))
+	stdio::print(" observed_body_length ")
+	stdio::print(int_to_string(outbound_send_observed_length_for(multi_stream_preserved, 1)))
+	stdio::print(" closed_stream ")
+	stdio::println(int_to_string(outbound_send_closed_stream_id(multi_stream_preserved)))
 	Ok(())
 end
 
@@ -15327,6 +15466,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_settings_failure("settings-enable-push-high", peer_enable_push_high)
 	print_peer_settings("settings-enable-push-high", step_state(peer_enable_push_high))
 	let ignored_duplicate_settings_flow_control: () = verify_duplicate_settings_flow_control()?
+	let ignored_initial_window_overflow_flow_control: () = verify_initial_window_overflow_flow_control()?
 	let peer_initial_window_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_initial_window))?
 	let peer_initial_window_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), step_state(peer_initial_window_headers))?
 	print_step("peer-initial-window-data", peer_initial_window_data)
