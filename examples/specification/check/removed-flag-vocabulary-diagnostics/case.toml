@@ -1,9 +1,0 @@
-command = ["check", "--json", "main.veln"]
-exit = 1
-
-[stdout]
-format = "json"
-contains = ["\"id\":\"schema.removed_flag_primitive\"", "\"id\":\"type.removed_flag_vocabulary\"", "\"id\":\"name.removed_flag_vocabulary\"", "\"replacement\":\"uint8\"", "\"replacement\":\"uint16be\"", "\"replacement\":\"uint16le\"", "\"replacement\":\"uint24be\"", "\"replacement\":\"uint24le\"", "\"replacement\":\"uint32be\"", "\"replacement\":\"uint32le\"", "\"replacement\":\"uint40be\"", "\"replacement\":\"uint40le\"", "\"replacement\":\"uint48be\"", "\"replacement\":\"uint48le\"", "\"replacement\":\"uint56le\"", "\"replacement\":\"uint64be\"", "\"replacement\":\"Int\"", "(value & (1 << index)) != 0", "\"requires_explicit_range_check\":true"]
-
-[stderr]
-format = "empty"

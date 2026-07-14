@@ -30,8 +30,8 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
-- Integer bitwise operators and flag vocabulary removal:
-  [integer-bitwise-operators-and-flag-removal.md](integer-bitwise-operators-and-flag-removal.md).
+- Integer bitwise operators:
+  [integer-bitwise-operators.md](integer-bitwise-operators.md).
 - Binary and hexadecimal integer literals:
   [binary-and-hexadecimal-integer-literals.md](binary-and-hexadecimal-integer-literals.md).
 - JVM backend migration:
@@ -174,12 +174,6 @@ under `../../specification/` and its executable example routes.
   [binary-schema-u56le-u64le-parity.md](binary-schema-u56le-u64le-parity.md).
 - Lowercase schema primitives:
   [lowercase-schema-primitives.md](lowercase-schema-primitives.md).
-- Binary schema `Flag40be`, `Flag40le`, `Flag56be`, and `Flag56le` bitsets:
-  [binary-schema-flag40-and-flag56-bitsets.md](binary-schema-flag40-and-flag56-bitsets.md).
-- Binary schema `Flag48be` and `Flag48le` bitsets:
-  [binary-schema-flag48-bitsets.md](binary-schema-flag48-bitsets.md).
-- Binary schema flag decode bindings:
-  [binary-schema-flag-decode-bindings.md](binary-schema-flag-decode-bindings.md).
 - Binary schema reserved-byte-prefix encode:
   [binary-schema-reserved-byte-prefix-encode.md](binary-schema-reserved-byte-prefix-encode.md).
 - Binary schema general reserved byte prefixes:

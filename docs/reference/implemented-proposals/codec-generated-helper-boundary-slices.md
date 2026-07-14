@@ -16,10 +16,8 @@ generated `byte_decode_step_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover byte-aligned
 representation-only `ReservedBits(width, value)` fields, addition,
 subtraction, multiplication, and division repeated primitive count
-expressions, standalone visible `UInt1` through `UInt7` fields, opt-in
-visible flag bitset fields, including generated-helper-backed `Flag24be` and
-`Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, six-byte, seven-byte,
+expressions, standalone visible `UInt1` through `UInt7` fields, visible-only
+packed three-byte, four-byte, five-byte, six-byte, seven-byte,
 and eight-byte groups, seven-byte
 or eight-byte reserved prefix groups, seven-byte wide reserved suffix groups,
 the general padded `ReservedBits(width, value)` plus `UInt8` prefix route,
@@ -39,9 +37,8 @@ generated `byte_encode_<schema>` helper when the named schema is already
 eligible for that helper. The completed slices cover addition, subtraction,
 multiplication, and division repeated primitive count expressions,
 quotient-sized `ByteView(left_length / right_length)` payload fields,
-standalone visible `UInt1` through `UInt7` fields, opt-in visible flag bitset
-fields, including generated-helper-backed `Flag24be` and `Flag24le` fields,
-visible-only packed three-byte, four-byte, five-byte, six-byte, seven-byte,
+standalone visible `UInt1` through `UInt7` fields, visible-only packed
+three-byte, four-byte, five-byte, six-byte, seven-byte,
 and eight-byte groups, seven-byte
 or eight-byte reserved prefix groups, and seven-byte wide reserved suffix
 groups, plus the general padded `ReservedBits(width, value)` plus `UInt8`
@@ -66,12 +63,6 @@ produced count, and a resumable state record carrying `encoded_offset`.
   through the derived codec item from nonzero bounded view offsets, including
   successful `Decoded`, non-consuming short-input readiness, and helper
   `Invalid(DecodeError)` projection at the explicit absolute base offset.
-- The former derived flag-helper fixture was removed by
-  [integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
-  Current replacement and migration evidence lives under
-  `../../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`
-  and
-  `../../../examples/specification/check/removed-flag-vocabulary-diagnostics/`.
 - `../../../examples/specification/run/derived-codec-byteview-quotient-encode-boundary/`
   checks quotient-sized `ByteView` encode success, length-mismatch helper
   failure projection, and division-by-zero helper failure projection through

@@ -11,21 +11,20 @@ evidence, not the source of current behavior.
 ## Completed Behavior
 
 Binary schema field type text has canonical lowercase spellings for exact
-width unsigned fields, visible flag bitsets, reserved-bit fields, repeated
-fields, and supported dispatch payload field text:
+width unsigned fields, reserved-bit fields, repeated fields, and supported
+dispatch payload field text:
 
 ```text
 uint<width><endian?>
-flag<width><endian?>
 uint<width><endian?> reserves <value>
 [<payload field type>; <count expression>]
 ```
 
 The compatibility spellings remain accepted in schema-only positions:
-`UIntN`, `UIntNbe`, `UIntNle`, `FlagN`, `FlagNbe`, `FlagNle`,
-`ReservedBits(width, value)`, and `Repeat(count, Payload)`. They normalize to
-the same descriptors and generated decode, encode, repeat, dispatch, and
-derived codec behavior as the canonical lowercase spelling.
+`UIntN`, `UIntNbe`, `UIntNle`, `ReservedBits(width, value)`, and
+`Repeat(count, Payload)`. They normalize to the same descriptors and generated
+decode, encode, repeat, dispatch, and derived codec behavior as the canonical
+lowercase spelling.
 
 `veln fmt` writes supported compatibility field text in `format binary`
 schemas as canonical lowercase spelling. The formatter covers direct fields,

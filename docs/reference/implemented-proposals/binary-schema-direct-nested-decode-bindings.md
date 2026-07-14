@@ -32,7 +32,7 @@ the nested schema field path.
 ## Remaining Work
 
 The broader schema declaration surface proposal remains open for binary schema
-fields outside the implemented exact-width unsigned primitive, visible flag
-bitset, direct nested schema, bounded repeat, length-bounded `ByteView`,
+fields outside the implemented exact-width unsigned primitive, direct nested
+schema, bounded repeat, length-bounded `ByteView`,
 closed dispatch, and extension dispatch slices, plus format-neutral fields
 outside the implemented recursive visible-shape helper boundary.
