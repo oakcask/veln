@@ -629,6 +629,8 @@ behavior.
   [http2-outbound-data-flow-control.md](http2-outbound-data-flow-control.md).
 - HTTP/2 multi-stream outbound flow control:
   [http2-multi-stream-outbound-flow-control.md](http2-multi-stream-outbound-flow-control.md).
+- HTTP/2 list-backed inbound stream state:
+  [http2-list-backed-inbound-stream-state.md](http2-list-backed-inbound-stream-state.md).
 - HTTP/2 flow-control numeric domain types:
   [http2-flow-control-numeric-domain-types.md](http2-flow-control-numeric-domain-types.md).
 - HTTP/2 outbound DATA GOAWAY boundary:
