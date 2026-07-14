@@ -164,6 +164,8 @@ type StreamPriorityState
 	NoStreamPriority
 	StreamPriority(Int, Bool, Int)
 	ExpectedContentLength(Int, Int, StreamPriorityState)
+	AwaitingFinalResponse(StreamPriorityState)
+	NoContentResponse(String, StreamPriorityState)
 	ResponseHeaderStream(StreamPriorityState)
 end
 
@@ -1413,7 +1415,7 @@ fn header_list_boundary_reached(kind: Int, flags: Int) -> Bool
 end
 
 fn accepted_content_length_for_stream(headers: HpackProductionHeaderList, completed_is_trailer: Bool) -> Int
-	if completed_is_trailer
+	if completed_is_trailer or hpack_fixture::production_header_list_is_informational_response(headers)
 		-1
 	else
 		hpack_fixture::production_header_list_accepted_content_length(headers)
@@ -1595,6 +1597,8 @@ fn stream_priority_is_response(priority: StreamPriorityState) -> Bool
 	match priority
 		ResponseHeaderStream(_) => true
 		ExpectedContentLength(_, _, inner) => stream_priority_is_response(inner)
+		NoContentResponse(_, inner) => stream_priority_is_response(inner)
+		AwaitingFinalResponse(_) => false
 		_ => false
 	end
 end
@@ -4780,7 +4784,13 @@ fn headers_priority_set(kind: Int, flags: Int) -> Bool
 end
 
 fn completed_headers_are_trailers(flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
-	data_end_stream_set(flags) and stream_is_open_for_trailers(stream_id, receive_flow_control)
+	data_end_stream_set(flags) and stream_is_open_for_trailers(stream_id, receive_flow_control) and not receive_stream_is_awaiting_final_response(stream_id, receive_flow_control)
+end
+
+fn receive_stream_is_awaiting_final_response(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
+	match receive_flow_control
+		ReceiveFlowControl(_, streams) => inbound_stream_is_awaiting_final_response(streams, stream_id)
+	end
 end
 
 fn stream_is_open_for_trailers(stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Bool
@@ -5017,9 +5027,13 @@ fn update_inbound_stream_from_headers(offset: Int, connection_window: Int, strea
 		Nil => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
 		Cons(InboundStreamEntry(entry_stream_id, stream_window, priority, lifecycle), tail) => if stream_id == entry_stream_id
 			match lifecycle
-				OpenInboundStream => replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority), end_stream, accepted_content_length, OpenInboundStream, tail)
-				ClientPushAssociatedInboundStream => replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority), end_stream, accepted_content_length, ClientPushAssociatedInboundStream, tail)
-				ReservedByPeerInboundStream => replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_with_optional_priority(priority, header_priority), end_stream, accepted_content_length, OpenInboundStream, tail)
+				OpenInboundStream => replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_after_headers(priority, header_priority), end_stream, accepted_content_length, OpenInboundStream, tail)
+				ClientPushAssociatedInboundStream => replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_after_headers(priority, header_priority), end_stream, accepted_content_length, ClientPushAssociatedInboundStream, tail)
+				ReservedByPeerInboundStream => if stream_priority_is_awaiting_final_response(header_priority)
+					replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_after_headers(priority, header_priority), end_stream, accepted_content_length, ReservedByPeerInboundStream, tail)
+				else
+					replace_inbound_stream_after_headers(offset, connection_window, stream_id, stream_window, stream_priority_after_headers(priority, header_priority), end_stream, accepted_content_length, OpenInboundStream, tail)
+				end
 				HalfClosedLocalInboundStream => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "half-closed-local-stream", "half_closed_local_data_only")))
 				ClosedByPeerInboundStream => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames")))
 				ResetInboundStream(_) => Ok(ReceiveFlowControlFailed(InvalidFrameKind(offset, 1, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
@@ -5336,26 +5350,63 @@ fn headers_priority_from_payload(payload: ByteChunk) -> Result<StreamPrioritySta
 end
 
 fn stream_priority_with_accepted_content_length(priority: StreamPriorityState, accepted_content_length: Int) -> StreamPriorityState
-	if accepted_content_length >= 0
-		ExpectedContentLength(accepted_content_length, 0, stream_priority_without_content_length(priority))
-	else
-		priority
+	match priority
+		NoContentResponse(_, _) => priority
+		_ => if accepted_content_length >= 0
+			ExpectedContentLength(accepted_content_length, 0, stream_priority_without_content_length(priority))
+		else
+			priority
+		end
 	end
 end
 
 fn stream_priority_with_header_side(headers: HpackProductionHeaderList, completed_is_trailer: Bool, priority: StreamPriorityState) -> StreamPriorityState
 	if completed_is_trailer
 		priority
+	else if hpack_fixture::production_header_list_is_informational_response(headers)
+		stream_priority_awaiting_final_response(priority)
 	else if hpack_fixture::production_header_list_is_response(headers)
-		ResponseHeaderStream(priority)
+		stream_priority_with_final_response_status(headers, ResponseHeaderStream(stream_priority_without_awaiting_final_response(priority)))
 	else
 		priority
+	end
+end
+
+fn stream_priority_with_final_response_status(headers: HpackProductionHeaderList, priority: StreamPriorityState) -> StreamPriorityState
+	match hpack_fixture::production_header_list_no_content_response_status(headers)
+		"" => priority
+		status => NoContentResponse(status, priority)
+	end
+end
+
+fn stream_priority_awaiting_final_response(priority: StreamPriorityState) -> StreamPriorityState
+	match priority
+		AwaitingFinalResponse(_) => priority
+		_ => AwaitingFinalResponse(priority)
+	end
+end
+
+fn stream_priority_is_awaiting_final_response(priority: StreamPriorityState) -> Bool
+	match priority
+		AwaitingFinalResponse(_) => true
+		ExpectedContentLength(_, _, inner) => stream_priority_is_awaiting_final_response(inner)
+		NoContentResponse(_, inner) => stream_priority_is_awaiting_final_response(inner)
+		_ => false
+	end
+end
+
+fn stream_priority_without_awaiting_final_response(priority: StreamPriorityState) -> StreamPriorityState
+	match priority
+		AwaitingFinalResponse(inner) => inner
+		_ => priority
 	end
 end
 
 fn stream_priority_without_content_length(priority: StreamPriorityState) -> StreamPriorityState
 	match priority
 		ExpectedContentLength(_, _, inner) => stream_priority_without_content_length(inner)
+		AwaitingFinalResponse(inner) => AwaitingFinalResponse(stream_priority_without_content_length(inner))
+		NoContentResponse(status, inner) => NoContentResponse(status, stream_priority_without_content_length(inner))
 		ResponseHeaderStream(inner) => ResponseHeaderStream(stream_priority_without_content_length(inner))
 		_ => priority
 	end
@@ -5364,6 +5415,8 @@ end
 fn stream_priority_with_priority(priority: StreamPriorityState, next_priority: StreamPriorityState) -> StreamPriorityState
 	match priority
 		ExpectedContentLength(expected_length, observed_length, _) => ExpectedContentLength(expected_length, observed_length, next_priority)
+		AwaitingFinalResponse(inner) => AwaitingFinalResponse(stream_priority_with_priority(inner, next_priority))
+		NoContentResponse(status, inner) => NoContentResponse(status, stream_priority_with_priority(inner, next_priority))
 		ResponseHeaderStream(inner) => ResponseHeaderStream(stream_priority_with_priority(inner, next_priority))
 		_ => next_priority
 	end
@@ -5376,9 +5429,23 @@ fn stream_priority_with_optional_priority(priority: StreamPriorityState, next_pr
 	end
 end
 
+fn stream_priority_after_headers(priority: StreamPriorityState, header_priority: StreamPriorityState) -> StreamPriorityState
+	match header_priority
+		AwaitingFinalResponse(NoStreamPriority) => AwaitingFinalResponse(stream_priority_without_awaiting_final_response(priority))
+		AwaitingFinalResponse(inner) => AwaitingFinalResponse(stream_priority_with_priority(stream_priority_without_awaiting_final_response(priority), inner))
+		NoContentResponse(status, ResponseHeaderStream(NoStreamPriority)) => NoContentResponse(status, ResponseHeaderStream(stream_priority_without_awaiting_final_response(priority)))
+		NoContentResponse(status, ResponseHeaderStream(inner)) => NoContentResponse(status, ResponseHeaderStream(stream_priority_with_priority(stream_priority_without_awaiting_final_response(priority), inner)))
+		ResponseHeaderStream(NoStreamPriority) => ResponseHeaderStream(stream_priority_without_awaiting_final_response(priority))
+		ResponseHeaderStream(inner) => ResponseHeaderStream(stream_priority_with_priority(stream_priority_without_awaiting_final_response(priority), inner))
+		_ => stream_priority_with_optional_priority(priority, header_priority)
+	end
+end
+
 fn stream_priority_content_length_expected(priority: StreamPriorityState) -> Int
 	match priority
 		ExpectedContentLength(expected_length, _, _) => expected_length
+		AwaitingFinalResponse(inner) => stream_priority_content_length_expected(inner)
+		NoContentResponse(_, _) => 0
 		ResponseHeaderStream(inner) => stream_priority_content_length_expected(inner)
 		_ => -1
 	end
@@ -5387,6 +5454,8 @@ end
 fn stream_priority_content_length_observed(priority: StreamPriorityState) -> Int
 	match priority
 		ExpectedContentLength(_, observed_length, _) => observed_length
+		AwaitingFinalResponse(inner) => stream_priority_content_length_observed(inner)
+		NoContentResponse(_, _) => 0
 		ResponseHeaderStream(inner) => stream_priority_content_length_observed(inner)
 		_ => 0
 	end
@@ -5395,11 +5464,29 @@ end
 fn update_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, application_length: Int, end_stream: Bool, active_state: String, preview: ByteChunk, priority: StreamPriorityState) -> Result<ContentLengthBodyDecision, String>
 	match priority
 		ExpectedContentLength(expected_length, observed_length, inner) => validate_content_length_body(offset, frame_kind, stream_id, expected_length, observed_length + application_length, end_stream, active_state, preview, inner)
+		AwaitingFinalResponse(inner) => Ok(ContentLengthBodyFailed(InvalidFrameKind(offset, frame_kind, stream_id, 1, "response-headers", "informational_response_requires_final_headers")))
+		NoContentResponse(status, inner) => validate_no_content_response_body(offset, frame_kind, stream_id, status, application_length, preview, inner)
 		ResponseHeaderStream(inner) => match update_content_length_body(offset, frame_kind, stream_id, application_length, end_stream, active_state, preview, inner)?
 			ContentLengthBodyOk(next_inner) => Ok(ContentLengthBodyOk(ResponseHeaderStream(next_inner)))
 			ContentLengthBodyFailed(error) => Ok(ContentLengthBodyFailed(error))
 		end
 		_ => Ok(ContentLengthBodyOk(priority))
+	end
+end
+
+fn validate_no_content_response_body(offset: Int, frame_kind: Int, stream_id: Int, status: String, application_length: Int, preview: ByteChunk, inner: StreamPriorityState) -> Result<ContentLengthBodyDecision, String>
+	if application_length > 0
+		Ok(ContentLengthBodyFailed(ContentLengthMismatch(offset, frame_kind, stream_id, 0, application_length, no_content_response_active_state(status), "rfc9110_no_content_response_body", byte_chunk_view(preview)?)))
+	else
+		Ok(ContentLengthBodyOk(NoContentResponse(status, inner)))
+	end
+end
+
+fn no_content_response_active_state(status: String) -> String
+	match status
+		"204" => "no-content-response-204"
+		"304" => "no-content-response-304"
+		_ => "no-content-response"
 	end
 end
 
@@ -5414,12 +5501,25 @@ fn validate_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, ex
 end
 
 fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
-	if accepted_content_length >= 0
+	if hpack_fixture::production_header_list_is_response(headers) and not completed_is_trailer
+		complete_continuation_response_stream(offset, stream_id, end_stream, accepted_content_length, headers, receive_flow_control)
+	else if accepted_content_length >= 0
 		complete_continuation_receive_stream_with_content_length(offset, stream_id, end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
 	else if end_stream
 		Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
 	else
 		Ok(ReceiveFlowControlOk(receive_flow_control))
+	end
+end
+
+fn complete_continuation_response_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackProductionHeaderList, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	let header_priority: StreamPriorityState = stream_priority_with_header_side(headers, false, NoStreamPriority)
+	match receive_flow_control
+		ReceiveFlowControl(connection_window, streams) => if inbound_stream_list_tracks(stream_id, streams)
+			update_inbound_stream_from_headers(offset, connection_window, stream_id, header_priority, end_stream, accepted_content_length, streams)
+		else
+			add_inbound_stream_after_headers(offset, connection_window, stream_id, 65535, header_priority, end_stream, accepted_content_length, OpenInboundStream, streams)
+		end
 	end
 end
 
@@ -6199,6 +6299,8 @@ fn stream_priority_label(priority: StreamPriorityState) -> String
 	match priority
 		StreamPriority(_, _, _) => "tracked"
 		ExpectedContentLength(_, _, inner) => stream_priority_label(inner)
+		AwaitingFinalResponse(inner) => stream_priority_label(inner)
+		NoContentResponse(_, inner) => stream_priority_label(inner)
 		ResponseHeaderStream(inner) => stream_priority_label(inner)
 		NoStreamPriority => "none"
 	end
@@ -6221,6 +6323,8 @@ fn stream_priority_dependency_stream_id(priority: StreamPriorityState) -> Int
 	match priority
 		StreamPriority(dependency_stream_id, _, _) => dependency_stream_id
 		ExpectedContentLength(_, _, inner) => stream_priority_dependency_stream_id(inner)
+		AwaitingFinalResponse(inner) => stream_priority_dependency_stream_id(inner)
+		NoContentResponse(_, inner) => stream_priority_dependency_stream_id(inner)
 		ResponseHeaderStream(inner) => stream_priority_dependency_stream_id(inner)
 		NoStreamPriority => 0
 	end
@@ -6243,6 +6347,8 @@ fn stream_priority_exclusive(priority: StreamPriorityState) -> Bool
 	match priority
 		StreamPriority(_, exclusive, _) => exclusive
 		ExpectedContentLength(_, _, inner) => stream_priority_exclusive(inner)
+		AwaitingFinalResponse(inner) => stream_priority_exclusive(inner)
+		NoContentResponse(_, inner) => stream_priority_exclusive(inner)
 		ResponseHeaderStream(inner) => stream_priority_exclusive(inner)
 		NoStreamPriority => false
 	end
@@ -6265,6 +6371,8 @@ fn stream_priority_weight(priority: StreamPriorityState) -> Int
 	match priority
 		StreamPriority(_, _, weight) => weight
 		ExpectedContentLength(_, _, inner) => stream_priority_weight(inner)
+		AwaitingFinalResponse(inner) => stream_priority_weight(inner)
+		NoContentResponse(_, inner) => stream_priority_weight(inner)
 		ResponseHeaderStream(inner) => stream_priority_weight(inner)
 		NoStreamPriority => 0
 	end
@@ -10260,6 +10368,75 @@ fn require_response_header_failure_fact(label: String, step: Http2Step, expected
 			_ => Err(label)
 		end
 	end
+end
+
+fn inbound_stream_is_awaiting_final_response(streams: List<InboundStreamEntry>, stream_id: Int) -> Bool
+	match streams
+		Nil => false
+		Cons(InboundStreamEntry(entry_stream_id, _, priority, _), tail) => if entry_stream_id == stream_id
+			stream_priority_is_awaiting_final_response(priority)
+		else
+			inbound_stream_is_awaiting_final_response(tail, stream_id)
+		end
+	end
+end
+
+fn require_no_content_body_failure_context(label: String, step: Http2Step, expected_status: String, expected_observed_length: Int) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err(label)
+		Waiting(_) => Err(label)
+		Failed(_, failure) => match failure
+			ContentLengthMismatch(_, 0, 1, 0, observed_length, active_state, rule_provenance, _) => if observed_length == expected_observed_length and active_state == no_content_response_active_state(expected_status) and rule_provenance == "rfc9110_no_content_response_body"
+				Ok(())
+			else
+				Err(label)
+			end
+			_ => Err(label)
+		end
+	end
+end
+
+fn require_no_content_response_coverage() -> Result<(), String>
+	let no_content_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101050000000189")?), frame_state())?
+	let ignored_no_content_end_stream: () = require_frame_decoded("204 response with END_STREAM was rejected", no_content_end_stream)?
+	let ignored_no_content_closed: () = require_equal_int("204 response with END_STREAM did not close the stream", state_closed_by_peer_stream_id(step_state(no_content_end_stream)), 1)?
+	let not_modified_end_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010105000000018b")?), frame_state())?
+	let ignored_not_modified_end_stream: () = require_frame_decoded("304 response with END_STREAM was rejected", not_modified_end_stream)?
+	let ignored_not_modified_closed: () = require_equal_int("304 response with END_STREAM did not close the stream", state_closed_by_peer_stream_id(step_state(not_modified_end_stream)), 1)?
+	let no_content_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000189")?), frame_state())?
+	let no_content_zero_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(no_content_open))?
+	let ignored_no_content_zero_data: () = require_frame_decoded("204 response rejected zero-content DATA termination", no_content_zero_data)?
+	let ignored_no_content_zero_closed: () = require_equal_int("204 zero-content DATA did not close the stream", state_closed_by_peer_stream_id(step_state(no_content_zero_data)), 1)?
+	let not_modified_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000018b")?), frame_state())?
+	let not_modified_padded_zero_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020009000000010100")?), step_state(not_modified_open))?
+	let ignored_not_modified_padded_zero_data: () = require_frame_decoded("304 response rejected padded zero-content DATA termination", not_modified_padded_zero_data)?
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010000000001")?), frame_state())?
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010904000000018b")?), step_state(continuation_start))?
+	let ignored_continuation_done: () = require_frame_decoded("304 response CONTINUATION was rejected", continuation_done)?
+	let continuation_zero_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(continuation_done))?
+	let ignored_continuation_zero_data: () = require_frame_decoded("304 CONTINUATION response rejected zero-content DATA termination", continuation_zero_data)?
+	let no_content_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010000000001")?), frame_state())?
+	let no_content_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000189")?), step_state(no_content_continuation_start))?
+	let ignored_no_content_continuation: () = require_frame_decoded("204 response CONTINUATION was rejected", no_content_continuation_done)?
+	let no_content_continuation_zero_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(no_content_continuation_done))?
+	let ignored_no_content_continuation_zero_data: () = require_frame_decoded("204 CONTINUATION response rejected zero-content DATA termination", no_content_continuation_zero_data)?
+	let no_content_continuation_end_stream_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000001")?), frame_state())?
+	let no_content_continuation_end_stream_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000189")?), step_state(no_content_continuation_end_stream_start))?
+	let ignored_no_content_continuation_end_stream: () = require_frame_decoded("204 response END_STREAM CONTINUATION was rejected", no_content_continuation_end_stream_done)?
+	let ignored_no_content_continuation_closed: () = require_equal_int("204 response END_STREAM CONTINUATION did not close the stream", state_closed_by_peer_stream_id(step_state(no_content_continuation_end_stream_done)), 1)?
+	let not_modified_continuation_end_stream_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010100000001")?), frame_state())?
+	let not_modified_continuation_end_stream_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010904000000018b")?), step_state(not_modified_continuation_end_stream_start))?
+	let ignored_not_modified_continuation_end_stream: () = require_frame_decoded("304 response END_STREAM CONTINUATION was rejected", not_modified_continuation_end_stream_done)?
+	let ignored_not_modified_continuation_closed: () = require_equal_int("304 response END_STREAM CONTINUATION did not close the stream", state_closed_by_peer_stream_id(step_state(not_modified_continuation_end_stream_done)), 1)?
+	let informational: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000010803313033")?), frame_state())?
+	let final_no_content: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000189")?), step_state(informational))?
+	let informational_then_zero_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000100000001")?), step_state(final_no_content))?
+	let ignored_informational_then_zero_data: () = require_frame_decoded("informational response prevented final 204 zero-content termination", informational_then_zero_data)?
+	let nonempty_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000100010000000101")?), step_state(no_content_open))?
+	let ignored_nonempty_data: () = require_no_content_body_failure_context("204 response accepted nonempty DATA or lost diagnostic context", nonempty_data, "204", 1)?
+	let not_modified_nonempty_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000100010000000101")?), step_state(not_modified_open))?
+	let ignored_not_modified_nonempty_data: () = require_no_content_body_failure_context("304 response accepted nonempty DATA or lost diagnostic context", not_modified_nonempty_data, "304", 1)?
+	http2_protocol_diagnostic(step_failure(nonempty_data), DiagnosticContext(step_state(nonempty_data)))
 end
 
 fn require_hpack_states_equal(label: String, left: HpackFixtureState, right: HpackFixtureState) -> Result<(), String>
@@ -14314,6 +14491,7 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let verified_production_inbound_header_fields: () = check_production_inbound_header_fields()?
 	let verified_production_inbound_http2_routes: () = check_production_inbound_http2_routes()?
+	let verified_no_content_response_coverage: () = require_no_content_response_coverage()?
 	let ignored_extended_connect_negotiation_cases: () = require_extended_connect_negotiation_cases()?
 	let verified_flow_control_domains: () = verify_flow_control_domain_cases()?
 	let verified_outbound_multi_stream_flow_control: () = verify_outbound_multi_stream_flow_control()?

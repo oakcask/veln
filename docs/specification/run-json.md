@@ -954,6 +954,15 @@ header-block preview. The larger
 protocol-core fixture also checks valid ordinary response header lists,
 including accepted `te: trailers` and accepted `content-length` values,
 through integrated completed HEADERS and final CONTINUATION paths.
+Final `204` and `304` response HEADERS retain a no-content stream state when
+they omit `END_STREAM`. Empty DATA and PADDED DATA with zero application
+content may terminate that state, while nonempty DATA uses
+`http2.protocol.content_length_mismatch` with
+`expected_content_length: 0`, the observed application length, status-bearing
+`active_state`, and `rfc9110_no_content_response_body` provenance. The
+aggregate protocol-core case checks direct and CONTINUATION transitions plus
+diagnostic projection; the focused human case checks the status-specific
+primary message and related state and provenance notes.
 The larger protocol-core fixture also checks response trailer validation
 through the same response header-list diagnostic fields with active state
 `response-trailers`; a focused JSON case checks the same active state and

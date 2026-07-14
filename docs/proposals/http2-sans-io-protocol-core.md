@@ -941,6 +941,14 @@ rejects fixture-marked and source-visible HPACK static-name literal `:status`
 values that are empty, too short, too long, or contain a non-decimal
 character with failed fact `status_value_invalid` on completed HEADERS and
 final CONTINUATION paths.
+Final response status `204` or `304` also carries a no-content receive state
+through completed HEADERS and final CONTINUATION paths. Direct `END_STREAM`
+closes the stream; otherwise only DATA with zero application-content octets
+may terminate it. Nonempty DATA fails through the existing protocol-state
+diagnostic projection with the selected status and no-content rule
+provenance. Informational responses remain distinct until a final response is
+selected. This completed slice is archived under
+[HTTP/2 No-Content Response Lifecycle](../reference/implemented-proposals/http2-no-content-response-lifecycle.md).
 Both request and response validation accept `te: trailers` and reject any
 other fixture-marked `te` value through the same request or response
 header-list diagnostic with failed fact `te_header_value_not_trailers`. They

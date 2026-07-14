@@ -1,0 +1,25 @@
+# A no-content response body failure keeps status, stream state, and rule context.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.content_length_mismatch",
+		error,
+		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 0, 1, "no-content-response-204", "rfc9110_no_content_response_body", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("01")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let preview: ByteChunk = preview_bytes()?
+	Err(RuntimeDiagnostic(
+		"http2.protocol.content_length_mismatch",
+		"HTTP/2 response status 204 prohibits nonempty DATA at byte offset 9",
+		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 0, 1, "no-content-response-204", "rfc9110_no_content_response_body", preview)
+	))
+end

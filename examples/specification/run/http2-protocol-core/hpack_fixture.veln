@@ -5909,6 +5909,28 @@ pub fn production_header_list_has_invalid_status_value(headers: HpackProductionH
 	end
 end
 
+pub fn production_header_list_is_informational_response(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":status")
+		Some(value) => response_status_value_is_valid(value) and response_status_value_starts_with_one(value)
+		None => false
+	end
+end
+
+pub fn production_header_list_no_content_response_status(headers: HpackProductionHeaderList) -> String
+	match production_header_list_value(headers, ":status")
+		Some("204") => "204"
+		Some("304") => "304"
+		_ => ""
+	end
+end
+
+fn response_status_value_starts_with_one(value: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_at_or_missing(bytes, 0) == 49
+		Err(_) => false
+	end
+end
+
 pub fn production_header_list_has_invalid_content_length(headers: HpackProductionHeaderList) -> Bool
 	match headers
 		HpackProductionHeaderList(fields, _) => production_fields_have_invalid_content_length(fields) or (match production_compatibility_header_list(headers)

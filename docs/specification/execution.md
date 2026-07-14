@@ -377,6 +377,18 @@ enough.
   empty, short, long, or non-decimal values fail with
   `status_value_invalid` through the response header-list diagnostic on
   completed HEADERS and final CONTINUATION paths.
+  A final `204` or `304` response selects a no-content receive state on both
+  completed HEADERS and final CONTINUATION paths. Direct `END_STREAM` closes
+  the stream. Otherwise, DATA may terminate the stream only when its
+  application-content length is zero; padding still consumes receive-window
+  credit but does not count as application content. Nonempty DATA fails
+  through `http2.protocol.content_length_mismatch` with expected length zero,
+  the selected response status in `active_state`, and
+  `rfc9110_no_content_response_body` provenance. Informational responses do
+  not select this final status state. The aggregate evidence is under
+  `examples/specification/run/http2-protocol-core/`, and focused human output
+  is checked under
+  `examples/specification/run/http2-protocol-core-no-content-data-human/`.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked

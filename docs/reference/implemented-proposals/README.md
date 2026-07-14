@@ -663,6 +663,8 @@ behavior.
   [http2-extended-connect-negotiation.md](http2-extended-connect-negotiation.md).
 - HTTP/2 response header validation:
   [http2-response-header-validation.md](http2-response-header-validation.md).
+- HTTP/2 no-content response lifecycle:
+  [http2-no-content-response-lifecycle.md](http2-no-content-response-lifecycle.md).
 - HTTP/2 TE header validation:
   [http2-te-header-validation.md](http2-te-header-validation.md).
 - HTTP/2 content-length header validation:
