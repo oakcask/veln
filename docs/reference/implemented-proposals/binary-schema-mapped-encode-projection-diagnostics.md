@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed mapped encode projection diagnostic slice
-from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
+from `binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`,
 `../../specification/diagnostics-json.md`, and checked executable examples

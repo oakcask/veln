@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the former `Flag40be`, `Flag40le`, `Flag56be`, and
 `Flag56le` visible flag bitset slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. That slice was
+`binary-schema-primitives-and-dispatch.md`. That slice was
 superseded by
 [integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
 Current behavior is specified by `../../specification/source-surface.md`,

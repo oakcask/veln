@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed nested dispatch payload helper-boundary
 diagnostics slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior is
+`binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/diagnostics-json-full.md`,
 `../../specification/examples.md`, and the checked executable examples under

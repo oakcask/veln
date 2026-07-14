@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed eight-byte split reserved layout slice
-from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
+from `binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/run/`.

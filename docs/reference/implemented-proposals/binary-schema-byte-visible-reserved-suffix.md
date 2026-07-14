@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed `UInt8` plus multi-byte reserved suffix
-slice from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
+slice from `binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable examples under `../../../examples/specification/`.

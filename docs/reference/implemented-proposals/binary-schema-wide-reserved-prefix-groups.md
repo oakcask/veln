@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed seven-byte and eight-byte reserved prefix
-group slice from `../../proposals/binary-schema-primitives-and-dispatch.md`.
+group slice from `binary-schema-primitives-and-dispatch.md`.
 Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/run/`.

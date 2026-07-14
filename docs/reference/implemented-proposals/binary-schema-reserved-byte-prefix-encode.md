@@ -3,7 +3,7 @@
 Status: superseded
 
 This record preserves the completed reserved-byte-prefix encode slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. The general rule
+`binary-schema-primitives-and-dispatch.md`. The general rule
 that replaced this narrow slice is recorded in
 `binary-schema-general-reserved-byte-prefixes.md`; current behavior is
 specified under `../../specification/`.

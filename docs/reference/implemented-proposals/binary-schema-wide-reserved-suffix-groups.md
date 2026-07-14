@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed seven-byte and eight-byte reserved suffix
 group slice from
-[../../proposals/binary-schema-primitives-and-dispatch.md](../../proposals/binary-schema-primitives-and-dispatch.md).
+[binary-schema-primitives-and-dispatch.md](binary-schema-primitives-and-dispatch.md).
 Current behavior is specified by
 [../../specification/source-surface.md](../../specification/source-surface.md),
 [../../specification/execution.md](../../specification/execution.md), and the

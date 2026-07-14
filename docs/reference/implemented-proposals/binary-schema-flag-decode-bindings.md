@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed visible flag bitset decode binding slice
 from `../../proposals/schema-declaration-surface.md` and
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior is
+`binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/execution.md` and checked executable
 examples under `../../../examples/specification/run/`.
 

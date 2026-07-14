@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the former `Flag48be` and `Flag48le` visible flag bitset
-slice from `../../proposals/binary-schema-primitives-and-dispatch.md`. That
+slice from `binary-schema-primitives-and-dispatch.md`. That
 slice was superseded by
 [integer bitwise operators and flag removal](integer-bitwise-operators-and-flag-removal.md).
 Current behavior is specified by `../../specification/source-surface.md`,

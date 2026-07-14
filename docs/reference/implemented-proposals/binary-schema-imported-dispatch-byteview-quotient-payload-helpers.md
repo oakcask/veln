@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed public imported nested dispatch payload
-helper slice from `../../proposals/binary-schema-primitives-and-dispatch.md`.
+helper slice from `binary-schema-primitives-and-dispatch.md`.
 Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/names-effects.md`,
 and the checked executable examples under
