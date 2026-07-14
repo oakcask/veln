@@ -3569,6 +3569,63 @@ mod tests {
     }
 
     #[test]
+    fn byte_result_failure_diagnostic_preserves_plain_trailing_input_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.trailing_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(7)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            (
+                "reason",
+                JsonValue::string("bounded input has trailing bytes"),
+            ),
+            (
+                "field_path_display",
+                JsonValue::string("ManualPacketWire.payload"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.trailing_input");
+        assert_eq!(diagnostic.message, "trailing input at byte offset 7");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Trailing input reason: bounded input has trailing bytes.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.trailing_input, ByteOffset(7), ManualPacketWire.payload, bounded input has trailing bytes).\"}"
+        );
+    }
+
+    #[test]
     fn byte_result_failure_diagnostic_projects_version_mismatch_reason() {
         let byte_diagnostic = JsonValue::object([
             ("kind", JsonValue::string("byte_diagnostic")),

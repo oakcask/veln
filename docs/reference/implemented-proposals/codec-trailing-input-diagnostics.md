@@ -37,6 +37,8 @@ automatically as part of this slice.
   check the `DecodeStep::Invalid(...)` path.
 - `../../../examples/specification/run/codec-trailing-input-malformed-direct-json/`
   and
+  `../../../examples/specification/run/codec-trailing-input-plain-step-json/`
+  plus
   `../../../examples/specification/run/codec-trailing-input-plain-step-human/`
   check malformed and absent structured fields.
 - `crates/veln-backend-jvm/src/tests.rs` checks structured extraction and

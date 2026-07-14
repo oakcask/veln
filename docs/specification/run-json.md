@@ -610,7 +610,9 @@ count facts. The checked direct result and `DecodeStep::Invalid(...)` examples
 are `examples/specification/run/codec-trailing-input-direct-json/` and
 `examples/specification/run/codec-trailing-input-step-json/`; malformed
 fallback behavior is checked by
-`examples/specification/run/codec-trailing-input-malformed-direct-json/`.
+`examples/specification/run/codec-trailing-input-malformed-direct-json/`, and
+plain-reason fallback behavior is checked by
+`examples/specification/run/codec-trailing-input-plain-step-json/`.
 
 The checked `codec.consumed_count_invalid` command-facing slice covers
 hand-written decode boundaries whose returned `Decoded` consumed count is

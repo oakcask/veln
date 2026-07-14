@@ -215,8 +215,6 @@ The completed codec-owned magic mismatch slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-magic-mismatch-diagnostics.md).
 The completed codec-owned unsupported feature slice is archived under the
 [implemented proposal record](../reference/implemented-proposals/codec-unsupported-feature-diagnostics.md).
-The completed codec-owned trailing input slice is archived under the
-[implemented proposal record](../reference/implemented-proposals/codec-trailing-input-diagnostics.md).
 Command-facing projection for `DecodeStep::NeedMore(...)` entry results is
 implemented as `codec.incomplete_input` at the closed-input reporting
 boundary, with readiness and requested byte count details in `run --json` and

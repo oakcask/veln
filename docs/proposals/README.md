@@ -384,9 +384,7 @@ compare it with `../specification/` before changing behavior.
   mismatch projection with expected tag, actual tag, and failure reason
   details, codec-owned magic mismatch projection with expected magic, actual
   magic, and failure reason details, codec-owned unsupported feature
-  projection with unsupported feature and failure reason details, codec-owned
-  trailing input projection with consumed, available, and remaining byte
-  counts plus failure reason details, generated
+  projection with unsupported feature and failure reason details, generated
   binary schema decode
   integer range failures,
   generated bounded repeated schema
@@ -412,8 +410,6 @@ compare it with `../specification/` before changing behavior.
   [Codec Magic Mismatch Diagnostics](../reference/implemented-proposals/codec-magic-mismatch-diagnostics.md).
   The completed codec-owned unsupported feature slice is archived under
   [Codec Unsupported Feature Diagnostics](../reference/implemented-proposals/codec-unsupported-feature-diagnostics.md).
-  The completed codec-owned trailing input slice is archived under
-  [Codec Trailing Input Diagnostics](../reference/implemented-proposals/codec-trailing-input-diagnostics.md).
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): select
   only remaining SETTINGS, DATA, stream-lifecycle, graceful-shutdown, typed
   protocol-error, or HPACK work that is absent from the executable HTTP/2
