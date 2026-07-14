@@ -849,6 +849,7 @@ byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, pad
 http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2_protocol_initial_peer_settings_required(offset: Int, actual_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
@@ -1194,6 +1195,7 @@ helpers, rather than the public schema application surface.
   `http2_protocol_closed_with_pending`,
   `http2_protocol_partial_preface`,
   `http2_protocol_invalid_preface`,
+  `http2_protocol_initial_peer_settings_required`,
   `http2_protocol_continuation_expected`,
   `http2_protocol_invalid_frame_kind`,
   `http2_protocol_invalid_stream_id`,
@@ -1253,6 +1255,8 @@ value diagnostics from source-visible `RuntimeDiagnostic(...)` error values,
 `http2.protocol.partial_preface` failures,
 `RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for projecting
 `http2.protocol.invalid_preface` failures,
+`RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...)` for projecting
+`http2.protocol.initial_peer_settings_required` failures,
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for projecting
 `http2.protocol.continuation_expected` failures,
 `RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for projecting
@@ -1299,6 +1303,7 @@ values, and
 `http2_protocol_closed_with_pending(...)`,
 `http2_protocol_partial_preface(...)`,
 `http2_protocol_invalid_preface(...)`,
+`http2_protocol_initial_peer_settings_required(...)`,
 `http2_protocol_continuation_expected(...)`,
 `http2_protocol_invalid_frame_kind(...)`,
 `http2_protocol_invalid_stream_id(...)`,

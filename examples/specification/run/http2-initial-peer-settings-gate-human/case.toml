@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.initial_peer_settings_required]: initial peer frame must be non-ACK SETTINGS at byte offset 24", "note: Frame kind 6 with flags 1 on connection 0 cannot start a server endpoint connection.", "note: Nearby bytes: 00 00 00 06 01 00 00 00 (showing 8 of 9 byte(s), truncated).", "note: Active protocol state: expect-initial-peer-settings.", "note: Rule provenance: rfc9113_initial_peer_frame_requires_non_ack_settings."]

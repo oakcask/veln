@@ -618,6 +618,19 @@ fn http2_protocol_preface_signature<T: BytePreludeType>(
             ],
             unit_runtime_diagnostic_result(),
         )),
+        "http2_protocol_initial_peer_settings_required" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                T::string(),
+                types.byte_view.clone(),
+            ],
+            unit_runtime_diagnostic_result(),
+        )),
         "http2_protocol_continuation_expected" => Some((
             vec![
                 T::int(),

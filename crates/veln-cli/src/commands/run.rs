@@ -1350,6 +1350,22 @@ impl<'a> ProtocolDiagnosticContext<'a> {
 
     fn project_frame_identity_rule(&self) -> Option<Diagnostic> {
         match self.id.as_str() {
+            "http2.protocol.initial_peer_settings_required" => {
+                let actual_kind = self.number("actual_frame_kind")?;
+                let actual_flags = self.number("actual_flags")?;
+                let endpoint_role = self.string("endpoint_role")?;
+                let frame = self.frame_ref()?;
+                let mut diagnostic = self.diagnostic(format!(
+                    "initial peer frame must be non-ACK SETTINGS at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {actual_kind} with flags {actual_flags} on {} {} cannot start a {endpoint_role} endpoint connection.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                self.push_preview_state_and_provenance(&mut diagnostic)?;
+                Some(diagnostic)
+            }
             "http2.protocol.invalid_frame_kind" => {
                 let actual_kind = self.number("actual_frame_kind")?;
                 let expected_kind = self.number("expected_frame_kind")?;
@@ -6608,6 +6624,67 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("connection_frames_require_settings")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_initial_peer_settings_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.initial_peer_settings_required"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(24)),
+                ]),
+            ),
+            ("actual_frame_kind", JsonValue::Number(6)),
+            ("actual_flags", JsonValue::Number(1)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("endpoint_role", JsonValue::string("server")),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000000601000000", 9, true),
+            ),
+            (
+                "active_state",
+                JsonValue::string("expect-initial-peer-settings"),
+            ),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_initial_peer_frame_requires_non_ack_settings"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 initial peer frame must be non-ACK SETTINGS at byte offset 24".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("initial peer SETTINGS diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.protocol.initial_peer_settings_required"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "initial peer frame must be non-ACK SETTINGS at byte offset 24"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(diagnostic.related[0].to_json().contains("flags 1"));
+        assert!(diagnostic.related[0].to_json().contains("server endpoint"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("expect-initial-peer-settings")
         );
     }
 
