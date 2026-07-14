@@ -11,6 +11,8 @@ end
 pub type HpackHeader
 	HpackHeader(name: String, value: String)
 	HpackOctetHeader(name: String, value: ByteChunk)
+	HpackOctetHeaderWithoutIndexing(name: String, value: ByteChunk)
+	HpackOctetHeaderNeverIndexed(name: String, value: ByteChunk)
 end
 
 pub type HpackHeaderList
@@ -24,6 +26,18 @@ end
 
 pub fn hpack_header(name: String, value: String) -> HpackHeader
 	HpackHeader(name, value)
+end
+
+pub fn hpack_octet_header(name: String, value: ByteChunk) -> HpackHeader
+	HpackOctetHeader(name, value)
+end
+
+pub fn hpack_octet_header_without_indexing(name: String, value: ByteChunk) -> HpackHeader
+	HpackOctetHeaderWithoutIndexing(name, value)
+end
+
+pub fn hpack_octet_header_never_indexed(name: String, value: ByteChunk) -> HpackHeader
+	HpackOctetHeaderNeverIndexed(name, value)
 end
 
 pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int) -> HpackHeaderList
@@ -1225,9 +1239,26 @@ pub fn encode_hpack_raw_string_literal(value: String, offset: Int) -> Result<Byt
 	end
 end
 
+fn encode_hpack_raw_octet_literal(value: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match hpack_fixture_raw_string_length_prefix(byte_count_to_int(byte_chunk_count(value)), "octet header value", offset)
+		Ok(prefix) => Ok(byte_append(prefix, value))
+		Err(failure) => Err(failure)
+	end
+end
+
 pub fn encode_hpack_huffman_string_literal(value: String, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	match encode_hpack_huffman_payload(value, offset)
 		Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), value, offset)
+			Ok(prefix) => Ok(byte_append(prefix, encoded_value))
+			Err(failure) => Err(failure)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn encode_hpack_huffman_octet_literal(value: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_hpack_huffman_payload_bytes(value, "octet header value", offset)
+		Ok(encoded_value) => match hpack_fixture_huffman_string_length_prefix(byte_count_to_int(byte_chunk_count(encoded_value)), "octet header value", offset)
 			Ok(prefix) => Ok(byte_append(prefix, encoded_value))
 			Err(failure) => Err(failure)
 		end
@@ -1906,6 +1937,18 @@ fn unsupported_header_list_preview(headers: HpackHeaderList) -> ByteChunk
 			Ok(preview) => preview
 			Err(_) => byte_chunk([])
 		end
+		HpackHeaderList(HpackOctetHeader(name, _), _, _) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		HpackHeaderList(HpackOctetHeaderWithoutIndexing(name, _), _, _) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
+		HpackHeaderList(HpackOctetHeaderNeverIndexed(name, _), _, _) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(preview) => preview
+			Err(_) => byte_chunk([])
+		end
 	end
 end
 
@@ -2270,7 +2313,9 @@ fn encode_selected_header(header: HpackHeader, headers: HpackHeaderList, state: 
 				end
 			end
 		end
-		HpackOctetHeader(_, _) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture outbound string header", "hpack_fixture", byte_chunk([])))
+		HpackOctetHeader(name, value) => encode_automatic_octet_header(name, value, headers, state, offset)
+		HpackOctetHeaderWithoutIndexing(name, value) => encode_octet_header_without_indexing(name, value, headers, state, offset)
+		HpackOctetHeaderNeverIndexed(name, value) => encode_octet_header_never_indexed(name, value, headers, state, offset)
 	end
 end
 
@@ -2289,7 +2334,117 @@ fn encode_automatic_header(header: HpackHeader, headers: HpackHeaderList, state:
 				end
 			end
 		end
-		HpackOctetHeader(_, _) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture outbound string header", "hpack_fixture", byte_chunk([])))
+		HpackOctetHeader(name, value) => encode_automatic_octet_header(name, value, headers, state, offset)
+		HpackOctetHeaderWithoutIndexing(name, value) => encode_octet_header_without_indexing(name, value, headers, state, offset)
+		HpackOctetHeaderNeverIndexed(name, value) => encode_octet_header_never_indexed(name, value, headers, state, offset)
+	end
+end
+
+fn encode_octet_header_without_indexing(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_octet_header_with_literal_policy(name, value, 15, 0, headers, state, offset)
+end
+
+fn encode_octet_header_never_indexed(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	encode_octet_header_with_literal_policy(name, value, 15, 16, headers, state, offset)
+end
+
+fn encode_octet_header_with_literal_policy(name: String, value: ByteChunk, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match hpack_static_name_index(name) >= 0
+		true => encode_octet_literal_with_name_index(hpack_static_name_index(name), value, prefix_max, prefix_base, headers, state, offset)
+		false => match matching_dynamic_name_index(state, name) >= 0
+			true => encode_octet_literal_with_name_index(matching_dynamic_name_index(state, name) + 62, value, prefix_max, prefix_base, headers, state, offset)
+			false => match accepted_ordinary_header_name_bytes(name)
+				Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+				Ok(_) => match encode_hpack_integer_with_prefix(0, prefix_max, prefix_base, offset)
+					Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+					Ok(prefix) => match encode_automatic_string_literal(name, offset)
+						Err(failure) => Err(failure)
+						Ok(encoded_name) => match encode_automatic_octet_literal(value, offset)
+							Err(failure) => Err(failure)
+							Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(byte_append(prefix, encoded_name), encoded_value), next_state(state)))
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn encode_octet_literal_with_name_index(name_index: Int, value: ByteChunk, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encode_hpack_integer_with_prefix(name_index, prefix_max, prefix_base, offset)
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+		Ok(prefix) => match encode_automatic_octet_literal(value, offset)
+			Err(failure) => Err(failure)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), next_state(state)))
+		end
+	end
+end
+
+fn encode_automatic_octet_header(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match hpack_static_octet_exact_index(name, value) >= 0
+		true => encode_header_list_transition(encode_hpack_integer_with_prefix(hpack_static_octet_exact_index(name, value) - 128, 127, 128, offset), next_state(state))
+		false => match matching_dynamic_octet_header_index(state, name, value) >= 0
+			true => encode_header_list_transition(encode_hpack_integer_with_prefix(matching_dynamic_octet_header_index(state, name, value) + 62, 127, 128, offset), next_state(state))
+			false => match hpack_static_name_index(name) >= 0
+				true => encode_automatic_octet_static_name(name, value, headers, state, offset)
+				false => match matching_dynamic_name_index(state, name) >= 0
+					true => encode_automatic_octet_dynamic_name(name, value, headers, state, offset)
+					false => encode_automatic_octet_new_name(name, value, headers, state, offset)
+				end
+			end
+		end
+	end
+end
+
+fn encode_automatic_octet_literal(value: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match encode_hpack_raw_octet_literal(value, offset)
+		Ok(raw) => match encode_hpack_huffman_octet_literal(value, offset)
+			Ok(huffman) => match byte_count_to_int(byte_chunk_count(huffman)) < byte_count_to_int(byte_chunk_count(raw))
+				true => Ok(huffman)
+				false => Ok(raw)
+			end
+			Err(_) => Ok(raw)
+		end
+		Err(raw_failure) => match encode_hpack_huffman_octet_literal(value, offset)
+			Ok(huffman) => Ok(huffman)
+			Err(_) => Err(raw_failure)
+		end
+	end
+end
+
+fn encode_automatic_octet_static_name(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encode_hpack_integer_with_prefix(hpack_static_name_index(name), 63, 64, offset)
+		Ok(prefix) => match encode_automatic_octet_literal(value, offset)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), production_state_with_dynamic_entry(state, name, value)))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_automatic_octet_dynamic_name(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match encode_hpack_integer_with_prefix(matching_dynamic_name_index(state, name) + 62, 63, 64, offset)
+		Ok(prefix) => match encode_automatic_octet_literal(value, offset)
+			Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(prefix, encoded_value), production_state_with_dynamic_entry(state, name, value)))
+			Err(failure) => Err(failure)
+		end
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+	end
+end
+
+fn encode_automatic_octet_new_name(name: String, value: ByteChunk, headers: HpackHeaderList, state: HpackFixtureState, offset: Int) -> Result<HpackEncodeTransition, HpackFixtureFailure>
+	match accepted_ordinary_header_name_bytes(name)
+		Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+		Ok(_) => match byte_write_u8_be(64)
+			Err(_) => encode_header_list_transition(unsupported_header_list_encoding(headers, offset), state)
+			Ok(prefix) => match encode_automatic_string_literal(name, offset)
+				Err(failure) => Err(failure)
+				Ok(encoded_name) => match encode_automatic_octet_literal(value, offset)
+					Err(failure) => Err(failure)
+					Ok(encoded_value) => Ok(HpackEncodeTransition(byte_append(byte_append(prefix, encoded_name), encoded_value), production_state_with_dynamic_entry(state, name, value)))
+				end
+			end
+		end
 	end
 end
 
@@ -2375,6 +2530,62 @@ end
 fn matching_dynamic_header_index(state: HpackFixtureState, name: String, value: String) -> Int
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => matching_dynamic_entry_index(dynamic_entry, name, value, 0)
+	end
+end
+
+fn hpack_octets_equal(left: ByteChunk, right: ByteChunk) -> Bool
+	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
+	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	match left_count == right_count
+		true => hpack_octets_equal_at(left, right, 0, left_count)
+		false => false
+	end
+end
+
+fn hpack_octets_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Bool
+	match index >= count
+		true => true
+		false => match byte_at_or_missing(left, index) == byte_at_or_missing(right, index)
+			true => hpack_octets_equal_at(left, right, index + 1, count)
+			false => false
+		end
+	end
+end
+
+fn hpack_static_octet_exact_index(name: String, value: ByteChunk) -> Int
+	hpack_static_octet_exact_index_at(name, value, 129)
+end
+
+fn hpack_static_octet_exact_index_at(name: String, value: ByteChunk, index: Int) -> Int
+	match index > 189
+		true => -1
+		false => match static_indexed_header_value(index)
+			Some(HpackHeader(static_name, static_value)) => match byte_chunk_from_visible_ascii_string(static_value)
+				Ok(static_octets) => match static_name == name and hpack_octets_equal(static_octets, value)
+					true => index
+					false => hpack_static_octet_exact_index_at(name, value, index + 1)
+				end
+				Err(_) => hpack_static_octet_exact_index_at(name, value, index + 1)
+			end
+			None => hpack_static_octet_exact_index_at(name, value, index + 1)
+		end
+	end
+end
+
+fn matching_dynamic_octet_header_index(state: HpackFixtureState, name: String, value: ByteChunk) -> Int
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => matching_dynamic_octet_entry_index(dynamic_entry, name, value, 0)
+	end
+end
+
+fn matching_dynamic_octet_entry_index(dynamic_entry: HpackDynamicEntry, name: String, value: ByteChunk, index: Int) -> Int
+	match dynamic_entry
+		NoDynamicEntry => -1
+		DynamicEntry(_, _, older) => matching_dynamic_octet_entry_index(older, name, value, index + 1)
+		OctetDynamicEntry(entry_name, entry_value, older) => match entry_name == name and hpack_octets_equal(entry_value, value)
+			true => index
+			false => matching_dynamic_octet_entry_index(older, name, value, index + 1)
+		end
 	end
 end
 
@@ -4162,6 +4373,8 @@ fn production_header_name(header: HpackHeader) -> String
 	match header
 		HpackHeader(name, _) => name
 		HpackOctetHeader(name, _) => name
+		HpackOctetHeaderWithoutIndexing(name, _) => name
+		HpackOctetHeaderNeverIndexed(name, _) => name
 	end
 end
 
@@ -4175,6 +4388,8 @@ fn production_header_octets(header: HpackHeader) -> Result<ByteChunk, HpackFixtu
 			end
 		end
 		HpackOctetHeader(_, value) => Ok(value)
+		HpackOctetHeaderWithoutIndexing(_, value) => Ok(value)
+		HpackOctetHeaderNeverIndexed(_, value) => Ok(value)
 	end
 end
 

@@ -12072,6 +12072,36 @@ fn production_single_method_header_fields() -> HpackHeaderFields
 	hpack_fixture::prepend_header_field(hpack_fixture::hpack_header(":method", "GET"), hpack_fixture::empty_header_fields())
 end
 
+fn production_raw_octet_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header("x", byte_chunk_from_hex("00ff")?), hpack_fixture::empty_header_fields()))
+end
+
+fn production_huffman_octet_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header("x", byte_chunk_from_hex("616761696e")?), hpack_fixture::empty_header_fields()))
+end
+
+fn production_unindexed_octet_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header_without_indexing("x", byte_chunk_from_hex("00ff")?), hpack_fixture::empty_header_fields()))
+end
+
+fn production_never_indexed_octet_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header_never_indexed("x", byte_chunk_from_hex("00ff")?), hpack_fixture::empty_header_fields()))
+end
+
+fn production_octet_request_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(
+		hpack_fixture::hpack_octet_header(":method", byte_chunk_from_hex("474554")?),
+		hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header("x", byte_chunk_from_hex("00ff")?), hpack_fixture::empty_header_fields())
+	))
+end
+
+fn production_invalid_octet_header_fields() -> Result<HpackHeaderFields, String>
+	Ok(hpack_fixture::prepend_header_field(
+		hpack_fixture::hpack_octet_header("x", byte_chunk_from_hex("00ff")?),
+		hpack_fixture::prepend_header_field(hpack_fixture::hpack_octet_header("Bad", byte_chunk_from_hex("01")?), hpack_fixture::empty_header_fields())
+	))
+end
+
 fn require_hpack_bytes(transition: HpackEncodeTransition, expected_hex: String) -> Result<(), String>
 	let expected: ByteChunk = byte_chunk_from_hex(expected_hex)?
 	let matches: Bool = byte_chunks_equal(hpack_fixture::encode_transition_bytes(transition), expected)?
@@ -12148,8 +12178,51 @@ fn check_production_push_promise_frames(state: HpackFixtureState) -> Result<(), 
 	end
 end
 
+fn check_production_outbound_octet_values(initial: HpackFixtureState) -> Result<(), String>
+	let raw: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_raw_octet_header_fields()?, initial, 4096, 0))?
+	let ignored_raw: () = require_hpack_bytes(raw, "4001780200ff")?
+	let raw_state: HpackFixtureState = hpack_fixture::encode_transition_state(raw)
+	let ignored_raw_state: () = require_production_state_octets(raw_state, 0, "00ff")?
+	let reused: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_raw_octet_header_fields()?, raw_state, 4096, 0))?
+	let ignored_reused: () = require_hpack_bytes(reused, "be")?
+
+	let huffman: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_huffman_octet_header_fields()?, initial, 4096, 0))?
+	let ignored_huffman: () = require_hpack_bytes(huffman, "400178841cc3355f")?
+	let unindexed: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_unindexed_octet_header_fields()?, initial, 4096, 0))?
+	let ignored_unindexed: () = require_hpack_bytes(unindexed, "0001780200ff")?
+	let ignored_unindexed_state: () = require_production_hpack_state(hpack_fixture::encode_transition_state(unindexed), 1, 0)?
+	let never_indexed: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_never_indexed_octet_header_fields()?, initial, 4096, 0))?
+	let ignored_never_indexed: () = require_hpack_bytes(never_indexed, "1001780200ff")?
+	let ignored_never_indexed_state: () = require_production_hpack_state(hpack_fixture::encode_transition_state(never_indexed), 1, 0)?
+
+	match hpack_fixture::encode_header_fields_with_state(production_invalid_octet_header_fields()?, initial, 4096, 0)
+		Ok(_) => Err("expected late production outbound octet failure")
+		Err(_) => match hpack_fixture::encode_header_fields_with_state(production_raw_octet_header_fields()?, initial, 4096, 0)
+			Err(_) => Err("production outbound octet failure changed reusable state")
+			Ok(retry) => match require_hpack_bytes(retry, "4001780200ff")
+				Err(error) => Err(error)
+				Ok(_) => match check_production_headers_frames(production_octet_request_header_fields()?, initial, 7)
+					Err(error) => Err(error)
+					Ok(_) => check_production_push_promise_frames_for_fields(production_octet_request_header_fields()?, initial)
+				end
+			end
+		end
+	end
+end
+
+fn check_production_push_promise_frames_for_fields(headers: HpackHeaderFields, state: HpackFixtureState) -> Result<(), String>
+	let result: Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure> = send_push_promise_from_header_fields_with_state(1, 2, headers, state, small_peer_max_frame_size_settings(8), outbound_receive_credit_with_open_stream(10, 1, 20))?
+	let transition: OutboundPushPromiseHpackTransition = require_outbound_push_promise_hpack_transition(result)?
+	let chunk: ByteChunk = outbound_push_promise_chunk(outbound_push_promise_hpack_decision(transition))
+	match read_byte(chunk, 3)? == 5
+		true => Ok(())
+		false => Err("unexpected production octet HPACK PUSH_PROMISE framing")
+	end
+end
+
 fn check_production_outbound_header_fields() -> Result<(), String>
 	let initial: HpackFixtureState = hpack_fixture::initial_encode_state()
+	let ignored_octet_values: () = check_production_outbound_octet_values(initial)?
 	let seed: HpackEncodeTransition = require_outbound_hpack_encode_transition(hpack_fixture::encode_header_fields_with_state(production_seed_header_fields(), initial, 4096, 0))?
 	let ignored_seed_bytes: () = require_hpack_bytes(seed, "8244856123b262a74085f2b26c190b026f6b7e841cc3355f")?
 	let seed_state: HpackFixtureState = hpack_fixture::encode_transition_state(seed)

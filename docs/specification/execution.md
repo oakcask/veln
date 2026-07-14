@@ -543,15 +543,21 @@ enough.
   mutation of the carried state. The checked indexed block and its returned
   state are routed through outbound HEADERS. The same fixture
   encoder exposes an ordered header-field list that accepts any finite number
-  of already-validated name/value pairs, carried immutable state, and the
+  of already-validated names and immutable octet values, carried immutable
+  state, and the
   active peer-advertised dynamic-table capacity. It selects
   exact static indexed, exact dynamic indexed, static-name literal,
   dynamic-name literal, then new-name literal in that order. The selected
   literal policy is literal-with-indexing, so only the three literal choices
-  insert. Each literal string independently compares its complete raw and
-  HPACK Huffman encodings, selects Huffman only when it is smaller, and keeps
-  raw encoding on ties. Exact static-indexed and exact dynamic-indexed fields
-  retain their representation priority. Multi-field and carried-state blocks
+  insert. Each literal name and octet value independently compares its
+  complete raw and HPACK Huffman encodings, selects Huffman only when it is
+  smaller, and keeps
+  raw encoding on ties without interpreting value bytes as text. Exact static
+  indexed selection requires the octets to equal the fixed static-table value;
+  exact dynamic-indexed fields retain their representation priority. Octet
+  values are preserved through static-name, dynamic-name, and new-name
+  literals, dynamic-table byte accounting, insertion, eviction, and reuse.
+  Multi-field and carried-state blocks
   check static and dynamic exact reuse alongside new-name and dynamic-name
   insertion. Outbound
   request and response HEADERS and server-side `PUSH_PROMISE` route the
@@ -562,9 +568,10 @@ enough.
   fields; an encoder-selected size below a later increased peer limit remains
   valid. Explicit table-size updates can also evict retained entries or clear
   the table.
-  The checked outbound HEADERS cases cover a smaller Huffman value, a raw tie,
+  The checked outbound HEADERS cases cover non-visible raw octets, a smaller
+  Huffman octet value, a raw tie,
   mixed Huffman-name/raw-value selection, Huffman dynamic-name values, and
-  later exact dynamic reuse. Invalid names, unsupported strings, and capacity
+  later exact dynamic reuse. Invalid names, unsupported encodings, and capacity
   mismatches return no frame bytes and expose no partially updated HPACK or
   protocol state; the reusable input state remains unchanged. The same fixture
   encoder observes the current outbound dynamic-table capacity after a checked
