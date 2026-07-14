@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed direct visible `UInt56le` and `UInt64le`
 generated helper parity slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior
+`binary-schema-primitives-and-dispatch.md`. Current behavior
 is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked executable examples under
 `../../../examples/specification/run/` and

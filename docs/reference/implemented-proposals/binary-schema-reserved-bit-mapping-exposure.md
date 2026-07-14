@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed opt-in reserved-bit mapping exposure slice
-from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
+from `binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable examples under `../../../examples/specification/`.

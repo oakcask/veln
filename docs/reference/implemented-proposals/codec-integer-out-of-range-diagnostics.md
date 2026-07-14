@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed codec-owned integer out-of-range slice
-from `../../proposals/schema-and-protocol-diagnostics.md`. Current behavior
+from `schema-and-protocol-diagnostics.md`. Current behavior
 is specified by `../../specification/run-json.md`,
 `../../specification/commands.md`, `../../specification/execution.md`, and
 the checked executable cases under `../../../examples/specification/run/`.

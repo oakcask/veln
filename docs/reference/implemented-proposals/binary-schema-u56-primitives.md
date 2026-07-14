@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed `UInt56be` and `UInt56le` exact-width
 binary schema primitive slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior
+`binary-schema-primitives-and-dispatch.md`. Current behavior
 is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/run/` and

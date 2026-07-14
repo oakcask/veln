@@ -6,6 +6,20 @@ Executable examples live under `../../examples/specification/`. Use that
 directory's README and the focused `case.toml` files as the source of checked
 behavior.
 
+## Inference Routes
+
+- Local binding and initializer inference:
+  `../../examples/specification/check/local-let-inference/` and
+  `../../examples/specification/check/local-let-inference-diagnostics/`.
+- Constructor and pattern context:
+  `../../examples/specification/check/adt-constructor-inference/` and
+  `../../examples/specification/check/match-scrutinee-inference/`.
+- Callback expected types:
+  `../../examples/specification/check/prelude-callback-argument-inference/`,
+  `../../examples/specification/check/declared-helper-callback-inference/`,
+  `../../examples/specification/check/callback-return-expected-type-inference/`,
+  and `../../examples/specification/check/collection-callback-inference/`.
+
 ## Binary Schema Routes
 
 - Integer bitwise semantics and chained and mixed runtime-checked contracts:
@@ -84,6 +98,18 @@ behavior.
   `../../examples/specification/run/socket-stream-adapter-accept-loop-listener-close-failure-json/`,
   and
   `../../examples/specification/check/socket-stream-adapter-accept-loop-effects/`.
+
+## Diagnostic Routes
+
+- Schema field references and helper eligibility:
+  `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
+  and
+  `../../examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`.
+- Codec and schema byte failures: the focused `codec-*` and `binary-schema-*`
+  cases under `../../examples/specification/run/`.
+- Typed protocol failures and projection:
+  `../../examples/specification/run/http2-protocol-core/` and the focused
+  `http2-*` cases under `../../examples/specification/run/`.
 
 ## Read When
 

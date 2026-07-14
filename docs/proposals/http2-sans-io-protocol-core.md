@@ -2,8 +2,8 @@
 
 Status: proposed
 
-This proposal defines the remaining HTTP/2 protocol-core work used by the
-binary schema design driver. Current behavior belongs under
+This proposal defines remaining bounded HTTP/2 protocol-core work after the
+completed binary schema design driver. Current behavior belongs under
 `../specification/`; completed proposal history belongs under
 `../reference/implemented-proposals/`.
 

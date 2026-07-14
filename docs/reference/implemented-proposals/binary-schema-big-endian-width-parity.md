@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed direct visible big-endian exact-width
 primitive helper parity slices from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior
+`binary-schema-primitives-and-dispatch.md`. Current behavior
 is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked executable examples under
 `../../../examples/specification/run/`.

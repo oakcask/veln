@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed general reserved bitfield layout slice
-from `../../proposals/binary-schema-primitives-and-dispatch.md`. Current
+from `binary-schema-primitives-and-dispatch.md`. Current
 behavior is specified by `../../specification/execution.md`,
 `../../specification/run-json.md`, and checked executable examples under
 `../../../examples/specification/run/`.

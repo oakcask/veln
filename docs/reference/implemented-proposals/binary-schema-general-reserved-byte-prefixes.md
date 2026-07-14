@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed direct reserved-byte-prefix slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior is
+`binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
 checked executable examples under `../../../examples/specification/`.

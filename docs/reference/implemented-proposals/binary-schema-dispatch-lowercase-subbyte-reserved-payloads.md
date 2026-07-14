@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed bounded direct dispatch payload slice from
-`../../proposals/binary-schema-primitives-and-dispatch.md`. Current behavior is
+`binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/`.

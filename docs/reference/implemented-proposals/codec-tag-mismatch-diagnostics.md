@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed codec-owned tag mismatch slice from
-`../../proposals/schema-and-protocol-diagnostics.md`. Current behavior is
+`schema-and-protocol-diagnostics.md`. Current behavior is
 specified by `../../specification/run-json.md`,
 `../../specification/commands.md`, `../../specification/execution.md`, and the
 checked executable cases under `../../../examples/specification/run/`.

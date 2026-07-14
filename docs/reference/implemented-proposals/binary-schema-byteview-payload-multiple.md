@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed schema-owned `ByteView` payload multiple
-validation slice from `../../proposals/binary-schema-primitives-and-dispatch.md`.
+validation slice from `binary-schema-primitives-and-dispatch.md`.
 Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
 checked executable examples under `../../../examples/specification/`.

@@ -12,6 +12,22 @@ behavior.
 - Current behavior: [../../specification/README.md](../../specification/README.md).
 - Planned or incomplete work: [../../proposals/README.md](../../proposals/README.md).
 
+## Completed Umbrella Routes
+
+- Local inference and annotation elision:
+  [local-inference-and-annotation-elision.md](local-inference-and-annotation-elision.md).
+- Binary data standard library:
+  [binary-data-standard-library.md](binary-data-standard-library.md).
+- Binary schema primitives and dispatch:
+  [binary-schema-primitives-and-dispatch.md](binary-schema-primitives-and-dispatch.md).
+- Schema and protocol diagnostics:
+  [schema-and-protocol-diagnostics.md](schema-and-protocol-diagnostics.md).
+- HTTP/2 binary schema design driver:
+  [http2-binary-schema-design-driver.md](http2-binary-schema-design-driver.md).
+
+Read these only for completion boundaries and history. Current behavior starts
+under `../../specification/` and its executable example routes.
+
 ## Records
 
 - Integer bitwise operators and flag vocabulary removal:
