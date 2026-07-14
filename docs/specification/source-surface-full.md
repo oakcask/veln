@@ -39,12 +39,14 @@ recursive visible shapes made from scalar leaves, anonymous record fields,
 payloads are recursive visible shapes. Same-module source ADTs and public
 imported source ADTs referenced through written `use` paths are supported in
 those positions when every constructor payload is a recursive visible shape.
-Format-neutral generated encode helpers use the same recursive visible-shape
-boundary: `Int`, `Bool`, `Float`, and `String` leaves, anonymous records,
+Format-neutral generated encode helpers use the same visible-shape vocabulary:
+`Int`, `Bool`, `Float`, and `String` leaves, anonymous records,
 `Option<T>`, `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and
 eligible same-module or public imported source ADTs. Every recursively visited
 child or constructor payload must also be eligible; container depth is not
-otherwise limited.
+otherwise limited. Decode may stop when it sees the same source ADT descriptor
+again with changed type arguments. Encode instead checks type arguments newly
+introduced at that recursive edge and rejects unsupported leaves in them.
 
 ## Executable Grammar
 

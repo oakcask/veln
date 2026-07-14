@@ -3106,7 +3106,8 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
         schema.module_name.as_deref(),
         adts,
         &ty,
-        &mut Vec::new(),
+        &mut FormatNeutralSchemaTraversalState::default(),
+        FormatNeutralSchemaTraversal::Decode,
     )
 }
 
@@ -3170,7 +3171,8 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
         schema.module_name.as_deref(),
         adts,
         &ty,
-        &mut Vec::new(),
+        &mut FormatNeutralSchemaTraversalState::default(),
+        FormatNeutralSchemaTraversal::Encode,
     )
 }
 
@@ -3236,12 +3238,26 @@ struct FormatNeutralSchemaAdtFrame {
     type_arguments: Vec<Type>,
 }
 
+#[derive(Default)]
+struct FormatNeutralSchemaTraversalState {
+    stack: Vec<FormatNeutralSchemaAdtFrame>,
+    stack_cacheable: Vec<bool>,
+    completed: Vec<(FormatNeutralSchemaAdtFrame, bool)>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FormatNeutralSchemaTraversal {
+    Decode,
+    Encode,
+}
+
 fn format_neutral_schema_visible_shape_type_for_schema(
     module: &SurfaceModule,
     current_module: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    stack: &mut Vec<FormatNeutralSchemaAdtFrame>,
+    state: &mut FormatNeutralSchemaTraversalState,
+    traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     match ty {
         Type::Named { name, args }
@@ -3254,7 +3270,8 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                     current_module,
                     adts,
                     &args[0],
-                    stack,
+                    state,
+                    traversal,
                 )?],
             ))
         }
@@ -3265,7 +3282,8 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                 current_module,
                 adts,
                 &args[0],
-                stack,
+                state,
+                traversal,
             )?],
         )),
         Type::Named { name, args } if name == "Dict" && args.len() == 2 => {
@@ -3280,7 +3298,8 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                     current_module,
                     adts,
                     &args[1],
-                    stack,
+                    state,
+                    traversal,
                 )?,
             ))
         }
@@ -3292,21 +3311,28 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                     current_module,
                     adts,
                     &args[0],
-                    stack,
+                    state,
+                    traversal,
                 )?,
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,
                     current_module,
                     adts,
                     &args[1],
-                    stack,
+                    state,
+                    traversal,
                 )?,
             ],
         )),
         Type::Named { .. } if format_neutral_schema_scalar_type(ty) => Some(ty.clone()),
-        Type::Named { .. } => {
-            format_neutral_schema_source_adt_type(module, current_module, adts, ty, stack)
-        }
+        Type::Named { .. } => format_neutral_schema_source_adt_type(
+            module,
+            current_module,
+            adts,
+            ty,
+            state,
+            traversal,
+        ),
         Type::Record(fields) => Some(Type::Record(
             fields
                 .iter()
@@ -3318,7 +3344,8 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                             current_module,
                             adts,
                             field_ty,
-                            stack,
+                            state,
+                            traversal,
                         )?,
                     ))
                 })
@@ -3333,7 +3360,8 @@ fn format_neutral_schema_source_adt_type(
     current_module: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    stack: &mut Vec<FormatNeutralSchemaAdtFrame>,
+    state: &mut FormatNeutralSchemaTraversalState,
+    traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
     let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
@@ -3349,12 +3377,20 @@ fn format_neutral_schema_source_adt_type(
         type_name: descriptor.type_name.clone(),
         type_arguments: type_arguments.clone(),
     };
-    if stack.contains(&frame) {
+    if let Some((_, supported)) = state.completed.iter().find(|(key, _)| key == &frame) {
+        return (*supported).then_some(descriptor_ty);
+    }
+    if let Some(index) = state.stack.iter().position(|active| active == &frame) {
+        state.stack_cacheable[index + 1..].fill(false);
         return Some(descriptor_ty);
     }
-    if stack.iter().any(|active| {
+    if let Some(index) = state.stack.iter().position(|active| {
         active.module_name == frame.module_name && active.type_name == frame.type_name
     }) {
+        state.stack_cacheable[index + 1..].fill(false);
+        if traversal == FormatNeutralSchemaTraversal::Decode {
+            return Some(descriptor_ty);
+        }
         return type_arguments
             .iter()
             .all(|arg| {
@@ -3363,13 +3399,15 @@ fn format_neutral_schema_source_adt_type(
                     descriptor.module_name.as_deref(),
                     adts,
                     arg,
-                    stack,
+                    state,
+                    traversal,
                 )
                 .is_some()
             })
             .then_some(descriptor_ty);
     }
-    stack.push(frame);
+    state.stack.push(frame.clone());
+    state.stack_cacheable.push(true);
     let supported = descriptor.variants.iter().all(|variant| {
         variant
             .payload_fields
@@ -3391,12 +3429,20 @@ fn format_neutral_schema_source_adt_type(
                     descriptor.module_name.as_deref(),
                     adts,
                     &payload_ty,
-                    stack,
+                    state,
+                    traversal,
                 )
                 .is_some()
             })
     });
-    stack.pop();
+    state.stack.pop();
+    if state
+        .stack_cacheable
+        .pop()
+        .expect("ADT traversal cacheability should match the active stack")
+    {
+        state.completed.push((frame, supported));
+    }
     supported.then_some(descriptor_ty)
 }
 

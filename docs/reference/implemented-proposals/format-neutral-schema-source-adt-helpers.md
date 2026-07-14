@@ -26,9 +26,12 @@ targets keep the `schema.format_neutral_decode_helper` diagnostic family.
 Format-neutral schemas without a `format` clause may also expose generated
 `byte_encode_<schema>` helpers and explicit `encode Schema from value` support
 for same-module source ADT fields and public imported source ADT fields
-referenced through written `use` paths. Decode and encode validate source ADT
-constructor payloads with the same recursive visible-shape rule. Unsupported
-fields keep direction-specific diagnostic families: decode uses
+referenced through written `use` paths. Decode and encode accept the same
+visible-shape vocabulary but keep directional recursive generic behavior.
+Decode may accept a repeated source ADT descriptor when its type arguments
+change, while encode inspects those newly introduced arguments and rejects
+unsupported leaves. Unsupported fields keep direction-specific diagnostic
+families: decode uses
 `schema.format_neutral_decode_helper`, while generated and explicit encode
 resolution uses `schema.format_neutral_encode_helper`. This historical slice's
 completed encode behavior is recorded in

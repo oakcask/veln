@@ -1813,6 +1813,61 @@ fn generated_format_neutral_schema_encode_helpers_accept_recursive_source_adts_w
 }
 
 #[test]
+fn generated_format_neutral_schema_encode_helpers_accept_mutually_recursive_source_adts_with_growing_type_arguments()
+ {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left<A>\n",
+            "  LeftDone(value: A)\n",
+            "  LeftNext(value: Right<Option<A>>)\n",
+            "end\n",
+            "\n",
+            "type Right<B>\n",
+            "  RightDone(value: B)\n",
+            "  RightNext(value: Left<Vec<B>>)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: Left<Int>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {payload: Left<Int>}) -> Result<{payload: Left<Int>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {payload: Left<Int>}) -> Result<{payload: Left<Int>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for function_name in ["direct", "explicit"] {
+        let function = ir
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("function should be in IR");
+        let IrStmtKind::Return { value } = &function.body[0].kind else {
+            panic!("tail expression should lower as IR return");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::SchemaNeutralEncode(name),
+                args,
+            } if name == "Packet" && args.len() == 1
+        ));
+    }
+}
+
+#[test]
 fn generated_format_neutral_schema_encode_helpers_reject_recursive_source_adts_with_unsupported_changed_type_arguments()
  {
     let source = SourceFile::new(
@@ -1841,6 +1896,14 @@ fn generated_format_neutral_schema_encode_helpers_reject_recursive_source_adts_w
 
     let lowered = lower_checked_surface_module(&module);
 
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.format_neutral_decode_helper"),
+        "encode traversal must not change recursive decode eligibility: {:#?}",
+        lowered.diagnostics
+    );
     let diagnostic = lowered
         .diagnostics
         .iter()
@@ -1855,6 +1918,44 @@ fn generated_format_neutral_schema_encode_helpers_reject_recursive_source_adts_w
         lowered.ir.is_none(),
         "unsupported schema must not lower to typed IR"
     );
+}
+
+#[test]
+fn generated_format_neutral_schema_encode_helpers_memoize_repeated_child_adt_dags() {
+    fn source_with_repeated_children(depth: usize, leaf_type: &str) -> String {
+        let mut source = format!("type Dup0\n  Leaf(value: {leaf_type})\nend\n\n");
+        for level in 1..=depth {
+            source.push_str(&format!(
+                "type Dup{level}\n  Pair(left: Dup{}, right: Dup{})\nend\n\n",
+                level - 1,
+                level - 1,
+            ));
+        }
+        source.push_str(&format!("schema Packet\n  payload: Dup{depth}\nend\n"));
+        source
+    }
+
+    for (leaf_type, supported) in [("Int", true), ("fn(Int) -> String", false)] {
+        let source = SourceFile::new("main.veln", source_with_repeated_children(16, leaf_type));
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+        let encode_diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "schema.format_neutral_encode_helper");
+        if supported {
+            assert!(
+                encode_diagnostic.is_none(),
+                "eligible repeated-child ADT DAG should be accepted: {diagnostics:#?}"
+            );
+        } else {
+            assert!(
+                encode_diagnostic.is_some(),
+                "unsupported repeated-child ADT DAG should be rejected: {diagnostics:#?}"
+            );
+        }
+    }
 }
 
 #[test]
