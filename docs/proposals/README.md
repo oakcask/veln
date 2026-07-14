@@ -677,6 +677,9 @@ compare it with `../specification/` before changing behavior.
   read-failure runtime boundary, per-stream task handler-failure lifecycle
   boundary, concurrent stream task drain
   ([Network Concurrent Stream Task Drain](../reference/implemented-proposals/network-concurrent-stream-task-drain.md)),
+  fail-fast cancellation and reclamation of pending stream tasks after drain
+  failure
+  ([Network Cancel Pending Stream Tasks After Drain Failure](../reference/implemented-proposals/network-cancel-pending-stream-tasks-after-drain-failure.md)),
   source-visible standard stream adapter routing helper,
   accepted-stream endpoint text inspection, cancellation owner status query,
   absolute monotonic deadline

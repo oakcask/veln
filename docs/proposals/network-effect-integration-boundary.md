@@ -43,7 +43,8 @@ checked task slices, and narrow deadline and cancellation slices, for:
   two-stream multi-cycle routing boundary, production multi-chunk routing
   read-failure boundary, production multi-event adapter task-helper boundary,
   per-stream task handler-failure lifecycle boundary, concurrent pending-task
-  drain lifecycle boundary, accepted-stream address
+  drain lifecycle boundary, fail-fast pending-task cancellation and reclamation
+  boundary, accepted-stream address
   metadata boundary, listener endpoint text inspection boundary,
   source-visible client connect boundary, the
   stream state inspection boundary, the
@@ -539,6 +540,13 @@ The production two-stream multi-cycle routing slice is recorded as implemented
 in
 `../reference/implemented-proposals/network-production-two-stream-multi-cycle-routing.md`.
 
+The fail-fast cancellation and reclamation slice for recursively retained
+stream tasks is recorded as implemented in
+`../reference/implemented-proposals/network-cancel-pending-stream-tasks-after-drain-failure.md`.
+It is distinct from the non-cancelling concurrent drain: the earlier case
+isolates a handler failure and continues later writes, while the fail-fast case
+cancels and joins all later tasks and suppresses their writes.
+
 The source-visible stream state inspection slice is recorded as implemented
 in
 `../reference/implemented-proposals/network-stream-state-inspection.md`.
@@ -716,7 +724,8 @@ standard-library surface.
   deterministic host-owned loopback streams. Remaining examples still need
   richer production adapter socket ownership beyond the checked
   fixture-backed listener/stream handles, richer stream-task ownership beyond
-  the checked recursive pending-task drain, clean
+  the checked recursive pending-task drain policies, including fail-fast
+  cancellation and reclamation after the first drain failure, clean
   stream-end, optional accept, deadline-aware optional accept, adapter-owned
   lifecycle, channel-first routing, cancellable routing, accepted-stream
   lifecycle, cancellable channel-first completion, and source-visible

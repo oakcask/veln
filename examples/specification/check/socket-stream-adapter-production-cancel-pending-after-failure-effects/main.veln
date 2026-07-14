@@ -1,0 +1,39 @@
+# Fail-fast pending-task cleanup keeps transport and task effects in the adapter.
+type HandlerOutput
+	Handled
+end
+
+type PendingWork
+	Pending(stream: NetStream, task: Task<Result<HandlerOutput, String>>, tail: PendingWork)
+	Drained
+end
+
+fn handle_stream(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+	Ok(Handled)
+end
+
+fn cancel_reclaim_close(pending: PendingWork) -> () effects [net, concurrency]
+	match pending
+		Pending(stream, worker, tail) => cancel_reclaim_one(stream, worker, tail)
+		Drained => ()
+	end
+end
+
+fn cancel_reclaim_one(stream: NetStream, worker: Task<Result<HandlerOutput, String>>, tail: PendingWork) -> () effects [net, concurrency]
+	task::cancel(worker)
+	let _ = task::join(worker)
+	net::close_stream(stream)
+	cancel_reclaim_close(tail)
+end
+
+pub fn handler_boundary(context: { input: StreamInput, accepted: Int }) -> Result<HandlerOutput, String>
+	handle_stream(context)
+end
+
+pub fn adapter_missing_concurrency(pending: PendingWork) -> () effects [net]
+	cancel_reclaim_close(pending)
+end
+
+pub fn adapter_missing_net(pending: PendingWork) -> () effects [concurrency]
+	cancel_reclaim_close(pending)
+end
