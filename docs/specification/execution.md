@@ -737,6 +737,19 @@ enough.
   `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
   and
   `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
+- A valid non-ACK peer SETTINGS frame processes items in wire order. Repeated
+  known identifiers replace the earlier peer-advertised value, so the last
+  occurrence is active; unknown identifiers interleaved between repetitions
+  remain ignored. Repeated `SETTINGS_INITIAL_WINDOW_SIZE` items apply each
+  ordered delta to every tracked open outbound stream while preserving
+  connection credit, content-length accounting, and closed or reset stream
+  lifecycle. The frame is atomic: all items are validated before peer state or
+  derived stream credit is committed, and a later invalid repetition reports
+  its own item offset without applying an earlier item from that frame. The
+  integrated evidence is `examples/specification/run/http2-protocol-core/`;
+  the focused range diagnostic projections are under
+  `examples/specification/run/http2-protocol-core-settings-value-json/` and
+  `examples/specification/run/http2-protocol-core-settings-value-human/`.
 - The receive transition is role-aware for peer SETTINGS. A client endpoint
   rejects a peer-sent `SETTINGS_ENABLE_PUSH` item at that six-byte item's
   offset before applying any peer-advertised setting or state derived from the

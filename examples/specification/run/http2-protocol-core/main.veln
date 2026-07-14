@@ -11528,6 +11528,40 @@ fn verify_outbound_multi_stream_flow_control() -> Result<(), String>
 	Ok(())
 end
 
+fn verify_duplicate_settings_flow_control() -> Result<(), String> effects [stdio]
+	let stream_one_credit: OutboundSendCredit = add_outbound_open_stream(outbound_send_credit_without_stream(20), 1, 10)
+	let stream_three_credit: OutboundSendCredit = add_outbound_content_length_stream(stream_one_credit, 3, 10, 6, 2)
+	let initial_credit: OutboundSendCredit = add_outbound_reset_stream(add_outbound_closed_stream(add_outbound_open_stream(stream_three_credit, 5, 8), 7), 9, 8)
+	let duplicate_initial_window: Http2Step = receive(InputChunk(byte_chunk_from_hex("00001204000000000000040000fff5aaaa1234567800040000fffa")?), frame_state())?
+	let updated: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(duplicate_initial_window, empty_peer_settings(), initial_credit)?
+	let updated_credit: OutboundSendCredit = outbound_send_credit_update_credit(updated)
+	let updated_facts: () = verify_outbound_credit_facts(updated_credit, 20, 5, 5, 2, 3, "expected ordered duplicate initial-window deltas on every open outbound stream")?
+	let closed_preserved: () = require_outbound_data_rejected(send_data(7, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(duplicate_initial_window)), updated_credit)?, "expected duplicate initial-window settings to preserve closed stream lifecycle")?
+	let reset_preserved: () = require_outbound_data_rejected(send_data(9, byte_chunk_from_hex("01")?, false, state_peer_settings(step_state(duplicate_initial_window)), updated_credit)?, "expected duplicate initial-window settings to preserve reset stream lifecycle")?
+	print_step("settings-duplicate-initial-window", duplicate_initial_window)
+	print_peer_settings("settings-duplicate-initial-window", step_state(duplicate_initial_window))
+	stdio::print("settings-duplicate-initial-window-credit connection_window ")
+	stdio::print(int_to_string(outbound_send_connection_window(updated_credit)))
+	stdio::print(" stream_1_window ")
+	stdio::print(int_to_string(outbound_send_stream_window_for(updated_credit, 1)))
+	stdio::print(" stream_3_window ")
+	stdio::print(int_to_string(outbound_send_stream_window_for(updated_credit, 3)))
+	stdio::print(" stream_3_observed_body_length ")
+	stdio::print(int_to_string(outbound_send_observed_length_for(updated_credit, 3)))
+	stdio::print(" stream_5_window ")
+	stdio::print(int_to_string(outbound_send_stream_window_for(updated_credit, 5)))
+	stdio::print(" closed_stream ")
+	stdio::println(int_to_string(outbound_send_closed_stream_id(updated_credit)))
+	let invalid_duplicate: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c04000000000000040000fff5000480000000")?), frame_state())?
+	let rejected_update: OutboundSendCreditUpdateDecision = update_outbound_send_credit_from_received_settings(invalid_duplicate, empty_peer_settings(), initial_credit)?
+	let rejected_credit: OutboundSendCredit = outbound_send_credit_update_credit(rejected_update)
+	let rejected_facts: () = verify_outbound_credit_facts(rejected_credit, 20, 10, 10, 2, 8, "expected invalid duplicate initial-window setting to preserve all outbound credit")?
+	print_settings_failure("settings-duplicate-initial-window-invalid", invalid_duplicate)
+	print_peer_settings("settings-duplicate-initial-window-invalid", step_state(invalid_duplicate))
+	print_outbound_send_credit_update("settings-duplicate-initial-window-invalid-credit", rejected_update)
+	Ok(())
+end
+
 fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_peer_limits: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000400000003")?), frame_state())?
 	print_step("outbound-peer-limits", outbound_peer_limits)
@@ -14309,6 +14343,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let settings_unknown_then_known: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?), frame_state())?
 	print_step("settings-unknown-then-known", settings_unknown_then_known)
 	print_peer_settings("settings-unknown-then-known", step_state(settings_unknown_then_known))
+	let settings_duplicate_max_frame_size: Http2Step = receive(InputChunk(byte_chunk_from_hex("000012040000000000000500008000aaaa12345678000500010000")?), frame_state())?
+	print_step("settings-duplicate-max-frame-size", settings_duplicate_max_frame_size)
+	print_peer_settings("settings-duplicate-max-frame-size", step_state(settings_duplicate_max_frame_size))
 	let settings_unknown_then_range: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000aaaa12345678000500003fff")?), frame_state())?
 	print_settings_failure("settings-unknown-then-range", settings_unknown_then_range)
 	print_peer_settings("settings-unknown-then-range", step_state(settings_unknown_then_range))
@@ -14360,6 +14397,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let peer_enable_push_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000200000002")?), frame_state())?
 	print_settings_failure("settings-enable-push-high", peer_enable_push_high)
 	print_peer_settings("settings-enable-push-high", step_state(peer_enable_push_high))
+	let ignored_duplicate_settings_flow_control: () = verify_duplicate_settings_flow_control()?
 	let peer_initial_window_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_initial_window))?
 	let peer_initial_window_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), step_state(peer_initial_window_headers))?
 	print_step("peer-initial-window-data", peer_initial_window_data)

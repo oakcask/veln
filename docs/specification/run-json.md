@@ -800,6 +800,17 @@ adjusted credit.
 Unknown SETTINGS identifiers do not update peer-advertised state and do not produce
 `http2.peer_limit.settings_value_out_of_range`; known SETTINGS items in the
 same frame are still applied or diagnosed at their own item byte offset.
+Duplicate known SETTINGS identifiers are processed in wire order and the last
+occurrence supplies the active peer-advertised value. For repeated
+`SETTINGS_INITIAL_WINDOW_SIZE`, every ordered delta is applied to all tracked
+open outbound streams without changing connection credit, body accounting, or
+closed and reset lifecycle. Validation precedes the whole frame update, so an
+invalid later duplicate keeps the existing peer state and outbound credit
+unchanged while its focused human and JSON projections retain that duplicate
+item's byte offset and six-byte preview. The integrated output and focused
+projections are checked by `examples/specification/run/http2-protocol-core/`,
+`examples/specification/run/http2-protocol-core-settings-value-json/`, and
+`examples/specification/run/http2-protocol-core-settings-value-human/`.
 Received DATA frames that exceed available
 inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window
