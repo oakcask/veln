@@ -683,6 +683,21 @@ enough.
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
+- Client-side inbound `PUSH_PROMISE` accepts the PADDED flag on an open
+  associated client-created stream. The receive path reads the one-byte pad
+  length before the promised stream id and removes that byte plus the declared
+  trailing padding before HPACK decode. The same unpadded header-block bytes
+  feed both single-frame and final CONTINUATION completion. A payload shorter
+  than the padded prefix or with padding beyond the remaining payload fails
+  through `http2.protocol.invalid_payload_length` before HPACK, continuation,
+  promised-stream reservation, settings, shutdown, flow-control, or lifecycle
+  state changes. The checked zero-padding, nonzero-padding, continuation,
+  truncated-prefix, and excessive-padding cases are in
+  `examples/specification/run/http2-protocol-core/`. Focused command-facing
+  count, frame, provenance, and byte-preview projections are under
+  `examples/specification/run/http2-protocol-core-push-promise-padding-human/`
+  and
+  `examples/specification/run/http2-protocol-core-push-promise-padding-json/`.
 - The server-side outbound `PUSH_PROMISE` connection state separately retains
   the greatest successfully reserved local promised stream id. The first and
   increasing server-initiated ids advance that value only after the complete

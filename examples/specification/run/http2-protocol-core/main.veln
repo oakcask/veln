@@ -548,6 +548,10 @@ fn client_push_receive_state(connection_window: Int, stream_id: Int, stream_wind
 	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, NoStreamPriority, ClientPushAssociatedInboundStream), Nil)), NoPeerStreamAdmitted)
 end
 
+fn client_push_padding_precedence_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Result<Http2DecodeState, String>
+	Ok(State(byte_chunk([]), 0, AfterPreface, Continuation(stream_id, 1, 17, 0, false, 0, byte_chunk([byte(48)?, byte(49)?])), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), with_local_enable_push(empty_peer_settings(), 0, 23), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, StreamPriority(3, true, 16), ClientPushAssociatedInboundStream), Cons(InboundStreamEntry(2, 32768, ExpectedContentLength(5, 2, NoStreamPriority), ReservedByPeerInboundStream), Nil))), NoPeerStreamAdmitted))
+end
+
 fn encode_frame_header(header: { length : Int, kind : Int, flags : Int, stream_id : Int }) -> Result<ByteChunk, EncodeError>
 	byte_encode_http2_frame_header_wire(header)
 end
@@ -934,9 +938,12 @@ fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, 
 	match settings_decision
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
-				PriorityDependencyOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind)?, peer_settings, receive_flow_control, header_preview)
-					Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
-					Err(error) => Ok(Failed(consumed_state, error))
+				PriorityDependencyOk => match validate_push_promise_padding(next_offset, payload, length, kind, flags, stream_id)?
+					PaddingOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, length, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind, flags)?, peer_settings, receive_flow_control, header_preview)
+						Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
+						Err(error) => Ok(Failed(consumed_state, error))
+					end
+					PaddingFailed(error) => Ok(Failed(consumed_state, error))
 				end
 				PriorityDependencyFailed(error) => Ok(Failed(consumed_state, error))
 			end
@@ -1782,7 +1789,7 @@ fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind:
 		3 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
 		2 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 5, "stream-control", "rfc9113_priority_payload_length")
 		1 => validate_headers_payload_length(offset, payload, length, kind, flags, stream_id)
-		5 => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
+		5 => validate_push_promise_payload_length(offset, payload, length, kind, flags, stream_id)
 		_ => Ok(ProtocolPayloadOk)
 	end
 end
@@ -1803,11 +1810,20 @@ fn validate_headers_payload_length(offset: Int, payload: ByteChunk, length: Int,
 	end
 end
 
-fn validate_push_promise_payload_length(offset: Int, payload: ByteChunk, length: Int, kind: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
-	if length < 4
-		Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, 4, "stream-control", "rfc9113_push_promise_payload_length", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+fn validate_push_promise_payload_length(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
+	let minimum_length: Int = push_promise_prefix_length(flags)
+	if length < minimum_length
+		Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, minimum_length, "stream-control", push_promise_payload_length_rule(flags), byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
 	else
 		Ok(ProtocolPayloadOk)
+	end
+end
+
+fn push_promise_payload_length_rule(flags: Int) -> String
+	if push_promise_padded_set(flags)
+		"rfc9113_push_promise_padded_prefix_length"
+	else
+		"rfc9113_push_promise_payload_length"
 	end
 end
 
@@ -1819,6 +1835,27 @@ fn validate_data_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int
 			Ok(PaddingOk)
 		end
 		_ => Ok(PaddingOk)
+	end
+end
+
+fn validate_push_promise_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PaddingDecision, String>
+	match kind
+		5 => if push_promise_padded_set(flags)
+			validate_padded_push_promise_payload(offset, payload, length, stream_id)
+		else
+			Ok(PaddingOk)
+		end
+		_ => Ok(PaddingOk)
+	end
+end
+
+fn validate_padded_push_promise_payload(offset: Int, payload: ByteChunk, length: Int, stream_id: Int) -> Result<PaddingDecision, String>
+	let pad_length: Int = data_pad_length(payload)?
+	let remaining_payload_length: Int = length - 5
+	if pad_length > remaining_payload_length
+		Ok(PaddingFailed(InvalidPayloadLength(offset + 9, 5, stream_id, pad_length, remaining_payload_length, "stream-control", "rfc9113_push_promise_padding", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+	else
+		Ok(PaddingOk)
 	end
 end
 
@@ -4912,9 +4949,9 @@ fn validate_push_promise_header_block(offset: Int, payload: ByteChunk, kind: Int
 	end
 end
 
-fn frame_promised_stream_id(payload: ByteChunk, kind: Int) -> Result<Int, String>
+fn frame_promised_stream_id(payload: ByteChunk, kind: Int, flags: Int) -> Result<Int, String>
 	match kind
-		5 => promised_stream_id_from_payload(payload)
+		5 => promised_stream_id_from_payload(byte_drop(payload, byte_count(push_promise_prefix_length(flags) - 4)?)?)
 		_ => Ok(0)
 	end
 end
@@ -4928,12 +4965,22 @@ fn decoded_push_promise_payload(payload: ByteChunk) -> Result<{ promised_stream_
 	byte_decode_http2_push_promise_payload_wire(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
 end
 
-fn continuation_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
+fn continuation_payload_chunk(payload: ByteChunk, length: Int, kind: Int, flags: Int) -> Result<ByteChunk, String>
 	match kind
-		5 => byte_drop(payload, byte_count(4)?)
+		5 => push_promise_header_block_chunk(payload, length, flags)
 		1 => headers_payload_chunk(payload, kind, flags)
 		_ => Ok(payload)
 	end
+end
+
+fn push_promise_header_block_chunk(payload: ByteChunk, length: Int, flags: Int) -> Result<ByteChunk, String>
+	let prefix_length: Int = push_promise_prefix_length(flags)
+	let pad_length: Int = if push_promise_padded_set(flags)
+		data_pad_length(payload)?
+	else
+		0
+	end
+	byte_take(byte_drop(payload, byte_count(prefix_length)?)?, byte_count(length - prefix_length - pad_length)?)
 end
 
 fn headers_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
@@ -5000,6 +5047,18 @@ end
 fn data_padded_set(flags: Int) -> Bool
 	let low_four_bits: Int = flags - flags / 16 * 16
 	low_four_bits >= 8
+end
+
+fn push_promise_padded_set(flags: Int) -> Bool
+	data_padded_set(flags)
+end
+
+fn push_promise_prefix_length(flags: Int) -> Int
+	if push_promise_padded_set(flags)
+		5
+	else
+		4
+	end
 end
 
 fn empty_header_block() -> ByteChunk
@@ -10174,6 +10233,14 @@ fn emit_header_block(name: String, step: Http2Step, expected_hex: String) -> Res
 	emit_output_chunk(name, 0, step_completed_header_block(step), expected_hex)
 end
 
+fn require_header_block_bytes(label: String, step: Http2Step, expected_hex: String) -> Result<(), String>
+	if byte_chunks_equal(step_completed_header_block(step), byte_chunk_from_hex(expected_hex)?)?
+		Ok(())
+	else
+		Err(label)
+	end
+end
+
 fn emit_frame_payload(name: String, step: Http2Step, expected_hex: String) -> Result<(), String> effects [stdio]
 	emit_output_chunk_list_header(name, 1)
 	emit_output_chunk(name, 0, step_frame_payload_chunk(step), expected_hex)
@@ -10434,6 +10501,172 @@ fn require_client_push_equal_string(label: String, actual: String, expected: Str
 	end
 end
 
+fn pending_continuations_equal(left: PendingContinuation, right: PendingContinuation) -> Result<Bool, String>
+	match left
+		NoContinuation => match right
+			NoContinuation => Ok(true)
+			Continuation(_, _, _, _, _, _, _) => Ok(false)
+		end
+		Continuation(left_stream, left_kind, left_offset, left_flags, left_trailer, left_promised, left_accumulated) => match right
+			NoContinuation => Ok(false)
+			Continuation(right_stream, right_kind, right_offset, right_flags, right_trailer, right_promised, right_accumulated) => if left_stream == right_stream and left_kind == right_kind and left_offset == right_offset and left_flags == right_flags and left_trailer == right_trailer and left_promised == right_promised
+				byte_chunks_equal(left_accumulated, right_accumulated)
+			else
+				Ok(false)
+			end
+		end
+	end
+end
+
+fn receive_limits_equal(left: ReceiveLimitEntry, right: ReceiveLimitEntry) -> Bool
+	match left
+		ReceiveLimit(left_value, left_provenance) => match right
+			ReceiveLimit(right_value, right_provenance) => left_value == right_value and receive_limit_provenance_equal(left_provenance, right_provenance)
+		end
+	end
+end
+
+fn receive_limit_provenance_equal(left: ReceiveLimitProvenance, right: ReceiveLimitProvenance) -> Bool
+	match left
+		ProtocolDefault => match right
+			ProtocolDefault => true
+			_ => false
+		end
+		LocalConfiguration => match right
+			LocalConfiguration => true
+			_ => false
+		end
+		LocalSettingsItem(left_offset) => match right
+			LocalSettingsItem(right_offset) => left_offset == right_offset
+			_ => false
+		end
+		PeerSettingsItem(left_offset) => match right
+			PeerSettingsItem(right_offset) => left_offset == right_offset
+			_ => false
+		end
+	end
+end
+
+fn local_settings_equal(left: PeerSettingsState, right: PeerSettingsState) -> Bool
+	match left
+		PeerSettings(_, _, _, _, _, _, left_local, _) => match right
+			PeerSettings(_, _, _, _, _, _, right_local, _) => local_sent_settings_equal(left_local, right_local)
+		end
+	end
+end
+
+fn local_sent_settings_equal(left: LocalSentEnablePush, right: LocalSentEnablePush) -> Bool
+	match left
+		NoLocalSentEnablePush => match right
+			NoLocalSentEnablePush => true
+			_ => false
+		end
+		LocalSentEnablePush(left_value, left_offset) => match right
+			LocalSentEnablePush(right_value, right_offset) => left_value == right_value and left_offset == right_offset
+			_ => false
+		end
+		LocalSentEnableConnectProtocol(left_value, left_offset) => match right
+			LocalSentEnableConnectProtocol(right_value, right_offset) => left_value == right_value and left_offset == right_offset
+			_ => false
+		end
+		LocalSentEnablePushAndConnectProtocol(left_push, left_push_offset, left_connect, left_connect_offset) => match right
+			LocalSentEnablePushAndConnectProtocol(right_push, right_push_offset, right_connect, right_connect_offset) => left_push == right_push and left_push_offset == right_push_offset and left_connect == right_connect and left_connect_offset == right_connect_offset
+			_ => false
+		end
+	end
+end
+
+fn receive_flow_controls_equal(left: ReceiveFlowControl, right: ReceiveFlowControl) -> Bool
+	match left
+		ReceiveFlowControl(left_window, left_streams) => match right
+			ReceiveFlowControl(right_window, right_streams) => left_window == right_window and inbound_stream_lists_equal(left_streams, right_streams)
+		end
+	end
+end
+
+fn inbound_stream_lists_equal(left: List<InboundStreamEntry>, right: List<InboundStreamEntry>) -> Bool
+	match left
+		Nil => match right
+			Nil => true
+			Cons(_, _) => false
+		end
+		Cons(left_entry, left_tail) => match right
+			Nil => false
+			Cons(right_entry, right_tail) => inbound_stream_entries_equal(left_entry, right_entry) and inbound_stream_lists_equal(left_tail, right_tail)
+		end
+	end
+end
+
+fn inbound_stream_entries_equal(left: InboundStreamEntry, right: InboundStreamEntry) -> Bool
+	match left
+		InboundStreamEntry(left_id, left_window, left_priority, left_lifecycle) => match right
+			InboundStreamEntry(right_id, right_window, right_priority, right_lifecycle) => left_id == right_id and left_window == right_window and stream_priorities_equal(left_priority, right_priority) and inbound_lifecycles_equal(left_lifecycle, right_lifecycle)
+		end
+	end
+end
+
+fn inbound_lifecycles_equal(left: InboundStreamLifecycle, right: InboundStreamLifecycle) -> Bool
+	match left
+		OpenInboundStream => match right
+			OpenInboundStream => true
+			_ => false
+		end
+		ClientPushAssociatedInboundStream => match right
+			ClientPushAssociatedInboundStream => true
+			_ => false
+		end
+		ReservedByPeerInboundStream => match right
+			ReservedByPeerInboundStream => true
+			_ => false
+		end
+		HalfClosedLocalInboundStream => match right
+			HalfClosedLocalInboundStream => true
+			_ => false
+		end
+		ClosedByPeerInboundStream => match right
+			ClosedByPeerInboundStream => true
+			_ => false
+		end
+		ResetInboundStream(left_code) => match right
+			ResetInboundStream(right_code) => left_code == right_code
+			_ => false
+		end
+	end
+end
+
+fn stream_priorities_equal(left: StreamPriorityState, right: StreamPriorityState) -> Bool
+	match left
+		NoStreamPriority => match right
+			NoStreamPriority => true
+			_ => false
+		end
+		StreamPriority(left_dependency, left_exclusive, left_weight) => match right
+			StreamPriority(right_dependency, right_exclusive, right_weight) => left_dependency == right_dependency and left_exclusive == right_exclusive and left_weight == right_weight
+			_ => false
+		end
+		ExpectedContentLength(left_expected, left_observed, left_inner) => match right
+			ExpectedContentLength(right_expected, right_observed, right_inner) => left_expected == right_expected and left_observed == right_observed and stream_priorities_equal(left_inner, right_inner)
+			_ => false
+		end
+		AwaitingFinalResponse(left_inner) => match right
+			AwaitingFinalResponse(right_inner) => stream_priorities_equal(left_inner, right_inner)
+			_ => false
+		end
+		NoContentResponse(left_status, left_inner) => match right
+			NoContentResponse(right_status, right_inner) => left_status == right_status and stream_priorities_equal(left_inner, right_inner)
+			_ => false
+		end
+		ResponseHeaderStream(left_inner) => match right
+			ResponseHeaderStream(right_inner) => stream_priorities_equal(left_inner, right_inner)
+			_ => false
+		end
+		HeadRequestStream(left_inner) => match right
+			HeadRequestStream(right_inner) => stream_priorities_equal(left_inner, right_inner)
+			_ => false
+		end
+	end
+end
+
 fn outbound_local_stream_state_label(state: OutboundLocalStreamState) -> String
 	match state
 		NoOutboundLocalStream => "none"
@@ -10572,10 +10805,18 @@ end
 fn require_client_push_ordering_rejection_preserves_state(label: String, before_state: Http2DecodeState, after_state: Http2DecodeState) -> Result<(), String>
 	let before_hpack: HpackFixtureState = state_hpack_fixture_state(before_state)
 	let after_hpack: HpackFixtureState = state_hpack_fixture_state(after_state)
+	let ignored_preface: () = require_client_push_equal_string(label, state_preface_label(after_state), state_preface_label(before_state))?
+	let ignored_continuation: () = match before_state
+		State(_, _, _, before_continuation, _, _, _, _, _, _) => match after_state
+			State(_, _, _, after_continuation, _, _, _, _, _, _) => require_true(label, pending_continuations_equal(before_continuation, after_continuation)?)?
+		end
+	end
+	let ignored_receive_limit: () = require_true(label, receive_limits_equal(state_receive_limit(before_state), state_receive_limit(after_state)))?
+	let ignored_local_settings: () = require_true(label, local_settings_equal(state_peer_settings(before_state), state_peer_settings(after_state)))?
 	let ignored_high_water: () = require_client_push_equal_int(label, state_highest_peer_created_stream_id(after_state), state_highest_peer_created_stream_id(before_state))?
+	let ignored_peer_admission: () = require_client_push_equal_int(label, state_highest_peer_stream_id(after_state), state_highest_peer_stream_id(before_state))?
 	let ignored_promised_stream: () = require_client_push_equal_int(label, state_promised_stream_id(after_state), state_promised_stream_id(before_state))?
-	let ignored_connection_window: () = require_client_push_equal_int(label, state_connection_window(after_state), state_connection_window(before_state))?
-	let ignored_stream_window: () = require_client_push_equal_int(label, state_stream_window(after_state), state_stream_window(before_state))?
+	let ignored_receive_flow_control: () = require_true(label, receive_flow_controls_equal(state_receive_flow_control(before_state), state_receive_flow_control(after_state)))?
 	let ignored_hpack_table_size: () = require_client_push_equal_int(label, hpack_fixture::state_table_size(after_hpack), hpack_fixture::state_table_size(before_hpack))?
 	let ignored_hpack_decode_count: () = require_client_push_equal_int(label, hpack_fixture::state_decode_count(after_hpack), hpack_fixture::state_decode_count(before_hpack))?
 	let ignored_hpack_dynamic_entries: () = require_client_push_equal_int(label, hpack_fixture::state_dynamic_table_entry_count(after_hpack), hpack_fixture::state_dynamic_table_entry_count(before_hpack))?
@@ -14074,6 +14315,35 @@ end
 
 fn print_client_push_promise_cases() -> Result<(), String> effects [stdio]
 	let client_push_state: Http2DecodeState = client_push_receive_state(65535, 1, 65535)
+	let client_push_promise_padded: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000a050c000000010200000002303132aabb")?), client_push_state)?
+	let ignored_padded_decoded: () = require_frame_decoded("padded PUSH_PROMISE must decode", client_push_promise_padded)?
+	let ignored_padded_header_block: () = require_header_block_bytes("padded PUSH_PROMISE header block", client_push_promise_padded, "303132")?
+	let ignored_padded_reserved_stream: () = require_equal_int("padded PUSH_PROMISE promised stream", state_reserved_by_peer_stream_id(step_state(client_push_promise_padded)), 2)?
+	let client_push_promise_padded_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000805080000000101000000023031aa")?), client_push_state)?
+	let ignored_padded_continuation_start: () = require_equal_int("padded PUSH_PROMISE continuation fragment length", state_continuation_count(step_state(client_push_promise_padded_continuation_start)), 2)?
+	let client_push_promise_padded_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(client_push_promise_padded_continuation_start))?
+	let ignored_padded_continuation_decoded: () = require_frame_decoded("padded PUSH_PROMISE continuation must decode", client_push_promise_padded_continuation_done)?
+	let ignored_padded_continuation_header_block: () = require_header_block_bytes("padded PUSH_PROMISE continuation header block", client_push_promise_padded_continuation_done, "303132")?
+	let ignored_padded_continuation_reserved_stream: () = require_equal_int("padded PUSH_PROMISE continuation promised stream", state_reserved_by_peer_stream_id(step_state(client_push_promise_padded_continuation_done)), 2)?
+	let client_push_promise_zero_padding: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008050c000000010000000002303132")?), client_push_state)?
+	let ignored_zero_padding_decoded: () = require_frame_decoded("zero-padded PUSH_PROMISE must decode", client_push_promise_zero_padding)?
+	let ignored_zero_padding_header_block: () = require_header_block_bytes("zero-padded PUSH_PROMISE header block", client_push_promise_zero_padding, "303132")?
+	let client_push_promise_padded_empty: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000050c00000001")?), client_push_state)?
+	let ignored_client_push_promise_padded_empty_failure: () = require_failure_with_id("empty padded PUSH_PROMISE must fail", client_push_promise_padded_empty, "http2.protocol.invalid_payload_length")?
+	let ignored_client_push_promise_padded_empty_state: () = require_client_push_ordering_rejection_preserves_state("empty padded PUSH_PROMISE changed connection state", client_push_state, step_state(client_push_promise_padded_empty))?
+	let client_push_promise_padded_short_prefix: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004050c0000000100000002")?), client_push_state)?
+	let ignored_client_push_promise_padded_short_failure: () = require_failure_with_id("short padded PUSH_PROMISE must fail", client_push_promise_padded_short_prefix, "http2.protocol.invalid_payload_length")?
+	let ignored_client_push_promise_padded_short_state: () = require_client_push_ordering_rejection_preserves_state("short padded PUSH_PROMISE changed connection state", client_push_state, step_state(client_push_promise_padded_short_prefix))?
+	let client_push_promise_padding_exceeds: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006050c00000001020000000230")?), client_push_state)?
+	let ignored_client_push_promise_padding_exceeds_failure: () = require_failure_with_id("excess PUSH_PROMISE padding must fail", client_push_promise_padding_exceeds, "http2.protocol.invalid_payload_length")?
+	let ignored_client_push_promise_padding_exceeds_state: () = require_client_push_ordering_rejection_preserves_state("invalid PUSH_PROMISE padding changed connection state", client_push_state, step_state(client_push_promise_padding_exceeds))?
+	let client_push_padding_precedence_state_value: Http2DecodeState = client_push_padding_precedence_state(49152, 1, 32768)?
+	let ignored_client_push_padding_precedence_continuation: () = require_client_push_equal_string("padding precedence state must carry continuation", state_continuation_label(client_push_padding_precedence_state_value), "active")?
+	let ignored_client_push_padding_precedence_local_settings: () = require_client_push_equal_int("padding precedence state must carry disabled local push", state_local_enable_push(client_push_padding_precedence_state_value), 0)?
+	let ignored_client_push_padding_precedence_local_settings_offset: () = require_client_push_equal_int("padding precedence state must retain local settings provenance", state_local_enable_push_offset(client_push_padding_precedence_state_value), 23)?
+	let client_push_promise_padding_precedence: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006050c00000001020000000430")?), client_push_padding_precedence_state_value)?
+	let ignored_client_push_promise_padding_precedence_failure: () = require_failure_with_id("invalid padding must precede continuation and local settings policy", client_push_promise_padding_precedence, "http2.protocol.invalid_payload_length")?
+	let ignored_client_push_promise_padding_precedence_state: () = require_client_push_ordering_rejection_preserves_state("invalid padding precedence changed connection state", client_push_padding_precedence_state_value, step_state(client_push_promise_padding_precedence))?
 	let client_push_promise_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000705040000000100000002303132")?), client_push_state)?
 	print_step("client-push-promise-accepted", client_push_promise_accepted)
 	let ignored_accepted_header_block: () = emit_header_block("http2-client-push-promise-header-block", client_push_promise_accepted, "303132")?

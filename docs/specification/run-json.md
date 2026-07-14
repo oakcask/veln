@@ -1033,6 +1033,13 @@ The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
 for client-side peer-sent `PUSH_PROMISE` receive: accepted single-frame and
 final-CONTINUATION cases expose the stripped promised header block as checked
 lowercase hex output and print the reserved-by-peer promised stream state.
+The same executable case checks PADDED single-frame and final-CONTINUATION
+receive without adding command output: only the unpadded header block reaches
+HPACK, zero padding is accepted, and truncated prefixes or excessive padding
+fail before promised-stream and connection-state updates. The focused
+`examples/specification/run/http2-protocol-core-push-promise-padding-json/`
+case fixes the excessive-padding count, frame kind, associated stream, rule
+provenance, and inspected payload preview in `protocol_diagnostic` details.
 The same checked stdout records the latest locally sent `SETTINGS_ENABLE_PUSH`
 state after outbound settings send-intents, keeps accepted peer-sent
 `PUSH_PROMISE` behavior unchanged when local push is enabled or unspecified,
