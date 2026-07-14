@@ -3494,6 +3494,12 @@
         } else if ("content_length_mismatch".equals(fact)) {
             message = "HTTP/2 response header list contains mismatched content-length values"
                 + " at byte offset " + byteOffset;
+        } else if ("switching_protocols_status_forbidden".equals(fact)) {
+            message = "HTTP/2 response uses switching protocols status"
+                + " at byte offset " + byteOffset;
+        } else if ("informational_response_end_stream".equals(fact)) {
+            message = "HTTP/2 informational response ended the stream"
+                + " at byte offset " + byteOffset;
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_response_header_list]: informational response ended the stream at byte offset 12", "note: Frame kind 1 on stream 1 decoded response header names: :status.", "note: Nearby bytes: 08 03 31 30 33 (showing 5 of 5 byte(s), complete).", "note: Active protocol state: response-headers.", "note: Rule provenance: rfc9113_informational_response."]

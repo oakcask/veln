@@ -797,6 +797,14 @@ own adjusted credit. The adjusted stream credit can become negative, in which
 case later DATA remains blocked by
 `http2.peer_limit.flow_control_window_exceeded` until stream-level
 `WINDOW_UPDATE` restores enough credit on that stream.
+The completed list-backed inbound stream-state slice is archived under
+[HTTP/2 List-Backed Inbound Stream State](../reference/implemented-proposals/http2-list-backed-inbound-stream-state.md).
+It replaces the fixed one-, two-, and three-stream receive representation with
+one recursive list whose entries carry stream id, receive-window credit,
+priority and body-accounting facts, and lifecycle. The executable boundary
+tracks five concurrent peer-created streams, preserves unrelated entries
+through independent updates and reset, admits a later stream, and derives
+receive-limit rejection counts from the current list.
 Except for the implemented PRIORITY idle-stream receive slice below,
 non-HEADERS frames on idle streams keep using the existing invalid frame-kind
 failure.
@@ -949,6 +957,15 @@ diagnostic projection with the selected status and no-content rule
 provenance. Informational responses remain distinct until a final response is
 selected. This completed slice is archived under
 [HTTP/2 No-Content Response Lifecycle](../reference/implemented-proposals/http2-no-content-response-lifecycle.md).
+Final responses to accepted outbound HEAD requests also carry the zero-content
+receive state regardless of response status. The retained request method, not
+the response fields, selects this rule. Response `content-length` remains
+metadata without installing an expected received body length. Direct response
+`END_STREAM`, empty DATA, and padding-only DATA termination are accepted;
+nonempty DATA is rejected through the existing content-length protocol
+failure before state or flow-control mutation. This completed slice is
+archived under
+[HTTP/2 HEAD Response No-Content Lifecycle](../reference/implemented-proposals/http2-head-response-no-content-lifecycle.md).
 Both request and response validation accept `te: trailers` and reject any
 other fixture-marked `te` value through the same request or response
 header-list diagnostic with failed fact `te_header_value_not_trailers`. They

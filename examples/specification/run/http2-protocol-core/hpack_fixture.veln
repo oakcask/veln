@@ -44,6 +44,21 @@ pub fn hpack_header_list(first: HpackHeader, second: HpackHeader, wire_size: Int
 	HpackHeaderList(first, second, wire_size)
 end
 
+pub fn header_list_is_head_request(headers: HpackHeaderList) -> Bool
+	match headers
+		HpackHeaderList(first, second, _) => header_is_head_method(first) or header_is_head_method(second)
+	end
+end
+
+fn header_is_head_method(header: HpackHeader) -> Bool
+	match header
+		HpackHeader(name, value) => name == ":method" and value == "HEAD"
+		HpackOctetHeader(_, _) => false
+		HpackOctetHeaderWithoutIndexing(_, _) => false
+		HpackOctetHeaderNeverIndexed(_, _) => false
+	end
+end
+
 pub fn empty_header_fields() -> HpackHeaderFields
 	EmptyHeaderFields
 end
@@ -452,6 +467,10 @@ end
 
 pub fn outbound_static_indexed_method_post_headers() -> HpackHeaderList
 	HpackHeaderList(HpackHeader(":method", "POST"), HpackHeader(":fixture", "static-indexed"), 9)
+end
+
+pub fn outbound_head_request_headers() -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":method", "HEAD"), HpackHeader(":fixture", "literal-without-indexing"), 6)
 end
 
 pub fn outbound_static_indexed_path_root_headers() -> HpackHeaderList
@@ -5921,6 +5940,13 @@ pub fn production_header_list_no_content_response_status(headers: HpackProductio
 		Some("204") => "204"
 		Some("304") => "304"
 		_ => ""
+	end
+end
+
+pub fn production_header_list_is_switching_protocols_response(headers: HpackProductionHeaderList) -> Bool
+	match production_header_list_value(headers, ":status")
+		Some(value) => value == "101"
+		None => false
 	end
 end
 

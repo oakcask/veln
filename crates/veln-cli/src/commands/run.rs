@@ -2076,6 +2076,12 @@ fn protocol_header_list_message(
         "content_length_mismatch" => format!(
             "{subject} contains mismatched content-length values at byte offset {byte_offset}"
         ),
+        "switching_protocols_status_forbidden" => {
+            format!("{subject} uses switching protocols status at byte offset {byte_offset}")
+        }
+        "informational_response_end_stream" => {
+            format!("informational response ended the stream at byte offset {byte_offset}")
+        }
         _ => format!("invalid {subject} at byte offset {byte_offset}"),
     }
 }
