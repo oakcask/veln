@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.content_length_mismatch]: response status 204 prohibits nonempty DATA at byte offset 9", "note: Frame kind 0 on stream 1 contributed 1 DATA application byte(s); response status 204 permits no application content.", "note: Nearby bytes: 01 (showing 1 of 1 byte(s), complete).", "note: Active protocol state: no-content-response-204.", "note: Rule provenance: rfc9110_no_content_response_body."]

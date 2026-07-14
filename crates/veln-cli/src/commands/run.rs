@@ -1481,15 +1481,38 @@ impl<'a> ProtocolDiagnosticContext<'a> {
                 let frame_kind = self.number("frame_kind")?;
                 let expected_length = self.number("expected_content_length")?;
                 let observed_length = self.number("observed_body_length")?;
+                let active_state = self.string("active_state")?;
+                let rule_provenance = self.string("rule_provenance")?;
                 let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "content-length body length mismatch at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} observed {observed_length} DATA application byte(s); accepted content-length is {expected_length} byte(s).",
-                    frame.stream_ref, frame.stream_id
-                )));
+                let no_content_status = match active_state.as_str() {
+                    "no-content-response-204" => Some("204"),
+                    "no-content-response-304" => Some("304"),
+                    _ => None,
+                };
+                let mut diagnostic = match no_content_status {
+                    Some(status) if rule_provenance == "rfc9110_no_content_response_body" => {
+                        let mut diagnostic = self.diagnostic(format!(
+                            "response status {status} prohibits nonempty DATA at byte offset {}",
+                            self.byte_offset
+                        ));
+                        diagnostic.related.push(note_json(format!(
+                            "Frame kind {frame_kind} on {} {} contributed {observed_length} DATA application byte(s); response status {status} permits no application content.",
+                            frame.stream_ref, frame.stream_id
+                        )));
+                        diagnostic
+                    }
+                    _ => {
+                        let mut diagnostic = self.diagnostic(format!(
+                            "content-length body length mismatch at byte offset {}",
+                            self.byte_offset
+                        ));
+                        diagnostic.related.push(note_json(format!(
+                            "Frame kind {frame_kind} on {} {} observed {observed_length} DATA application byte(s); accepted content-length is {expected_length} byte(s).",
+                            frame.stream_ref, frame.stream_id
+                        )));
+                        diagnostic
+                    }
+                };
                 self.push_preview_state_and_provenance(&mut diagnostic)?;
                 Some(diagnostic)
             }

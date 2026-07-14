@@ -425,7 +425,7 @@ compare it with `../specification/` before changing behavior.
   promised response HEADERS admission including local disable-push receive
   policy, and half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, request-trailer, and response-trailer
-  header-list validation,
+  header-list validation and final `204`/`304` no-content response lifecycle,
   the source-visible request `:path` value rule, the source-visible request
   `:scheme` HPACK static-name literal value rule, the source-visible `te`
   header value rule, response-side production `content-length`
