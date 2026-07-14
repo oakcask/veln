@@ -437,6 +437,8 @@ behavior.
   [network-channel-select-timeout-cancellable.md](network-channel-select-timeout-cancellable.md).
 - HTTP/2 stream domain values:
   [http2-stream-domain-values.md](http2-stream-domain-values.md).
+- HTTP/2 outbound maximum header list size:
+  [http2-outbound-maximum-header-list-size.md](http2-outbound-maximum-header-list-size.md).
 - HTTP/2 peer-created stream id ordering:
   [http2-peer-created-stream-id-ordering.md](http2-peer-created-stream-id-ordering.md).
 - HTTP/2 unknown frame preservation:

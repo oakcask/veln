@@ -84,6 +84,10 @@ pub type HpackEncodeTransition
 	HpackEncodeTransition(encoded: ByteChunk, state: HpackFixtureState)
 end
 
+pub fn unchanged_encode_transition(state: HpackFixtureState) -> HpackEncodeTransition
+	HpackEncodeTransition(byte_chunk([]), state)
+end
+
 pub type HpackFixtureFailure
 	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	UnsupportedStaticIndex(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
@@ -198,6 +202,28 @@ end
 
 fn production_dynamic_entry_size(name: String, value: ByteChunk) -> Int
 	string_byte_count(name) + byte_count_to_int(byte_chunk_count(value)) + 32
+end
+
+fn header_field_size(header: HpackHeader) -> Int
+	match header
+		HpackHeader(name, value) => dynamic_entry_size(name, value)
+		HpackOctetHeader(name, value) => production_dynamic_entry_size(name, value)
+		HpackOctetHeaderWithoutIndexing(name, value) => production_dynamic_entry_size(name, value)
+		HpackOctetHeaderNeverIndexed(name, value) => production_dynamic_entry_size(name, value)
+	end
+end
+
+pub fn header_fields_size(fields: HpackHeaderFields) -> Int
+	match fields
+		EmptyHeaderFields => 0
+		HeaderField(header, remaining) => header_field_size(header) + header_fields_size(remaining)
+	end
+end
+
+pub fn header_list_fields_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(first, second, _) => header_field_size(first) + header_field_size(second)
+	end
 end
 
 fn production_bounded_dynamic_entry(table_size: Int, name: String, value: ByteChunk, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry

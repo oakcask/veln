@@ -22,7 +22,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining settings interactions not covered by the implemented
   enable-push, maximum-frame-size, maximum-concurrent-streams,
   initial-window-size, header-table-size, and maximum-header-list-size
-  peer-advertised state, unknown-identifier handling, SETTINGS ACK receive,
+  peer-advertised state and outbound structured header-list enforcement,
+  unknown-identifier handling, SETTINGS ACK receive,
   SETTINGS ACK send state, and local SETTINGS send-intents for
   header-table-size, enable-push, initial-window-size,
   maximum-concurrent-streams, maximum-frame-size, maximum-header-list-size,
@@ -1228,6 +1229,14 @@ value, carries byte-accounted dynamic state across arbitrary finite blocks,
 and routes request and response HEADERS plus server-side `PUSH_PROMISE`
 through the existing CONTINUATION framing paths. Encoding failures expose no
 partial frame output or committed state.
+The completed peer-advertised outbound header-list limit slice is archived
+under
+[HTTP/2 Outbound Maximum Header List Size](../reference/implemented-proposals/http2-outbound-maximum-header-list-size.md).
+Structured HEADERS and server-side `PUSH_PROMISE` intents accept a decoded
+header-list size at the active peer maximum, reject one above it before
+committing HPACK, lifecycle, high-water, or output state, and leave rejected
+stream ids retryable. The locally configured inbound receive limit remains a
+separate policy.
 Its completed automatic literal-string selection is archived under
 [HTTP/2 Automatic Outbound HPACK Huffman Selection](../reference/implemented-proposals/http2-automatic-outbound-hpack-huffman-selection.md).
 The completed production inbound ordered header-list decoder is archived under

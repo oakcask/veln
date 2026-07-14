@@ -617,6 +617,17 @@ enough.
   fields; an encoder-selected size below a later increased peer limit remains
   valid. Explicit table-size updates can also evict retained entries or clear
   the table.
+  When the peer advertises `SETTINGS_MAX_HEADER_LIST_SIZE`, structured
+  outbound HEADERS and server-side `PUSH_PROMISE` intents compare the decoded
+  header-list size with that peer limit after earlier stream, GOAWAY, and HPACK
+  checks and before committing frame output, HPACK state, lifecycle, or stream
+  id high-water state. The size uses the same HPACK field accounting as the
+  inbound list policy, independent of the encoded block length. A value equal
+  to the peer maximum is accepted; an over-limit value reports
+  `http2.peer_limit.header_list_size_exceeded` with
+  `peer_settings_item` provenance and remains retryable. With no advertised
+  maximum, outbound behavior is unchanged. This peer-owned outbound limit is
+  separate from the locally configured inbound header-list receive limit.
   The checked outbound HEADERS cases cover non-visible raw octets, a smaller
   Huffman octet value, a raw tie,
   mixed Huffman-name/raw-value selection, Huffman dynamic-name values, and
