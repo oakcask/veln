@@ -34,11 +34,6 @@ behavior.
   `../../examples/specification/check/binary-schema-uint-replacement-shapes/`
   and
   `../../examples/specification/run/binary-schema-uint-bit-operations-both-byte-orders/`.
-- Removed flag vocabulary diagnostics across direct and nested schema shapes,
-  explicit operations, and derived helpers:
-  `../../examples/specification/check/removed-flag-vocabulary-diagnostics/`
-  and
-  `../../examples/specification/check/removed-flag-nested-shapes-human/`.
 - Schema-local helper projection:
   `../../examples/specification/run/binary-schema-local-projection-boundary/`.
 - Parser rejection for schema-level `map to`:

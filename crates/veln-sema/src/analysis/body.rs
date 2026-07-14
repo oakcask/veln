@@ -2539,14 +2539,6 @@ impl<'a> FunctionChecker<'a> {
             PatternKind::Constructor { name, args } => {
                 let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type)
                 else {
-                    if removed_flag_type_replacement(&name.join("::")).is_some() {
-                        self.push_removed_flag_vocabulary(
-                            pattern.node_id,
-                            pattern.span.clone(),
-                            &name.join("::"),
-                            "pattern",
-                        );
-                    }
                     return args
                         .iter()
                         .flat_map(|pattern| self.pattern_bindings(pattern, &Type::Unknown))
@@ -3178,10 +3170,6 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
-        if removed_flag_migration(symbol).is_some() {
-            self.push_removed_flag_vocabulary(node_id, span, symbol, namespace);
-            return;
-        }
         if namespace == "value"
             && let Some(primitive) = exact_width_binary_primitive_name(symbol)
         {
@@ -3223,48 +3211,6 @@ impl<'a> FunctionChecker<'a> {
                 ("candidates", JsonValue::array([])),
             ]),
         ));
-    }
-
-    fn push_removed_flag_vocabulary(
-        &mut self,
-        node_id: NodeId,
-        span: SourceSpan,
-        symbol: &str,
-        namespace: &'static str,
-    ) {
-        let (replacement, requires_range_check) =
-            removed_flag_migration(symbol).unwrap_or(("Int binding", true));
-        let mut diagnostic = Diagnostic::new(
-            "name.removed_flag_vocabulary",
-            Severity::Error,
-            DiagnosticKind::Name,
-            format!("removed flag vocabulary `{symbol}`; use `{replacement}`"),
-            Some(span.clone()),
-            JsonValue::object([
-                ("phase", JsonValue::string("name")),
-                ("node_id", JsonValue::string(node_id.display("name"))),
-                ("symbol", JsonValue::string(symbol)),
-                ("namespace", JsonValue::string(namespace)),
-                ("replacement", JsonValue::string(replacement)),
-                (
-                    "requires_explicit_range_check",
-                    JsonValue::Bool(requires_range_check),
-                ),
-            ]),
-        );
-        if requires_range_check {
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("migration_validation")),
-                (
-                    "message",
-                    JsonValue::string(
-                        "Keep an explicit protocol-width range check when the removed helper or wrapper previously validated the bit index or raw value.",
-                    ),
-                ),
-                ("span", span_json(&span)),
-            ]));
-        }
-        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn push_ambiguous_name(
@@ -3716,38 +3662,6 @@ fn invalid_literal_shift_count(op: BinaryOp, expr: &Expr) -> Option<i64> {
         _ => return None,
     };
     (!(0..=63).contains(&value)).then_some(value)
-}
-
-fn removed_flag_migration(symbol: &str) -> Option<(&'static str, bool)> {
-    if removed_flag_type_replacement(symbol).is_some() {
-        return Some(("Int", true));
-    }
-    for prefix in [
-        "flag8", "flag16be", "flag16le", "flag24be", "flag24le", "flag32be", "flag32le",
-        "flag40be", "flag40le", "flag48be", "flag48le", "flag56be", "flag56le", "flag64be",
-        "flag64le",
-    ] {
-        let Some(suffix) = symbol.strip_prefix(prefix) else {
-            continue;
-        };
-        return match suffix {
-            "_is_set" => Some(("(value & (1 << index)) != 0", true)),
-            "_set" => Some(("value | (1 << index)", true)),
-            "_bits" => Some(("value", false)),
-            "_from_bits" => Some(("value", true)),
-            _ => None,
-        };
-    }
-    None
-}
-
-fn removed_flag_type_replacement(symbol: &str) -> Option<&'static str> {
-    match symbol.rsplit("::").next()? {
-        "Flag8" | "Flag16be" | "Flag16le" | "Flag24be" | "Flag24le" | "Flag32be" | "Flag32le"
-        | "Flag40be" | "Flag40le" | "Flag48be" | "Flag48le" | "Flag56be" | "Flag56le"
-        | "Flag64be" | "Flag64le" => Some("Int"),
-        _ => None,
-    }
 }
 
 fn prelude_input_arg<'a>(args: &'a [Expr], helper_name: &str) -> Option<&'a Expr> {

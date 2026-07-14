@@ -103,7 +103,7 @@ The removal does not cover:
 - public schema aliases
 - field-local `where` predicates
 - schema-level `validate` predicates
-- exact-width integer, flag, reserved-bit, repeat, byte-view, or dispatch
+- exact-width integer, reserved-bit, repeat, byte-view, or dispatch
   representation primitives
 - generated helpers over schema-local visible records
 - ordinary decode or encode functions that call schema operations and

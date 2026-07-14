@@ -4308,7 +4308,6 @@ pub(crate) enum LowercaseSchemaPrimitiveError {
     MissingEndian,
     RedundantEndian,
     UnsupportedWidth,
-    RemovedFlag,
     ReservesValue,
 }
 
@@ -4329,13 +4328,8 @@ pub(crate) fn lowercase_schema_primitive(
     text: &str,
 ) -> Option<Result<LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError>> {
     let spelling = text.trim();
-    let (family, rest) = if let Some(rest) = spelling.strip_prefix("uint") {
-        ("uint", rest)
-    } else if let Some(rest) = spelling.strip_prefix("flag") {
-        ("flag", rest)
-    } else {
-        return None;
-    };
+    let rest = spelling.strip_prefix("uint")?;
+    let family = "uint";
     if rest.is_empty() {
         return Some(Err(LowercaseSchemaPrimitiveError::MissingWidth));
     }
@@ -4365,14 +4359,10 @@ pub(crate) fn lowercase_schema_primitive(
         "le" => Some("le"),
         _ => return Some(Err(LowercaseSchemaPrimitiveError::UnknownEndian)),
     };
-    let supported_width = match family {
-        "uint" => matches!(
-            width_bits,
-            1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64
-        ),
-        "flag" => matches!(width_bits, 8 | 16 | 24 | 32 | 40 | 48 | 56 | 64),
-        _ => false,
-    };
+    let supported_width = matches!(
+        width_bits,
+        1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64
+    );
     if !supported_width {
         return Some(Err(LowercaseSchemaPrimitiveError::UnsupportedWidth));
     }
@@ -4381,9 +4371,6 @@ pub(crate) fn lowercase_schema_primitive(
     }
     if width_bits > 8 && endian.is_none() {
         return Some(Err(LowercaseSchemaPrimitiveError::MissingEndian));
-    }
-    if family == "flag" {
-        return Some(Err(LowercaseSchemaPrimitiveError::RemovedFlag));
     }
     Some(Ok(LowercaseSchemaPrimitive {
         spelling: spelling.to_string(),
@@ -6902,17 +6889,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_removed_flag_schema_primitives() {
-        for text in ["flag8", "flag16be", "flag64le"] {
-            assert_eq!(
-                lowercase_schema_primitive(text),
-                Some(Err(LowercaseSchemaPrimitiveError::RemovedFlag))
-            );
-            assert_eq!(canonical_schema_primitive_name(text), None);
-        }
-    }
-
-    #[test]
     fn preserves_all_exact_width_uint_primitive_shapes() {
         let cases = [
             ("uint8", "UInt8", 1, 8, false, 0xff),
@@ -7055,10 +7031,6 @@ mod tests {
     #[test]
     fn rejects_malformed_lowercase_schema_reserves_with_focused_reasons() {
         let cases = [
-            (
-                "flag8 reserves 0",
-                LowercaseSchemaPrimitiveError::RemovedFlag,
-            ),
             (
                 "uint8 reserves",
                 LowercaseSchemaPrimitiveError::ReservesValue,
