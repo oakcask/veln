@@ -1736,7 +1736,7 @@ end
 fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
 	match kind
 		6 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_ping_payload_length")
-		7 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_goaway_payload_length")
+		7 => validate_minimum_payload_length(offset, payload, length, kind, stream_id, 8, "connection-control", "rfc9113_goaway_payload_length")
 		8 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "flow-control", "rfc9113_window_update_payload_length")
 		4 => validate_settings_ack_payload_length(offset, payload, length, flags, stream_id)
 		3 => validate_fixed_payload_length(offset, payload, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
@@ -1744,6 +1744,14 @@ fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind:
 		1 => validate_headers_payload_length(offset, payload, length, kind, flags, stream_id)
 		5 => validate_push_promise_payload_length(offset, payload, length, kind, stream_id)
 		_ => Ok(ProtocolPayloadOk)
+	end
+end
+
+fn validate_minimum_payload_length(offset: Int, payload: ByteChunk, length: Int, kind: Int, stream_id: Int, expected_length: Int, active_state: String, rule_provenance: String) -> Result<ProtocolPayloadDecision, String>
+	if length < expected_length
+		Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, expected_length, active_state, rule_provenance, byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+	else
+		Ok(ProtocolPayloadOk)
 	end
 end
 
@@ -2767,10 +2775,10 @@ fn encode_ping_intent(payload: ByteChunk, payload_length: Int) -> Result<Outboun
 	end
 end
 
-fn send_goaway(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
+fn send_goaway(last_stream_id: Int, error_code: Int, debug_data: ByteChunk, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
 	let encoded_payload: Result<ByteChunk, EncodeError> = encode_goaway_payload({ last_stream_id: last_stream_id, error_code: error_code })
 	match encoded_payload
-		Ok(payload) => validate_goaway_send_boundary(last_stream_id, error_code, state, payload)
+		Ok(payload) => validate_goaway_send_boundary(last_stream_id, error_code, state, byte_append(payload, debug_data))
 		Err(error) => Ok(OutboundGoawayEncodeFailed(last_stream_id, error_code, error))
 	end
 end
@@ -2792,7 +2800,8 @@ fn validate_goaway_send_boundary(last_stream_id: Int, error_code: Int, state: Ht
 end
 
 fn encode_goaway_intent(last_stream_id: Int, error_code: Int, state: Http2DecodeState, payload: ByteChunk) -> Result<OutboundGoawayDecision, String>
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 8, kind: 7, flags: 0, stream_id: 0 })
+	let payload_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: payload_length, kind: 7, flags: 0, stream_id: 0 })
 	match encoded_header
 		Ok(header) => Ok(OutboundGoawayAccepted(last_stream_id, error_code, goaway_sent_state(last_stream_id, error_code, state), byte_append(header, payload)))
 		Err(error) => Ok(OutboundGoawayEncodeFailed(last_stream_id, error_code, error))
@@ -4576,9 +4585,10 @@ end
 
 fn update_shutdown_state(pending: ByteChunk, offset: Int, length: Int, kind: Int, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<ShutdownStateDecision, String>
 	match kind
-		7 => match length
-			8 => validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, receive_flow_control, pending)
-			_ => Ok(ShutdownStateOk(complete_shutdown_drain(shutdown_state, receive_flow_control)))
+		7 => if length < 8
+			Ok(ShutdownStateOk(complete_shutdown_drain(shutdown_state, receive_flow_control)))
+		else
+			validate_goaway_shutdown_update(offset, decode_goaway_state(pending)?, shutdown_state, receive_flow_control, pending)
 		end
 		_ => Ok(ShutdownStateOk(complete_shutdown_drain(shutdown_state, receive_flow_control)))
 	end
@@ -5731,6 +5741,10 @@ fn step_frame_payload_chunk(step: Http2Step) -> ByteChunk
 		Waiting(_) => byte_chunk([])
 		Failed(_, _) => byte_chunk([])
 	end
+end
+
+fn goaway_debug_data(step: Http2Step) -> Result<ByteChunk, String>
+	byte_drop(step_frame_payload_chunk(step), byte_count(8)?)
 end
 
 fn state_pending_count(state: Http2DecodeState) -> Int
@@ -9639,6 +9653,16 @@ fn print_goaway(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::println(int_to_string(state_shutdown_error_code(state)))
 end
 
+fn print_goaway_debug_data(label: String, step: Http2Step, expected_hex: String) -> Result<(), String> effects [stdio]
+	let debug_data: ByteChunk = goaway_debug_data(step)?
+	stdio::print(label)
+	stdio::print(" debug_data hex \"")
+	stdio::print(checked_hex_label(debug_data, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(debug_data))))
+	Ok(())
+end
+
 fn print_rst_stream(label: String, step: Http2Step) -> () effects [stdio]
 	let state: Http2DecodeState = step_state(step)
 	stdio::print(label)
@@ -11735,7 +11759,7 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	print_outbound_data("outbound-data-after-goaway-late", outbound_data_after_goaway_late)
 	let ignored_data_after_goaway_late_chunk: () = print_outbound_data_chunk("http2-data-after-goaway-late", outbound_data_after_goaway_late, "")?
 	print_goaway_stream_failure("outbound-data-after-goaway-late", Failed(frame_state(), outbound_data_failure(outbound_data_after_goaway_late)))
-	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
 	let outbound_data_after_local_goaway_allowed: OutboundDataDecision = send_data_with_shutdown(5, byte_chunk_from_hex("0102")?, false, outbound_peer_settings, local_goaway_shutdown, outbound_send_credit_with_open_stream(10, 5, 20))?
 	print_outbound_data("outbound-data-after-local-goaway-allowed", outbound_data_after_local_goaway_allowed)
@@ -11793,7 +11817,7 @@ fn print_outbound_window_update_cases() -> Result<(), String> effects [stdio]
 	let outbound_connection_window_update_after_goaway: OutboundWindowUpdateDecision = send_connection_window_update(5, outbound_receive_credit_with_open_stream(10, 7, 20))?
 	print_outbound_window_update("outbound-window-update-connection-after-goaway", outbound_connection_window_update_after_goaway)
 	let ignored_connection_after_goaway_chunk: () = print_outbound_window_update_chunk("http2-window-update-connection-after-goaway", outbound_connection_window_update_after_goaway, "00000408000000000000000005")?
-	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
 	let outbound_window_update_after_local_goaway_allowed: OutboundWindowUpdateDecision = send_stream_window_update_with_shutdown(5, 7, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
 	print_outbound_window_update("outbound-window-update-after-local-goaway-allowed", outbound_window_update_after_local_goaway_allowed)
@@ -11846,7 +11870,7 @@ fn print_outbound_priority_cases() -> Result<(), String> effects [stdio]
 	print_outbound_priority("outbound-priority-after-goaway-late", outbound_priority_after_goaway_late)
 	let ignored_priority_after_goaway_late_chunk: () = print_outbound_priority_chunk("http2-priority-after-goaway-late", outbound_priority_after_goaway_late, "")?
 	print_goaway_stream_failure("outbound-priority-after-goaway-late", Failed(frame_state(), outbound_priority_failure(outbound_priority_after_goaway_late)))
-	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
 	let outbound_priority_after_local_goaway_allowed: OutboundPriorityDecision = send_priority_with_shutdown(5, 3, true, 16, local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
 	print_outbound_priority("outbound-priority-after-local-goaway-allowed", outbound_priority_after_local_goaway_allowed)
@@ -13010,7 +13034,7 @@ fn print_outbound_headers_cases() -> Result<(), String> effects [stdio]
 	print_outbound_headers("outbound-headers-after-goaway-zero", outbound_headers_after_goaway_zero)
 	let outbound_headers_after_goaway_closed: OutboundHeadersDecision = send_headers_with_shutdown(7, byte_chunk_from_hex("82")?, false, empty_peer_settings(), state_shutdown_state_value(step_state(received_goaway)), outbound_receive_credit_with_closed_stream(10, 7))?
 	print_outbound_headers("outbound-headers-after-goaway-closed", outbound_headers_after_goaway_closed)
-	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
 	let outbound_headers_after_local_goaway_allowed: OutboundHeadersDecision = send_headers_with_shutdown(5, byte_chunk_from_hex("82")?, false, empty_peer_settings(), local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
 	print_outbound_headers("outbound-headers-after-local-goaway-allowed", outbound_headers_after_local_goaway_allowed)
@@ -13072,7 +13096,7 @@ fn print_outbound_push_promise_cases() -> Result<(), String> effects [stdio]
 	print_goaway_stream_failure("outbound-push-promise-after-goaway-late", Failed(frame_state(), outbound_push_promise_failure(outbound_push_promise_after_goaway_late)))
 	let outbound_push_promise_after_goaway_hpack_skipped: Result<OutboundPushPromiseDecision, HpackFixtureFailure> = send_push_promise_from_header_list_with_shutdown(7, 2, hpack_fixture::outbound_unsupported_static_headers(), empty_peer_settings(), state_shutdown_state_value(step_state(received_goaway)), outbound_receive_credit_with_open_stream(10, 7, 20))?
 	let ignored_push_promise_after_goaway_hpack_print: () = print_outbound_push_promise_from_list("outbound-push-promise-after-goaway-hpack-skipped", outbound_push_promise_after_goaway_hpack_skipped)?
-	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let local_goaway: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	let local_goaway_shutdown: ConnectionShutdownState = state_shutdown_state_value(outbound_goaway_state(local_goaway))
 	let outbound_push_promise_after_local_goaway_allowed: OutboundPushPromiseDecision = send_push_promise_with_shutdown(5, 2, byte_chunk_from_hex("82")?, empty_peer_settings(), local_goaway_shutdown, outbound_receive_credit_with_open_stream(10, 5, 20))?
 	print_outbound_push_promise("outbound-push-promise-after-local-goaway-allowed", outbound_push_promise_after_local_goaway_allowed)
@@ -13168,20 +13192,23 @@ fn verify_outbound_push_promise_ordering_cases() -> Result<(), String>
 end
 
 fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
-	let outbound_goaway_accepted: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	let outbound_goaway_accepted: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), frame_state())?
 	print_outbound_goaway("outbound-goaway-accepted", outbound_goaway_accepted)
 	let ignored_goaway_chunk: () = print_outbound_goaway_chunk("http2-goaway", outbound_goaway_accepted, "000008070000000000000000050000000b")?
+	let outbound_goaway_debug_data: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk_from_hex("aaff0080")?, frame_state())?
+	print_outbound_goaway("outbound-goaway-debug-data", outbound_goaway_debug_data)
+	let ignored_goaway_debug_data_chunk: () = print_outbound_goaway_chunk("http2-goaway-debug-data", outbound_goaway_debug_data, "00000c070000000000000000050000000baaff0080")?
 	print_shutdown_state("outbound-goaway-state", outbound_goaway_state(outbound_goaway_accepted))
 	let outbound_goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), outbound_goaway_state(outbound_goaway_accepted))?
 	print_goaway_stream_failure("outbound-goaway-late-headers", outbound_goaway_late_headers)
 	let outbound_goaway_open_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
-	let outbound_goaway_open: OutboundGoawayDecision = send_goaway(5, 11, step_state(outbound_goaway_open_headers))?
+	let outbound_goaway_open: OutboundGoawayDecision = send_goaway(5, 11, byte_chunk([]), step_state(outbound_goaway_open_headers))?
 	print_outbound_goaway("outbound-goaway-open", outbound_goaway_open)
 	print_shutdown_state("outbound-goaway-open-state", outbound_goaway_state(outbound_goaway_open))
 	let outbound_goaway_combined_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
 	let outbound_goaway_combined_received: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), step_state(outbound_goaway_combined_headers))?
 	print_shutdown_state("outbound-goaway-combined-received-state", step_state(outbound_goaway_combined_received))
-	let outbound_goaway_combined_narrow: OutboundGoawayDecision = send_goaway(3, 22, step_state(outbound_goaway_combined_received))?
+	let outbound_goaway_combined_narrow: OutboundGoawayDecision = send_goaway(3, 22, byte_chunk([]), step_state(outbound_goaway_combined_received))?
 	print_outbound_goaway("outbound-goaway-combined-narrow", outbound_goaway_combined_narrow)
 	let ignored_outbound_goaway_combined_narrow_chunk: () = print_outbound_goaway_chunk("http2-goaway-combined-narrow", outbound_goaway_combined_narrow, "0000080700000000000000000300000016")?
 	print_shutdown_state("outbound-goaway-combined-narrow-drain", outbound_goaway_state(outbound_goaway_combined_narrow))
@@ -13193,15 +13220,15 @@ fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	print_outbound_headers("outbound-goaway-headers-end-stream", outbound_goaway_headers_end_stream)
 	let ignored_outbound_goaway_headers_end_stream_chunk: () = print_outbound_headers_chunk("http2-goaway-headers-end-stream", outbound_goaway_headers_end_stream, "00000101050000000582")?
 	print_shutdown_value("outbound-goaway-headers-end-stream-drain", complete_shutdown_drain_after_outbound_receive(state_shutdown_state_value(outbound_goaway_state(outbound_goaway_open)), outbound_headers_receive_credit(outbound_goaway_headers_end_stream)))
-	let outbound_goaway_narrow: OutboundGoawayDecision = send_goaway(3, 22, outbound_goaway_state(outbound_goaway_accepted))?
+	let outbound_goaway_narrow: OutboundGoawayDecision = send_goaway(3, 22, byte_chunk([]), outbound_goaway_state(outbound_goaway_accepted))?
 	print_outbound_goaway("outbound-goaway-narrow", outbound_goaway_narrow)
 	let ignored_goaway_narrow_chunk: () = print_outbound_goaway_chunk("http2-goaway-narrow", outbound_goaway_narrow, "0000080700000000000000000300000016")?
 	print_shutdown_state("outbound-goaway-narrow-state", outbound_goaway_state(outbound_goaway_narrow))
-	let outbound_goaway_same: OutboundGoawayDecision = send_goaway(5, 13, outbound_goaway_state(outbound_goaway_accepted))?
+	let outbound_goaway_same: OutboundGoawayDecision = send_goaway(5, 13, byte_chunk([]), outbound_goaway_state(outbound_goaway_accepted))?
 	print_outbound_goaway("outbound-goaway-same", outbound_goaway_same)
 	let ignored_goaway_same_chunk: () = print_outbound_goaway_chunk("http2-goaway-same", outbound_goaway_same, "000008070000000000000000050000000d")?
 	print_shutdown_state("outbound-goaway-same-state", outbound_goaway_state(outbound_goaway_same))
-	let outbound_goaway_widen: OutboundGoawayDecision = send_goaway(7, 22, outbound_goaway_state(outbound_goaway_accepted))?
+	let outbound_goaway_widen: OutboundGoawayDecision = send_goaway(7, 22, byte_chunk([]), outbound_goaway_state(outbound_goaway_accepted))?
 	print_outbound_goaway("outbound-goaway-widen", outbound_goaway_widen)
 	let ignored_goaway_widen_chunk: () = print_outbound_goaway_chunk("http2-goaway-widen", outbound_goaway_widen, "")?
 	print_goaway_stream_failure("outbound-goaway-widen", Failed(frame_state(), outbound_goaway_failure(outbound_goaway_widen)))
@@ -13223,9 +13250,9 @@ fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
 	print_outbound_push_promise("outbound-push-promise-after-narrow-local-goaway-late", outbound_push_promise_after_narrow_late)
 	let ignored_push_promise_after_narrow_late_chunk: () = print_outbound_push_promise_chunk("http2-push-promise-after-narrow-local-goaway-late", outbound_push_promise_after_narrow_late, "")?
 	print_goaway_stream_failure("outbound-push-promise-after-narrow-local-goaway-late", Failed(frame_state(), outbound_push_promise_failure(outbound_push_promise_after_narrow_late)))
-	let outbound_goaway_last_stream_id_encode_error: OutboundGoawayDecision = send_goaway(2147483648, 11, frame_state())?
+	let outbound_goaway_last_stream_id_encode_error: OutboundGoawayDecision = send_goaway(2147483648, 11, byte_chunk([]), frame_state())?
 	print_outbound_goaway("outbound-goaway-last-stream-id-encode-error", outbound_goaway_last_stream_id_encode_error)
-	let outbound_goaway_error_code_encode_error: OutboundGoawayDecision = send_goaway(5, 4294967296, frame_state())?
+	let outbound_goaway_error_code_encode_error: OutboundGoawayDecision = send_goaway(5, 4294967296, byte_chunk([]), frame_state())?
 	print_outbound_goaway("outbound-goaway-error-code-encode-error", outbound_goaway_error_code_encode_error)
 	Ok(())
 end
@@ -14131,6 +14158,11 @@ end
 fn print_goaway_receive_cases() -> Result<(), String> effects [stdio]
 	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
 	print_goaway("goaway", goaway)
+	let ignored_goaway_empty_debug_data: () = print_goaway_debug_data("goaway-empty-debug-data", goaway, "")?
+	let goaway_debug_data_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), frame_state())?
+	let goaway_debug_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c070000000000000000050000000baaff0080")?), step_state(goaway_debug_data_headers))?
+	print_goaway("goaway-debug-data", goaway_debug_data)
+	let ignored_goaway_debug_data: () = print_goaway_debug_data("goaway-debug-data", goaway_debug_data, "aaff0080")?
 	let goaway_lower_boundary: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080700000000000000000300000016")?), step_state(goaway))?
 	print_goaway("goaway-lower-boundary", goaway_lower_boundary)
 	let goaway_same_boundary: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000d")?), step_state(goaway))?

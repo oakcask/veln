@@ -676,8 +676,15 @@ enough.
   GOAWAY send-intent only when it preserves or narrows the locally recorded
   graceful-shutdown last-stream boundary. Accepted repeated GOAWAY
   send-intents emit the normal GOAWAY frame bytes and update the local
-  shutdown state to the sent boundary. Receiving or sending GOAWAY with no
-  active stream at or below the recorded last-stream boundary exposes
+  shutdown state to the sent boundary. An inbound GOAWAY payload must contain
+  at least the fixed eight-byte last-stream-id and error-code prefix; every
+  trailing byte remains opaque and is preserved in the immutable frame
+  payload available from the receive result. Outbound GOAWAY send-intents
+  accept an immutable opaque debug-data chunk, append it unchanged after the
+  fixed fields, and derive the frame payload length from the complete payload.
+  Empty debug data therefore retains the eight-byte payload, while non-empty
+  debug data is neither decoded nor validated as text. Receiving or sending
+  GOAWAY with no active stream at or below the recorded last-stream boundary exposes
   `drained_shutdown`; receiving or sending GOAWAY while an already-admitted
   in-boundary stream remains active continues to expose `graceful_shutdown`
   until that stream reaches a terminal state through received HEADERS

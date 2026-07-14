@@ -1091,6 +1091,13 @@ recorded local shutdown boundary. A repeated local GOAWAY that would widen
 the recorded boundary uses `http2.protocol.stream_after_goaway` with local
 endpoint context and emits no output chunk. Later local outbound stream
 send-intents continue to use the narrowed local boundary.
+The same checked output preserves empty and non-empty inbound GOAWAY opaque
+debug data as exact hexadecimal bytes from the ordinary receive result. Its
+outbound chunk list checks that the same non-text byte sequence follows the
+fixed last-stream-id and error-code fields and that the frame header carries
+the complete payload length. Payloads shorter than eight bytes remain
+`http2.protocol.invalid_payload_length` with the primary failed fact limited
+to the observed and required payload lengths.
 The checked `run --json` protocol-core example also keeps already-admitted
 peer-created stream DATA and trailer HEADERS after received GOAWAY as passed
 stdout, not as a `protocol_diagnostic`; receive-window credit, HPACK fixture

@@ -615,13 +615,10 @@ archived under
 [HTTP/2 Outbound WINDOW_UPDATE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-window-update-goaway-boundary.md).
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
-observable output preserves the ACK flag distinction. GOAWAY is accepted only
-on the connection stream with the fixed eight-byte prefix needed to expose the
-last stream id and error code, then transitions the decode state into graceful
-shutdown. Stream-targeted PING and GOAWAY frames are stream id domain
-failures, while wrong-length PING and GOAWAY payloads use
-`http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
-and JSON `protocol_diagnostic` details.
+observable output preserves the ACK flag distinction. The completed GOAWAY
+opaque debug-data receive and send slice is archived under
+[HTTP/2 GOAWAY Opaque Debug Data](../reference/implemented-proposals/http2-goaway-opaque-debug-data.md).
+Stream-targeted PING and GOAWAY frames are stream id domain failures.
 After received GOAWAY, an already-admitted peer-created stream with id less
 than or equal to the recorded last stream id remains on the existing
 stream-state path: DATA decrements receive-window credit, and trailer HEADERS
@@ -771,12 +768,10 @@ and rejects an above-boundary associated stream with
 splitting, generated payload encoding, or output chunk emission. The completed
 outbound `PUSH_PROMISE` post-GOAWAY send-intent boundary is archived under
 [HTTP/2 Outbound PUSH_PROMISE GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-push-promise-goaway-boundary.md).
-The implemented slice also includes the outbound GOAWAY send-intent.
-Ordinary source validates the selected last stream id and error code through
-the schema-declared GOAWAY payload record, encodes a nine-byte header with
-length `8`, kind `7`, flags `0`, and stream id `0`, appends the eight-byte
-GOAWAY payload, and records local graceful-shutdown state. A repeated
-outbound GOAWAY send-intent is accepted only when it preserves or narrows the
+The implemented outbound GOAWAY send-intent is recorded by
+[HTTP/2 GOAWAY Opaque Debug Data](../reference/implemented-proposals/http2-goaway-opaque-debug-data.md)
+and the earlier boundary records. A repeated outbound GOAWAY send-intent is
+accepted only when it preserves or narrows the
 already recorded local last-stream boundary; attempts that would widen the
 recorded boundary are rejected with `http2.protocol.stream_after_goaway`
 before output bytes are emitted. Later local outbound HEADERS, DATA,

@@ -9,9 +9,12 @@ checked executable case `../../../examples/specification/run/http2-protocol-core
 
 ## Completed Behavior
 
-Receiving GOAWAY on the connection stream with a valid eight-byte payload
-records graceful-shutdown state with the peer-sent last stream id and error
-code. The receive path keeps already-admitted peer-created streams whose ids
+Receiving GOAWAY on the connection stream with a payload containing the
+required eight-byte prefix records graceful-shutdown state with the peer-sent
+last stream id and error code. Optional trailing opaque debug data is specified
+and evidenced by
+[HTTP/2 GOAWAY Opaque Debug Data](http2-goaway-opaque-debug-data.md). The
+receive path keeps already-admitted peer-created streams whose ids
 are less than or equal to that recorded last stream id on their ordinary
 stream-state path.
 
