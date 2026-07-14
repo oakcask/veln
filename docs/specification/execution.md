@@ -460,6 +460,20 @@ enough.
   and through HTTP/2 fixture projection. The checked cases are
   `examples/specification/run/hpack-fixture-codec-boundary/` and
   `examples/specification/run/http2-protocol-core/`.
+  The production inbound boundary replaces the fixed two-field decode result
+  with a recursive ordinary header-field value. It decodes arbitrary finite
+  sequences of the supported indexed and literal representations in wire
+  order, applies up to two legal leading table-size updates before fields, and
+  carries byte-accounted insertion and eviction state into later blocks. A
+  failure in any later field returns no header list or committed next state.
+  Complete request, response, and trailer HEADERS blocks and final CONTINUATION
+  assembly carry the recursive list through the existing validation order,
+  content-length accounting, and stream-state transition. The checked
+  compatibility fixtures retain their established diagnostics. The executable
+  protocol-core case checks a five-field mixed static, literal, and dynamic
+  block, later dynamic reuse through HTTP/2 state, split request and response
+  CONTINUATION assembly, later-field request, response, and trailer rejection,
+  and exact input HPACK state retention after a late validation failure.
 - The checked HTTP/2 receive state carries pending header-block continuation
   assembly as connection decode state. A HEADERS frame without `END_HEADERS`
   records the owning stream id, starting frame kind, starting byte offset, and

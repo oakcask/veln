@@ -356,7 +356,7 @@ type TrailerHeaderListDecision
 end
 
 type HeaderListDecodeDecision
-	HeaderListDecodeOk(Int, HpackFixtureState, HpackHeaderList)
+	HeaderListDecodeOk(Int, HpackFixtureState, HpackProductionHeaderList)
 	HeaderListDecodeFailed(Http2ProtocolFailure)
 end
 
@@ -1070,7 +1070,7 @@ fn complete_receive_flow_control_update_after_table_size_check(pending: ByteChun
 	end
 end
 
-fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, peer_stream_admission: PeerStreamAdmissionState, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn complete_after_header_list_size(pending: ByteChunk, next_continuation: PendingContinuation, next_hpack_state: HpackFixtureState, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, completed_end_stream: Bool, completed_promised_stream_id: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, peer_stream_admission: PeerStreamAdmissionState, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let frame_offset: Int = state_next_offset(consumed_state) - (9 + length)
 	match validate_peer_stream_id_order(frame_offset, length, kind, flags, stream_id, completed_promised_stream_id, state_peer_settings(consumed_state), state_receive_flow_control(consumed_state))?
 		PeerStreamOrderingOk => match update_receive_flow_control(pending, frame_offset, length, kind, flags, stream_id, completed_end_stream, completed_promised_stream_id, accepted_content_length_for_stream(headers, completed_is_trailer), headers, completed_is_trailer, state_shutdown_state_value(consumed_state), state_receive_flow_control(consumed_state), peer_stream_admission)?
@@ -1158,13 +1158,13 @@ end
 fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match header_list_boundary_reached(kind, flags)
 		true => decode_completed_static_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
-		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state, hpack_fixture::incomplete_header_list())
+		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)), hpack_state, hpack_fixture::production_header_list_from_fixture(hpack_fixture::incomplete_header_list()))
 	end
 end
 
 fn decode_completed_static_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match hpack_static::decode_header_block(completed_header_block, offset)
-		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_static_next_hpack_state(headers, hpack_state), headers)
+		Ok(headers) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(headers), hpack_static_next_hpack_state(headers, hpack_state), hpack_fixture::production_header_list_from_fixture(headers))
 		Err(static_failure) => match hpack_static::hpack_static_failure_is_not_static(static_failure)
 			true => decode_completed_dynamic_core_raw_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
 			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_static::hpack_static_failure_offset(static_failure), hpack_static::hpack_static_failure_observed_size(static_failure), hpack_static::hpack_static_failure_observed_first_byte(static_failure), 0, 0, hpack_static::hpack_static_failure_expected_header(static_failure), hpack_static::hpack_static_failure_decoder_module(static_failure), hpack_static::hpack_static_failure_preview(static_failure)))
@@ -1211,7 +1211,7 @@ end
 fn decode_completed_dynamic_core_raw_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match hpack_dynamic_core::decode_raw_literal_name_header_field(completed_header_block, hpack_dynamic_core::initial_dynamic_core_state(), offset)
 		Ok(transition) => match hpack_dynamic_core::dynamic_core_transition_headers(transition)
-			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_dynamic_core_next_hpack_state(headers, hpack_state), dynamic_core_header_list_to_hpack_header_list(headers))
+			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_dynamic_core_next_hpack_state(headers, hpack_state), hpack_fixture::production_header_list_from_fixture(dynamic_core_header_list_to_hpack_header_list(headers)))
 		end
 		Err(_) => decode_completed_dynamic_core_indexed_or_fixture_header_list(offset, kind, stream_id, completed_header_block, hpack_state)
 	end
@@ -1220,7 +1220,7 @@ end
 fn decode_completed_dynamic_core_indexed_or_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match hpack_dynamic_core::decode_indexed_header_field(completed_header_block, dynamic_core_state_from_hpack_state(hpack_state), offset)
 		Ok(transition) => match hpack_dynamic_core::dynamic_core_transition_headers(transition)
-			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_fixture::state_after_literal_read(hpack_state), dynamic_core_header_list_to_hpack_header_list(headers))
+			headers => HeaderListDecodeOk(hpack_dynamic_core::dynamic_core_header_list_wire_size(headers), hpack_fixture::state_after_literal_read(hpack_state), hpack_fixture::production_header_list_from_fixture(dynamic_core_header_list_to_hpack_header_list(headers)))
 		end
 		Err(failure) => match hpack_dynamic_core::dynamic_core_failure_diagnostic_id(failure) == "hpack.fixture.dynamic_index_out_of_range"
 			true => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_dynamic_core::dynamic_core_failure_offset(failure), byte_count_to_int(byte_chunk_count(completed_header_block)), header_block_byte_at_or_missing(completed_header_block, 0), hpack_dynamic_core::dynamic_core_failure_requested_dynamic_index(failure), hpack_dynamic_core::dynamic_core_failure_dynamic_table_entry_count(failure), "source-visible dynamic indexed header", hpack_dynamic_core::dynamic_core_failure_decoder_module(failure), completed_header_block))
@@ -1242,10 +1242,15 @@ end
 
 fn decode_completed_fixture_header_list(offset: Int, kind: Int, stream_id: Int, completed_header_block: ByteChunk, hpack_state: HpackFixtureState) -> HeaderListDecodeDecision
 	match hpack_fixture::decode_header_block(completed_header_block, hpack_state, offset)
-		Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::transition_headers(transition))
-		Err(failure) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start" or hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update without trailing bytes"
-			true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
-			false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+		Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)), hpack_fixture::transition_state(transition), hpack_fixture::production_header_list_from_fixture(hpack_fixture::transition_headers(transition)))
+		Err(failure) => match hpack_fixture::decode_production_header_block(completed_header_block, hpack_state, offset)
+			Ok(transition) => match hpack_fixture::production_transition_headers(transition)
+				headers => HeaderListDecodeOk(hpack_fixture::production_header_list_wire_size(headers), hpack_fixture::production_transition_state(transition), headers)
+			end
+			Err(_) => match hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update at header block start" or hpack_fixture::hpack_failure_expected_fixture(failure) == "fixture HPACK table-size update without trailing bytes"
+				true => HeaderListDecodeFailed(HpackTableSizeUpdateNotAtStart(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_observed_update_size(failure), kind, stream_id, "hpack-fixture", hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+				false => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_requested_dynamic_index(failure), hpack_fixture::hpack_failure_dynamic_table_entry_count(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure), hpack_fixture::hpack_failure_preview(failure)))
+			end
 		end
 	end
 end
@@ -1257,8 +1262,8 @@ fn validate_header_list_size(offset: Int, kind: Int, flags: Int, stream_id: Int,
 	end
 end
 
-fn validate_header_table_size_update(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, headers: HpackHeaderList, next_hpack_state: HpackFixtureState) -> HeaderTableSizeDecision
-	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_table_size_update(headers)
+fn validate_header_table_size_update(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, headers: HpackProductionHeaderList, next_hpack_state: HpackFixtureState) -> HeaderTableSizeDecision
+	match header_list_boundary_reached(kind, flags) and hpack_fixture::production_header_list_is_table_size_update(headers)
 		true => validate_completed_header_table_size_update(offset, kind, stream_id, hpack_fixture::state_table_size(next_hpack_state), header_table_receive_limit(), completed_header_block)
 		false => HeaderTableSizeOk
 	end
@@ -1273,10 +1278,10 @@ fn header_list_boundary_reached(kind: Int, flags: Int) -> Bool
 	end
 end
 
-fn accepted_content_length_for_stream(headers: HpackHeaderList, completed_is_trailer: Bool) -> Int
+fn accepted_content_length_for_stream(headers: HpackProductionHeaderList, completed_is_trailer: Bool) -> Int
 	match completed_is_trailer
 		true => -1
-		false => hpack_fixture::header_list_accepted_content_length(headers)
+		false => hpack_fixture::production_header_list_accepted_content_length(headers)
 	end
 end
 
@@ -1296,50 +1301,50 @@ fn validate_completed_header_table_size_update(offset: Int, kind: Int, stream_id
 	end
 end
 
-fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
-	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_request(headers)
+fn validate_request_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match header_list_boundary_reached(kind, flags) and hpack_fixture::production_header_list_is_request(headers)
 		false => RequestHeaderListOk
 		true => validate_completed_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
 	end
 end
 
-fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
-	match hpack_fixture::header_list_has_duplicate_pseudo_header(headers)
-		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-		false => match hpack_fixture::header_list_has_pseudo_header_after_regular(headers)
-			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-			false => match hpack_fixture::header_list_has_status(headers)
-				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				false => match hpack_fixture::header_list_has_protocol(headers) and not hpack_fixture::header_list_is_connect_request(headers)
-					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_on_non_connect_request", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-					false => match hpack_fixture::header_list_is_connect_request(headers)
+fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match hpack_fixture::production_header_list_has_duplicate_pseudo_header(headers)
+		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":method", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+		false => match hpack_fixture::production_header_list_has_pseudo_header_after_regular(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":method", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::production_header_list_has_status(headers)
+				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "response_only_pseudo_header", ":status", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+				false => match hpack_fixture::production_header_list_has_protocol(headers) and not hpack_fixture::production_header_list_is_connect_request(headers)
+					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_on_non_connect_request", ":protocol", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+					false => match hpack_fixture::production_header_list_is_connect_request(headers)
 					true => validate_completed_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
-					false => match hpack_fixture::header_list_has_method(headers)
-					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-					true => match hpack_fixture::header_list_has_scheme(headers)
-						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-						true => match hpack_fixture::header_list_has_path(headers)
-							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-							true => match hpack_fixture::header_list_has_empty_method_value(headers)
-								true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "method_value_empty", ":method", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-								false => match hpack_fixture::header_list_has_empty_path_value(headers)
-									true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "path_value_empty", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-									false => match hpack_fixture::header_list_has_invalid_scheme_value(headers)
-										true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "scheme_value_not_http_or_https", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-										false => match hpack_fixture::header_list_has_invalid_authority_value(headers)
-											true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "authority_value_invalid", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-											false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-												true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-												false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-													true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-													false => match hpack_fixture::header_list_has_connection_specific_header(headers)
-														true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-														false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-															true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-															false => match hpack_fixture::request_header_list_has_invalid_content_length(headers)
-																true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-																false => match hpack_fixture::request_header_list_has_mismatched_content_length(headers)
-																	true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+					false => match hpack_fixture::production_header_list_has_method(headers)
+					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":method", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+					true => match hpack_fixture::production_header_list_has_scheme(headers)
+						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":scheme", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+						true => match hpack_fixture::production_header_list_has_path(headers)
+							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":path", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+							true => match hpack_fixture::production_header_list_has_empty_method_value(headers)
+								true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "method_value_empty", ":method", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+								false => match hpack_fixture::production_header_list_has_empty_path_value(headers)
+									true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "path_value_empty", ":path", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+									false => match hpack_fixture::production_header_list_has_invalid_scheme_value(headers)
+										true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "scheme_value_not_http_or_https", ":scheme", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+										false => match hpack_fixture::production_header_list_has_invalid_authority_value(headers)
+											true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "authority_value_invalid", ":authority", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+											false => match hpack_fixture::production_header_list_has_uppercase_ordinary_header(headers)
+												true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+												false => match hpack_fixture::production_header_list_has_invalid_token_ordinary_header(headers)
+													true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+													false => match hpack_fixture::production_header_list_has_connection_specific_header(headers)
+														true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::production_header_list_connection_specific_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+														false => match hpack_fixture::production_header_list_has_invalid_te_header_value(headers)
+															true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+															false => match hpack_fixture::production_request_header_list_has_invalid_content_length(headers)
+																true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+																false => match hpack_fixture::production_request_header_list_has_mismatched_content_length(headers)
+																	true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
 																	false => RequestHeaderListOk
 																end
 															end
@@ -1361,22 +1366,22 @@ fn validate_completed_request_header_list(offset: Int, kind: Int, stream_id: Int
 	end
 end
 
-fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
-	match hpack_fixture::header_list_has_protocol(headers)
+fn validate_completed_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match hpack_fixture::production_header_list_has_protocol(headers)
 		true => validate_completed_extended_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block, peer_settings)
 		false => validate_completed_ordinary_connect_request_header_list(offset, kind, stream_id, headers, completed_header_block)
 	end
 end
 
-fn validate_completed_ordinary_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
-	match hpack_fixture::connect_request_has_authority(headers)
-		false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_missing", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-		true => match hpack_fixture::connect_request_has_empty_authority(headers)
-			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_empty", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-			false => match hpack_fixture::connect_request_has_scheme(headers)
-				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_scheme_present", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				false => match hpack_fixture::connect_request_has_path(headers)
-					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_path_present", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+fn validate_completed_ordinary_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk) -> RequestHeaderListDecision
+	match hpack_fixture::production_connect_request_has_authority(headers)
+		false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_missing", ":authority", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+		true => match hpack_fixture::production_connect_request_has_empty_authority(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_authority_empty", ":authority", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::production_connect_request_has_scheme(headers)
+				true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_scheme_present", ":scheme", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+				false => match hpack_fixture::production_connect_request_has_path(headers)
+					true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connect_path_present", ":path", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
 					false => RequestHeaderListOk
 				end
 			end
@@ -1384,19 +1389,19 @@ fn validate_completed_ordinary_connect_request_header_list(offset: Int, kind: In
 	end
 end
 
-fn validate_completed_extended_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
-	match hpack_fixture::header_list_has_duplicate_protocol(headers)
-		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_protocol_pseudo_header", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-		false => match hpack_fixture::header_list_has_empty_protocol(headers)
-			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_value_empty", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-			false => match hpack_fixture::connect_request_has_scheme(headers)
-				false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_scheme_missing", ":scheme", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				true => match hpack_fixture::connect_request_has_path(headers)
-					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_path_missing", ":path", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-					true => match hpack_fixture::connect_request_has_authority(headers)
-						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_authority_missing", ":authority", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+fn validate_completed_extended_connect_request_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk, peer_settings: PeerSettingsState) -> RequestHeaderListDecision
+	match hpack_fixture::production_header_list_has_duplicate_protocol(headers)
+		true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "duplicate_protocol_pseudo_header", ":protocol", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+		false => match hpack_fixture::production_header_list_has_empty_protocol(headers)
+			true => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "protocol_value_empty", ":protocol", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::production_connect_request_has_scheme(headers)
+				false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_scheme_missing", ":scheme", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+				true => match hpack_fixture::production_connect_request_has_path(headers)
+					false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_path_missing", ":path", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+					true => match hpack_fixture::production_connect_request_has_authority(headers)
+						false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_authority_missing", ":authority", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
 						true => match local_enable_connect_protocol_enabled(peer_settings)
-							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_not_negotiated", ":protocol", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+							false => RequestHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "extended_connect_not_negotiated", ":protocol", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
 							true => RequestHeaderListOk
 						end
 					end
@@ -1406,15 +1411,15 @@ fn validate_completed_extended_connect_request_header_list(offset: Int, kind: In
 	end
 end
 
-fn validate_response_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> ResponseHeaderListDecision
-	match header_list_boundary_reached(kind, flags) and hpack_fixture::header_list_is_response(headers)
+fn validate_response_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk) -> ResponseHeaderListDecision
+	match header_list_boundary_reached(kind, flags) and hpack_fixture::production_header_list_is_response(headers)
 		false => ResponseHeaderListOk
 		true => validate_completed_response_header_list(offset, kind, stream_id, headers, completed_header_block)
 	end
 end
 
-fn validate_trailer_end_stream(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerEndStreamDecision
-	match hpack_fixture::header_list_is_trailer(headers) and not completed_is_trailer
+fn validate_trailer_end_stream(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerEndStreamDecision
+	match hpack_fixture::production_header_list_is_trailer(headers) and not completed_is_trailer
 		true => TrailerEndStreamFailed(InvalidFrameKind(offset, kind, stream_id, 1, trailer_active_state(stream_id, receive_flow_control), trailer_end_stream_rule(stream_id, receive_flow_control)))
 		false => TrailerEndStreamOk
 	end
@@ -1462,33 +1467,33 @@ fn stream_priority_is_response(priority: StreamPriorityState) -> Bool
 	end
 end
 
-fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> ResponseHeaderListDecision
-	match hpack_fixture::header_list_has_duplicate_status(headers)
-		true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-		false => match hpack_fixture::header_list_has_pseudo_header_after_regular(headers)
-			true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-			false => match hpack_fixture::header_list_has_authority(headers)
-				true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":authority", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-				false => match hpack_fixture::header_list_has_method(headers)
-					true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":method", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-					false => match hpack_fixture::header_list_has_scheme(headers)
-						true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":scheme", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-						false => match hpack_fixture::header_list_has_path(headers)
-							true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":path", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-							false => match hpack_fixture::header_list_has_status(headers)
-								false => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-								true => match hpack_fixture::header_list_has_invalid_status_value(headers)
-									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "status_value_invalid", ":status", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-									false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-										false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-											false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-												false => match hpack_fixture::header_list_has_invalid_content_length(headers)
-													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
-													false => match hpack_fixture::header_list_has_mismatched_content_length(headers)
-														true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::header_list_decoded_names(headers), "response-headers", completed_header_block))
+fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk) -> ResponseHeaderListDecision
+	match hpack_fixture::production_header_list_has_duplicate_status(headers)
+		true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "duplicate_pseudo_header", ":status", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+		false => match hpack_fixture::production_header_list_has_pseudo_header_after_regular(headers)
+			true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "pseudo_header_after_regular_header", ":status", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+			false => match hpack_fixture::production_header_list_has_authority(headers)
+				true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":authority", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+				false => match hpack_fixture::production_header_list_has_method(headers)
+					true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":method", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+					false => match hpack_fixture::production_header_list_has_scheme(headers)
+						true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":scheme", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+						false => match hpack_fixture::production_header_list_has_path(headers)
+							true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "request_only_pseudo_header", ":path", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+							false => match hpack_fixture::production_header_list_has_status(headers)
+								false => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "missing_required_pseudo_header", ":status", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+								true => match hpack_fixture::production_header_list_has_invalid_status_value(headers)
+									true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "status_value_invalid", ":status", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+									false => match hpack_fixture::production_header_list_has_uppercase_ordinary_header(headers)
+										true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+										false => match hpack_fixture::production_header_list_has_invalid_token_ordinary_header(headers)
+											true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+											false => match hpack_fixture::production_header_list_has_invalid_te_header_value(headers)
+												true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+												false => match hpack_fixture::production_header_list_has_invalid_content_length(headers)
+													true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_invalid", "content-length", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
+													false => match hpack_fixture::production_header_list_has_mismatched_content_length(headers)
+														true => ResponseHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "content_length_mismatch", "content-length", hpack_fixture::production_header_list_decoded_names(headers), "response-headers", completed_header_block))
 														false => ResponseHeaderListOk
 													end
 												end
@@ -1505,7 +1510,7 @@ fn validate_completed_response_header_list(offset: Int, kind: Int, stream_id: In
 	end
 end
 
-fn validate_trailer_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerHeaderListDecision
+fn validate_trailer_header_list(offset: Int, kind: Int, flags: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> TrailerHeaderListDecision
 	match header_list_boundary_reached(kind, flags) and completed_is_trailer
 		false => TrailerHeaderListOk
 		true => match stream_is_response_for_trailers(stream_id, receive_flow_control)
@@ -1515,17 +1520,17 @@ fn validate_trailer_header_list(offset: Int, kind: Int, flags: Int, stream_id: I
 	end
 end
 
-fn validate_completed_request_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
-	match hpack_fixture::header_list_has_pseudo_header(headers)
-		true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::header_list_first_pseudo_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-		false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-			true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-			false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-				true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-				false => match hpack_fixture::header_list_has_connection_specific_header(headers)
-					true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers), completed_header_block))
-					false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-						true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), completed_header_block))
+fn validate_completed_request_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
+	match hpack_fixture::production_header_list_has_pseudo_header(headers)
+		true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::production_header_list_first_pseudo_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+		false => match hpack_fixture::production_header_list_has_uppercase_ordinary_header(headers)
+			true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+			false => match hpack_fixture::production_header_list_has_invalid_token_ordinary_header(headers)
+				true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+				false => match hpack_fixture::production_header_list_has_connection_specific_header(headers)
+					true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::production_header_list_connection_specific_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
+					false => match hpack_fixture::production_header_list_has_invalid_te_header_value(headers)
+						true => TrailerHeaderListFailed(InvalidRequestHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::production_header_list_decoded_names(headers), completed_header_block))
 						false => TrailerHeaderListOk
 					end
 				end
@@ -1534,17 +1539,17 @@ fn validate_completed_request_trailer_header_list(offset: Int, kind: Int, stream
 	end
 end
 
-fn validate_completed_response_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
-	match hpack_fixture::header_list_has_pseudo_header(headers)
-		true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::header_list_first_pseudo_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
-		false => match hpack_fixture::header_list_has_uppercase_ordinary_header(headers)
-			true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
-			false => match hpack_fixture::header_list_has_invalid_token_ordinary_header(headers)
-				true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::header_list_invalid_ordinary_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
-				false => match hpack_fixture::header_list_has_connection_specific_header(headers)
-					true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::header_list_connection_specific_header_name(headers), hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
-					false => match hpack_fixture::header_list_has_invalid_te_header_value(headers)
-						true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::header_list_decoded_names(headers), "response-trailers", completed_header_block))
+fn validate_completed_response_trailer_header_list(offset: Int, kind: Int, stream_id: Int, headers: HpackProductionHeaderList, completed_header_block: ByteChunk) -> TrailerHeaderListDecision
+	match hpack_fixture::production_header_list_has_pseudo_header(headers)
+		true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "trailer_pseudo_header", hpack_fixture::production_header_list_first_pseudo_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-trailers", completed_header_block))
+		false => match hpack_fixture::production_header_list_has_uppercase_ordinary_header(headers)
+			true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_not_lowercase", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-trailers", completed_header_block))
+			false => match hpack_fixture::production_header_list_has_invalid_token_ordinary_header(headers)
+				true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "ordinary_header_name_invalid_token", hpack_fixture::production_header_list_invalid_ordinary_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-trailers", completed_header_block))
+				false => match hpack_fixture::production_header_list_has_connection_specific_header(headers)
+					true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "connection_specific_header", hpack_fixture::production_header_list_connection_specific_header_name(headers), hpack_fixture::production_header_list_decoded_names(headers), "response-trailers", completed_header_block))
+					false => match hpack_fixture::production_header_list_has_invalid_te_header_value(headers)
+						true => TrailerHeaderListFailed(InvalidResponseHeaderList(offset, kind, stream_id, "te_header_value_not_trailers", "te", hpack_fixture::production_header_list_decoded_names(headers), "response-trailers", completed_header_block))
 						false => TrailerHeaderListOk
 					end
 				end
@@ -1552,7 +1557,6 @@ fn validate_completed_response_trailer_header_list(offset: Int, kind: Int, strea
 		end
 	end
 end
-
 fn frame_value(pending: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Frame, String>
 	let payload_chunk: ByteChunk = frame_payload_chunk(pending, length)?
 	let payload: ByteView = data_content_view(payload_chunk, length, kind, flags)?
@@ -4788,7 +4792,7 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 	end
 end
 
-fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
+fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, completed_end_stream: Bool, promised_stream_id: Int, accepted_content_length: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
 	match kind
 		1 => open_receive_stream(pending, offset, length, flags, stream_id, completed_end_stream, accepted_content_length, headers, completed_is_trailer, shutdown_state, receive_flow_control, peer_stream_admission)
 		0 => consume_data_receive_window(offset, stream_id, length, data_application_length(frame_payload_chunk(pending, length)?, length, flags)?, data_end_stream_set(flags), frame_payload_chunk(pending, length)?, receive_flow_control)
@@ -4817,7 +4821,7 @@ fn reserve_push_promise_stream(offset: Int, stream_id: Int, promised_stream_id: 
 	end
 end
 
-fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
+fn open_receive_stream(pending: ByteChunk, offset: Int, length: Int, flags: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<ReceiveFlowControlDecision, String>
 	let headers_priority: StreamPriorityState = headers_priority_from_frame(pending, length, flags)?
 	let preview_chunk: ByteChunk = byte_view_to_chunk(frame_header_preview(length, 1, flags, stream_id)?)
 	let header_priority_state: StreamPriorityState = stream_priority_with_header_side(headers, completed_is_trailer, headers_priority)
@@ -4957,10 +4961,10 @@ fn stream_priority_with_accepted_content_length(priority: StreamPriorityState, a
 	end
 end
 
-fn stream_priority_with_header_side(headers: HpackHeaderList, completed_is_trailer: Bool, priority: StreamPriorityState) -> StreamPriorityState
+fn stream_priority_with_header_side(headers: HpackProductionHeaderList, completed_is_trailer: Bool, priority: StreamPriorityState) -> StreamPriorityState
 	match completed_is_trailer
 		true => priority
-		false => match hpack_fixture::header_list_is_response(headers)
+		false => match hpack_fixture::production_header_list_is_response(headers)
 			true => ResponseHeaderStream(priority)
 			false => priority
 		end
@@ -5027,7 +5031,7 @@ fn validate_content_length_body(offset: Int, frame_kind: Int, stream_id: Int, ex
 	end
 end
 
-fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match accepted_content_length >= 0
 		true => complete_continuation_receive_stream_with_content_length(offset, stream_id, end_stream, accepted_content_length, headers, completed_is_trailer, receive_flow_control)
 		false => match end_stream
@@ -5037,7 +5041,7 @@ fn complete_continuation_receive_stream(offset: Int, stream_id: Int, end_stream:
 	end
 end
 
-fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_id: Int, end_stream: Bool, accepted_content_length: Int, headers: HpackProductionHeaderList, completed_is_trailer: Bool, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	let header_priority_state: StreamPriorityState = stream_priority_with_header_side(headers, completed_is_trailer, NoStreamPriority)
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window, priority)) => match stream_id == open_stream_id
@@ -5058,7 +5062,6 @@ fn complete_continuation_receive_stream_with_content_length(offset: Int, stream_
 		_ => Ok(close_continuation_receive_stream(offset, stream_id, receive_flow_control))
 	end
 end
-
 fn close_continuation_receive_stream(offset: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 9, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
@@ -9926,9 +9929,15 @@ end
 
 fn require_completed_header_list_decode(step: Http2Step, previous_state: Http2DecodeState, expected_name: String, expected_value: String, expected_wire_size: Int) -> Result<(), String>
 	match decode_completed_header_list(step_offset(step), step_kind_value(step), step_flags(step), step_stream_id(step), step_completed_header_block(step), state_hpack_fixture_state(previous_state))
-		HeaderListDecodeOk(decoded_header_list_size, _, headers) => match decoded_header_list_size == expected_wire_size and hpack_fixture::header_list_first_name(headers) == expected_name and hpack_fixture::header_list_first_value(headers) == expected_value
-			true => Ok(())
-			false => Err("unexpected HTTP/2 completed header-list decode")
+		HeaderListDecodeOk(decoded_header_list_size, _, headers) => match hpack_fixture::production_header_list_name_at(headers, 0)
+			Some(name) => match hpack_fixture::production_header_list_value_at(headers, 0)
+				Some(value) => match decoded_header_list_size == expected_wire_size and name == expected_name and value == expected_value
+					true => Ok(())
+					false => Err("unexpected HTTP/2 completed header-list decode")
+				end
+				None => Err("missing HTTP/2 completed header-list value")
+			end
+			None => Err("missing HTTP/2 completed header-list name")
 		end
 		HeaderListDecodeFailed(_) => Err("expected HTTP/2 completed header-list decode")
 	end
@@ -10173,6 +10182,45 @@ fn require_request_header_failure_fact(label: String, step: Http2Step, expected_
 				false => Err(label)
 			end
 			_ => Err(label)
+		end
+	end
+end
+
+fn require_response_header_failure_fact(label: String, step: Http2Step, expected_fact: String) -> Result<(), String>
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, _) => Err(label)
+		Waiting(_) => Err(label)
+		Failed(_, failure) => match failure
+			InvalidResponseHeaderList(_, _, _, failed_header_fact, _, _, _, _) => match failed_header_fact == expected_fact
+				true => Ok(())
+				false => Err(label)
+			end
+			_ => Err(label)
+		end
+	end
+end
+
+fn require_hpack_states_equal(label: String, left: HpackFixtureState, right: HpackFixtureState) -> Result<(), String>
+	match hpack_fixture::state_table_size(left) == hpack_fixture::state_table_size(right) and hpack_fixture::state_decode_count(left) == hpack_fixture::state_decode_count(right) and hpack_fixture::state_dynamic_table_entry_count(left) == hpack_fixture::state_dynamic_table_entry_count(right)
+		false => Err(label)
+		true => match hpack_fixture::state_dynamic_header_name_at(left, 0)
+			Some(left_name) => match hpack_fixture::state_dynamic_header_name_at(right, 0)
+				Some(right_name) => match hpack_fixture::state_dynamic_header_value_at(left, 0)
+					Some(left_value) => match hpack_fixture::state_dynamic_header_value_at(right, 0)
+						Some(right_value) => match left_name == right_name and left_value == right_value
+							true => Ok(())
+							false => Err(label)
+						end
+						None => Err(label)
+					end
+					None => Err(label)
+				end
+				None => Err(label)
+			end
+			None => match hpack_fixture::state_dynamic_header_name_at(right, 0)
+				None => Ok(())
+				Some(_) => Err(label)
+			end
 		end
 	end
 end
@@ -12094,6 +12142,122 @@ fn check_production_outbound_header_fields() -> Result<(), String>
 	check_production_push_promise_frames(initial)
 end
 
+fn require_production_inbound_field(headers: HpackProductionHeaderList, index: Int, expected_name: String, expected_value: String) -> Result<(), String>
+	match hpack_fixture::production_header_list_name_at(headers, index)
+		Some(name) => match hpack_fixture::production_header_list_value_at(headers, index)
+			Some(value) => match name == expected_name and value == expected_value
+				true => Ok(())
+				false => Err("unexpected production inbound HPACK field")
+			end
+			None => Err("missing production inbound HPACK field value")
+		end
+		None => Err("missing production inbound HPACK field")
+	end
+end
+
+fn require_production_inbound_transition(result: Result<HpackProductionDecodeTransition, HpackFixtureFailure>) -> Result<HpackProductionDecodeTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected production inbound HPACK decode")
+	end
+end
+
+fn check_production_inbound_header_fields() -> Result<(), String>
+	let initial: HpackFixtureState = hpack_fixture::initial_state()
+	let mixed_block: ByteChunk = byte_chunk_from_hex("8287844001780161be")?
+	let mixed: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(mixed_block, initial, 0))?
+	let mixed_headers: HpackProductionHeaderList = hpack_fixture::production_transition_headers(mixed)
+	let ignored_shape: () = match hpack_fixture::production_header_list_count(mixed_headers) == 5 and hpack_fixture::production_header_list_wire_size(mixed_headers) == 9
+		false => Err("unexpected production inbound HPACK header-list shape")?
+		true => ()
+	end
+	let ignored_method: () = require_production_inbound_field(mixed_headers, 0, ":method", "GET")?
+	let ignored_literal: () = require_production_inbound_field(mixed_headers, 3, "x", "a")?
+	let ignored_dynamic: () = require_production_inbound_field(mixed_headers, 4, "x", "a")?
+	let mixed_state: HpackFixtureState = hpack_fixture::production_transition_state(mixed)
+	let ignored_state: () = match hpack_fixture::state_dynamic_table_entry_count(mixed_state) == 1 and hpack_fixture::state_decode_count(mixed_state) == 5
+		false => Err("unexpected production inbound HPACK carried state")?
+		true => ()
+	end
+	let resized: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f218287844001780161be")?, initial, 0))?
+	let ignored_resized: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(resized)) == 64 and hpack_fixture::production_header_list_wire_size(hpack_fixture::production_transition_headers(resized)) == 11
+		true => ()
+		false => Err("unexpected production inbound HPACK leading table-size update")?
+	end
+	let reused: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("be")?, mixed_state, 9))?
+	let ignored_reused: () = require_production_inbound_field(hpack_fixture::production_transition_headers(reused), 0, "x", "a")?
+	let evicted: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f01")?, mixed_state, 10))?
+	let ignored_evicted: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(evicted)) == 32 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(evicted)) == 0
+		true => ()
+		false => Err("production inbound HPACK table-size update did not evict by byte size")?
+	end
+	let failed_block: ByteChunk = byte_chunk_from_hex("4001780161bf")?
+	match hpack_fixture::decode_production_header_block(failed_block, initial, 0)
+		Ok(_) => Err("expected late production inbound HPACK failure")
+		Err(_) => match hpack_fixture::decode_production_header_block(byte_chunk_from_hex("82")?, initial, 0)
+			Ok(retry) => match hpack_fixture::state_decode_count(hpack_fixture::production_transition_state(retry)) == 1 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(retry)) == 0
+				true => Ok(())
+				false => Err("production inbound HPACK failure committed state")
+			end
+			Err(_) => Err("production inbound HPACK input state was not reusable")
+		end
+	end
+end
+
+fn check_production_inbound_http2_routes() -> Result<(), String>
+	let request_block: ByteChunk = byte_chunk_from_hex("8287844001780161be")?
+	let ignored_request: () = match decode_completed_header_list(0, 1, 4, 1, request_block, hpack_fixture::initial_state())
+		HeaderListDecodeOk(size, state, headers) => match size == 9 and hpack_fixture::production_header_list_is_request(headers) and hpack_fixture::state_dynamic_table_entry_count(state) == 1
+			true => ()
+			false => Err("unexpected production inbound request HEADERS decode")?
+		end
+		HeaderListDecodeFailed(_) => Err("expected production inbound request HEADERS decode")?
+	end
+	let continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000018287844001")?), frame_state())?
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004090400000001780161be")?), step_state(continuation_start))?
+	let ignored_continuation_frame: () = match continuation_done
+		FrameDecoded(_, _, _, _, _, _, _, _) => ()
+		Waiting(_) => Err("production inbound CONTINUATION remained incomplete")?
+		Failed(_, failure) => Err(failure_id(failure))?
+	end
+	let ignored_continuation: () = match byte_count_to_int(byte_chunk_count(step_completed_header_block(continuation_done))) == 9 and hpack_fixture::state_dynamic_table_entry_count(state_hpack_fixture_state(step_state(continuation_done))) == 1
+		true => ()
+		false => Err("unexpected production inbound CONTINUATION assembly")?
+	end
+	let response_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101000000000188")?), frame_state())?
+	let response_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010904000000019f")?), step_state(response_continuation_start))?
+	let ignored_response_continuation: () = match response_continuation_done
+		FrameDecoded(_, _, _, _, _, _, _, _) => ()
+		Waiting(_) => Err("production response CONTINUATION remained incomplete")?
+		Failed(_, failure) => Err(failure_id(failure))?
+	end
+	let request_uppercase: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000018287840001580161")?), frame_state())?
+	let ignored_request_uppercase: () = require_request_header_failure_fact("production later request uppercase field was hidden", request_uppercase, "ordinary_header_name_not_lowercase")?
+	let response_request_pseudo_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001888200")?), frame_state())?
+	let response_request_pseudo: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000101780161")?), step_state(response_request_pseudo_start))?
+	let ignored_response_request_pseudo: () = require_response_header_failure_fact("production later response request pseudo-header was hidden", response_request_pseudo, "request_only_pseudo_header")?
+	let trailer_initial: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001828784")?), frame_state())?
+	let trailer_late_pseudo: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010500000001000178016182")?), step_state(trailer_initial))?
+	let ignored_trailer_late_pseudo: () = require_request_header_failure_fact("production later trailer pseudo-header was hidden", trailer_late_pseudo, "trailer_pseudo_header")?
+	let accepted_stateful: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000090104000000018287844001780161be")?), frame_state())?
+	let reused_stateful: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004010400000003828784be")?), step_state(accepted_stateful))?
+	let ignored_reused_stateful: () = match reused_stateful
+		FrameDecoded(_, _, _, _, _, _, _, _) => match hpack_fixture::state_dynamic_table_entry_count(state_hpack_fixture_state(step_state(reused_stateful))) == 1
+			true => ()
+			false => Err("production HTTP/2 state reuse lost its dynamic entry")?
+		end
+		Waiting(_) => Err("production HTTP/2 state reuse remained incomplete")?
+		Failed(_, failure) => Err(failure_id(failure))?
+	end
+	let before_failed_state: Http2DecodeState = step_state(reused_stateful)
+	let failed_stateful: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d01040000000582878440017801620001580161")?), before_failed_state)?
+	let ignored_failed_fact: () = require_request_header_failure_fact("production late field failure was hidden", failed_stateful, "ordinary_header_name_not_lowercase")?
+	match failed_stateful
+		Failed(failed_state, _) => require_hpack_states_equal("production late failure committed HPACK state", state_hpack_fixture_state(failed_state), state_hpack_fixture_state(before_failed_state))
+		_ => Err("expected production late HTTP/2 field failure")
+	end
+end
+
 fn print_outbound_headers_dynamic_name_huffman_cases(outbound_dynamic_encode_state: HpackFixtureState, outbound_headers_hpack_stateful_dynamic: OutboundHeadersDecision) -> Result<(), String> effects [stdio]
 	let without_encode: Result<HpackEncodeTransition, HpackFixtureFailure> = hpack_fixture::encode_header_list_with_state(hpack_fixture::outbound_literal_dynamic_name_path_test_huffman_headers(), outbound_dynamic_encode_state, 0)
 	let without_state: HpackFixtureState = print_outbound_hpack_encode_transition("outbound-headers-hpack-dynamic-name-huffman-without-indexing-path-test", without_encode, "0f2f8349509f")?
@@ -13770,6 +13934,8 @@ fn verify_flow_control_domain_cases() -> Result<(), String>
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
+	let verified_production_inbound_header_fields: () = check_production_inbound_header_fields()?
+	let verified_production_inbound_http2_routes: () = check_production_inbound_http2_routes()?
 	let ignored_extended_connect_negotiation_cases: () = require_extended_connect_negotiation_cases()?
 	let verified_flow_control_domains: () = verify_flow_control_domain_cases()?
 	let verified_outbound_multi_stream_flow_control: () = verify_outbound_multi_stream_flow_control()?
