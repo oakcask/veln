@@ -901,7 +901,8 @@ under
 [HTTP/2 HPACK Huffman Decode Boundary](../reference/implemented-proposals/http2-hpack-huffman-decode-boundary.md),
 and
 [HTTP/2 HPACK Huffman Encode Boundary](../reference/implemented-proposals/http2-hpack-huffman-encode-boundary.md):
-HPACK behavior beyond the checked supported-string boundary, source-visible
+HPACK behavior beyond the legacy focused string-fixture boundaries and the
+implemented production octet-value decoder, source-visible
 static-name literals outside the completed decode and outbound helper slices,
 outbound table-size behavior beyond the checked fixture encoder update,
 zero-capacity insertion, and reduced-capacity insertion boundaries, and
@@ -1214,14 +1215,23 @@ through the existing CONTINUATION framing paths. Encoding failures expose no
 partial frame output or committed state.
 Its completed automatic literal-string selection is archived under
 [HTTP/2 Automatic Outbound HPACK Huffman Selection](../reference/implemented-proposals/http2-automatic-outbound-hpack-huffman-selection.md).
+The completed production inbound ordered header-list decoder is archived under
+[HTTP/2 Production Inbound HPACK Header-List Decoding](../reference/implemented-proposals/http2-production-inbound-hpack-header-list-decoding.md).
+It replaces the fixed two-header decode result with a recursive ordinary value,
+carries byte-accounted state across finite blocks, routes production request
+and response HEADERS plus final CONTINUATION assembly, and exposes no partial
+list or next state after a late-field failure.
+Its completed production inbound octet-value follow-up is archived under
+[HTTP/2 Production Inbound HPACK Octet Values](../reference/implemented-proposals/http2-production-inbound-hpack-octet-values.md).
+
 The remaining scope below is still planned work for the full protocol core and
 remaining HPACK behavior beyond the source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
 Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value,
 outbound dynamic-name Huffman-value, outbound Huffman literal-name, and
 production outbound ordered-list representation selection, automatic literal
-string selection, and dynamic-table
-accounting core slices. Another
+string selection, the implemented production inbound ordered-list decoder
+with octet values, and dynamic-table accounting core slices. Another
 same-shaped list-width extension is not a follow-up target.
 
 ## Completion Criteria

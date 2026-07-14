@@ -1,6 +1,7 @@
 pub type HpackDynamicEntry
 	NoDynamicEntry
 	DynamicEntry(name: String, value: String, older: HpackDynamicEntry)
+	OctetDynamicEntry(name: String, value: ByteChunk, older: HpackDynamicEntry)
 end
 
 pub type HpackFixtureState
@@ -9,6 +10,7 @@ end
 
 pub type HpackHeader
 	HpackHeader(name: String, value: String)
+	HpackOctetHeader(name: String, value: ByteChunk)
 end
 
 pub type HpackHeaderList
@@ -158,6 +160,31 @@ fn evict_for_remaining_table_size(remaining_table_size: Int, dynamic_entry: Hpac
 			true => DynamicEntry(name, value, evict_for_remaining_table_size(remaining_table_size - dynamic_entry_size(name, value), older))
 			false => NoDynamicEntry
 		end
+		OctetDynamicEntry(name, value, older) => match production_dynamic_entry_size(name, value) <= remaining_table_size
+			true => OctetDynamicEntry(name, value, evict_for_remaining_table_size(remaining_table_size - production_dynamic_entry_size(name, value), older))
+			false => NoDynamicEntry
+		end
+	end
+end
+
+fn production_dynamic_entry_size(name: String, value: ByteChunk) -> Int
+	string_byte_count(name) + byte_count_to_int(byte_chunk_count(value)) + 32
+end
+
+fn production_bounded_dynamic_entry(table_size: Int, name: String, value: ByteChunk, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
+	match production_dynamic_entry_size(name, value) > table_size
+		true => NoDynamicEntry
+		false => evict_for_table_size(table_size, OctetDynamicEntry(name, value, dynamic_entry))
+	end
+end
+
+fn production_state_after_field(state: HpackFixtureState) -> HpackFixtureState
+	next_state(state)
+end
+
+fn production_state_with_dynamic_entry(state: HpackFixtureState, name: String, value: ByteChunk) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, decode_count, dynamic_entry) => HpackFixtureState(table_size, decode_count + 1, production_bounded_dynamic_entry(table_size, name, value, dynamic_entry))
 	end
 end
 
@@ -828,6 +855,10 @@ fn dynamic_entry_at(dynamic_entry: HpackDynamicEntry, table_index: Int) -> Optio
 			true => Some(HpackHeader(name, value))
 			false => dynamic_entry_at(older, table_index - 1)
 		end
+		OctetDynamicEntry(name, value, older) => match table_index == 0
+			true => Some(HpackOctetHeader(name, value))
+			false => dynamic_entry_at(older, table_index - 1)
+		end
 	end
 end
 
@@ -835,6 +866,7 @@ fn dynamic_entry_count(dynamic_entry: HpackDynamicEntry) -> Int
 	match dynamic_entry
 		NoDynamicEntry => 0
 		DynamicEntry(_, _, older) => 1 + dynamic_entry_count(older)
+		OctetDynamicEntry(_, _, older) => 1 + dynamic_entry_count(older)
 	end
 end
 
@@ -848,6 +880,7 @@ fn decoded_dynamic_indexed_header_at(table_index: Int, state: HpackFixtureState,
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
 			Some(HpackHeader(name, value)) => Ok(HpackDecodeTransition(dynamic_indexed_header(name, value), next_state(state)))
+			Some(HpackOctetHeader(name, value)) => Ok(HpackDecodeTransition(HpackHeaderList(HpackOctetHeader(name, value), HpackHeader(":fixture", "dynamic-indexed"), 1), next_state(state)))
 			None => dynamic_index_out_of_range(block, offset, table_index, dynamic_entry_count(dynamic_entry))
 		end
 	end
@@ -877,6 +910,7 @@ fn dynamic_header_name_at(table_index: Int, state: HpackFixtureState) -> Option<
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
 			Some(HpackHeader(name, _)) => Some(name)
+			Some(HpackOctetHeader(name, _)) => Some(name)
 			None => None
 		end
 	end
@@ -2236,6 +2270,7 @@ fn encode_selected_header(header: HpackHeader, headers: HpackHeaderList, state: 
 				end
 			end
 		end
+		HpackOctetHeader(_, _) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture outbound string header", "hpack_fixture", byte_chunk([])))
 	end
 end
 
@@ -2254,6 +2289,7 @@ fn encode_automatic_header(header: HpackHeader, headers: HpackHeaderList, state:
 				end
 			end
 		end
+		HpackOctetHeader(_, _) => Err(UnsupportedHeaderBlock(offset, 0, -1, "fixture outbound string header", "hpack_fixture", byte_chunk([])))
 	end
 end
 
@@ -2551,6 +2587,10 @@ fn matching_dynamic_entry_name_index(dynamic_entry: HpackDynamicEntry, name: Str
 			true => index
 			false => matching_dynamic_entry_name_index(older, name, index + 1)
 		end
+		OctetDynamicEntry(entry_name, _, older) => match entry_name == name
+			true => index
+			false => matching_dynamic_entry_name_index(older, name, index + 1)
+		end
 	end
 end
 
@@ -2561,6 +2601,7 @@ fn matching_dynamic_entry_index(dynamic_entry: HpackDynamicEntry, name: String, 
 			true => index
 			false => matching_dynamic_entry_index(older, name, value, index + 1)
 		end
+		OctetDynamicEntry(_, _, older) => matching_dynamic_entry_index(older, name, value, index + 1)
 	end
 end
 
@@ -4055,6 +4096,185 @@ fn production_header_field_end(block: ByteChunk, observed_size: Int, offset: Int
 	end
 end
 
+fn production_huffman_octets_done(decoded: ByteChunk, code: Int, length: Int, block: ByteChunk, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match hpack_huffman_padding_valid(code, length)
+		true => Ok(decoded)
+		false => match malformed_huffman_padding_string_literal(block, offset)
+			Ok(_) => Ok(decoded)
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn production_decode_huffman_octet_bit(block: ByteChunk, prefix_size: Int, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let source_byte: Int = byte_at_or_missing(block, prefix_size + bit_index / 8)
+	let bit: Int = byte_bit(source_byte, bit_index - (bit_index / 8) * 8)
+	let next_code: Int = code * 2 + bit
+	let next_length: Int = length + 1
+	match hpack_static_huffman_symbol(next_code, next_length)
+		Some(symbol) => match append_hpack_huffman_symbol(decoded, symbol, block, offset)
+			Ok(next_decoded) => production_decode_huffman_octets(block, prefix_size, bit_index + 1, total_bits, next_decoded, 0, 0, offset)
+			Err(failure) => Err(failure)
+		end
+		None => match next_length > 30
+			true => match unsupported_string_literal(block, offset)
+				Ok(_) => Ok(decoded)
+				Err(failure) => Err(failure)
+			end
+			false => production_decode_huffman_octets(block, prefix_size, bit_index + 1, total_bits, decoded, next_code, next_length, offset)
+		end
+	end
+end
+
+fn production_decode_huffman_octets(block: ByteChunk, prefix_size: Int, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match bit_index == total_bits
+		true => production_huffman_octets_done(decoded, code, length, block, offset)
+		false => production_decode_huffman_octet_bit(block, prefix_size, bit_index, total_bits, decoded, code, length, offset)
+	end
+end
+
+fn production_decode_string_octets_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	match decode_hpack_string_length_at(block, observed_size, index, offset)
+		Ok(length) => match string_length_prefix_size(length) + string_length_encoded_count(length) <= observed_size
+			false => Err(MalformedRawStringValue(offset, observed_size, byte_at_or_missing(block, index), "fixture HPACK raw string value", "hpack_fixture", block))
+			true => match string_length_huffman_marked(length)
+				true => production_decode_huffman_octets(block, string_length_prefix_size(length), 0, string_length_encoded_count(length) * 8, byte_chunk([]), 0, 0, offset)
+				false => match byte_count(string_length_prefix_size(length))
+					Ok(prefix_count) => match byte_drop(block, prefix_count)
+						Ok(value_suffix) => match byte_count(string_length_encoded_count(length))
+							Ok(value_count) => match byte_take(value_suffix, value_count)
+								Ok(value) => Ok(value)
+								Err(_) => Err(MalformedRawStringValue(offset, observed_size, byte_at_or_missing(block, index), "fixture HPACK raw string value", "hpack_fixture", block))
+							end
+							Err(_) => unsupported_byte_chunk(block, offset)
+						end
+						Err(_) => unsupported_byte_chunk(block, offset)
+					end
+					Err(_) => unsupported_byte_chunk(block, offset)
+				end
+			end
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn production_header_name(header: HpackHeader) -> String
+	match header
+		HpackHeader(name, _) => name
+		HpackOctetHeader(name, _) => name
+	end
+end
+
+fn production_header_octets(header: HpackHeader) -> Result<ByteChunk, HpackFixtureFailure>
+	match header
+		HpackHeader(_, value) => match byte_chunk_from_visible_ascii_string(value)
+			Ok(bytes) => Ok(bytes)
+			Err(_) => match unsupported_string_literal(byte_chunk([]), 0)
+				Ok(_) => Ok(byte_chunk([]))
+				Err(failure) => Err(failure)
+			end
+		end
+		HpackOctetHeader(_, value) => Ok(value)
+	end
+end
+
+fn production_literal_value_index(block: ByteChunk, observed_size: Int, first_byte: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
+	let prefix_max: Int = match first_byte >= 64
+		true => 63
+		false => 15
+	end
+	let prefix_value: Int = match first_byte >= 64
+		true => first_byte - 64
+		false => match first_byte >= 16
+			true => first_byte - 16
+			false => first_byte
+		end
+	end
+	match decode_hpack_prefixed_integer(prefix_value, prefix_max, block, observed_size, 1, offset)
+		Ok(name_index) => match integer_prefix_value(name_index) == 0
+			false => Ok(integer_prefix_size(name_index))
+			true => production_string_literal_end_at(block, observed_size, integer_prefix_size(name_index), offset)
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn production_field_octets(block: ByteChunk, observed_size: Int, header: HpackHeader, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte >= 128
+		true => production_header_octets(header)
+		false => match production_literal_value_index(block, observed_size, first_byte, offset)
+			Ok(value_index) => production_decode_string_octets_at(block, observed_size, value_index, offset)
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn production_literal_name(block: ByteChunk, observed_size: Int, first_byte: Int, state: HpackFixtureState, offset: Int) -> Result<String, HpackFixtureFailure>
+	let prefix_max: Int = match first_byte >= 64
+		true => 63
+		false => 15
+	end
+	let prefix_value: Int = match first_byte >= 64
+		true => first_byte - 64
+		false => match first_byte >= 16
+			true => first_byte - 16
+			false => first_byte
+		end
+	end
+	match decode_hpack_prefixed_integer(prefix_value, prefix_max, block, observed_size, 1, offset)
+		Ok(name_index) => match integer_prefix_value(name_index)
+			0 => match decode_hpack_raw_string_literal_prefix_at(block, observed_size, integer_prefix_size(name_index), offset)
+				Ok(name) => Ok(string_literal_value(name))
+				Err(failure) => Err(failure)
+			end
+			index => match index < 62
+				true => match static_literal_header_name(index)
+					Some(name) => Ok(name)
+					None => match unsupported(block, offset)
+						Ok(_) => Ok("")
+						Err(failure) => Err(failure)
+					end
+				end
+				false => match dynamic_header_name_at(index - 62, state)
+					Some(name) => Ok(name)
+					None => match dynamic_index_out_of_range(block, offset, index - 62, state_dynamic_entry_count(state))
+						Ok(_) => Ok("")
+						Err(failure) => Err(failure)
+					end
+				end
+			end
+		end
+		Err(failure) => Err(failure)
+	end
+end
+
+fn production_decode_field_header(block: ByteChunk, observed_size: Int, state: HpackFixtureState, offset: Int) -> Result<HpackHeader, HpackFixtureFailure>
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte >= 128
+		true => match decode_header_block(block, state, offset)
+			Ok(transition) => match transition_headers(transition)
+				HpackHeaderList(first, _, _) => Ok(first)
+			end
+			Err(failure) => Err(failure)
+		end
+		false => match production_literal_name(block, observed_size, first_byte, state, offset)
+			Ok(name) => match production_field_octets(block, observed_size, HpackOctetHeader(name, byte_chunk([])), offset)
+				Ok(value) => Ok(HpackOctetHeader(name, value))
+				Err(failure) => Err(failure)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn production_field_next_state(first_byte: Int, state: HpackFixtureState, name: String, value: ByteChunk) -> HpackFixtureState
+	match first_byte >= 64 and first_byte < 128
+		true => production_state_with_dynamic_entry(state, name, value)
+		false => production_state_after_field(state)
+	end
+end
+
 fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, allowed_table_size: Int, offset: Int, fields_seen: Bool) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	match observed_size == 0
@@ -4079,13 +4299,18 @@ fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, allowed_
 								end
 								Err(failure) => Err(failure)
 							end
-							false => match decode_header_block(field, state, offset)
-								Ok(field_transition) => match production_decode_fields(remaining, transition_state(field_transition), allowed_table_size, offset + field_size, true)
-									Ok(remaining_transition) => match remaining_transition
-										HpackProductionDecodeTransition(HpackProductionHeaderList(remaining_fields, remaining_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(HeaderField(HpackHeader(header_list_first_name(transition_headers(field_transition)), header_list_first_value(transition_headers(field_transition))), remaining_fields), field_size + remaining_size), final_state))
+							false => match production_decode_field_header(field, field_size, state, offset)
+								Ok(first_header) => match production_field_octets(field, field_size, first_header, offset)
+										Ok(value) => match production_header_name(first_header)
+											name => match production_decode_fields(remaining, production_field_next_state(byte_at_or_missing(field, 0), state, name, value), allowed_table_size, offset + field_size, true)
+												Ok(remaining_transition) => match remaining_transition
+													HpackProductionDecodeTransition(HpackProductionHeaderList(remaining_fields, remaining_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(HeaderField(HpackOctetHeader(name, value), remaining_fields), field_size + remaining_size), final_state))
+												end
+												Err(failure) => Err(failure)
+											end
+										end
+										Err(failure) => Err(failure)
 									end
-									Err(failure) => Err(failure)
-								end
 								Err(failure) => Err(failure)
 							end
 						end
@@ -4151,10 +4376,12 @@ pub fn production_header_list_name_at(headers: HpackProductionHeaderList, index:
 	match headers
 		HpackProductionHeaderList(fields, _) => match production_header_field_at(fields, index)
 			Some(HpackHeader(name, _)) => Some(name)
+			Some(HpackOctetHeader(name, _)) => Some(name)
 			None => None
 		end
 		HpackCompatibilityHeaderList(fields, _) => match production_header_field_at(fields, index)
 			Some(HpackHeader(name, _)) => Some(name)
+			Some(HpackOctetHeader(name, _)) => Some(name)
 			None => None
 		end
 	end
@@ -4164,10 +4391,39 @@ pub fn production_header_list_value_at(headers: HpackProductionHeaderList, index
 	match headers
 		HpackProductionHeaderList(fields, _) => match production_header_field_at(fields, index)
 			Some(HpackHeader(_, value)) => Some(value)
+			Some(HpackOctetHeader(_, value)) => match byte_chunk_to_visible_ascii_string(value)
+				Ok(visible) => Some(visible)
+				Err(_) => None
+			end
 			None => None
 		end
 		HpackCompatibilityHeaderList(fields, _) => match production_header_field_at(fields, index)
 			Some(HpackHeader(_, value)) => Some(value)
+			Some(HpackOctetHeader(_, value)) => match byte_chunk_to_visible_ascii_string(value)
+				Ok(visible) => Some(visible)
+				Err(_) => None
+			end
+			None => None
+		end
+	end
+end
+
+pub fn production_header_list_value_octets_at(headers: HpackProductionHeaderList, index: Int) -> Option<ByteChunk>
+	match headers
+		HpackProductionHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackOctetHeader(_, value)) => Some(value)
+			Some(HpackHeader(_, value)) => match byte_chunk_from_visible_ascii_string(value)
+				Ok(bytes) => Some(bytes)
+				Err(_) => None
+			end
+			None => None
+		end
+		HpackCompatibilityHeaderList(fields, _) => match production_header_field_at(fields, index)
+			Some(HpackOctetHeader(_, value)) => Some(value)
+			Some(HpackHeader(_, value)) => match byte_chunk_from_visible_ascii_string(value)
+				Ok(bytes) => Some(bytes)
+				Err(_) => None
+			end
 			None => None
 		end
 	end
@@ -4190,6 +4446,7 @@ fn production_fields_has_name(fields: HpackHeaderFields, expected: String) -> Bo
 	match fields
 		EmptyHeaderFields => false
 		HeaderField(HpackHeader(name, _), remaining) => name == expected or production_fields_has_name(remaining, expected)
+		HeaderField(HpackOctetHeader(name, _), remaining) => name == expected or production_fields_has_name(remaining, expected)
 	end
 end
 
@@ -4197,6 +4454,10 @@ fn production_fields_name_count(fields: HpackHeaderFields, expected: String) -> 
 	match fields
 		EmptyHeaderFields => 0
 		HeaderField(HpackHeader(name, _), remaining) => match name == expected
+			true => 1 + production_fields_name_count(remaining, expected)
+			false => production_fields_name_count(remaining, expected)
+		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match name == expected
 			true => 1 + production_fields_name_count(remaining, expected)
 			false => production_fields_name_count(remaining, expected)
 		end
@@ -4209,6 +4470,13 @@ fn production_fields_value(fields: HpackHeaderFields, expected: String) -> Optio
 		HeaderField(HpackHeader(name, value), remaining) => match name == expected
 			true => Some(value)
 			false => production_fields_value(remaining, expected)
+		end
+		HeaderField(HpackOctetHeader(name, value), remaining) => match name == expected
+			false => production_fields_value(remaining, expected)
+			true => match byte_chunk_to_visible_ascii_string(value)
+				Ok(visible) => Some(visible)
+				Err(_) => None
+			end
 		end
 	end
 end
@@ -4245,6 +4513,10 @@ fn production_fields_have_pseudo_after_regular(fields: HpackHeaderFields, regula
 			true => regular_seen or production_fields_have_pseudo_after_regular(remaining, regular_seen)
 			false => production_fields_have_pseudo_after_regular(remaining, true)
 		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => regular_seen or production_fields_have_pseudo_after_regular(remaining, regular_seen)
+			false => production_fields_have_pseudo_after_regular(remaining, true)
+		end
 	end
 end
 
@@ -4272,6 +4544,10 @@ fn production_fields_have_uppercase_ordinary(fields: HpackHeaderFields) -> Bool
 			true => production_fields_have_uppercase_ordinary(remaining)
 			false => production_name_has_uppercase(name) or production_fields_have_uppercase_ordinary(remaining)
 		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_have_uppercase_ordinary(remaining)
+			false => production_name_has_uppercase(name) or production_fields_have_uppercase_ordinary(remaining)
+		end
 	end
 end
 
@@ -4288,6 +4564,16 @@ fn production_fields_have_invalid_token_ordinary(fields: HpackHeaderFields) -> B
 				Err(_) => true
 			end
 		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_have_invalid_token_ordinary(remaining)
+			false => match byte_chunk_from_visible_ascii_string(name)
+				Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0 and ordinary_header_name_token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+					true => production_fields_have_invalid_token_ordinary(remaining)
+					false => true
+				end
+				Err(_) => true
+			end
+		end
 	end
 end
 
@@ -4295,6 +4581,7 @@ fn production_fields_have_connection_specific(fields: HpackHeaderFields) -> Bool
 	match fields
 		EmptyHeaderFields => false
 		HeaderField(HpackHeader(name, _), remaining) => ordinary_header_name_is_connection_specific(name) or production_fields_have_connection_specific(remaining)
+		HeaderField(HpackOctetHeader(name, _), remaining) => ordinary_header_name_is_connection_specific(name) or production_fields_have_connection_specific(remaining)
 	end
 end
 
@@ -4305,6 +4592,13 @@ fn production_fields_have_invalid_te(fields: HpackHeaderFields) -> Bool
 			true => true
 			false => production_fields_have_invalid_te(remaining)
 		end
+		HeaderField(HpackOctetHeader(name, value), remaining) => match name == "te"
+			false => production_fields_have_invalid_te(remaining)
+			true => match byte_chunk_to_visible_ascii_string(value)
+				Ok(visible) => visible != "trailers" or production_fields_have_invalid_te(remaining)
+				Err(_) => true
+			end
+		end
 	end
 end
 
@@ -4312,6 +4606,19 @@ fn production_fields_first_invalid_name(fields: HpackHeaderFields) -> String
 	match fields
 		EmptyHeaderFields => ""
 		HeaderField(HpackHeader(name, _), remaining) => match production_name_is_pseudo(name)
+			true => production_fields_first_invalid_name(remaining)
+			false => match production_name_has_uppercase(name)
+				true => name
+				false => match byte_chunk_from_visible_ascii_string(name)
+					Ok(bytes) => match byte_count_to_int(byte_chunk_count(bytes)) > 0 and ordinary_header_name_token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+						true => production_fields_first_invalid_name(remaining)
+						false => name
+					end
+					Err(_) => name
+				end
+			end
+		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match production_name_is_pseudo(name)
 			true => production_fields_first_invalid_name(remaining)
 			false => match production_name_has_uppercase(name)
 				true => name
@@ -4334,6 +4641,10 @@ fn production_fields_first_connection_specific(fields: HpackHeaderFields) -> Str
 			true => name
 			false => production_fields_first_connection_specific(remaining)
 		end
+		HeaderField(HpackOctetHeader(name, _), remaining) => match ordinary_header_name_is_connection_specific(name)
+			true => name
+			false => production_fields_first_connection_specific(remaining)
+		end
 	end
 end
 
@@ -4343,6 +4654,13 @@ fn production_fields_have_invalid_content_length(fields: HpackHeaderFields) -> B
 		HeaderField(HpackHeader(name, value), remaining) => match name == "content-length" and content_length_value_is_invalid(value)
 			true => true
 			false => production_fields_have_invalid_content_length(remaining)
+		end
+		HeaderField(HpackOctetHeader(name, value), remaining) => match name == "content-length"
+			false => production_fields_have_invalid_content_length(remaining)
+			true => match byte_chunk_to_visible_ascii_string(value)
+				Ok(visible) => content_length_value_is_invalid(visible) or production_fields_have_invalid_content_length(remaining)
+				Err(_) => true
+			end
 		end
 	end
 end
@@ -4355,6 +4673,16 @@ fn production_fields_have_mismatched_content_length(fields: HpackHeaderFields, a
 			true => match accepted
 				None => production_fields_have_mismatched_content_length(remaining, Some(value))
 				Some(previous) => previous != value or production_fields_have_mismatched_content_length(remaining, accepted)
+			end
+		end
+		HeaderField(HpackOctetHeader(name, value), remaining) => match name == "content-length"
+			false => production_fields_have_mismatched_content_length(remaining, accepted)
+			true => match byte_chunk_to_visible_ascii_string(value)
+				Err(_) => true
+				Ok(visible) => match accepted
+					None => production_fields_have_mismatched_content_length(remaining, Some(visible))
+					Some(previous) => previous != visible or production_fields_have_mismatched_content_length(remaining, accepted)
+				end
 			end
 		end
 	end
@@ -4372,6 +4700,21 @@ fn production_fields_accepted_content_length(fields: HpackHeaderFields, accepted
 					true => production_fields_accepted_content_length(remaining, parsed)
 					false => -1
 				end
+				end
+			end
+		end
+		HeaderField(HpackOctetHeader(name, value), remaining) => match name == "content-length"
+			false => production_fields_accepted_content_length(remaining, accepted)
+			true => match byte_chunk_to_visible_ascii_string(value)
+				Err(_) => -1
+				Ok(visible) => match content_length_accepted_value(visible)
+					parsed => match parsed < 0
+						true => -1
+						false => match accepted < 0 or accepted == parsed
+							true => production_fields_accepted_content_length(remaining, parsed)
+							false => -1
+						end
+					end
 				end
 			end
 		end
@@ -5306,7 +5649,7 @@ pub fn production_header_list_has_invalid_scheme_value(headers: HpackProductionH
 		Some(value) => value != "http" and value != "https"
 		None => match production_compatibility_header_list(headers)
 			Some(compatibility) => header_list_has_invalid_scheme_value(compatibility)
-			None => false
+			None => production_header_list_has_name(headers, ":scheme")
 		end
 	end
 end
@@ -5332,9 +5675,12 @@ pub fn production_header_list_has_empty_path_value(headers: HpackProductionHeade
 end
 
 pub fn production_header_list_has_invalid_authority_value(headers: HpackProductionHeaderList) -> Bool
-	match production_compatibility_header_list(headers)
-		Some(compatibility) => header_list_has_invalid_authority_value(compatibility)
-		None => false
+	match production_header_list_value(headers, ":authority")
+		Some(_) => match production_compatibility_header_list(headers)
+			Some(compatibility) => header_list_has_invalid_authority_value(compatibility)
+			None => false
+		end
+		None => production_header_list_has_name(headers, ":authority")
 	end
 end
 
@@ -5343,7 +5689,7 @@ pub fn production_header_list_has_invalid_status_value(headers: HpackProductionH
 		Some(value) => not response_status_value_is_valid(value)
 		None => match production_compatibility_header_list(headers)
 			Some(compatibility) => header_list_has_invalid_status_value(compatibility)
-			None => false
+			None => production_header_list_has_name(headers, ":status")
 		end
 	end
 end
@@ -5489,6 +5835,20 @@ pub fn state_dynamic_header_value_at(state: HpackFixtureState, table_index: Int)
 	match state
 		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
 			Some(HpackHeader(_, value)) => Some(value)
+			Some(HpackOctetHeader(_, _)) => None
+			None => None
+		end
+	end
+end
+
+pub fn state_dynamic_header_value_octets_at(state: HpackFixtureState, table_index: Int) -> Option<ByteChunk>
+	match state
+		HpackFixtureState(_, _, dynamic_entry) => match dynamic_entry_at(dynamic_entry, table_index)
+			Some(HpackOctetHeader(_, value)) => Some(value)
+			Some(HpackHeader(_, value)) => match byte_chunk_from_visible_ascii_string(value)
+				Ok(bytes) => Some(bytes)
+				Err(_) => None
+			end
 			None => None
 		end
 	end

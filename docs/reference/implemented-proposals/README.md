@@ -591,6 +591,8 @@ behavior.
   [http2-production-outbound-hpack-header-list-encoding.md](http2-production-outbound-hpack-header-list-encoding.md).
 - HTTP/2 production inbound HPACK header-list decoding:
   [http2-production-inbound-hpack-header-list-decoding.md](http2-production-inbound-hpack-header-list-decoding.md).
+- HTTP/2 production inbound HPACK octet values:
+  [http2-production-inbound-hpack-octet-values.md](http2-production-inbound-hpack-octet-values.md).
 - General inbound HPACK table-size update sequences:
   [http2-general-inbound-hpack-table-size-update-sequences.md](http2-general-inbound-hpack-table-size-update-sequences.md).
 - HTTP/2 automatic outbound HPACK Huffman selection:

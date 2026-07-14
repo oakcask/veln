@@ -507,7 +507,8 @@ compare it with `../specification/` before changing behavior.
   recorded under `../specification/` and
   `../reference/implemented-proposals/`. Planned work still includes
   broader protocol-core behavior and remaining HPACK behavior beyond the
-  checked supported-string boundaries.
+  legacy focused string-fixture boundaries and the implemented production
+  octet-value decoder.
   The completed stream-identifier domain-value slice is archived under
   [HTTP/2 Stream Domain Values](../reference/implemented-proposals/http2-stream-domain-values.md).
   The completed source-visible static table decode slice is archived under
@@ -599,6 +600,11 @@ compare it with `../specification/` before changing behavior.
   Automatic raw-or-Huffman selection for its literal strings is archived
   under
   [HTTP/2 Automatic Outbound HPACK Huffman Selection](../reference/implemented-proposals/http2-automatic-outbound-hpack-huffman-selection.md).
+  The completed production inbound ordered header-list decoder is archived
+  under
+  [HTTP/2 Production Inbound HPACK Header-List Decoding](../reference/implemented-proposals/http2-production-inbound-hpack-header-list-decoding.md).
+  Its completed production inbound octet-value follow-up is archived under
+  [HTTP/2 Production Inbound HPACK Octet Values](../reference/implemented-proposals/http2-production-inbound-hpack-octet-values.md).
   The completed outbound ordinary literal-with-indexing fixture slice is
   archived under
   [HTTP/2 Outbound HPACK Ordinary Indexed Literal](../reference/implemented-proposals/http2-outbound-hpack-ordinary-indexed-literal.md).
