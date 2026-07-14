@@ -10238,9 +10238,9 @@ fn require_hpack_states_equal(label: String, left: HpackFixtureState, right: Hpa
 		false => Err(label)
 		true => match hpack_fixture::state_dynamic_header_name_at(left, 0)
 			Some(left_name) => match hpack_fixture::state_dynamic_header_name_at(right, 0)
-				Some(right_name) => match hpack_fixture::state_dynamic_header_value_at(left, 0)
-					Some(left_value) => match hpack_fixture::state_dynamic_header_value_at(right, 0)
-						Some(right_value) => match left_name == right_name and left_value == right_value
+				Some(right_name) => match hpack_fixture::state_dynamic_header_value_octets_at(left, 0)
+					Some(left_value) => match hpack_fixture::state_dynamic_header_value_octets_at(right, 0)
+						Some(right_value) => match left_name == right_name and byte_chunks_equal(left_value, right_value)?
 							true => Ok(())
 							false => Err(label)
 						end
@@ -10642,8 +10642,8 @@ fn print_hpack_stateful_replacement_cases(after_path: Http2Step) -> Result<(), S
 	let ignored_dynamic_name_older: () = emit_header_block("http2-hpack-stateful-dynamic-name-older-path-target", dynamic_name_older, "bf")?
 	print_hpack_transition_from_state("hpack-stateful-dynamic-name-older-path-target", dynamic_name_older, dynamic_name_state)
 	let malformed_dynamic_name: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000020104000000097e00")?), base_state)?
-	print_failure("hpack-stateful-literal-indexed-dynamic-name-malformed", malformed_dynamic_name)
-	let ignored_malformed_dynamic_name: () = require_hpack_fixture_failure(malformed_dynamic_name)?
+	print_step("hpack-stateful-literal-indexed-dynamic-name-empty", malformed_dynamic_name)
+	let ignored_malformed_dynamic_name: () = require_frame_decoded("expected empty dynamic-name value to decode", malformed_dynamic_name)?
 	let literal_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050104000000034203505554")?), base_state)?
 	print_step("hpack-stateful-literal-indexed-method-put", literal_method)
 	let ignored_literal_method: () = emit_header_block("http2-hpack-stateful-literal-indexed-method-put", literal_method, "4203505554")?
@@ -12188,6 +12188,29 @@ fn require_production_inbound_field(headers: HpackProductionHeaderList, index: I
 	end
 end
 
+fn require_production_inbound_octets(headers: HpackProductionHeaderList, index: Int, expected_name: String, expected_value: String) -> Result<(), String>
+	match hpack_fixture::production_header_list_name_at(headers, index)
+		Some(name) => match hpack_fixture::production_header_list_value_octets_at(headers, index)
+			Some(value) => match name == expected_name and byte_chunks_equal(value, byte_chunk_from_hex(expected_value)?)?
+				true => Ok(())
+				false => Err("unexpected production inbound HPACK octets")
+			end
+			None => Err("missing production inbound HPACK octets")
+		end
+		None => Err("missing production inbound HPACK octet field")
+	end
+end
+
+fn require_production_state_octets(state: HpackFixtureState, index: Int, expected_value: String) -> Result<(), String>
+	match hpack_fixture::state_dynamic_header_value_octets_at(state, index)
+		Some(value) => match true and byte_chunks_equal(value, byte_chunk_from_hex(expected_value)?)?
+			true => Ok(())
+			false => Err("production inbound HPACK state changed value octets")
+		end
+		None => Err("production inbound HPACK state lost value octets")
+	end
+end
+
 fn require_production_inbound_transition(result: Result<HpackProductionDecodeTransition, HpackFixtureFailure>) -> Result<HpackProductionDecodeTransition, String>
 	match result
 		Ok(transition) => Ok(transition)
@@ -12261,6 +12284,30 @@ fn check_production_inbound_header_fields() -> Result<(), String>
 	let ignored_misplaced_update: () = require_production_inbound_failure(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f013f02823e")?, initial, 160, 50), "fixture HPACK table-size update at header block start", 55, "3e")?
 	let reused: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("be")?, mixed_state, 160, 9))?
 	let ignored_reused: () = require_production_inbound_field(hpack_fixture::production_transition_headers(reused), 0, "x", "a")?
+	let raw_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("0001780200ff")?, initial, 160, 0))?
+	let ignored_raw_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(raw_octets), 0, "x", "00ff")?
+	let never_indexed_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("1001780200ff")?, initial, 160, 0))?
+	let ignored_never_indexed_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(never_indexed_octets), 0, "x", "00ff")?
+	let static_name_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("0f270200ff")?, initial, 160, 0))?
+	let ignored_static_name_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(static_name_octets), 0, "server", "00ff")?
+	let huffman_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("40017885ffc7ffffdd")?, initial, 160, 0))?
+	let huffman_octet_state: HpackFixtureState = hpack_fixture::production_transition_state(huffman_octets)
+	let ignored_huffman_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(huffman_octets), 0, "x", "00ff")?
+	let ignored_huffman_state_octets: () = require_production_state_octets(huffman_octet_state, 0, "00ff")?
+	let dynamic_name_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("0f2f0200ff")?, huffman_octet_state, 160, 0))?
+	let ignored_dynamic_name_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(dynamic_name_octets), 0, "x", "00ff")?
+	let reused_huffman_octets: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("be")?, huffman_octet_state, 160, 0))?
+	let ignored_reused_huffman_octets: () = require_production_inbound_octets(hpack_fixture::production_transition_headers(reused_huffman_octets), 0, "x", "00ff")?
+	let exact_octet_accounting: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f044001780200ff")?, initial, 160, 0))?
+	let ignored_exact_octet_accounting: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(exact_octet_accounting)) == 35 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(exact_octet_accounting)) == 1
+		true => require_production_state_octets(hpack_fixture::production_transition_state(exact_octet_accounting), 0, "00ff")?
+		false => Err("production inbound HPACK did not account for exact octet entry size")?
+	end
+	let over_octet_accounting: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f034001780200ff")?, initial, 160, 0))?
+	let ignored_over_octet_accounting: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(over_octet_accounting)) == 34 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(over_octet_accounting)) == 0
+		true => ()
+		false => Err("production inbound HPACK retained an oversized octet entry")?
+	end
 	let evicted: HpackProductionDecodeTransition = require_production_inbound_transition(hpack_fixture::decode_production_header_block(byte_chunk_from_hex("3f01")?, mixed_state, 160, 10))?
 	let ignored_evicted: () = match hpack_fixture::state_table_size(hpack_fixture::production_transition_state(evicted)) == 32 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(evicted)) == 0
 		true => ()
@@ -12275,6 +12322,17 @@ fn check_production_inbound_header_fields() -> Result<(), String>
 				false => Err("production inbound HPACK failure committed state")
 			end
 			Err(_) => Err("production inbound HPACK input state was not reusable")
+		end
+	end
+	let late_malformed_octet_block: ByteChunk = byte_chunk_from_hex("4001780200ff00017902aa")?
+	match hpack_fixture::decode_production_header_block(late_malformed_octet_block, initial, 160, 0)
+		Ok(_) => Err("expected late production inbound HPACK octet-value failure")
+		Err(_) => match hpack_fixture::decode_production_header_block(byte_chunk_from_hex("82")?, initial, 160, 0)
+			Ok(retry) => match hpack_fixture::state_decode_count(hpack_fixture::production_transition_state(retry)) == 1 and hpack_fixture::state_dynamic_table_entry_count(hpack_fixture::production_transition_state(retry)) == 0
+				true => Ok(())
+				false => Err("production inbound HPACK octet-value failure committed state")
+			end
+			Err(_) => Err("production inbound HPACK octet-value failure changed reusable input state")
 		end
 	end
 end
@@ -12297,6 +12355,46 @@ fn check_production_inbound_http2_routes() -> Result<(), String>
 			false => Err("unexpected production inbound request HEADERS decode")?
 		end
 		HeaderListDecodeFailed(_) => Err("expected production inbound request HEADERS decode")?
+	end
+	let raw_octet_request: ByteChunk = byte_chunk_from_hex("8287840001780200ff")?
+	let ignored_raw_octet_headers: () = match decode_completed_header_list(0, 1, 4, 1, raw_octet_request, hpack_fixture::initial_state())
+		HeaderListDecodeOk(_, _, headers) => require_production_inbound_octets(headers, 3, "x", "00ff")?
+		HeaderListDecodeFailed(_) => Err("production raw octets did not route through HEADERS")?
+	end
+	let huffman_octet_request: ByteChunk = byte_chunk_from_hex("82878440017885ffc7ffffdd")?
+	let huffman_octet_request_state: HpackFixtureState = match decode_completed_header_list(0, 1, 4, 1, huffman_octet_request, hpack_fixture::initial_state())
+		HeaderListDecodeOk(_, next_state, headers) => match require_production_inbound_octets(headers, 3, "x", "00ff")
+			Ok(_) => next_state
+			Err(message) => Err(message)?
+		end
+		HeaderListDecodeFailed(_) => Err("production Huffman octets did not route through HEADERS")?
+	end
+	let ignored_huffman_octet_reuse: () = match decode_completed_header_list(0, 1, 4, 3, byte_chunk_from_hex("828784be")?, huffman_octet_request_state)
+		HeaderListDecodeOk(_, _, headers) => require_production_inbound_octets(headers, 3, "x", "00ff")?
+		HeaderListDecodeFailed(_) => Err("production Huffman octets did not survive dynamic-indexed reuse")?
+	end
+	let octet_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000018287840001")?), frame_state())?
+	let octet_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004090400000001780200ff")?), step_state(octet_continuation_start))?
+	let ignored_octet_continuation: () = match decode_completed_header_list(9, 9, 4, 1, step_completed_header_block(octet_continuation_done), hpack_fixture::initial_state())
+		HeaderListDecodeOk(_, _, headers) => require_production_inbound_octets(headers, 3, "x", "00ff")?
+		HeaderListDecodeFailed(_) => Err("production raw octets did not route through final CONTINUATION")?
+	end
+	let invalid_huffman_after_octet_insert: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000e0104000000018287844001780200ff00017981ff")?), frame_state())?
+	let ignored_invalid_huffman_atomicity: () = match invalid_huffman_after_octet_insert
+		Failed(failed_state, _) => require_hpack_states_equal("production invalid Huffman value committed an earlier octet insertion", state_hpack_fixture_state(failed_state), hpack_fixture::initial_state())?
+		_ => Err("production invalid Huffman value was accepted")?
+	end
+	let octet_header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000e0104000000018287844001780761626364656667")?), frame_state())?
+	let ignored_octet_header_list_limit: () = require_failure_with_id("production octet header-list limit was not enforced", octet_header_list_too_large, "http2.peer_limit.header_list_size_exceeded")?
+	let ignored_octet_header_list_atomicity: () = match octet_header_list_too_large
+		Failed(failed_state, _) => require_hpack_states_equal("production octet header-list limit committed an indexed value", state_hpack_fixture_state(failed_state), hpack_fixture::initial_state())?
+		_ => Err("production octet header-list limit did not fail")?
+	end
+	let non_ascii_scheme: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000d0104000000018240073a736368656d65010084")?), frame_state())?
+	let ignored_non_ascii_scheme_fact: () = require_request_header_failure_detail("production non-ASCII scheme bypassed value validation", non_ascii_scheme, "scheme_value_not_http_or_https", ":scheme", "rfc9113_request_scheme")?
+	let ignored_non_ascii_scheme_atomicity: () = match non_ascii_scheme
+		Failed(failed_state, _) => require_hpack_states_equal("production non-ASCII scheme validation committed an indexed value", state_hpack_fixture_state(failed_state), hpack_fixture::initial_state())?
+		_ => Err("production non-ASCII scheme validation did not fail")?
 	end
 	let general_updates: ByteChunk = byte_chunk_from_hex("3f213f0d3e3f0182")?
 	let ignored_general_headers: () = require_production_update_route("production update sequence did not reach HEADERS", 1, general_updates)?

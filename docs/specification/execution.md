@@ -476,6 +476,15 @@ enough.
   boundary. The executable protocol-core case checks zero, one, two, and
   more-than-two leading updates, late-sequence failures, input-state reuse,
   and the existing mixed-field, validation, and carried-state behavior.
+  Production literal values are immutable octets rather than visible-ASCII or
+  fixture-label strings. Raw and Huffman-decoded values retain their exact
+  bytes across all literal indexing policies, static and dynamic name paths,
+  dynamic-table accounting, insertion, eviction, and indexed reuse. Header
+  names remain validated strings; request, response, and trailer rules convert
+  only `:method`, `:scheme`, `:path`, `:authority`, `:status`, `te`, and
+  `content-length` to their required ASCII shapes, while ordinary values stay
+  opaque. The checked case covers non-visible raw and Huffman values through
+  standalone decode, completed HEADERS, and final CONTINUATION assembly.
 - The checked HTTP/2 receive state carries pending header-block continuation
   assembly as connection decode state. A HEADERS frame without `END_HEADERS`
   records the owning stream id, starting frame kind, starting byte offset, and
