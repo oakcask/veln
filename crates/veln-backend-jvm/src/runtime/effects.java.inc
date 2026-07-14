@@ -408,9 +408,11 @@
         }
 
         private void runClient() {
-            for (int index = 0; index < outboundStreams.size(); index += 1) {
-                java.util.List<byte[]> outboundChunks = outboundStreams.get(index);
-                try (java.net.Socket socket = new java.net.Socket()) {
+            java.util.ArrayList<java.net.Socket> sockets = new java.util.ArrayList<java.net.Socket>();
+            try {
+                for (java.util.List<byte[]> outboundChunks : outboundStreams) {
+                    java.net.Socket socket = new java.net.Socket();
+                    sockets.add(socket);
                     socket.connect(new java.net.InetSocketAddress(host, port), productionTimeoutMillis());
                     java.io.OutputStream output = socket.getOutputStream();
                     for (byte[] outbound : outboundChunks) {
@@ -418,9 +420,15 @@
                         output.flush();
                     }
                     socket.shutdownOutput();
-                    capture.record(index, readAllBytes(socket.getInputStream()));
-                } catch (java.io.IOException error) {
-                    throw new RuntimeException(error);
+                }
+                for (int index = 0; index < sockets.size(); index += 1) {
+                    capture.record(index, readAllBytes(sockets.get(index).getInputStream()));
+                }
+            } catch (java.io.IOException error) {
+                throw new RuntimeException(error);
+            } finally {
+                for (java.net.Socket socket : sockets) {
+                    closeQuietly(socket);
                 }
             }
         }
