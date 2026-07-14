@@ -463,17 +463,19 @@ enough.
   The production inbound boundary replaces the fixed two-field decode result
   with a recursive ordinary header-field value. It decodes arbitrary finite
   sequences of the supported indexed and literal representations in wire
-  order, applies up to two legal leading table-size updates before fields, and
-  carries byte-accounted insertion and eviction state into later blocks. A
-  failure in any later field returns no header list or committed next state.
-  Complete request, response, and trailer HEADERS blocks and final CONTINUATION
-  assembly carry the recursive list through the existing validation order,
-  content-length accounting, and stream-state transition. The checked
-  compatibility fixtures retain their established diagnostics. The executable
-  protocol-core case checks a five-field mixed static, literal, and dynamic
-  block, later dynamic reuse through HTTP/2 state, split request and response
-  CONTINUATION assembly, later-field request, response, and trailer rejection,
-  and exact input HPACK state retention after a late validation failure.
+  order and consumes any finite sequence of legal leading dynamic-table size
+  updates before the first field. Updates are applied in wire order, and the
+  first field observes the final accepted capacity. The checked standalone
+  transition requires the active local receive limit, and every update is
+  checked against that limit before a next state is exposed. Malformed,
+  excessive, or post-field updates return the focused existing diagnostic
+  families at the offending update's absolute HPACK byte offset with the
+  inspected suffix. Any failure returns no header list or committed next
+  state, leaving the input state reusable. Complete HEADERS and
+  `PUSH_PROMISE` blocks plus final CONTINUATION assembly share this production
+  boundary. The executable protocol-core case checks zero, one, two, and
+  more-than-two leading updates, late-sequence failures, input-state reuse,
+  and the existing mixed-field, validation, and carried-state behavior.
 - The checked HTTP/2 receive state carries pending header-block continuation
   assembly as connection decode state. A HEADERS frame without `END_HEADERS`
   records the owning stream id, starting frame kind, starting byte offset, and
