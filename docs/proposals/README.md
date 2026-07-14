@@ -425,7 +425,8 @@ compare it with `../specification/` before changing behavior.
   promised response HEADERS admission including local disable-push receive
   policy, and half-closed-by-peer outbound DATA send-intent slices,
   request-side, response-side, request-trailer, and response-trailer
-  header-list validation and final `204`/`304` no-content response lifecycle,
+  header-list validation, final `204`/`304` no-content response lifecycle, and
+  HEAD response no-content lifecycle,
   the source-visible request `:path` value rule, the source-visible request
   `:scheme` HPACK static-name literal value rule, the source-visible `te`
   header value rule, response-side production `content-length`
@@ -552,6 +553,8 @@ compare it with `../specification/` before changing behavior.
   The completed `SETTINGS_ENABLE_CONNECT_PROTOCOL` and extended CONNECT
   request-header slice is archived under
   [HTTP/2 Extended CONNECT Negotiation](../reference/implemented-proposals/http2-extended-connect-negotiation.md).
+  The completed HEAD response no-content lifecycle is archived under
+  [HTTP/2 HEAD Response No-Content Lifecycle](../reference/implemented-proposals/http2-head-response-no-content-lifecycle.md).
   The completed half-closed-by-peer outbound DATA send-intent slice is archived
   under
   [HTTP/2 Half-Closed-By-Peer Outbound DATA](../reference/implemented-proposals/http2-half-closed-by-peer-outbound-data.md).

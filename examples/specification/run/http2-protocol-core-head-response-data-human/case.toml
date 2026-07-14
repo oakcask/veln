@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.content_length_mismatch]: content-length body length mismatch at byte offset 9", "note: Frame kind 0 on stream 1 observed 1 DATA application byte(s); accepted content-length is 0 byte(s).", "note: Nearby bytes: 01 (showing 1 of 1 byte(s), complete).", "note: Active protocol state: head-response.", "note: Rule provenance: rfc9110_head_response_body."]

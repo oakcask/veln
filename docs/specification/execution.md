@@ -377,6 +377,19 @@ enough.
   empty, short, long, or non-decimal values fail with
   `status_value_invalid` through the response header-list diagnostic on
   completed HEADERS and final CONTINUATION paths.
+  On the inbound client response path, a valid `1xx` status other than `101`
+  is informational and leaves the stream waiting for final response HEADERS.
+  Multiple informational responses are accepted before one final response,
+  including final CONTINUATION completion and peer-promised streams. Status
+  `101` fails with `switching_protocols_status_forbidden`, and informational
+  HEADERS carrying `END_STREAM` fail with `informational_response_end_stream`
+  through the same focused response header-list diagnostic boundary. DATA is
+  rejected while final response HEADERS are pending; after the final response,
+  existing DATA, content-length, trailer, reset, and end-of-stream transitions
+  apply unchanged. The executable evidence is under
+  `examples/specification/run/http2-protocol-core/`; the focused human
+  diagnostic evidence is under
+  `examples/specification/run/http2-protocol-core-informational-end-stream-human/`.
   A final `204` or `304` response selects a no-content receive state on both
   completed HEADERS and final CONTINUATION paths. Direct `END_STREAM` closes
   the stream. Otherwise, DATA may terminate the stream only when its
@@ -389,6 +402,18 @@ enough.
   `examples/specification/run/http2-protocol-core/`, and focused human output
   is checked under
   `examples/specification/run/http2-protocol-core-no-content-data-human/`.
+  Accepted client-created request HEADERS retain whether the request method is
+  `HEAD`. The matching final response then uses the same zero-application-byte
+  receive rule regardless of status, including after informational responses
+  and final CONTINUATION assembly. A response `content-length` remains valid
+  metadata but does not become an expected received body length for HEAD.
+  Direct response `END_STREAM`, empty DATA, and padding-only DATA may close the
+  stream. Nonempty DATA fails before receive-window, stream, HPACK, or output
+  state changes, with `head-response` active state and
+  `rfc9110_head_response_body` provenance. The aggregate evidence is under
+  `examples/specification/run/http2-protocol-core/`; focused human output is
+  checked under
+  `examples/specification/run/http2-protocol-core-head-response-data-human/`.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked
