@@ -1223,15 +1223,17 @@ and response HEADERS plus final CONTINUATION assembly, and exposes no partial
 list or next state after a late-field failure.
 Its completed production inbound octet-value follow-up is archived under
 [HTTP/2 Production Inbound HPACK Octet Values](../reference/implemented-proposals/http2-production-inbound-hpack-octet-values.md).
+Its completed production outbound octet-value follow-up is archived under
+[HTTP/2 Production Outbound HPACK Octet Values](../reference/implemented-proposals/http2-production-outbound-hpack-octet-values.md).
 
 The remaining scope below is still planned work for the full protocol core and
 remaining HPACK behavior beyond the source-visible integer, static,
 static-name indexing, dynamic-index, raw literal-name, raw literal-name
 Huffman-value, dynamic-name literal receive, dynamic-name Huffman-value,
 outbound dynamic-name Huffman-value, outbound Huffman literal-name, and
-production outbound ordered-list representation selection, automatic literal
-string selection, the implemented production inbound ordered-list decoder
-with octet values, and dynamic-table accounting core slices. Another
+production outbound ordered-list representation selection with octet values,
+automatic literal selection, the implemented production inbound ordered-list
+decoder with octet values, and dynamic-table accounting core slices. Another
 same-shaped list-width extension is not a follow-up target.
 
 ## Completion Criteria
