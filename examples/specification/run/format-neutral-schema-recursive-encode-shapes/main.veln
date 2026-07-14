@@ -1,16 +1,34 @@
 # Format-neutral schema encode eligibility recurses through mixed containers and source ADTs.
 use stdio
+use wire
 
 type Tree
 	Leaf(value: Int)
 	Branch(children: List<Tree>)
 end
 
+type Growing<A>
+	Stop(value: A)
+	Next(value: Growing<Option<A>>)
+end
+
 schema RecursivePacket
 	payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>
 end
 
+schema GenericPacket
+	payload: Growing<Int>
+	imported_payload: wire::ImportedTree<Int>
+end
+
 fn outcome(result: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String>) -> String
+	match result
+		Ok(_) => "ok"
+		Err(message) => message
+	end
+end
+
+fn generic_outcome(result: Result<{payload: Growing<Int>, imported_payload: ImportedTree<Int>}, String>) -> String
 	match result
 		Ok(_) => "ok"
 		Err(message) => message
@@ -22,6 +40,11 @@ pub fn main() -> () effects [stdio]
 	let explicit_packet: {payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>} = {payload: None}
 	let direct: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = byte_encode_recursive_packet(direct_packet)
 	let explicit: Result<{payload: Option<List<Vec<Dict<String, Result<Tree, List<Option<Int>>>>>>>}, String> = encode RecursivePacket from explicit_packet
+	let generic_packet: {payload: Growing<Int>, imported_payload: ImportedTree<Int>} = {payload: Stop(3), imported_payload: wire::ImportedLeaf(5)}
+	let generic_direct: Result<{payload: Growing<Int>, imported_payload: ImportedTree<Int>}, String> = byte_encode_generic_packet(generic_packet)
+	let generic_explicit: Result<{payload: Growing<Int>, imported_payload: ImportedTree<Int>}, String> = encode GenericPacket from generic_packet
 	stdio::println(outcome(direct))
 	stdio::println(outcome(explicit))
+	stdio::println(generic_outcome(generic_direct))
+	stdio::println(generic_outcome(generic_explicit))
 end

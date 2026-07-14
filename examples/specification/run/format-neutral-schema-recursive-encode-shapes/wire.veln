@@ -1,0 +1,4 @@
+pub type ImportedTree<A>
+	pub ImportedLeaf(value: A)
+	pub ImportedBranch(children: List<ImportedTree<Option<A>>>)
+end

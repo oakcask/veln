@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "wire.veln"]
 exit = 0
 
 [requires]
@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "ok\nok\n"
+equals = "ok\nok\nok\nok\n"
 
 [[json_assert]]
 path = "error"

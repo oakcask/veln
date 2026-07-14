@@ -68,6 +68,10 @@ Format-neutral generated encode helpers are exposed only for schemas without a
 public imported source ADTs referenced through written `use` paths. Every
 recursively visited child or constructor payload must also be eligible. There
 is no separate container-depth limit.
+Decode and encode share that visible-shape vocabulary but preserve different
+recursive generic stopping rules. Decode may accept a repeated source ADT
+descriptor when its instantiated type arguments change. Encode still checks
+the newly introduced type arguments and rejects unsupported leaves found there.
 When present, the single `format binary` clause must appear before schema
 fields.
 
