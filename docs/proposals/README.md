@@ -570,6 +570,9 @@ compare it with `../specification/` before changing behavior.
   [HTTP/2 Outbound DATA GOAWAY Boundary](../reference/implemented-proposals/http2-outbound-data-goaway-boundary.md).
   The completed GOAWAY receive lifecycle slice is archived under
   [HTTP/2 GOAWAY Receive Lifecycle](../reference/implemented-proposals/http2-goaway-receive-lifecycle.md).
+  The completed GOAWAY opaque debug-data receive and send slice is archived
+  under
+  [HTTP/2 GOAWAY Opaque Debug Data](../reference/implemented-proposals/http2-goaway-opaque-debug-data.md).
   The completed GOAWAY drain completion slice is archived under
   [HTTP/2 GOAWAY Drain Completion](../reference/implemented-proposals/http2-goaway-drain-completion.md).
   The completed accepted `content-length` body accounting slices are archived
