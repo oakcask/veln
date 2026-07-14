@@ -939,7 +939,7 @@ fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, 
 	match settings_decision
 		SettingsValueOk => match payload_decision
 			ProtocolPayloadOk => match priority_decision
-				PriorityDependencyOk => match validate_push_promise_padding(next_offset, payload, length, kind, flags, stream_id)?
+				PriorityDependencyOk => match validate_header_block_padding(next_offset, payload, length, kind, flags, stream_id)?
 					PaddingOk => match validate_continuation(continuation, next_offset, continuation_payload_chunk(payload, length, kind, flags)?, kind, flags, stream_id, frame_promised_stream_id(payload, kind, flags)?, peer_settings, receive_flow_control, header_preview)
 						Ok(Decision(next_continuation, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id)) => complete_after_data_padding(pending, suffix, next_offset, frame_count_int, next_continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, length, kind, flags, stream_id, completed_header_block, completed_end_stream, completed_is_trailer, completed_promised_stream_id, consumed_state, payload)
 						Err(error) => Ok(Failed(consumed_state, error))
@@ -969,8 +969,8 @@ fn validate_priority_dependency(offset: Int, payload: ByteChunk, length: Int, ki
 			_ => Ok(PriorityDependencyOk)
 		end
 		_ => if headers_priority_set(kind, flags)
-			if length >= 5
-				validate_priority_dependency_payload(offset, payload, stream_id)
+			if length >= headers_prefix_length(kind, flags)
+				validate_priority_dependency_payload(offset, byte_drop(payload, byte_count(headers_priority_offset(kind, flags))?)?, stream_id)
 			else
 				Ok(PriorityDependencyOk)
 			end
@@ -1804,10 +1804,19 @@ fn validate_minimum_payload_length(offset: Int, payload: ByteChunk, length: Int,
 end
 
 fn validate_headers_payload_length(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
-	if headers_priority_set(kind, flags) and length < 5
-		Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, 5, "stream-control", "rfc9113_headers_priority_payload_length", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+	let minimum_length: Int = headers_prefix_length(kind, flags)
+	if length < minimum_length
+		Ok(ProtocolPayloadFailed(InvalidPayloadLength(offset, kind, stream_id, length, minimum_length, "stream-control", headers_payload_length_rule(kind, flags), byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
 	else
 		Ok(ProtocolPayloadOk)
+	end
+end
+
+fn headers_payload_length_rule(kind: Int, flags: Int) -> String
+	if headers_padded_set(kind, flags)
+		"rfc9113_headers_padded_prefix_length"
+	else
+		"rfc9113_headers_priority_payload_length"
 	end
 end
 
@@ -1839,14 +1848,29 @@ fn validate_data_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int
 	end
 end
 
-fn validate_push_promise_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PaddingDecision, String>
+fn validate_header_block_padding(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PaddingDecision, String>
 	match kind
+		1 => if headers_padded_set(kind, flags)
+			validate_padded_headers_payload(offset, payload, length, flags, stream_id)
+		else
+			Ok(PaddingOk)
+		end
 		5 => if push_promise_padded_set(flags)
 			validate_padded_push_promise_payload(offset, payload, length, stream_id)
 		else
 			Ok(PaddingOk)
 		end
 		_ => Ok(PaddingOk)
+	end
+end
+
+fn validate_padded_headers_payload(offset: Int, payload: ByteChunk, length: Int, flags: Int, stream_id: Int) -> Result<PaddingDecision, String>
+	let pad_length: Int = data_pad_length(payload)?
+	let remaining_payload_length: Int = length - headers_prefix_length(1, flags)
+	if pad_length > remaining_payload_length
+		Ok(PaddingFailed(InvalidPayloadLength(offset + 9, 1, stream_id, pad_length, remaining_payload_length, "stream-control", "rfc9113_headers_padding", byte_view(payload, byte_offset(0)?, byte_count(length)?)?)))
+	else
+		Ok(PaddingOk)
 	end
 end
 
@@ -5041,10 +5065,35 @@ fn push_promise_header_block_chunk(payload: ByteChunk, length: Int, flags: Int) 
 end
 
 fn headers_payload_chunk(payload: ByteChunk, kind: Int, flags: Int) -> Result<ByteChunk, String>
-	if headers_priority_set(kind, flags)
-		byte_drop(payload, byte_count(5)?)
+	let prefix_length: Int = headers_prefix_length(kind, flags)
+	let pad_length: Int = if headers_padded_set(kind, flags)
+		data_pad_length(payload)?
 	else
-		Ok(payload)
+		0
+	end
+	byte_take(byte_drop(payload, byte_count(prefix_length)?)?, byte_count(byte_count_to_int(byte_chunk_count(payload)) - prefix_length - pad_length)?)
+end
+
+fn headers_prefix_length(kind: Int, flags: Int) -> Int
+	headers_priority_offset(kind, flags) + if headers_priority_set(kind, flags)
+		5
+	else
+		0
+	end
+end
+
+fn headers_priority_offset(kind: Int, flags: Int) -> Int
+	if headers_padded_set(kind, flags)
+		1
+	else
+		0
+	end
+end
+
+fn headers_padded_set(kind: Int, flags: Int) -> Bool
+	match kind
+		1 => flags / 8 * 8 != flags / 16 * 16
+		_ => false
 	end
 end
 
@@ -5639,7 +5688,7 @@ end
 
 fn headers_priority_from_frame(pending: ByteChunk, length: Int, flags: Int) -> Result<StreamPriorityState, String>
 	if headers_priority_set(1, flags)
-		headers_priority_from_payload(frame_payload_chunk(pending, length)?)
+		headers_priority_from_payload(byte_drop(frame_payload_chunk(pending, length)?, byte_count(headers_priority_offset(1, flags))?)?)
 	else
 		Ok(NoStreamPriority)
 	end
@@ -12256,6 +12305,42 @@ fn print_headers_priority_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn verify_headers_padding_cases() -> Result<(), String>
+	let padded: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010c0000000102303132aabb")?), frame_state())?
+	let ignored_padded_decoded: () = require_frame_decoded("padded HEADERS must decode", padded)?
+	let ignored_padded_header_block: () = require_header_block_bytes("padded HEADERS header block", padded, "303132")?
+	let padded_priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000b012c0000000102000000030f303132aabb")?), frame_state())?
+	let ignored_padded_priority_decoded: () = require_frame_decoded("padded priority HEADERS must decode", padded_priority)?
+	let ignored_padded_priority_header_block: () = require_header_block_bytes("padded priority HEADERS header block", padded_priority, "303132")?
+	let ignored_padded_priority_dependency: () = require_equal_int("padded priority HEADERS dependency", state_priority_dependency_stream_id(step_state(padded_priority)), 3)?
+	let padded_priority_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000009012c0000000100000000010f303132")?), frame_state())?
+	let ignored_padded_priority_self_dependency: () = require_failure_with_id("padded priority HEADERS self-dependency must fail", padded_priority_self_dependency, "http2.protocol.invalid_priority_dependency")?
+	let ignored_padded_priority_self_dependency_state: () = require_headers_padding_rejection_preserves_state("padded priority HEADERS self-dependency changed connection state", frame_state(), step_state(padded_priority_self_dependency))?
+	let padded_continuation_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000004010800000001013031aa")?), frame_state())?
+	let ignored_padded_continuation_count: () = require_equal_int("padded HEADERS continuation fragment length", state_continuation_count(step_state(padded_continuation_start)), 2)?
+	let padded_continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000109040000000132")?), step_state(padded_continuation_start))?
+	let ignored_padded_continuation_decoded: () = require_frame_decoded("padded HEADERS continuation must decode", padded_continuation_done)?
+	let ignored_padded_continuation_header_block: () = require_header_block_bytes("padded HEADERS continuation header block", padded_continuation_done, "303132")?
+	let trailers_initial: Http2Step = request_headers_open_stream()?
+	let padded_trailers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006010d000000010121222324aa")?), step_state(trailers_initial))?
+	let ignored_padded_trailers_decoded: () = require_frame_decoded("padded trailer HEADERS must decode", padded_trailers)?
+	let ignored_padded_trailers_header_block: () = require_header_block_bytes("padded trailer HEADERS header block", padded_trailers, "21222324")?
+	let ignored_padded_trailers_closed: () = require_equal_int("padded trailer HEADERS must close stream", state_closed_by_peer_stream_id(step_state(padded_trailers)), 1)?
+	let padded_empty: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010c00000001")?), frame_state())?
+	let ignored_padded_empty_failure: () = require_failure_with_id("empty padded HEADERS must fail", padded_empty, "http2.protocol.invalid_payload_length")?
+	let ignored_padded_empty_state: () = require_headers_padding_rejection_preserves_state("empty padded HEADERS changed connection state", frame_state(), step_state(padded_empty))?
+	let padded_priority_short: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005012c00000001000000030f")?), frame_state())?
+	let ignored_padded_priority_short_failure: () = require_failure_with_id("short padded priority HEADERS must fail", padded_priority_short, "http2.protocol.invalid_payload_length")?
+	let ignored_padded_priority_short_state: () = require_headers_padding_rejection_preserves_state("short padded priority HEADERS changed connection state", frame_state(), step_state(padded_priority_short))?
+	let padding_exceeds: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002010c000000010230")?), frame_state())?
+	let ignored_padding_exceeds_failure: () = require_failure_with_id("excess HEADERS padding must fail", padding_exceeds, "http2.protocol.invalid_payload_length")?
+	require_headers_padding_rejection_preserves_state("invalid HEADERS padding changed connection state", frame_state(), step_state(padding_exceeds))
+end
+
+fn require_headers_padding_rejection_preserves_state(label: String, before_state: Http2DecodeState, after_state: Http2DecodeState) -> Result<(), String>
+	require_client_push_ordering_rejection_preserves_state(label, before_state, after_state)
+end
+
 fn request_headers_open_stream() -> Result<Http2Step, String>
 	receive(InputChunk(byte_chunk_from_hex("000003010400000001303132")?), frame_state())
 end
@@ -15366,6 +15451,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
 	print_hpack_transition("headers-done", headers_done)
 	let ignored_headers_priority_cases: () = print_headers_priority_cases()?
+	let verified_headers_padding_cases: () = verify_headers_padding_cases()?
 	let ignored_headers_end_stream_cases: () = print_headers_end_stream_cases(headers_done)?
 	let ignored_trailing_headers_cases: () = print_trailing_headers_cases()?
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?

@@ -659,6 +659,8 @@ behavior.
   [http2-client-push-promise-receive.md](http2-client-push-promise-receive.md).
 - HTTP/2 client PUSH_PROMISE padding:
   [http2-client-push-promise-padding.md](http2-client-push-promise-padding.md).
+- HTTP/2 inbound HEADERS padding:
+  [http2-headers-padding.md](http2-headers-padding.md).
 - HTTP/2 client promised stream id ordering:
   [http2-client-promised-stream-id-ordering.md](http2-client-promised-stream-id-ordering.md).
 - HTTP/2 request header validation:

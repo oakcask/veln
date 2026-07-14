@@ -683,6 +683,19 @@ enough.
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
+- Inbound `HEADERS` accepts the PADDED flag for request headers and trailers.
+  The pad-length octet precedes any five-octet PRIORITY section; both prefix
+  fields and trailing padding are excluded from the HPACK fragment. The same
+  unpadded fragment is retained across CONTINUATION assembly. A missing
+  pad-length octet, a truncated PADDED-plus-PRIORITY prefix, or padding beyond
+  the remaining payload fails with `http2.protocol.invalid_payload_length`
+  before HPACK, continuation, priority, stream, flow-control, settings,
+  shutdown, or peer-stream high-water state changes. The checked request,
+  trailer, PRIORITY, continuation, and invalid-boundary cases are in
+  `examples/specification/run/http2-protocol-core/`; focused human and JSON
+  projections are under
+  `examples/specification/run/http2-protocol-core-headers-padding-human/` and
+  `examples/specification/run/http2-protocol-core-headers-padding-json/`.
 - Client-side inbound `PUSH_PROMISE` accepts the PADDED flag on an open
   associated client-created stream. The receive path reads the one-byte pad
   length before the promised stream id and removes that byte plus the declared
