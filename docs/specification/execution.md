@@ -785,14 +785,16 @@ enough.
   half-closed-local stream remains half-closed-local and can still receive
   DATA after the priority update. The checked case is
   `examples/specification/run/http2-protocol-core/`.
-- The same checked HTTP/2 protocol core tracks a bounded multi-stream receive
-  state for at least three concurrent peer-created open streams under the
-  active receive limit. The checked case admits streams 1, 3, and 5, records
-  their separate receive windows and priority facts, keeps DATA on one stream
-  and stream-level `WINDOW_UPDATE` on another stream from mutating the third,
-  and rejects the next peer-created stream with
+- The same checked HTTP/2 protocol core stores each tracked inbound stream as
+  one entry in a recursive list. The entry owns its stream id, receive window,
+  priority and content-length facts, and lifecycle. Lookup, admission, flow
+  control, priority, reset, end-of-stream, and GOAWAY drain decisions use that
+  list. The checked case admits five concurrent peer-created streams, applies
+  DATA, stream-level `WINDOW_UPDATE`, and PRIORITY changes independently,
+  resets one stream, admits a later stream without changing unrelated entries,
+  and rejects a sixth open stream with
   `http2.peer_limit.concurrent_streams_exceeded` carrying the attempted and
-  allowed counts. The checked case is
+  allowed list-derived counts. The checked case is
   `examples/specification/run/http2-protocol-core/`.
 - The same checked HTTP/2 protocol core emits local SETTINGS send-intents as
   one frame-header-plus-payload chunk whose payload preserves caller item

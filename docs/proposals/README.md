@@ -412,8 +412,8 @@ compare it with `../specification/` before changing behavior.
   [Codec Unsupported Feature Diagnostics](../reference/implemented-proposals/codec-unsupported-feature-diagnostics.md).
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
-  ordinary-source receive-state, diagnostics, settings, stream lifecycle,
-  HPACK behavior beyond the checked fixture boundary,
+  ordinary-source receive-state, diagnostics, settings, list-backed stream
+  lifecycle, HPACK behavior beyond the checked fixture boundary,
   unknown extension-frame, receive flow-control, send-intent,
   `RST_STREAM`, HEADERS with the PRIORITY flag, GOAWAY, local
   GOAWAY outbound HEADERS boundary, client-side outbound HEADERS local-stream
