@@ -1,0 +1,8 @@
+# Plain trailing-input reasons do not invent count facts.
+
+pub fn main() -> DecodeStep<Int>
+	match byte_offset(7)
+		Ok(offset) => Invalid(DecodeErrorWithReason("codec.trailing_input", offset, "ManualPacketWire.payload", "bounded input has trailing bytes"))
+		Err(_) => NeedMore(NeedEnd)
+	end
+end

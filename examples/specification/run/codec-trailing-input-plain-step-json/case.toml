@@ -1,0 +1,39 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.trailing_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 7
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ManualPacketWire"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.reason"
+equals = "bounded input has trailing bytes"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.consumed_count"
+missing = true
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+missing = true
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.remaining_count"
+missing = true

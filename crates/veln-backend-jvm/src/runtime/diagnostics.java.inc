@@ -1926,6 +1926,8 @@
                 mergeMagicMismatchReason(details, reason);
             } else if (id.equals("codec.unsupported_feature")) {
                 mergeUnsupportedFeatureReason(details, reason);
+            } else if (id.equals("codec.trailing_input")) {
+                mergeTrailingInputReason(details, reason);
             } else if (id.equals("codec.consumed_count_invalid")) {
                 mergeConsumedCountInvalidReason(details, reason);
             } else {
@@ -2577,6 +2579,82 @@
 
         UnsupportedFeatureReason(String unsupportedFeature, String reason) {
             this.unsupportedFeature = unsupportedFeature;
+            this.reason = reason;
+        }
+    }
+
+    private static void mergeTrailingInputReason(
+        java.util.ArrayList<DiagnosticDetail> details,
+        String reason
+    ) {
+        TrailingInputReason parsed = parseTrailingInputReason(reason);
+        if (parsed == null) {
+            details.add(DiagnosticDetail.string("reason", reason));
+            return;
+        }
+        details.add(DiagnosticDetail.number("consumed_count", parsed.consumedCount));
+        details.add(DiagnosticDetail.number("available_count", parsed.availableCount));
+        details.add(DiagnosticDetail.number("remaining_count", parsed.remainingCount));
+        details.add(DiagnosticDetail.string("reason", parsed.reason));
+    }
+
+    private static TrailingInputReason parseTrailingInputReason(String reason) {
+        Long consumedCount = null;
+        Long availableCount = null;
+        Long remainingCount = null;
+        String failureReason = null;
+        for (String part : reason.split(";")) {
+            String trimmed = part.trim();
+            int equalsIndex = trimmed.indexOf('=');
+            if (equalsIndex <= 0) {
+                continue;
+            }
+            String key = trimmed.substring(0, equalsIndex).trim();
+            String value = trimmed.substring(equalsIndex + 1).trim();
+            if (key.equals("consumed_count")) {
+                consumedCount = parseNonNegativeDecimal(value);
+            } else if (key.equals("available_count")) {
+                availableCount = parseNonNegativeDecimal(value);
+            } else if (key.equals("remaining_count")) {
+                remainingCount = parseNonNegativeDecimal(value);
+            } else if (key.equals("reason")) {
+                failureReason = value;
+            }
+        }
+        if (consumedCount == null
+            || availableCount == null
+            || remainingCount == null
+            || remainingCount.longValue() == 0
+            || consumedCount.longValue() > availableCount.longValue()
+            || availableCount.longValue() - consumedCount.longValue()
+                != remainingCount.longValue()
+            || failureReason == null
+            || failureReason.isEmpty()) {
+            return null;
+        }
+        return new TrailingInputReason(
+            consumedCount.longValue(),
+            availableCount.longValue(),
+            remainingCount.longValue(),
+            failureReason
+        );
+    }
+
+    private static final class TrailingInputReason {
+        final long consumedCount;
+        final long availableCount;
+        final long remainingCount;
+        final String reason;
+
+        TrailingInputReason(
+            long consumedCount,
+            long availableCount,
+            long remainingCount,
+            String reason
+        ) {
+            this.consumedCount = consumedCount;
+            this.availableCount = availableCount;
+            this.remainingCount = remainingCount;
             this.reason = reason;
         }
     }

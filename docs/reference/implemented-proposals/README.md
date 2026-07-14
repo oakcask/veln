@@ -350,6 +350,8 @@ behavior.
   [codec-imported-derived-boundary.md](codec-imported-derived-boundary.md).
 - Codec consumed-count invalid diagnostics:
   [codec-consumed-count-invalid-diagnostics.md](codec-consumed-count-invalid-diagnostics.md).
+- Codec trailing input diagnostics:
+  [codec-trailing-input-diagnostics.md](codec-trailing-input-diagnostics.md).
 - Codec sequence mismatch diagnostics:
   [codec-sequence-mismatch-diagnostics.md](codec-sequence-mismatch-diagnostics.md).
 - Codec payload length mismatch diagnostics:

@@ -297,6 +297,28 @@ public final class RuntimeResultDiagnosticTraceHarness {
         );
         VelnRuntime.recordResultFailure(VelnRuntime.Result.err(plainUnsupportedFeature));
 
+        Object trailingInput = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.trailing_input",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(5) }),
+                "Packet.payload",
+                "consumed_count=5; available_count=8; remaining_count=3; reason=packet decoder completed before the bounded input ended"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(trailingInput));
+
+        Object malformedTrailingInput = VelnRuntime.adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "codec.trailing_input",
+                VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(6) }),
+                "Packet.payload",
+                "consumed_count=5; available_count=8; remaining_count=4; reason=inconsistent counts"
+            }
+        );
+        VelnRuntime.recordResultFailure(VelnRuntime.Result.err(malformedTrailingInput));
+
         Object bytes = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("0102030405")).value();
         Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
             bytes,
@@ -2020,6 +2042,33 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         "{plain_unsupported_feature_line}"
     );
     assert!(!plain_unsupported_feature_line.contains("\tunsupported_feature\t"));
+    let trailing_input_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.trailing_input\t5\t"))
+        .expect("trailing input should be recorded");
+    assert!(
+        trailing_input_line.contains("\tconsumed_count\tnumber\t5"),
+        "{trailing_input_line}"
+    );
+    assert!(
+        trailing_input_line.contains("\tavailable_count\tnumber\t8"),
+        "{trailing_input_line}"
+    );
+    assert!(
+        trailing_input_line.contains("\tremaining_count\tnumber\t3"),
+        "{trailing_input_line}"
+    );
+    let malformed_trailing_input_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.trailing_input\t6\t"))
+        .expect("malformed trailing input should be recorded");
+    assert!(
+        malformed_trailing_input_line.contains("\treason\tstring\t"),
+        "{malformed_trailing_input_line}"
+    );
+    assert!(!malformed_trailing_input_line.contains("\tconsumed_count\t"));
+    assert!(!malformed_trailing_input_line.contains("\tavailable_count\t"));
+    assert!(!malformed_trailing_input_line.contains("\tremaining_count\t"));
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"

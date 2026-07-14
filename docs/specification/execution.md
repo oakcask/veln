@@ -337,6 +337,12 @@ enough.
   or explicit schema operation expressions.
 - Compatibility-only runtime diagnostic ids under `codec.*` remain part of
   runtime diagnostic vocabulary where existing runtime values use them.
+- Source-created `codec.trailing_input` failures remain explicit: decoders do
+  not reject trailing bytes automatically. Direct `DecodeErrorWithReason(...)`
+  results and `DecodeStep::Invalid(DecodeErrorWithReason(...))` values may
+  carry consistent consumed, available, and remaining byte counts for
+  command-facing projection. The completed slice is archived under the
+  [implemented proposal record](../reference/implemented-proposals/codec-trailing-input-diagnostics.md).
 - The source-visible HPACK static decoder accepts static indexed fields,
   bounded static-name literal-without-indexing fields, bounded static-name
   literal-with-indexing fields, and bounded static-name literal-never-indexed
