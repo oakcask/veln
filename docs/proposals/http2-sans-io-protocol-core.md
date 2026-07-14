@@ -802,14 +802,6 @@ own adjusted credit. The adjusted stream credit can become negative, in which
 case later DATA remains blocked by
 `http2.peer_limit.flow_control_window_exceeded` until stream-level
 `WINDOW_UPDATE` restores enough credit on that stream.
-The completed list-backed inbound stream-state slice is archived under
-[HTTP/2 List-Backed Inbound Stream State](../reference/implemented-proposals/http2-list-backed-inbound-stream-state.md).
-It replaces the fixed one-, two-, and three-stream receive representation with
-one recursive list whose entries carry stream id, receive-window credit,
-priority and body-accounting facts, and lifecycle. The executable boundary
-tracks five concurrent peer-created streams, preserves unrelated entries
-through independent updates and reset, admits a later stream, and derives
-receive-limit rejection counts from the current list.
 Except for the implemented PRIORITY idle-stream receive slice below,
 non-HEADERS frames on idle streams keep using the existing invalid frame-kind
 failure.
