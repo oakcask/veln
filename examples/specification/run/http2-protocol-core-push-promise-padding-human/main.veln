@@ -1,0 +1,32 @@
+# HTTP/2 PUSH_PROMISE padding failures project through payload diagnostics.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.protocol.invalid_payload_length",
+		error,
+		RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 5, 1, 2, 1, "stream-control", "rfc9113_push_promise_padding", byte_chunk([]))
+	)
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("020000000230")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
+			Err(error) => Err(invalid_payload(error))
+		end
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	let bytes: ByteChunk = preview_bytes()?
+	let preview: ByteView = preview_view(bytes)?
+	http2_protocol_invalid_payload_length(9, 5, 1, 2, 1, "stream-control", "rfc9113_push_promise_padding", preview)
+end

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_payload_length]: invalid payload length at byte offset 9", "note: Frame kind 5 on stream 1 declared 2 byte(s); expected 1 byte(s).", "note: Nearby bytes: 02 00 00 00 02 30 (showing 6 of 6 byte(s), complete).", "note: Active protocol state: stream-control.", "note: Rule provenance: rfc9113_push_promise_padding."]
