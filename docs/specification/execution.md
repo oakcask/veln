@@ -465,15 +465,17 @@ enough.
   sequences of the supported indexed and literal representations in wire
   order and consumes any finite sequence of legal leading dynamic-table size
   updates before the first field. Updates are applied in wire order, and the
-  first field observes the final accepted capacity. Every update is checked
-  against the active local receive limit before HTTP/2 installs a next state.
-  Malformed, excessive, or post-field updates return the focused existing
-  diagnostic families, and any failure returns no header list or committed
-  next state. Complete HEADERS and `PUSH_PROMISE` blocks plus final
-  CONTINUATION assembly share this production boundary. The executable
-  protocol-core case checks zero, one, two, and more-than-two leading updates,
-  late-sequence failures, input-state reuse, and the existing mixed-field,
-  validation, and carried-state behavior.
+  first field observes the final accepted capacity. The checked standalone
+  transition requires the active local receive limit, and every update is
+  checked against that limit before a next state is exposed. Malformed,
+  excessive, or post-field updates return the focused existing diagnostic
+  families at the offending update's absolute HPACK byte offset with the
+  inspected suffix. Any failure returns no header list or committed next
+  state, leaving the input state reusable. Complete HEADERS and
+  `PUSH_PROMISE` blocks plus final CONTINUATION assembly share this production
+  boundary. The executable protocol-core case checks zero, one, two, and
+  more-than-two leading updates, late-sequence failures, input-state reuse,
+  and the existing mixed-field, validation, and carried-state behavior.
 - The checked HTTP/2 receive state carries pending header-block continuation
   assembly as connection decode state. A HEADERS frame without `END_HEADERS`
   records the owning stream id, starting frame kind, starting byte offset, and

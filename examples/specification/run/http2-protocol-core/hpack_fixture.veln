@@ -68,6 +68,7 @@ pub type HpackFixtureFailure
 	TableSizeUpdateNotAtStart(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	TableSizeUpdateMalformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	TableSizeUpdateTrailingBytes(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	InboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 	OutboundTableSizeUpdateExceeded(offset: Int, observed_size: Int, allowed_size: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
 end
 
@@ -977,23 +978,6 @@ fn decode_after_second_table_size_update(block: ByteChunk, state: HpackFixtureSt
 		end
 		false => decode_header_block(block, state, offset)
 	end
-end
-
-fn first_table_size_update_above_at(block: ByteChunk, observed_size: Int, index: Int, allowed_size: Int, offset: Int) -> Int
-	match index < observed_size and (byte_at_or_missing(block, index) == 62 or byte_at_or_missing(block, index) == 63)
-		false => -1
-		true => match table_size_update_prefix_at(block, observed_size, index, offset)
-			Ok(prefix) => match integer_prefix_value(prefix) > allowed_size
-				true => integer_prefix_value(prefix)
-				false => first_table_size_update_above_at(block, observed_size, integer_prefix_size(prefix), allowed_size, offset)
-			end
-			Err(_) => -1
-		end
-	end
-end
-
-pub fn first_table_size_update_above(block: ByteChunk, allowed_size: Int, offset: Int) -> Int
-	first_table_size_update_above_at(block, byte_count_to_int(byte_chunk_count(block)), 0, allowed_size, offset)
 end
 
 fn table_size_update_value_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<Int, HpackFixtureFailure>
@@ -4054,7 +4038,7 @@ fn production_header_field_end(block: ByteChunk, observed_size: Int, offset: Int
 			false => match first_byte >= 32
 				true => match table_size_update_prefix_at(block, observed_size, 0, offset)
 					Ok(update) => Ok(integer_prefix_size(update))
-					Err(failure) => Err(failure)
+					Err(_) => Err(TableSizeUpdateMalformed(offset, observed_size, first_byte, "fixture HPACK malformed table-size update integer", "hpack_fixture", block))
 				end
 				false => match first_byte >= 16
 					true => match decode_hpack_prefixed_integer(first_byte - 16, 15, block, observed_size, 1, offset)
@@ -4071,7 +4055,7 @@ fn production_header_field_end(block: ByteChunk, observed_size: Int, offset: Int
 	end
 end
 
-fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, offset: Int, fields_seen: Bool) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
+fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, allowed_table_size: Int, offset: Int, fields_seen: Bool) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	match observed_size == 0
 		true => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(EmptyHeaderFields, 0), state))
@@ -4083,17 +4067,20 @@ fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, offset: 
 							true => match table_size_update_prefix_at(field, field_size, 0, offset)
 								Ok(update) => match fields_seen
 									true => Err(TableSizeUpdateNotAtStart(offset, observed_size, byte_at_or_missing(block, 0), integer_prefix_value(update), "fixture HPACK table-size update at header block start", "hpack_fixture", block))
-									false => match production_decode_fields(remaining, state_with_table_size(state, integer_prefix_value(update)), offset + field_size, false)
-										Ok(next_transition) => match next_transition
-											HpackProductionDecodeTransition(HpackProductionHeaderList(fields, wire_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(fields, field_size + wire_size), final_state))
+									false => match integer_prefix_value(update) > allowed_table_size
+										true => Err(InboundTableSizeUpdateExceeded(offset, integer_prefix_value(update), allowed_table_size, "production inbound HPACK table-size update", "hpack_fixture", block))
+										false => match production_decode_fields(remaining, state_with_table_size(state, integer_prefix_value(update)), allowed_table_size, offset + field_size, false)
+											Ok(next_transition) => match next_transition
+												HpackProductionDecodeTransition(HpackProductionHeaderList(fields, wire_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(fields, field_size + wire_size), final_state))
+											end
+											Err(failure) => Err(failure)
 										end
-										Err(failure) => Err(failure)
 									end
 								end
 								Err(failure) => Err(failure)
 							end
 							false => match decode_header_block(field, state, offset)
-								Ok(field_transition) => match production_decode_fields(remaining, transition_state(field_transition), offset + field_size, true)
+								Ok(field_transition) => match production_decode_fields(remaining, transition_state(field_transition), allowed_table_size, offset + field_size, true)
 									Ok(remaining_transition) => match remaining_transition
 										HpackProductionDecodeTransition(HpackProductionHeaderList(remaining_fields, remaining_size), final_state) => Ok(HpackProductionDecodeTransition(HpackProductionHeaderList(HeaderField(HpackHeader(header_list_first_name(transition_headers(field_transition)), header_list_first_value(transition_headers(field_transition))), remaining_fields), field_size + remaining_size), final_state))
 									end
@@ -4113,8 +4100,8 @@ fn production_decode_fields(block: ByteChunk, state: HpackFixtureState, offset: 
 	end
 end
 
-pub fn decode_production_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
-	production_decode_fields(block, state, offset, false)
+pub fn decode_production_header_block(block: ByteChunk, state: HpackFixtureState, allowed_table_size: Int, offset: Int) -> Result<HpackProductionDecodeTransition, HpackFixtureFailure>
+	production_decode_fields(block, state, allowed_table_size, offset, false)
 end
 
 pub fn production_transition_headers(transition: HpackProductionDecodeTransition) -> HpackProductionHeaderList
@@ -5523,6 +5510,7 @@ pub fn hpack_failure_offset(failure: HpackFixtureFailure) -> Int
 		TableSizeUpdateNotAtStart(offset, _, _, _, _, _, _) => offset
 		TableSizeUpdateMalformed(offset, _, _, _, _, _) => offset
 		TableSizeUpdateTrailingBytes(offset, _, _, _, _, _, _) => offset
+		InboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 		OutboundTableSizeUpdateExceeded(offset, _, _, _, _, _) => offset
 	end
 end
@@ -5543,6 +5531,7 @@ pub fn hpack_failure_observed_size(failure: HpackFixtureFailure) -> Int
 		TableSizeUpdateNotAtStart(_, observed_size, _, _, _, _, _) => observed_size
 		TableSizeUpdateMalformed(_, observed_size, _, _, _, _) => observed_size
 		TableSizeUpdateTrailingBytes(_, observed_size, _, _, _, _, _) => observed_size
+		InboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -5563,6 +5552,7 @@ pub fn hpack_failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
 		TableSizeUpdateNotAtStart(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
 		TableSizeUpdateMalformed(_, _, observed_first_byte, _, _, _) => observed_first_byte
 		TableSizeUpdateTrailingBytes(_, _, observed_first_byte, _, _, _, _) => observed_first_byte
+		InboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 		OutboundTableSizeUpdateExceeded(_, observed_size, _, _, _, _) => observed_size
 	end
 end
@@ -5611,6 +5601,7 @@ pub fn hpack_failure_allowed_size(failure: HpackFixtureFailure) -> Int
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => 0
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => 0
 		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => 0
+		InboundTableSizeUpdateExceeded(_, _, allowed_size, _, _, _) => allowed_size
 		OutboundTableSizeUpdateExceeded(_, _, allowed_size, _, _, _) => allowed_size
 	end
 end
@@ -5631,6 +5622,7 @@ pub fn hpack_failure_expected_fixture(failure: HpackFixtureFailure) -> String
 		TableSizeUpdateNotAtStart(_, _, _, _, expected_fixture, _, _) => expected_fixture
 		TableSizeUpdateMalformed(_, _, _, expected_fixture, _, _) => expected_fixture
 		TableSizeUpdateTrailingBytes(_, _, _, _, expected_fixture, _, _) => expected_fixture
+		InboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 		OutboundTableSizeUpdateExceeded(_, _, _, expected_fixture, _, _) => expected_fixture
 	end
 end
@@ -5651,6 +5643,7 @@ pub fn hpack_failure_codec_module(failure: HpackFixtureFailure) -> String
 		TableSizeUpdateNotAtStart(_, _, _, _, _, codec_module, _) => codec_module
 		TableSizeUpdateMalformed(_, _, _, _, codec_module, _) => codec_module
 		TableSizeUpdateTrailingBytes(_, _, _, _, _, codec_module, _) => codec_module
+		InboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 		OutboundTableSizeUpdateExceeded(_, _, _, _, codec_module, _) => codec_module
 	end
 end
@@ -5671,6 +5664,7 @@ pub fn hpack_failure_preview(failure: HpackFixtureFailure) -> ByteChunk
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, preview) => preview
 		TableSizeUpdateMalformed(_, _, _, _, _, preview) => preview
 		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, preview) => preview
+		InboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, preview) => preview
 	end
 end
@@ -5711,6 +5705,7 @@ pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagno
 		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_not_at_start(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		TableSizeUpdateMalformed(_, _, _, _, _, _) => hpack_fixture_table_size_update_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_trailing_bytes(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		InboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 	end
 end
