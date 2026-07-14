@@ -3656,8 +3656,10 @@
         long stream = asLong(streamId);
         String limitProvenance = asString(receiveLimitProvenance);
         String rule = asString(ruleProvenance);
-        String message = "HTTP/2 header list size exceeds receive maximum at byte offset "
-            + byteOffset;
+        String message = limitProvenance.equals("peer_settings_item")
+            ? "HTTP/2 header list size exceeds peer-advertised outbound maximum at byte offset "
+                + byteOffset
+            : "HTTP/2 header list size exceeds receive maximum at byte offset " + byteOffset;
         Object detail = adt(
             "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
             new Object[] {

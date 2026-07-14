@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.peer_limit.header_list_size_exceeded]: header list size exceeds peer-advertised outbound maximum at byte offset 0", "note: Frame kind 1 on stream 1 decoded header list size 42; active peer-advertised outbound maximum is 41.", "note: Peer setting provenance: peer_settings_item.", "note: Rule provenance: peer_settings_max_header_list_size."]

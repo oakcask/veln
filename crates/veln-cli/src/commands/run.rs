@@ -1760,14 +1760,30 @@ impl<'a> ProtocolDiagnosticContext<'a> {
         let frame = self.frame_ref()?;
         let limit_provenance = self.string("receive_limit_provenance")?;
         let rule_provenance = self.string("rule_provenance")?;
+        let peer_outbound = limit_provenance == "peer_settings_item";
+        let message = if peer_outbound {
+            "header list size exceeds peer-advertised outbound maximum"
+        } else {
+            message
+        };
+        let maximum_label = if peer_outbound {
+            "active peer-advertised outbound maximum"
+        } else {
+            "active receive maximum"
+        };
+        let provenance_label = if peer_outbound {
+            "Peer setting provenance"
+        } else {
+            "Receive limit provenance"
+        };
         let mut diagnostic =
             self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
         diagnostic.related.push(note_json(format!(
-            "Frame kind {frame_kind} on {} {} {observed_label} {observed_size}; active receive maximum is {allowed_size}.",
+            "Frame kind {frame_kind} on {} {} {observed_label} {observed_size}; {maximum_label} is {allowed_size}.",
             frame.stream_ref, frame.stream_id
         )));
         diagnostic.related.push(note_json(format!(
-            "Receive limit provenance: {limit_provenance}."
+            "{provenance_label}: {limit_provenance}."
         )));
         diagnostic
             .related

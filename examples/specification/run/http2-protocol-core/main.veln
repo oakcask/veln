@@ -77,6 +77,7 @@ type ReceiveLimitProvenance
 	ProtocolDefault
 	LocalConfiguration
 	LocalSettingsItem(Int)
+	PeerSettingsItem(Int)
 end
 
 type ReceiveLimitEntry
@@ -893,6 +894,7 @@ fn receive_limit_provenance_label(receive_limit: ReceiveLimitEntry) -> String
 		ReceiveLimit(_, ProtocolDefault) => "protocol_default"
 		ReceiveLimit(_, LocalConfiguration) => "local_configuration"
 		ReceiveLimit(_, LocalSettingsItem(_)) => "local_settings_item"
+		ReceiveLimit(_, PeerSettingsItem(_)) => "peer_settings_item"
 	end
 end
 
@@ -2136,6 +2138,17 @@ fn active_peer_header_table_size(peer_settings: PeerSettingsState) -> Int
 	end
 end
 
+fn validate_outbound_header_list_size(header_list_size: Int, frame_kind: Int, stream_id: Int, peer_settings: PeerSettingsState) -> HeaderListSizeDecision
+	match peer_settings
+		PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _, _) => HeaderListSizeOk
+		PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(allowed_size, item_offset), _, _) => if header_list_size > allowed_size
+			HeaderListSizeFailed(HeaderListSizeExceeded(0, header_list_size, ReceiveLimit(allowed_size, PeerSettingsItem(item_offset)), frame_kind, stream_id, "peer_settings_max_header_list_size", empty_header_block()))
+		else
+			HeaderListSizeOk
+		end
+	end
+end
+
 fn peer_enable_push_disabled(peer_settings: PeerSettingsState) -> Bool
 	match peer_settings
 		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _, _) => value == 0
@@ -3204,10 +3217,47 @@ fn send_headers_header_list_on_connection(stream_id: Int, headers: HpackHeaderLi
 	end
 end
 
+fn send_headers_header_fields_on_connection(stream_id: Int, headers: HpackHeaderFields, end_stream: Bool, state: OutboundHeadersConnectionState) -> Result<Result<OutboundHeadersConnectionTransition, HpackFixtureFailure>, String>
+	let header_list_size: Int = hpack_fixture::header_fields_size(headers)
+	match outbound_headers_preflight(stream_id, header_list_size, end_stream, state)
+		OutboundHeadersPreflightRejected(decision) => Ok(Ok(OutboundHeadersConnectionTransition(decision, state)))
+		OutboundHeadersExistingStream => send_headers_header_fields_after_preflight(stream_id, headers, header_list_size, end_stream, false, state)
+		OutboundHeadersNewStream => send_headers_header_fields_after_preflight(stream_id, headers, header_list_size, end_stream, true, state)
+	end
+end
+
+fn send_headers_header_fields_after_preflight(stream_id: Int, headers: HpackHeaderFields, header_list_size: Int, end_stream: Bool, is_new_stream: Bool, state: OutboundHeadersConnectionState) -> Result<Result<OutboundHeadersConnectionTransition, HpackFixtureFailure>, String>
+	match hpack_fixture::encode_header_fields_with_state(headers, outbound_headers_connection_hpack(state), active_peer_header_table_size(outbound_headers_connection_peer_settings(state)), 0)
+		Err(failure) => Ok(Err(failure))
+		Ok(hpack_transition) => match validate_outbound_header_list_size(header_list_size, 1, stream_id, outbound_headers_connection_peer_settings(state))
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundHeadersConnectionTransition(OutboundHeadersRejected(stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(hpack_transition))), end_stream, failure), state)))
+			HeaderListSizeOk => if is_new_stream
+				match send_headers_with_shutdown(stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), end_stream, outbound_headers_connection_peer_settings(state), outbound_headers_connection_shutdown(state), new_outbound_headers_receive_credit(stream_id, state))
+					Err(error) => Err(error)
+					Ok(decision) => match apply_outbound_new_headers_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
+						Ok(transition) => Ok(Ok(transition))
+						Err(error) => Err(error)
+					end
+				end
+			else
+				match send_headers_with_shutdown(stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), end_stream, outbound_headers_connection_peer_settings(state), outbound_headers_connection_shutdown(state), outbound_headers_connection_receive_credit(state))
+					Err(error) => Err(error)
+					Ok(decision) => match apply_outbound_existing_headers(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
+						Ok(transition) => Ok(Ok(transition))
+						Err(error) => Err(error)
+					end
+				end
+			end
+		end
+	end
+end
+
 fn send_headers_header_list_after_preflight(stream_id: Int, headers: HpackHeaderList, end_stream: Bool, is_new_stream: Bool, state: OutboundHeadersConnectionState) -> Result<Result<OutboundHeadersConnectionTransition, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_list_with_state(headers, outbound_headers_connection_hpack(state), 0)
 		Err(failure) => Ok(Err(failure))
-		Ok(hpack_transition) => if is_new_stream
+		Ok(hpack_transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 1, stream_id, outbound_headers_connection_peer_settings(state))
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundHeadersConnectionTransition(OutboundHeadersRejected(stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(hpack_transition))), end_stream, failure), state)))
+			HeaderListSizeOk => if is_new_stream
 			match send_headers_with_shutdown(stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), end_stream, outbound_headers_connection_peer_settings(state), outbound_headers_connection_shutdown(state), new_outbound_headers_receive_credit(stream_id, state))
 				Err(error) => Err(error)
 				Ok(decision) => match apply_outbound_new_headers_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
@@ -3223,6 +3273,7 @@ fn send_headers_header_list_after_preflight(stream_id: Int, headers: HpackHeader
 					Err(error) => Err(error)
 				end
 			end
+		end
 		end
 	end
 end
@@ -3312,9 +3363,12 @@ end
 
 fn send_headers_from_header_list(stream_id: Int, headers: HpackHeaderList, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersDecision, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
-		Ok(transition) => match send_headers(stream_id, hpack_fixture::encode_transition_bytes(transition), end_stream, peer_settings, receive_credit)
-			Ok(decision) => Ok(Ok(decision))
-			Err(error) => Err(error)
+		Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 1, stream_id, peer_settings)
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundHeadersRejected(stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))), end_stream, failure)))
+			HeaderListSizeOk => match send_headers(stream_id, hpack_fixture::encode_transition_bytes(transition), end_stream, peer_settings, receive_credit)
+				Ok(decision) => Ok(Ok(decision))
+				Err(error) => Err(error)
+			end
 		end
 		Err(failure) => Ok(Err(failure))
 	end
@@ -3322,9 +3376,9 @@ end
 
 fn send_headers_from_selected_header_list_with_state(stream_id: Int, headers: HpackHeaderList, state: HpackFixtureState, active_capacity: Int, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_selected_header_list_with_state(headers, state, active_capacity, 0)
-		Ok(transition) => send_headers_from_selected_transition(stream_id, transition, end_stream, peer_settings, receive_credit)
+		Ok(transition) => send_headers_from_selected_transition(stream_id, transition, hpack_fixture::header_list_fields_size(headers), state, end_stream, peer_settings, receive_credit)
 		Err(_) => match hpack_fixture::encode_header_list_with_state(headers, state, 0)
-			Ok(fallback_transition) => send_headers_from_selected_transition(stream_id, fallback_transition, end_stream, peer_settings, receive_credit)
+			Ok(fallback_transition) => send_headers_from_selected_transition(stream_id, fallback_transition, hpack_fixture::header_list_fields_size(headers), state, end_stream, peer_settings, receive_credit)
 			Err(failure) => Ok(Err(failure))
 		end
 	end
@@ -3332,15 +3386,18 @@ end
 
 fn send_headers_from_header_fields_with_state(stream_id: Int, headers: HpackHeaderFields, state: HpackFixtureState, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_fields_with_state(headers, state, active_peer_header_table_size(peer_settings), 0)
-		Ok(transition) => send_headers_from_selected_transition(stream_id, transition, end_stream, peer_settings, receive_credit)
+		Ok(transition) => send_headers_from_selected_transition(stream_id, transition, hpack_fixture::header_fields_size(headers), state, end_stream, peer_settings, receive_credit)
 		Err(failure) => Ok(Err(failure))
 	end
 end
 
-fn send_headers_from_selected_transition(stream_id: Int, transition: HpackEncodeTransition, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
-	match send_headers(stream_id, hpack_fixture::encode_transition_bytes(transition), end_stream, peer_settings, receive_credit)
-		Ok(decision) => Ok(Ok(OutboundHeadersHpackTransition(decision, transition)))
-		Err(error) => Err(error)
+fn send_headers_from_selected_transition(stream_id: Int, transition: HpackEncodeTransition, header_list_size: Int, previous_state: HpackFixtureState, end_stream: Bool, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundHeadersHpackTransition, HpackFixtureFailure>, String>
+	match validate_outbound_header_list_size(header_list_size, 1, stream_id, peer_settings)
+		HeaderListSizeFailed(failure) => Ok(Ok(OutboundHeadersHpackTransition(OutboundHeadersRejected(stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))), end_stream, failure), hpack_fixture::unchanged_encode_transition(previous_state))))
+		HeaderListSizeOk => match send_headers(stream_id, hpack_fixture::encode_transition_bytes(transition), end_stream, peer_settings, receive_credit)
+			Ok(decision) => Ok(Ok(OutboundHeadersHpackTransition(decision, transition)))
+			Err(error) => Err(error)
+		end
 	end
 end
 
@@ -3559,11 +3616,34 @@ fn send_push_promise_header_list_on_connection(stream_id: Int, promised_stream_i
 		OutboundPushPromisePreflightRejected(decision) => Ok(Ok(OutboundPushPromiseConnectionTransition(decision, state)))
 		OutboundPushPromiseReady => match hpack_fixture::encode_header_list_with_state(headers, outbound_push_promise_connection_hpack(state), 0)
 			Err(failure) => Ok(Err(failure))
-			Ok(hpack_transition) => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
-				Err(error) => Err(error)
-				Ok(decision) => match apply_outbound_push_promise_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
-					Ok(transition) => Ok(Ok(transition))
+			Ok(hpack_transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 5, stream_id, outbound_push_promise_connection_peer_settings(state))
+				HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseConnectionTransition(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(hpack_transition))) + 4, failure), state)))
+				HeaderListSizeOk => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
 					Err(error) => Err(error)
+					Ok(decision) => match apply_outbound_push_promise_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
+						Ok(transition) => Ok(Ok(transition))
+						Err(error) => Err(error)
+					end
+				end
+			end
+		end
+	end
+end
+
+fn send_push_promise_header_fields_on_connection(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderFields, state: OutboundPushPromiseConnectionState) -> Result<Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure>, String>
+	let header_list_size: Int = hpack_fixture::header_fields_size(headers)
+	match outbound_push_promise_preflight(stream_id, promised_stream_id, header_list_size + 4, outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
+		OutboundPushPromisePreflightRejected(decision) => Ok(Ok(OutboundPushPromiseConnectionTransition(decision, state)))
+		OutboundPushPromiseReady => match hpack_fixture::encode_header_fields_with_state(headers, outbound_push_promise_connection_hpack(state), active_peer_header_table_size(outbound_push_promise_connection_peer_settings(state)), 0)
+			Err(failure) => Ok(Err(failure))
+			Ok(hpack_transition) => match validate_outbound_header_list_size(header_list_size, 5, stream_id, outbound_push_promise_connection_peer_settings(state))
+				HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseConnectionTransition(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(hpack_transition))) + 4, failure), state)))
+				HeaderListSizeOk => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(hpack_transition), outbound_push_promise_connection_peer_settings(state), outbound_push_promise_connection_shutdown(state), outbound_push_promise_connection_receive_credit(state))
+					Err(error) => Err(error)
+					Ok(decision) => match apply_outbound_push_promise_ordering(decision, state, hpack_fixture::encode_transition_state(hpack_transition))
+						Ok(transition) => Ok(Ok(transition))
+						Err(error) => Err(error)
+					end
 				end
 			end
 		end
@@ -3669,9 +3749,12 @@ end
 
 fn send_push_promise_from_header_list(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseDecision, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
-		Ok(transition) => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
-			Ok(decision) => Ok(Ok(decision))
-			Err(error) => Err(error)
+		Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 5, stream_id, peer_settings)
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))) + 4, failure)))
+			HeaderListSizeOk => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
+				Ok(decision) => Ok(Ok(decision))
+				Err(error) => Err(error)
+			end
 		end
 		Err(failure) => Ok(Err(failure))
 	end
@@ -3683,9 +3766,12 @@ fn send_push_promise_from_header_list_with_shutdown(stream_id: Int, promised_str
 		GracefulShutdown(_, _) => match outbound_push_promise_preflight(stream_id, promised_stream_id, hpack_fixture::header_list_wire_size(headers) + 4, peer_settings, shutdown_state, receive_credit)
 			OutboundPushPromisePreflightRejected(decision) => Ok(Ok(decision))
 			OutboundPushPromiseReady => match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
-				Ok(transition) => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, shutdown_state, receive_credit)
-					Ok(decision) => Ok(Ok(decision))
-					Err(error) => Err(error)
+				Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 5, stream_id, peer_settings)
+					HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))) + 4, failure)))
+					HeaderListSizeOk => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, shutdown_state, receive_credit)
+						Ok(decision) => Ok(Ok(decision))
+						Err(error) => Err(error)
+					end
 				end
 				Err(failure) => Ok(Err(failure))
 			end
@@ -3693,9 +3779,12 @@ fn send_push_promise_from_header_list_with_shutdown(stream_id: Int, promised_str
 		DrainedShutdown(_, _) => match outbound_push_promise_preflight(stream_id, promised_stream_id, hpack_fixture::header_list_wire_size(headers) + 4, peer_settings, shutdown_state, receive_credit)
 			OutboundPushPromisePreflightRejected(decision) => Ok(Ok(decision))
 			OutboundPushPromiseReady => match hpack_fixture::encode_header_list_with_state(headers, hpack_fixture::initial_encode_state(), 0)
-				Ok(transition) => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, shutdown_state, receive_credit)
-					Ok(decision) => Ok(Ok(decision))
-					Err(error) => Err(error)
+				Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 5, stream_id, peer_settings)
+					HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))) + 4, failure)))
+					HeaderListSizeOk => match send_push_promise_with_shutdown(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, shutdown_state, receive_credit)
+						Ok(decision) => Ok(Ok(decision))
+						Err(error) => Err(error)
+					end
 				end
 				Err(failure) => Ok(Err(failure))
 			end
@@ -3775,9 +3864,12 @@ end
 
 fn send_push_promise_from_header_list_with_state(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderList, state: HpackFixtureState, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_list_with_state(headers, state, 0)
-		Ok(transition) => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
-			Ok(decision) => Ok(Ok(OutboundPushPromiseHpackTransition(decision, hpack_fixture::encode_transition_state(transition))))
-			Err(error) => Err(error)
+		Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_list_fields_size(headers), 5, stream_id, peer_settings)
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseHpackTransition(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))) + 4, failure), state)))
+			HeaderListSizeOk => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
+				Ok(decision) => Ok(Ok(OutboundPushPromiseHpackTransition(decision, hpack_fixture::encode_transition_state(transition))))
+				Err(error) => Err(error)
+			end
 		end
 		Err(failure) => Ok(Err(failure))
 	end
@@ -3785,9 +3877,12 @@ end
 
 fn send_push_promise_from_header_fields_with_state(stream_id: Int, promised_stream_id: Int, headers: HpackHeaderFields, state: HpackFixtureState, peer_settings: PeerSettingsState, receive_credit: OutboundReceiveCredit) -> Result<Result<OutboundPushPromiseHpackTransition, HpackFixtureFailure>, String>
 	match hpack_fixture::encode_header_fields_with_state(headers, state, active_peer_header_table_size(peer_settings), 0)
-		Ok(transition) => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
-			Ok(decision) => Ok(Ok(OutboundPushPromiseHpackTransition(decision, hpack_fixture::encode_transition_state(transition))))
-			Err(error) => Err(error)
+		Ok(transition) => match validate_outbound_header_list_size(hpack_fixture::header_fields_size(headers), 5, stream_id, peer_settings)
+			HeaderListSizeFailed(failure) => Ok(Ok(OutboundPushPromiseHpackTransition(OutboundPushPromiseRejected(stream_id, promised_stream_id, byte_count_to_int(byte_chunk_count(hpack_fixture::encode_transition_bytes(transition))) + 4, failure), state)))
+			HeaderListSizeOk => match send_push_promise(stream_id, promised_stream_id, hpack_fixture::encode_transition_bytes(transition), peer_settings, receive_credit)
+				Ok(decision) => Ok(Ok(OutboundPushPromiseHpackTransition(decision, hpack_fixture::encode_transition_state(transition))))
+				Err(error) => Err(error)
+			end
 		end
 		Err(failure) => Ok(Err(failure))
 	end
@@ -10309,6 +10404,12 @@ fn require_peer_stream_failure_preserves_connection_state(label: String, before_
 	let ignored_stream_window: () = require_equal_int(label, state_stream_window(after_state), state_stream_window(before_state))?
 	let ignored_second_stream_window: () = require_equal_int(label, state_second_stream_window(after_state), state_second_stream_window(before_state))?
 	let ignored_third_stream_window: () = require_equal_int(label, state_third_stream_window(after_state), state_third_stream_window(before_state))?
+	let ignored_content_length_expected: () = require_equal_int(label, state_content_length_expected(after_state), state_content_length_expected(before_state))?
+	let ignored_content_length_observed: () = require_equal_int(label, state_content_length_observed(after_state), state_content_length_observed(before_state))?
+	let ignored_priority_label: () = require_equal_string(label, state_priority_label(after_state), state_priority_label(before_state))?
+	let ignored_priority_dependency: () = require_equal_int(label, state_priority_dependency_stream_id(after_state), state_priority_dependency_stream_id(before_state))?
+	let ignored_priority_exclusive: () = require_true(label, state_priority_exclusive(after_state) == state_priority_exclusive(before_state))?
+	let ignored_priority_weight: () = require_equal_int(label, state_priority_weight(after_state), state_priority_weight(before_state))?
 	let ignored_hpack_table_size: () = require_equal_int(label, hpack_fixture::state_table_size(after_hpack), hpack_fixture::state_table_size(before_hpack))?
 	let ignored_hpack_decode_count: () = require_equal_int(label, hpack_fixture::state_decode_count(after_hpack), hpack_fixture::state_decode_count(before_hpack))?
 	let ignored_hpack_dynamic_entries: () = require_equal_int(label, hpack_fixture::state_dynamic_table_entry_count(after_hpack), hpack_fixture::state_dynamic_table_entry_count(before_hpack))?
@@ -12409,6 +12510,10 @@ fn peer_header_table_size_settings(value: Int) -> PeerSettingsState
 	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, PeerHeaderTableSize(value, 0), NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
 
+fn peer_max_header_list_size_settings(value: Int) -> PeerSettingsState
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, PeerMaxHeaderListSize(value, 0), NoLocalSentEnablePush, 0)
+end
+
 fn peer_enable_push_settings(value: Int) -> PeerSettingsState
 	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, PeerEnablePush(value, 0), NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, NoLocalSentEnablePush, 0)
 end
@@ -13334,9 +13439,29 @@ fn verify_outbound_local_stream_hpack_cases() -> Result<(), String>
 		Ok(_) => Err("HPACK validation must precede local stream ordering")
 		Err(_) => match send_headers_on_connection(3, byte_chunk_from_hex("88")?, false, hpack_first_state)
 			Err(error) => Err(error)
-			Ok(hpack_retry) => require_outbound_headers_connection_accepted("HPACK-rejected local stream id was not retryable", hpack_retry, 3)
+			Ok(hpack_retry) => match require_outbound_headers_connection_accepted("HPACK-rejected local stream id was not retryable", hpack_retry, 3)
+				Err(error) => Err(error)
+				Ok(_) => verify_outbound_headers_max_header_list_size_cases()
+			end
 		end
 	end
+end
+
+fn verify_outbound_headers_max_header_list_size_cases() -> Result<(), String>
+	let headers: HpackHeaderFields = production_single_method_header_fields()
+	let at_limit_state: OutboundHeadersConnectionState = initial_outbound_headers_connection_state(ClientEndpoint, peer_max_header_list_size_settings(42), OpenConnection, outbound_receive_credit_without_stream(10))
+	let at_limit_result: Result<OutboundHeadersConnectionTransition, HpackFixtureFailure> = send_headers_header_fields_on_connection(1, headers, false, at_limit_state)?
+	let at_limit: OutboundHeadersConnectionTransition = require_outbound_headers_connection_transition(at_limit_result)?
+	let ignored_at_limit: () = require_outbound_headers_connection_accepted("outbound HEADERS at peer maximum header-list size was rejected", at_limit, 1)?
+	let above_limit_state: OutboundHeadersConnectionState = initial_outbound_headers_connection_state(ClientEndpoint, peer_max_header_list_size_settings(41), OpenConnection, outbound_receive_credit_without_stream(10))
+	let above_limit_result: Result<OutboundHeadersConnectionTransition, HpackFixtureFailure> = send_headers_header_fields_on_connection(1, headers, false, above_limit_state)?
+	let above_limit: OutboundHeadersConnectionTransition = require_outbound_headers_connection_transition(above_limit_result)?
+	let ignored_above_limit: () = require_outbound_headers_connection_failure("outbound HEADERS above peer maximum header-list size was accepted", above_limit, "http2.peer_limit.header_list_size_exceeded")?
+	let ignored_above_limit_state: () = require_outbound_headers_connection_state_preserved("outbound HEADERS header-list rejection changed connection state", above_limit_state, outbound_headers_connection_state(above_limit))?
+	let retry_state: OutboundHeadersConnectionState = with_outbound_headers_connection_peer_settings(outbound_headers_connection_state(above_limit), peer_max_header_list_size_settings(42))
+	let retry_result: Result<OutboundHeadersConnectionTransition, HpackFixtureFailure> = send_headers_header_fields_on_connection(1, headers, false, retry_state)?
+	let retry: OutboundHeadersConnectionTransition = require_outbound_headers_connection_transition(retry_result)?
+	require_outbound_headers_connection_accepted("header-list-rejected outbound HEADERS stream id was not retryable", retry, 1)
 end
 
 fn verify_outbound_local_stream_ordering_cases() -> Result<(), String>
@@ -13646,9 +13771,29 @@ fn verify_outbound_push_promise_ordering_cases() -> Result<(), String>
 		Ok(_) => Err("HPACK validation must precede outbound promised stream ordering")
 		Err(_) => match send_push_promise_on_connection(1, 4, byte_chunk_from_hex("88")?, hpack_first_state)
 			Err(error) => Err(error)
-			Ok(hpack_retry) => require_outbound_push_promise_accepted("HPACK-rejected promised id was not eligible for retry", hpack_retry, 4)
+			Ok(hpack_retry) => match require_outbound_push_promise_accepted("HPACK-rejected promised id was not eligible for retry", hpack_retry, 4)
+				Err(error) => Err(error)
+				Ok(_) => verify_outbound_push_promise_max_header_list_size_cases()
+			end
 		end
 	end
+end
+
+fn verify_outbound_push_promise_max_header_list_size_cases() -> Result<(), String>
+	let headers: HpackHeaderFields = hpack_fixture::prepend_header_field(hpack_fixture::hpack_header(":status", "200"), hpack_fixture::empty_header_fields())
+	let at_limit_state: OutboundPushPromiseConnectionState = initial_outbound_push_promise_connection_state(peer_max_header_list_size_settings(42), OpenConnection, outbound_receive_credit_with_open_stream(10, 1, 20))
+	let at_limit_result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_fields_on_connection(1, 2, headers, at_limit_state)?
+	let at_limit: OutboundPushPromiseConnectionTransition = require_outbound_push_promise_hpack_connection_transition(at_limit_result)?
+	let ignored_at_limit: () = require_outbound_push_promise_accepted("outbound PUSH_PROMISE at peer maximum header-list size was rejected", at_limit, 2)?
+	let above_limit_state: OutboundPushPromiseConnectionState = initial_outbound_push_promise_connection_state(peer_max_header_list_size_settings(41), OpenConnection, outbound_receive_credit_with_open_stream(10, 1, 20))
+	let above_limit_result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_fields_on_connection(1, 2, headers, above_limit_state)?
+	let above_limit: OutboundPushPromiseConnectionTransition = require_outbound_push_promise_hpack_connection_transition(above_limit_result)?
+	let ignored_above_limit: () = require_outbound_push_promise_failure("outbound PUSH_PROMISE above peer maximum header-list size was accepted", above_limit, "http2.peer_limit.header_list_size_exceeded")?
+	let ignored_above_limit_state: () = require_outbound_push_promise_state_preserved("outbound PUSH_PROMISE header-list rejection changed connection state", above_limit_state, outbound_push_promise_connection_state(above_limit))?
+	let retry_state: OutboundPushPromiseConnectionState = with_outbound_push_promise_connection_peer_settings(outbound_push_promise_connection_state(above_limit), peer_max_header_list_size_settings(42))
+	let retry_result: Result<OutboundPushPromiseConnectionTransition, HpackFixtureFailure> = send_push_promise_header_fields_on_connection(1, 2, headers, retry_state)?
+	let retry: OutboundPushPromiseConnectionTransition = require_outbound_push_promise_hpack_connection_transition(retry_result)?
+	require_outbound_push_promise_accepted("header-list-rejected promised stream id was not retryable", retry, 2)
 end
 
 fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]

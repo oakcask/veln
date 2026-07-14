@@ -1,0 +1,26 @@
+# Peer-advertised outbound header-list limits project structured diagnostics.
+
+fn invalid_payload(error: String) -> RuntimeDiagnostic
+	RuntimeDiagnostic(
+		"http2.peer_limit.header_list_size_exceeded",
+		error,
+		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(0, 42, 41, 5, 1, "peer_settings_item", "peer_settings_max_header_list_size", byte_chunk([]))
+	)
+end
+
+fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Err(error) => Err(invalid_payload(error))
+		Ok(offset) => match byte_count(0)
+			Err(error) => Err(invalid_payload(error))
+			Ok(count) => match byte_view(byte_chunk([]), offset, count)
+				Err(error) => Err(invalid_payload(error))
+				Ok(view) => Ok(view)
+			end
+		end
+	end
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
+	http2_peer_limit_header_list_size_exceeded(0, 42, 41, 5, 1, "peer_settings_item", "peer_settings_max_header_list_size", preview_view()?)
+end

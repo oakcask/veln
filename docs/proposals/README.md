@@ -423,7 +423,9 @@ compare it with `../specification/` before changing behavior.
   server-side outbound
   `PUSH_PROMISE` send-intent, client-side `PUSH_PROMISE` receive and
   promised response HEADERS admission including local disable-push receive
-  policy, and half-closed-by-peer outbound DATA send-intent slices,
+  policy, peer-advertised maximum header-list enforcement for structured
+  outbound HEADERS and server-side `PUSH_PROMISE`, and half-closed-by-peer
+  outbound DATA send-intent slices,
   request-side, response-side, request-trailer, and response-trailer
   header-list validation, final `204`/`304` no-content response lifecycle, and
   HEAD response no-content lifecycle,
