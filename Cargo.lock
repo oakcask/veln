@@ -149,11 +149,13 @@ name = "veln-analysis"
 version = "0.1.0"
 dependencies = [
  "veln-ast",
+ "veln-core",
  "veln-diagnostics",
  "veln-ir",
  "veln-project",
  "veln-sema",
  "veln-source",
+ "veln-stdlib",
  "veln-syntax",
  "veln-test",
 ]
@@ -194,6 +196,7 @@ dependencies = [
  "veln-project",
  "veln-sema",
  "veln-source",
+ "veln-stdlib",
  "veln-syntax",
  "veln-test",
 ]

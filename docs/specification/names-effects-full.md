@@ -122,21 +122,12 @@ symbols. The table records the source-visible module, name, symbol kind, effect
 labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
-The current descriptor-backed subset covers stdio effect metadata,
-concurrency effect metadata, minimal `fs`, `net`, `time`, and `process`
-intrinsics, pure prelude helper admission, and source provenance for
-source-backed pure helpers. Type adapters and most runtime lowering still use
-their existing specialized implementations.
-
-For prelude helpers, the descriptor table is also the source of truth for
-whether a helper is descriptor-only or source-backed. A source-backed helper
-records embedded source metadata on its descriptor; descriptor-only helpers do
-not.
-
-The implemented standard library source subset also includes a small
-`compiler_support` source-loading helper used as the compiler-subsystem trial
-for self-hosting work. It is checked and run by the test suite against the same
-descriptor-backed `fs` boundary available to user source.
+The descriptor-backed subset covers stdio effect metadata, concurrency effect
+metadata, and minimal `fs`, `net`, `time`, and `process` intrinsics. The
+toolchain `std` package is the source of truth for prelude declarations,
+visibility, ordinary types, ADTs other than compiler-owned `Option`, `Result`,
+and `List`, and Veln helper bodies. Compiler adapters retain expected-type and
+callback inference for public helper names declared by that package.
 
 ## Stdio Calls
 
@@ -714,18 +705,32 @@ inference, hidden frame counts are zero.
 
 ## Prelude Helpers
 
-Every user module is checked with an implicit standard `prelude` import.
+Every selected module is checked with an implicit import of `std::prelude`.
+The single bootstrap exception is `std::prelude` itself. Other `std` modules
+and standard-package tests receive the same-package import.
 Prelude helper exports are ordinary pure helper calls for name-resolution
 purposes: bare helper names resolve when no local declaration shadows them and
 no written import creates an ambiguity, and `prelude::name` selects the
-standard helper explicitly. The helpers are registered in the standard symbol
-table as compatibility helpers or source-backed helpers, so a name must be
-present in that table before the prelude signature adapter assigns its
-compiler-known type. Most helpers do not infer effects; explicitly effectful
+standard helper explicitly. Project analysis resolves those calls to the
+package function declaration and lowers reachable Veln bodies as ordinary
+functions with collision-resistant internal names. Only calls spelled through
+`prelude_builtin::*` inside the package remain prelude intrinsics. The compiler
+adapter assigns expected types only to public helper names declared by the
+package. Direct low-level surface analysis without project loading retains the
+descriptor fallback. Most helpers do not infer effects; explicitly effectful
 standard helpers infer the effects declared by their public prelude signature.
 No `List`/`Vec` conversion helpers are part of this public helper set; names
 such as `list_to_vec` or `vec_to_list` resolve only when user declarations put
 them in scope.
+
+`std` is owned by the toolchain. A root package named `std` is accepted only
+when its manifest, exports, and non-test sources exactly match the embedded
+bundle; extra `*_test.veln` files are allowed. Other packages named `std` and
+manifest dependencies on `std` report
+`manifest.reserved_standard_package`. Explicit imports from package `std`
+resolve against the embedded export set, but a source-written alias named
+`prelude` remains reserved. The standard package does not participate in
+dependency selection and has no lockfile entry.
 
 ### Standard Byte ADTs
 
@@ -1174,13 +1179,14 @@ the helper width can encode.
 The `*_to_int` helpers expose the stored integer value for ordinary source
 logic and display.
 
-### Source-Backed Boundary
+### Standard Package Boundary
 
 The implemented standard symbol table has this current pure-helper split.
 This table records compiler-known runtime symbols, including compatibility
 helpers, rather than the public schema application surface.
 
-- source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
+- public `std::prelude` functions with compiler type adapters: `byte`,
+  `byte_to_int`, `byte_chunk`,
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,
   `byte_chunk_to_visible_ascii_string`,
   `byte_chunk_from_visible_ascii_string`, `byte_take`, `byte_drop`,
@@ -1234,17 +1240,16 @@ helpers, rather than the public schema application surface.
   `dict_try_map_with`, `option_map`, `option_and_then`, `option_unwrap_or`,
   `result_map`, `result_map_err`, `result_and_then`, `string_split_once`,
   `string_parse_int`, and `int_to_string`
-- descriptor-only pure helpers: none
+- compatibility-only float operator adapters remain compiler-owned
 
-The `http2_protocol_invalid_payload_length` helper is source-backed and
-returns `Result<(), RuntimeDiagnostic>`, matching the source-visible
+The `http2_protocol_invalid_payload_length` helper is a Veln package function
+and returns `Result<(), RuntimeDiagnostic>`, matching the source-visible
 invalid-payload-length detail used by the HTTP/2 protocol-core fixed
 payload-length examples, including `WINDOW_UPDATE`.
 
-This empty descriptor-only pure-helper list is the implemented completion
-condition for the self-hosting prelude helper migration. Every compiler-known
-pure helper in this split is source-backed, while float operator compatibility
-descriptors remain outside the migration candidate pool.
+The package manifest exports `prelude.veln`; `compiler_support.veln` remains a
+private module. The embedded distribution bundle contains every non-test Veln
+source exactly once and excludes `*_test.veln` files.
 
 The source-visible `RuntimeDiagnosticDetail` constructor set includes
 `RuntimeValueDiagnostic(...)` for projecting generated binary schema encode
@@ -1325,22 +1330,12 @@ values, and
 directly as `Result<(), RuntimeDiagnostic>`.
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
-each helper and [Value Semantics](#value-semantics) for behavior. The
-descriptor-only list above is the implemented candidate pool for proposal work
-that moves one already specified pure helper into embedded source. When it is
-empty, there is no current pure-helper target for this proposal route.
-
-Source-backed status is descriptor metadata as described in
-[Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The
-embedded source is ordinary Veln source in the `prelude` module, with one
-descriptor entry per exported helper entry point. The source metadata records
-the repository-relative standard library path and entry function name used for
-checking the embedded helper source. The current checker still uses the
-descriptor-backed signature adapter, and the JVM backend still lowers each
-helper through the existing prelude runtime operation, so diagnostics stay
-anchored on user call sites rather than the embedded standard library source.
-Source-backed helpers are declared in `prelude` as public functions and may use
-other existing helpers. Embedded helper source may call compiler-known prelude
+each helper and [Value Semantics](#value-semantics) for behavior. The embedded
+source is ordinary Veln source in `std::prelude`. Its public declarations are
+the helper admission and visibility boundary, while compiler adapters preserve
+expected-type inference and diagnostics at user call sites. Helper bodies and
+their reachable private functions lower through the ordinary function path.
+Package source may call compiler-known prelude
 runtime operations through the reserved `prelude_builtin` module, such as
 `prelude_builtin::vec_fold(items, initial, f)`, to avoid spelling a runtime
 operation like an ordinary recursive call to the helper being defined.
@@ -1362,18 +1357,18 @@ their private step helpers are ordinary support source and do not expose a
 public list representation beyond `Nil` and `Cons`. The dict helpers keep
 using the existing prelude runtime operation through
 `prelude_builtin::dict_get`, `prelude_builtin::dict_insert`, and
-`prelude_builtin::dict_remove`; their public bare names remain source-backed
-descriptor entry points, and `dict_contains` derives its result from the
+`prelude_builtin::dict_remove`; their public bare names remain ordinary package
+function entry points, and `dict_contains` derives its result from the
 builtin get operation. Private support functions such as
 `vec_try_map_with_step` and `list_try_map_step` are ordinary support source and
-are not separate prelude descriptors.
+are not public compiler adapter entries.
 
 ### Compiler-Support Source
 
-The embedded `compiler_support` source contains
+The private `std::compiler_support` module contains
 `load_source_text(path: Path) -> Result<String, FsError> effects [fs]`. It is
-not a prelude helper. It is a small compiler-support subsystem used to exercise
-Veln source checking and JVM execution through `fs::read_to_string`.
+not a prelude export and receives the same-package implicit prelude import. It
+exercises Veln source checking and JVM execution through `fs::read_to_string`.
 
 ### Diagnostics And Tests
 

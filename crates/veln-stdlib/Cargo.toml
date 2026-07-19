@@ -3,6 +3,7 @@ name = "veln-stdlib"
 edition.workspace = true
 version.workspace = true
 publish = false
+build = "build.rs"
 
 [dependencies]
 

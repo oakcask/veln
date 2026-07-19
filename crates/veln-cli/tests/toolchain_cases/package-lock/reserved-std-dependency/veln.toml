@@ -1,0 +1,5 @@
+[package]
+name = "app"
+
+[dependencies."std"]
+path = "vendor/std"

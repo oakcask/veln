@@ -6,11 +6,13 @@ publish = false
 
 [dependencies]
 veln-ast.workspace = true
+veln-core.workspace = true
 veln-diagnostics.workspace = true
 veln-ir.workspace = true
 veln-project.workspace = true
 veln-sema.workspace = true
 veln-source.workspace = true
+veln-stdlib.workspace = true
 veln-syntax.workspace = true
 veln-test.workspace = true
 

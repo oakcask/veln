@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[manifest.reserved_standard_package]: package name `std` is reserved by the Veln toolchain", "Choose a different package name; the standard package is supplied by the toolchain."]
+
+[stderr]
+format = "empty"

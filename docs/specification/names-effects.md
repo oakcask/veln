@@ -301,8 +301,8 @@ compiler-known calls.
 - Receiver-list channel-first routing effect coverage includes the general
   helper shape over `List<Receiver<StreamInput>>`: channel selection carries
   `concurrency`, while the selected stream handler remains effect-free.
-- Prelude helper signatures, value semantics, source-backed helper set, and
-  descriptor-only helper boundary:
+- Toolchain `std` package loading, implicit prelude imports, helper signatures,
+  and compiler adapter boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
 - Source-visible `StreamInput`, `StreamAdapterAction`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
@@ -396,20 +396,17 @@ compiler-known calls.
   signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
-- Descriptor-backed standard symbols, including network stream write-side
-  shutdown, source metadata, and the compiler-support source-loading trial:
+- Descriptor-backed runtime symbols, including network stream write-side
+  shutdown, and the compiler adapter boundary for `std` declarations:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
 
 ## Fast Routes
 
-- Confirming source-backed versus descriptor-only status before proposal work:
-  [names-effects-full.md](names-effects-full.md#source-backed-boundary).
-- Checking self-hosting migration completion before new proposal work:
-  [names-effects-full.md](names-effects-full.md#source-backed-boundary).
-  The migration is complete when the descriptor-only pure-helper list is empty
-  and all compiler-known pure helpers in that split are source-backed.
-  Completion history:
-  [../reference/implemented-proposals/self-hosting-standard-library.md](../reference/implemented-proposals/self-hosting-standard-library.md).
+- Checking the toolchain package, bootstrap exception, and compiler adapter
+  boundary:
+  [names-effects-full.md](names-effects-full.md#standard-package-boundary).
+- Package migration completion history:
+  [../reference/implemented-proposals/standard-library-package.md](../reference/implemented-proposals/standard-library-package.md).
 - Checking helper signatures before changing the prelude adapter:
   [names-effects-full.md](names-effects-full.md#helper-signatures).
 - Checking standard symbol descriptor metadata:

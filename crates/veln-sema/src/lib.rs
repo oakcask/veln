@@ -27,7 +27,7 @@ use crate::analysis::{
     check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
     check_schema_type_references, check_test_declaration_boundary,
 };
-use crate::lowering::lower_surface_module_to_core;
+use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::types::TypeEnvironment;
 
 #[derive(Clone, Debug)]
@@ -38,8 +38,37 @@ pub struct LoweredSurfaceModule {
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
     let environment = TypeEnvironment::from_module(module);
+    analyze_surface_module_with_environment(module, &environment, true)
+}
+
+pub fn check_project_surface_module(
+    module: &SurfaceModule,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_module(module);
+    let validate_standard_bodies = !module.functions.iter().any(|function| {
+        !function
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    });
+    let semantic_diagnostics =
+        analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
+    let checked = lower_analyzed_surface_module_with_environment(
+        module,
+        semantic_diagnostics.clone(),
+        &environment,
+        true,
+    );
+    (semantic_diagnostics, checked)
+}
+
+fn analyze_surface_module_with_environment(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    validate_standard_bodies: bool,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
@@ -53,6 +82,14 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     diagnostics.extend(check_schema_type_references(module));
 
     for function in &module.functions {
+        if !validate_standard_bodies
+            && function
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::"))
+        {
+            continue;
+        }
         diagnostics.extend(check_declared_effect_labels(function));
         if function.visibility == Visibility::Public {
             diagnostics.extend(check_public_function_boundary(function));
@@ -60,7 +97,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
         if function.kind == FunctionKind::Test {
             diagnostics.extend(check_test_declaration_boundary(function));
         }
-        diagnostics.extend(check_function_body(function, &environment));
+        diagnostics.extend(check_function_body(function, environment));
     }
 
     diagnostics
@@ -72,7 +109,17 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
 
 pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,
+    diagnostics: Vec<Diagnostic>,
+) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_module(module);
+    lower_analyzed_surface_module_with_environment(module, diagnostics, &environment, false)
+}
+
+fn lower_analyzed_surface_module_with_environment(
+    module: &SurfaceModule,
     mut diagnostics: Vec<Diagnostic>,
+    environment: &TypeEnvironment,
+    project_check: bool,
 ) -> LoweredSurfaceModule {
     if diagnostics
         .iter()
@@ -85,8 +132,11 @@ pub fn lower_analyzed_surface_module(
         };
     }
 
-    let environment = TypeEnvironment::from_module(module);
-    let lowered_core = lower_surface_module_to_core(module, &environment);
+    let lowered_core = if project_check {
+        lower_project_surface_module_to_core(module, environment)
+    } else {
+        lower_surface_module_to_core(module, environment)
+    };
     diagnostics.extend(lowered_core.diagnostics);
     let ir = if diagnostics
         .iter()

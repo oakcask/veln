@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::path::{Component, Path};
+use std::sync::OnceLock;
 
 use veln_ast::{
     CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
@@ -16,23 +17,43 @@ use crate::parse_diagnostic_to_envelope;
 pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();
+    let toolchain_std = is_toolchain_standard_project(project);
 
-    load_project_sources(project, &mut diagnostics, &mut parts, None);
+    load_project_sources(
+        project,
+        &mut diagnostics,
+        &mut parts,
+        toolchain_std.then_some(veln_stdlib::PACKAGE_NAME),
+    );
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
+    diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
+    if !toolchain_std {
+        load_embedded_standard_package(&mut diagnostics, &mut parts);
+    }
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module.uses,
         &parts.derived_modules,
     ));
+    add_implicit_standard_prelude_imports(&mut parts);
 
     (parts.module, diagnostics)
 }
 
+#[derive(Clone)]
 struct SurfaceParts {
     module: SurfaceModule,
     derived_modules: Vec<(String, SourceFile)>,
 }
+
+#[derive(Clone)]
+struct EmbeddedStandardPackage {
+    parts: SurfaceParts,
+    diagnostics: Vec<Diagnostic>,
+}
+
+static EMBEDDED_STANDARD_PACKAGE: OnceLock<EmbeddedStandardPackage> = OnceLock::new();
 
 impl SurfaceParts {
     fn new() -> Self {
@@ -129,7 +150,7 @@ fn record_derived_source_module(
     package: Option<&str>,
 ) {
     let internal_module_name = internal_module_name(package, module_name);
-    if module_name == "prelude" {
+    if module_name == "prelude" && package != Some(veln_stdlib::PACKAGE_NAME) {
         diagnostics.push(reserved_source_module_diagnostic(source, module_name));
     }
     if is_doctest_source(source) {
@@ -211,11 +232,128 @@ fn load_external_dependencies(
     let mut loaded = BTreeSet::new();
     for use_decl in external_uses {
         let package = use_decl.package.as_deref().unwrap_or_default();
+        if package == veln_stdlib::PACKAGE_NAME {
+            validate_standard_package_import(&use_decl, diagnostics);
+            continue;
+        }
         if loaded.contains(package) {
             continue;
         }
         loaded.insert(package.to_string());
         load_external_dependency_package(project, package, &use_decl, diagnostics, parts);
+    }
+}
+
+fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut SurfaceParts) {
+    let standard = EMBEDDED_STANDARD_PACKAGE.get_or_init(|| {
+        let bundle = veln_stdlib::package_bundle();
+        let project = Project {
+            root: ".".into(),
+            files: bundle
+                .files
+                .iter()
+                .map(|file| SourceFile::new(file.path, file.text))
+                .collect(),
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+        load_project_sources(
+            &project,
+            &mut diagnostics,
+            &mut parts,
+            Some(veln_stdlib::PACKAGE_NAME),
+        );
+        EmbeddedStandardPackage { parts, diagnostics }
+    });
+    diagnostics.extend(standard.diagnostics.clone());
+    if parts.module.module.is_none() {
+        parts.module.module = standard.parts.module.module.clone();
+    }
+    parts.module.uses.extend(standard.parts.module.uses.clone());
+    parts
+        .module
+        .aliases
+        .extend(standard.parts.module.aliases.clone());
+    parts
+        .module
+        .types
+        .extend(standard.parts.module.types.clone());
+    parts
+        .module
+        .schemas
+        .extend(standard.parts.module.schemas.clone());
+    parts
+        .module
+        .codecs
+        .extend(standard.parts.module.codecs.clone());
+    parts
+        .module
+        .functions
+        .extend(standard.parts.module.functions.clone());
+    parts
+        .derived_modules
+        .extend(standard.parts.derived_modules.clone());
+}
+
+fn add_implicit_standard_prelude_imports(parts: &mut SurfaceParts) {
+    let modules = parts
+        .derived_modules
+        .iter()
+        .filter(|(module, _)| module != "std::prelude")
+        .map(|(module, source)| (module.clone(), source.span(TextRange::new(0, 0))))
+        .collect::<Vec<_>>();
+    parts.module.uses.extend(
+        modules
+            .into_iter()
+            .map(|(module, span)| UseDecl::implicit_standard_prelude(module, span)),
+    );
+}
+
+fn is_toolchain_standard_project(project: &Project) -> bool {
+    let Some(manifest) = &project.manifest else {
+        return false;
+    };
+    let bundle = veln_stdlib::package_bundle();
+    if manifest_package_name(manifest).map(|field| field.value.as_str())
+        != Some(veln_stdlib::PACKAGE_NAME)
+        || manifest.package.fields.len() != 1
+        || manifest.lib.exports.len() != bundle.exports.len()
+        || !manifest
+            .lib
+            .exports
+            .iter()
+            .map(|export| export.path.as_str())
+            .eq(bundle.exports.iter().copied())
+        || !manifest.dependencies.is_empty()
+        || !manifest.unsupported_sections.is_empty()
+        || !manifest.tools.is_empty()
+    {
+        return false;
+    }
+    let mut actual = project
+        .files
+        .iter()
+        .filter(|source| !source.path().as_str().ends_with("_test.veln"))
+        .map(|source| (source.path().as_str(), source.text()))
+        .collect::<Vec<_>>();
+    let mut expected = bundle
+        .files
+        .iter()
+        .map(|file| (file.path, file.text))
+        .collect::<Vec<_>>();
+    actual.sort_by_key(|(path, _)| *path);
+    expected.sort_by_key(|(path, _)| *path);
+    actual == expected
+}
+
+fn validate_standard_package_import(use_decl: &UseDecl, diagnostics: &mut Vec<Diagnostic>) {
+    let module_path = external_import_module_path(use_decl);
+    if !veln_stdlib::package_bundle().exports.iter().any(|export| {
+        derive_source_module_path(&SourceFile::new(*export, ""))
+            .is_ok_and(|module| module == module_path)
+    }) {
+        diagnostics.push(unexported_external_module_diagnostic(use_decl));
     }
 }
 
@@ -695,6 +833,60 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
         exported_modules.push((module_name, export.path_span.clone()));
     }
     diagnostics
+}
+
+fn validate_reserved_standard_package(project: &Project, toolchain_std: bool) -> Vec<Diagnostic> {
+    let Some(manifest) = project.manifest.as_ref() else {
+        return Vec::new();
+    };
+    let mut diagnostics = Vec::new();
+    if !toolchain_std
+        && let Some(name) = manifest_package_name(manifest)
+        && name.value == veln_stdlib::PACKAGE_NAME
+    {
+        diagnostics.push(reserved_standard_package_diagnostic(
+            name.value_span.clone(),
+            "package.name",
+            "package name `std` is reserved by the Veln toolchain",
+            "Choose a different package name; the standard package is supplied by the toolchain.",
+        ));
+    }
+    for dependency in &manifest.dependencies {
+        if dependency.package == veln_stdlib::PACKAGE_NAME {
+            diagnostics.push(reserved_standard_package_diagnostic(
+                dependency.package_span.clone(),
+                "dependencies",
+                "dependency package `std` is reserved by the Veln toolchain",
+                "Remove this dependency; the standard package is available implicitly and is not replaceable.",
+            ));
+        }
+    }
+    diagnostics
+}
+
+fn reserved_standard_package_diagnostic(
+    span: SourceSpan,
+    field: &'static str,
+    message: &'static str,
+    hint: &'static str,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "manifest.reserved_standard_package",
+        Severity::Error,
+        DiagnosticKind::Module,
+        message,
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string(field)),
+            ("package", JsonValue::string(veln_stdlib::PACKAGE_NAME)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        ("message", JsonValue::string(hint)),
+    ]));
+    diagnostic
 }
 
 pub fn validate_manifest_dependencies(project: &Project) -> Vec<Diagnostic> {
@@ -1683,6 +1875,9 @@ fn collect_opaque_function_value_callees(
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
 ) {
+    if current_module.is_some_and(|module| module.starts_with("std::")) {
+        return;
+    }
     if shape.variadic.is_some() && arg_count.is_some_and(|arg_count| arg_count < shape.fixed_arity)
     {
         return;
@@ -1713,6 +1908,7 @@ fn target_visible_from_current_module(
     target_module.is_some_and(|module_name| {
         uses.iter().any(|use_decl| {
             use_decl.module_name.as_deref() == current_module
+                && use_decl.origin == veln_ast::UseOrigin::Source
                 && use_decl.name == module_name
                 && imported_target_is_visible(target, use_decl)
         })
@@ -1902,9 +2098,10 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 mod tests {
     use std::{env, fs};
 
-    use veln_ast::{FunctionKind, SurfaceModule, lower_surface_ast};
+    use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
     use veln_project::{
-        ManifestExport, ManifestLib, ManifestUnsupportedSection, Project, ProjectManifest,
+        ManifestExport, ManifestLib, ManifestTool, ManifestUnsupportedSection, Project,
+        ProjectManifest,
     };
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
@@ -1920,6 +2117,130 @@ mod tests {
             parsed.diagnostics
         );
         lower_surface_ast(&parsed.tree)
+    }
+
+    #[test]
+    fn project_loading_injects_origin_tagged_standard_prelude_imports() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                "pub fn main() -> Int\n  vec_len([1])\nend\n",
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(module.functions.iter().any(|function| {
+            function.module_name.as_deref() == Some("std::prelude")
+                && function.name.as_deref() == Some("vec_len")
+        }));
+        assert!(module.uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == Some("main")
+                && use_decl.name == "std::prelude"
+                && use_decl.origin == UseOrigin::ImplicitStandardPrelude
+        }));
+        assert!(!module.uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == Some("std::prelude")
+                && use_decl.origin == UseOrigin::ImplicitStandardPrelude
+        }));
+        assert!(module.uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == Some("std::compiler_support")
+                && use_decl.origin == UseOrigin::ImplicitStandardPrelude
+        }));
+    }
+
+    #[test]
+    fn toolchain_standard_project_is_not_loaded_twice() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
+        let project = Project::discover(root, &[]).expect("standard project should load");
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert_eq!(
+            module
+                .functions
+                .iter()
+                .filter(|function| {
+                    function.module_name.as_deref() == Some("std::prelude")
+                        && function.name.as_deref() == Some("vec_len")
+                })
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn standard_project_with_manifest_additions_is_reserved_user_package() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
+        let mut project = Project::discover(root, &[]).expect("standard project should load");
+        project
+            .manifest
+            .as_mut()
+            .expect("standard project manifest")
+            .tools
+            .push(ManifestTool {
+                name: "extra".to_string(),
+                fields: Vec::new(),
+            });
+
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "manifest.reserved_standard_package"
+                && diagnostic.message == "package name `std` is reserved by the Veln toolchain"
+        }));
+    }
+
+    #[test]
+    fn project_standard_calls_lower_through_mangled_veln_functions() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                "pub fn main() -> Int\n  vec_len([1])\nend\n",
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let lowered = veln_sema::lower_checked_surface_module(&reachable);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        let core = lowered.core.expect("project should lower to core");
+        let main = core
+            .functions
+            .iter()
+            .find(|function| function.name == "main")
+            .expect("main function");
+        assert!(matches!(
+            &main.body[0].kind,
+            veln_core::CoreStmtKind::Return { expr }
+                if matches!(
+                    &expr.kind,
+                    veln_core::CoreExprKind::Call {
+                        target: veln_core::CoreCallTarget::Function(name),
+                        ..
+                    } if name == "__veln_std$prelude$vec_len"
+                )
+        ));
+        let std_vec_len = core
+            .functions
+            .iter()
+            .find(|function| function.name == "__veln_std$prelude$vec_len")
+            .expect("reachable std vec_len body");
+        assert!(matches!(
+            &std_vec_len.body[0].kind,
+            veln_core::CoreStmtKind::Return { expr }
+                if matches!(
+                    &expr.kind,
+                    veln_core::CoreExprKind::Call {
+                        target: veln_core::CoreCallTarget::PreludeBuiltin(name),
+                        ..
+                    } if name == "vec_len"
+                )
+        ));
     }
 
     #[test]
@@ -2183,6 +2504,31 @@ mod tests {
             vec![
                 (Some("app::main_test"), FunctionKind::Test, Some("foo")),
                 (Some("app::text"), FunctionKind::Function, Some("stringify")),
+                (
+                    Some("std::prelude"),
+                    FunctionKind::Function,
+                    Some("vec_push")
+                ),
+                (
+                    Some("std::prelude"),
+                    FunctionKind::Function,
+                    Some("vec_concat")
+                ),
+                (
+                    Some("std::prelude"),
+                    FunctionKind::Function,
+                    Some("vec_append")
+                ),
+                (
+                    Some("std::prelude"),
+                    FunctionKind::Function,
+                    Some("vec_map")
+                ),
+                (
+                    Some("std::prelude"),
+                    FunctionKind::Function,
+                    Some("vec_map_step")
+                ),
             ]
         );
     }

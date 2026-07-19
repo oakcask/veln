@@ -80,6 +80,15 @@ impl AdtRegistry {
             .iter()
             .filter_map(source_descriptor)
             .collect::<Vec<_>>();
+        let standard_source_types = source_descriptors
+            .iter()
+            .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
+            .map(|descriptor| descriptor.type_name.as_str())
+            .collect::<Vec<_>>();
+        descriptors.retain(|descriptor| {
+            matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
+                || !standard_source_types.contains(&descriptor.type_name.as_str())
+        });
         let aliases = type_alias_descriptors(module, &source_descriptors);
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
@@ -280,8 +289,10 @@ fn prefer_current_module_constructors<'a>(
 }
 
 fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {
-    descriptor.module_name.is_none()
-        && matches!(descriptor.type_name.as_str(), "DecodeStep" | "EncodeStep")
+    matches!(
+        descriptor.module_name.as_deref(),
+        None | Some("std::prelude")
+    ) && matches!(descriptor.type_name.as_str(), "DecodeStep" | "EncodeStep")
         && descriptor.visibility == Visibility::Public
 }
 
@@ -2384,7 +2395,13 @@ fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
                 kind: AdtVariantKind::Source,
                 payload_fields,
                 coverage_case,
-                visibility: variant.visibility,
+                visibility: if decl.module_name.as_deref() == Some("std::prelude")
+                    && decl.visibility == Visibility::Public
+                {
+                    Visibility::Public
+                } else {
+                    variant.visibility
+                },
             })
         })
         .collect::<Vec<_>>();

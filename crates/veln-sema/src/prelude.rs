@@ -31,7 +31,7 @@ pub(crate) fn prelude_signature_with_input(
         .or_else(|| prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| prelude_option_signature(descriptor.name, &expected))
         .or_else(|| prelude_result_signature(descriptor.name, &expected))
-        .or_else(|| source_backed_prelude_callback_signature(descriptor))
+        .or_else(|| compiler_adapter_callback_signature(descriptor))
 }
 
 pub(crate) fn qualified_prelude_builtin_signature_with_input(
@@ -80,10 +80,9 @@ struct SourcePreludeSignature {
 
 static SOURCE_PRELUDE_CALLBACK_SIGNATURES: OnceLock<Vec<SourcePreludeSignature>> = OnceLock::new();
 
-fn source_backed_prelude_callback_signature(
+fn compiler_adapter_callback_signature(
     descriptor: &StandardSymbolDescriptor,
 ) -> Option<(Vec<Type>, Type)> {
-    descriptor.source?;
     source_prelude_callback_signatures()
         .iter()
         .find(|signature| signature.name == descriptor.name)
@@ -93,7 +92,12 @@ fn source_backed_prelude_callback_signature(
 fn source_prelude_callback_signatures() -> &'static [SourcePreludeSignature] {
     SOURCE_PRELUDE_CALLBACK_SIGNATURES
         .get_or_init(|| {
-            let source = veln_stdlib::prelude_source("");
+            let package = veln_stdlib::package_bundle();
+            let source = package
+                .files
+                .iter()
+                .find(|file| file.path == "prelude.veln")
+                .expect("standard package should contain prelude.veln");
             source_prelude_callback_signatures_from_text(source.path, source.text)
         })
         .as_slice()
@@ -1563,7 +1567,7 @@ pub(crate) fn core_prelude_signature(
         .or_else(|| core_prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_option_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_result_signature(descriptor.name, &expected))
-        .or_else(|| source_backed_core_prelude_callback_signature(descriptor))?;
+        .or_else(|| compiler_adapter_core_callback_signature(descriptor))?;
     Some((
         CoreCallTarget::PreludeBuiltin(descriptor.name.to_string()),
         signature.0,
@@ -1571,10 +1575,10 @@ pub(crate) fn core_prelude_signature(
     ))
 }
 
-fn source_backed_core_prelude_callback_signature(
+fn compiler_adapter_core_callback_signature(
     descriptor: &StandardSymbolDescriptor,
 ) -> Option<(Vec<CoreType>, CoreType)> {
-    let (params, return_type) = source_backed_prelude_callback_signature(descriptor)?;
+    let (params, return_type) = compiler_adapter_callback_signature(descriptor)?;
     Some((
         params.iter().map(core_type).collect(),
         core_type(&return_type),
@@ -2207,7 +2211,7 @@ mod tests {
     }
 
     #[test]
-    fn source_backed_prelude_fallback_uses_concrete_callback_parameter() {
+    fn compiler_adapter_fallback_uses_concrete_callback_parameter() {
         let signatures = source_prelude_callback_signatures_from_text(
             "prelude.veln",
             concat!(
@@ -2233,7 +2237,7 @@ mod tests {
     }
 
     #[test]
-    fn source_backed_prelude_fallback_rejects_non_concrete_callback_parameter() {
+    fn compiler_adapter_fallback_rejects_non_concrete_callback_parameter() {
         let signatures = source_prelude_callback_signatures_from_text(
             "prelude.veln",
             concat!(

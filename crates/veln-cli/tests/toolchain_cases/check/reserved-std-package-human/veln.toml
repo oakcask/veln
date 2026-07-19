@@ -1,0 +1,5 @@
+[package]
+name = "std"
+
+[lib]
+exports = ["main.veln"]

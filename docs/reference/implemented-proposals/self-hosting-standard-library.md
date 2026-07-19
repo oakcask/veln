@@ -3,15 +3,16 @@
 Status: implemented
 
 This page records the completed source-backed prelude helper migration. Use
-the specification pages for current helper signatures, value semantics,
-descriptor metadata, and source-backed status.
+the specification pages for current helper signatures and value semantics.
+The later package migration superseded descriptor source metadata; see
+[standard-library-package.md](standard-library-package.md) for that history.
 
 ## Read First
 
-- Current prelude helper behavior and source-backed boundary:
+- Current prelude helper behavior and standard-package boundary:
   [../../specification/names-effects.md](../../specification/names-effects.md),
   then
-  [../../specification/names-effects-full.md#prelude-helpers](../../specification/names-effects-full.md#prelude-helpers)
+  [../../specification/names-effects-full.md#standard-package-boundary](../../specification/names-effects-full.md#standard-package-boundary)
   when exact helper details matter.
 - Current source syntax available to embedded library sources:
   [../../specification/source-surface.md](../../specification/source-surface.md).
@@ -19,20 +20,19 @@ descriptor metadata, and source-backed status.
 
 ## Outcome
 
-The implemented standard symbol table has no remaining descriptor-only pure
-helpers. All compiler-known prelude helpers listed by the current
-specification are source-backed descriptor entries with embedded standard
-library metadata.
+At the completion of this slice, the standard symbol table had no remaining
+descriptor-only pure helpers. Compiler-known prelude helpers were represented
+as source-backed descriptor entries with embedded standard-library metadata.
 
-The checker still uses descriptor-backed helper signatures, and the JVM backend
-still lowers the helpers through the existing runtime operations. This keeps
-public helper behavior, effect inference, and diagnostics anchored on user call
-sites while embedded Veln source is checked as the source-backed body for each
-helper entry point.
+The later standard-package implementation replaced that source-metadata model.
+Current project analysis gets declarations and bodies from `std::prelude`, uses
+compiler adapters only for expected-type inference, and reserves intrinsics for
+`prelude_builtin::*`. The JVM backend still provides those intrinsic runtime
+operations.
 
-This proposal record is now history and routing. New source-backed standard
-library work should use a new proposal page unless the behavior is already
-stated by `../../specification/`.
+This proposal record is now history and routing. New standard-library work
+should use a new proposal page unless the behavior is already stated by
+`../../specification/`.
 
 ## Completion Evidence
 

@@ -16,6 +16,7 @@ veln-lsp.workspace = true
 veln-project.workspace = true
 veln-sema.workspace = true
 veln-source.workspace = true
+veln-stdlib.workspace = true
 veln-syntax.workspace = true
 veln-test.workspace = true
 

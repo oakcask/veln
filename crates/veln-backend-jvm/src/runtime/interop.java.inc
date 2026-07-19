@@ -187,7 +187,9 @@
     private static Adt asAdt(Object value, String name) {
         value = diagnosticResultValue(value);
         Adt adt = (Adt) value;
-        if (!adt.name.equals(name)) {
+        if (!adt.name.equals(name)
+            && !adt.name.endsWith("::" + name)
+            && !name.endsWith("::" + adt.name)) {
             throw new IllegalStateException("expected " + name + ", found " + adt.name);
         }
         return adt;

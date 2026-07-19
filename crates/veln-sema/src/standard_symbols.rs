@@ -2,7 +2,6 @@
 pub(crate) enum StandardSymbolKind {
     Runtime,
     Prelude,
-    Veln,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -13,7 +12,6 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
     pub(crate) signature: Option<StandardSignature>,
-    pub(crate) source: Option<veln_stdlib::StdlibSource>,
     pub(crate) stability: StandardSymbolStability,
 }
 
@@ -141,7 +139,7 @@ const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::CancelToken];
 const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] =
     &[StandardType::Deadline, StandardType::CancelToken];
 #[cfg(test)]
-const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
+const STANDARD_PACKAGE_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
     "vec_try_map_step",
     "vec_try_map_with_step",
@@ -155,12 +153,12 @@ const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
     "dict_try_map_with_step",
 ];
 
-macro_rules! source_prelude_symbol_set {
-    ($($name:literal => $source:expr),+ $(,)?) => {
+macro_rules! compiler_adapter_symbol_set {
+    ($($name:literal),+ $(,)?) => {
         #[cfg(test)]
-        const SOURCE_PRELUDE_NAMES: &[&str] = &[$($name),+];
-        const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
-            $(source_prelude_symbol_descriptor($name, $source)),+
+        const COMPILER_ADAPTER_NAMES: &[&str] = &[$($name),+];
+        const COMPILER_ADAPTER_SYMBOLS: &[StandardSymbolDescriptor] = &[
+            $(source_prelude_symbol_descriptor($name)),+
         ];
     };
 }
@@ -791,149 +789,149 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 
 const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
-source_prelude_symbol_set! {
-    "byte" => veln_stdlib::prelude_source("byte"),
-    "byte_to_int" => veln_stdlib::prelude_source("byte_to_int"),
-    "byte_chunk" => veln_stdlib::prelude_source("byte_chunk"),
-    "byte_chunk_count" => veln_stdlib::prelude_source("byte_chunk_count"),
-    "byte_append" => veln_stdlib::prelude_source("byte_append"),
-    "byte_chunk_from_hex" => veln_stdlib::prelude_source("byte_chunk_from_hex"),
-    "byte_chunk_to_visible_ascii_string" => veln_stdlib::prelude_source("byte_chunk_to_visible_ascii_string"),
-    "hpack_fixture_huffman_bytes_label" => veln_stdlib::prelude_source("hpack_fixture_huffman_bytes_label"),
-    "hpack_fixture_huffman_label_bytes" => veln_stdlib::prelude_source("hpack_fixture_huffman_label_bytes"),
-    "byte_chunk_from_visible_ascii_string" => veln_stdlib::prelude_source("byte_chunk_from_visible_ascii_string"),
-    "byte_take" => veln_stdlib::prelude_source("byte_take"),
-    "byte_drop" => veln_stdlib::prelude_source("byte_drop"),
-    "byte_view" => veln_stdlib::prelude_source("byte_view"),
-    "byte_view_to_chunk" => veln_stdlib::prelude_source("byte_view_to_chunk"),
-    "byte_view_count" => veln_stdlib::prelude_source("byte_view_count"),
-    "byte_view_take" => veln_stdlib::prelude_source("byte_view_take"),
-    "byte_view_drop" => veln_stdlib::prelude_source("byte_view_drop"),
-    "byte_view_slice" => veln_stdlib::prelude_source("byte_view_slice"),
-    "byte_chunks_empty" => veln_stdlib::prelude_source("byte_chunks_empty"),
-    "byte_chunks_one" => veln_stdlib::prelude_source("byte_chunks_one"),
-    "byte_chunks_append" => veln_stdlib::prelude_source("byte_chunks_append"),
-    "byte_chunks_produce" => veln_stdlib::prelude_source("byte_chunks_produce"),
-    "byte_read_u8_be" => veln_stdlib::prelude_source("byte_read_u8_be"),
-    "byte_expect_fixed_u8_be" => veln_stdlib::prelude_source("byte_expect_fixed_u8_be"),
-    "byte_decode_http2_frame" => veln_stdlib::prelude_source("byte_decode_http2_frame"),
-    "byte_decode_schema_width_sample" => veln_stdlib::prelude_source("byte_decode_schema_width_sample"),
-    "byte_decode_schema_validation_sample" => veln_stdlib::prelude_source("byte_decode_schema_validation_sample"),
-    "http2_protocol_closed_with_pending" => veln_stdlib::prelude_source("http2_protocol_closed_with_pending"),
-    "http2_protocol_partial_preface" => veln_stdlib::prelude_source("http2_protocol_partial_preface"),
-    "http2_protocol_invalid_preface" => veln_stdlib::prelude_source("http2_protocol_invalid_preface"),
-    "http2_protocol_initial_peer_settings_required" => veln_stdlib::prelude_source("http2_protocol_initial_peer_settings_required"),
-    "http2_protocol_continuation_expected" => veln_stdlib::prelude_source("http2_protocol_continuation_expected"),
-    "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
-    "http2_protocol_invalid_stream_id" => veln_stdlib::prelude_source("http2_protocol_invalid_stream_id"),
-    "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
-    "http2_protocol_invalid_window_update_increment" => veln_stdlib::prelude_source("http2_protocol_invalid_window_update_increment"),
-    "http2_protocol_invalid_data_padding" => veln_stdlib::prelude_source("http2_protocol_invalid_data_padding"),
-    "http2_protocol_content_length_mismatch" => veln_stdlib::prelude_source("http2_protocol_content_length_mismatch"),
-    "http2_protocol_invalid_request_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_request_header_list"),
-    "http2_protocol_invalid_response_header_list" => veln_stdlib::prelude_source("http2_protocol_invalid_response_header_list"),
-    "http2_protocol_unexpected_settings_ack" => veln_stdlib::prelude_source("http2_protocol_unexpected_settings_ack"),
-    "http2_protocol_settings_not_allowed_for_endpoint" => veln_stdlib::prelude_source("http2_protocol_settings_not_allowed_for_endpoint"),
-    "http2_protocol_invalid_priority_dependency" => veln_stdlib::prelude_source("http2_protocol_invalid_priority_dependency"),
-    "http2_protocol_stream_after_goaway" => veln_stdlib::prelude_source("http2_protocol_stream_after_goaway"),
-    "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),
-    "http2_peer_limit_header_list_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_header_list_size_exceeded"),
-    "http2_peer_limit_header_table_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_header_table_size_exceeded"),
-    "http2_peer_limit_flow_control_window_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_flow_control_window_exceeded"),
-    "http2_peer_limit_concurrent_streams_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_concurrent_streams_exceeded"),
-    "http2_peer_limit_settings_value_out_of_range" => veln_stdlib::prelude_source("http2_peer_limit_settings_value_out_of_range"),
-    "hpack_fixture_unsupported_header_block" => veln_stdlib::prelude_source("hpack_fixture_unsupported_header_block"),
-    "hpack_fixture_unsupported_static_index" => veln_stdlib::prelude_source("hpack_fixture_unsupported_static_index"),
-    "hpack_fixture_malformed_string_length" => veln_stdlib::prelude_source("hpack_fixture_malformed_string_length"),
-    "hpack_fixture_malformed_raw_string_value" => veln_stdlib::prelude_source("hpack_fixture_malformed_raw_string_value"),
-    "hpack_fixture_malformed_huffman_padding" => veln_stdlib::prelude_source("hpack_fixture_malformed_huffman_padding"),
-    "hpack_fixture_huffman_eos_symbol" => veln_stdlib::prelude_source("hpack_fixture_huffman_eos_symbol"),
-    "hpack_fixture_huffman_non_visible_value" => veln_stdlib::prelude_source("hpack_fixture_huffman_non_visible_value"),
-    "hpack_fixture_table_size_update_malformed" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_malformed"),
-    "hpack_fixture_dynamic_index_out_of_range" => veln_stdlib::prelude_source("hpack_fixture_dynamic_index_out_of_range"),
-    "hpack_fixture_dynamic_name_continuation_missing" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_missing"),
-    "hpack_fixture_dynamic_name_continuation_malformed" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_malformed"),
-    "hpack_fixture_dynamic_name_continuation_out_of_range" => veln_stdlib::prelude_source("hpack_fixture_dynamic_name_continuation_out_of_range"),
-    "hpack_fixture_table_size_update_not_at_start" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_not_at_start"),
-    "hpack_fixture_table_size_update_trailing_bytes" => veln_stdlib::prelude_source("hpack_fixture_table_size_update_trailing_bytes"),
-    "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),
-    "byte_read_u24_be" => veln_stdlib::prelude_source("byte_read_u24_be"),
-    "byte_read_u31_be" => veln_stdlib::prelude_source("byte_read_u31_be"),
-    "byte_read_u32_be" => veln_stdlib::prelude_source("byte_read_u32_be"),
-    "byte_read_u40_be" => veln_stdlib::prelude_source("byte_read_u40_be"),
-    "byte_read_u48_be" => veln_stdlib::prelude_source("byte_read_u48_be"),
-    "byte_read_u56_be" => veln_stdlib::prelude_source("byte_read_u56_be"),
-    "byte_read_u64_be" => veln_stdlib::prelude_source("byte_read_u64_be"),
-    "byte_read_u16_le" => veln_stdlib::prelude_source("byte_read_u16_le"),
-    "byte_read_u24_le" => veln_stdlib::prelude_source("byte_read_u24_le"),
-    "byte_read_u31_le" => veln_stdlib::prelude_source("byte_read_u31_le"),
-    "byte_read_u32_le" => veln_stdlib::prelude_source("byte_read_u32_le"),
-    "byte_read_u40_le" => veln_stdlib::prelude_source("byte_read_u40_le"),
-    "byte_read_u48_le" => veln_stdlib::prelude_source("byte_read_u48_le"),
-    "byte_read_u56_le" => veln_stdlib::prelude_source("byte_read_u56_le"),
-    "byte_read_u64_le" => veln_stdlib::prelude_source("byte_read_u64_le"),
-    "byte_write_u8_be" => veln_stdlib::prelude_source("byte_write_u8_be"),
-    "byte_write_u16_be" => veln_stdlib::prelude_source("byte_write_u16_be"),
-    "byte_write_u24_be" => veln_stdlib::prelude_source("byte_write_u24_be"),
-    "byte_write_u31_be" => veln_stdlib::prelude_source("byte_write_u31_be"),
-    "byte_write_u32_be" => veln_stdlib::prelude_source("byte_write_u32_be"),
-    "byte_write_u40_be" => veln_stdlib::prelude_source("byte_write_u40_be"),
-    "byte_write_u48_be" => veln_stdlib::prelude_source("byte_write_u48_be"),
-    "byte_write_u56_be" => veln_stdlib::prelude_source("byte_write_u56_be"),
-    "byte_write_u64_be" => veln_stdlib::prelude_source("byte_write_u64_be"),
-    "byte_write_u16_le" => veln_stdlib::prelude_source("byte_write_u16_le"),
-    "byte_write_u24_le" => veln_stdlib::prelude_source("byte_write_u24_le"),
-    "byte_write_u31_le" => veln_stdlib::prelude_source("byte_write_u31_le"),
-    "byte_write_u32_le" => veln_stdlib::prelude_source("byte_write_u32_le"),
-    "byte_write_u40_le" => veln_stdlib::prelude_source("byte_write_u40_le"),
-    "byte_write_u48_le" => veln_stdlib::prelude_source("byte_write_u48_le"),
-    "byte_write_u56_le" => veln_stdlib::prelude_source("byte_write_u56_le"),
-    "byte_write_u64_le" => veln_stdlib::prelude_source("byte_write_u64_le"),
-    "byte_count" => veln_stdlib::prelude_source("byte_count"),
-    "byte_count_to_int" => veln_stdlib::prelude_source("byte_count_to_int"),
-    "byte_offset" => veln_stdlib::prelude_source("byte_offset"),
-    "byte_offset_to_int" => veln_stdlib::prelude_source("byte_offset_to_int"),
-    "stream_adapter_drain_actions" => veln_stdlib::prelude_source("stream_adapter_drain_actions"),
-    "stream_adapter_accept_loop" => veln_stdlib::prelude_source("stream_adapter_accept_loop"),
-    "stream_adapter_drain_actions_until_cancellable" => veln_stdlib::prelude_source("stream_adapter_drain_actions_until_cancellable"),
-    "vec_fold" => veln_stdlib::prelude_source("vec_fold"),
-    "vec_len" => veln_stdlib::prelude_source("vec_len"),
-    "vec_is_empty" => veln_stdlib::prelude_source("vec_is_empty"),
-    "vec_push" => veln_stdlib::prelude_source("vec_push"),
-    "vec_concat" => veln_stdlib::prelude_source("vec_concat"),
-    "vec_map" => veln_stdlib::prelude_source("vec_map"),
-    "vec_filter" => veln_stdlib::prelude_source("vec_filter"),
-    "vec_try_map" => veln_stdlib::prelude_source("vec_try_map"),
-    "vec_try_map_with" => veln_stdlib::prelude_source("vec_try_map_with"),
-    "list_nil" => veln_stdlib::prelude_source("list_nil"),
-    "list_cons" => veln_stdlib::prelude_source("list_cons"),
-    "list_is_empty" => veln_stdlib::prelude_source("list_is_empty"),
-    "list_fold" => veln_stdlib::prelude_source("list_fold"),
-    "list_reverse" => veln_stdlib::prelude_source("list_reverse"),
-    "list_map" => veln_stdlib::prelude_source("list_map"),
-    "list_filter" => veln_stdlib::prelude_source("list_filter"),
-    "list_try_map" => veln_stdlib::prelude_source("list_try_map"),
-    "dict_get" => veln_stdlib::prelude_source("dict_get"),
-    "dict_contains" => veln_stdlib::prelude_source("dict_contains"),
-    "dict_insert" => veln_stdlib::prelude_source("dict_insert"),
-    "dict_remove" => veln_stdlib::prelude_source("dict_remove"),
-    "dict_map" => veln_stdlib::prelude_source("dict_map"),
-    "dict_map_with" => veln_stdlib::prelude_source("dict_map_with"),
-    "dict_filter" => veln_stdlib::prelude_source("dict_filter"),
-    "dict_filter_with" => veln_stdlib::prelude_source("dict_filter_with"),
-    "dict_fold" => veln_stdlib::prelude_source("dict_fold"),
-    "dict_fold_with" => veln_stdlib::prelude_source("dict_fold_with"),
-    "dict_try_map" => veln_stdlib::prelude_source("dict_try_map"),
-    "dict_try_map_with" => veln_stdlib::prelude_source("dict_try_map_with"),
-    "option_map" => veln_stdlib::prelude_source("option_map"),
-    "option_and_then" => veln_stdlib::prelude_source("option_and_then"),
-    "option_unwrap_or" => veln_stdlib::prelude_source("option_unwrap_or"),
-    "result_map" => veln_stdlib::prelude_source("result_map"),
-    "result_map_err" => veln_stdlib::prelude_source("result_map_err"),
-    "result_and_then" => veln_stdlib::prelude_source("result_and_then"),
-    "string_split_once" => veln_stdlib::prelude_source("string_split_once"),
-    "string_parse_int" => veln_stdlib::prelude_source("string_parse_int"),
-    "int_to_string" => veln_stdlib::prelude_source("int_to_string"),
+compiler_adapter_symbol_set! {
+    "byte",
+    "byte_to_int",
+    "byte_chunk",
+    "byte_chunk_count",
+    "byte_append",
+    "byte_chunk_from_hex",
+    "byte_chunk_to_visible_ascii_string",
+    "hpack_fixture_huffman_bytes_label",
+    "hpack_fixture_huffman_label_bytes",
+    "byte_chunk_from_visible_ascii_string",
+    "byte_take",
+    "byte_drop",
+    "byte_view",
+    "byte_view_to_chunk",
+    "byte_view_count",
+    "byte_view_take",
+    "byte_view_drop",
+    "byte_view_slice",
+    "byte_chunks_empty",
+    "byte_chunks_one",
+    "byte_chunks_append",
+    "byte_chunks_produce",
+    "byte_read_u8_be",
+    "byte_expect_fixed_u8_be",
+    "byte_decode_http2_frame",
+    "byte_decode_schema_width_sample",
+    "byte_decode_schema_validation_sample",
+    "http2_protocol_closed_with_pending",
+    "http2_protocol_partial_preface",
+    "http2_protocol_invalid_preface",
+    "http2_protocol_initial_peer_settings_required",
+    "http2_protocol_continuation_expected",
+    "http2_protocol_invalid_frame_kind",
+    "http2_protocol_invalid_stream_id",
+    "http2_protocol_invalid_payload_length",
+    "http2_protocol_invalid_window_update_increment",
+    "http2_protocol_invalid_data_padding",
+    "http2_protocol_content_length_mismatch",
+    "http2_protocol_invalid_request_header_list",
+    "http2_protocol_invalid_response_header_list",
+    "http2_protocol_unexpected_settings_ack",
+    "http2_protocol_settings_not_allowed_for_endpoint",
+    "http2_protocol_invalid_priority_dependency",
+    "http2_protocol_stream_after_goaway",
+    "http2_peer_limit_frame_size_exceeded",
+    "http2_peer_limit_header_list_size_exceeded",
+    "http2_peer_limit_header_table_size_exceeded",
+    "http2_peer_limit_flow_control_window_exceeded",
+    "http2_peer_limit_concurrent_streams_exceeded",
+    "http2_peer_limit_settings_value_out_of_range",
+    "hpack_fixture_unsupported_header_block",
+    "hpack_fixture_unsupported_static_index",
+    "hpack_fixture_malformed_string_length",
+    "hpack_fixture_malformed_raw_string_value",
+    "hpack_fixture_malformed_huffman_padding",
+    "hpack_fixture_huffman_eos_symbol",
+    "hpack_fixture_huffman_non_visible_value",
+    "hpack_fixture_table_size_update_malformed",
+    "hpack_fixture_dynamic_index_out_of_range",
+    "hpack_fixture_dynamic_name_continuation_missing",
+    "hpack_fixture_dynamic_name_continuation_malformed",
+    "hpack_fixture_dynamic_name_continuation_out_of_range",
+    "hpack_fixture_table_size_update_not_at_start",
+    "hpack_fixture_table_size_update_trailing_bytes",
+    "byte_read_u16_be",
+    "byte_read_u24_be",
+    "byte_read_u31_be",
+    "byte_read_u32_be",
+    "byte_read_u40_be",
+    "byte_read_u48_be",
+    "byte_read_u56_be",
+    "byte_read_u64_be",
+    "byte_read_u16_le",
+    "byte_read_u24_le",
+    "byte_read_u31_le",
+    "byte_read_u32_le",
+    "byte_read_u40_le",
+    "byte_read_u48_le",
+    "byte_read_u56_le",
+    "byte_read_u64_le",
+    "byte_write_u8_be",
+    "byte_write_u16_be",
+    "byte_write_u24_be",
+    "byte_write_u31_be",
+    "byte_write_u32_be",
+    "byte_write_u40_be",
+    "byte_write_u48_be",
+    "byte_write_u56_be",
+    "byte_write_u64_be",
+    "byte_write_u16_le",
+    "byte_write_u24_le",
+    "byte_write_u31_le",
+    "byte_write_u32_le",
+    "byte_write_u40_le",
+    "byte_write_u48_le",
+    "byte_write_u56_le",
+    "byte_write_u64_le",
+    "byte_count",
+    "byte_count_to_int",
+    "byte_offset",
+    "byte_offset_to_int",
+    "stream_adapter_drain_actions",
+    "stream_adapter_accept_loop",
+    "stream_adapter_drain_actions_until_cancellable",
+    "vec_fold",
+    "vec_len",
+    "vec_is_empty",
+    "vec_push",
+    "vec_concat",
+    "vec_map",
+    "vec_filter",
+    "vec_try_map",
+    "vec_try_map_with",
+    "list_nil",
+    "list_cons",
+    "list_is_empty",
+    "list_fold",
+    "list_reverse",
+    "list_map",
+    "list_filter",
+    "list_try_map",
+    "dict_get",
+    "dict_contains",
+    "dict_insert",
+    "dict_remove",
+    "dict_map",
+    "dict_map_with",
+    "dict_filter",
+    "dict_filter_with",
+    "dict_fold",
+    "dict_fold_with",
+    "dict_try_map",
+    "dict_try_map_with",
+    "option_map",
+    "option_and_then",
+    "option_unwrap_or",
+    "result_map",
+    "result_map_err",
+    "result_and_then",
+    "string_split_once",
+    "string_parse_int",
+    "int_to_string",
 }
 
 const fn runtime_symbol(
@@ -949,7 +947,6 @@ const fn runtime_symbol(
         effects,
         lowering: Some(lowering),
         signature: None,
-        source: None,
         stability: StandardSymbolStability::RequiredForSelfHosting,
     }
 }
@@ -968,7 +965,6 @@ const fn runtime_symbol_with_signature(
         effects,
         lowering: Some(lowering),
         signature: Some(signature),
-        source: None,
         stability: StandardSymbolStability::RequiredForSelfHosting,
     }
 }
@@ -981,23 +977,18 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
         effects: PURE_EFFECTS,
         lowering: None,
         signature: None,
-        source: None,
         stability: StandardSymbolStability::CompatibilityOnly,
     }
 }
 
-const fn source_prelude_symbol_descriptor(
-    name: &'static str,
-    source: veln_stdlib::StdlibSource,
-) -> StandardSymbolDescriptor {
+const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescriptor {
     StandardSymbolDescriptor {
         module: None,
         name,
-        kind: StandardSymbolKind::Veln,
+        kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
         signature: None,
-        source: Some(source),
         stability: StandardSymbolStability::CompatibilityOnly,
     }
 }
@@ -1016,38 +1007,23 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 }
 
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    descriptor_only_prelude_symbols().chain(SOURCE_PRELUDE_SYMBOLS.iter())
+    compatibility_prelude_symbols().chain(COMPILER_ADAPTER_SYMBOLS.iter())
 }
 
-fn descriptor_only_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
     FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS
         .iter()
         .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
 }
 
 #[cfg(test)]
-pub(crate) fn source_backed_prelude_symbols() -> &'static [StandardSymbolDescriptor] {
-    SOURCE_PRELUDE_SYMBOLS
+pub(crate) fn compiler_adapter_symbols() -> &'static [StandardSymbolDescriptor] {
+    COMPILER_ADAPTER_SYMBOLS
 }
 
 #[cfg(test)]
-pub(crate) fn source_backed_prelude_names() -> impl Iterator<Item = &'static str> {
-    source_backed_prelude_symbols()
-        .iter()
-        .map(|symbol| symbol.name)
-}
-
-#[cfg(test)]
-pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    source_backed_prelude_symbols()
-        .iter()
-        .chain(QUALIFIED_SYMBOLS)
-        .filter(|symbol| symbol.source.is_some())
-}
-
-#[allow(dead_code)]
-pub(crate) fn compiler_support_sources() -> impl Iterator<Item = veln_stdlib::StdlibSource> {
-    [veln_stdlib::COMPILER_SUPPORT].into_iter()
+pub(crate) fn compiler_adapter_names() -> impl Iterator<Item = &'static str> {
+    compiler_adapter_symbols().iter().map(|symbol| symbol.name)
 }
 
 pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
@@ -1056,6 +1032,14 @@ pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
         .iter()
         .map(|effect| (*effect).to_string())
         .collect()
+}
+
+pub(crate) fn standard_function_link_name(module: Option<&str>, name: &str) -> String {
+    let Some(module) = module.and_then(|module| module.strip_prefix("std::")) else {
+        return name.to_string();
+    };
+    let module = module.replace("::", "$");
+    format!("__veln_std${module}${name}")
 }
 
 #[cfg(test)]
@@ -1075,7 +1059,6 @@ mod tests {
         assert_eq!(symbol.kind, StandardSymbolKind::Runtime);
         assert_eq!(symbol.effects, ["stdio"]);
         assert_eq!(symbol.lowering, Some("runtime.stdio.println"));
-        assert_eq!(symbol.source, None);
         assert_eq!(
             symbol.stability,
             StandardSymbolStability::RequiredForSelfHosting
@@ -1094,51 +1077,39 @@ mod tests {
     }
 
     #[test]
-    fn source_backed_prelude_descriptors_carry_metadata() {
-        let mut entries = Vec::new();
-
-        for name in SOURCE_PRELUDE_NAMES.iter().copied() {
-            let symbol = prelude_symbol(name).expect("source-backed helper descriptor");
-            let source = symbol.source.expect("source metadata");
-
-            assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+    fn compiler_adapter_descriptors_carry_pure_metadata() {
+        for name in COMPILER_ADAPTER_NAMES.iter().copied() {
+            let symbol = prelude_symbol(name).expect("prelude adapter descriptor");
+            assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
             assert!(symbol.effects.is_empty());
             assert_eq!(symbol.lowering, None);
-            assert_eq!(source.entry, symbol.name);
-            assert!(
-                !source.path.starts_with('/'),
-                "source path should be repository relative"
-            );
-            assert!(source.text.contains(&format!("fn {name}")));
-            entries.push(source.entry);
         }
-
-        assert_eq!(entries, SOURCE_PRELUDE_NAMES);
     }
 
     #[test]
-    fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        for symbol in descriptor_only_prelude_symbols() {
+    fn compatibility_prelude_helpers_carry_only_intrinsic_metadata() {
+        for symbol in compatibility_prelude_symbols() {
             assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
             assert_eq!(symbol.lowering, None);
             assert!(symbol.effects.is_empty());
-            assert_eq!(symbol.source, None);
         }
     }
 
     #[test]
-    fn vec_fold_source_metadata_uses_prelude_source() {
+    fn vec_fold_is_declared_by_the_standard_package() {
         let symbol = prelude_symbol("vec_fold").expect("vec_fold descriptor");
-        let source = symbol.source.expect("vec_fold source metadata");
-
-        assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-        assert_eq!(source.path, "prelude.veln");
+        let source = veln_stdlib::package_bundle()
+            .files
+            .iter()
+            .find(|file| file.path == "prelude.veln")
+            .expect("prelude source");
+        assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(source.text.contains("fn vec_fold("));
     }
 
     #[test]
-    fn source_backed_step_helpers_are_not_prelude_descriptors() {
-        for name in SOURCE_BACKED_PRIVATE_HELPERS {
+    fn standard_package_private_helpers_are_not_compiler_adapters() {
+        for name in STANDARD_PACKAGE_PRIVATE_HELPERS {
             assert_eq!(prelude_symbol(name), None);
         }
     }
@@ -1151,23 +1122,23 @@ mod tests {
     }
 
     #[test]
-    fn no_descriptor_only_pure_helpers_remain_after_source_backed_migration() {
+    fn no_deferred_pure_helpers_remain_outside_the_standard_package() {
         assert_eq!(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter().next(), None);
     }
 
     #[test]
-    fn source_backed_boundary_matches_current_prelude_split() {
-        let source_backed = SOURCE_PRELUDE_SYMBOLS
+    fn compiler_adapter_boundary_matches_current_prelude_split() {
+        let compiler_adapters = COMPILER_ADAPTER_SYMBOLS
             .iter()
             .map(|symbol| symbol.name)
             .collect::<Vec<_>>();
-        let descriptor_only = descriptor_only_prelude_symbols()
+        let compatibility_intrinsics = compatibility_prelude_symbols()
             .map(|symbol| symbol.name)
             .collect::<Vec<_>>();
 
-        assert_eq!(source_backed, SOURCE_PRELUDE_NAMES);
+        assert_eq!(compiler_adapters, COMPILER_ADAPTER_NAMES);
         assert_eq!(
-            descriptor_only,
+            compatibility_intrinsics,
             [
                 "float_negate",
                 "float_add",
@@ -1183,40 +1154,29 @@ mod tests {
     }
 
     #[test]
-    fn source_backed_descriptors_have_valid_metadata() {
-        let mut sources = BTreeSet::new();
-        let mut count = 0;
+    fn compiler_adapter_names_are_public_standard_package_functions() {
+        let source = veln_stdlib::package_bundle()
+            .files
+            .iter()
+            .find(|file| file.path == "prelude.veln")
+            .expect("prelude source");
+        let file = veln_source::SourceFile::new(source.path, source.text);
+        let parsed = veln_syntax::parse(&file);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = veln_ast::lower_surface_ast(&parsed.tree);
+        let public_names = module
+            .functions
+            .iter()
+            .filter(|function| function.visibility == veln_ast::Visibility::Public)
+            .filter_map(|function| function.name.as_deref())
+            .collect::<BTreeSet<_>>();
 
-        for symbol in prelude_symbols().chain(QUALIFIED_SYMBOLS.iter()) {
-            if let Some(source) = symbol.source {
-                count += 1;
-                assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-                assert_eq!(symbol.effects, PURE_EFFECTS);
-                assert_eq!(symbol.lowering, None);
-                assert_eq!(source.entry, symbol.name);
-                assert!(
-                    !source.path.starts_with('/'),
-                    "source path should be repository relative"
-                );
-                assert!(
-                    source.text.contains(&format!("fn {}", source.entry)),
-                    "embedded source should define {}",
-                    source.entry
-                );
-                assert!(
-                    sources.insert((source.path, source.entry)),
-                    "duplicate source-backed entry {} in {}",
-                    source.entry,
-                    source.path
-                );
-            }
+        for name in COMPILER_ADAPTER_NAMES {
+            assert!(
+                public_names.contains(name),
+                "missing public std function {name}"
+            );
         }
-
-        assert_eq!(
-            count,
-            SOURCE_PRELUDE_SYMBOLS.len(),
-            "expected one source descriptor per source-backed prelude symbol"
-        );
     }
 
     #[test]

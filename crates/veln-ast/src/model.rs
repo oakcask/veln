@@ -44,6 +44,28 @@ pub struct UseDecl {
     pub package: Option<String>,
     pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
+    pub origin: UseOrigin,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UseOrigin {
+    Source,
+    ImplicitStandardPrelude,
+}
+
+impl UseDecl {
+    pub fn implicit_standard_prelude(module_name: String, span: SourceSpan) -> Self {
+        Self {
+            node_id: NodeId::new(u32::MAX),
+            module_name: Some(module_name),
+            name: "std::prelude".to_string(),
+            alias: "prelude".to_string(),
+            package: Some("std".to_string()),
+            package_span: None,
+            span,
+            origin: UseOrigin::ImplicitStandardPrelude,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

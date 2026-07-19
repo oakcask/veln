@@ -3,10 +3,7 @@ use std::collections::BTreeMap;
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_project::Project;
-use veln_sema::{
-    LoweredSurfaceModule, analyze_surface_module, lower_analyzed_surface_module,
-    lower_checked_surface_module,
-};
+use veln_sema::{LoweredSurfaceModule, check_project_surface_module, lower_checked_surface_module};
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
@@ -50,8 +47,7 @@ pub fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -> Proje
 
     let (module, parse_diagnostics) = load_surface_module(&project);
     source_diagnostics.extend(parse_diagnostics);
-    let semantic_diagnostics = analyze_surface_module(&module);
-    let checked = lower_analyzed_surface_module(&module, semantic_diagnostics.clone());
+    let (semantic_diagnostics, checked) = check_project_surface_module(&module);
 
     ProjectAnalysis {
         project,

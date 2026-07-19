@@ -11140,7 +11140,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
         } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
-    let source_backed_prelude_names = crate::standard_symbols::source_backed_prelude_names()
+    let compiler_adapter_names = crate::standard_symbols::compiler_adapter_names()
         .filter(|name| *name != "stream_adapter_drain_actions")
         .filter(|name| *name != "stream_adapter_accept_loop")
         .filter(|name| *name != "stream_adapter_drain_actions_until_cancellable")
@@ -11155,7 +11155,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    for name in &source_backed_prelude_names {
+    for name in &compiler_adapter_names {
         assert!(
             core_prelude_calls.contains(name),
             "{name} should keep prelude core lowering"
@@ -11192,7 +11192,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             _ => None,
         })
         .collect::<Vec<_>>();
-    for name in &source_backed_prelude_names {
+    for name in &compiler_adapter_names {
         assert!(
             ir_prelude_calls.contains(name),
             "{name} should keep prelude IR lowering"
@@ -11431,13 +11431,8 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
 }
 
 #[test]
-fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
-    let mut entries = Vec::new();
-
-    for symbol in crate::standard_symbols::source_backed_symbols() {
-        let source = symbol.source.expect("source metadata");
-        assert_eq!(symbol.name, source.entry);
-        entries.push(source.entry);
+fn standard_package_sources_are_embedded_and_checkable() {
+    for source in veln_stdlib::package_bundle().files {
         let file = SourceFile::new(source.path, source.text);
         let parsed = parse(&file);
         assert!(
@@ -11456,20 +11451,10 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             source.path
         );
         assert!(
-            module
-                .functions
-                .iter()
-                .any(|function| function.name.as_deref() == Some(source.entry)),
-            "embedded source should define {}",
-            source.entry
+            !module.functions.is_empty(),
+            "embedded source should define functions"
         );
     }
-
-    let mut expected_entries =
-        crate::standard_symbols::source_backed_prelude_names().collect::<Vec<_>>();
-    entries.sort_unstable();
-    expected_entries.sort_unstable();
-    assert_eq!(entries, expected_entries);
 }
 
 #[test]
@@ -11644,8 +11629,10 @@ fn user_source_cannot_claim_prelude_module_identity() {
 
 #[test]
 fn compiler_support_source_loads_text_through_standard_fs_subset() {
-    let source = crate::standard_symbols::compiler_support_sources()
-        .find(|source| source.entry == "load_source_text")
+    let source = veln_stdlib::package_bundle()
+        .files
+        .iter()
+        .find(|source| source.path == "compiler_support.veln")
         .expect("compiler support source should be embedded");
     let file = SourceFile::new(source.path, source.text);
     let parsed = parse(&file);
@@ -11669,7 +11656,7 @@ fn compiler_support_source_loads_text_through_standard_fs_subset() {
     let function = core
         .functions
         .iter()
-        .find(|function| function.name == source.entry)
+        .find(|function| function.name == "load_source_text")
         .expect("compiler support entry should lower");
     let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
         panic!("first statement should call fs before wrapping the result");
@@ -13139,7 +13126,7 @@ fn dictionary_prelude_callback_aliases_infer_context_key_and_value_parameters() 
 }
 
 #[test]
-fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
+fn compiler_adapter_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
         ("vec_map", "Vec<Int>", "Vec<String>", "fn(Int) -> String"),
         ("vec_filter", "Vec<Int>", "Vec<Int>", "fn(Int) -> Bool"),

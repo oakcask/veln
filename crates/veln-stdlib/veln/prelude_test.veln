@@ -1,0 +1,37 @@
+fn increment(value: Int) -> Int
+	value + 1
+end
+
+test pure_veln_control() -> Result<(), String>
+	match list_is_empty(list_nil())
+		true => Ok(())
+		false => Err("list should be empty")
+	end
+end
+
+test collection_callback_reaches_private_helper() -> Result<(), String>
+	match vec_len(vec_map([1, 2], increment)) == 2
+		true => Ok(())
+		false => Err("mapped values did not match")
+	end
+end
+
+test option_and_result_helpers_use_veln_bodies() -> Result<(), String>
+	match option_map(Some(1), increment)
+		Some(2) => match result_map(Ok(2), increment)
+			Ok(3) => Ok(())
+			_ => Err("result map did not match")
+		end
+		_ => Err("option map did not match")
+	end
+end
+
+test source_adt_and_intrinsic_delegation() -> Result<(), String>
+	match byte(7)
+		Ok(value) => match byte_to_int(value) == vec_len([1, 2, 3, 4, 5, 6, 7])
+			true => Ok(())
+			false => Err("byte value did not match")
+		end
+		Err(error) => Err(error)
+	end
+end
