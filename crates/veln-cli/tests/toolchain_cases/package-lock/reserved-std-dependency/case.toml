@@ -1,0 +1,13 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[manifest.reserved_standard_package]: dependency package `std` is reserved by the Veln toolchain", "Remove this dependency; the standard package is supplied by the toolchain and is not written to veln.lock."]
+
+[[file_assert]]
+path = "veln.lock"
+equals = "preserve\n"

@@ -448,10 +448,14 @@ impl TypeEnvironment {
         self.functions.iter().find(|function| function.name == name)
     }
 
-    pub(crate) fn function_by_node_id(&self, node_id: NodeId) -> Option<&FunctionSignature> {
-        self.functions
-            .iter()
-            .find(|function| function.node_id == node_id)
+    pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
+        let name = source.name.as_deref()?;
+        self.functions.iter().find(|function| {
+            function.node_id == source.node_id
+                && function.name == name
+                && function.module_name == source.module_name
+                && function.span == source.span
+        })
     }
 
     pub(crate) fn unqualified_function(
@@ -750,7 +754,10 @@ pub(crate) fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<Functi
             let (params, variadic) = function_signature_params(function);
             let return_type = parse_type_or_unknown(function.return_type.as_deref());
             Some(FunctionSignature {
-                target_name: name.clone(),
+                target_name: crate::standard_symbols::standard_function_link_name(
+                    function.module_name.as_deref(),
+                    &name,
+                ),
                 name,
                 module_name: function.module_name.clone(),
                 visibility: function.visibility,
@@ -1331,7 +1338,11 @@ fn private_call_site_non_target_params(
         context.current_module,
         context.constraints.uses,
         context.constraints.signatures_by_path,
-    ) {
+    )
+    .filter(|signature| {
+        context.current_module == Some("std::prelude")
+            || signature.module_name.as_deref() != Some("std::prelude")
+    }) {
         return signature.params.clone();
     }
 

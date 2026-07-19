@@ -33,8 +33,7 @@ evidence.
   prelude helpers; the standard helper remains reachable through `prelude::`.
 - User source cannot declare `mod prelude` or a written import alias
   `prelude`.
-- The embedded standard-library source module and source metadata use
-  `prelude` and `crates/veln-stdlib/veln/prelude.veln`; public helper entry
+- The toolchain standard package uses the `prelude` module; public helper entry
   points are `pub fn` declarations and private support functions remain
   non-public.
 

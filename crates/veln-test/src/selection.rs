@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use veln_ast::{FunctionKind, SurfaceModule};
+use veln_ast::{FunctionKind, SurfaceModule, UseOrigin};
 use veln_diagnostics::JsonValue;
 use veln_project::Project;
 
@@ -303,6 +303,9 @@ impl SourceDependencyGraph {
     ) -> BTreeMap<String, Vec<String>> {
         let mut imports_by_path = BTreeMap::<String, Vec<String>>::new();
         for use_decl in &module.uses {
+            if use_decl.origin != UseOrigin::Source {
+                continue;
+            }
             let path = selection_target_path(use_decl.span.file.as_str()).to_string();
             if paths.contains(&path) {
                 imports_by_path

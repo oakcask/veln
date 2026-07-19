@@ -98,7 +98,9 @@
             return name.equals("ByteView") || name.endsWith("::ByteView");
         }
         return value instanceof Adt
-            && (((Adt) value).name.equals(name) || ((Adt) value).name.endsWith("::" + name));
+            && (((Adt) value).name.equals(name)
+                || ((Adt) value).name.endsWith("::" + name)
+                || name.endsWith("::" + ((Adt) value).name));
     }
 
     public static Object adtPayload(Object value, int index) {

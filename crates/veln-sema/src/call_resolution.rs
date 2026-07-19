@@ -7,7 +7,7 @@ use crate::effects::{
     stdio_signature,
 };
 use crate::prelude::{
-    core_prelude_signature, qualified_core_prelude_builtin_signature,
+    core_prelude_signature, prelude_signature, qualified_core_prelude_builtin_signature,
     qualified_core_prelude_signature,
 };
 use crate::types::{
@@ -113,18 +113,21 @@ fn type_name_path_call_signature(
     match type_binding_call_signature(callee, segments, context.bindings) {
         BindingCallSignature::Resolved(signature) => Some(signature),
         BindingCallSignature::ShadowedNonCallable => None,
-        BindingCallSignature::Missing => {
-            function_type_call_signature(segments, context.environment, context.current_module)
-                .or_else(|| {
-                    codec_type_call_signature(
-                        segments,
-                        context.expected,
-                        context.arg_count,
-                        context.environment,
-                        context.current_module,
-                    )
-                })
-        }
+        BindingCallSignature::Missing => function_type_call_signature(
+            segments,
+            context.expected,
+            context.environment,
+            context.current_module,
+        )
+        .or_else(|| {
+            codec_type_call_signature(
+                segments,
+                context.expected,
+                context.arg_count,
+                context.environment,
+                context.current_module,
+            )
+        }),
     }
 }
 
@@ -272,7 +275,7 @@ fn core_name_path_call_signature(
             return_type,
         });
     }
-    if let Some(signature) = qualified_core_prelude_call_signature(segments, expected) {
+    if let Some(signature) = qualified_core_prelude_builtin_call_signature(segments, expected) {
         return Some(signature);
     }
     match core_binding_call_signature(segments, bindings) {
@@ -285,12 +288,11 @@ fn core_name_path_call_signature(
     })
 }
 
-fn qualified_core_prelude_call_signature(
+fn qualified_core_prelude_builtin_call_signature(
     segments: &[String],
     expected: Option<&CoreType>,
 ) -> Option<CoreCallSignature> {
-    let signature = qualified_core_prelude_builtin_signature(segments, expected)
-        .or_else(|| qualified_core_prelude_signature(segments, expected))?;
+    let signature = qualified_core_prelude_builtin_signature(segments, expected)?;
     Some(core_call_signature_from_parts(signature))
 }
 
@@ -328,12 +330,30 @@ fn core_function_call_signature(
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
     if let Some(function) = resolve_function(segments, environment, current_module) {
+        let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
+            core_prelude_signature(&function.name, expected)
+                .map(|(_, params, return_type)| (params, return_type))
+                .unwrap_or_else(|| {
+                    (
+                        function.params.iter().map(core_type).collect(),
+                        core_type(&function.return_type),
+                    )
+                })
+        } else {
+            (
+                function.params.iter().map(core_type).collect(),
+                core_type(&function.return_type),
+            )
+        };
         return Some(CoreCallSignature {
             target: core_target_from_signature_name(&function.target_name),
-            params: function.params.iter().map(core_type).collect(),
+            params,
             variadic: function.variadic.as_ref().map(core_type),
-            return_type: core_type(&function.return_type),
+            return_type,
         });
+    }
+    if let Some(signature) = qualified_core_prelude_signature(segments, expected) {
+        return Some(core_call_signature_from_parts(signature));
     }
     if let [name] = segments
         && let Some((target, params, return_type)) = core_prelude_signature(name, expected)
@@ -367,6 +387,7 @@ enum BindingCallSignature<T> {
 
 fn function_type_call_signature(
     segments: &[String],
+    expected: Option<&Type>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<TypeCallSignature> {
@@ -383,10 +404,16 @@ fn function_type_call_signature(
         ),
     };
     let function = function?;
+    let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
+        prelude_signature(&function.name, expected)
+            .unwrap_or_else(|| (function.params.clone(), function.return_type.clone()))
+    } else {
+        (function.params.clone(), function.return_type.clone())
+    };
     Some(TypeCallSignature {
-        params: function.params.clone(),
+        params,
         variadic: function.variadic.clone(),
-        return_type: function.return_type.clone(),
+        return_type,
         origin: CallOrigin {
             node_id: function.node_id,
             span: function.span.clone(),

@@ -413,7 +413,8 @@ requiring the full command reference on the first read.
   task.
 - `package lock`: path, git, vendor, and mirror dependency graph lockfile
   writes, including incompatible source rejection for repeated package
-  identities. Use
+  identities. The toolchain-owned `std` package cannot be declared as a
+  dependency and is never written to `veln.lock`. Use
   [commands-full.md#veln-package-lock](commands-full.md#veln-package-lock)
   when changing package-manager command behavior.
 - `lsp`: stdio language-server startup for editor semantic highlighting and

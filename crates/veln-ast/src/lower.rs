@@ -17,7 +17,7 @@ use crate::{
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
+    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -176,6 +176,7 @@ impl AstBuilder {
                 .as_ref()
                 .map(|package| package.span.clone()),
             span: use_decl.span.clone(),
+            origin: UseOrigin::Source,
         }
     }
 

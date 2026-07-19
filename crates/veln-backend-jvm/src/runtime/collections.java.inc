@@ -8050,7 +8050,10 @@
 
     private static boolean isAdtNamed(Object value, String name) {
         value = diagnosticResultValue(value);
-        return value instanceof Adt && ((Adt) value).name.equals(name);
+        return value instanceof Adt
+            && (((Adt) value).name.equals(name)
+                || ((Adt) value).name.endsWith("::" + name)
+                || name.endsWith("::" + ((Adt) value).name));
     }
 
     private static Object schemaDispatchLengthCheckedChunk(

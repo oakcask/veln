@@ -3630,7 +3630,11 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
-    for use_decl in &module.uses {
+    for use_decl in module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
+    {
         let node_id = use_decl.node_id.display("use");
         let key = (use_decl.module_name.clone(), use_decl.alias.clone());
         if let Some((first_node_id, first_span)) = seen.get(&key) {
@@ -3656,7 +3660,7 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
 
     if let Some(header) = &module.module
         && header.name == PRELUDE_MODULE
-        && !is_standard_prelude_source(&header.span)
+        && !is_toolchain_standard_prelude(&header.span)
     {
         diagnostics.push(reserved_prelude_diagnostic(
             header.node_id.display("mod"),
@@ -3667,7 +3671,11 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         ));
     }
 
-    for use_decl in &module.uses {
+    for use_decl in module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
+    {
         if use_decl.alias == PRELUDE_MODULE {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),
@@ -3682,7 +3690,7 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
     diagnostics
 }
 
-fn is_standard_prelude_source(span: &SourceSpan) -> bool {
+fn is_toolchain_standard_prelude(span: &SourceSpan) -> bool {
     span.file.as_str() == "prelude.veln"
 }
 

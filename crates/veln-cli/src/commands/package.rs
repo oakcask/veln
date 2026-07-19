@@ -77,6 +77,11 @@ impl<'a> PackageLockResolver<'a> {
         dependency: &ManifestDependency,
     ) {
         let dependency = dependency_in_context(dependency, owner_display_path);
+        if dependency.package == veln_stdlib::PACKAGE_NAME {
+            self.diagnostics
+                .push(reserved_standard_package_diagnostic(&dependency));
+            return;
+        }
         let selection = dependency_selection(self.lockfile_root, owner_root, &dependency);
         if let Some(selection) = &selection
             && let Some(existing) = self.locked.get(&dependency.package)
@@ -116,6 +121,31 @@ impl<'a> PackageLockResolver<'a> {
             .map(|locked| locked.package.clone())
             .collect()
     }
+}
+
+fn reserved_standard_package_diagnostic(dependency: &ManifestDependency) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "manifest.reserved_standard_package",
+        Severity::Error,
+        DiagnosticKind::Module,
+        "dependency package `std` is reserved by the Veln toolchain",
+        Some(dependency.package_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies")),
+            ("package", JsonValue::string(veln_stdlib::PACKAGE_NAME)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string(
+                "Remove this dependency; the standard package is supplied by the toolchain and is not written to veln.lock.",
+            ),
+        ),
+    ]));
+    diagnostic
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

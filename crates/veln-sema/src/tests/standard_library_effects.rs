@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
+fn compiler_adapter_helpers_report_direct_argument_diagnostics() {
     for (helper, source_text, expected_message) in [
         (
             "vec_is_empty",

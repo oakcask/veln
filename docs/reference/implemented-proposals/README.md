@@ -58,6 +58,8 @@ under `../../specification/` and its executable example routes.
   [agent-module-package-docs.md](agent-module-package-docs.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Standard library package:
+  [standard-library-package.md](standard-library-package.md).
 - Path runtime representation:
   [path-runtime-representation.md](path-runtime-representation.md).
 - Iterative list helper runtime:

@@ -12,8 +12,8 @@ helpers instead of adding source helper trampoline lowering.
   [../../specification/names-effects.md](../../specification/names-effects.md).
 - Current execution boundary and JVM backend behavior:
   [../../specification/execution.md](../../specification/execution.md).
-- Current source-backed helper boundary:
-  [../../specification/names-effects-full.md#source-backed-boundary](../../specification/names-effects-full.md#source-backed-boundary).
+- Current standard-package helper boundary:
+  [../../specification/names-effects-full.md#standard-package-boundary](../../specification/names-effects-full.md#standard-package-boundary).
 - Completed ADT, `List`, immutable collection, and traversal runtime route:
   [adt-generalization-route.md](adt-generalization-route.md).
 - Current source grammar, which does not include loops or mutation:

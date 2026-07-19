@@ -53,11 +53,39 @@ pub(crate) fn lower_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> CoreLoweringOutput {
+    lower_surface_module_to_core_if(module, environment, |_| true)
+}
+
+pub(crate) fn lower_project_surface_module_to_core(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> CoreLoweringOutput {
+    let has_application_functions = module.functions.iter().any(|function| {
+        !function
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    });
+    lower_surface_module_to_core_if(module, environment, |function| {
+        !has_application_functions
+            || !function
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::"))
+    })
+}
+
+fn lower_surface_module_to_core_if(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    include: impl Fn(&Function) -> bool,
+) -> CoreLoweringOutput {
     let mut blockers = Vec::new();
     let mut diagnostics = Vec::new();
     let functions = module
         .functions
         .iter()
+        .filter(|function| include(function))
         .map(|function| {
             let mut lowerer = CoreLowerer::new(function, environment);
             let lowered = lowerer.lower_function();
@@ -92,7 +120,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_function(&mut self) -> CoreFunction {
-        let signature = self.environment.function_by_node_id(self.function.node_id);
+        let signature = self.environment.function_for(self.function);
         let params = self
             .function
             .params
@@ -124,7 +152,7 @@ impl<'a> CoreLowerer<'a> {
             .collect();
         let return_type = self
             .environment
-            .function_by_node_id(self.function.node_id)
+            .function_for(self.function)
             .map(|function| core_type(&function.return_type))
             .unwrap_or_else(|| {
                 core_type(&parse_type_or_unknown(self.function.return_type.as_deref()))
@@ -149,11 +177,19 @@ impl<'a> CoreLowerer<'a> {
 
         CoreFunction {
             node_id: self.function.node_id,
-            name: self
-                .function
-                .name
-                .clone()
-                .unwrap_or_else(|| "<missing>".to_string()),
+            name: self.function.name.as_deref().map_or_else(
+                || "<missing>".to_string(),
+                |name| {
+                    if self.function.kind == veln_ast::FunctionKind::Test {
+                        name.to_string()
+                    } else {
+                        crate::standard_symbols::standard_function_link_name(
+                            self.function.module_name.as_deref(),
+                            name,
+                        )
+                    }
+                },
+            ),
             visibility: self.function.visibility,
             params,
             return_binding: self

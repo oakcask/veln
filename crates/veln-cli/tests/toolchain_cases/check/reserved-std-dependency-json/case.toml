@@ -1,0 +1,22 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "manifest.reserved_standard_package"
+severity = "error"
+kind = "module"
+message = "dependency package `std` is reserved by the Veln toolchain"

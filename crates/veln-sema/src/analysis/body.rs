@@ -642,9 +642,7 @@ impl<'a> FunctionChecker<'a> {
         {
             return None;
         }
-        let signature = self
-            .environment
-            .function_by_node_id(self.function.node_id)?;
+        let signature = self.environment.function_for(self.function)?;
         if param.is_variadic {
             return signature
                 .variadic
@@ -1122,6 +1120,11 @@ impl<'a> FunctionChecker<'a> {
         };
         signature
             .map(|signature| {
+                if signature.module_name.as_deref() == Some("std::prelude")
+                    && let Some((params, return_type)) = prelude_signature(&signature.name, None)
+                {
+                    return (params, return_type, signature.effects.clone());
+                }
                 (
                     signature.params.clone(),
                     signature.return_type.clone(),
@@ -1295,7 +1298,7 @@ impl<'a> FunctionChecker<'a> {
                     && self.function.kind == FunctionKind::Function)
                     .then(|| {
                         self.environment
-                            .function_by_node_id(self.function.node_id)
+                            .function_for(self.function)
                             .map(|function| function.return_type.clone())
                     })
                     .flatten()
@@ -1744,6 +1747,9 @@ impl<'a> FunctionChecker<'a> {
             }
             return Some(Type::Unknown);
         }
+        if self.declared_call_is_standard_prelude(callee) {
+            return None;
+        }
 
         let (params, variadic, return_type, origin) = self.call_signature(
             callee,
@@ -1765,6 +1771,25 @@ impl<'a> FunctionChecker<'a> {
         }
         self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
         Some(return_type)
+    }
+
+    fn declared_call_is_standard_prelude(&self, callee: &Expr) -> bool {
+        if self.function.module_name.as_deref() == Some("std::prelude") {
+            return false;
+        }
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return false;
+        };
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function(name, self.function.module_name.as_deref())
+                .found(),
+            _ => self
+                .environment
+                .function_path(segments, self.function.module_name.as_deref()),
+        };
+        function.is_some_and(|function| function.module_name.as_deref() == Some("std::prelude"))
     }
 
     fn check_call_arguments(
@@ -2039,11 +2064,19 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn bare_prelude_import_is_ambiguous(&self, name: &str) -> bool {
-        prelude_symbol(name).is_some()
-            && !self
-                .environment
-                .unqualified_function_import_candidates(name, self.function.module_name.as_deref())
-                .is_empty()
+        let candidates = self
+            .environment
+            .unqualified_function_import_candidates(name, self.function.module_name.as_deref());
+        let has_source_prelude = candidates
+            .iter()
+            .any(|candidate| candidate.module_name.as_deref() == Some("std::prelude"));
+        if has_source_prelude {
+            candidates
+                .iter()
+                .any(|candidate| candidate.module_name.as_deref() != Some("std::prelude"))
+        } else {
+            prelude_symbol(name).is_some() && !candidates.is_empty()
+        }
     }
 
     fn push_ambiguous_unqualified_function_import(
@@ -2074,12 +2107,9 @@ impl<'a> FunctionChecker<'a> {
             let Some(module_name) = candidate.module_name.as_deref() else {
                 continue;
             };
-            let Some(use_decl) = self
-                .environment
-                .uses
-                .iter()
-                .find(|use_decl| use_decl.name == module_name)
-            else {
+            let Some(use_decl) = self.environment.uses.iter().find(|use_decl| {
+                use_decl.name == module_name && use_decl.module_name == self.function.module_name
+            }) else {
                 continue;
             };
             diagnostic.related.push(JsonValue::object([
@@ -2094,7 +2124,12 @@ impl<'a> FunctionChecker<'a> {
                 ("span", span_json(&use_decl.span)),
             ]));
         }
-        if prelude_symbol(name).is_some() {
+        let source_prelude_is_listed = self
+            .environment
+            .unqualified_function_import_candidates(name, self.function.module_name.as_deref())
+            .iter()
+            .any(|candidate| candidate.module_name.as_deref() == Some("std::prelude"));
+        if prelude_symbol(name).is_some() && !source_prelude_is_listed {
             diagnostic.related.push(JsonValue::object([
                 ("kind", JsonValue::string("import_candidate")),
                 (

@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[manifest.reserved_standard_package]: dependency package `std` is reserved by the Veln toolchain", "Remove this dependency; the standard package is available implicitly and is not replaceable."]
+
+[stderr]
+format = "empty"
