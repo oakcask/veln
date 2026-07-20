@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport accept failed: listener closed\n"
+equals = "transport accept failed: closed\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -31,7 +31,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport accept failed: listener closed"
+equals = "transport accept failed: closed"
 
 [[json_assert]]
 path = "error.details.phase"

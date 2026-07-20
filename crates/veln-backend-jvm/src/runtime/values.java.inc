@@ -204,13 +204,60 @@
         }
     }
 
-    public static final class RuntimeFailure extends RuntimeException {
-        private RuntimeFailure(String message) {
-            super(message);
+    public static class RuntimeFailure extends RuntimeException {
+        protected RuntimeFailure(String message) {
+            super(legacyTransportFailureMessage(message, null));
         }
 
-        private RuntimeFailure(String message, Throwable cause) {
-            super(message, cause);
+        protected RuntimeFailure(String message, Throwable cause) {
+            super(legacyTransportFailureMessage(message, cause), cause);
+        }
+    }
+
+    private static final class TransportFailure extends RuntimeFailure {
+        private TransportFailure(
+            String operation,
+            String category,
+            String localEndpoint,
+            String peerEndpoint,
+            String listenerId,
+            String streamId,
+            String phase,
+            Boolean inputCommitted,
+            Boolean outputCommitted,
+            Boolean ownershipCommitted,
+            String platformCause,
+            Throwable cause
+        ) {
+            super(
+                transportFailureMessage(
+                    operation,
+                    category,
+                    localEndpoint,
+                    peerEndpoint,
+                    listenerId,
+                    streamId,
+                    phase,
+                    inputCommitted,
+                    outputCommitted,
+                    ownershipCommitted,
+                    platformCause
+                ),
+                cause
+            );
+            recordTransportFailure(
+                operation,
+                category,
+                localEndpoint,
+                peerEndpoint,
+                listenerId,
+                streamId,
+                phase,
+                inputCommitted,
+                outputCommitted,
+                ownershipCommitted,
+                platformCause
+            );
         }
     }
 

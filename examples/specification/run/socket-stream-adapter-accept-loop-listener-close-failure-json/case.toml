@@ -25,7 +25,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport listener close failed: VELN_NET_CLOSE_FAILED\n"
+equals = "transport listener close failed: forced_failure\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -33,7 +33,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport listener close failed: VELN_NET_CLOSE_FAILED"
+equals = "transport listener close failed: forced_failure"
 
 [[json_assert]]
 path = "error.details.phase"

@@ -46,6 +46,13 @@ compiler-known calls.
   fixture-backed stream writes,
   stream read-side shutdown, stream close recording, and listener close
   recording,
+  structured runtime failures for listen, connect, accept, read, write,
+  shutdown, stream close, and listener close with no finer-grained effect
+  labels,
+  adapter code that may inspect known stream endpoints and then return a
+  pure protocol diagnostic without that result being reclassified as a
+  transport failure; the checked
+  `socket-stream-adapter-protocol-precedence-json` case fixes this precedence,
   opt-in production loopback socket ownership for listen, sequential accepts,
   client connects, source-visible listener/client connect pairing, reads,
   writes, clean listener end, stream read-side shutdown, stream close, and

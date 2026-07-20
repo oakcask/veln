@@ -2482,15 +2482,18 @@ fn run_json(
 ) -> Result<ExitCode, String> {
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let result_error_file = build_dir.join("result-errors.tsv");
+    let transport_error_file = build_dir.join("transport-errors.tsv");
     let event_env = [
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
+        ("VELN_TRANSPORT_ERRORS", transport_error_file.as_os_str()),
     ];
     let result = prepare_and_run_jvm_capture_with_env(
         build_dir, program, "veln run", &event_env, entry_args,
     )?;
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
+    let transport_error_trace = fs::read_to_string(&transport_error_file).unwrap_or_default();
 
     let report = match result {
         JvmRunResult::ToolError(message) => RunJsonReport::tool_error(message),
@@ -2504,6 +2507,8 @@ fn run_json(
                 RunJsonReport::failed(exit_code, stdout, stderr, failure)
             } else if let Some(failure) = result_failure_from_trace(&result_error_trace) {
                 RunJsonReport::failed(exit_code, stdout, stderr, failure)
+            } else if let Some(failure) = transport_failure_from_trace(&transport_error_trace) {
+                RunJsonReport::runtime_transport_error(exit_code, stdout, stderr, failure)
             } else {
                 let message = runtime_error_message(&stderr, output.status);
                 RunJsonReport::runtime_error(exit_code, stdout, stderr, message)
@@ -2564,6 +2569,26 @@ impl RunJsonReport {
         }
     }
 
+    fn runtime_transport_error(
+        exit_code: i32,
+        stdout: String,
+        _stderr: String,
+        failure: TransportFailureTrace,
+    ) -> Self {
+        let message = format!(
+            "transport {} failed: {}",
+            failure.operation.replace('_', " "),
+            failure.category
+        );
+        Self {
+            status: "failed",
+            exit_code,
+            stdout,
+            stderr: format!("{message}\n"),
+            error: Some(RunJsonError::runtime(message, failure.details())),
+        }
+    }
+
     fn tool_error(message: String) -> Self {
         Self {
             status: "error",
@@ -2598,6 +2623,122 @@ impl RunJsonReport {
             ),
         ])
         .to_json()
+    }
+}
+
+struct TransportFailureTrace {
+    operation: String,
+    category: String,
+    local_endpoint: Option<String>,
+    peer_endpoint: Option<String>,
+    listener_id: Option<String>,
+    stream_id: Option<String>,
+    lifecycle_phase: String,
+    input_committed: Option<bool>,
+    output_committed: Option<bool>,
+    ownership_committed: Option<bool>,
+    platform_cause: Option<String>,
+}
+
+impl TransportFailureTrace {
+    fn details(&self) -> JsonValue {
+        let mut entries = vec![
+            ("phase".to_string(), JsonValue::string("runtime")),
+            (
+                "id".to_string(),
+                JsonValue::string("runtime.transport_failure"),
+            ),
+            (
+                "operation".to_string(),
+                JsonValue::string(self.operation.clone()),
+            ),
+            (
+                "category".to_string(),
+                JsonValue::string(self.category.clone()),
+            ),
+            (
+                "lifecycle_phase".to_string(),
+                JsonValue::string(self.lifecycle_phase.clone()),
+            ),
+        ];
+        push_optional_string(&mut entries, "local_endpoint", &self.local_endpoint);
+        push_optional_string(&mut entries, "peer_endpoint", &self.peer_endpoint);
+        push_optional_string(&mut entries, "listener_id", &self.listener_id);
+        push_optional_string(&mut entries, "stream_id", &self.stream_id);
+        push_optional_bool(&mut entries, "input_committed", self.input_committed);
+        push_optional_bool(&mut entries, "output_committed", self.output_committed);
+        push_optional_bool(
+            &mut entries,
+            "ownership_committed",
+            self.ownership_committed,
+        );
+        push_optional_string(&mut entries, "platform_cause", &self.platform_cause);
+        JsonValue::Object(entries)
+    }
+}
+
+fn push_optional_string(entries: &mut Vec<(String, JsonValue)>, key: &str, value: &Option<String>) {
+    if let Some(value) = value {
+        entries.push((key.to_string(), JsonValue::string(value.clone())));
+    }
+}
+
+fn push_optional_bool(entries: &mut Vec<(String, JsonValue)>, key: &str, value: Option<bool>) {
+    if let Some(value) = value {
+        entries.push((key.to_string(), JsonValue::Bool(value)));
+    }
+}
+
+fn transport_failure_from_trace(trace: &str) -> Option<TransportFailureTrace> {
+    let fields: Vec<&str> = trace
+        .lines()
+        .rev()
+        .find(|line| line.starts_with("transport\t"))?
+        .split('\t')
+        .collect();
+    if fields.len() != 12 {
+        return None;
+    }
+    Some(TransportFailureTrace {
+        operation: trace_string(fields[1])?,
+        category: trace_string(fields[2])?,
+        local_endpoint: trace_optional_string(fields[3])?,
+        peer_endpoint: trace_optional_string(fields[4])?,
+        listener_id: trace_optional_string(fields[5])?,
+        stream_id: trace_optional_string(fields[6])?,
+        lifecycle_phase: trace_string(fields[7])?,
+        input_committed: trace_optional_bool(fields[8])?,
+        output_committed: trace_optional_bool(fields[9])?,
+        ownership_committed: trace_optional_bool(fields[10])?,
+        platform_cause: trace_optional_string(fields[11])?,
+    })
+}
+
+fn trace_optional_string(value: &str) -> Option<Option<String>> {
+    if value == "-" {
+        Some(None)
+    } else {
+        trace_string(value).map(Some)
+    }
+}
+
+fn trace_string(value: &str) -> Option<String> {
+    if !value.len().is_multiple_of(2) {
+        return None;
+    }
+    let bytes = (0..value.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(value.get(index..index + 2)?, 16).ok())
+        .collect::<Option<Vec<_>>>()?;
+    String::from_utf8(bytes).ok()
+}
+
+fn trace_optional_bool(value: &str) -> Option<Option<bool>> {
+    match value {
+        "true" => Some(Some(true)),
+        "false" => Some(Some(false)),
+        "unknown" => Some(None),
+        _ => None,
     }
 }
 
@@ -2697,6 +2838,61 @@ fn validate_entry_arg(ty: EntryArgScalar, param_name: &str, raw_arg: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn trace_hex(value: &str) -> String {
+        value
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
+    }
+
+    #[test]
+    fn transport_failure_trace_projects_known_context_and_commit_facts() {
+        let trace = format!(
+            "transport\t{}\t{}\t{}\t{}\t-\t{}\t{}\tfalse\tfalse\ttrue\t{}\n",
+            trace_hex("shutdown"),
+            trace_hex("event_record_failed"),
+            trace_hex("127.0.0.1:0"),
+            trace_hex("fixture-stream"),
+            trace_hex("fixture-stream"),
+            trace_hex("write_shutdown"),
+            trace_hex("could not record VELN_NET_EVENTS"),
+        );
+
+        let failure = transport_failure_from_trace(&trace).expect("transport trace should parse");
+        assert_eq!(failure.operation, "shutdown");
+        assert_eq!(failure.category, "event_record_failed");
+        assert_eq!(failure.local_endpoint.as_deref(), Some("127.0.0.1:0"));
+        assert_eq!(failure.peer_endpoint.as_deref(), Some("fixture-stream"));
+        assert_eq!(failure.listener_id, None);
+        assert_eq!(failure.stream_id.as_deref(), Some("fixture-stream"));
+        assert_eq!(failure.lifecycle_phase, "write_shutdown");
+        assert_eq!(failure.input_committed, Some(false));
+        assert_eq!(failure.output_committed, Some(false));
+        assert_eq!(failure.ownership_committed, Some(true));
+    }
+
+    #[test]
+    fn transport_failure_trace_preserves_unknown_facts_as_absent() {
+        let trace = format!(
+            "transport\t{}\t{}\t-\t-\t-\t-\t{}\tunknown\tunknown\tunknown\t{}\n",
+            trace_hex("connect"),
+            trace_hex("io_failure"),
+            trace_hex("during_operation"),
+            trace_hex("production socket failed"),
+        );
+
+        let failure = transport_failure_from_trace(&trace).expect("transport trace should parse");
+        assert_eq!(failure.local_endpoint, None);
+        assert_eq!(failure.peer_endpoint, None);
+        assert_eq!(failure.input_committed, None);
+        assert_eq!(failure.output_committed, None);
+        assert_eq!(failure.ownership_committed, None);
+        let details = failure.details().to_json();
+        assert!(!details.contains("local_endpoint"));
+        assert!(!details.contains("input_committed"));
+    }
 
     fn byte_preview(data: &str) -> JsonValue {
         byte_preview_with_counts(data, (data.len() / 2) as i64, false)

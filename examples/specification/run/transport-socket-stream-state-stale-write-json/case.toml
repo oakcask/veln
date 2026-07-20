@@ -24,7 +24,7 @@ equals = "true\n"
 
 [[json_assert]]
 path = "stderr"
-equals = "transport write failed: stream closed\n"
+equals = "transport write failed: closed\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -32,11 +32,27 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport write failed: stream closed"
+equals = "transport write failed: closed"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "write"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "closed"
+
+[[json_assert]]
+path = "error.details.stream_id"
+equals = "production-stream"
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "closed_handle"
 
 [[file_assert]]
 path = "net-events.log"

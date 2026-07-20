@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport listen failed: invalid socket address\n"
+equals = "transport listen failed: invalid_endpoint\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -31,8 +31,28 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport listen failed: invalid socket address"
+equals = "transport listen failed: invalid_endpoint"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "listen"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "invalid_endpoint"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "not-a-socket-address"
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "before_operation"
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = false

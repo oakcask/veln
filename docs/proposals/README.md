@@ -19,8 +19,7 @@ current language behavior unless the matching page under
   assertion, and remove the broad protocol-core case only after its deletion
   gate is satisfied.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  external production socket ownership beyond the loopback harness and
-  structured host transport failures.
+  external production socket ownership beyond the loopback harness.
 - [Schema Declaration Surface](schema-declaration-surface.md): generalize the
   existing field syntax to named schema composition with schema-aware
   resolution.
