@@ -2,7 +2,7 @@ use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK Huffman non-visible values project structured runtime details.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.huffman_non_visible_value", error, RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman checked header value", "hpack_static", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.huffman_non_visible_value", error, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK Huffman checked header value", "hpack_static", byte_chunk([]))))
 end
 
 fn preview_view() -> Result<ByteView, RuntimeDiagnostic>

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.table_size_update_malformed, HPACK fixture malformed table-size update integer at byte offset 77, RuntimeHpackFixtureDiagnostic(77, 2, 63, fixture HPACK malformed table-size update integer, hpack_fixture, ByteChunk([Byte(63), Byte(128)])))"
+equals = "RuntimeDiagnostic(hpack.fixture.table_size_update_malformed, HPACK fixture malformed table-size update integer at byte offset 77, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(77, 2, 63, fixture HPACK malformed table-size update integer, hpack_fixture, ByteChunk([Byte(63), Byte(128)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -72,30 +72,30 @@ equals = false
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHpackFixtureDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.byte_offset"
+path = "value.detail.detail.byte_offset"
 equals = 77
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_header_block_size"
+path = "value.detail.detail.observed_header_block_size"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_first_byte"
+path = "value.detail.detail.observed_first_byte"
 equals = 63
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_fixture"
+path = "value.detail.detail.expected_fixture"
 equals = "fixture HPACK malformed table-size update integer"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.codec_module"
+path = "value.detail.detail.codec_module"
 equals = "hpack_fixture"

@@ -19,7 +19,7 @@ fn invalid_closed_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.closed_with_pending",
 		error,
-		RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 0, "none", 0, 0, 0, 0, "none", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 0, "none", 0, 0, 0, 0, "none", byte_chunk([])))
 	)
 end
 
@@ -27,7 +27,7 @@ fn closed_payload(offset: Int, pending_count: Int, context: Http2DiagnosticConte
 	RuntimeDiagnostic(
 		"http2.protocol.closed_with_pending",
 		"HTTP/2 input ended with 4 pending byte(s) at byte offset 0",
-		RuntimeHttp2ProtocolClosedWithPendingDiagnostic(offset, pending_count, context_active_continuation(context), 0, 0, 0, 0, "none", byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(offset, pending_count, context_active_continuation(context), 0, 0, 0, 0, "none", byte_view_to_chunk(preview)))
 	)
 end
 

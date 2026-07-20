@@ -4,7 +4,7 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_preface",
 		error,
-		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([])))
 	)
 end
 

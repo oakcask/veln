@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_data_padding",
 		error,
-		RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(9, 1, 2, 0, "open-stream", "rfc9113_data_padding", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(9, 1, 2, 0, "open-stream", "rfc9113_data_padding", byte_chunk([])))
 	)
 end
 

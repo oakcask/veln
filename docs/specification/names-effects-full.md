@@ -1251,59 +1251,70 @@ The package manifest exports `prelude.veln`; `compiler_support.veln` remains a
 private module. The embedded distribution bundle contains every non-test Veln
 source exactly once and excludes `*_test.veln` files.
 
-The source-visible `RuntimeDiagnosticDetail` constructor set includes
+The generic runtime diagnostic types are implemented by the private
+`std::diagnostic` module. The prelude re-exports `RuntimeDiagnostic`,
+`RuntimeDiagnosticDetail`, `RuntimeDiagnosticFieldPathSegment`,
+`RuntimeByteDiagnosticFacts`, and `RuntimeBytePreview` as public type aliases,
+so established source spelling remains available. HTTP/2 and HPACK protocol
+facts use the source-visible inner types `Http2DiagnosticDetail` and
+`HpackDiagnosticDetail`. `RuntimeDiagnosticDetail` contains those facts only
+through `RuntimeHttp2Diagnostic(...)` and
+`RuntimeHttp2HpackDiagnostic(...)`; the concrete protocol constructors belong
+to the inner types.
+
+The source-visible diagnostic constructor set includes
 `RuntimeValueDiagnostic(...)` for projecting generated binary schema encode
 value diagnostics from source-visible `RuntimeDiagnostic(...)` error values,
-`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...))` for projecting
 `http2.protocol.closed_with_pending` failures,
-`RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...))` for projecting
 `http2.protocol.partial_preface` failures,
-`RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...))` for projecting
 `http2.protocol.invalid_preface` failures,
-`RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...))` for projecting
 `http2.protocol.initial_peer_settings_required` failures,
-`RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...))` for projecting
 `http2.protocol.continuation_expected` failures,
-`RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...))` for projecting
 `http2.peer_limit.header_list_size_exceeded` failures,
-`RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(...))` for projecting
 `http2.peer_limit.header_table_size_exceeded` failures,
-`RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(...))` for projecting
 `http2.peer_limit.concurrent_streams_exceeded` failures,
-`RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(...))` for projecting
 `http2.peer_limit.settings_value_out_of_range` failures,
-`RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...))` for projecting
 `http2.protocol.invalid_frame_kind` failures from returned diagnostic values,
-`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...))` for projecting
 `http2.protocol.invalid_stream_id` failures from returned diagnostic values,
-`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...))` for projecting
 `http2.protocol.invalid_data_padding` failures from returned diagnostic
 values,
-`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...))` for projecting
 `http2.peer_limit.flow_control_window_exceeded` failures from returned
 diagnostic values,
-`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...))` for projecting
 `http2.protocol.content_length_mismatch` failures from returned diagnostic
 values,
-`RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...))` for projecting
 `http2.protocol.invalid_request_header_list` failures from returned diagnostic
 values,
-`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...))` for projecting
 `http2.protocol.invalid_response_header_list` failures from returned
 diagnostic values,
-`RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...))` for
 projecting `http2.protocol.invalid_window_update_increment` failures from
 returned diagnostic values,
-`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...))` for projecting
 `http2.protocol.unexpected_settings_ack` failures from returned diagnostic
 values,
-`RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...))` for
 projecting `http2.protocol.settings_not_allowed_for_endpoint` failures from
 returned diagnostic values,
-`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...))` for projecting
 `http2.protocol.invalid_priority_dependency` failures from returned diagnostic
 values, and
-`RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for projecting
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...))` for projecting
 `http2.protocol.stream_after_goaway` failures from returned diagnostic values.
 `http2::diagnostic::protocol_closed_with_pending(...)`,
 `http2::diagnostic::protocol_partial_preface(...)`,

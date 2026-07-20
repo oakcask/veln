@@ -11,6 +11,9 @@ compiler-known calls.
 - Declaration effect spelling, effect labels, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
+- Private `std::diagnostic` ownership, public prelude aliases, and the nested
+  HTTP/2 and HPACK diagnostic detail types:
+  [Prelude Helpers](names-effects-full.md#prelude-helpers).
 - Compiler-known calls:
   [stdio](names-effects-full.md#stdio-calls),
   [file-system](names-effects-full.md#file-system-calls),

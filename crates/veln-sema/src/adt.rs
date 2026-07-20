@@ -85,6 +85,16 @@ impl AdtRegistry {
             .iter()
             .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
             .map(|descriptor| descriptor.type_name.as_str())
+            .chain(
+                module
+                    .aliases
+                    .iter()
+                    .filter(|alias| {
+                        alias.kind == PublicAliasKind::Type
+                            && alias.module_name.as_deref() == Some("std::prelude")
+                    })
+                    .filter_map(|alias| alias.name.as_deref()),
+            )
             .collect::<Vec<_>>();
         descriptors.retain(|descriptor| {
             matches!(descriptor.type_name.as_str(), "Option" | "Result" | "List")
@@ -514,7 +524,7 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
 }
 
 fn builtin_descriptors() -> Vec<AdtDescriptor> {
-    vec![
+    let mut descriptors = vec![
         AdtDescriptor {
             type_name: "Option".to_string(),
             module_name: None,
@@ -2365,7 +2375,69 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
-    ]
+    ];
+    let detail_index = descriptors
+        .iter()
+        .position(|descriptor| descriptor.type_name == "RuntimeDiagnosticDetail")
+        .expect("runtime diagnostic detail descriptor");
+    let mut detail = descriptors.remove(detail_index);
+    let mut hpack_variants = Vec::new();
+    let mut http2_variants = Vec::new();
+    detail.variants.retain_mut(|variant| {
+        if variant.name.starts_with("RuntimeHpack") {
+            variant.coverage_case = format!("{}(_)", variant.name);
+            hpack_variants.push(variant.clone());
+            false
+        } else if variant.name.starts_with("RuntimeHttp2") {
+            variant.coverage_case = format!("{}(_)", variant.name);
+            http2_variants.push(variant.clone());
+            false
+        } else {
+            true
+        }
+    });
+    detail.variants.extend([
+        AdtVariantDescriptor {
+            name: "RuntimeHttp2Diagnostic".to_string(),
+            kind: AdtVariantKind::Source,
+            payload_fields: vec![AdtPayloadField {
+                name: "detail".to_string(),
+                ty: AdtPayloadType::Concrete(Type::named("Http2DiagnosticDetail", Vec::new())),
+            }],
+            coverage_case: "RuntimeHttp2Diagnostic(_)".to_string(),
+            visibility: Visibility::Public,
+        },
+        AdtVariantDescriptor {
+            name: "RuntimeHttp2HpackDiagnostic".to_string(),
+            kind: AdtVariantKind::Source,
+            payload_fields: vec![AdtPayloadField {
+                name: "detail".to_string(),
+                ty: AdtPayloadType::Concrete(Type::named("HpackDiagnosticDetail", Vec::new())),
+            }],
+            coverage_case: "RuntimeHttp2HpackDiagnostic(_)".to_string(),
+            visibility: Visibility::Public,
+        },
+    ]);
+    descriptors.insert(detail_index, detail);
+    descriptors.push(AdtDescriptor {
+        type_name: "Http2DiagnosticDetail".to_string(),
+        module_name: None,
+        type_parameters: Vec::new(),
+        variants: http2_variants,
+        diagnostic_name: "http2diagnosticdetail".to_string(),
+        propagation: None,
+        visibility: Visibility::Public,
+    });
+    descriptors.push(AdtDescriptor {
+        type_name: "HpackDiagnosticDetail".to_string(),
+        module_name: None,
+        type_parameters: Vec::new(),
+        variants: hpack_variants,
+        diagnostic_name: "hpackdiagnosticdetail".to_string(),
+        propagation: None,
+        visibility: Visibility::Public,
+    });
+    descriptors
 }
 
 fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
@@ -2575,6 +2647,8 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
                 | "EncodeError"
                 | "RuntimeDiagnostic"
                 | "RuntimeDiagnosticDetail"
+                | "Http2DiagnosticDetail"
+                | "HpackDiagnosticDetail"
                 | "RuntimeDiagnosticFieldPathSegment"
                 | "RuntimeByteDiagnosticFacts"
                 | "RuntimeBytePreview"

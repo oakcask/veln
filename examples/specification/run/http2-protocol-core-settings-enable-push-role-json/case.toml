@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.settings_not_allowed_for_endpoint, HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset 15, RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(15, 2, SETTINGS_ENABLE_PUSH, client, 4, peer-settings, rfc9113_client_must_not_receive_settings_enable_push, ByteChunk([Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(1)])))"
+equals = "RuntimeDiagnostic(http2.protocol.settings_not_allowed_for_endpoint, HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset 15, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(15, 2, SETTINGS_ENABLE_PUSH, client, 4, peer-settings, rfc9113_client_must_not_receive_settings_enable_push, ByteChunk([Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(1)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -84,20 +84,20 @@ equals = "rfc9113_client_must_not_receive_settings_enable_push"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.setting_identifier"
+path = "value.detail.detail.setting_identifier"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.endpoint_role"
+path = "value.detail.detail.endpoint_role"
 equals = "client"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.5.value"
+path = "value.detail.detail.preview.bytes.5.value"
 equals = 1

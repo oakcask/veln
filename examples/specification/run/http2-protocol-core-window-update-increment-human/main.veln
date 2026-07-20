@@ -26,7 +26,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_window_update_increment",
 		error,
-		RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, "connection-flow-control", "window_update_increment_nonzero", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(0, 0, 0, 1, 2147483647, "connection-flow-control", "window_update_increment_nonzero", byte_chunk([])))
 	)
 end
 
@@ -34,7 +34,7 @@ fn window_update_increment_payload(offset: Int, stream_id: Int, observed_increme
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_window_update_increment",
 		"HTTP/2 invalid WINDOW_UPDATE increment at byte offset 0",
-		RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

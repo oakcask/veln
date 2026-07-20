@@ -281,3 +281,17 @@
     public static Object adt(String name, Object[] payloads) {
         return new Adt(name, payloads);
     }
+
+    private static Object http2DiagnosticDetail(String name, Object[] payloads) {
+        return adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2Diagnostic",
+            new Object[] { adt(name, payloads) }
+        );
+    }
+
+    private static Object http2HpackDiagnosticDetail(String name, Object[] payloads) {
+        return adt(
+            "RuntimeDiagnosticDetail::RuntimeHttp2HpackDiagnostic",
+            new Object[] { adt(name, payloads) }
+        );
+    }

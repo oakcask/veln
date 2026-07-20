@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.concurrent_streams_exceeded",
 		error,
-		RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", byte_chunk([])))
 	)
 end
 

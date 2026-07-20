@@ -8,7 +8,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.concurrent_streams_exceeded",
 		error,
-		RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", byte_chunk([])))
 	)
 end
 
@@ -16,7 +16,7 @@ fn concurrent_streams_payload(offset: Int, stream_id: Int, attempted_count: Int,
 	RuntimeDiagnostic(
 		"http2.peer_limit.concurrent_streams_exceeded",
 		"HTTP/2 concurrent stream receive limit exceeded at byte offset 9",
-		RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance, byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(offset, stream_id, attempted_count, allowed_count, endpoint_role, active_state, receive_limit_provenance, rule_provenance, byte_view_to_chunk(preview)))
 	)
 end
 

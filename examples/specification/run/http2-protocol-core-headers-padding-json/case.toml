@@ -52,5 +52,5 @@ equals = "rfc9113_headers_padding"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"

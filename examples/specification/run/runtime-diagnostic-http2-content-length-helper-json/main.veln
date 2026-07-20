@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.content_length_mismatch",
 		error,
-		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", byte_chunk([])))
 	)
 end
 

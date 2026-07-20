@@ -9,7 +9,7 @@ fn invalid_preface_error_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_preface",
 		error,
-		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(0, 0, 0, 0, 24, "connection-preface", "rfc9113_client_connection_preface", byte_chunk([])))
 	)
 end
 
@@ -17,7 +17,7 @@ fn invalid_preface_payload(offset: Int, expected_byte: Int, actual_byte: Int, ma
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_preface",
 		"HTTP/2 invalid client connection preface at byte offset 4",
-		RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(offset, expected_byte, actual_byte, matched_count, 24, "connection-preface", "rfc9113_client_connection_preface", byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(offset, expected_byte, actual_byte, matched_count, 24, "connection-preface", "rfc9113_client_connection_preface", byte_view_to_chunk(preview)))
 	)
 end
 

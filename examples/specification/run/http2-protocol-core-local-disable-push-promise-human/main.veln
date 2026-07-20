@@ -77,7 +77,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_frame_kind",
 		error,
-		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "local-settings", "local_settings_enable_push_disabled", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "local-settings", "local_settings_enable_push_disabled", byte_chunk([])))
 	)
 end
 

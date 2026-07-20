@@ -5,5 +5,5 @@ type Http2ProtocolFailure
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 :protocol requires CONNECT at byte offset 12", RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_on_non_connect_request", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_protocol_requires_connect", byte_chunk([]))))
+	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 :protocol requires CONNECT at byte offset 12", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_on_non_connect_request", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_protocol_requires_connect", byte_chunk([])))))
 end

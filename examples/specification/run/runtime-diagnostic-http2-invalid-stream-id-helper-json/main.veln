@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_stream_id",
 		error,
-		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([])))
 	)
 end
 

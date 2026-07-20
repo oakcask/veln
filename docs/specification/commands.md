@@ -250,7 +250,7 @@ requiring the full command reference on the first read.
   decode fixed-field mismatches return this payload directly and keep the
   focused `schema.fixed_field_mismatch` human diagnostic. Plain
   `Err(value)` values remain ordinary result failures. A source-visible
-  `Err(RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...)))`
+  `Err(RuntimeDiagnostic(id, message, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(...))))`
   value for unsupported-header-block, unsupported-static-index,
   malformed-string-length, malformed-raw-string, malformed-Huffman-padding,
   Huffman-EOS, and Huffman non-visible HPACK fixture ids, plus the
@@ -321,9 +321,9 @@ requiring the full command reference on the first read.
   only literal-with-indexing inserts the decoded value, and completed HEADERS
   plus final CONTINUATION routing use the source-visible boundary before
   fixture fallback.
-  `RuntimeHpackFixtureDynamicIndexDiagnostic(...)`,
-  `RuntimeHpackFixtureDynamicNameDiagnostic(...)`, and
-  `RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` additionally project the
+  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(...))`,
+  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(...))`, and
+  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(...))` additionally project the
   dynamic-index, dynamic-name continuation, and table-size update facts needed
   by those focused human diagnostics, including the trailing-byte table-size
   update diagnostic. The standard `hpack_fixture_*` reporting helpers return

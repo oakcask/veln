@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.unexpected_settings_ack",
 		error,
-		RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(0, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(0, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings", byte_chunk([])))
 	)
 end
 

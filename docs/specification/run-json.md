@@ -71,9 +71,10 @@ path segment list and reason text; run JSON derives `field_path`,
 `value_diagnostic` shape used by generated `EncodeError(...)` result values.
 
 When the returned error value is
-`RuntimeDiagnostic(id, message, RuntimeHpackFixtureDiagnostic(...))`,
+`RuntimeDiagnostic(id, message, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(...)))`,
 `details.value` likewise keeps the rendered `RuntimeDiagnostic(...)` value and
-the HPACK fixture detail projects to `details.protocol_diagnostic`. The
+therefore exposes the nested envelope. The HPACK fixture detail still projects
+to the unchanged `details.protocol_diagnostic` shape. The
 unsupported-header-block, malformed-string-length, malformed-raw-string,
 malformed-Huffman-padding, Huffman-EOS, and Huffman non-visible fixture
 payloads, plus the source-visible HPACK static decoder
@@ -82,14 +83,14 @@ integer payloads, carry byte offset, observed header block size, observed first
 byte,
 expected fixture, codec module, and a bounded header-block byte preview from
 the returned error value itself. Dynamic-index fixture payloads use
-`RuntimeHpackFixtureDynamicIndexDiagnostic(...)` to add
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(...))` to add
 `requested_dynamic_index` and `dynamic_table_entry_count`. Table-size update
 placement and trailing-byte payloads use
-`RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)` to add
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(...))` to add
 `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`, and
 `active_state`.
 Dynamic-name continuation payloads use
-`RuntimeHpackFixtureDynamicNameDiagnostic(...)` to add
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(...))` to add
 `requested_dynamic_index` and `dynamic_table_entry_count` for the focused
 missing, malformed, and out-of-range continuation ids.
 The standard `http2::hpack::diagnostic::unsupported_header_block(...)`,
@@ -111,53 +112,55 @@ project the same HPACK fixture facts into `details.protocol_diagnostic`.
 
 When the returned error value is an HTTP/2 protocol
 `RuntimeDiagnostic(...)` payload, `details.value` keeps the rendered
-`RuntimeDiagnostic(...)` value and the detail projects to
-`details.protocol_diagnostic`. The implemented HTTP/2 payload constructors are
-`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` for
+`RuntimeDiagnostic(...)` value with the
+`RuntimeHttp2Diagnostic(Http2DiagnosticDetail)` envelope, while the inner
+detail projects to the unchanged `details.protocol_diagnostic` shape. The
+implemented HTTP/2 payload constructors are
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...))` for
 `http2.protocol.closed_with_pending`,
-`RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...))` for
 `http2.protocol.partial_preface`,
-`RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...))` for
 `http2.protocol.invalid_preface`,
-`RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(...))` for
 `http2.protocol.initial_peer_settings_required`,
-`RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...))` for
 `http2.protocol.continuation_expected`,
-`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...))` for
 `http2.protocol.unexpected_settings_ack`,
-`RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...))` for
 `http2.protocol.invalid_frame_kind`,
-`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...))` for
 `http2.protocol.invalid_stream_id`,
-`RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(...))` for
 `http2.protocol.peer_stream_id_not_increasing`,
-`RuntimeHttp2PeerLimitFrameSizeDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFrameSizeDiagnostic(...))` for
 `http2.peer_limit.frame_size_exceeded`,
-`RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(...))` for
 `http2.peer_limit.header_list_size_exceeded`,
-`RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(...))` for
 `http2.peer_limit.header_table_size_exceeded`,
-`RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(...))` for
 `http2.peer_limit.concurrent_streams_exceeded`,
-`RuntimeHttp2PeerLimitSettingsValueDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(...))` for
 `http2.peer_limit.settings_value_out_of_range`,
-`RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...))` for
 `http2.protocol.invalid_payload_length`,
-`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...))` for
 `http2.protocol.invalid_data_padding`,
-`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...))` for
 `http2.peer_limit.flow_control_window_exceeded`,
-`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...))` for
 `http2.protocol.content_length_mismatch`,
-`RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...))` for
 `http2.protocol.invalid_request_header_list`,
-`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...))` for
 `http2.protocol.invalid_response_header_list`,
-`RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(...))` for
 `http2.protocol.invalid_window_update_increment`,
-`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...))` for
 `http2.protocol.invalid_priority_dependency`, and
-`RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...))` for
 `http2.protocol.stream_after_goaway`. These constructors project the same
 public JSON fields as the compatibility helpers, including stream
 classification, peer-limit facts, active state, rule provenance, receive-limit
@@ -769,8 +772,8 @@ raw input bytes. A mismatched client connection preface byte uses id
 `active_state`, and `rule_provenance`, plus a structured bounded
 `byte_preview` for the raw input bytes inspected by the preface check. In both
 preface cases, `details.value` keeps the rendered `RuntimeDiagnostic(...)`
-value with `RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...)` or
-`RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...)`. Input
+value with `RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPartialPrefaceDiagnostic(...))` or
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(...))`. Input
 end with pending bytes after the preface uses id
 `http2.protocol.closed_with_pending` and records `byte_offset.value`,
 `pending_count`, `input_event`, `active_continuation`,
@@ -790,8 +793,8 @@ pending count, matched prefix count, expected byte, actual byte, active
 protocol state, active continuation state, accumulated header-block byte
 count, and rule provenance stay in their own fields. The checked closed-input
 pending-byte and continuation-ordering JSON examples return source-visible
-`RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...)` and
-`RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(...))` and
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...))` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
 `http2::diagnostic::protocol_closed_with_pending`,
@@ -843,7 +846,7 @@ growth, use id
 `rule_provenance`, plus a structured bounded `byte_preview` for the inspected
 payload bytes. The checked HTTP/2 examples cover both stream-window and
 connection-window DATA receive credit failures through source-visible
-`RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...)` payloads, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(...))` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
 Zero received `WINDOW_UPDATE` increments use id
@@ -866,7 +869,7 @@ body-length mismatches use id
 `observed_body_length`, `active_state`, `rule_provenance`, and a bounded DATA
 application-byte preview. The checked run examples cover both over-length
 outbound DATA and an early local `END_STREAM` shortfall through source-visible
-`RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...)` payloads. A
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(...))` payloads. A
 peer-created stream that would exceed the active concurrent-stream receive
 limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
 `byte_offset.value`, `stream_id`, `stream_ref`,
@@ -949,7 +952,7 @@ values. The focused request
 header-list JSON examples,
 including the raw HPACK uppercase and invalid-token trailer-name projections,
 return
-source-visible `RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...)`
+source-visible `RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(...))`
 payloads so `details.value` preserves the rendered `RuntimeDiagnostic(...)`
 value while `details.protocol_diagnostic` keeps the same public fields,
 including the header-block preview. The focused `PUSH_PROMISE` promised
@@ -969,7 +972,7 @@ empty, short, long, and non-decimal `:status` values with
 static-name literal decode on completed HEADERS and final CONTINUATION paths.
 The focused response
 header-list human and JSON examples return source-visible
-`RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...)` payloads, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(...))` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields, including the
 header-block preview. The larger
@@ -1006,7 +1009,7 @@ stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
 `required_stream_id_domain`, `endpoint_role`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` for the inspected
 frame-header bytes. Source-visible
-`RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` payloads keep the
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...))` payloads keep the
 rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the same
 protocol diagnostic fields. The standard
 `http2::diagnostic::protocol_invalid_stream_id(...)` helper returns the same
@@ -1023,7 +1026,7 @@ peer-created stream ordering slice uses id
 `previous_peer_stream_id`, `endpoint_role`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` of the attempted
 HEADERS or `PUSH_PROMISE` frame header. Source-visible
-`RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(...)` payloads keep
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(...))` payloads keep
 the rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the
 same fields. Focused human and JSON examples are under
 `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
@@ -1048,7 +1051,7 @@ its response HEADERS block. The direct standard helper connection-level and
 stream-level JSON examples, closed-by-peer stream-state example, peer-sent
 `PUSH_PROMISE` JSON examples, and promised-stream DATA-before-HEADERS JSON
 example return source-visible
-`RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...)` payloads, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(...))` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
 The broad HTTP/2 protocol-core run example also fixes ordinary stdout evidence
@@ -1145,7 +1148,7 @@ last-stream-id boundary and below it, and separately rejects a new
 above-boundary peer-created HEADERS frame while the shutdown state is still
 `graceful_shutdown`.
 The checked stream-after-GOAWAY human and JSON examples return
-source-visible `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)`
+source-visible `RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...))`
 payloads for peer-created and local outbound stream send-intents, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields and structured
@@ -1160,14 +1163,14 @@ payload length facts stay in their own fields. The SETTINGS ACK, SETTINGS
 item-width, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` checked JSON
 examples return
 source-visible
-`RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, and the
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...))` payloads, and the
 `http2::diagnostic::protocol_invalid_payload_length(...)` helper returns the same
 source-visible payload directly. The checked helper JSON example also covers
 the `WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. PADDED DATA
 failures use source-visible
-`RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...))` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields, including the
 structured bounded byte preview. The `http2::diagnostic::protocol_invalid_data_padding(...)`
@@ -1179,7 +1182,7 @@ and `rule_provenance`, plus a structured bounded `byte_preview` for the
 inspected frame header bytes. The preview uses the same object shape as other
 protocol-owned byte previews while SETTINGS ACK state facts stay in their own
 fields. The checked human and JSON examples return a source-visible
-`RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` payload, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...))` payload, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
 `http2::diagnostic::protocol_unexpected_settings_ack(...)` standard helper returns the same
@@ -1191,7 +1194,7 @@ client receive path uses id
 `rule_provenance`, plus a structured bounded `byte_preview` of the inspected
 six-byte SETTINGS item. The checked human and JSON examples return a
 source-visible
-`RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...)` payload,
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...))` payload,
 and the `http2::diagnostic::protocol_settings_not_allowed_for_endpoint(...)` helper returns
 the same value directly. A PRIORITY frame
 whose dependency stream id is its own
@@ -1200,7 +1203,7 @@ stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `dependency_stream_id`, `active_state`, and `rule_provenance`, plus a
 structured bounded `byte_preview` for the inspected PRIORITY payload bytes.
 The checked human and JSON examples return a source-visible
-`RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...)` payload, so
+`RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(...))` payload, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields.
 The HPACK fixture boundary uses id `hpack.fixture.unsupported_header_block`
@@ -1220,7 +1223,7 @@ The source-visible HPACK static decoder uses
 `hpack.static.unsupported_index` for static-only header blocks that name an
 unsupported static-table index; it reuses the same public fields with
 `codec_module: "hpack_static"`. Focused checked examples cover both a direct
-source-visible `RuntimeHpackFixtureDiagnostic(...)` value and projection from
+source-visible `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(...))` value and projection from
 the HTTP/2 protocol-core HPACK failure path. It accepts bounded static-name
 literal-without-indexing, literal-with-indexing, and literal-never-indexed
 source-visible HPACK inputs for names resolved through the HPACK static table
@@ -1262,7 +1265,7 @@ Dynamic indexed lookup failures use id
 `requested_dynamic_index` and `dynamic_table_entry_count` before the same
 expected fixture, codec module, and bounded byte-preview fields. Source-visible
 payloads for this id carry those fields in
-`RuntimeHpackFixtureDynamicIndexDiagnostic(...)`.
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(...))`.
 The focused HPACK fixture dynamic-index JSON case first accepts a
 literal-with-indexing `:path: /target`, then accepts `0xbe` against the
 returned fixture state, and finally checks that the same indexed byte reports
@@ -1329,14 +1332,14 @@ Missing, malformed, and out-of-range dynamic-name continuations use ids
 `hpack.fixture.dynamic_name_continuation_out_of_range`; their source-visible
 payloads carry the same requested dynamic index, dynamic table entry count,
 expected fixture, codec module, and bounded byte-preview fields in
-`RuntimeHpackFixtureDynamicNameDiagnostic(...)`.
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(...))`.
 When a dynamic table-size update appears after a decoded header field in the
 same completed header block, the HPACK fixture boundary uses id
 `hpack.fixture.table_size_update_not_at_start` and also records
 `observed_header_table_size`, `frame_kind`, `stream_id`, `stream_ref`, and
 `active_state` before the same expected fixture, codec module, and byte
 preview fields. Source-visible payloads for this id carry those fields in
-`RuntimeHpackFixtureTableSizeUpdateDiagnostic(...)`.
+`RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(...))`.
 When a table-size update integer successfully decodes at the start of a
 header block but leaves trailing header-block bytes, the HPACK fixture
 boundary uses id `hpack.fixture.table_size_update_trailing_bytes` on the
@@ -1347,7 +1350,7 @@ bounded preview.
 When a malformed non-terminating table-size update integer is decoded at the
 start of a completed header block, the HPACK fixture boundary uses id
 `hpack.fixture.table_size_update_malformed`; source-visible payloads for this
-id use the common `RuntimeHpackFixtureDiagnostic(...)` fields with the
+id use the common `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(...))` fields with the
 malformed bytes in the bounded preview.
 Outbound header-list encode failures in the aggregate HTTP/2 run case stay as
 typed HPACK fixture results in program stdout; they are not converted into

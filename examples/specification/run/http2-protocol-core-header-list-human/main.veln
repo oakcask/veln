@@ -31,7 +31,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.header_list_size_exceeded",
 		error,
-		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", byte_chunk([])))
 	)
 end
 
@@ -39,7 +39,7 @@ fn header_list_payload(offset: Int, observed_size: Int, frame_kind: Int, stream_
 	RuntimeDiagnostic(
 		"http2.peer_limit.header_list_size_exceeded",
 		"HTTP/2 header list size exceeds receive maximum at byte offset 12",
-		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(offset, observed_size, context_allowed_header_list_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(offset, observed_size, context_allowed_header_list_size(context), frame_kind, stream_id, context_receive_limit_provenance(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

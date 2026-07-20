@@ -4,7 +4,7 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.closed_with_pending",
 		error,
-		RuntimeHttp2ProtocolClosedWithPendingDiagnostic(12, 0, "headers", 1, 1, 0, 3, "rfc9113_continuation_sequence", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(12, 0, "headers", 1, 1, 0, 3, "rfc9113_continuation_sequence", byte_chunk([])))
 	)
 end
 

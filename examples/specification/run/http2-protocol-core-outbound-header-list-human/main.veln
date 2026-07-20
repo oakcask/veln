@@ -5,7 +5,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.header_list_size_exceeded",
 		error,
-		RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(0, 42, 41, 1, 1, "peer_settings_item", "peer_settings_max_header_list_size", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(0, 42, 41, 1, 1, "peer_settings_item", "peer_settings_max_header_list_size", byte_chunk([])))
 	)
 end
 

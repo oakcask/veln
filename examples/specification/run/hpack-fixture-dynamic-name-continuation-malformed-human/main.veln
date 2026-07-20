@@ -3,7 +3,7 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.dynamic_name_continuation_malformed",
 		error,
-		RuntimeHpackFixtureDynamicNameDiagnostic(99, 0, -1, -1, 0, "fixture dynamic-name continuation integer", "hpack_fixture", byte_chunk([]))
+		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(99, 0, -1, -1, 0, "fixture dynamic-name continuation integer", "hpack_fixture", byte_chunk([])))
 	)
 end
 

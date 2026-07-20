@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_stream_id",
 		error,
-		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", byte_chunk([])))
 	)
 end
 
@@ -19,7 +19,7 @@ fn invalid_stream_reference_payload(bytes: ByteChunk) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_stream_id",
 		"HTTP/2 invalid stream id at byte offset 0",
-		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", bytes)
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 6, 1, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero", bytes))
 	)
 end
 

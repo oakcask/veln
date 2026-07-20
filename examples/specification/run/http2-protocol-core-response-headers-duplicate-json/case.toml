@@ -16,7 +16,7 @@ equals = "failed"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list contains duplicate :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, duplicate_pseudo_header, :status, :status,:status, response-headers, rfc9113_response_pseudo_headers, ByteChunk([])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response header list contains duplicate :status at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, duplicate_pseudo_header, :status, :status,:status, response-headers, rfc9113_response_pseudo_headers, ByteChunk([]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"

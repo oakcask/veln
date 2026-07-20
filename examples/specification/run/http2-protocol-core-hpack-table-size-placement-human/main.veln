@@ -2,7 +2,7 @@ use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK table-size update placement projects human runtime diagnostics.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.table_size_update_not_at_start", error, RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.table_size_update_not_at_start", error, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(10, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update at header block start", "hpack_fixture", byte_chunk([]))))
 end
 
 fn preview_view() -> Result<ByteView, RuntimeDiagnostic>

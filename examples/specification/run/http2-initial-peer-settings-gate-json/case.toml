@@ -68,10 +68,10 @@ equals = "rfc9113_initial_peer_frame_requires_non_ack_settings"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.actual_flags"
+path = "value.detail.detail.actual_flags"
 equals = 1

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.peer_limit.settings_value_out_of_range, HTTP/2 SETTINGS value outside accepted range at byte offset 15, RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, SETTINGS_ENABLE_PUSH, 2, 0, 1, peer_settings, ByteChunk([Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(2)])))"
+equals = "RuntimeDiagnostic(http2.peer_limit.settings_value_out_of_range, HTTP/2 SETTINGS value outside accepted range at byte offset 15, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, SETTINGS_ENABLE_PUSH, 2, 0, 1, peer_settings, ByteChunk([Byte(0), Byte(2), Byte(0), Byte(0), Byte(0), Byte(2)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -80,20 +80,20 @@ equals = "peer_settings"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2PeerLimitSettingsValueDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.setting_identifier"
+path = "value.detail.detail.setting_identifier"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.setting_name"
+path = "value.detail.detail.setting_name"
 equals = "SETTINGS_ENABLE_PUSH"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.peer_limit_provenance"
+path = "value.detail.detail.peer_limit_provenance"
 equals = "peer_settings"

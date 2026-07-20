@@ -3,7 +3,7 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.dynamic_name_continuation_out_of_range",
 		error,
-		RuntimeHpackFixtureDynamicNameDiagnostic(98, 0, -1, 3, 3, "fixture dynamic-name continuation range", "hpack_fixture", byte_chunk([]))
+		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(98, 0, -1, 3, 3, "fixture dynamic-name continuation range", "hpack_fixture", byte_chunk([])))
 	)
 end
 

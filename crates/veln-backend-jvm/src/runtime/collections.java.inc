@@ -2911,8 +2911,8 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 input ended with " + pending
             + " pending byte(s) at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(pending),
@@ -2944,8 +2944,8 @@
         long pending = asLong(pendingCount);
         String message = "HTTP/2 input ended with partial client connection preface at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(pending),
@@ -2978,8 +2978,8 @@
         long matched = asLong(matchedCount);
         String message = "HTTP/2 invalid client connection preface at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(expected),
@@ -3020,8 +3020,8 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 initial peer frame must be non-ACK SETTINGS at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -3065,8 +3065,8 @@
         long accumulatedHeaderBlockBytes = asLong(accumulatedBytes);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 expected CONTINUATION frame at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -3106,8 +3106,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid frame kind at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(frameKind),
@@ -3146,8 +3146,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid stream id at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -3187,8 +3187,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -3228,8 +3228,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid WINDOW_UPDATE increment at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -3267,8 +3267,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid DATA padding at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -3307,8 +3307,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 content-length body length mismatch at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -3340,8 +3340,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 unexpected SETTINGS ACK at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 state,
@@ -3377,8 +3377,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 SETTINGS item is not allowed for endpoint role at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(identifier),
@@ -3465,8 +3465,8 @@
         } else {
             message = "HTTP/2 invalid request header list at byte offset " + byteOffset;
         }
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -3545,8 +3545,8 @@
         } else {
             message = "HTTP/2 invalid response header list at byte offset " + byteOffset;
         }
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(kind),
@@ -3583,8 +3583,8 @@
         String state = asString(activeState);
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 invalid PRIORITY dependency at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -3621,8 +3621,8 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 stream opened after graceful shutdown at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -3659,8 +3659,8 @@
         String provenance = asString(receiveLimitProvenance);
         String message = "HTTP/2 frame payload length exceeds receive maximum at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -3702,8 +3702,8 @@
             ? "HTTP/2 header list size exceeds peer-advertised outbound maximum at byte offset "
                 + byteOffset
             : "HTTP/2 header list size exceeds receive maximum at byte offset " + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -3744,8 +3744,8 @@
         String rule = asString(ruleProvenance);
         String message = "HTTP/2 header table size exceeds receive maximum at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -3786,8 +3786,8 @@
         String provenance = asString(ruleProvenance);
         String message = "HTTP/2 flow-control window exceeded at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observed),
@@ -3830,8 +3830,8 @@
         String rule = asString(ruleProvenance);
         String message = "HTTP/2 concurrent stream receive limit exceeded at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(stream),
@@ -3873,8 +3873,8 @@
         String provenance = asString(peerLimitProvenance);
         String message = "HTTP/2 SETTINGS value outside accepted range at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(identifier),
@@ -4131,8 +4131,8 @@
         String module = asString(codecModule);
         String message = "HPACK dynamic index out of range at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic",
+        Object detail = http2HpackDiagnosticDetail(
+            "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -4253,8 +4253,8 @@
         long entryCount = asLong(dynamicTableEntryCount);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic",
+        Object detail = http2HpackDiagnosticDetail(
+            "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -4286,8 +4286,8 @@
         String codecModule,
         Object preview
     ) {
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic",
+        Object detail = http2HpackDiagnosticDetail(
+            "HpackDiagnosticDetail::RuntimeHpackFixtureDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(observedSize),
@@ -4330,8 +4330,8 @@
         String module = asString(codecModule);
         String message = "HPACK fixture table-size update after header field at byte offset "
             + byteOffset;
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+        Object detail = http2HpackDiagnosticDetail(
+            "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),
@@ -4409,8 +4409,8 @@
         String state = asString(activeState);
         String expected = asString(expectedFixture);
         String module = asString(codecModule);
-        Object detail = adt(
-            "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+        Object detail = http2HpackDiagnosticDetail(
+            "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic",
             new Object[] {
                 Long.valueOf(byteOffset),
                 Long.valueOf(size),

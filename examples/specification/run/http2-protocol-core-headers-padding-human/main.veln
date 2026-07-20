@@ -5,7 +5,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_payload_length",
 		error,
-		RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 1, 1, 2, 1, "stream-control", "rfc9113_headers_padding", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 1, 1, 2, 1, "stream-control", "rfc9113_headers_padding", byte_chunk([])))
 	)
 end
 

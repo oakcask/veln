@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.peer_limit.flow_control_window_exceeded, HTTP/2 flow-control window exceeded at byte offset 0, RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, connection-flow-control, connection_receive_window, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))"
+equals = "RuntimeDiagnostic(http2.peer_limit.flow_control_window_exceeded, HTTP/2 flow-control window exceeded at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, connection-flow-control, connection_receive_window, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)]))))"
 
 [[result_value_assert]]
 value_path = "error.details.value"
@@ -29,7 +29,7 @@ equals = "RuntimeDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic"
 
 [[json_assert]]

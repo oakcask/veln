@@ -2268,6 +2268,61 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_project_loads_private_diagnostic_dependency_through_prelude() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub fn main() -> RuntimeDiagnostic\n",
+                    "  let detail: RuntimeDiagnosticDetail = RuntimeValueDiagnostic(list_nil(), \"reason\")\n",
+                    "  RuntimeDiagnostic(\"example\", \"message\", detail)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        for name in [
+            "RuntimeDiagnostic",
+            "RuntimeDiagnosticDetail",
+            "RuntimeDiagnosticFieldPathSegment",
+            "RuntimeByteDiagnosticFacts",
+            "RuntimeBytePreview",
+            "Http2DiagnosticDetail",
+            "HpackDiagnosticDetail",
+        ] {
+            let owners = module
+                .types
+                .iter()
+                .filter(|type_decl| type_decl.name.as_deref() == Some(name))
+                .map(|type_decl| type_decl.module_name.as_deref())
+                .collect::<Vec<_>>();
+            assert_eq!(owners, [Some("std::diagnostic")]);
+
+            let aliases = module
+                .aliases
+                .iter()
+                .filter(|alias| {
+                    alias.module_name.as_deref() == Some("std::prelude")
+                        && alias.name.as_deref() == Some(name)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(aliases.len(), 1);
+            assert_eq!(aliases[0].target, ["diagnostic", name]);
+        }
+
+        let lowered = veln_sema::lower_checked_surface_module(&module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(
+            lowered.core.is_some(),
+            "diagnostic alias usage should lower"
+        );
+    }
+
+    #[test]
     fn explicit_standard_http2_import_loads_only_its_dependency_closure() {
         let project = Project {
             root: ".".into(),
@@ -2337,6 +2392,28 @@ mod tests {
         let (_, diagnostics) = load_surface_module(&project);
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "module.unexported_import" && diagnostic.message.contains("bytes")
+        }));
+    }
+
+    #[test]
+    fn private_standard_diagnostic_module_cannot_be_imported() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use diagnostic from \"std\"\n",
+                    "pub fn main() -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unexported_import" && diagnostic.message.contains("diagnostic")
         }));
     }
 

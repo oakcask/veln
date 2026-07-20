@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_priority_dependency",
 		error,
-		RuntimeHttp2ProtocolPriorityDependencyDiagnostic(0, 1, 1, "stream-control", "rfc9113_priority_dependency", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(0, 1, 1, "stream-control", "rfc9113_priority_dependency", byte_chunk([])))
 	)
 end
 

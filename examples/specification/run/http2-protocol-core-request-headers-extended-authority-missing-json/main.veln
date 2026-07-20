@@ -1,5 +1,5 @@
 # Missing extended CONNECT :authority projects structured request-header diagnostics.
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT is missing :authority at byte offset 12", RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "extended_connect_authority_missing", ":authority", ":method,:protocol,:scheme,:path", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([]))))
+	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT is missing :authority at byte offset 12", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "extended_connect_authority_missing", ":authority", ":method,:protocol,:scheme,:path", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([])))))
 end

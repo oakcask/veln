@@ -48,31 +48,6 @@ assertion has a classified replacement.
 
 ## Finite Remaining Scope
 
-### Shared Byte and Diagnostic Types
-
-The generic byte ADTs are owned by a private `std::bytes` module and re-exported
-from the prelude under the established `Byte*` names. The remaining work in
-this step is to move the generic runtime-diagnostic envelope to a private
-`std::diagnostic` module while continuing to export the established
-`RuntimeDiagnostic*` names through type aliases; this is a source-boundary
-refactor, not a rename.
-
-Split HTTP/2 details out of the generic envelope:
-
-- `RuntimeDiagnosticDetail` carries
-  `RuntimeHttp2Diagnostic(Http2DiagnosticDetail)` and
-  `RuntimeHttp2HpackDiagnostic(HpackDiagnosticDetail)`;
-- the existing concrete HTTP/2 and HPACK detail constructor names and fields
-  remain constructors of the inner ADTs;
-- human diagnostics and the structured `details.protocol_diagnostic`
-  projection remain stable; and
-- the nested constructor shape is intentionally visible in raw
-  `run --json` `result.value` output and receives focused parser coverage.
-
-Compiler-known source helpers and private `prelude_builtin` intrinsic
-signatures remain separate registries. Existing JVM intrinsic link names stay
-private and do not become compatibility wrappers.
-
 ### HPACK Library Completion
 
 Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
@@ -166,17 +141,15 @@ it is not gradually weakened with broader substring matching.
 
 Each step must leave the standard package and workspace buildable:
 
-1. Finish the private diagnostic type boundary and update compiler, JVM,
-   JSON-parser, and raw-value expectations.
-2. Complete HPACK state and codec behavior, then move pure HPACK assertions to
+1. Complete HPACK state and codec behavior, then move pure HPACK assertions to
    adjacent tests.
-3. Complete connection, stream, settings, flow-control, headers, and shutdown
+2. Complete connection, stream, settings, flow-control, headers, and shutdown
    transitions, moving pure assertions after each responsibility lands.
-4. Move remaining human, JSON, CLI parsing, and output-chunk assertions to
+3. Move remaining human, JSON, CLI parsing, and output-chunk assertions to
    focused specification cases.
-5. Audit old symbols, local fixture types, `require_*` calls, stdout lines, and
+4. Audit old symbols, local fixture types, `require_*` calls, stdout lines, and
    output chunks. Classify every residual before deleting anything.
-6. Delete the monolithic case and promote the final implemented behavior to
+5. Delete the monolithic case and promote the final implemented behavior to
    `../specification/http2.md`. Archive this proposal under
    `../reference/implemented-proposals/` and remove it from the proposal
    catalog.

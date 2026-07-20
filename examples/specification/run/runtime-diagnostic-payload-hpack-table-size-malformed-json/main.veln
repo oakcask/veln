@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.table_size_update_malformed",
 		error,
-		RuntimeHpackFixtureDiagnostic(77, 0, -1, "fixture HPACK malformed table-size update integer", "hpack_fixture", byte_chunk([]))
+		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(77, 0, -1, "fixture HPACK malformed table-size update integer", "hpack_fixture", byte_chunk([])))
 	)
 end
 

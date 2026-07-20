@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.huffman_non_visible_value, HPACK fixture Huffman non-visible value at byte offset 9, RuntimeHpackFixtureDiagnostic(9, 6, 4, fixture HPACK Huffman checked header value, hpack_fixture, ByteChunk([Byte(4), Byte(132), Byte(255), Byte(199), Byte(254), Byte(63)])))"
+equals = "RuntimeDiagnostic(hpack.fixture.huffman_non_visible_value, HPACK fixture Huffman non-visible value at byte offset 9, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 6, 4, fixture HPACK Huffman checked header value, hpack_fixture, ByteChunk([Byte(4), Byte(132), Byte(255), Byte(199), Byte(254), Byte(63)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

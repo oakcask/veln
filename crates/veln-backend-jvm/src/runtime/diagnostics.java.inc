@@ -205,24 +205,28 @@
     }
 
     private static ProtocolDiagnostic runtimeProtocolDiagnostic(String id, Object detail) {
-        ProtocolDiagnostic hpackDiagnostic = runtimeHpackFixtureDiagnostic(id, detail);
-        if (hpackDiagnostic != null) {
-            return hpackDiagnostic;
+        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2HpackDiagnostic")) {
+            Adt envelope = (Adt) detail;
+            return runtimeHpackFixtureDiagnostic(id, envelope.payloads[0]);
         }
-        return runtimeHttp2ProtocolDiagnostic(id, detail);
+        if (!isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2Diagnostic")) {
+            return null;
+        }
+        Adt envelope = (Adt) detail;
+        return runtimeHttp2ProtocolDiagnostic(id, envelope.payloads[0]);
     }
 
     private static ProtocolDiagnostic runtimeHpackFixtureDiagnostic(String id, Object detail) {
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDiagnostic")) {
             return runtimeHpackFixtureCommonDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicIndexDiagnostic")) {
             return runtimeHpackFixtureDynamicIndexDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureDynamicNameDiagnostic")) {
             return runtimeHpackFixtureDynamicNameDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic")) {
+        if (isAdtNamed(detail, "HpackDiagnosticDetail::RuntimeHpackFixtureTableSizeUpdateDiagnostic")) {
             return runtimeHpackFixtureTableSizeUpdateDiagnostic(id, (Adt) detail);
         }
         return null;
@@ -358,76 +362,76 @@
     }
 
     private static ProtocolDiagnostic runtimeHttp2ProtocolDiagnostic(String id, Object detail) {
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolClosedWithPendingDiagnostic")) {
             return runtimeHttp2ProtocolClosedWithPendingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPartialPrefaceDiagnostic")) {
             return runtimeHttp2ProtocolPartialPrefaceDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPrefaceDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPrefaceDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic")) {
             return runtimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolContinuationExpectedDiagnostic")) {
             return runtimeHttp2ProtocolContinuationExpectedDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidFrameKindDiagnostic")) {
             return runtimeHttp2ProtocolInvalidFrameKindDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidStreamIdDiagnostic")) {
             return runtimeHttp2ProtocolInvalidStreamIdDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic")) {
             return runtimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFrameSizeDiagnostic")) {
             return runtimeHttp2PeerLimitFrameSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderListSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderListSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic")) {
             return runtimeHttp2PeerLimitHeaderTableSizeDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic")) {
             return runtimeHttp2PeerLimitConcurrentStreamsDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitSettingsValueDiagnostic")) {
             return runtimeHttp2PeerLimitSettingsValueDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic")) {
             return runtimeHttp2ProtocolInvalidPayloadLengthDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic")) {
             return runtimeHttp2ProtocolInvalidDataPaddingDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2PeerLimitFlowControlWindowDiagnostic")) {
             return runtimeHttp2PeerLimitFlowControlWindowDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolContentLengthMismatchDiagnostic")) {
             return runtimeHttp2ProtocolContentLengthMismatchDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic")) {
             return runtimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic")) {
             return runtimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic")) {
             return runtimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic")) {
             return runtimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolPriorityDependencyDiagnostic")) {
             return runtimeHttp2ProtocolPriorityDependencyDiagnostic(id, (Adt) detail);
         }
-        if (isAdtNamed(detail, "RuntimeDiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic")) {
+        if (isAdtNamed(detail, "Http2DiagnosticDetail::RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic")) {
             return runtimeHttp2ProtocolStreamAfterGoawayDiagnostic(id, (Adt) detail);
         }
         return null;

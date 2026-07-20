@@ -2,7 +2,7 @@ use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK table-size trailing-byte failures project structured runtime details.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.table_size_update_trailing_bytes", error, RuntimeHpackFixtureTableSizeUpdateDiagnostic(80, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.table_size_update_trailing_bytes", error, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(80, 0, -1, 0, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", byte_chunk([]))))
 end
 
 fn preview_view() -> Result<ByteView, RuntimeDiagnostic>

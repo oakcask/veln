@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains forbidden CONNECT :path at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, connect_path_present, :path, :method,:authority,:path, request-headers, rfc9113_connect_request_pseudo_headers, ByteChunk([])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains forbidden CONNECT :path at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, connect_path_present, :path, :method,:authority,:path, request-headers, rfc9113_connect_request_pseudo_headers, ByteChunk([]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
