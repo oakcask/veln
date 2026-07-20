@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed accepted-stream endpoint text slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -36,13 +37,6 @@ verifies the production network event log.
 The failure case forces endpoint metadata lookup failure after accept. The run
 JSON surface reports a runtime failure with the transport address message, and
 the event log stops after listen and accept.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

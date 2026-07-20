@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed explicit listener close boundary slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -44,13 +45,6 @@ close as the failed transport action and include the host fixture reason.
 The effect check keeps ownership explicit: source that closes a `NetListener`
 must declare `net`, while pure handlers still receive ordinary event, state,
 and action values without transport handles.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

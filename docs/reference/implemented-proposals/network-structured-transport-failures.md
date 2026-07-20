@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed structured transport-failure target from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/names-effects.md`, and `../../specification/run-json.md`.
 
@@ -60,4 +61,5 @@ continue to pin their classifications independently.
 ## Skip Unless Needed
 
 - Use the specification pages and executable cases for current behavior.
-- Return to the proposal only for the remaining external socket target.
+- Use the [external production socket runtime record](network-effect-integration-boundary.md)
+  for completion evidence for the later host-socket boundary.

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed adapter-level cancellable write-drain
-helper slice from `../../proposals/network-effect-integration-boundary.md`.
+helper slice from [external production socket runtime record](network-effect-integration-boundary.md).
 Current behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -34,13 +34,6 @@ The boundary keeps the existing coarse `net`, `time`, and `concurrency`
 effects. The handler stays free of transport, deadline, and cancellation
 effects, and the slice does not add socket syntax, new effect labels, service
 interfaces, middleware, or route-count-only fixtures.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, cancellation ownership, scheduler
-integration, and HTTP/2 transport-adapter behavior beyond the checked helper
-boundary.
 
 ## Read When
 

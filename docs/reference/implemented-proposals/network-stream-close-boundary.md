@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned stream close lifecycle slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -35,13 +36,6 @@ become a runtime failure on this value-returning wait path.
 The effect check keeps ownership explicit: source that closes a `NetStream`
 must declare `net`, and plain handler functions still receive ordinary event,
 state, and action values without socket handles.
-
-## Remaining Work
-
-The broader network integration proposal remains open for production socket
-ownership and lifecycle beyond fixture-backed close recording, richer stream
-routing, richer deadline and cancellation APIs, channel and task ownership
-beyond the checked adapter slices, and HTTP/2 transport-adapter work.
 
 ## Read When
 

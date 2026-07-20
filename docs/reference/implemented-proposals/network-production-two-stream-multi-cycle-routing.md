@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed production two-stream multi-cycle routing
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked example under
@@ -33,13 +34,6 @@ ALPN, HTTP routing, or direct socket access from application handlers. The
 static effect boundary remains the same as the production multi-chunk routing
 slice: adapter code owns the existing `net` and `concurrency` effects, while
 the handler boundary remains free of transport and channel effects.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, scheduler integration, and HTTP/2
-transport-adapter behavior beyond the checked production-loopback lifecycle
-slices.
 
 ## Read When
 

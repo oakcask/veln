@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed source-visible production listen/connect
-lifecycle slice from `../../proposals/network-effect-integration-boundary.md`.
+lifecycle slice from [external production socket runtime record](network-effect-integration-boundary.md).
 Current behavior is specified by
 [names-effects.md](../../specification/names-effects.md),
 [names-effects-full.md](../../specification/names-effects-full.md),
@@ -29,12 +29,6 @@ The runtime preserves the existing transport failure boundary. Connection,
 accept, read, write, stream close, and listener close failures remain runtime
 transport failures rather than protocol diagnostics or ordinary source
 outcome values.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs beyond the checked deterministic fixture, source-visible client
-connect, listener/client pairing, and adapter-owned loopback shapes.
 
 ## Read When
 

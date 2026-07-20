@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed source-visible client connect slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by [names-effects.md](../../specification/names-effects.md),
 [execution.md](../../specification/execution.md),
 [examples.md](../../specification/examples.md), and the checked executable
@@ -31,13 +32,6 @@ provenance for `net::connect`. Forced connection failure remains a runtime
 transport failure. The boundary does not add TLS, DNS policy, structured
 address records, finer-grained network effect labels, a service interface, or
 a general async connect API.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

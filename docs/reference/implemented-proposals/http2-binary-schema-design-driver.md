@@ -18,7 +18,7 @@ bounded proposal routes:
 
 - [HTTP/2 Sans-I/O Protocol Core](../../proposals/http2-sans-io-protocol-core.md)
 - [Schema Declaration Surface](../../proposals/schema-declaration-surface.md)
-- [Network Effect Integration Boundary](../../proposals/network-effect-integration-boundary.md)
+- [Network Effect Integration Boundary](network-effect-integration-boundary.md)
 
 Future binary data, schema primitive, or diagnostic work needs a concrete
 consumer and a new bounded proposal instead of reopening this design driver.

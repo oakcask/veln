@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed deadline-aware chunk-list stream-write
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -32,13 +33,6 @@ The boundary does not add cancellation behavior, add an effect label, change
 `Deadline`, add buffering or flow-control ownership, or turn host write
 failures into ordinary source values. Cancellation remains owned by
 `net::write_chunks_until_cancellable`.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, cancellation ownership, scheduler
-integration, and HTTP/2 transport-adapter behavior beyond the checked
-deadline-aware and cancellable boundary slices.
 
 ## Read When
 

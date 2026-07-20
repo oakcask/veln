@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned read-side half-close slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -28,13 +29,6 @@ The production-loopback lifecycle case accepts a stream, shuts down its read
 side, observes clean read end, writes one response chunk, shuts down the write
 side, and closes the stream. The effect-checking case keeps the operation
 under the existing `net` effect.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket ownership, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed source-visible ordered chunk-list write
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -29,13 +30,6 @@ Transport write failures remain runtime transport failures on the existing
 stream write path. The boundary does not add an effect label, change
 `net::write_chunk`, introduce new socket APIs, or move pure protocol handlers
 into adapter-owned transport code.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed concurrent stream task-drain slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/names-effects.md`, and the executable cases under
 `../../../examples/specification/run/socket-stream-adapter-production-concurrent-task-drain/`
@@ -31,12 +32,6 @@ The adapter uses the existing `net` and `concurrency` effects and the existing
 only an ordinary context record and remains free of transport and concurrency
 effects. No public helper, effect label, scheduler behavior, cancellation API,
 or service abstraction is added.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, transport ownership, scheduler integration, and HTTP/2 adapter
-behavior beyond the checked production-loopback slices.
 
 ## Read When
 

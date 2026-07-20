@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed fail-fast pending-task cleanup slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/names-effects.md`, and the executable cases under
 `../../../examples/specification/run/socket-stream-adapter-production-cancel-pending-after-failure/`
@@ -29,13 +30,6 @@ The adapter uses the existing `net` and `concurrency` effects. Its ordinary
 handler receives no transport or task handles and remains effect-free. This
 slice adds no scheduler API, task-group API, effect label, service abstraction,
 fixed stream count, or new cancellation primitive.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs and adapter ownership beyond the checked recursive drain policies.
-Another same-shaped stream-count or spawned-handler-arity fixture is not
-remaining proposal work.
 
 ## Read When
 

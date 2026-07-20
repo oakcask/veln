@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed HTTP/2 adapter/core write boundary slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/execution.md`,
 `../../specification/names-effects.md`, `../../specification/run-json.md`, and
 the checked examples under
@@ -31,12 +32,6 @@ remain free of transport effects, while the adapter entry point that projects
 accepted core chunks to `net::write_chunks` must declare the existing coarse
 `net` effect. The slice adds no effect label, production socket API, schema
 primitive, HPACK behavior, or binary primitive behavior.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs beyond the checked deterministic fixture and loopback adapter
-shapes.
 
 ## Read When
 

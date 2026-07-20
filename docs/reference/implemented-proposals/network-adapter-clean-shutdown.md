@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned clean shutdown slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -33,13 +34,6 @@ while the pure handler remains callable without transport, time, or
 concurrency effects. The slice adds no effect label, socket primitive, channel
 route-count fixture, TLS, ALPN, production polling, or HTTP application
 framework.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

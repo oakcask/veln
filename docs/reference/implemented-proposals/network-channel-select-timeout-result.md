@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed two-receiver timeout-result selection
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
 `../../../examples/specification/run/channel-select-timeout-result/` and
@@ -25,13 +26,6 @@ The helper uses the existing `concurrency` effect and does not require the
 `time` effect. Its timeout argument remains an `Int` source type boundary.
 It does not add channel, socket, task, timer, cancellation, or network-specific
 effect labels.
-
-## Remaining Work
-
-The broader network integration proposal remains open for production socket
-ownership, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 
