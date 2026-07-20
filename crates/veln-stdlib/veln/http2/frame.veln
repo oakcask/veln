@@ -1,0 +1,25 @@
+use prelude
+
+pub type Frame
+	Frame(length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView)
+end
+
+pub fn decode(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
+	prelude_builtin::byte_decode_http2_frame(view)
+end
+
+pub fn encode_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ByteChunk, String>
+	match length < 0 or length > 16777215
+		true => Err("HTTP/2 frame payload length must be between 0 and 16777215")
+		false => match kind < 0 or kind > 255
+			true => Err("HTTP/2 frame kind must be between 0 and 255")
+			false => match flags < 0 or flags > 255
+				true => Err("HTTP/2 frame flags must be between 0 and 255")
+				false => match stream_id < 0 or stream_id > 2147483647
+					true => Err("HTTP/2 stream id must be between 0 and 2147483647")
+					false => Ok(byte_append(byte_write_u24_be(length)?, byte_append(byte_write_u8_be(kind)?, byte_append(byte_write_u8_be(flags)?, byte_write_u31_be(stream_id)?))))
+				end
+			end
+		end
+	end
+end

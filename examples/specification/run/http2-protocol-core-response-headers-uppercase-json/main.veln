@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 uppercase ordinary response header names project structured runtime details.
 
 type Http2ProtocolFailure

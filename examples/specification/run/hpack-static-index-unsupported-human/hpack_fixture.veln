@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 pub type HpackFixtureState
 	HpackFixtureState(table_size: Int, decode_count: Int)
 end
@@ -60,6 +61,6 @@ end
 pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = failure_preview_view(failure)?
 	match failure
-		UnsupportedStaticIndex(offset, observed_size, observed_first_byte, expected_fixture, codec_module, _) => hpack_fixture_unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
+		UnsupportedStaticIndex(offset, observed_size, observed_first_byte, expected_fixture, codec_module, _) => http2::hpack::diagnostic::unsupported_static_index(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview)
 	end
 end

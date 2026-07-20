@@ -3676,7 +3676,12 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         .iter()
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
-        if use_decl.alias == PRELUDE_MODULE {
+        if use_decl.alias == PRELUDE_MODULE
+            && !use_decl
+                .module_name
+                .as_deref()
+                .is_some_and(|module_name| module_name.starts_with("std::"))
+        {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),
                 use_decl.span.clone(),

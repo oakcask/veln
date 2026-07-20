@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 header-table helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -30,5 +31,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let update: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(update)?
-	http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, "local_configuration", "hpack_dynamic_table_size_update", preview)
+	http2::diagnostic::peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, "local_configuration", "hpack_dynamic_table_size_update", preview)
 end

@@ -1,0 +1,23 @@
+pub type StaticEntry
+	StaticEntry(name: String, value: String)
+end
+
+pub fn lookup(index: Int) -> Option<StaticEntry>
+	match index
+		1 => Some(StaticEntry(":authority", ""))
+		2 => Some(StaticEntry(":method", "GET"))
+		3 => Some(StaticEntry(":method", "POST"))
+		4 => Some(StaticEntry(":path", "/"))
+		5 => Some(StaticEntry(":path", "/index.html"))
+		6 => Some(StaticEntry(":scheme", "http"))
+		7 => Some(StaticEntry(":scheme", "https"))
+		8 => Some(StaticEntry(":status", "200"))
+		9 => Some(StaticEntry(":status", "204"))
+		10 => Some(StaticEntry(":status", "206"))
+		11 => Some(StaticEntry(":status", "304"))
+		12 => Some(StaticEntry(":status", "400"))
+		13 => Some(StaticEntry(":status", "404"))
+		14 => Some(StaticEntry(":status", "500"))
+		_ => None
+	end
+end

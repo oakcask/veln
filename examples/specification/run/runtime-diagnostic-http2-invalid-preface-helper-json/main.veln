@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 invalid preface helper returns a RuntimeDiagnostic payload.
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -22,5 +23,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	http2_protocol_invalid_preface(4, 42, 43, 4, preview)
+	http2::diagnostic::protocol_invalid_preface(4, 42, 43, 4, preview)
 end

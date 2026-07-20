@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK table-size trailing-byte failures project human runtime diagnostics.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
@@ -19,5 +20,5 @@ end
 
 fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_table_size_update_trailing_bytes(80, 3, 63, 33, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", preview)
+	http2::hpack::diagnostic::table_size_update_trailing_bytes(80, 3, 63, 33, 1, 1, "hpack-fixture", "fixture HPACK table-size update without trailing bytes", "hpack_fixture", preview)
 end

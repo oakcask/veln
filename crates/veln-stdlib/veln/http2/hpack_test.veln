@@ -1,0 +1,23 @@
+use prelude
+use http2::hpack
+
+test integer_prefix_and_continuation_decode() -> Result<(), String>
+	let direct_chunk: ByteChunk = byte_chunk_from_hex("0a")?
+	let direct_view: ByteView = byte_view(direct_chunk, byte_offset(0)?, byte_chunk_count(direct_chunk))?
+	let direct: { value : Int, consumed : Int } = http2::hpack::decode_integer(direct_view, 5)?
+	let continued_chunk: ByteChunk = byte_chunk_from_hex("1f9a0a")?
+	let continued_view: ByteView = byte_view(continued_chunk, byte_offset(0)?, byte_chunk_count(continued_chunk))?
+	let continued: { value : Int, consumed : Int } = http2::hpack::decode_integer(continued_view, 5)?
+	match http2::hpack::decoded_integer_value(direct) == 10 and http2::hpack::decoded_integer_consumed(direct) == 1 and http2::hpack::decoded_integer_value(continued) == 1337 and http2::hpack::decoded_integer_consumed(continued) == 3
+		true => Ok(())
+		false => Err("HPACK prefixed integer decoding changed")
+	end
+end
+
+test dynamic_table_starts_empty() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	match http2::hpack::dynamic_table_capacity(table) == 4096 and http2::hpack::dynamic_table_size(table) == 0 and http2::hpack::dynamic_table_entry_count(table) == 0
+		true => Ok(())
+		false => Err("HPACK dynamic table initial state changed")
+	end
+end

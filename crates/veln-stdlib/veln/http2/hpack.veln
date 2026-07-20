@@ -1,0 +1,66 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::header_codec
+use http2::hpack::huffman
+use http2::hpack::integer
+use http2::hpack::static_table
+
+pub type DynamicTable
+	DynamicTable(capacity: Int, size: Int, entry_count: Int)
+end
+
+pub type StaticEntry
+	StaticEntry(name: String, value: String)
+end
+
+pub fn decode_integer(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, String>
+	http2::hpack::integer::decode(input, prefix_bits)
+end
+
+pub fn decoded_integer_value(decoded: { value : Int, consumed : Int }) -> Int
+	http2::hpack::integer::value(decoded)
+end
+
+pub fn decoded_integer_consumed(decoded: { value : Int, consumed : Int }) -> Int
+	http2::hpack::integer::consumed(decoded)
+end
+
+pub fn huffman_bytes_label(bytes: ByteChunk) -> String
+	http2::hpack::huffman::bytes_label(bytes)
+end
+
+pub fn huffman_label_bytes(label: String) -> Option<ByteChunk>
+	http2::hpack::huffman::label_bytes(label)
+end
+
+pub fn static_entry(index: Int) -> Option<StaticEntry>
+	match http2::hpack::static_table::lookup(index)
+		Some(http2::hpack::static_table::StaticEntry(name, value)) => Some(StaticEntry(name, value))
+		None => None
+	end
+end
+
+pub fn empty_dynamic_table(capacity: Int) -> Result<DynamicTable, String>
+	match capacity < 0
+		true => Err("HPACK dynamic table capacity must not be negative")
+		false => Ok(DynamicTable(capacity, 0, 0))
+	end
+end
+
+pub fn dynamic_table_capacity(table: DynamicTable) -> Int
+	match table
+		DynamicTable(capacity, _, _) => capacity
+	end
+end
+
+pub fn dynamic_table_size(table: DynamicTable) -> Int
+	match table
+		DynamicTable(_, size, _) => size
+	end
+end
+
+pub fn dynamic_table_entry_count(table: DynamicTable) -> Int
+	match table
+		DynamicTable(_, _, count) => count
+	end
+end

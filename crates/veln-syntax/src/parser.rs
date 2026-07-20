@@ -970,7 +970,11 @@ impl<'a> Parser<'a> {
                 FunctionKind::Test => "test",
             }],
         );
-        let name = self.expect_ident(Self::function_context(kind), "declaration name");
+        let name = if self.at(TokenKind::Decode) {
+            Some(self.bump().text)
+        } else {
+            self.expect_ident(Self::function_context(kind), "declaration name")
+        };
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
         self.expect(TokenKind::RParen, Self::parameter_context(kind), vec![")"]);
@@ -2808,7 +2812,7 @@ impl<'a> ExprParser<'a> {
         let mut end = start;
         let mut segments = vec![self.bump().text];
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if self.at(TokenKind::Ident) || self.at(TokenKind::Decode) {
                 let segment = self.bump();
                 end = segment.range;
                 segments.push(segment.text);

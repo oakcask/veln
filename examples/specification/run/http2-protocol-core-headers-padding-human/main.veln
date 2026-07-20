@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 HEADERS padding failures project through payload diagnostics.
 
 fn invalid_payload(error: String) -> RuntimeDiagnostic
@@ -28,5 +29,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let bytes: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(bytes)?
-	http2_protocol_invalid_payload_length(9, 1, 1, 2, 1, "stream-control", "rfc9113_headers_padding", preview)
+	http2::diagnostic::protocol_invalid_payload_length(9, 1, 1, 2, 1, "stream-control", "rfc9113_headers_padding", preview)
 end

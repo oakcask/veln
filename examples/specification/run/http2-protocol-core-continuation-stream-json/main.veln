@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 continuation stream mismatch projects pending header-block context.
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -22,5 +23,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	http2_protocol_continuation_expected(12, 9, 3, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", preview)
+	http2::diagnostic::protocol_continuation_expected(12, 9, 3, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", preview)
 end

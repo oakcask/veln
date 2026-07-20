@@ -352,26 +352,26 @@ requiring the full command reference on the first read.
   projections include the bounded inspected frame-header preview or empty local
   outbound preview and active shutdown label carried by the returned value.
   The standard
-  `http2_protocol_invalid_preface(...)`,
-  `http2_protocol_initial_peer_settings_required(...)`,
-  `http2_protocol_continuation_expected(...)`, and
-  `http2_protocol_invalid_frame_kind(...)`,
-  `http2_protocol_invalid_stream_id(...)`,
-  `http2_peer_limit_frame_size_exceeded(...)`,
-  `http2_peer_limit_header_list_size_exceeded(...)`,
-  `http2_peer_limit_header_table_size_exceeded(...)`,
-  `http2_peer_limit_concurrent_streams_exceeded(...)`, and
-  `http2_peer_limit_settings_value_out_of_range(...)`,
-  `http2_protocol_invalid_window_update_increment(...)`,
-  `http2_protocol_invalid_data_padding(...)`,
-  `http2_protocol_content_length_mismatch(...)`,
-  `http2_protocol_unexpected_settings_ack(...)`,
-  `http2_protocol_settings_not_allowed_for_endpoint(...)`,
-  `http2_protocol_invalid_priority_dependency(...)`,
-  `http2_protocol_stream_after_goaway(...)`,
-  `http2_peer_limit_flow_control_window_exceeded(...)`,
-  `http2_protocol_invalid_request_header_list(...)`, and
-  `http2_protocol_invalid_response_header_list(...)` helpers also return
+  `http2::diagnostic::protocol_invalid_preface(...)`,
+  `http2::diagnostic::protocol_initial_peer_settings_required(...)`,
+  `http2::diagnostic::protocol_continuation_expected(...)`, and
+  `http2::diagnostic::protocol_invalid_frame_kind(...)`,
+  `http2::diagnostic::protocol_invalid_stream_id(...)`,
+  `http2::diagnostic::peer_limit_frame_size_exceeded(...)`,
+  `http2::diagnostic::peer_limit_header_list_size_exceeded(...)`,
+  `http2::diagnostic::peer_limit_header_table_size_exceeded(...)`,
+  `http2::diagnostic::peer_limit_concurrent_streams_exceeded(...)`, and
+  `http2::diagnostic::peer_limit_settings_value_out_of_range(...)`,
+  `http2::diagnostic::protocol_invalid_window_update_increment(...)`,
+  `http2::diagnostic::protocol_invalid_data_padding(...)`,
+  `http2::diagnostic::protocol_content_length_mismatch(...)`,
+  `http2::diagnostic::protocol_unexpected_settings_ack(...)`,
+  `http2::diagnostic::protocol_settings_not_allowed_for_endpoint(...)`,
+  `http2::diagnostic::protocol_invalid_priority_dependency(...)`,
+  `http2::diagnostic::protocol_stream_after_goaway(...)`,
+  `http2::diagnostic::peer_limit_flow_control_window_exceeded(...)`,
+  `http2::diagnostic::protocol_invalid_request_header_list(...)`, and
+  `http2::diagnostic::protocol_invalid_response_header_list(...)` helpers also return
   this payload form, so their human runtime diagnostics are rendered from the
   returned value rather than from helper-local registration.
   Checked byte write

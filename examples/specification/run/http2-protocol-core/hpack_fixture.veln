@@ -1,3 +1,5 @@
+use http2::hpack from "std"
+use http2::hpack::diagnostic from "std"
 pub type HpackDynamicEntry
 	NoDynamicEntry
 	DynamicEntry(name: String, value: String, older: HpackDynamicEntry)
@@ -1604,7 +1606,7 @@ fn hpack_huffman_label_value_bytes(value: String) -> Option<ByteChunk>
 		"hpack-byte-fd" => hpack_fixture_huffman_label_hex("fd")
 		"hpack-byte-fe" => hpack_fixture_huffman_label_hex("fe")
 		"hpack-byte-ff" => hpack_fixture_huffman_label_hex("ff")
-		_ => hpack_fixture_huffman_label_bytes(value)
+		_ => http2::hpack::huffman_label_bytes(value)
 	end
 end
 
@@ -3307,7 +3309,7 @@ fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -
 end
 
 fn hpack_decoded_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
-	Some(hpack_fixture_huffman_bytes_label(decoded))
+	Some(http2::hpack::huffman_bytes_label(decoded))
 end
 
 fn hpack_fixture_huffman_byte_label(symbol: Int) -> Option<String>
@@ -6340,21 +6342,21 @@ end
 pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = project_failure_preview(failure)?
 	match failure
-		UnsupportedHeaderBlock(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		UnsupportedStaticIndex(_, _, _, _, _, _) => hpack_fixture_unsupported_static_index(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_index_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_missing(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => hpack_fixture_dynamic_name_continuation_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		MalformedStringLength(_, _, _, _, _, _) => hpack_fixture_malformed_string_length(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		MalformedRawStringValue(_, _, _, _, _, _) => hpack_fixture_malformed_raw_string_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		MalformedHuffmanPadding(_, _, _, _, _, _) => hpack_fixture_malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		HuffmanEosSymbol(_, _, _, _, _, _) => hpack_fixture_huffman_eos_symbol(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		HuffmanNonVisibleValue(_, _, _, _, _, _) => hpack_fixture_huffman_non_visible_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_not_at_start(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		TableSizeUpdateMalformed(_, _, _, _, _, _) => hpack_fixture_table_size_update_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => hpack_fixture_table_size_update_trailing_bytes(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		InboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
-		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => hpack_fixture_unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		UnsupportedHeaderBlock(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		UnsupportedStaticIndex(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_static_index(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicIndexOutOfRange(_, _, _, _, _, _, _, _) => http2::hpack::diagnostic::dynamic_index_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationMissing(_, _, _, _, _, _, _, _) => http2::hpack::diagnostic::dynamic_name_continuation_missing(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationMalformed(_, _, _, _, _, _, _, _) => http2::hpack::diagnostic::dynamic_name_continuation_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		DynamicNameContinuationOutOfRange(_, _, _, _, _, _, _, _) => http2::hpack::diagnostic::dynamic_name_continuation_out_of_range(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_requested_dynamic_index(failure), hpack_failure_dynamic_table_entry_count(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedStringLength(_, _, _, _, _, _) => http2::hpack::diagnostic::malformed_string_length(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedRawStringValue(_, _, _, _, _, _) => http2::hpack::diagnostic::malformed_raw_string_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		MalformedHuffmanPadding(_, _, _, _, _, _) => http2::hpack::diagnostic::malformed_huffman_padding(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		HuffmanEosSymbol(_, _, _, _, _, _) => http2::hpack::diagnostic::huffman_eos_symbol(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		HuffmanNonVisibleValue(_, _, _, _, _, _) => http2::hpack::diagnostic::huffman_non_visible_value(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		TableSizeUpdateNotAtStart(_, _, _, _, _, _, _) => http2::hpack::diagnostic::table_size_update_not_at_start(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		TableSizeUpdateMalformed(_, _, _, _, _, _) => http2::hpack::diagnostic::table_size_update_malformed(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		TableSizeUpdateTrailingBytes(_, _, _, _, _, _, _) => http2::hpack::diagnostic::table_size_update_trailing_bytes(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_observed_update_size(failure), 0, 0, "hpack-fixture", hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		InboundTableSizeUpdateExceeded(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
+		OutboundTableSizeUpdateExceeded(_, _, _, _, _, _) => http2::hpack::diagnostic::unsupported_header_block(hpack_failure_offset(failure), hpack_failure_observed_size(failure), hpack_failure_observed_first_byte(failure), hpack_failure_expected_fixture(failure), hpack_failure_codec_module(failure), preview)
 	end
 end

@@ -1,3 +1,4 @@
+use http2::hpack from "std"
 pub type HpackHeader
 	HpackHeader(name: String, value: String)
 end
@@ -654,7 +655,7 @@ fn hpack_static_huffman_decoded_string(decoded: ByteChunk) -> Option<String>
 			true => Some("\n")
 			false => match byte_count_to_int(byte_chunk_count(decoded)) == 1
 				true => hpack_static_huffman_single_byte_label(hpack_fixture_byte_at_or_missing(decoded, 0))
-				false => Some(hpack_fixture_huffman_bytes_label(decoded))
+				false => Some(http2::hpack::huffman_bytes_label(decoded))
 			end
 		end
 	end

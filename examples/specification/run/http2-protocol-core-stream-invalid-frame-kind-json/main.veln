@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 idle-stream frame kind failures project structured runtime details.
 
 schema Http2FrameHeaderWire
@@ -80,7 +81,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), preview)
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, preview) => http2::diagnostic::protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), preview)
 	end
 end
 

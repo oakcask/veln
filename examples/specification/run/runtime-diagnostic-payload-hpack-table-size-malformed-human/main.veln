@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 # HPACK fixture helpers return human table-size malformed RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -22,5 +23,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_table_size_update_malformed(77, 2, 63, "fixture HPACK malformed table-size update integer", "hpack_fixture", preview)
+	http2::hpack::diagnostic::table_size_update_malformed(77, 2, 63, "fixture HPACK malformed table-size update integer", "hpack_fixture", preview)
 end

@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 header-list peer-limit failures project structured runtime details.
 
 type Http2ProtocolFailure

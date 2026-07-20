@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # The initial peer SETTINGS gate renders focused human context.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -24,5 +25,5 @@ fn frame_header() -> Result<ByteView, RuntimeDiagnostic>
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2_protocol_initial_peer_settings_required(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", frame_header()?)
+	http2::diagnostic::protocol_initial_peer_settings_required(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", frame_header()?)
 end

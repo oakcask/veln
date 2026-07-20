@@ -16,6 +16,41 @@ fn first_function(output: &ParseOutput) -> &FunctionDecl {
 }
 
 #[test]
+fn parses_decode_as_an_explicit_module_member_name() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn decode(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "pub fn call(value: Int) -> Int\n",
+            "  http2::frame::decode(value)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(decode) = &output.tree.items[0] else {
+        panic!("expected decode function");
+    };
+    assert_eq!(decode.name.as_deref(), Some("decode"));
+    let SyntaxItem::Function(call) = &output.tree.items[1] else {
+        panic!("expected caller function");
+    };
+    let BodyLine::Expr { expr, .. } = &call.body[0] else {
+        panic!("expected call expression");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Call { callee, .. }
+            if matches!(&callee.kind, ExprKind::NamePath(segments)
+                if segments == &vec!["http2".to_string(), "frame".to_string(), "decode".to_string()])
+    ));
+}
+
+#[test]
 fn lexes_binary_and_hexadecimal_integer_candidates_as_complete_tokens() {
     let source = SourceFile::new("main.veln", "0b00101 0x00Cafe 0b102 0Xff 0x1.2 0b10_01 0x");
 

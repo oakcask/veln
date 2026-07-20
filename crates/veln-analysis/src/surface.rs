@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path};
 use std::sync::OnceLock;
 
@@ -49,6 +49,11 @@ struct SurfaceParts {
 
 #[derive(Clone)]
 struct EmbeddedStandardPackage {
+    modules: BTreeMap<String, EmbeddedStandardModule>,
+}
+
+#[derive(Clone)]
+struct EmbeddedStandardModule {
     parts: SurfaceParts,
     diagnostics: Vec<Diagnostic>,
 }
@@ -247,60 +252,97 @@ fn load_external_dependencies(
 fn load_embedded_standard_package(diagnostics: &mut Vec<Diagnostic>, parts: &mut SurfaceParts) {
     let standard = EMBEDDED_STANDARD_PACKAGE.get_or_init(|| {
         let bundle = veln_stdlib::package_bundle();
-        let project = Project {
-            root: ".".into(),
-            files: bundle
-                .files
-                .iter()
-                .map(|file| SourceFile::new(file.path, file.text))
-                .collect(),
-            manifest: None,
-        };
-        let mut diagnostics = Vec::new();
-        let mut parts = SurfaceParts::new();
-        load_project_sources(
-            &project,
-            &mut diagnostics,
-            &mut parts,
-            Some(veln_stdlib::PACKAGE_NAME),
-        );
-        EmbeddedStandardPackage { parts, diagnostics }
+        let modules = bundle
+            .files
+            .iter()
+            .filter_map(|file| {
+                let project = Project {
+                    root: ".".into(),
+                    files: vec![SourceFile::new(file.path, file.text)],
+                    manifest: None,
+                };
+                let mut diagnostics = Vec::new();
+                let mut parts = SurfaceParts::new();
+                load_project_sources(
+                    &project,
+                    &mut diagnostics,
+                    &mut parts,
+                    Some(veln_stdlib::PACKAGE_NAME),
+                );
+                let module_name = parts
+                    .derived_modules
+                    .first()
+                    .map(|(module_name, _)| module_name.clone())?;
+                Some((module_name, EmbeddedStandardModule { parts, diagnostics }))
+            })
+            .collect();
+        EmbeddedStandardPackage { modules }
     });
-    diagnostics.extend(standard.diagnostics.clone());
-    if parts.module.module.is_none() {
-        parts.module.module = standard.parts.module.module.clone();
+
+    let mut pending = vec![external_module_key(veln_stdlib::PACKAGE_NAME, "prelude")];
+    pending.extend(
+        parts
+            .module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
+            .map(|use_decl| {
+                external_module_key(
+                    veln_stdlib::PACKAGE_NAME,
+                    &external_import_module_path(use_decl),
+                )
+            }),
+    );
+    let mut loaded = BTreeSet::new();
+    while let Some(module_name) = pending.pop() {
+        if !loaded.insert(module_name.clone()) {
+            continue;
+        }
+        let Some(module) = standard.modules.get(&module_name) else {
+            continue;
+        };
+        pending.extend(
+            module
+                .parts
+                .module
+                .uses
+                .iter()
+                .map(|use_decl| use_decl.name.clone()),
+        );
+        diagnostics.extend(module.diagnostics.clone());
+        merge_surface_parts(parts, &module.parts);
     }
-    parts.module.uses.extend(standard.parts.module.uses.clone());
+}
+
+fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {
+    if parts.module.module.is_none() {
+        parts.module.module = additions.module.module.clone();
+    }
+    parts.module.uses.extend(additions.module.uses.clone());
     parts
         .module
         .aliases
-        .extend(standard.parts.module.aliases.clone());
-    parts
-        .module
-        .types
-        .extend(standard.parts.module.types.clone());
+        .extend(additions.module.aliases.clone());
+    parts.module.types.extend(additions.module.types.clone());
     parts
         .module
         .schemas
-        .extend(standard.parts.module.schemas.clone());
-    parts
-        .module
-        .codecs
-        .extend(standard.parts.module.codecs.clone());
+        .extend(additions.module.schemas.clone());
+    parts.module.codecs.extend(additions.module.codecs.clone());
     parts
         .module
         .functions
-        .extend(standard.parts.module.functions.clone());
+        .extend(additions.module.functions.clone());
     parts
         .derived_modules
-        .extend(standard.parts.derived_modules.clone());
+        .extend(additions.derived_modules.clone());
 }
 
 fn add_implicit_standard_prelude_imports(parts: &mut SurfaceParts) {
     let modules = parts
         .derived_modules
         .iter()
-        .filter(|(module, _)| module != "std::prelude")
+        .filter(|(module, _)| !module.starts_with("std::"))
         .map(|(module, source)| (module.clone(), source.span(TextRange::new(0, 0))))
         .collect::<Vec<_>>();
     parts.module.uses.extend(
@@ -2145,9 +2187,84 @@ mod tests {
             use_decl.module_name.as_deref() == Some("std::prelude")
                 && use_decl.origin == UseOrigin::ImplicitStandardPrelude
         }));
-        assert!(module.uses.iter().any(|use_decl| {
-            use_decl.module_name.as_deref() == Some("std::compiler_support")
+        assert!(!module.uses.iter().any(|use_decl| {
+            use_decl
+                .module_name
+                .as_deref()
+                .is_some_and(|module_name| module_name.starts_with("std::"))
                 && use_decl.origin == UseOrigin::ImplicitStandardPrelude
+        }));
+    }
+
+    #[test]
+    fn ordinary_project_does_not_load_http2_modules() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                "pub fn main() -> Int\n  vec_len([1])\nend\n",
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(module.functions.iter().all(|function| {
+            !function
+                .module_name
+                .as_deref()
+                .is_some_and(|module_name| module_name.starts_with("std::http2::"))
+        }));
+    }
+
+    #[test]
+    fn explicit_standard_http2_import_loads_only_its_dependency_closure() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use http2::frame from \"std\"\n",
+                    "pub fn main(view: ByteView) -> Result<{ length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView }, String>\n",
+                    "  http2::frame::decode(view)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(module.functions.iter().any(|function| {
+            function.module_name.as_deref() == Some("std::http2::frame")
+                && function.name.as_deref() == Some("decode")
+        }));
+        assert!(module.functions.iter().all(|function| {
+            function.module_name.as_deref() != Some("std::http2::hpack")
+                && function.module_name.as_deref() != Some("std::http2::core")
+        }));
+    }
+
+    #[test]
+    fn private_standard_http2_modules_cannot_be_imported() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use http2::hpack::integer from \"std\"\n",
+                    "pub fn main() -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unexported_import"
+                && diagnostic.message.contains("http2::hpack::integer")
         }));
     }
 
@@ -2158,6 +2275,26 @@ mod tests {
 
         let (module, diagnostics) = load_surface_module(&project);
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        assert!(
+            module.functions.iter().any(|function| {
+                function.module_name.as_deref() == Some("std::http2::core")
+                    && function.name.as_deref() == Some("client_stream_id")
+            }),
+            "functions: {:#?}",
+            module
+                .functions
+                .iter()
+                .map(|function| (function.module_name.as_deref(), function.name.as_deref()))
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            module.uses.iter().any(|use_decl| {
+                use_decl.module_name.as_deref() == Some("std::http2::core_test")
+                    && use_decl.name == "std::http2::core"
+            }),
+            "uses: {:#?}",
+            module.uses
+        );
         assert_eq!(
             module
                 .functions
@@ -2169,6 +2306,33 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn standard_http2_tests_lower_with_private_intrinsics() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
+        let project = Project::discover(root, &[]).expect("standard project should load");
+        let analysis = crate::analyze_project(project, crate::DoctestMode::Exclude);
+
+        for entry in [
+            "protocol_diagnostic_keeps_stable_id",
+            "frame_decode_and_encode_header",
+        ] {
+            let lowered = analysis
+                .lower_reachable_entry(entry, FunctionKind::Test)
+                .lowered;
+            assert!(
+                lowered.diagnostics.is_empty(),
+                "{entry} should lower: {:#?}",
+                lowered.diagnostics
+            );
+            if lowered.ir.is_none() {
+                panic!(
+                    "{entry} should produce IR: {:#?}",
+                    lowered.core.as_ref().map(veln_ir::lower_checked_core)
+                );
+            }
+        }
     }
 
     #[test]

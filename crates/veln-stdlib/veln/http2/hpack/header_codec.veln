@@ -1,0 +1,28 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::integer
+use http2::hpack::static_table
+
+pub type HeaderField
+	HeaderField(name: String, value: String)
+end
+
+pub type State
+	State(Table)
+end
+
+pub type DecodeTransition
+	DecodeTransition(header: HeaderField, consumed: Int, state: State)
+end
+
+pub fn initial_state() -> Result<State, String>
+	Ok(State(http2::hpack::dynamic_table::empty(4096)?))
+end
+
+pub fn decode_indexed(input: ByteView, state: State) -> Result<DecodeTransition, String>
+	let decoded: { value : Int, consumed : Int } = http2::hpack::integer::decode(input, 7)?
+	match http2::hpack::static_table::lookup(http2::hpack::integer::value(decoded))
+		Some(http2::hpack::static_table::StaticEntry(name, value)) => Ok(DecodeTransition(HeaderField(name, value), http2::hpack::integer::consumed(decoded), state))
+		None => Err("HPACK indexed field is not available in the static table")
+	end
+end

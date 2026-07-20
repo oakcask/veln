@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 # HPACK fixture helpers return human string-length RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -22,5 +23,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_malformed_string_length(9, 2, 4, "fixture HPACK string length", "hpack_fixture", preview)
+	http2::hpack::diagnostic::malformed_string_length(9, 2, 4, "fixture HPACK string length", "hpack_fixture", preview)
 end

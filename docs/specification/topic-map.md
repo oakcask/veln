@@ -50,6 +50,8 @@ smallest specification page to read. Start with the short page; open the matchin
 
 ## Runtime, Examples, And Rationale
 
+- Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:
+  [http2.md](http2.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).
 - User-facing source examples: [examples.md](examples.md).

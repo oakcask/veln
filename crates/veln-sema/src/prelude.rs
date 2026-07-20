@@ -8,7 +8,7 @@ use veln_syntax::parse;
 use crate::adt;
 use crate::semantic_model::Type;
 pub(crate) use crate::standard_names::PRELUDE_MODULE;
-use crate::standard_symbols::{StandardSymbolDescriptor, prelude_symbol};
+use crate::standard_symbols::{StandardSymbolDescriptor, compiler_adapter_symbol, prelude_symbol};
 use crate::type_lowering::core_type;
 use crate::type_syntax::parse_type_or_unknown;
 
@@ -47,7 +47,17 @@ pub(crate) fn qualified_prelude_builtin_signature_with_input(
     if module != PRELUDE_BUILTIN_MODULE {
         return None;
     }
-    let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
+    let descriptor = compiler_adapter_symbol(name)?;
+    let expected = ExpectedPreludeParts::from_expected_and_input(expected, input);
+    let (params, return_type) = prelude_float_signature(descriptor.name)
+        .or_else(|| prelude_byte_signature(descriptor.name))
+        .or_else(|| prelude_string_signature(descriptor.name))
+        .or_else(|| prelude_vec_signature(descriptor.name, &expected))
+        .or_else(|| prelude_list_signature(descriptor.name, &expected))
+        .or_else(|| prelude_dict_signature(descriptor.name, &expected))
+        .or_else(|| prelude_option_signature(descriptor.name, &expected))
+        .or_else(|| prelude_result_signature(descriptor.name, &expected))
+        .or_else(|| compiler_adapter_callback_signature(descriptor))?;
     Some((name.clone(), params, return_type))
 }
 
@@ -1560,6 +1570,13 @@ pub(crate) fn core_prelude_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let descriptor = prelude_symbol(name)?;
+    core_compiler_adapter_signature(descriptor, expected)
+}
+
+fn core_compiler_adapter_signature(
+    descriptor: &StandardSymbolDescriptor,
+    expected: Option<&CoreType>,
+) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
     let signature = core_prelude_float_signature(descriptor.name)
         .or_else(|| core_prelude_byte_signature(descriptor.name))
@@ -1597,7 +1614,7 @@ pub(crate) fn qualified_core_prelude_builtin_signature(
     if module != PRELUDE_BUILTIN_MODULE {
         return None;
     }
-    core_prelude_signature(name, expected)
+    core_compiler_adapter_signature(compiler_adapter_symbol(name)?, expected)
 }
 
 pub(crate) fn qualified_core_prelude_signature(

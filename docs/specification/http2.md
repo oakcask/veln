@@ -1,0 +1,33 @@
+# HTTP/2 Standard Modules
+
+HTTP/2 support is opt-in. Source files import the required public module from
+the toolchain-owned `std` package; no HTTP/2 function is part of the implicit
+prelude.
+
+```veln
+use http2::frame from "std"
+use http2::diagnostic from "std"
+use http2::hpack from "std"
+use http2::hpack::diagnostic from "std"
+use http2::core from "std"
+```
+
+The public routes are:
+
+- `http2::frame`: frame decoding and validated frame-header encoding.
+- `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
+- `http2::hpack`: prefixed integers, Huffman byte labels, static entries, and
+  immutable initial dynamic-table state.
+- `http2::hpack::diagnostic`: HPACK diagnostic constructors.
+- `http2::core`: connection and role-specific stream-id domains.
+
+Nested implementation modules below `http2::hpack` are not package exports.
+The JVM adapter keeps its intrinsic link names private; source code calls only
+the module-qualified API. Diagnostic ids, human rendering, and
+`details.protocol_diagnostic` projections remain stable.
+
+Executable evidence lives in the adjacent standard-library `*_test.veln`
+files and in the focused HTTP/2 cases under `../../examples/specification/`.
+The broad protocol-core case remains coverage for state transitions and output
+chunk projections while focused cases retain human and JSON diagnostic
+coverage.

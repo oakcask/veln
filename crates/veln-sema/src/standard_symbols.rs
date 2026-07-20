@@ -1003,7 +1003,23 @@ pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardS
 }
 
 pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    if private_compiler_adapter_name(name) {
+        return None;
+    }
     prelude_symbols().find(|symbol| symbol.name == name)
+}
+
+pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    COMPILER_ADAPTER_SYMBOLS
+        .iter()
+        .find(|symbol| symbol.name == name)
+}
+
+fn private_compiler_adapter_name(name: &str) -> bool {
+    name == "byte_decode_http2_frame"
+        || name.starts_with("http2_protocol_")
+        || name.starts_with("http2_peer_limit_")
+        || name.starts_with("hpack_fixture_")
 }
 
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
