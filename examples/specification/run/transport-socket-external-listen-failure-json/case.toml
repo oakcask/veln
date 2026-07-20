@@ -1,0 +1,42 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "external"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "stderr"
+equals = "transport listen failed: io_failure\n"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "listen"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "io_failure"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "192.0.2.1:1"
+
+[[json_assert]]
+path = "error.details.listener_id"
+missing = true
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "during_operation"
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = false
