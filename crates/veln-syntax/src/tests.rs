@@ -819,6 +819,58 @@ fn parses_schema_fields_without_format_clause() {
 }
 
 #[test]
+fn parses_and_formats_nominal_schema_field_references_without_new_syntax() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "use wire\n",
+            "schema Envelope\n",
+            "  metadata: LocalMetadata\n",
+            "  imported_metadata: wire::MetadataAlias\n",
+            "end\n",
+            "schema Frame\n",
+            "  format binary\n",
+            "  header: LocalHeader\n",
+            "  imported_header: wire::HeaderAlias\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Schema(envelope) = &output.tree.items[0] else {
+        panic!("expected format-neutral schema declaration");
+    };
+    assert_eq!(envelope.fields[0].ty, "LocalMetadata");
+    assert_eq!(envelope.fields[1].ty, "wire::MetadataAlias");
+    let SyntaxItem::Schema(frame) = &output.tree.items[1] else {
+        panic!("expected binary schema declaration");
+    };
+    assert_eq!(frame.fields[0].ty, "LocalHeader");
+    assert_eq!(frame.fields[1].ty, "wire::HeaderAlias");
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "use wire\n",
+            "\n",
+            "schema Envelope\n",
+            "\n",
+            "\tmetadata: LocalMetadata\n",
+            "\timported_metadata: wire::MetadataAlias\n",
+            "end\n",
+            "\n",
+            "schema Frame\n",
+            "\tformat binary\n",
+            "\n",
+            "\theader: LocalHeader\n",
+            "\timported_header: wire::HeaderAlias\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn rejects_qualified_codec_schema_references() {
     let source = SourceFile::new(
         "codec.veln",
