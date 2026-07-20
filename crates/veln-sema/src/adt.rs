@@ -1,8 +1,9 @@
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 
-use crate::prelude::PRELUDE_MODULE;
-use crate::types::{Type, parse_type_or_unknown};
+use crate::semantic_model::Type;
+use crate::standard_names::PRELUDE_MODULE;
+use crate::type_syntax::parse_type_or_unknown;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
@@ -3052,39 +3053,5 @@ fn core_named_parts2<'a>(ty: &'a CoreType, name: &str) -> Option<(&'a CoreType, 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn registry() -> AdtRegistry {
-        AdtRegistry {
-            descriptors: builtin_descriptors(),
-        }
-    }
-
-    fn path(parts: &[&str]) -> Vec<String> {
-        parts.iter().map(|part| (*part).to_string()).collect()
-    }
-
-    #[test]
-    fn constructors_match_qualified_and_unqualified_builtin_names() {
-        let registry = registry();
-        let ConstructorLookup::Found(some) = registry.constructor(&path(&["Some"]), None, &[])
-        else {
-            panic!("Some should resolve");
-        };
-        assert_eq!(some.descriptor.type_name, "Option");
-        assert_eq!(some.variant.name, "Some");
-        assert_eq!(some.variant.coverage_case, "Some(_)");
-        assert_eq!(some.variant.payload_fields[0].name, "value");
-
-        let ConstructorLookup::Found(nil) =
-            registry.nullary_constructor(&path(&["List", "Nil"]), None, &[])
-        else {
-            panic!("List::Nil should resolve");
-        };
-        assert_eq!(nil.descriptor.type_name, "List");
-        assert_eq!(nil.variant.name, "Nil");
-        assert_eq!(nil.variant.coverage_case, "Nil");
-        assert!(nil.variant.payload_fields.is_empty());
-    }
-}
+#[path = "adt/tests.rs"]
+mod tests;

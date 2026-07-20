@@ -18,10 +18,11 @@ use crate::effects::{core_concurrency_signature, is_concurrency_call};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
+use crate::type_lowering::core_type;
+use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 use crate::types::{
     FunctionLookup, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
-    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment, core_type, parse_type_annotation,
-    parse_type_or_unknown,
+    SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, TypeEnvironment,
 };
 
 #[derive(Clone)]

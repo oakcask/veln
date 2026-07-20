@@ -1,6 +1,6 @@
 use super::*;
 use crate::adt::AdtRegistry;
-use crate::prelude::PRELUDE_MODULE;
+use crate::standard_names::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
     SchemaDispatchSpec, SchemaRepeatPayload, binary_schema_anonymous_record_decode_type,

@@ -36,11 +36,15 @@ use crate::repair_candidates::{
     SATISFY_STATUS_STATICALLY_SATISFIED, application_policy, candidate_blocking_obligations,
     candidate_evidence, candidate_known_limits, candidate_satisfy_status,
 };
+use crate::semantic_model::{
+    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type,
+};
 use crate::standard_symbols::prelude_symbol;
+use crate::type_relations::is_assignable;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::{
-    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, FunctionLookup,
-    MatchScrutineePatternInference, Type, TypeEnvironment,
-    infer_match_scrutinee_type_from_constructor_patterns, is_assignable, parse_type_annotation,
+    FunctionLookup, MatchScrutineePatternInference, TypeEnvironment,
+    infer_match_scrutinee_type_from_constructor_patterns,
 };
 
 mod body;

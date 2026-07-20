@@ -5,7 +5,7 @@ use veln_source::SourceSpan;
 use crate::contracts::{ContractValidation, contract_kind_text, referenced_names};
 use crate::diagnostics::span_json;
 use crate::prelude::prelude_signature;
-use crate::types::{Binding, ExpectedType, ExpectedTypeSource, Type};
+use crate::semantic_model::{Binding, ExpectedType, ExpectedTypeSource, Type};
 
 use super::FunctionChecker;
 

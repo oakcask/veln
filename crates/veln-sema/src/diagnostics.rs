@@ -3,7 +3,7 @@ use veln_diagnostics::JsonValue;
 use veln_source::SourceSpan;
 
 use crate::contracts::contract_kind_text;
-use crate::types::EffectUse;
+use crate::semantic_model::EffectUse;
 
 pub(crate) fn span_json(span: &SourceSpan) -> JsonValue {
     JsonValue::object([
