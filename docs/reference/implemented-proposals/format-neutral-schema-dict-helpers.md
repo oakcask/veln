@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed format-neutral top-level string-keyed
 dictionary generated helper slices from
-`../../proposals/schema-declaration-surface.md`. Current behavior is specified
+`schema-declaration-surface.md`. Current behavior is specified
 by `../../specification/source-surface.md`, `../../specification/execution.md`,
 and `../../specification/names-effects.md`.
 

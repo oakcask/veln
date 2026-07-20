@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed format-neutral top-level list generated
-helper slice from `../../proposals/schema-declaration-surface.md`. Current
+helper slice from `schema-declaration-surface.md`. Current
 behavior is specified by `../../specification/source-surface.md` and
 `../../specification/execution.md`.
 

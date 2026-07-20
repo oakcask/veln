@@ -17,7 +17,7 @@ The broad driver is complete. Remaining work is deliberately split into two
 bounded proposal routes:
 
 - [HTTP/2 Sans-I/O Protocol Core](../../proposals/http2-sans-io-protocol-core.md)
-- [Schema Declaration Surface](../../proposals/schema-declaration-surface.md)
+- [Schema Declaration Surface](schema-declaration-surface.md)
 
 The network integration route is also complete. Its historical context and
 completion evidence live in the

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed format-neutral encode helper diagnostic
-cleanup slice from `../../proposals/schema-declaration-surface.md`. Current
+cleanup slice from `schema-declaration-surface.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 

@@ -214,9 +214,14 @@ enough.
   `examples/specification/run/binary-schema-recursive-repeat-nested-decode/`
   and
   `examples/specification/run/binary-schema-recursive-repeat-nested-failure-json/`.
-- Direct nested binary schema fields name an eligible same-module or public
-  imported nested binary schema, consume that nested schema in place, and
-  expose the nested schema-local visible record at the field.
+- Schema composition fields consume or pass through the resolved target schema
+  in place and expose its visible record only beneath the containing field
+  binding. Format-neutral targets preserve their nested record through decode
+  and encode; binary targets consume and emit their nested representation in
+  field order. Later expressions resolve explicit paths into earlier composed
+  records. Nested decode and encode failures retain the containing schema and
+  binding before the target schema path, and neither direction commits a
+  partial containing value or byte sequence.
 - Anonymous record fields in `format binary` schemas consume their exact-width
   unsigned primitive leaves in source order and expose the nested anonymous
   record shape at the field. Anonymous records may recurse when all leaves are

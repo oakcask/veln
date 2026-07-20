@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed bounded repeat
 `ByteView(left_length - right_length)` payload helper slice from
-`../../proposals/schema-declaration-surface.md`. Current behavior is specified
+`schema-declaration-surface.md`. Current behavior is specified
 by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 

@@ -93,9 +93,23 @@ arithmetic forms over earlier count fields, and the payload may use an
 exact-width primitive, a lowercase exact-width primitive, a nested binary
 schema, `ByteView(length_field)`, or
 `ByteView(left_length - right_length)`.
-Direct nested binary schema fields may name an eligible same-module schema or
-public imported schema and expose the nested schema-local visible record at
-that field.
+Nominal field type text resolves the ordinary type and schema namespaces
+independently. A unique schema or schema-alias target composes its schema-local
+visible record beneath the written field binding; target fields are never
+injected as unqualified fields. Same-module private or public targets and
+public targets or aliases reached through a written `use` path are supported.
+Format-neutral schemas compose only format-neutral targets, and binary schemas
+compose only binary targets. Missing, private, wrong-kind, ambiguous,
+format-incompatible, cyclic, duplicate-binding, forward-reference, and
+direction-specific helper failures are declaration diagnostics.
+Later binary length, repeat, dispatch, field predicate, and schema validation
+expressions may reference an earlier composed `Int` through an explicit path
+such as `header.length`; the root binding must already be decoded. The checked
+surface is under
+`examples/specification/check/schema-composition-diagnostics/`, with executable
+decode and encode cases under
+`examples/specification/run/schema-composition-binary-nested-paths/` and
+`examples/specification/run/schema-composition-format-neutral/`.
 Anonymous record fields in `format binary` schemas expose a nested
 schema-local visible record at that field when every leaf is an implemented
 exact-width unsigned primitive. Anonymous records may contain sibling nested

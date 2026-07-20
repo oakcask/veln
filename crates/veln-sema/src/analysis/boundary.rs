@@ -16,6 +16,7 @@ use crate::types::{
     repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
     schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
+    schema_field_reference_type, schema_field_target,
     schema_field_uses_generalized_reserved_byte_prefix,
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_has_generalized_reserved_byte_prefix,
@@ -617,8 +618,42 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     for schema in &module.schemas {
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         let mut decoded_fields = BTreeMap::<String, Type>::new();
+        let mut field_bindings = BTreeSet::new();
         let adts = AdtRegistry::from_module(module);
         for field in &schema.fields {
+            if !field_bindings.insert(field.name.clone()) {
+                diagnostics.push(schema_composition_duplicate_binding_diagnostic(
+                    schema, field,
+                ));
+                continue;
+            }
+            if let Some(reason) = schema_composition_reference_blocker(module, schema, field) {
+                diagnostics.push(schema_composition_reference_diagnostic(
+                    schema, field, reason,
+                ));
+                continue;
+            }
+            if let Some(target) = schema_field_target(module, schema, &field.ty) {
+                let decode_eligible = schema_decode_value_type(module, target).is_some();
+                let encode_eligible = schema_encode_value_type(module, target).is_some();
+                if !decode_eligible {
+                    diagnostics.push(schema_composition_reference_diagnostic(
+                        schema,
+                        field,
+                        "decode_ineligible_target",
+                    ));
+                }
+                if !encode_eligible {
+                    diagnostics.push(schema_composition_reference_diagnostic(
+                        schema,
+                        field,
+                        "encode_ineligible_target",
+                    ));
+                }
+                if !decode_eligible {
+                    continue;
+                }
+            }
             if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
                 match (format_name, reserved) {
                     (Some("binary"), Ok(reserved)) => {
@@ -800,8 +835,12 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name == Some("binary")
-                && let Some(payload_schema) =
-                    schema_dispatch_payload_schema(module, schema, &field.ty)
+                && let Some(payload_schema) = schema_field_target(module, schema, &field.ty)
+                && payload_schema
+                    .format
+                    .as_ref()
+                    .map(|format| format.name.as_str())
+                    == Some("binary")
                 && let Some(field_ty) = schema_decode_value_type(module, payload_schema)
             {
                 check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
@@ -870,7 +909,17 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 if let Some(field_ty) = decode_field_type.clone() {
                     decoded_fields.insert(field.name.clone(), field_ty);
                 } else {
-                    diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
+                    if schema_payload_name_path(&field.ty).is_some()
+                        && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
+                    {
+                        diagnostics.push(schema_composition_reference_diagnostic(
+                            schema,
+                            field,
+                            unresolved_schema_composition_reason(module, schema, &field.ty),
+                        ));
+                    } else {
+                        diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
+                    }
                 }
                 let encode_unsupported = format_neutral_schema_encode_field_type_for_schema(
                     module, schema, &adts, &field.ty,
@@ -878,7 +927,11 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 .is_none();
                 let direct_source_adt_candidate =
                     format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
-                if encode_unsupported && direct_source_adt_candidate && decode_field_type.is_none()
+                if encode_unsupported
+                    && direct_source_adt_candidate
+                    && decode_field_type.is_none()
+                    && (schema_payload_name_path(&field.ty).is_none()
+                        || schema_field_has_ordinary_type_target(module, schema, &field.ty))
                 {
                     diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
                         schema.name.as_deref().unwrap_or("<missing>"),
@@ -889,6 +942,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
+            if schema_payload_name_path(&field.ty).is_some() {
+                diagnostics.push(schema_composition_reference_diagnostic(
+                    schema,
+                    field,
+                    unresolved_schema_composition_reason(module, schema, &field.ty),
+                ));
+            }
         }
         for (index, validation) in schema.validations.iter().enumerate() {
             if index > 0 {
@@ -900,6 +960,182 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+fn schema_composition_duplicate_binding_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.composition_duplicate_binding",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("duplicate schema field binding `{}`", field.name),
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            (
+                "schema",
+                JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("binding", JsonValue::string(field.name.clone())),
+            ("reason", JsonValue::string("duplicate_binding")),
+        ]),
+    )
+}
+
+fn unresolved_schema_composition_reason(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    text: &str,
+) -> &'static str {
+    let Some(path) = schema_payload_name_path(text) else {
+        return "missing_schema";
+    };
+    let (module_name, name, imported) = match path.as_slice() {
+        [name] => (schema.module_name.as_deref(), name.as_str(), false),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &path[..path.len() - 1],
+                schema.module_name.as_deref(),
+            ) else {
+                return "missing_schema";
+            };
+            (Some(use_decl.name.as_str()), name.as_str(), true)
+        }
+        _ => return "missing_schema",
+    };
+    if imported
+        && module.schemas.iter().any(|candidate| {
+            candidate.name.as_deref() == Some(name)
+                && candidate.module_name.as_deref() == module_name
+                && candidate.visibility != Visibility::Public
+        })
+    {
+        return "private_schema";
+    }
+    if module.types.iter().any(|candidate| {
+        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
+    }) || module.functions.iter().any(|candidate| {
+        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
+    }) || module.codecs.iter().any(|candidate| {
+        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
+    }) {
+        return "wrong_kind";
+    }
+    "missing_schema"
+}
+
+fn schema_composition_reference_blocker(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+) -> Option<&'static str> {
+    let target = schema_field_target(module, schema, &field.ty)?;
+    if schema_field_has_ordinary_type_target(module, schema, &field.ty) {
+        return Some("ambiguous_type_and_schema");
+    }
+    let containing_format = schema.format.as_ref().map(|format| format.name.as_str());
+    let target_format = target.format.as_ref().map(|format| format.name.as_str());
+    if containing_format != target_format {
+        return Some("format_incompatible");
+    }
+    schema_composition_reaches(module, target, schema, &mut Vec::new())
+        .then_some("cyclic_composition")
+}
+
+fn schema_field_has_ordinary_type_target(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    text: &str,
+) -> bool {
+    let Some(path) = schema_payload_name_path(text) else {
+        return false;
+    };
+    let (module_name, name, imported) = match path.as_slice() {
+        [name] => (schema.module_name.as_deref(), name.as_str(), false),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &path[..path.len() - 1],
+                schema.module_name.as_deref(),
+            ) else {
+                return false;
+            };
+            (Some(use_decl.name.as_str()), name.as_str(), true)
+        }
+        _ => return false,
+    };
+    module.types.iter().any(|ty| {
+        ty.name.as_deref() == Some(name)
+            && ty.module_name.as_deref() == module_name
+            && (!imported || ty.visibility == Visibility::Public)
+    })
+}
+
+fn schema_composition_reaches(
+    module: &SurfaceModule,
+    current: &SchemaDecl,
+    target: &SchemaDecl,
+    visited: &mut Vec<NodeId>,
+) -> bool {
+    if current.node_id == target.node_id {
+        return true;
+    }
+    if visited.contains(&current.node_id) {
+        return false;
+    }
+    visited.push(current.node_id);
+    let reaches = current.fields.iter().any(|field| {
+        schema_field_target(module, current, &field.ty)
+            .is_some_and(|next| schema_composition_reaches(module, next, target, visited))
+    });
+    visited.pop();
+    reaches
+}
+
+fn schema_composition_reference_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reason: &'static str,
+) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let fact = match reason {
+        "ambiguous_type_and_schema" => "resolves as both an ordinary type and a schema",
+        "format_incompatible" => "does not use the containing schema's format",
+        "cyclic_composition" => "creates a schema composition cycle",
+        "private_schema" => "resolves to a private imported schema",
+        "wrong_kind" => "resolves in a non-schema namespace",
+        "decode_ineligible_target" => "does not expose an eligible decode boundary",
+        "encode_ineligible_target" => "does not expose an eligible encode boundary",
+        _ => "does not resolve to a visible schema or supported binary field family",
+    };
+    Diagnostic::new(
+        "schema.composition_reference",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema field `{}` cannot compose `{}` because it {fact}",
+            field.name, field.ty
+        ),
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("schema", JsonValue::string(schema_name)),
+            ("binding", JsonValue::string(field.name.clone())),
+            ("target", JsonValue::string(field.ty.clone())),
+            ("reason", JsonValue::string(reason)),
+        ]),
+    )
 }
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
@@ -988,7 +1224,7 @@ fn check_schema_validation_clause(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for reference in schema_validation_references(&validation.predicate) {
-        let Some(ty) = decoded_fields.get(&reference) else {
+        let Some(ty) = schema_field_reference_type(decoded_fields, &reference) else {
             diagnostics.push(schema_validation_reference_diagnostic(
                 schema,
                 validation,
@@ -1024,7 +1260,7 @@ fn schema_validation_references(predicate: &str) -> Vec<String> {
         }
         let mut end = start + ch.len_utf8();
         while let Some((index, next)) = chars.peek().copied() {
-            if next.is_ascii_alphanumeric() || next == '_' {
+            if next.is_ascii_alphanumeric() || next == '_' || next == '.' {
                 chars.next();
                 end = index + next.len_utf8();
             } else {
@@ -1124,7 +1360,7 @@ fn check_schema_repeat_byte_view_reference(
     };
     let mut valid = true;
     for reference in references {
-        let Some(ty) = decoded_fields.get(reference) else {
+        let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
             let reason = if schema_field_declared_after(schema, field, reference) {
                 "forward_field_reference"
             } else {
@@ -1184,7 +1420,7 @@ fn check_schema_byte_view_reference(
 ) -> bool {
     let mut valid = true;
     for reference in length_expr.references() {
-        let Some(ty) = decoded_fields.get(reference) else {
+        let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
             let reason = if schema_field_declared_after(schema, field, reference) {
                 "forward_field_reference"
             } else {
@@ -1258,7 +1494,7 @@ fn check_schema_byte_view_multiple(
     let Some(reference) = constraint.reference() else {
         return true;
     };
-    let Some(ty) = decoded_fields.get(reference) else {
+    let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
         let reason = if schema_field_declared_after(schema, field, reference) {
             "forward_field_reference"
         } else {
@@ -1340,7 +1576,7 @@ fn check_schema_repeat_references(
     };
     let mut valid = true;
     for reference in references {
-        let Some(ty) = decoded_fields.get(reference) else {
+        let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
             let reason = if schema_field_declared_after(schema, field, reference) {
                 "forward_field_reference"
             } else {
@@ -2003,7 +2239,7 @@ fn check_schema_dispatch_reference(
     role: &'static str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
-    let Some(ty) = decoded_fields.get(reference) else {
+    let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
         let reason = if schema_field_declared_after(schema, field, reference) {
             "forward_field_reference"
         } else {
@@ -2261,6 +2497,7 @@ fn schema_dispatch_case_payload_name(payload: &SchemaDispatchCasePayload) -> &st
 }
 
 fn schema_field_declared_after(schema: &SchemaDecl, field: &SchemaField, reference: &str) -> bool {
+    let reference = reference.split('.').next().unwrap_or(reference);
     let current_index = schema
         .fields
         .iter()
@@ -2607,11 +2844,9 @@ fn unsupported_dispatch_payload_helper_field(
             continue;
         }
         if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
-            if let Some(reference) = length_expr
-                .references()
-                .into_iter()
-                .find(|reference| decoded_fields.get(*reference) != Some(&Type::int()))
-            {
+            if let Some(reference) = length_expr.references().into_iter().find(|reference| {
+                schema_field_reference_type(&decoded_fields, reference) != Some(&Type::int())
+            }) {
                 let reference_fact =
                     byte_view_ineligible_length_fact(schema, field, &decoded_fields, reference);
                 return Some(UnsupportedDispatchPayloadHelperField {
@@ -2638,7 +2873,7 @@ fn byte_view_ineligible_length_fact(
     decoded_fields: &BTreeMap<String, Type>,
     reference: &str,
 ) -> String {
-    if let Some(actual) = decoded_fields.get(reference) {
+    if let Some(actual) = schema_field_reference_type(decoded_fields, reference) {
         format!(
             "length reference `{reference}` to decode as `Int`; it decodes as `{}`",
             actual.render()

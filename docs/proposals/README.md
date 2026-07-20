@@ -18,9 +18,6 @@ current language behavior unless the matching page under
   complete HPACK and sans-I/O core ownership, migrate every monolithic fixture
   assertion, and remove the broad protocol-core case only after its deletion
   gate is satisfied.
-- [Schema Declaration Surface](schema-declaration-surface.md): generalize the
-  existing field syntax to named schema composition with schema-aware
-  resolution.
 
 ## Selection Rule
 

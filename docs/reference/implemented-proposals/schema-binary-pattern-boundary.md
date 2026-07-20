@@ -17,7 +17,7 @@ stateful encoding live in ordinary Veln functions.
 
 This record supersedes the former source-level `codec` declaration design and
 narrows the schema surface described by
-[Schema Declaration Surface](../../proposals/schema-declaration-surface.md)
+[Schema Declaration Surface](schema-declaration-surface.md)
 to representation patterns plus explicit schema operations.
 
 ## Problem

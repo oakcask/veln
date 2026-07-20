@@ -1,0 +1,89 @@
+# Schema composition reports resolution, format, cycle, ordering, and binding failures.
+use wire
+
+type Shared
+	Shared(Int)
+end
+
+type OnlyType
+	OnlyType(Int)
+end
+
+schema Shared
+	value: Int
+end
+
+schema Header
+	format binary
+
+	length: UInt8
+end
+
+schema Neutral
+	value: Int
+end
+
+schema MissingHost
+	missing: MissingSchema
+end
+
+schema WrongKindHost
+	format binary
+
+	value: OnlyType
+end
+
+schema PrivateHost
+	format binary
+
+	hidden: wire::Hidden
+end
+
+schema AmbiguousHost
+	value: Shared
+end
+
+schema FormatHost
+	format binary
+
+	metadata: Neutral
+end
+
+schema CycleA
+	b: CycleB
+end
+
+schema CycleB
+	a: CycleA
+end
+
+schema ForwardHost
+	format binary
+
+	payload: ByteView(header.length)
+	header: Header
+end
+
+schema NoInjectionHost
+	format binary
+
+	header: Header
+	payload: ByteView(length)
+end
+
+schema DuplicateHost
+	first: Int
+	first: String
+end
+
+schema Ineligible
+	format binary
+
+	callback: String
+end
+
+schema DirectionHost
+	format binary
+
+	child: Ineligible
+end

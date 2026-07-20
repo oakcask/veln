@@ -1,0 +1,4 @@
+pub schema ImportedMetadata
+	version: Int
+	label: String
+end

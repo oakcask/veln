@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed arithmetic mapped-record encode slice from
-`../../proposals/schema-declaration-surface.md` and
+`schema-declaration-surface.md` and
 `binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the

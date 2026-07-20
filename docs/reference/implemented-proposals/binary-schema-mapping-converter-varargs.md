@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed generated decode mapping converter-call
-slice from `../../proposals/schema-declaration-surface.md`. Current behavior
+slice from `schema-declaration-surface.md`. Current behavior
 is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/run/`.

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed recursive format-neutral container
-generated helper slice from `../../proposals/schema-declaration-surface.md`.
+generated helper slice from `schema-declaration-surface.md`.
 Current behavior is specified by `../../specification/source-surface.md` and
 `../../specification/execution.md`.
 

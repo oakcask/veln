@@ -1,0 +1,45 @@
+# Binary schema composition keeps a nested binding and permits later explicit paths.
+use stdio
+use wire
+use facade
+
+schema Frame
+	format binary
+
+	header: Header
+	imported: wire::ImportedHeader
+	aliased: facade::AliasHeader
+	payload: ByteView(header.length)
+	validate header.kind == 7
+end
+
+schema Header
+	format binary
+
+	length: UInt8
+	kind: UInt8
+end
+
+fn emit_decoded(step: DecodeStep<{header: {length: Int, kind: Int}, imported: {length: Int, kind: Int}, aliased: {length: Int, kind: Int}, payload: ByteView}>) -> () effects [stdio]
+	match step
+		Decoded(_, consumed) => stdio::println(int_to_string(byte_count_to_int(consumed)))
+		NeedMore(_) => stdio::println("unexpected need-more")
+		Invalid(_) => stdio::println("unexpected invalid")
+	end
+end
+
+fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("030701080209aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	emit_decoded(decode Frame from view at byte_offset(0)?)
+	let payload: ByteView = byte_view(bytes, byte_offset(6)?, byte_count(3)?)?
+	emit_encoded(encode Frame from {header: {length: 3, kind: 7}, imported: {length: 1, kind: 8}, aliased: {length: 2, kind: 9}, payload: payload})
+	Ok(())
+end

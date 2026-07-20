@@ -4,6 +4,74 @@ use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
 const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
 
 #[test]
+fn schema_fields_compose_format_neutral_schemas_as_nested_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Metadata\n",
+            "  version: Int\n",
+            "  label: String\n",
+            "end\n",
+            "schema Envelope\n",
+            "  metadata: Metadata\n",
+            "  payload: String\n",
+            "end\n",
+            "pub fn main(value: {metadata: {version: Int, label: String}, payload: String}) -> Result<{metadata: {version: Int, label: String}, payload: String}, String>\n",
+            "  byte_decode_envelope(value)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(lowered.core.is_some());
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
+fn binary_schema_composition_resolves_later_targets_and_nested_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Frame\n",
+            "  format binary\n",
+            "  header: Header\n",
+            "  payload: ByteView(header.length)\n",
+            "  validate header.kind >= 0\n",
+            "end\n",
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "end\n",
+            "pub fn main(view: ByteView) -> Result<{header: {length: Int, kind: Int}, payload: ByteView}, String>\n",
+            "  byte_decode_frame(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let frame = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "Frame")
+        .expect("frame metadata should be emitted");
+    assert_eq!(frame.fields[0].name, "header");
+    assert_eq!(
+        frame.fields[1].length_field.as_deref(),
+        Some("header.length")
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
     let source = SourceFile::new(
         "main.veln",

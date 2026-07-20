@@ -30,6 +30,8 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
+- Schema declaration composition surface:
+  [schema-declaration-surface.md](schema-declaration-surface.md).
 - Integer bitwise operators:
   [integer-bitwise-operators.md](integer-bitwise-operators.md).
 - Binary and hexadecimal integer literals:
