@@ -1,0 +1,3 @@
+use wire
+
+pub schema HiddenAlias = wire::Hidden

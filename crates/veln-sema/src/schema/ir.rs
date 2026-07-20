@@ -41,17 +41,22 @@ fn schema_decode_spec_inner(
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
-    if schema.format.is_none() {
-        return format_neutral_schema_decode_spec(module, schema);
-    }
-    if schema.format.as_ref()?.name != "binary" {
+    if schema
+        .format
+        .as_ref()
+        .is_some_and(|format| format.name != "binary")
+    {
         return None;
     }
     if stack.iter().any(|name| name == schema_name) {
         return None;
     }
     stack.push(schema_name.clone());
-    let spec = schema_decode_spec_inner_after_push(module, schema, stack);
+    let spec = if schema.format.is_none() {
+        format_neutral_schema_decode_spec(module, schema, stack)
+    } else {
+        schema_decode_spec_inner_after_push(module, schema, stack)
+    };
     stack.pop();
     spec
 }
@@ -59,6 +64,7 @@ fn schema_decode_spec_inner(
 fn format_neutral_schema_decode_spec(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
     let adts = AdtRegistry::from_module(module);
@@ -67,6 +73,10 @@ fn format_neutral_schema_decode_spec(
         .iter()
         .map(|field| {
             format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?;
+            let payload_schema = schema_field_target(module, schema, &field.ty)
+                .filter(|target| target.format.is_none())
+                .and_then(|target| schema_decode_spec_inner(module, target, stack))
+                .map(Box::new);
             Some(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
@@ -79,7 +89,7 @@ fn format_neutral_schema_decode_spec(
                 length_field: None,
                 length_multiple: None,
                 repeat: None,
-                payload_schema: None,
+                payload_schema,
                 dispatch: None,
                 reserved_bits: None,
             })

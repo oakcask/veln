@@ -30,6 +30,7 @@ This historical slice was retired with schema-level mapping support.
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for schema runtime
-mapping outside the implemented structural mapping vocabulary and for binary
-schema fields outside the implemented generated helper slices.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Runtime mapping
+vocabulary and binary field families outside the implemented slices are
+separate proposals or explicit non-goals.

@@ -39,5 +39,7 @@ shapes remain unsupported helper fields and keep the
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices and later schema composition surfaces.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Binary field
+families outside the implemented helper slices are separate proposals or
+explicit non-goals.

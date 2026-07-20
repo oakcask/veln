@@ -109,7 +109,9 @@ surface is under
 `examples/specification/check/schema-composition-diagnostics/`, with executable
 decode and encode cases under
 `examples/specification/run/schema-composition-binary-nested-paths/` and
-`examples/specification/run/schema-composition-format-neutral/`.
+`examples/specification/run/schema-composition-format-neutral/`. Nested
+format-neutral target validation failures in both directions are checked by
+the matching `schema-composition-format-neutral-*-failure/` cases.
 Anonymous record fields in `format binary` schemas expose a nested
 schema-local visible record at that field when every leaf is an implemented
 exact-width unsigned primitive. Anonymous records may contain sibling nested

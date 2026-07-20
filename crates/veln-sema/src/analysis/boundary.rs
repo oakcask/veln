@@ -345,6 +345,7 @@ enum SchemaAliasCheckResolution {
     Resolved,
     Private,
     WrongKind(&'static str),
+    Cyclic,
     Unresolved,
 }
 
@@ -431,6 +432,9 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
                             "schema",
                             actual_kind,
                         ));
+                    }
+                    SchemaAliasCheckResolution::Cyclic => {
+                        diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
                     }
                     SchemaAliasCheckResolution::Unresolved => {
                         diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
@@ -526,7 +530,7 @@ fn resolve_schema_alias_check_target(
         return *resolution;
     }
     if visited_aliases.contains(&key) {
-        return SchemaAliasCheckResolution::Unresolved;
+        return SchemaAliasCheckResolution::Cyclic;
     }
 
     visited_aliases.push(key.clone());
@@ -996,39 +1000,21 @@ fn unresolved_schema_composition_reason(
     let Some(path) = schema_payload_name_path(text) else {
         return "missing_schema";
     };
-    let (module_name, name, imported) = match path.as_slice() {
-        [name] => (schema.module_name.as_deref(), name.as_str(), false),
-        [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
-                &path[..path.len() - 1],
-                schema.module_name.as_deref(),
-            ) else {
-                return "missing_schema";
-            };
-            (Some(use_decl.name.as_str()), name.as_str(), true)
+    match resolve_schema_alias_check_reference(
+        module,
+        &path,
+        schema.module_name.as_deref(),
+        true,
+        &mut Vec::new(),
+        &mut BTreeMap::new(),
+    ) {
+        SchemaAliasCheckResolution::Private => "private_schema",
+        SchemaAliasCheckResolution::WrongKind(_) => "wrong_kind",
+        SchemaAliasCheckResolution::Cyclic => "cyclic_composition",
+        SchemaAliasCheckResolution::Resolved | SchemaAliasCheckResolution::Unresolved => {
+            "missing_schema"
         }
-        _ => return "missing_schema",
-    };
-    if imported
-        && module.schemas.iter().any(|candidate| {
-            candidate.name.as_deref() == Some(name)
-                && candidate.module_name.as_deref() == module_name
-                && candidate.visibility != Visibility::Public
-        })
-    {
-        return "private_schema";
     }
-    if module.types.iter().any(|candidate| {
-        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
-    }) || module.functions.iter().any(|candidate| {
-        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
-    }) || module.codecs.iter().any(|candidate| {
-        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == module_name
-    }) {
-        return "wrong_kind";
-    }
-    "missing_schema"
 }
 
 fn schema_composition_reference_blocker(
@@ -1075,6 +1061,10 @@ fn schema_field_has_ordinary_type_target(
         ty.name.as_deref() == Some(name)
             && ty.module_name.as_deref() == module_name
             && (!imported || ty.visibility == Visibility::Public)
+    }) || module.aliases.iter().any(|alias| {
+        alias.kind == PublicAliasKind::Type
+            && alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
     })
 }
 

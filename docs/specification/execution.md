@@ -219,9 +219,12 @@ enough.
   binding. Format-neutral targets preserve their nested record through decode
   and encode; binary targets consume and emit their nested representation in
   field order. Later expressions resolve explicit paths into earlier composed
-  records. Nested decode and encode failures retain the containing schema and
-  binding before the target schema path, and neither direction commits a
-  partial containing value or byte sequence.
+  records. A format-neutral composed target runs its field predicates and
+  schema validation before the containing schema continues validation. Nested
+  decode and encode failures retain the containing schema and binding before
+  the target schema path, and neither direction commits a partial containing
+  value or byte sequence. The format-neutral direction and diagnostic-path
+  evidence is in the `schema-composition-format-neutral-*-failure/` cases.
 - Anonymous record fields in `format binary` schemas consume their exact-width
   unsigned primitive leaves in source order and expose the nested anonymous
   record shape at the field. Anonymous records may recurse when all leaves are

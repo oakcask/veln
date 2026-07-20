@@ -2136,6 +2136,76 @@
         return ok(value);
     }
 
+    public static Object validateDeclaredSchemaCompositionValue(
+        Object value,
+        Object metadata
+    ) {
+        java.util.List<Object> values = asList(metadata);
+        if (values.size() != 5) {
+            return err("invalid schema composition validation metadata");
+        }
+        String schemaName = asString(values.get(0));
+        java.util.List<Object> fieldNames = asList(values.get(1));
+        java.util.List<Object> nestedMetadata = asList(values.get(4));
+        if (fieldNames.size() != nestedMetadata.size()) {
+            return err("invalid schema composition validation metadata for schema `" + schemaName + "`");
+        }
+        java.util.Map<Object, Object> record = asMap(value);
+        for (int index = 0; index < fieldNames.size(); index += 1) {
+            Object nested = nestedMetadata.get(index);
+            if (!(nested instanceof java.util.List<?>)) {
+                continue;
+            }
+            String fieldName = asString(fieldNames.get(index));
+            Object nestedValidation = validateDeclaredSchemaCompositionValue(
+                record.get(fieldName),
+                nested
+            );
+            if (isErr(nestedValidation)) {
+                return prependSchemaCompositionValueDiagnostic(
+                    nestedValidation,
+                    schemaName,
+                    fieldName
+                );
+            }
+        }
+        return validateDeclaredSchemaValue(
+            value,
+            values.get(0),
+            values.get(1),
+            values.get(2),
+            values.get(3)
+        );
+    }
+
+    private static Object prependSchemaCompositionValueDiagnostic(
+        Object validation,
+        String containingSchema,
+        String binding
+    ) {
+        Object reason = resultValue(validation);
+        DiagnosticResultValue carried = carriedDiagnosticValue(reason);
+        if (carried == null || carried.valueDiagnostic == null) {
+            return validation;
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        path.add(new ByteDiagnosticFieldPathSegment("schema", containingSchema));
+        path.add(new ByteDiagnosticFieldPathSegment("field", binding));
+        path.addAll(carried.valueDiagnostic.fieldPath);
+        return err(new DiagnosticResultValue(
+            carried.value,
+            carried.fixtureHexDiagnostic,
+            carried.byteDiagnostic,
+            new ValueDiagnostic(
+                carried.valueDiagnostic.id,
+                path,
+                carried.valueDiagnostic.details
+            ),
+            carried.protocolDiagnostic
+        ));
+    }
+
     public static Object byteEncodeDeclaredBinarySchema(
         Object value,
         Object schemaName,

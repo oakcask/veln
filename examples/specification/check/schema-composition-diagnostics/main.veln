@@ -1,5 +1,6 @@
 # Schema composition reports resolution, format, cycle, ordering, and binding failures.
 use wire
+use facade
 
 type Shared
 	Shared(Int)
@@ -8,6 +9,16 @@ end
 type OnlyType
 	OnlyType(Int)
 end
+
+pub type SharedAlias = Shared
+
+schema SharedAlias
+	value: Int
+end
+
+pub schema WrongAlias = OnlyType
+pub schema AliasCycleA = AliasCycleB
+pub schema AliasCycleB = AliasCycleA
 
 schema Shared
 	value: Int
@@ -41,6 +52,22 @@ end
 
 schema AmbiguousHost
 	value: Shared
+end
+
+schema TypeAliasAmbiguousHost
+	value: SharedAlias
+end
+
+schema WrongAliasHost
+	value: WrongAlias
+end
+
+schema CyclicAliasHost
+	value: AliasCycleA
+end
+
+schema PrivateAliasHost
+	value: facade::HiddenAlias
 end
 
 schema FormatHost

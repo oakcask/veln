@@ -9,8 +9,9 @@ fn schema_fields_compose_format_neutral_schemas_as_nested_records() {
         "main.veln",
         concat!(
             "schema Metadata\n",
-            "  version: Int\n",
+            "  version: Int where version > 0\n",
             "  label: String\n",
+            "  validate version < 10\n",
             "end\n",
             "schema Envelope\n",
             "  metadata: Metadata\n",
@@ -28,7 +29,75 @@ fn schema_fields_compose_format_neutral_schemas_as_nested_records() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     assert!(lowered.core.is_some());
-    assert!(lowered.ir.is_some());
+    let ir = lowered.ir.expect("typed IR should be built");
+    let envelope = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "Envelope")
+        .expect("envelope metadata should be emitted");
+    let metadata = envelope.fields[0]
+        .payload_schema
+        .as_ref()
+        .expect("composed target metadata should be retained");
+    assert_eq!(metadata.schema_name, "Metadata");
+    assert_eq!(metadata.fields[0].predicate.as_deref(), Some("version > 0"));
+    assert_eq!(metadata.validation.as_deref(), Some("version < 10"));
+}
+
+#[test]
+fn schema_composition_preserves_alias_resolution_failures_and_type_alias_ambiguity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type PayloadShape\n",
+            "  PayloadShape(Int)\n",
+            "end\n",
+            "pub type Shared = PayloadShape\n",
+            "schema Shared\n",
+            "  value: Int\n",
+            "end\n",
+            "pub schema WrongAlias = PayloadShape\n",
+            "pub schema CycleA = CycleB\n",
+            "pub schema CycleB = CycleA\n",
+            "schema AmbiguousHost\n",
+            "  child: Shared\n",
+            "end\n",
+            "schema WrongKindHost\n",
+            "  child: WrongAlias\n",
+            "end\n",
+            "schema CyclicAliasHost\n",
+            "  child: CycleA\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (schema, reason) in [
+        ("AmbiguousHost", "ambiguous_type_and_schema"),
+        ("WrongKindHost", "wrong_kind"),
+        ("CyclicAliasHost", "cyclic_composition"),
+    ] {
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.composition_reference"
+                    && matches!(
+                        &diagnostic.details,
+                        veln_diagnostics::JsonValue::Object(entries)
+                            if entries.iter().any(|(key, value)| {
+                                key == "schema"
+                                    && value == &veln_diagnostics::JsonValue::string(schema)
+                            }) && entries.iter().any(|(key, value)| {
+                                key == "reason"
+                                    && value == &veln_diagnostics::JsonValue::string(reason)
+                            })
+                    )
+            }),
+            "missing {reason} for {schema}: {:#?}",
+            lowered.diagnostics
+        );
+    }
 }
 
 #[test]
