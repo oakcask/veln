@@ -14,15 +14,15 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-- [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): uncovered,
-  bounded HTTP/2 state transitions, SETTINGS and DATA interactions,
-  stream-lifecycle rules, graceful shutdown, and HPACK gaps.
+- [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): replace the
+  three remaining production HPACK generic-unsupported fallback families with
+  focused typed failures.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  production socket ownership, richer stream-task lifecycle, and transport
-  adapter APIs beyond the checked loopback boundary.
-- [Schema Declaration Surface](schema-declaration-surface.md): binary field
-  shapes outside current generated-helper eligibility and a later explicit
-  schema-composition surface.
+  external production socket ownership beyond the loopback harness and
+  structured host transport failures.
+- [Schema Declaration Surface](schema-declaration-surface.md): generalize the
+  existing field syntax to named schema composition with schema-aware
+  resolution.
 
 ## Selection Rule
 
