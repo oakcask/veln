@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed adapter-owned listener-to-clean-stream-end
-lifecycle slice from `../../proposals/network-effect-integration-boundary.md`.
+lifecycle slice from [external production socket runtime record](network-effect-integration-boundary.md).
 Current behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable case under
@@ -28,13 +28,6 @@ functions. The executable cases check both the source-visible result and the
 ordered fixture event log, including listen, accept, reads, clean read end, and
 writes, and reject adapter declarations that omit either `net` or
 `concurrency`.
-
-## Remaining Work
-
-The broader network integration proposal remains open for production socket
-lifecycle beyond the fixture-backed listener and stream handles, richer stream
-routing, richer deadline and cancellation APIs, channel and task ownership
-beyond the checked narrow slices, and HTTP/2 transport-adapter work.
 
 ## Read When
 

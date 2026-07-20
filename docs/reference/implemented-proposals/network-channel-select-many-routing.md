@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed receiver-list channel-first stream routing
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
 `../../../examples/specification/run/channel-first-stream-routing-general-list/case.toml`
@@ -75,13 +76,6 @@ channel routing declares both `time` and `concurrency`, while the handler
 receives only ordinary stream input and state values and remains effect-free.
 Socket wrappers around the same cancellable helper also declare `net`.
 Missing effects on the adapter path are rejected by static checking.
-
-## Remaining Work
-
-The broader network integration proposal remains open for production socket
-ownership, richer stream routing beyond the checked general receiver-list
-helper, richer deadline and cancellation APIs, channel and task ownership
-beyond the checked adapter slices, and HTTP/2 transport-adapter work.
 
 ## Read When
 

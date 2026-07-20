@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned write-side half-close slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -34,13 +35,6 @@ case records the same boundary through production event-log entries and
 captures the client-observed bytes after write-side shutdown. The failure case
 checks that a write attempted after write-side shutdown remains a runtime
 transport failure, not an HTTP/2 protocol diagnostic.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket ownership, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

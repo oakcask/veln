@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed listener endpoint text slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -34,13 +35,6 @@ stream endpoint inspection, stream reads, stream close, and listener close
 still use the same ownership path. The failure case pins listener endpoint
 metadata lookup failure as a runtime transport failure in run JSON. The checked
 effect case pins the required `net` effect and descriptor provenance.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

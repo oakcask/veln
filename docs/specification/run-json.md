@@ -35,6 +35,11 @@ with ownership, input, or output commits after the corresponding host
 transition. `transport-socket-write-record-failure-human` checks that the same
 facts remain related notes in human output rather than entering the primary
 message.
+The `transport-socket-external-connect-failure-json` and
+`transport-socket-external-listen-failure-json` cases apply the same payload
+to host connection and bind failures in external runtime mode. Missing stream
+or listener identities and false ownership commit facts demonstrate that the
+failed operation did not create an in-memory fallback handle.
 An invalid dynamic integer shift count additionally uses
 `details.id: "runtime.invalid_shift_count"` and exposes `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`.

@@ -57,6 +57,9 @@ compiler-known calls.
   client connects, source-visible listener/client connect pairing, reads,
   writes, clean listener end, stream read-side shutdown, stream close, and
   listener close under the same public calls,
+  opt-in external host socket ownership for listeners and connections that
+  are not paired or synthesized by the current runtime, with the same public
+  handles, lifecycle calls, structured failures, and coarse effects,
   relative and absolute monotonic deadline calls, and cancellable deadline
   waits through
   source-visible `CancelToken` handles. `time::cancel_owner` creates a

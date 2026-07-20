@@ -1,0 +1,15 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "external"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["transport listen failed: io_failure", "note: Local endpoint: 192.0.2.1:1.", "note: Lifecycle phase: during_operation.", "note: Commit state: input=false, output=false, ownership=false.", "note: Platform cause: production socket failed:"]

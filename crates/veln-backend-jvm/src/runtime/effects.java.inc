@@ -914,6 +914,9 @@
     }
 
     private static Object netConnectProduction(String address) {
+        if (externalSocketRuntime()) {
+            return netConnectExternal(address);
+        }
         ProductionListenerBinding binding = productionListenerBindings.get(address);
         if (binding != null && !binding.listener.isClosed()) {
             return netConnectProductionListener(address, binding);
@@ -947,6 +950,64 @@
             );
         }
         return stream;
+    }
+
+    private static Object netConnectExternal(String address) {
+        java.net.InetSocketAddress socketAddress;
+        try {
+            socketAddress = parseSocketAddress(address);
+        } catch (RuntimeException error) {
+            throw transportFailure(
+                "connect", "invalid_endpoint", null, address, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
+        }
+        java.net.Socket socket = null;
+        String streamId = null;
+        String localAddress = null;
+        String peerAddress = address;
+        boolean connected = false;
+        try {
+            socket = new java.net.Socket();
+            socket.connect(socketAddress, productionTimeoutMillis());
+            connected = true;
+            socket.setSoTimeout(productionTimeoutMillis());
+            streamId = sourceProductionStreamId(0);
+            localAddress = formatSocketAddress(socket.getLocalSocketAddress());
+            peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
+            NetStream stream = new NetStream(
+                streamId,
+                localAddress,
+                peerAddress,
+                socket,
+                null,
+                false,
+                socket.getInputStream(),
+                socket.getOutputStream()
+            );
+            try {
+                writeNetEvent("connect-production " + address + " " + streamId);
+            } catch (java.io.IOException | RuntimeException error) {
+                closeQuietly(socket);
+                throw streamTransportFailure(
+                    "connect", "event_record_failed", stream, "stream_connected",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
+            return stream;
+        } catch (TransportFailure failure) {
+            throw failure;
+        } catch (java.io.IOException | RuntimeException error) {
+            closeQuietly(socket);
+            throw transportFailure(
+                "connect", transportIoCategory(error), localAddress, peerAddress,
+                null, streamId, connected ? "socket_connected" : "during_operation",
+                Boolean.FALSE, Boolean.FALSE, Boolean.valueOf(connected),
+                platformCause("production socket failed", error), error
+            );
+        }
     }
 
     private static Object netConnectProductionListener(
@@ -1055,6 +1116,9 @@
     }
 
     private static Object netListenProduction(String address) {
+        if (externalSocketRuntime()) {
+            return netListenExternal(address);
+        }
         java.util.List<java.util.List<byte[]>> inputs;
         try {
             inputs = loopbackClientReadStreams();
@@ -1116,6 +1180,46 @@
         } catch (java.io.IOException | RuntimeException error) {
             closeQuietly(server);
             return netListenProductionInMemory(address);
+        }
+    }
+
+    private static Object netListenExternal(String address) {
+        java.net.InetSocketAddress socketAddress;
+        try {
+            socketAddress = parseSocketAddress(address);
+        } catch (RuntimeException error) {
+            throw transportFailure(
+                "listen", "invalid_endpoint", address, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
+        }
+        java.net.ServerSocket server = null;
+        try {
+            server = new java.net.ServerSocket();
+            server.setReuseAddress(true);
+            server.bind(socketAddress);
+            server.setSoTimeout(productionTimeoutMillis());
+            NetListener listener = new NetListener(address, server, null);
+            try {
+                writeNetEvent("listen-production " + address);
+            } catch (java.io.IOException | RuntimeException error) {
+                closeQuietly(server);
+                throw listenerTransportFailure(
+                    "listen", "event_record_failed", listener, "listener_bound", true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
+            return listener;
+        } catch (TransportFailure failure) {
+            throw failure;
+        } catch (java.io.IOException | RuntimeException error) {
+            closeQuietly(server);
+            throw transportFailure(
+                "listen", transportIoCategory(error), address, null, null, null,
+                "during_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                platformCause("production socket failed", error), error
+            );
         }
     }
 
@@ -2505,11 +2609,16 @@
     }
 
     private static boolean productionSocketRuntime() {
-        return "production-loopback".equals(System.getenv("VELN_NET_RUNTIME"));
+        String runtime = System.getenv("VELN_NET_RUNTIME");
+        return "production-loopback".equals(runtime) || "external".equals(runtime);
+    }
+
+    private static boolean externalSocketRuntime() {
+        return "external".equals(System.getenv("VELN_NET_RUNTIME"));
     }
 
     private static boolean loopbackClientEnabled() {
-        return productionSocketRuntime();
+        return "production-loopback".equals(System.getenv("VELN_NET_RUNTIME"));
     }
 
     private static java.util.List<java.util.List<byte[]>> loopbackClientReadStreams() {

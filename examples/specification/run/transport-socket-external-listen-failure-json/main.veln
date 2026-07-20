@@ -1,0 +1,5 @@
+# External socket bind failures do not create an in-memory listener.
+pub fn main() -> Result<(), String> effects [net]
+	let _ = net::listen("192.0.2.1:1")
+	Ok(())
+end

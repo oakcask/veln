@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed absolute monotonic deadline slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -32,13 +33,6 @@ The boundary does not add wall-clock time, calendar conversion, time zones,
 sleep handles, a new effect label, a new `Deadline` source-visible value
 shape, or separate consumer paths for relative and absolute deadline
 construction.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, cancellation ownership, scheduler
-integration, and deadline or cancellation APIs beyond the current monotonic
-deadline and wait boundaries.
 
 ## Read When
 

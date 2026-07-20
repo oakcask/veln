@@ -1,0 +1,46 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "external"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "stderr"
+equals = "transport connect failed: io_failure\n"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "connect"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "io_failure"
+
+[[json_assert]]
+path = "error.details.peer_endpoint"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+missing = true
+
+[[json_assert]]
+path = "error.details.stream_id"
+missing = true
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "during_operation"
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = false

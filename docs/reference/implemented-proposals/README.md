@@ -420,6 +420,8 @@ under `../../specification/` and its executable example routes.
   [network-cancel-owner-status.md](network-cancel-owner-status.md).
 - Network production loopback lifecycle:
   [network-production-loopback-lifecycle.md](network-production-loopback-lifecycle.md).
+- Network external production socket runtime:
+  [network-effect-integration-boundary.md](network-effect-integration-boundary.md).
 - Network production listen/connect lifecycle:
   [network-production-listen-connect-lifecycle.md](network-production-listen-connect-lifecycle.md).
 - Network production cancellable deadline lifecycle:

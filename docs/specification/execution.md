@@ -27,10 +27,10 @@ enough.
   produces only whole `ByteChunk` values that fit within the supplied
   `ByteCount`, reports the produced byte count, preserves chunk order, and
   returns the unproduced suffix for a later call.
-- `net` and `time` calls are host runtime boundaries. Fixture-backed and
-  production-loopback transport paths preserve the same source-visible result
-  shapes while keeping socket, deadline, cancellation, and monotonic-clock
-  work outside pure protocol code. `NetListener` handles expose local
+- `net` and `time` calls are host runtime boundaries. Fixture-backed,
+  production-loopback, and external transport paths preserve the same
+  source-visible result shapes while keeping socket, deadline, cancellation,
+  and monotonic-clock work outside pure protocol code. `NetListener` handles expose local
   endpoint text through `net::listener_local_addr` before accept work without
   exposing host socket handles, closing the listener, or changing later
   accepted streams. Accepted and connected `NetStream` handles expose local
@@ -63,7 +63,14 @@ enough.
   `transport-socket-*-record-failure-*` cases under
   `examples/specification/run/`; failure before those transitions and stale
   closed-handle failure remain distinct phases. The
-  cancellable receiver-list channel-first adapter observes cancellation as an
+  external runtime binds listeners and connects streams through host sockets
+  without a synthetic client or in-memory fallback. Backend integration tests
+  connect each side to an independently owned host peer and check ordered I/O,
+  clean end, half-close, cancellation, and explicit resource cleanup. The
+  `transport-socket-external-*-failure-*` executable cases check that bind and
+  connect failures retain the same human and JSON transport details without
+  creating fallback handles. The cancellable receiver-list channel-first
+  adapter observes cancellation as an
   ordinary routed, timed-out, or cancelled source outcome before producing
   adapter actions, instead of adding another fixed route-count execution
   shape. The

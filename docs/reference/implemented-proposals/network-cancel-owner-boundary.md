@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned cancellation owner slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -34,12 +35,6 @@ the adapter boundary while keeping the handler free of transport effects.
 This slice adds no effect label, does not change the existing `CancelToken`
 wait/status API, does not add a service framework or structured-concurrency
 model, and does not make the pure protocol core observe cancellation handles.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, scheduler integration, and deadline or
-cancellation APIs beyond the current owner/token/status split.
 
 ## Read When
 

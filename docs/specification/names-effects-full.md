@@ -360,6 +360,18 @@ source code that owns them. The runtime records the listener, client connect,
 accept, byte reads and writes, stream closes, clean listener end, and listener
 close on the same production event path. Connection, accept, read, write, and
 close failures remain runtime transport failures.
+When `VELN_NET_RUNTIME` is `external`, `net::listen` owns a host listener
+without starting a synthetic client, and `net::connect` opens a host connection
+without consulting the runtime's listener registry. Accepted and connected
+host sockets remain encapsulated by `NetListener` and `NetStream`; source code
+uses the existing endpoint inspection, read, write, shutdown, deadline,
+cancellation, state inspection, and close calls under the same coarse `net`,
+`time`, and `concurrency` effects. Bind and connection failures retain the
+structured transport payload and do not create fixture or in-memory handles.
+The backend external-peer integration tests check independently owned host
+clients and listeners, while the focused
+`transport-socket-external-*-failure-*` run cases check human and JSON failure
+details.
 `net::close_listener` closes the owned production listener or in-memory
 loopback listener state without closing already accepted `NetStream` handles;
 any later accept call on that listener fails through the same runtime

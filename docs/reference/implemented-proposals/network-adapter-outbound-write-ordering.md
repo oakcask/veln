@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed adapter-owned outbound write-ordering
-slice from `../../proposals/network-effect-integration-boundary.md`. Current
+slice from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -39,13 +40,6 @@ transport, time, and concurrency effects, while the adapter boundary that
 reads socket input, routes through a channel, and writes ordered chunks must
 declare the existing coarse `net` and `concurrency` effects. The slice adds no
 effect labels, no socket primitive, and no service framework.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, richer stream routing, richer deadline and cancellation APIs,
-channel and task ownership beyond the checked adapter slices, and HTTP/2
-transport-adapter work.
 
 ## Read When
 

@@ -3,7 +3,8 @@
 Status: implemented
 
 This record preserves the completed production-loopback socket lifecycle slice
-from `../../proposals/network-effect-integration-boundary.md`. Current
+from [external production socket runtime record](network-effect-integration-boundary.md).
+Current
 behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -68,13 +69,6 @@ forced production read failure after accept and before response writes or
 stream close. The deadline-aware accept and read failure cases pin the same
 runtime transport-failure surface for forced production failures through
 `net::accept_until` and `net::read_chunk_until`.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs beyond this deterministic loopback lifecycle, richer stream
-routing, richer deadline and cancellation APIs, channel and task ownership
-beyond the checked adapter slices, and HTTP/2 transport-adapter work.
 
 ## Read When
 

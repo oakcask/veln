@@ -1,0 +1,5 @@
+# External socket connect failures do not synthesize an in-memory stream.
+pub fn main() -> Result<(), String> effects [net]
+	let _ = net::connect("127.0.0.1:0")
+	Ok(())
+end

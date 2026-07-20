@@ -13,12 +13,16 @@ binary-schema, codec, and transport cases under
 
 ## Continuing Routes
 
-The broad driver is complete. Remaining work is deliberately split into
+The broad driver is complete. Remaining work is deliberately split into two
 bounded proposal routes:
 
 - [HTTP/2 Sans-I/O Protocol Core](../../proposals/http2-sans-io-protocol-core.md)
 - [Schema Declaration Surface](../../proposals/schema-declaration-surface.md)
-- [Network Effect Integration Boundary](../../proposals/network-effect-integration-boundary.md)
+
+The network integration route is also complete. Its historical context and
+completion evidence live in the
+[Network Effect Integration Boundary](network-effect-integration-boundary.md)
+record.
 
 Future binary data, schema primitive, or diagnostic work needs a concrete
 consumer and a new bounded proposal instead of reopening this design driver.

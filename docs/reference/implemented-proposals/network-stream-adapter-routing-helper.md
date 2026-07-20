@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed source-visible stream adapter routing
-helper slice from `../../proposals/network-effect-integration-boundary.md`.
+helper slice from [external production socket runtime record](network-effect-integration-boundary.md).
 Current behavior is specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, and the checked examples under
 `../../../examples/specification/run/socket-stream-adapter-production-routing-helper/case.toml`
@@ -28,12 +28,6 @@ abstractions. The checked production-loopback case keeps stream close and
 clean listener-end observation in adapter caller code after the helper
 returns. The matching effect case rejects adapter entry points that omit
 either `net` or `concurrency` while leaving the handler boundary effect-free.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, scheduler integration, and HTTP/2
-transport-adapter behavior beyond the checked helper boundary.
 
 ## Read When
 

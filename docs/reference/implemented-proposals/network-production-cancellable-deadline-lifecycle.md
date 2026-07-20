@@ -4,7 +4,8 @@ Status: implemented
 
 This record preserves the completed production-loopback cancellable
 deadline-aware adapter lifecycle slice from
-`../../proposals/network-effect-integration-boundary.md`. Current behavior is
+[external production socket runtime record](network-effect-integration-boundary.md).
+Current behavior is
 specified by `../../specification/names-effects.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked examples under
@@ -33,13 +34,6 @@ at the adapter boundary while keeping the handler free of transport, time, and
 channel effects.
 
 This slice adds no effect label and no public runtime call.
-
-## Remaining Work
-
-The broader network integration proposal remains open for richer production
-socket APIs, stream routing ownership, cancellation ownership, scheduler
-integration, and HTTP/2 transport-adapter behavior beyond the checked
-production-loopback lifecycle slices.
 
 ## Read When
 
