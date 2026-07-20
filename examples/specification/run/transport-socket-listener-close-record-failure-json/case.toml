@@ -24,7 +24,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport listener close failed: could not record VELN_NET_EVENTS\n"
+equals = "transport listener close failed: event_record_failed\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -32,7 +32,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport listener close failed: could not record VELN_NET_EVENTS"
+equals = "transport listener close failed: event_record_failed"
 
 [[json_assert]]
 path = "error.details.phase"

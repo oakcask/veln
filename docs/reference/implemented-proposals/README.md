@@ -378,6 +378,8 @@ under `../../specification/` and its executable example routes.
   [codec-tag-mismatch-diagnostics.md](codec-tag-mismatch-diagnostics.md).
 - Network adapter ownership boundary:
   [network-adapter-ownership-boundary.md](network-adapter-ownership-boundary.md).
+- Network structured transport failures:
+  [network-structured-transport-failures.md](network-structured-transport-failures.md).
 - Network stream close boundary:
   [network-stream-close-boundary.md](network-stream-close-boundary.md).
 - Network stream shutdown write boundary:

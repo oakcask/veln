@@ -46,6 +46,9 @@ compiler-known calls.
   fixture-backed stream writes,
   stream read-side shutdown, stream close recording, and listener close
   recording,
+  structured runtime failures for listen, connect, accept, read, write,
+  shutdown, stream close, and listener close with no finer-grained effect
+  labels,
   opt-in production loopback socket ownership for listen, sequential accepts,
   client connects, source-visible listener/client connect pairing, reads,
   writes, clean listener end, stream read-side shutdown, stream close, and

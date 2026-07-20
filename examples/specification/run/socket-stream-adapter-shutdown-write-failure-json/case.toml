@@ -24,7 +24,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport write failed: stream write side is shut down\n"
+equals = "transport write failed: closed\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -32,11 +32,23 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport write failed: stream write side is shut down"
+equals = "transport write failed: closed"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "write_shutdown"
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = true
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "stream write side is shut down"
 
 [[file_assert]]
 path = "net-events.log"

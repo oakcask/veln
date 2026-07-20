@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport write failed: VELN_NET_WRITE_FAILED\n"
+equals = "transport write failed: forced_failure\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -31,7 +31,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport write failed: VELN_NET_WRITE_FAILED"
+equals = "transport write failed: forced_failure"
 
 [[json_assert]]
 path = "error.details.phase"

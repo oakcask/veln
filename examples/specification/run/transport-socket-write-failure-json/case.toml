@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport write failed: VELN_NET_WRITE_FAILED\n"
+equals = "transport write failed: forced_failure\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -31,8 +31,28 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport write failed: VELN_NET_WRITE_FAILED"
+equals = "transport write failed: forced_failure"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "write"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.peer_endpoint"
+equals = "stream-1"
+
+[[json_assert]]
+path = "error.details.stream_id"
+equals = "stream-1"
+
+[[json_assert]]
+path = "error.details.output_committed"
+equals = false

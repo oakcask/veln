@@ -12,4 +12,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["transport read failed: VELN_NET_READ_FAILED"]
+contains = ["transport read failed: forced_failure"]

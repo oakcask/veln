@@ -1,6 +1,268 @@
     private static java.util.List<Object> processArgs =
         java.util.Collections.unmodifiableList(new java.util.ArrayList<Object>());
 
+    private static TransportFailure transportFailure(
+        String operation,
+        String category,
+        String localEndpoint,
+        String peerEndpoint,
+        String listenerId,
+        String streamId,
+        String phase,
+        Boolean inputCommitted,
+        Boolean outputCommitted,
+        Boolean ownershipCommitted,
+        String platformCause,
+        Throwable cause
+    ) {
+        return new TransportFailure(
+            operation,
+            category,
+            localEndpoint,
+            peerEndpoint,
+            listenerId,
+            streamId,
+            phase,
+            inputCommitted,
+            outputCommitted,
+            ownershipCommitted,
+            platformCause,
+            cause
+        );
+    }
+
+    private static TransportFailure listenerTransportFailure(
+        String operation,
+        String category,
+        NetListener listener,
+        String phase,
+        boolean ownershipCommitted,
+        String platformCause,
+        Throwable cause
+    ) {
+        return transportFailure(
+            operation,
+            category,
+            listener.localAddress,
+            null,
+            listener.address,
+            null,
+            phase,
+            Boolean.FALSE,
+            Boolean.FALSE,
+            Boolean.valueOf(ownershipCommitted),
+            platformCause,
+            cause
+        );
+    }
+
+    private static TransportFailure streamTransportFailure(
+        String operation,
+        String category,
+        NetStream stream,
+        String phase,
+        Boolean inputCommitted,
+        Boolean outputCommitted,
+        boolean ownershipCommitted,
+        String platformCause,
+        Throwable cause
+    ) {
+        return transportFailure(
+            operation,
+            category,
+            stream.localAddress,
+            stream.peerAddress,
+            null,
+            stream.id,
+            phase,
+            inputCommitted,
+            outputCommitted,
+            Boolean.valueOf(ownershipCommitted),
+            platformCause,
+            cause
+        );
+    }
+
+    private static String transportFailureMessage(
+        String operation,
+        String category,
+        String localEndpoint,
+        String peerEndpoint,
+        String listenerId,
+        String streamId,
+        String phase,
+        Boolean inputCommitted,
+        Boolean outputCommitted,
+        Boolean ownershipCommitted,
+        String platformCause
+    ) {
+        StringBuilder message = new StringBuilder(
+            "transport " + operation.replace('_', ' ') + " failed: " + category
+        );
+        if (localEndpoint != null) {
+            message.append("\nnote: Local endpoint: ").append(localEndpoint).append(".");
+        }
+        if (peerEndpoint != null) {
+            message.append("\nnote: Peer endpoint: ").append(peerEndpoint).append(".");
+        }
+        if (listenerId != null) {
+            message.append("\nnote: Listener identity: ").append(listenerId).append(".");
+        }
+        if (streamId != null) {
+            message.append("\nnote: Stream identity: ").append(streamId).append(".");
+        }
+        message.append("\nnote: Lifecycle phase: ").append(phase).append(".");
+        message.append("\nnote: Commit state: input=")
+            .append(commitFact(inputCommitted))
+            .append(", output=")
+            .append(commitFact(outputCommitted))
+            .append(", ownership=")
+            .append(commitFact(ownershipCommitted))
+            .append(".");
+        if (platformCause != null) {
+            message.append("\nnote: Platform cause: ").append(platformCause).append(".");
+        }
+        return message.toString();
+    }
+
+    private static String legacyTransportFailureMessage(String message, Throwable cause) {
+        if (!message.startsWith("transport ") || message.indexOf('\n') >= 0) {
+            return message;
+        }
+        int separator = message.indexOf(" failed: ");
+        if (separator < 0) {
+            return message;
+        }
+        String rawOperation = message.substring("transport ".length(), separator);
+        String operation;
+        if (rawOperation.equals("shutdown_write") || rawOperation.equals("shutdown_read")) {
+            operation = "shutdown";
+        } else if (rawOperation.equals("close")) {
+            operation = "stream_close";
+        } else if (rawOperation.equals("listener close")) {
+            operation = "listener_close";
+        } else if (
+            rawOperation.equals("listen")
+                || rawOperation.equals("connect")
+                || rawOperation.equals("accept")
+                || rawOperation.equals("read")
+                || rawOperation.equals("write")
+        ) {
+            operation = rawOperation;
+        } else {
+            return message;
+        }
+        String platformCause = message.substring(separator + " failed: ".length());
+        String category = legacyTransportCategory(platformCause);
+        String causeText = cause != null && cause.getMessage() != null
+            ? platformCause + ": " + cause.getMessage()
+            : platformCause;
+        recordTransportFailure(
+            operation,
+            category,
+            null,
+            null,
+            null,
+            null,
+            "during_operation",
+            null,
+            null,
+            null,
+            causeText
+        );
+        return transportFailureMessage(
+            operation,
+            category,
+            null,
+            null,
+            null,
+            null,
+            "during_operation",
+            null,
+            null,
+            null,
+            causeText
+        );
+    }
+
+    private static String legacyTransportCategory(String cause) {
+        if (cause.startsWith("VELN_NET_")) {
+            return "forced_failure";
+        }
+        if (cause.startsWith("could not record")) {
+            return "event_record_failed";
+        }
+        if (cause.contains("timed out")) {
+            return "timed_out";
+        }
+        if (cause.contains("closed") || cause.contains("shut down")) {
+            return "closed";
+        }
+        if (cause.contains("ended")) {
+            return "end_of_stream";
+        }
+        if (cause.startsWith("invalid socket address")) {
+            return "invalid_endpoint";
+        }
+        if (cause.startsWith("malformed")) {
+            return "invalid_input";
+        }
+        if (cause.contains("interrupted")) {
+            return "interrupted";
+        }
+        return "io_failure";
+    }
+
+    private static String commitFact(Boolean value) {
+        return value == null ? "unknown" : value.toString();
+    }
+
+    private static String traceText(String value) {
+        return value == null ? "-" : hex(value);
+    }
+
+    private static void recordTransportFailure(
+        String operation,
+        String category,
+        String localEndpoint,
+        String peerEndpoint,
+        String listenerId,
+        String streamId,
+        String phase,
+        Boolean inputCommitted,
+        Boolean outputCommitted,
+        Boolean ownershipCommitted,
+        String platformCause
+    ) {
+        String path = System.getenv("VELN_TRANSPORT_ERRORS");
+        if (path == null || path.isEmpty()) {
+            return;
+        }
+        String line = "transport"
+            + "\t" + traceText(operation)
+            + "\t" + traceText(category)
+            + "\t" + traceText(localEndpoint)
+            + "\t" + traceText(peerEndpoint)
+            + "\t" + traceText(listenerId)
+            + "\t" + traceText(streamId)
+            + "\t" + traceText(phase)
+            + "\t" + commitFact(inputCommitted)
+            + "\t" + commitFact(outputCommitted)
+            + "\t" + commitFact(ownershipCommitted)
+            + "\t" + traceText(platformCause)
+            + System.lineSeparator();
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException ignored) {
+            // The original transport failure remains authoritative.
+        }
+    }
+
     public static void setProcessArgs(String[] args) {
         java.util.ArrayList<Object> values = new java.util.ArrayList<Object>();
         for (String arg : args) {
@@ -546,10 +808,14 @@
     }
 
     public static Object netListen(Object address) {
-        if (forced("VELN_NET_LISTEN_FAILED")) {
-            throw new RuntimeFailure("transport listen failed: VELN_NET_LISTEN_FAILED");
-        }
         String value = asString(address);
+        if (forced("VELN_NET_LISTEN_FAILED")) {
+            throw transportFailure(
+                "listen", "forced_failure", value, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                "VELN_NET_LISTEN_FAILED", null
+            );
+        }
         if (productionSocketRuntime()) {
             return netListenProduction(value);
         }
@@ -565,10 +831,14 @@
     }
 
     public static Object netConnect(Object address) {
-        if (forced("VELN_NET_CONNECT_FAILED")) {
-            throw new RuntimeFailure("transport connect failed: VELN_NET_CONNECT_FAILED");
-        }
         String value = asString(address);
+        if (forced("VELN_NET_CONNECT_FAILED")) {
+            throw transportFailure(
+                "connect", "forced_failure", null, value, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                "VELN_NET_CONNECT_FAILED", null
+            );
+        }
         if (productionSocketRuntime()) {
             return netConnectProduction(value);
         }
@@ -686,7 +956,11 @@
         try {
             socketAddress = parseSocketAddress(address);
         } catch (RuntimeException error) {
-            throw new RuntimeFailure("transport listen failed: invalid socket address", error);
+            throw transportFailure(
+                "listen", "invalid_endpoint", address, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
         }
         java.net.ServerSocket server = null;
         try {
@@ -749,10 +1023,13 @@
     }
 
     public static Object netAccept(Object listener) {
-        if (forced("VELN_NET_ACCEPT_FAILED")) {
-            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
-        }
         NetListener value = asNetListener(listener);
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw listenerTransportFailure(
+                "accept", "forced_failure", value, "before_operation", false,
+                "VELN_NET_ACCEPT_FAILED", null
+            );
+        }
         failIfListenerClosed(value);
         if (value.isProductionSocket()) {
             return acceptProduction(value, false);
@@ -773,10 +1050,13 @@
     }
 
     public static Object netAcceptOrEnd(Object listener) {
-        if (forced("VELN_NET_ACCEPT_FAILED")) {
-            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
-        }
         NetListener value = asNetListener(listener);
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw listenerTransportFailure(
+                "accept", "forced_failure", value, "before_operation", false,
+                "VELN_NET_ACCEPT_FAILED", null
+            );
+        }
         failIfListenerClosed(value);
         if (value.isProductionSocket()) {
             NetStream stream = acceptProduction(value, true);
@@ -806,10 +1086,13 @@
     }
 
     public static Object netAcceptUntil(Object listener, Object deadline) {
-        if (forced("VELN_NET_ACCEPT_FAILED")) {
-            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
-        }
         NetListener value = asNetListener(listener);
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw listenerTransportFailure(
+                "accept", "forced_failure", value, "before_operation", false,
+                "VELN_NET_ACCEPT_FAILED", null
+            );
+        }
         failIfListenerClosed(value);
         if (acceptDeadlineExpired(deadline)) {
             try {
@@ -850,10 +1133,13 @@
     }
 
     public static Object netAcceptUntilCancellable(Object listener, Object deadline, Object token) {
-        if (forced("VELN_NET_ACCEPT_FAILED")) {
-            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
-        }
         NetListener value = asNetListener(listener);
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw listenerTransportFailure(
+                "accept", "forced_failure", value, "before_operation", false,
+                "VELN_NET_ACCEPT_FAILED", null
+            );
+        }
         failIfListenerClosed(value);
         CancelToken cancelToken = asCancelToken(token);
         if (waitCancelled(cancelToken)) {
@@ -1024,10 +1310,13 @@
     }
 
     public static Object netReadChunk(Object stream) {
-        if (forced("VELN_NET_READ_FAILED")) {
-            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw streamTransportFailure(
+                "read", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_READ_FAILED", null
+            );
+        }
         failIfStreamClosed(value, "read");
         if (value.isProductionSocket()) {
             return readProductionChunk(value);
@@ -1095,10 +1384,13 @@
     }
 
     public static Object netReadChunkOrEnd(Object stream) {
-        if (forced("VELN_NET_READ_FAILED")) {
-            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw streamTransportFailure(
+                "read", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_READ_FAILED", null
+            );
+        }
         failIfStreamClosed(value, "read");
         if (value.isProductionSocket()) {
             Object chunk = readProductionChunkOrNull(value);
@@ -1146,10 +1438,13 @@
     }
 
     public static Object netReadChunkUntil(Object stream, Object deadline) {
-        if (forced("VELN_NET_READ_FAILED")) {
-            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw streamTransportFailure(
+                "read", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_READ_FAILED", null
+            );
+        }
         failIfStreamClosed(value, "read");
         if (readDeadlineExpired(deadline)) {
             try {
@@ -1208,10 +1503,13 @@
     }
 
     public static Object netReadChunkUntilCancellable(Object stream, Object deadline, Object token) {
-        if (forced("VELN_NET_READ_FAILED")) {
-            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw streamTransportFailure(
+                "read", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_READ_FAILED", null
+            );
+        }
         CancelToken cancelToken = asCancelToken(token);
         failIfStreamClosed(value, "read");
         if (waitCancelled(cancelToken)) {
@@ -1318,10 +1616,13 @@
     }
 
     public static Object netWriteChunk(Object stream, Object bytes) {
-        if (forced("VELN_NET_WRITE_FAILED")) {
-            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw streamTransportFailure(
+                "write", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_WRITE_FAILED", null
+            );
+        }
         failIfStreamWriteShutdown(value);
         if (value.isProductionSocket()) {
             writeProductionChunk(value, bytes);
@@ -1339,10 +1640,13 @@
     }
 
     public static Object netWriteChunkUntil(Object stream, Object bytes, Object deadline) {
-        if (forced("VELN_NET_WRITE_FAILED")) {
-            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw streamTransportFailure(
+                "write", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_WRITE_FAILED", null
+            );
+        }
         failIfStreamWriteShutdown(value);
         if (writeDeadlineExpired(deadline)) {
             try {
@@ -1360,10 +1664,13 @@
     }
 
     public static Object netWriteChunkUntilCancellable(Object stream, Object bytes, Object deadline, Object token) {
-        if (forced("VELN_NET_WRITE_FAILED")) {
-            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw streamTransportFailure(
+                "write", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_WRITE_FAILED", null
+            );
+        }
         failIfStreamWriteShutdown(value);
         CancelToken cancelToken = asCancelToken(token);
         if (waitCancelled(cancelToken)) {
@@ -1552,9 +1859,10 @@
             try {
                 writeNetEvent("shutdown-write " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport shutdown_write failed: could not record VELN_NET_EVENTS",
-                    error
+                throw streamTransportFailure(
+                    "shutdown", "event_record_failed", value, "write_shutdown",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
         }
@@ -1572,9 +1880,10 @@
             try {
                 writeNetEvent("shutdown-read " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport shutdown_read failed: could not record VELN_NET_EVENTS",
-                    error
+                throw streamTransportFailure(
+                    "shutdown", "event_record_failed", value, "read_shutdown",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
         }
@@ -1582,10 +1891,13 @@
     }
 
     public static Object netCloseStream(Object stream) {
-        if (forced("VELN_NET_CLOSE_FAILED")) {
-            throw new RuntimeFailure("transport close failed: VELN_NET_CLOSE_FAILED");
-        }
         NetStream value = asNetStream(stream);
+        if (forced("VELN_NET_CLOSE_FAILED")) {
+            throw streamTransportFailure(
+                "stream_close", "forced_failure", value, "before_operation",
+                Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_CLOSE_FAILED", null
+            );
+        }
         value.closeOnce();
         if (value.isProductionSocket()) {
             closeProductionStream(value);
@@ -1594,19 +1906,23 @@
         try {
             writeNetEvent("close " + value.id);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport close failed: could not record VELN_NET_EVENTS",
-                error
+            throw streamTransportFailure(
+                "stream_close", "event_record_failed", value, "closed_handle",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         return UNIT;
     }
 
     public static Object netCloseListener(Object listener) {
-        if (forced("VELN_NET_CLOSE_FAILED")) {
-            throw new RuntimeFailure("transport listener close failed: VELN_NET_CLOSE_FAILED");
-        }
         NetListener value = asNetListener(listener);
+        if (forced("VELN_NET_CLOSE_FAILED")) {
+            throw listenerTransportFailure(
+                "listener_close", "forced_failure", value, "before_operation", false,
+                "VELN_NET_CLOSE_FAILED", null
+            );
+        }
         boolean production = value.isProductionSocket();
         if (value.closeOnce()) {
             if (value.server != null) {
@@ -1628,9 +1944,9 @@
                     + value.address
             );
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport listener close failed: could not record VELN_NET_EVENTS",
-                error
+            throw listenerTransportFailure(
+                "listener_close", "event_record_failed", value, "closed_handle", true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         return UNIT;
@@ -1638,20 +1954,29 @@
 
     private static void failIfListenerClosed(NetListener listener) {
         if (listener.isClosed()) {
-            throw new RuntimeFailure("transport accept failed: listener closed");
+            throw listenerTransportFailure(
+                "accept", "closed", listener, "closed_handle", false, "listener closed", null
+            );
         }
     }
 
     private static void failIfStreamClosed(NetStream stream, String operation) {
         if (stream.isClosed()) {
-            throw new RuntimeFailure("transport " + operation + " failed: stream closed");
+            String publicOperation = operation.startsWith("shutdown") ? "shutdown" : operation;
+            throw streamTransportFailure(
+                publicOperation, "closed", stream, "closed_handle",
+                Boolean.FALSE, Boolean.FALSE, false, "stream closed", null
+            );
         }
     }
 
     private static void failIfStreamWriteShutdown(NetStream stream) {
         failIfStreamClosed(stream, "write");
         if (stream.isWriteShutdown()) {
-            throw new RuntimeFailure("transport write failed: stream write side is shut down");
+            throw streamTransportFailure(
+                "write", "closed", stream, "write_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true, "stream write side is shut down", null
+            );
         }
     }
 

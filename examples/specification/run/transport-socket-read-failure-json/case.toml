@@ -23,7 +23,7 @@ equals = ""
 
 [[json_assert]]
 path = "stderr"
-equals = "transport read failed: VELN_NET_READ_FAILED\n"
+equals = "transport read failed: forced_failure\n"
 
 [[json_assert]]
 path = "error.kind"
@@ -31,8 +31,24 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport read failed: VELN_NET_READ_FAILED"
+equals = "transport read failed: forced_failure"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "read"
+
+[[json_assert]]
+path = "error.details.stream_id"
+equals = "stream-1"
+
+[[json_assert]]
+path = "error.details.input_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "VELN_NET_READ_FAILED"

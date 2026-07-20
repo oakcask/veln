@@ -52,7 +52,12 @@ enough.
   observes read-capable, write-capable, and closed status as source-visible
   Bool values before half-close, after each half-close, and after full close
   without consuming the `NetStream` handle; later transport operations through
-  a stale closed handle fail as runtime transport failures. The
+  a stale closed handle fail as runtime transport failures. Public host
+  listen, connect, accept, read, write, shutdown, stream-close, and
+  listener-close failures carry one structured transport payload. It preserves
+  the stable operation and category, known endpoints and owned identity,
+  lifecycle phase, input/output/ownership commit facts, and related platform
+  cause without inferring unknown context. The
   cancellable receiver-list channel-first adapter observes cancellation as an
   ordinary routed, timed-out, or cancelled source outcome before producing
   adapter actions, instead of adding another fixed route-count execution

@@ -1,0 +1,7 @@
+# Shutdown event-record failure preserves the committed ownership transition.
+pub fn main() -> Result<(), String> effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::shutdown_write(stream)
+	Ok(())
+end

@@ -21,15 +21,19 @@ Runtime contract failures use `error.kind: "contract"`. The error details use
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 
-Host runtime failures use `error.kind: "runtime"`, `details.phase:
-"runtime"`, and the first captured runtime stderr line as `error.message`.
+Host runtime failures use `error.kind: "runtime"` and `details.phase:
+"runtime"`. Structured transport failures additionally use
+`details.id: "runtime.transport_failure"`; their primary `error.message`
+contains only the failed operation and stable category. Their details project
+`operation`, `category`, `lifecycle_phase`, known `local_endpoint` and
+`peer_endpoint`, known `listener_id` or `stream_id`, known
+`input_committed`, `output_committed`, and `ownership_committed` facts, and
+related `platform_cause`. Unknown facts are omitted rather than inferred.
 An invalid dynamic integer shift count additionally uses
 `details.id: "runtime.invalid_shift_count"` and exposes `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`.
-Descriptor-backed transport failures such as malformed host-fed receive bytes,
-failed outgoing event recording, fixture-backed socket listen, accept, read,
-write, and address metadata lookup failures, and forced timeout or deadline
-expiry use this shape.
+Non-socket descriptor failures, address metadata lookup failures, and forced
+timeout or deadline expiry retain the generic host runtime shape.
 
 An entry returning `Err(value)` uses `error.kind: "result"`. The error details
 use `kind: "result"`, `phase: "runtime"`, and `value` with the rendered error

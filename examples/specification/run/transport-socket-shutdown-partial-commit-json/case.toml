@@ -1,0 +1,76 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_ACCEPT_STREAM = "fixture-stream"
+VELN_NET_EVENTS = "net-events.log"
+VELN_NET_EVENT_RECORD_FAILED_PREFIX = "shutdown-write"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stderr"
+equals = "transport shutdown failed: event_record_failed\n"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.message"
+equals = "transport shutdown failed: event_record_failed"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "shutdown"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "event_record_failed"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.peer_endpoint"
+equals = "fixture-stream"
+
+[[json_assert]]
+path = "error.details.stream_id"
+equals = "fixture-stream"
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "write_shutdown"
+
+[[json_assert]]
+path = "error.details.input_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.output_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = true
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "could not record VELN_NET_EVENTS"
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\n"

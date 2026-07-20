@@ -15,7 +15,7 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["transport write failed: VELN_NET_WRITE_FAILED"]
+contains = ["transport write failed: forced_failure"]
 
 [[file_assert]]
 path = "net-events.log"
