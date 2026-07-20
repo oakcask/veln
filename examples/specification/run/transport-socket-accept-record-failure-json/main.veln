@@ -1,0 +1,6 @@
+# An accepted stream keeps both listener and stream context when event recording fails.
+pub fn main() -> () effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::close_stream(stream)
+end

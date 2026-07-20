@@ -29,6 +29,12 @@ contains only the failed operation and stable category. Their details project
 `peer_endpoint`, known `listener_id` or `stream_id`, known
 `input_committed`, `output_committed`, and `ownership_committed` facts, and
 related `platform_cause`. Unknown facts are omitted rather than inferred.
+The focused `transport-socket-*-record-failure-json` cases under
+`examples/specification/run/` check known endpoints and identities together
+with ownership, input, or output commits after the corresponding host
+transition. `transport-socket-write-record-failure-human` checks that the same
+facts remain related notes in human output rather than entering the primary
+message.
 An invalid dynamic integer shift count additionally uses
 `details.id: "runtime.invalid_shift_count"` and exposes `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`.

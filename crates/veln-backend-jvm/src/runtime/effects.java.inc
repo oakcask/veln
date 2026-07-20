@@ -83,6 +83,31 @@
         );
     }
 
+    private static TransportFailure acceptTransportFailure(
+        String category,
+        NetListener listener,
+        NetStream stream,
+        String phase,
+        boolean ownershipCommitted,
+        String platformCause,
+        Throwable cause
+    ) {
+        return transportFailure(
+            "accept",
+            category,
+            stream == null ? listener.localAddress : stream.localAddress,
+            stream == null ? null : stream.peerAddress,
+            listener.address,
+            stream == null ? null : stream.id,
+            phase,
+            Boolean.FALSE,
+            Boolean.FALSE,
+            Boolean.valueOf(ownershipCommitted),
+            platformCause,
+            cause
+        );
+    }
+
     private static String transportFailureMessage(
         String operation,
         String category,
@@ -215,6 +240,37 @@
 
     private static String commitFact(Boolean value) {
         return value == null ? "unknown" : value.toString();
+    }
+
+    private static String transportIoCategory(Throwable cause) {
+        return cause instanceof java.net.SocketTimeoutException ? "timed_out" : "io_failure";
+    }
+
+    private static String platformCause(String context, Throwable cause) {
+        if (cause == null || cause.getMessage() == null || cause.getMessage().isEmpty()) {
+            return context;
+        }
+        return context + ": " + cause.getMessage();
+    }
+
+    private static TransportFailure readEventFailure(
+        NetStream stream,
+        String phase,
+        boolean inputCommitted,
+        Throwable cause
+    ) {
+        return streamTransportFailure(
+            "read", "event_record_failed", stream, phase,
+            Boolean.valueOf(inputCommitted), Boolean.FALSE, false,
+            "could not record VELN_NET_EVENTS", cause
+        );
+    }
+
+    private static TransportFailure invalidReadFixture(NetStream stream, String sourceName) {
+        return streamTransportFailure(
+            "read", "invalid_input", stream, "input_consumed",
+            Boolean.TRUE, Boolean.FALSE, false, "malformed " + sourceName, null
+        );
     }
 
     private static String traceText(String value) {
@@ -597,7 +653,7 @@
                     joinedHexBytes(writes).getBytes(java.nio.charset.StandardCharsets.UTF_8)
                 );
             } catch (java.io.IOException error) {
-                throw new RuntimeFailure("transport close failed: could not capture loopback writes", error);
+                throw new RuntimeException("could not capture loopback writes", error);
             }
         }
     }
@@ -701,14 +757,14 @@
                     thread.join(productionTimeoutMillis());
                 } catch (InterruptedException error) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeFailure("transport close failed: loopback client interrupted", error);
+                    throw new RuntimeException("loopback client interrupted", error);
                 }
                 if (thread.isAlive()) {
-                    throw new RuntimeFailure("transport close failed: loopback client timed out");
+                    throw new RuntimeException("loopback client timed out");
                 }
             }
             if (failure != null) {
-                throw new RuntimeFailure("transport close failed: loopback client failed", failure);
+                throw new RuntimeException("loopback client failed", failure);
             }
         }
     }
@@ -822,9 +878,10 @@
         try {
             writeNetEvent("listen " + value);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport listen failed: could not record VELN_NET_EVENTS",
-                error
+            throw transportFailure(
+                "listen", "event_record_failed", value, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         return new NetListener(value);
@@ -843,15 +900,17 @@
             return netConnectProduction(value);
         }
         String streamId = connectedNetStreamId();
+        NetStream stream = new NetStream(streamId, streamId, value);
         try {
             writeNetEvent("connect " + value + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport connect failed: could not record VELN_NET_EVENTS",
-                error
+            throw streamTransportFailure(
+                "connect", "event_record_failed", stream, "stream_connected",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
-        return new NetStream(streamId, streamId, value);
+        return stream;
     }
 
     private static Object netConnectProduction(String address) {
@@ -859,7 +918,16 @@
         if (binding != null && !binding.listener.isClosed()) {
             return netConnectProductionListener(address, binding);
         }
-        java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
+        java.util.List<java.util.List<byte[]>> inputs;
+        try {
+            inputs = loopbackClientReadStreams();
+        } catch (IllegalArgumentException error) {
+            throw transportFailure(
+                "connect", "invalid_input", null, address, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
+        }
         if (inputs.isEmpty()) {
             inputs = java.util.Collections.singletonList(
                 java.util.Collections.<byte[]>emptyList()
@@ -868,15 +936,17 @@
         ProductionWriteCapture capture = new ProductionWriteCapture(1);
         InMemoryLoopback loopback = new InMemoryLoopback(inputs.get(0), 0, capture);
         String streamId = productionStreamId(0, 1);
+        NetStream stream = new NetStream(streamId, loopbackPeerAddress(0), address, loopback, true);
         try {
             writeNetEvent("connect-production " + address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport connect failed: could not record VELN_NET_EVENTS",
-                error
+            throw streamTransportFailure(
+                "connect", "event_record_failed", stream, "stream_connected",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
-        return new NetStream(streamId, loopbackPeerAddress(0), address, loopback, true);
+        return stream;
     }
 
     private static Object netConnectProductionListener(
@@ -887,19 +957,23 @@
             return netConnectProductionInMemoryListener(address, binding.listener);
         }
         java.net.Socket socket = null;
+        String streamId = null;
+        String localAddress = null;
+        String peerAddress = address;
+        boolean connected = false;
         try {
             socket = new java.net.Socket();
             socket.connect(
                 new java.net.InetSocketAddress(binding.host, binding.port),
                 productionTimeoutMillis()
             );
+            connected = true;
             socket.setSoTimeout(productionTimeoutMillis());
             int index = binding.listener.recordSourceConnection();
-            String streamId = sourceProductionStreamId(index);
-            writeNetEvent("connect-production " + address + " " + streamId);
-            String localAddress = formatSocketAddress(socket.getLocalSocketAddress());
-            String peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
-            return new NetStream(
+            streamId = sourceProductionStreamId(index);
+            localAddress = formatSocketAddress(socket.getLocalSocketAddress());
+            peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
+            NetStream stream = new NetStream(
                 streamId,
                 localAddress,
                 peerAddress,
@@ -909,9 +983,27 @@
                 socket.getInputStream(),
                 socket.getOutputStream()
             );
+            try {
+                writeNetEvent("connect-production " + address + " " + streamId);
+            } catch (java.io.IOException | RuntimeException error) {
+                closeQuietly(socket);
+                throw streamTransportFailure(
+                    "connect", "event_record_failed", stream, "stream_connected",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
+            return stream;
+        } catch (TransportFailure failure) {
+            throw failure;
         } catch (java.io.IOException | RuntimeException error) {
             closeQuietly(socket);
-            throw new RuntimeFailure("transport connect failed: production socket failed", error);
+            throw transportFailure(
+                "connect", transportIoCategory(error), localAddress, peerAddress,
+                null, streamId, connected ? "socket_connected" : "during_operation",
+                Boolean.FALSE, Boolean.FALSE, Boolean.valueOf(connected),
+                platformCause("production socket failed", error), error
+            );
         }
     }
 
@@ -931,8 +1023,7 @@
                 loopback.serverInput,
                 loopback.serverOutput
             ));
-            writeNetEvent("connect-production " + address + " " + clientStreamId);
-            return new NetStream(
+            NetStream stream = new NetStream(
                 clientStreamId,
                 loopbackPeerAddress(index),
                 address,
@@ -942,13 +1033,38 @@
                 loopback.clientInput,
                 loopback.clientOutput
             );
+            try {
+                writeNetEvent("connect-production " + address + " " + clientStreamId);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw streamTransportFailure(
+                    "connect", "event_record_failed", stream, "stream_connected",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
+            return stream;
+        } catch (TransportFailure failure) {
+            throw failure;
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport connect failed: production socket failed", error);
+            throw transportFailure(
+                "connect", transportIoCategory(error), null, address, null, null,
+                "during_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                platformCause("production socket failed", error), error
+            );
         }
     }
 
     private static Object netListenProduction(String address) {
-        java.util.List<java.util.List<byte[]>> inputs = loopbackClientReadStreams();
+        java.util.List<java.util.List<byte[]>> inputs;
+        try {
+            inputs = loopbackClientReadStreams();
+        } catch (IllegalArgumentException error) {
+            throw transportFailure(
+                "listen", "invalid_input", address, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
+        }
         if (productionReadInputsRequireChunkBoundaries(inputs)) {
             return netListenProductionInMemory(address, inputs);
         }
@@ -976,8 +1092,16 @@
                     inputs
                 );
             }
-            writeNetEvent("listen-production " + address);
             NetListener listener = new NetListener(address, server, client);
+            try {
+                writeNetEvent("listen-production " + address);
+            } catch (java.io.IOException | RuntimeException error) {
+                closeQuietly(server);
+                throw listenerTransportFailure(
+                    "listen", "event_record_failed", listener, "listener_bound", true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
             productionListenerBindings.put(
                 address,
                 new ProductionListenerBinding(
@@ -987,6 +1111,8 @@
                 )
             );
             return listener;
+        } catch (TransportFailure failure) {
+            throw failure;
         } catch (java.io.IOException | RuntimeException error) {
             closeQuietly(server);
             return netListenProductionInMemory(address);
@@ -994,7 +1120,15 @@
     }
 
     private static Object netListenProductionInMemory(String address) {
-        return netListenProductionInMemory(address, loopbackClientReadStreams());
+        try {
+            return netListenProductionInMemory(address, loopbackClientReadStreams());
+        } catch (IllegalArgumentException error) {
+            throw transportFailure(
+                "listen", "invalid_input", address, null, null, null,
+                "before_operation", Boolean.FALSE, Boolean.FALSE, Boolean.FALSE,
+                error.getMessage(), error
+            );
+        }
     }
 
     private static Object netListenProductionInMemory(
@@ -1009,9 +1143,10 @@
         try {
             writeNetEvent("listen-production " + address);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport listen failed: could not record VELN_NET_EVENTS",
-                error
+            throw transportFailure(
+                "listen", "event_record_failed", address, null, address, null,
+                "listener_bound", Boolean.FALSE, Boolean.FALSE, Boolean.TRUE,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         NetListener listener = new NetListener(address, loopbacks);
@@ -1036,17 +1171,20 @@
         }
         String streamId = acceptedNetStreamIdOrNull();
         if (streamId == null) {
-            throw new RuntimeFailure("transport accept failed: listener ended");
+            throw acceptTransportFailure(
+                "end_of_stream", value, null, "clean_end", false, "listener ended", null
+            );
         }
+        NetStream stream = new NetStream(streamId, value.address, streamId);
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport accept failed: could not record VELN_NET_EVENTS",
-                error
+            throw acceptTransportFailure(
+                "event_record_failed", value, stream, "stream_accepted", true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
-        return new NetStream(streamId, value.address, streamId);
+        return stream;
     }
 
     public static Object netAcceptOrEnd(Object listener) {
@@ -1067,22 +1205,23 @@
             try {
                 writeNetEvent("accept-end " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "clean_end", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return none();
         }
+        NetStream stream = new NetStream(streamId, value.address, streamId);
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport accept failed: could not record VELN_NET_EVENTS",
-                error
+            throw acceptTransportFailure(
+                "event_record_failed", value, stream, "stream_accepted", true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
-        return some(new NetStream(streamId, value.address, streamId));
+        return some(stream);
     }
 
     public static Object netAcceptUntil(Object listener, Object deadline) {
@@ -1098,9 +1237,9 @@
             try {
                 writeNetEvent("accept-deadline " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "deadline_expired", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return none();
@@ -1114,22 +1253,23 @@
             try {
                 writeNetEvent("accept-end " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "clean_end", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return none();
         }
+        NetStream stream = new NetStream(streamId, value.address, streamId);
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport accept failed: could not record VELN_NET_EVENTS",
-                error
+            throw acceptTransportFailure(
+                "event_record_failed", value, stream, "stream_accepted", true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
-        return some(new NetStream(streamId, value.address, streamId));
+        return some(stream);
     }
 
     public static Object netAcceptUntilCancellable(Object listener, Object deadline, Object token) {
@@ -1146,9 +1286,9 @@
             try {
                 writeNetEvent("accept-cancelled " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "cancelled", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return acceptOutcome("AcceptCancelled");
@@ -1157,9 +1297,9 @@
             try {
                 writeNetEvent("accept-deadline " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "deadline_expired", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return acceptOutcome("AcceptDeadlineExpired");
@@ -1175,9 +1315,9 @@
             try {
                 writeNetEvent("accept-end " + value.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", value, null, "clean_end", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return acceptOutcome("AcceptEnd");
@@ -1186,9 +1326,9 @@
         try {
             writeNetEvent("accept " + value.address + " " + streamId);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport accept failed: could not record VELN_NET_EVENTS",
-                error
+            throw acceptTransportFailure(
+                "event_record_failed", value, stream, "stream_accepted", true,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         return acceptOutcome("AcceptStream", stream);
@@ -1203,15 +1343,18 @@
             try {
                 writeNetEvent("accept-end-production " + listener.address);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", listener, null, "clean_end", false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             if (optional) {
                 return null;
             }
-            throw new RuntimeFailure("transport accept failed: production listener ended");
+            throw acceptTransportFailure(
+                "end_of_stream", listener, null, "clean_end", false,
+                "production listener ended", null
+            );
         }
         String streamId = productionStreamId(index, listener.productionStreamCount);
         boolean last = index + 1 >= listener.productionStreamCount;
@@ -1220,9 +1363,9 @@
             try {
                 writeNetEvent("accept-production " + listener.address + " " + sourceAcceptedStream.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
+                throw acceptTransportFailure(
+                    "event_record_failed", listener, sourceAcceptedStream,
+                    "stream_accepted", true, "could not record VELN_NET_EVENTS", error
                 );
             }
             if (last) {
@@ -1231,36 +1374,38 @@
             return sourceAcceptedStream;
         }
         if (listener.inMemoryLoopbacks != null) {
-            try {
-                writeNetEvent("accept-production " + listener.address + " " + streamId);
-            } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport accept failed: could not record VELN_NET_EVENTS",
-                    error
-                );
-            }
-            return new NetStream(
+            NetStream stream = new NetStream(
                 streamId,
                 listener.address,
                 loopbackPeerAddress(index),
                 listener.inMemoryLoopbacks.get(index),
                 last
             );
+            try {
+                writeNetEvent("accept-production " + listener.address + " " + streamId);
+            } catch (java.io.IOException | RuntimeException error) {
+                throw acceptTransportFailure(
+                    "event_record_failed", listener, stream, "stream_accepted", true,
+                    "could not record VELN_NET_EVENTS", error
+                );
+            }
+            return stream;
         }
+        java.net.Socket socket = null;
+        NetStream stream = null;
         try {
             if (listener.loopbackClient != null && !listener.hasSourceConnection()) {
                 listener.loopbackClient.start();
             }
-            java.net.Socket socket = listener.server.accept();
+            socket = listener.server.accept();
             socket.setSoTimeout(productionTimeoutMillis());
             if (last) {
                 closeQuietly(listener.server);
                 removeProductionListenerBinding(listener);
             }
-            writeNetEvent("accept-production " + listener.address + " " + streamId);
             String localAddress = formatSocketAddress(socket.getLocalSocketAddress());
             String peerAddress = formatSocketAddress(socket.getRemoteSocketAddress());
-            return new NetStream(
+            stream = new NetStream(
                 streamId,
                 localAddress,
                 peerAddress,
@@ -1270,16 +1415,33 @@
                 socket.getInputStream(),
                 socket.getOutputStream()
             );
-        } catch (java.net.SocketTimeoutException error) {
-            if (optional) {
-                closeQuietly(listener.server);
-                throw new RuntimeFailure("transport accept failed: production socket timed out", error);
+            try {
+                writeNetEvent("accept-production " + listener.address + " " + streamId);
+            } catch (java.io.IOException | RuntimeException error) {
+                closeQuietly(socket);
+                throw acceptTransportFailure(
+                    "event_record_failed", listener, stream, "stream_accepted", true,
+                    "could not record VELN_NET_EVENTS", error
+                );
             }
+            return stream;
+        } catch (TransportFailure failure) {
+            throw failure;
+        } catch (java.net.SocketTimeoutException error) {
             closeQuietly(listener.server);
-            throw new RuntimeFailure("transport accept failed: production socket timed out", error);
+            throw acceptTransportFailure(
+                "timed_out", listener, stream,
+                stream == null ? "during_operation" : "stream_accepted",
+                stream != null, platformCause("production socket timed out", error), error
+            );
         } catch (java.io.IOException | RuntimeException error) {
             closeQuietly(listener.server);
-            throw new RuntimeFailure("transport accept failed: production socket failed", error);
+            closeQuietly(socket);
+            throw acceptTransportFailure(
+                transportIoCategory(error), listener, stream,
+                stream == null ? "during_operation" : "stream_accepted",
+                stream != null, platformCause("production socket failed", error), error
+            );
         }
     }
 
@@ -1322,7 +1484,10 @@
             return readProductionChunk(value);
         }
         if (value.isReadShutdown()) {
-            throw new RuntimeFailure("transport read failed: stream read side is shut down");
+            throw streamTransportFailure(
+                "read", "closed", value, "read_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true, "stream read side is shut down", null
+            );
         }
         String sourceName = "VELN_NET_READ_CHUNK_HEX";
         String input = nextNetReadChunkHex(value.id);
@@ -1331,15 +1496,12 @@
         }
         Object chunk = byteChunkFromHex(input);
         if (isErr(chunk)) {
-            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+            throw invalidReadFixture(value, sourceName);
         }
         try {
             writeNetEvent("read " + value.id + " " + input);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport read failed: could not record VELN_NET_EVENTS",
-                error
-            );
+            throw readEventFailure(value, "input_consumed", true, error);
         }
         return unwrapOk(chunk);
     }
@@ -1400,10 +1562,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return none();
         }
@@ -1412,10 +1571,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return none();
         }
@@ -1424,15 +1580,12 @@
             : "VELN_NET_READ_CHUNK_HEX";
         Object chunk = byteChunkFromHex(input);
         if (isErr(chunk)) {
-            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+            throw invalidReadFixture(value, sourceName);
         }
         try {
             writeNetEvent("read " + value.id + " " + input);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport read failed: could not record VELN_NET_EVENTS",
-                error
-            );
+            throw readEventFailure(value, "input_consumed", true, error);
         }
         return some(unwrapOk(chunk));
     }
@@ -1450,10 +1603,7 @@
             try {
                 writeNetEvent("read-deadline " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "deadline_expired", false, error);
             }
             return none();
         }
@@ -1465,10 +1615,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return none();
         }
@@ -1477,10 +1624,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return none();
         }
@@ -1489,15 +1633,12 @@
             : "VELN_NET_READ_CHUNK_HEX";
         Object chunk = byteChunkFromHex(input);
         if (isErr(chunk)) {
-            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+            throw invalidReadFixture(value, sourceName);
         }
         try {
             writeNetEvent("read " + value.id + " " + input);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport read failed: could not record VELN_NET_EVENTS",
-                error
-            );
+            throw readEventFailure(value, "input_consumed", true, error);
         }
         return some(unwrapOk(chunk));
     }
@@ -1516,10 +1657,7 @@
             try {
                 writeNetEvent("read-cancelled " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "cancelled", false, error);
             }
             return streamReadOutcome("ReadCancelled");
         }
@@ -1527,10 +1665,7 @@
             try {
                 writeNetEvent("read-deadline " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "deadline_expired", false, error);
             }
             return streamReadOutcome("ReadDeadlineExpired");
         }
@@ -1544,10 +1679,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return streamReadOutcome("ReadEnd");
         }
@@ -1556,10 +1688,7 @@
             try {
                 writeNetEvent("read-end " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(value, "clean_end", true, error);
             }
             return streamReadOutcome("ReadEnd");
         }
@@ -1568,15 +1697,12 @@
             : "VELN_NET_READ_CHUNK_HEX";
         Object chunk = byteChunkFromHex(input);
         if (isErr(chunk)) {
-            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
+            throw invalidReadFixture(value, sourceName);
         }
         try {
             writeNetEvent("read " + value.id + " " + input);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport read failed: could not record VELN_NET_EVENTS",
-                error
-            );
+            throw readEventFailure(value, "input_consumed", true, error);
         }
         return streamReadOutcome("ReadChunk", unwrapOk(chunk));
     }
@@ -1631,9 +1757,10 @@
         try {
             writeNetEvent("write " + value.id + " " + format(bytes));
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure(
-                "transport write failed: could not record VELN_NET_EVENTS",
-                error
+            throw streamTransportFailure(
+                "write", "event_record_failed", value, "during_operation",
+                Boolean.FALSE, Boolean.FALSE, false,
+                "could not record VELN_NET_EVENTS", error
             );
         }
         return UNIT;
@@ -1652,9 +1779,10 @@
             try {
                 writeNetEvent("write-deadline " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport write failed: could not record VELN_NET_EVENTS",
-                    error
+                throw streamTransportFailure(
+                    "write", "event_record_failed", value, "deadline_expired",
+                    Boolean.FALSE, Boolean.FALSE, false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return streamWriteOutcome("WriteDeadlineExpired");
@@ -1677,9 +1805,10 @@
             try {
                 writeNetEvent("write-cancelled " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport write failed: could not record VELN_NET_EVENTS",
-                    error
+                throw streamTransportFailure(
+                    "write", "event_record_failed", value, "cancelled",
+                    Boolean.FALSE, Boolean.FALSE, false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return streamWriteOutcome("WriteCancelled");
@@ -1688,9 +1817,10 @@
             try {
                 writeNetEvent("write-deadline " + value.id);
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport write failed: could not record VELN_NET_EVENTS",
-                    error
+                throw streamTransportFailure(
+                    "write", "event_record_failed", value, "deadline_expired",
+                    Boolean.FALSE, Boolean.FALSE, false,
+                    "could not record VELN_NET_EVENTS", error
                 );
             }
             return streamWriteOutcome("WriteDeadlineExpired");
@@ -1929,9 +2059,10 @@
                 try {
                     value.server.close();
                 } catch (java.io.IOException | RuntimeException error) {
-                    throw new RuntimeFailure(
-                        "transport listener close failed: production socket failed",
-                        error
+                    throw listenerTransportFailure(
+                        "listener_close", transportIoCategory(error), value,
+                        "closed_handle", true,
+                        platformCause("production socket failed", error), error
                     );
                 }
             }
@@ -1983,7 +2114,10 @@
     private static Object readProductionChunk(NetStream stream) {
         Object chunk = readProductionChunkOrNull(stream);
         if (chunk == null) {
-            throw new RuntimeFailure("transport read failed: production stream ended");
+            throw streamTransportFailure(
+                "read", "end_of_stream", stream, "clean_end",
+                Boolean.TRUE, Boolean.FALSE, false, "production stream ended", null
+            );
         }
         return chunk;
     }
@@ -1995,36 +2129,58 @@
                 writeNetEvent("read-end-production " + stream.id);
                 return null;
             } catch (java.io.IOException | RuntimeException error) {
-                throw new RuntimeFailure(
-                    "transport read failed: could not record VELN_NET_EVENTS",
-                    error
-                );
+                throw readEventFailure(stream, "clean_end", true, error);
             }
         }
         byte[] buffer = new byte[4096];
+        int count;
         try {
-            int count = stream.input.read(buffer);
-            if (count < 0) {
+            count = stream.input.read(buffer);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw streamTransportFailure(
+                "read", transportIoCategory(error), stream, "during_operation",
+                null, Boolean.FALSE, false,
+                platformCause("production socket failed", error), error
+            );
+        }
+        if (count < 0) {
+            try {
                 writeNetEvent("read-end-production " + stream.id);
                 return null;
+            } catch (java.io.IOException | RuntimeException error) {
+                throw readEventFailure(stream, "clean_end", true, error);
             }
-            Object chunk = byteChunkFromByteArray(buffer, count);
-            writeNetEvent("read-production " + stream.id + " " + hexBytes(buffer, count));
-            return chunk;
-        } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport read failed: production socket failed", error);
         }
+        Object chunk = byteChunkFromByteArray(buffer, count);
+        try {
+            writeNetEvent("read-production " + stream.id + " " + hexBytes(buffer, count));
+        } catch (java.io.IOException | RuntimeException error) {
+            throw readEventFailure(stream, "input_consumed", true, error);
+        }
+        return chunk;
     }
 
     private static void writeProductionChunk(NetStream stream, Object bytes) {
         failIfStreamWriteShutdown(stream);
+        byte[] raw = byteChunkToByteArray(bytes);
         try {
-            byte[] raw = byteChunkToByteArray(bytes);
             stream.output.write(raw);
             stream.output.flush();
+        } catch (java.io.IOException | RuntimeException error) {
+            throw streamTransportFailure(
+                "write", transportIoCategory(error), stream, "during_operation",
+                Boolean.FALSE, null, false,
+                platformCause("production socket failed", error), error
+            );
+        }
+        try {
             writeNetEvent("write-production " + stream.id + " " + format(bytes));
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport write failed: production socket failed", error);
+            throw streamTransportFailure(
+                "write", "event_record_failed", stream, "output_committed",
+                Boolean.FALSE, Boolean.TRUE, false,
+                "could not record VELN_NET_EVENTS", error
+            );
         }
     }
 
@@ -2036,9 +2192,21 @@
             if (stream.socket != null) {
                 stream.socket.shutdownInput();
             }
+        } catch (java.io.IOException | RuntimeException error) {
+            throw streamTransportFailure(
+                "shutdown", transportIoCategory(error), stream, "read_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true,
+                platformCause("production socket failed", error), error
+            );
+        }
+        try {
             writeNetEvent("shutdown-read-production " + stream.id);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport shutdown_read failed: production socket failed", error);
+            throw streamTransportFailure(
+                "shutdown", "event_record_failed", stream, "read_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
+            );
         }
     }
 
@@ -2053,12 +2221,32 @@
             } else {
                 stream.output.close();
             }
+        } catch (java.io.IOException | RuntimeException error) {
+            throw streamTransportFailure(
+                "shutdown", transportIoCategory(error), stream, "write_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true,
+                platformCause("production socket failed", error), error
+            );
+        }
+        try {
             writeNetEvent("shutdown-write-production " + stream.id);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport shutdown_write failed: production socket failed", error);
+            throw streamTransportFailure(
+                "shutdown", "event_record_failed", stream, "write_shutdown",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
+            );
         }
         if (stream.inMemoryLoopback != null) {
-            stream.inMemoryLoopback.capture();
+            try {
+                stream.inMemoryLoopback.capture();
+            } catch (RuntimeException error) {
+                throw streamTransportFailure(
+                    "shutdown", "io_failure", stream, "write_shutdown",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    platformCause("production capture failed", error), error
+                );
+            }
         }
     }
 
@@ -2070,15 +2258,43 @@
                 stream.output.close();
                 stream.input.close();
             }
+        } catch (java.io.IOException | RuntimeException error) {
+            throw streamTransportFailure(
+                "stream_close", transportIoCategory(error), stream, "closed_handle",
+                Boolean.FALSE, Boolean.FALSE, true,
+                platformCause("production socket failed", error), error
+            );
+        }
+        try {
             writeNetEvent("close-production " + stream.id);
         } catch (java.io.IOException | RuntimeException error) {
-            throw new RuntimeFailure("transport close failed: production socket failed", error);
+            throw streamTransportFailure(
+                "stream_close", "event_record_failed", stream, "closed_handle",
+                Boolean.FALSE, Boolean.FALSE, true,
+                "could not record VELN_NET_EVENTS", error
+            );
         }
         if (stream.inMemoryLoopback != null) {
-            stream.inMemoryLoopback.capture();
+            try {
+                stream.inMemoryLoopback.capture();
+            } catch (RuntimeException error) {
+                throw streamTransportFailure(
+                    "stream_close", "io_failure", stream, "closed_handle",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    platformCause("production capture failed", error), error
+                );
+            }
         }
         if (stream.loopbackClient != null && stream.lastProductionStream) {
-            stream.loopbackClient.await();
+            try {
+                stream.loopbackClient.await();
+            } catch (RuntimeException error) {
+                throw streamTransportFailure(
+                    "stream_close", "io_failure", stream, "closed_handle",
+                    Boolean.FALSE, Boolean.FALSE, true,
+                    platformCause("loopback client failed", error), error
+                );
+            }
         }
     }
 
@@ -2331,7 +2547,7 @@
         for (String chunkPart : chunkParts) {
             Object chunk = byteChunkFromHex(chunkPart.trim());
             if (isErr(chunk)) {
-                throw new RuntimeFailure("transport listen failed: malformed " + sourceName);
+                throw new IllegalArgumentException("malformed " + sourceName);
             }
             chunks.add(byteChunkToByteArray(unwrapOk(chunk)));
         }

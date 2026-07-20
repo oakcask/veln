@@ -1,0 +1,5 @@
+# A connected stream keeps its endpoint and identity facts when event recording fails.
+pub fn main() -> () effects [net]
+	let stream: NetStream = net::connect("127.0.0.1:443")
+	net::close_stream(stream)
+end

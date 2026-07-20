@@ -1,0 +1,5 @@
+# A bound listener keeps its identity and ownership facts when event recording fails.
+pub fn main() -> () effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:39127")
+	net::close_listener(listener)
+end

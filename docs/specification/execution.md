@@ -57,7 +57,12 @@ enough.
   listener-close failures carry one structured transport payload. It preserves
   the stable operation and category, known endpoints and owned identity,
   lifecycle phase, input/output/ownership commit facts, and related platform
-  cause without inferring unknown context. The
+  cause without inferring unknown context. Event-record failures after
+  listener bind, stream connect or accept, input consumption, output commit,
+  and stream close are checked by the focused
+  `transport-socket-*-record-failure-*` cases under
+  `examples/specification/run/`; failure before those transitions and stale
+  closed-handle failure remain distinct phases. The
   cancellable receiver-list channel-first adapter observes cancellation as an
   ordinary routed, timed-out, or cancelled source outcome before producing
   adapter actions, instead of adding another fixed route-count execution

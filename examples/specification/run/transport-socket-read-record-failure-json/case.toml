@@ -1,0 +1,61 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READ_HEX = "0a0b;0c"
+VELN_NET_EVENT_RECORD_FAILED_PREFIX = "read-production "
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "error.message"
+equals = "transport read failed: event_record_failed"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "read"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "event_record_failed"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.peer_endpoint"
+equals = "127.0.0.1:1"
+
+[[json_assert]]
+path = "error.details.stream_id"
+equals = "production-stream"
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "input_consumed"
+
+[[json_assert]]
+path = "error.details.input_committed"
+equals = true
+
+[[json_assert]]
+path = "error.details.output_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "could not record VELN_NET_EVENTS"

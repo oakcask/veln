@@ -1,0 +1,18 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READ_HEX = "01;02"
+VELN_NET_EVENT_RECORD_FAILED_PREFIX = "write-production "
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["transport write failed: event_record_failed", "note: Local endpoint: 127.0.0.1:0.", "note: Peer endpoint: 127.0.0.1:1.", "note: Stream identity: production-stream.", "note: Lifecycle phase: output_committed.", "note: Commit state: input=false, output=true, ownership=false.", "note: Platform cause: could not record VELN_NET_EVENTS."]

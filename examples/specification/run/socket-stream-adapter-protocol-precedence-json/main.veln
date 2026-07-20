@@ -1,0 +1,16 @@
+# Adapter transport context does not replace a pure HTTP/2 protocol failure.
+
+fn protocol_failure() -> Result<(), RuntimeDiagnostic>
+	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT contains empty :protocol at byte offset 12", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_value_empty", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([])))))
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic> effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let local: String = net::stream_local_addr(stream)
+	let peer: String = net::stream_peer_addr(stream)
+	match local == peer
+		true => protocol_failure()
+		false => protocol_failure()
+	end
+end

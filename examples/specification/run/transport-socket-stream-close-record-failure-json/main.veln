@@ -1,0 +1,6 @@
+# A closed production stream keeps the committed ownership transition on record failure.
+pub fn main() -> () effects [net]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	net::close_stream(stream)
+end
