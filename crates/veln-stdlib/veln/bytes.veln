@@ -1,0 +1,19 @@
+type Byte
+	pub Byte(value: Int)
+end
+
+type ByteChunk
+	pub ByteChunk(bytes: Vec<Byte>)
+end
+
+type ByteOffset
+	pub ByteOffset(value: Int)
+end
+
+type ByteCount
+	pub ByteCount(value: Int)
+end
+
+type ByteView
+	pub ByteView(bytes: ByteChunk, offset: ByteOffset, count: ByteCount)
+end

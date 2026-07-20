@@ -96,14 +96,16 @@ full type reference.
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain
   exhaustiveness use descriptor facts.
-- The standard prelude exposes source-visible `Byte`, `ByteChunk`,
+- The standard prelude re-exports source-visible `Byte`, `ByteChunk`,
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
   `AcceptOutcome`, `StreamReadOutcome`, `StreamWriteOutcome`,
   `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`,
   and `EncodeError` named types for small immutable byte values, bounded byte
   views, byte-counted helper APIs, outgoing chunk lists and whole-chunk
   production results, listener accept decisions, stream read and write
-  decisions, and incremental codec boundary values.
+  decisions, and incremental codec boundary values. The five generic byte
+  types are owned by the private `std::bytes` module; user packages cannot
+  import that implementation module directly.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
   `if` expressions require a final `else`; `if` and `else if` conditions
