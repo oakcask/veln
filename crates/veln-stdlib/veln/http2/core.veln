@@ -1,0 +1,68 @@
+use prelude
+
+pub type StreamId
+	ValidatedStreamId(Int)
+end
+
+pub type StreamRef
+	ConnectionStream
+	RealStream(StreamId)
+end
+
+pub fn stream_id(value: Int) -> Result<StreamId, String>
+	match value > 0 and value <= 2147483647
+		true => Ok(ValidatedStreamId(value))
+		false => Err("stream id must be between 1 and 2147483647")
+	end
+end
+
+pub fn client_stream_id(value: Int) -> Result<StreamId, String>
+	let validated: StreamId = stream_id(value)?
+	match (value / 2) * 2 != value
+		true => Ok(validated)
+		false => Err("client-initiated stream id must be odd")
+	end
+end
+
+pub fn server_stream_id(value: Int) -> Result<StreamId, String>
+	let validated: StreamId = stream_id(value)?
+	match (value / 2) * 2 == value
+		true => Ok(validated)
+		false => Err("server-initiated stream id must be even")
+	end
+end
+
+pub fn connection_stream_ref() -> StreamRef
+	ConnectionStream
+end
+
+pub fn real_stream_ref(stream_id: StreamId) -> StreamRef
+	RealStream(stream_id)
+end
+
+pub fn stream_id_value(stream_id: StreamId) -> Int
+	match stream_id
+		ValidatedStreamId(value) => value
+	end
+end
+
+pub fn stream_ref_value(stream_ref: StreamRef) -> Int
+	match stream_ref
+		ConnectionStream => 0
+		RealStream(ValidatedStreamId(value)) => value
+	end
+end
+
+pub fn stream_ref_is_connection(stream_ref: StreamRef) -> Bool
+	match stream_ref
+		ConnectionStream => true
+		RealStream(_) => false
+	end
+end
+
+pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
+	match stream_ref
+		ConnectionStream => false
+		RealStream(_) => true
+	end
+end

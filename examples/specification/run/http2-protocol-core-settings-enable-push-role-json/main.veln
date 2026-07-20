@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # Client-side SETTINGS_ENABLE_PUSH rejection projects structured details.
 
 fn invalid_payload(error: String) -> RuntimeDiagnostic
@@ -25,5 +26,5 @@ fn settings_item() -> Result<ByteView, RuntimeDiagnostic>
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2_protocol_settings_not_allowed_for_endpoint(15, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", settings_item()?)
+	http2::diagnostic::protocol_settings_not_allowed_for_endpoint(15, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", settings_item()?)
 end

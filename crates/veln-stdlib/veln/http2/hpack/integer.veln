@@ -1,0 +1,43 @@
+use prelude
+
+pub fn decode(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, String>
+	match prefix_bits < 1 or prefix_bits > 8
+		true => Err("HPACK integer prefix width must be between 1 and 8")
+		false => decode_first(input, (1 << prefix_bits) - 1)
+	end
+end
+
+fn decode_first(input: ByteView, prefix_max: Int) -> Result<{ value : Int, consumed : Int }, String>
+	let first: Int = byte_read_u8_be(input)?
+	let value: Int = first & prefix_max
+	match value < prefix_max
+		true => Ok({ value: value, consumed: 1 })
+		false => decode_continuation(byte_view_drop(input, byte_count(1)?)?, prefix_max, 0, 1)
+	end
+end
+
+fn decode_continuation(input: ByteView, value: Int, shift: Int, consumed: Int) -> Result<{ value : Int, consumed : Int }, String>
+	match byte_count_to_int(byte_view_count(input)) == 0
+		true => Err("incomplete HPACK integer continuation")
+		false => match shift > 56
+			true => Err("HPACK integer continuation is too large")
+			false => decode_continuation_byte(input, value, shift, consumed, byte_read_u8_be(input)?)
+		end
+	end
+end
+
+fn decode_continuation_byte(input: ByteView, value: Int, shift: Int, consumed: Int, next: Int) -> Result<{ value : Int, consumed : Int }, String>
+	let accumulated: Int = value + ((next & 127) << shift)
+	match (next & 128) == 0
+		true => Ok({ value: accumulated, consumed: consumed + 1 })
+		false => decode_continuation(byte_view_drop(input, byte_count(1)?)?, accumulated, shift + 7, consumed + 1)
+	end
+end
+
+pub fn value(decoded: { value : Int, consumed : Int }) -> Int
+	decoded.value
+end
+
+pub fn consumed(decoded: { value : Int, consumed : Int }) -> Int
+	decoded.consumed
+end

@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 SETTINGS value helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -30,5 +31,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let item: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(item)?
-	http2_peer_limit_settings_value_out_of_range(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings", preview)
+	http2::diagnostic::peer_limit_settings_value_out_of_range(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings", preview)
 end

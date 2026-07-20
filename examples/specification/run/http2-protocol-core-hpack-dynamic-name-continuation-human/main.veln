@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.dynamic_name_continuation_out_of_range",
@@ -21,7 +22,7 @@ end
 
 fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_dynamic_name_continuation_out_of_range(
+	http2::hpack::diagnostic::dynamic_name_continuation_out_of_range(
 		98,
 		8,
 		127,

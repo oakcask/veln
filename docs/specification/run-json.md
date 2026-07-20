@@ -92,19 +92,19 @@ Dynamic-name continuation payloads use
 `RuntimeHpackFixtureDynamicNameDiagnostic(...)` to add
 `requested_dynamic_index` and `dynamic_table_entry_count` for the focused
 missing, malformed, and out-of-range continuation ids.
-The standard `hpack_fixture_unsupported_header_block(...)`,
-`hpack_fixture_malformed_string_length(...)`,
-`hpack_fixture_malformed_raw_string_value(...)`,
-`hpack_fixture_malformed_huffman_padding(...)`,
-`hpack_fixture_huffman_eos_symbol(...)`,
-`hpack_fixture_huffman_non_visible_value(...)`,
-`hpack_fixture_dynamic_index_out_of_range(...)`,
-`hpack_fixture_dynamic_name_continuation_missing(...)`,
-`hpack_fixture_dynamic_name_continuation_malformed(...)`,
-`hpack_fixture_dynamic_name_continuation_out_of_range(...)`,
-`hpack_fixture_table_size_update_malformed(...)`, and
-`hpack_fixture_table_size_update_not_at_start(...)`, and
-`hpack_fixture_table_size_update_trailing_bytes(...)` helpers return their
+The standard `http2::hpack::diagnostic::unsupported_header_block(...)`,
+`http2::hpack::diagnostic::malformed_string_length(...)`,
+`http2::hpack::diagnostic::malformed_raw_string_value(...)`,
+`http2::hpack::diagnostic::malformed_huffman_padding(...)`,
+`http2::hpack::diagnostic::huffman_eos_symbol(...)`,
+`http2::hpack::diagnostic::huffman_non_visible_value(...)`,
+`http2::hpack::diagnostic::dynamic_index_out_of_range(...)`,
+`http2::hpack::diagnostic::dynamic_name_continuation_missing(...)`,
+`http2::hpack::diagnostic::dynamic_name_continuation_malformed(...)`,
+`http2::hpack::diagnostic::dynamic_name_continuation_out_of_range(...)`,
+`http2::hpack::diagnostic::table_size_update_malformed(...)`, and
+`http2::hpack::diagnostic::table_size_update_not_at_start(...)`, and
+`http2::hpack::diagnostic::table_size_update_trailing_bytes(...)` helpers return their
 source-visible HPACK fixture `RuntimeDiagnostic(...)` payloads directly, so
 their direct helper examples keep the rendered payload in `details.value` and
 project the same HPACK fixture facts into `details.protocol_diagnostic`.
@@ -163,37 +163,37 @@ public JSON fields as the compatibility helpers, including stream
 classification, peer-limit facts, active state, rule provenance, receive-limit
 provenance, header-list facts, decoded header names, and bounded byte previews
 where applicable.
-The `http2_protocol_closed_with_pending(...)`,
-`http2_protocol_partial_preface(...)`,
-`http2_protocol_invalid_preface(...)`,
-`http2_protocol_initial_peer_settings_required(...)`,
-`http2_protocol_continuation_expected(...)`,
-`http2_peer_limit_frame_size_exceeded(...)`,
-`http2_peer_limit_header_list_size_exceeded(...)`,
-`http2_peer_limit_header_table_size_exceeded(...)`,
-`http2_peer_limit_concurrent_streams_exceeded(...)`, and
-`http2_peer_limit_settings_value_out_of_range(...)` helpers return their
+The `http2::diagnostic::protocol_closed_with_pending(...)`,
+`http2::diagnostic::protocol_partial_preface(...)`,
+`http2::diagnostic::protocol_invalid_preface(...)`,
+`http2::diagnostic::protocol_initial_peer_settings_required(...)`,
+`http2::diagnostic::protocol_continuation_expected(...)`,
+`http2::diagnostic::peer_limit_frame_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_header_list_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_header_table_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_concurrent_streams_exceeded(...)`, and
+`http2::diagnostic::peer_limit_settings_value_out_of_range(...)` helpers return their
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly, so
 `details.value` is the rendered payload instead of a plain string.
-The `http2_protocol_invalid_window_update_increment(...)`,
-`http2_protocol_content_length_mismatch(...)`,
-`http2_protocol_invalid_priority_dependency(...)`,
-`http2_protocol_stream_after_goaway(...)`, and
-`http2_peer_limit_flow_control_window_exceeded(...)` standard helpers also
+The `http2::diagnostic::protocol_invalid_window_update_increment(...)`,
+`http2::diagnostic::protocol_content_length_mismatch(...)`,
+`http2::diagnostic::protocol_invalid_priority_dependency(...)`,
+`http2::diagnostic::protocol_stream_after_goaway(...)`, and
+`http2::diagnostic::peer_limit_flow_control_window_exceeded(...)` standard helpers also
 return their source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly;
 their direct helper examples keep the rendered payload in `details.value` and
 project the same protocol facts into `details.protocol_diagnostic`.
-The `http2_protocol_invalid_stream_id(...)` standard helper likewise returns
+The `http2::diagnostic::protocol_invalid_stream_id(...)` standard helper likewise returns
 the source-visible HTTP/2 `RuntimeDiagnostic(...)` payload directly; its direct
 helper example keeps the rendered payload in `details.value` and projects the
 same stream id domain facts into `details.protocol_diagnostic`.
-The `http2_protocol_invalid_data_padding(...)` and
-`http2_protocol_unexpected_settings_ack(...)` standard helpers likewise return
+The `http2::diagnostic::protocol_invalid_data_padding(...)` and
+`http2::diagnostic::protocol_unexpected_settings_ack(...)` standard helpers likewise return
 source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their direct
 helper examples keep the rendered payload in `details.value` and project the
 same DATA padding or SETTINGS ACK facts into `details.protocol_diagnostic`.
-The `http2_protocol_invalid_request_header_list(...)` and
-`http2_protocol_invalid_response_header_list(...)` standard helpers likewise
+The `http2::diagnostic::protocol_invalid_request_header_list(...)` and
+`http2::diagnostic::protocol_invalid_response_header_list(...)` standard helpers likewise
 return source-visible HTTP/2 `RuntimeDiagnostic(...)` payloads directly; their
 direct helper examples keep the rendered payload in `details.value` and
 project the same request or response header-list facts into
@@ -794,11 +794,11 @@ pending-byte and continuation-ordering JSON examples return source-visible
 `RuntimeHttp2ProtocolContinuationExpectedDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
-`http2_protocol_closed_with_pending`,
-`http2_protocol_continuation_expected`,
-`http2_peer_limit_frame_size_exceeded`,
-`http2_peer_limit_header_table_size_exceeded`, and
-`http2_peer_limit_concurrent_streams_exceeded` standard helpers return the
+`http2::diagnostic::protocol_closed_with_pending`,
+`http2::diagnostic::protocol_continuation_expected`,
+`http2::diagnostic::peer_limit_frame_size_exceeded`,
+`http2::diagnostic::peer_limit_header_table_size_exceeded`, and
+`http2::diagnostic::peer_limit_concurrent_streams_exceeded` standard helpers return the
 same `RuntimeDiagnostic(...)` values directly, so their JSON result details
 are also derived from the returned value.
 The frame-size
@@ -893,10 +893,10 @@ id `http2.peer_limit.header_table_size_exceeded` and records
 `byte_preview` for the inspected header-block bytes; peer-advertised
 `SETTINGS_HEADER_TABLE_SIZE` remains outbound peer state and is not reported
 as the receive-limit provenance for rejecting incoming table-size updates.
-The `http2_peer_limit_header_table_size_exceeded(...)` standard helper
+The `http2::diagnostic::peer_limit_header_table_size_exceeded(...)` standard helper
 returns the same `RuntimeDiagnostic(...)` value directly, so its JSON result
 details are also derived from the returned value.
-The `http2_peer_limit_concurrent_streams_exceeded(...)` standard helper
+The `http2::diagnostic::peer_limit_concurrent_streams_exceeded(...)` standard helper
 likewise returns the same `RuntimeDiagnostic(...)` value directly, preserving
 `details.value` and the structured concurrent-stream protocol fields from the
 returned payload, including the inspected frame-header byte preview.
@@ -998,7 +998,7 @@ structured bounded `byte_preview` for the offending six-byte SETTINGS item.
 The preview uses the same object shape as other protocol-owned byte previews
 while byte offset, setting identity, observed value, accepted range, and
 peer-limit provenance remain separate fields. The
-`http2_peer_limit_settings_value_out_of_range(...)` standard helper returns
+`http2::diagnostic::peer_limit_settings_value_out_of_range(...)` standard helper returns
 the same `RuntimeDiagnostic(...)` value directly, so its JSON result details
 are also derived from the returned value. The
 stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
@@ -1009,7 +1009,7 @@ frame-header bytes. Source-visible
 `RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(...)` payloads keep the
 rendered `RuntimeDiagnostic(...)` in `details.value` while projecting the same
 protocol diagnostic fields. The standard
-`http2_protocol_invalid_stream_id(...)` helper returns the same
+`http2::diagnostic::protocol_invalid_stream_id(...)` helper returns the same
 `RuntimeDiagnostic(...)` value directly, so its JSON result details are also
 derived from the returned value.
 The preview uses the same object shape as other protocol-owned byte previews
@@ -1161,7 +1161,7 @@ item-width, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE` checked JSON
 examples return
 source-visible
 `RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(...)` payloads, and the
-`http2_protocol_invalid_payload_length(...)` helper returns the same
+`http2::diagnostic::protocol_invalid_payload_length(...)` helper returns the same
 source-visible payload directly. The checked helper JSON example also covers
 the `WINDOW_UPDATE` fixed payload-length case with frame kind 8, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
@@ -1170,7 +1170,7 @@ failures use source-visible
 `RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(...)` payloads, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields, including the
-structured bounded byte preview. The `http2_protocol_invalid_data_padding(...)`
+structured bounded byte preview. The `http2::diagnostic::protocol_invalid_data_padding(...)`
 standard helper returns the same source-visible payload directly. A SETTINGS ACK
 received while no local SETTINGS batch is
 outstanding uses id `http2.protocol.unexpected_settings_ack` and records
@@ -1182,7 +1182,7 @@ fields. The checked human and JSON examples return a source-visible
 `RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(...)` payload, so
 `details.value` keeps the rendered `RuntimeDiagnostic(...)` value while
 `details.protocol_diagnostic` keeps the same public fields. The
-`http2_protocol_unexpected_settings_ack(...)` standard helper returns the same
+`http2::diagnostic::protocol_unexpected_settings_ack(...)` standard helper returns the same
 source-visible payload directly. A peer-sent `SETTINGS_ENABLE_PUSH` item on a
 client receive path uses id
 `http2.protocol.settings_not_allowed_for_endpoint` and records
@@ -1192,7 +1192,7 @@ client receive path uses id
 six-byte SETTINGS item. The checked human and JSON examples return a
 source-visible
 `RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(...)` payload,
-and the `http2_protocol_settings_not_allowed_for_endpoint(...)` helper returns
+and the `http2::diagnostic::protocol_settings_not_allowed_for_endpoint(...)` helper returns
 the same value directly. A PRIORITY frame
 whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records

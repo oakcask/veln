@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK malformed raw string value projects structured runtime details.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
@@ -19,5 +20,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_malformed_raw_string_value(9, 5, 8, "fixture HPACK raw string value", "hpack_fixture", preview)
+	http2::hpack::diagnostic::malformed_raw_string_value(9, 5, 8, "fixture HPACK raw string value", "hpack_fixture", preview)
 end

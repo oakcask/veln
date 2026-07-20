@@ -1,0 +1,9 @@
+use prelude
+
+pub fn bytes_label(bytes: ByteChunk) -> String
+	prelude_builtin::hpack_fixture_huffman_bytes_label(bytes)
+end
+
+pub fn label_bytes(label: String) -> Option<ByteChunk>
+	prelude_builtin::hpack_fixture_huffman_label_bytes(label)
+end

@@ -14,9 +14,10 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-- [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): replace the
-  three remaining production HPACK generic-unsupported fallback families with
-  focused typed failures.
+- [HTTP/2 Standard Library Completion and Fixture Retirement](http2-sans-io-protocol-core.md):
+  complete HPACK and sans-I/O core ownership, migrate every monolithic fixture
+  assertion, and remove the broad protocol-core case only after its deletion
+  gate is satisfied.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   external production socket ownership beyond the loopback harness and
   structured host transport failures.

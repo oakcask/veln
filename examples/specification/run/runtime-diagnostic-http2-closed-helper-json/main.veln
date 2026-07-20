@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 closed-input helper returns a RuntimeDiagnostic payload.
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -22,5 +23,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	http2_protocol_closed_with_pending(0, 4, "none", 0, 0, 0, 0, "none", preview)
+	http2::diagnostic::protocol_closed_with_pending(0, 4, "none", 0, 0, 0, 0, "none", preview)
 end

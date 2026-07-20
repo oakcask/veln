@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # Extended CONNECT negotiation failures project focused request-header diagnostics.
 
 type Http2ProtocolFailure

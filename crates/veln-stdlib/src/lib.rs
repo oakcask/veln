@@ -34,10 +34,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bundle_has_standard_package_identity_and_prelude_export() {
+    fn bundle_has_standard_package_identity_and_public_modules() {
         let package = package_bundle();
         assert!(package.manifest.contains("name = \"std\""));
-        assert_eq!(package.exports, ["prelude.veln"]);
+        assert_eq!(
+            package.exports,
+            [
+                "prelude.veln",
+                "http2/frame.veln",
+                "http2/diagnostic.veln",
+                "http2/hpack.veln",
+                "http2/hpack/diagnostic.veln",
+                "http2/core.veln",
+            ]
+        );
     }
 
     #[test]

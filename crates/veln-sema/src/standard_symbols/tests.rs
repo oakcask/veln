@@ -33,10 +33,15 @@ fn descriptor_table_carries_prelude_purity_metadata() {
 #[test]
 fn compiler_adapter_descriptors_carry_pure_metadata() {
     for name in COMPILER_ADAPTER_NAMES.iter().copied() {
-        let symbol = prelude_symbol(name).expect("prelude adapter descriptor");
+        let symbol = compiler_adapter_symbol(name).expect("compiler adapter descriptor");
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.lowering, None);
+        if private_compiler_adapter_name(name) {
+            assert_eq!(prelude_symbol(name), None);
+        } else {
+            assert_eq!(prelude_symbol(name), Some(symbol));
+        }
     }
 }
 
@@ -108,7 +113,7 @@ fn compiler_adapter_boundary_matches_current_prelude_split() {
 }
 
 #[test]
-fn compiler_adapter_names_are_public_standard_package_functions() {
+fn public_compiler_adapter_names_are_public_prelude_functions() {
     let source = veln_stdlib::package_bundle()
         .files
         .iter()
@@ -125,7 +130,11 @@ fn compiler_adapter_names_are_public_standard_package_functions() {
         .filter_map(|function| function.name.as_deref())
         .collect::<BTreeSet<_>>();
 
-    for name in COMPILER_ADAPTER_NAMES {
+    for name in COMPILER_ADAPTER_NAMES
+        .iter()
+        .copied()
+        .filter(|name| prelude_symbol(name).is_some())
+    {
         assert!(
             public_names.contains(name),
             "missing public std function {name}"

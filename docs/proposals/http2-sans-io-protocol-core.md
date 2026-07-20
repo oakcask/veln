@@ -1,96 +1,267 @@
-# HTTP/2 Sans-I/O Protocol Core
+# HTTP/2 Standard Library Completion and Fixture Retirement
 
 Status: proposed
 
-This proposal defines the finite remaining HTTP/2 protocol-core work after the
-completed state-transition and production HPACK slices. Current behavior
-belongs under `../specification/`; completed proposal history belongs under
-`../reference/implemented-proposals/`.
+This proposal defines the finite work required to retire the monolithic
+`../../examples/specification/run/http2-protocol-core/` case. Current
+implemented behavior belongs under `../specification/`; the implemented public
+module boundary is summarized in `../specification/http2.md`.
 
 ## Problem
 
-The production HPACK paths accept recursive header lists, arbitrary octet
-values, legal leading table-size update sequences, the standard indexed and
-literal representation families, immutable dynamic-table state, and outbound
-representation selection. Some failures still collapse to the fixture-owned
-generic `hpack.fixture.unsupported_header_block` result even though the
-production boundary can identify the failed representation stage.
+HTTP/2 is now an opt-in standard-library feature. Public frame, diagnostic,
+HPACK, and stream-domain entry points exist under `std::http2`, and ordinary
+projects load only the imported standard-module dependency closure.
 
-The remaining work is to replace those generic production fallbacks with
-focused typed compression failures. No HTTP/2 frame or stream-state transition
-is currently scheduled by this proposal.
+Most protocol behavior and its strongest executable evidence still live in one
+specification case instead of the standard package. That case currently owns:
+
+- connection, stream-lifecycle, SETTINGS, flow-control, header-validation, and
+  graceful-shutdown transitions;
+- the production HPACK codec, dynamic-table state, header-field model, and
+  fixture-specific compatibility paths;
+- 65 `require_*` helper definitions used by 717 call sites;
+- one complete stdout value and 315 output-chunk-list assertions; and
+- local modules whose responsibilities overlap the new standard modules.
+
+The fixture takes materially longer to analyze and execute than focused cases.
+Deleting it now would remove coverage. Keeping it indefinitely would leave the
+standard API incomplete and continue to make unrelated workspace verification
+pay for a monolithic integration case.
+
+## Target Boundary
+
+The completed design has one implementation owner for each reusable behavior:
+
+- `std::http2::frame` owns frame schema, decode, and encode behavior.
+- `std::http2::diagnostic` owns protocol and peer-limit diagnostic conversion.
+- `std::http2::hpack` owns the public HPACK codec and immutable state API.
+- `std::http2::hpack::diagnostic` owns HPACK diagnostic conversion.
+- `std::http2::core` owns sans-I/O connection and stream transitions.
+- adjacent standard-library `*_test.veln` files own pure unit coverage.
+- focused cases under `../../examples/specification/` own observable CLI,
+  human-diagnostic, JSON, result-value, and output-chunk coverage.
+
+The monolithic case is not an implementation module and is not a permanent
+test utility. It may be deleted only after every behavior and observable
+assertion has a classified replacement.
 
 ## Finite Remaining Scope
 
-The remaining production HPACK targets are limited to these three failure
-families:
+### Shared Byte and Diagnostic Types
 
-1. Indexed-field decoding that reaches the generic unsupported result instead
-   of a focused malformed prefixed-integer, zero index, or unavailable table
-   entry failure.
-2. Literal-field decoding whose indexed or raw name, string length, raw octets,
-   or Huffman payload reaches the generic unsupported result instead of the
-   corresponding focused malformed or unavailable-name failure.
-3. Ordered-list encoding that reaches the generic unsupported result after
-   name validation, integer encoding, string encoding, or active-capacity
-   selection instead of returning a focused encode failure for that stage.
+Move the generic byte ADTs to a private `std::bytes` module and the generic
+runtime-diagnostic envelope to a private `std::diagnostic` module. The prelude
+must continue to export the established `Byte*` and `RuntimeDiagnostic*` names
+through type aliases; this is a source-boundary refactor, not a rename.
 
-Each target applies only to the production HEADERS, `PUSH_PROMISE`, and final
-CONTINUATION paths. Standalone compatibility fixtures may retain fixture-owned
-failures when they are deliberately testing the old boundary.
+Split HTTP/2 details out of the generic envelope:
 
-## Design Constraints
+- `RuntimeDiagnosticDetail` carries
+  `RuntimeHttp2Diagnostic(Http2DiagnosticDetail)` and
+  `RuntimeHttp2HpackDiagnostic(HpackDiagnosticDetail)`;
+- the existing concrete HTTP/2 and HPACK detail constructor names and fields
+  remain constructors of the inner ADTs;
+- human diagnostics and the structured `details.protocol_diagnostic`
+  projection remain stable; and
+- the nested constructor shape is intentionally visible in raw
+  `run --json` `result.value` output and receives focused parser coverage.
 
-### Limit Placement
+Compiler-known source helpers and private `prelude_builtin` intrinsic
+signatures remain separate registries. Existing JVM intrinsic link names stay
+private and do not become compatibility wrappers.
 
-Schema validation owns representation-local facts available from the current
-decoded fields. Runtime settings own negotiated or configured peer limits.
-Contracts own implementation invariants and must not replace peer protocol
-errors for invalid incoming frames.
+### HPACK Library Completion
 
-### Compression Error Reporting
+Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
+`hpack_dynamic_core.veln` into responsibility-named private modules behind the
+`std::http2::hpack` facade:
 
-Pure transitions return typed compression failures. Diagnostic conversion
-supplies stable ids, the absolute HPACK byte offset, representation family,
-failed stage, inspected bytes, and carried table-state provenance. A failed
-decode or encode exposes no partial header list, output bytes, or next state.
+- prefixed integer encode and decode, including incomplete and overflow cases;
+- Huffman encode and decode for arbitrary octets, including padding, EOS, and
+  non-visible values;
+- the complete static table and exact-name lookup;
+- immutable dynamic-table insertion, eviction, capacity changes, index lookup,
+  and size accounting;
+- indexed, literal-with-indexing, literal-without-indexing, never-indexed, and
+  table-size-update representations;
+- recursive header lists with octet-preserving values; and
+- immutable decode and encode transitions that expose no partial output or
+  next state after failure.
 
-### HPACK Boundary
+Fixture display labels, canned header lists, stdout formatting, and expected
+value construction do not belong in the standard package. Public HPACK names
+must not retain the `hpack_fixture_` prefix.
 
-Frame decoding keeps header blocks opaque until an explicit HPACK library
-boundary consumes them with immutable state. Schema declarations must not
-grow an HPACK-specific special case.
+The production codec must also replace the three remaining generic
+`hpack.fixture.unsupported_header_block` fallback families with focused typed
+failures:
 
-## Selection Stop Rule
+1. indexed-field integer, zero-index, and unavailable-entry failures;
+2. literal-field name, string-length, raw-octet, and Huffman failures; and
+3. ordered-list encode failures after validation, integer encoding, string
+   encoding, or active-capacity selection.
 
-Do not add another target to this page by writing "remaining SETTINGS",
-"remaining DATA", "remaining lifecycle", or another category. A newly found
-HTTP/2 gap must name the RFC rule, endpoint role, starting state, input or send
-intent, accepted or rejected transition, preserved state, and diagnostic
-precedence. Add it as a finite target only after confirming that the executable
-cases and current specification do not already cover it.
+These families are bounded by the supported HPACK representations above. A new
+fixture label or another same-shaped header-list example does not extend the
+scope.
 
-Extending a fixture count, stream-list width, table-update count, or other
-same-shaped sequence is not a target; use the existing recursive or
-list-backed abstraction instead.
+### Sans-I/O Core Completion
+
+Promote the pure protocol state and transitions from `main.veln` and
+`stream_domain.veln` into responsibility-named private modules behind
+`std::http2::core`:
+
+- connection preface and the initial peer SETTINGS gate;
+- frame-kind, payload-length, stream-id-domain, and continuation sequencing;
+- client, server, connection, promised, and peer-created stream domains;
+- stream lifecycle, priority, reset, reservation, and monotonic peer stream
+  admission;
+- local and peer SETTINGS state, acknowledgement tracking, and value ranges;
+- connection and per-stream receive and send flow-control windows;
+- request, response, trailer, informational, no-content, CONNECT, and extended
+  CONNECT header validation;
+- content-length accounting;
+- inbound HEADERS, CONTINUATION, DATA, PRIORITY, RST_STREAM, PUSH_PROMISE,
+  SETTINGS, PING, WINDOW_UPDATE, and GOAWAY transitions;
+- outbound DATA, HEADERS, PUSH_PROMISE, SETTINGS, PING, WINDOW_UPDATE,
+  RST_STREAM, PRIORITY, and GOAWAY transitions; and
+- graceful-shutdown admission and drain behavior.
+
+Every transition is sans-I/O: it consumes explicit input and immutable state
+and returns an action, next state, or typed failure. A rejected transition
+preserves input state, HPACK state, flow-control credit, pending continuation,
+and output bytes. Diagnostic precedence remains the same as the current
+executable cases.
+
+### Evidence Migration
+
+Maintain a checked migration matrix while implementing this proposal. The
+matrix has one row for every `require_*` call site, complete-stdout assertion,
+and output-chunk-list assertion in the monolithic case. Each row records:
+
+- the behavior or observable value it protects;
+- its destination standard test or focused specification case;
+- whether it covers success, failure, or failure-state preservation; and
+- whether it protects a diagnostic id, human rendering, structured JSON,
+  raw result value, CLI parsing, or emitted bytes.
+
+Rows may be consolidated only when one parameterized or recursive test proves
+the same invariant. Consolidation must name the shared invariant; it must not
+discard a distinct endpoint role, starting state, transition, diagnostic
+precedence rule, or output projection.
+
+Pure cases move next to their owning standard module as small
+`Result<(), String>` tests. Observable command behavior remains in focused
+specification cases. The existing focused human and JSON cases should be
+reused before creating new directories.
+
+The complete stdout string is retained until all of its lines are classified.
+It is removed as one change after the matrix reaches zero unclassified lines;
+it is not gradually weakened with broader substring matching.
+
+## Implementation Order
+
+Each step must leave the standard package and workspace buildable:
+
+1. Finish the private byte and diagnostic type boundaries and update compiler,
+   JVM, JSON-parser, and raw-value expectations.
+2. Complete HPACK state and codec behavior, then move pure HPACK assertions to
+   adjacent tests.
+3. Complete connection, stream, settings, flow-control, headers, and shutdown
+   transitions, moving pure assertions after each responsibility lands.
+4. Move remaining human, JSON, CLI parsing, and output-chunk assertions to
+   focused specification cases.
+5. Audit old symbols, local fixture types, `require_*` calls, stdout lines, and
+   output chunks. Classify every residual before deleting anything.
+6. Delete the monolithic case and promote the final implemented behavior to
+   `../specification/http2.md`. Archive this proposal under
+   `../reference/implemented-proposals/` and remove it from the proposal
+   catalog.
+
+Do not combine a large implementation move with deletion of its only existing
+coverage. The source fixture remains available until the replacement tests
+pass independently.
+
+## Verification Gates
+
+### Standard Package
+
+- Frame, HPACK, diagnostics, and core tests cover their responsibility without
+  importing fixture modules.
+- The toolchain-owned standard project checks all source files, including
+  modules unreachable from the prelude.
+- Private implementation modules cannot be imported from user packages.
+- Bare former HTTP/2 and HPACK helpers remain unavailable.
+
+### Protocol Semantics
+
+- Frame boundaries, preface, SETTINGS, continuation, stream lifecycle,
+  flow-control, GOAWAY, header validation, and every supported HPACK
+  representation have focused success and failure coverage.
+- Failed decode and send transitions prove state, input, and output
+  preservation.
+- Diagnostic ids, human rendering, and structured protocol details remain
+  stable, while raw nested diagnostic values use the intended new ADT shape.
+
+### Loader and Performance
+
+- An ordinary project does not load or analyze HTTP/2 modules.
+- Importing one HTTP/2 facade loads only its dependency closure.
+- Record guarded-run elapsed time and peak memory for an ordinary project, one
+  HTTP/2 import, all standard HTTP/2 tests, and the monolithic case before its
+  deletion.
+- Investigate timeouts, kills, allocation failures, or material regression as
+  implementation defects rather than increasing the runner limit.
+
+Use `scripts/agent-run` and `scripts/agent-test` for the broad, generated, and
+workspace checks.
+
+## Fixture Deletion Gate
+
+The directory `../../examples/specification/run/http2-protocol-core/` is
+deletable only when all of the following are true:
+
+- the migration matrix has zero unclassified `require_*` calls, stdout lines,
+  and output-chunk assertions;
+- no current implementation, standard test, or focused specification case
+  imports any file from the directory;
+- no reusable HPACK, stream, connection, settings, flow-control, header, or
+  shutdown implementation remains there;
+- standard package tests and focused specification cases pass without the
+  directory;
+- the workspace test suite passes after the directory is removed;
+- old public symbols and fixture-only public codec names have no unclassified
+  residuals; and
+- `../specification/http2.md` describes the resulting implemented API and
+  routes to its executable evidence.
+
+When the gate is met, remove `main.veln`, `stream_domain.veln`,
+`hpack_fixture.veln`, `hpack_static.veln`, `hpack_dynamic_core.veln`, and the
+monolithic `case.toml` together. A smaller example may keep the directory name
+only if it has a focused observable purpose and no longer contains the broad
+fixture implementation or complete stdout assertion.
 
 ## Non-Goals
 
 - TLS, ALPN, socket listeners, or platform networking
-- production throughput optimization
-- unspecified SETTINGS, DATA, stream-lifecycle, or graceful-shutdown work
-- new HPACK representation policy beyond the three generic-failure families
-- encoding all protocol state rules inside schema declarations
-- duplicating implemented behavior or completion history in this proposal
+- mutable or effectful connection ownership inside the pure core
+- production throughput optimization unrelated to removing an observed
+  regression
+- compatibility aliases for the former bare HTTP/2 or `hpack_fixture_*` API
+- weakening diagnostics or JSON assertions to make migration easier
+- adding another fixture case solely to increase a count, list width, table
+  update count, or stream sequence length
 
 ## Completion Criteria
 
-- All three production fallback families return focused typed failures and no
-  longer project `hpack.fixture.unsupported_header_block`.
-- Executable cases cover the direct production decoder or encoder plus complete
-  HEADERS, `PUSH_PROMISE`, and final CONTINUATION routing where applicable.
-- Failed transitions preserve the input HPACK and HTTP/2 state and expose no
-  partial decoded fields or encoded bytes.
-- Current behavior is promoted to the smallest matching specification page.
-- Completed history is archived under the implemented-proposal reference
-  index and removed from this active proposal.
+- The fixture deletion gate is satisfied and the monolithic case is removed or
+  reduced to a focused example.
+- `std::http2::hpack` and `std::http2::core` own all reusable behavior formerly
+  implemented by the fixture.
+- The three generic production HPACK fallback families return focused typed
+  failures.
+- Standard tests and focused specification cases preserve all classified
+  semantics and observable output.
+- Current specification and executable evidence are updated before this
+  proposal is archived as implemented history.

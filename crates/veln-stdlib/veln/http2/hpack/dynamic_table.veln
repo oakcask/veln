@@ -1,0 +1,38 @@
+use prelude
+
+pub type Entry
+	Entry(name: String, value: ByteChunk)
+end
+
+pub type Table
+	Table(capacity: Int, size: Int, entries: List<Entry>)
+end
+
+pub fn empty(capacity: Int) -> Result<Table, String>
+	match capacity < 0
+		true => Err("HPACK dynamic table capacity must not be negative")
+		false => Ok(Table(capacity, 0, Nil))
+	end
+end
+
+pub fn capacity(table: Table) -> Int
+	match table
+		Table(value, _, _) => value
+	end
+end
+
+pub fn size(table: Table) -> Int
+	match table
+		Table(_, value, _) => value
+	end
+end
+
+pub fn entry_count(table: Table) -> Int
+	match table
+		Table(_, _, entries) => list_fold(entries, 0, count_entry)
+	end
+end
+
+fn count_entry(count: Int, entry: Entry) -> Int
+	count + 1
+end

@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 response header-list helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -29,5 +30,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let bytes: ByteChunk = preview_bytes()?
-	http2_protocol_invalid_response_header_list(12, 9, 1, "missing_required_pseudo_header", ":status", "server", "response-headers", "rfc9113_response_pseudo_headers", preview_view(bytes)?)
+	http2::diagnostic::protocol_invalid_response_header_list(12, 9, 1, "missing_required_pseudo_header", ":status", "server", "response-headers", "rfc9113_response_pseudo_headers", preview_view(bytes)?)
 end

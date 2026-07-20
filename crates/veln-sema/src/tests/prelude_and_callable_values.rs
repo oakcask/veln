@@ -11024,48 +11024,48 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "produced_chunks: byte_chunks_produce(byte_chunks_append(byte_chunks_one(chunk), byte_chunks_one(other_chunk)), count), ",
             "read_u8: byte_read_u8_be(view), ",
             "expect_u8: byte_expect_fixed_u8_be(view, 1, \"DemoPacket\", \"kind\"), ",
-            "decoded_frame: byte_decode_http2_frame(view), ",
+            "decoded_frame: prelude_builtin::byte_decode_http2_frame(view), ",
             "decoded_widths: byte_decode_schema_width_sample(view), ",
             "decoded_validation: byte_decode_schema_validation_sample(view), ",
-            "closed_http2: http2_protocol_closed_with_pending(0, 4, \"none\", 0, 0, 0, 0, \"none\", view), ",
-            "partial_preface_http2: http2_protocol_partial_preface(0, 6, view), ",
-            "invalid_preface_http2: http2_protocol_invalid_preface(4, 42, 43, 4, view), ",
-            "initial_peer_settings_http2: http2_protocol_initial_peer_settings_required(24, 6, 1, 0, \"server\", \"expect-initial-peer-settings\", \"rfc9113_initial_peer_frame_requires_non_ack_settings\", view), ",
-            "continuation_http2: http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\", 3, \"rfc9113_continuation_sequence\", view), ",
-            "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\", view), ",
-            "invalid_stream_http2: http2_protocol_invalid_stream_id(0, 1, 2, \"nonzero client-initiated stream id\", \"server\", \"stream-id-domain\", \"server_receives_client_initiated_streams\", view), ",
-            "invalid_payload_http2: http2_protocol_invalid_payload_length(0, 6, 0, 7, 8, \"connection-control\", \"rfc9113_ping_payload_length\", view), ",
-            "invalid_window_update_increment_http2: http2_protocol_invalid_window_update_increment(0, 0, 0, 1, 2147483647, \"connection-flow-control\", \"window_update_increment_nonzero\", view), ",
-            "invalid_data_padding_http2: http2_protocol_invalid_data_padding(9, 1, 2, 0, \"open-stream\", \"rfc9113_data_padding\", view), ",
-            "content_length_http2: http2_protocol_content_length_mismatch(9, 0, 1, 5, 3, \"open-stream\", \"rfc9113_content_length_body\", view), ",
-            "invalid_request_headers_http2: http2_protocol_invalid_request_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":method\", \":scheme,:path\", \"request-headers\", \"rfc9113_request_pseudo_headers\", view), ",
-            "invalid_response_headers_http2: http2_protocol_invalid_response_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":status\", \"server\", \"response-headers\", \"rfc9113_response_pseudo_headers\", view), ",
-            "unexpected_settings_ack_http2: http2_protocol_unexpected_settings_ack(0, \"connection-control\", \"rfc9113_settings_ack_requires_outstanding_local_settings\", view), ",
-            "settings_endpoint_role_http2: http2_protocol_settings_not_allowed_for_endpoint(15, 2, \"SETTINGS_ENABLE_PUSH\", \"client\", 4, \"peer-settings\", \"rfc9113_client_must_not_receive_settings_enable_push\", view), ",
-            "invalid_priority_dependency_http2: http2_protocol_invalid_priority_dependency(0, 1, 1, \"stream-control\", \"rfc9113_priority_dependency\", view), ",
-            "stream_after_goaway_http2: http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\", view), ",
-            "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\", view), ",
-            "header_list_http2: http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\", view), ",
-            "header_table_http2: http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, \"local_configuration\", \"hpack_dynamic_table_size_update\", view), ",
-            "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\", view), ",
-            "concurrent_streams_http2: http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"server\", \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\", view), ",
-            "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
-            "hpack_fixture: hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
-            "hpack_static_index: hpack_fixture_unsupported_static_index(27, 1, 128, \"fixture HPACK static indexed header\", \"hpack_fixture\", view), ",
-            "hpack_string_length: hpack_fixture_malformed_string_length(27, 2, 4, \"fixture HPACK string length\", \"hpack_fixture\", view), ",
-            "hpack_raw_string: hpack_fixture_malformed_raw_string_value(27, 5, 8, \"fixture HPACK raw string value\", \"hpack_fixture\", view), ",
-            "hpack_padding: hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
-            "hpack_eos: hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
-            "hpack_visible: hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",
-            "hpack_table_update_malformed: hpack_fixture_table_size_update_malformed(27, 2, 63, \"fixture HPACK malformed table-size update integer\", \"hpack_fixture\", view), ",
-            "hpack_dynamic_index: hpack_fixture_dynamic_index_out_of_range(27, 1, 190, 0, 0, \"fixture dynamic indexed header\", \"hpack_fixture\", view), ",
-            "hpack_dynamic_name_missing: hpack_fixture_dynamic_name_continuation_missing(27, 8, 127, 1, 0, \"fixture dynamic-name continuation entry\", \"hpack_fixture\", view), ",
-            "hpack_dynamic_name_malformed: hpack_fixture_dynamic_name_continuation_malformed(27, 2, 127, -1, 3, \"fixture dynamic-name continuation integer\", \"hpack_fixture\", view), ",
-            "hpack_dynamic_name_out_of_range: hpack_fixture_dynamic_name_continuation_out_of_range(27, 8, 127, 3, 3, \"fixture dynamic-name continuation range\", \"hpack_fixture\", view), ",
-            "hpack_bytes_label: hpack_fixture_huffman_bytes_label(chunk), ",
-            "hpack_label_bytes: hpack_fixture_huffman_label_bytes(\"hpack-bytes-00-ff\"), ",
-            "hpack_table_update_placement: hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update at header block start\", \"hpack_fixture\", view), ",
-            "hpack_table_update_trailing: hpack_fixture_table_size_update_trailing_bytes(10, 3, 63, 33, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update without trailing bytes\", \"hpack_fixture\", view), ",
+            "closed_http2: prelude_builtin::http2_protocol_closed_with_pending(0, 4, \"none\", 0, 0, 0, 0, \"none\", view), ",
+            "partial_preface_http2: prelude_builtin::http2_protocol_partial_preface(0, 6, view), ",
+            "invalid_preface_http2: prelude_builtin::http2_protocol_invalid_preface(4, 42, 43, 4, view), ",
+            "initial_peer_settings_http2: prelude_builtin::http2_protocol_initial_peer_settings_required(24, 6, 1, 0, \"server\", \"expect-initial-peer-settings\", \"rfc9113_initial_peer_frame_requires_non_ack_settings\", view), ",
+            "continuation_http2: prelude_builtin::http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\", 3, \"rfc9113_continuation_sequence\", view), ",
+            "invalid_kind_http2: prelude_builtin::http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\", view), ",
+            "invalid_stream_http2: prelude_builtin::http2_protocol_invalid_stream_id(0, 1, 2, \"nonzero client-initiated stream id\", \"server\", \"stream-id-domain\", \"server_receives_client_initiated_streams\", view), ",
+            "invalid_payload_http2: prelude_builtin::http2_protocol_invalid_payload_length(0, 6, 0, 7, 8, \"connection-control\", \"rfc9113_ping_payload_length\", view), ",
+            "invalid_window_update_increment_http2: prelude_builtin::http2_protocol_invalid_window_update_increment(0, 0, 0, 1, 2147483647, \"connection-flow-control\", \"window_update_increment_nonzero\", view), ",
+            "invalid_data_padding_http2: prelude_builtin::http2_protocol_invalid_data_padding(9, 1, 2, 0, \"open-stream\", \"rfc9113_data_padding\", view), ",
+            "content_length_http2: prelude_builtin::http2_protocol_content_length_mismatch(9, 0, 1, 5, 3, \"open-stream\", \"rfc9113_content_length_body\", view), ",
+            "invalid_request_headers_http2: prelude_builtin::http2_protocol_invalid_request_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":method\", \":scheme,:path\", \"request-headers\", \"rfc9113_request_pseudo_headers\", view), ",
+            "invalid_response_headers_http2: prelude_builtin::http2_protocol_invalid_response_header_list(12, 9, 1, \"missing_required_pseudo_header\", \":status\", \"server\", \"response-headers\", \"rfc9113_response_pseudo_headers\", view), ",
+            "unexpected_settings_ack_http2: prelude_builtin::http2_protocol_unexpected_settings_ack(0, \"connection-control\", \"rfc9113_settings_ack_requires_outstanding_local_settings\", view), ",
+            "settings_endpoint_role_http2: prelude_builtin::http2_protocol_settings_not_allowed_for_endpoint(15, 2, \"SETTINGS_ENABLE_PUSH\", \"client\", 4, \"peer-settings\", \"rfc9113_client_must_not_receive_settings_enable_push\", view), ",
+            "invalid_priority_dependency_http2: prelude_builtin::http2_protocol_invalid_priority_dependency(0, 1, 1, \"stream-control\", \"rfc9113_priority_dependency\", view), ",
+            "stream_after_goaway_http2: prelude_builtin::http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\", view), ",
+            "frame_size_http2: prelude_builtin::http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\", view), ",
+            "header_list_http2: prelude_builtin::http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, \"local_configuration\", \"header_list_receive_limit\", view), ",
+            "header_table_http2: prelude_builtin::http2_peer_limit_header_table_size_exceeded(35, 289, 160, 9, 1, \"local_configuration\", \"hpack_dynamic_table_size_update\", view), ",
+            "flow_control_http2: prelude_builtin::http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\", view), ",
+            "concurrent_streams_http2: prelude_builtin::http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, \"server\", \"open-stream\", \"local_configuration\", \"peer_created_stream_receive_limit\", view), ",
+            "settings_value_http2: prelude_builtin::http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\", view), ",
+            "hpack_fixture: prelude_builtin::hpack_fixture_unsupported_header_block(27, 1, 255, \"fixture header block\", \"hpack_fixture\", view), ",
+            "hpack_static_index: prelude_builtin::hpack_fixture_unsupported_static_index(27, 1, 128, \"fixture HPACK static indexed header\", \"hpack_fixture\", view), ",
+            "hpack_string_length: prelude_builtin::hpack_fixture_malformed_string_length(27, 2, 4, \"fixture HPACK string length\", \"hpack_fixture\", view), ",
+            "hpack_raw_string: prelude_builtin::hpack_fixture_malformed_raw_string_value(27, 5, 8, \"fixture HPACK raw string value\", \"hpack_fixture\", view), ",
+            "hpack_padding: prelude_builtin::hpack_fixture_malformed_huffman_padding(27, 3, 4, \"fixture HPACK Huffman padding\", \"hpack_fixture\", view), ",
+            "hpack_eos: prelude_builtin::hpack_fixture_huffman_eos_symbol(27, 6, 4, \"fixture HPACK Huffman data symbol instead of EOS\", \"hpack_fixture\", view), ",
+            "hpack_visible: prelude_builtin::hpack_fixture_huffman_non_visible_value(27, 4, 4, \"fixture HPACK Huffman visible ASCII header value\", \"hpack_fixture\", view), ",
+            "hpack_table_update_malformed: prelude_builtin::hpack_fixture_table_size_update_malformed(27, 2, 63, \"fixture HPACK malformed table-size update integer\", \"hpack_fixture\", view), ",
+            "hpack_dynamic_index: prelude_builtin::hpack_fixture_dynamic_index_out_of_range(27, 1, 190, 0, 0, \"fixture dynamic indexed header\", \"hpack_fixture\", view), ",
+            "hpack_dynamic_name_missing: prelude_builtin::hpack_fixture_dynamic_name_continuation_missing(27, 8, 127, 1, 0, \"fixture dynamic-name continuation entry\", \"hpack_fixture\", view), ",
+            "hpack_dynamic_name_malformed: prelude_builtin::hpack_fixture_dynamic_name_continuation_malformed(27, 2, 127, -1, 3, \"fixture dynamic-name continuation integer\", \"hpack_fixture\", view), ",
+            "hpack_dynamic_name_out_of_range: prelude_builtin::hpack_fixture_dynamic_name_continuation_out_of_range(27, 8, 127, 3, 3, \"fixture dynamic-name continuation range\", \"hpack_fixture\", view), ",
+            "hpack_bytes_label: prelude_builtin::hpack_fixture_huffman_bytes_label(chunk), ",
+            "hpack_label_bytes: prelude_builtin::hpack_fixture_huffman_label_bytes(\"hpack-bytes-00-ff\"), ",
+            "hpack_table_update_placement: prelude_builtin::hpack_fixture_table_size_update_not_at_start(10, 2, 62, 30, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update at header block start\", \"hpack_fixture\", view), ",
+            "hpack_table_update_trailing: prelude_builtin::hpack_fixture_table_size_update_trailing_bytes(10, 3, 63, 33, 1, 1, \"hpack-fixture\", \"fixture HPACK table-size update without trailing bytes\", \"hpack_fixture\", view), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",
             "read_u40: byte_read_u40_be(view), read_u48: byte_read_u48_be(view), ",
@@ -11232,6 +11232,27 @@ fn lowers_qualified_prelude_builtin_calls() {
             ..
         } if name == "vec_len"
     ));
+}
+
+#[test]
+fn http2_private_intrinsics_are_not_bare_prelude_helpers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(view: ByteView) -> Result<{ length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView }, String>\n",
+            "  byte_decode_http2_frame(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `byte_decode_http2_frame`"
+    }));
 }
 
 #[test]
@@ -11433,7 +11454,13 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
 #[test]
 fn standard_package_sources_are_embedded_and_checkable() {
     for source in veln_stdlib::package_bundle().files {
-        let file = SourceFile::new(source.path, source.text);
+        let module_name = source
+            .path
+            .strip_suffix(".veln")
+            .expect("standard source extension")
+            .replace('/', "::");
+        let text = format!("mod std::{module_name}\n{}", source.text);
+        let file = SourceFile::new(source.path, text);
         let parsed = parse(&file);
         assert!(
             parsed.diagnostics.is_empty(),
@@ -11443,13 +11470,14 @@ fn standard_package_sources_are_embedded_and_checkable() {
         );
 
         let module = lower_surface_ast(&parsed.tree);
-        let diagnostics = analyze_surface_module(&module);
-
-        assert!(
-            diagnostics.is_empty(),
-            "unexpected source helper diagnostics for {}: {diagnostics:#?}",
-            source.path
-        );
+        if module.uses.is_empty() {
+            let diagnostics = analyze_surface_module(&module);
+            assert!(
+                diagnostics.is_empty(),
+                "unexpected source helper diagnostics for {}: {diagnostics:#?}",
+                source.path
+            );
+        }
         assert!(
             !module.functions.is_empty(),
             "embedded source should define functions"

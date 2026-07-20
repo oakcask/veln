@@ -1,0 +1,20 @@
+use http2::core
+
+test stream_domains_are_role_aware() -> Result<(), String>
+	let client: StreamId = http2::core::client_stream_id(1)?
+	let server: StreamId = http2::core::server_stream_id(2)?
+	match http2::core::stream_id_value(client) == 1 and http2::core::stream_id_value(server) == 2
+		true => Ok(())
+		false => Err("HTTP/2 stream domains did not retain validated values")
+	end
+end
+
+test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
+	match http2::core::client_stream_id(0)
+		Ok(_) => Err("zero entered the HTTP/2 stream id domain")
+		Err(_) => match http2::core::server_stream_id(3)
+			Ok(_) => Err("odd stream id entered the server stream domain")
+			Err(_) => Ok(())
+		end
+	end
+end

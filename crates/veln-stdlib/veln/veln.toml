@@ -2,4 +2,4 @@
 name = "std"
 
 [lib]
-exports = ["prelude.veln"]
+exports = ["prelude.veln", "http2/frame.veln", "http2/diagnostic.veln", "http2/hpack.veln", "http2/hpack/diagnostic.veln", "http2/core.veln"]

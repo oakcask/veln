@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 content-length helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -28,5 +29,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let payload: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(payload)?
-	http2_protocol_content_length_mismatch(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", preview)
+	http2::diagnostic::protocol_content_length_mismatch(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", preview)
 end

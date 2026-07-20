@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 DATA padding helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -28,5 +29,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let payload: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(payload)?
-	http2_protocol_invalid_data_padding(9, 1, 2, 0, "open-stream", "rfc9113_data_padding", preview)
+	http2::diagnostic::protocol_invalid_data_padding(9, 1, 2, 0, "open-stream", "rfc9113_data_padding", preview)
 end

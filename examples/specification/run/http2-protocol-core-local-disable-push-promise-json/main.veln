@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 peer-sent PUSH_PROMISE after local disable-push projects JSON details.
 
 schema Http2FrameHeaderWire

@@ -1,3 +1,4 @@
+use http2::hpack::diagnostic from "std"
 # HTTP/2 HPACK malformed Huffman padding projects to human runtime diagnostics.
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
@@ -19,5 +20,5 @@ end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let preview: ByteView = preview_view()?
-	hpack_fixture_malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_static", preview)
+	http2::hpack::diagnostic::malformed_huffman_padding(9, 3, 4, "fixture HPACK Huffman padding", "hpack_static", preview)
 end

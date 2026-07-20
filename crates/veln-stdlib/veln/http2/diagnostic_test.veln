@@ -1,0 +1,14 @@
+use prelude
+use http2::diagnostic
+
+test protocol_diagnostic_keeps_stable_id() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("00")?
+	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?
+	match http2::diagnostic::protocol_invalid_preface(0, 80, 0, 0, preview)
+		Ok(_) => Err("invalid HTTP/2 preface did not produce a diagnostic")
+		Err(RuntimeDiagnostic(id, _, _)) => match id == "http2.protocol.invalid_preface"
+			true => Ok(())
+			false => Err("HTTP/2 diagnostic id changed")
+		end
+	end
+end

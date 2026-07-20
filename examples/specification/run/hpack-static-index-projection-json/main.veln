@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic("hpack.static.unsupported_index", error, RuntimeHpackFixtureDiagnostic(15, 0, -1, "HPACK static indexed header", "hpack_static", byte_chunk([])))
 end

@@ -848,33 +848,33 @@ byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteCh
 byte_chunks_produce(chunks: List<ByteChunk>, budget: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
-byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
+http2::frame::decode(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
 byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
 byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
-http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_initial_peer_settings_required(offset: Int, actual_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_settings_not_allowed_for_endpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_header_list_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-hpack_fixture_table_size_update_malformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-hpack_fixture_table_size_update_not_at_start(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-hpack_fixture_table_size_update_trailing_bytes(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_partial_preface(offset: Int, pending_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_preface(offset: Int, expected_byte: Int, actual_byte: Int, matched_count: Int, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_initial_peer_settings_required(offset: Int, actual_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_request_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_response_header_list(offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_content_length_mismatch(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_settings_not_allowed_for_endpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_header_list_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_header_table_size_exceeded(offset: Int, observed_size: Int, allowed_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::diagnostic::peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::hpack::diagnostic::table_size_update_malformed(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::hpack::diagnostic::table_size_update_not_at_start(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+http2::hpack::diagnostic::table_size_update_trailing_bytes(offset: Int, observed_size: Int, observed_first_byte: Int, observed_update_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
@@ -1196,28 +1196,28 @@ helpers, rather than the public schema application surface.
   `byte_chunks_produce`,
   `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`,
-  `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,
+  `http2::frame::decode`, `byte_decode_schema_width_sample`,
   `byte_decode_schema_validation_sample`,
-  `http2_protocol_closed_with_pending`,
-  `http2_protocol_partial_preface`,
-  `http2_protocol_invalid_preface`,
-  `http2_protocol_initial_peer_settings_required`,
-  `http2_protocol_continuation_expected`,
-  `http2_protocol_invalid_frame_kind`,
-  `http2_protocol_invalid_stream_id`,
-  `http2_protocol_invalid_payload_length`,
-  `http2_protocol_invalid_window_update_increment`,
-  `http2_protocol_invalid_request_header_list`,
-  `http2_protocol_invalid_response_header_list`,
-  `http2_protocol_content_length_mismatch`,
-  `http2_protocol_invalid_priority_dependency`,
-  `http2_protocol_stream_after_goaway`,
-  `http2_peer_limit_frame_size_exceeded`,
-  `http2_peer_limit_header_list_size_exceeded`,
-  `http2_peer_limit_header_table_size_exceeded`,
-  `http2_peer_limit_flow_control_window_exceeded`,
-  `http2_peer_limit_concurrent_streams_exceeded`,
-  `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
+  `http2::diagnostic::protocol_closed_with_pending`,
+  `http2::diagnostic::protocol_partial_preface`,
+  `http2::diagnostic::protocol_invalid_preface`,
+  `http2::diagnostic::protocol_initial_peer_settings_required`,
+  `http2::diagnostic::protocol_continuation_expected`,
+  `http2::diagnostic::protocol_invalid_frame_kind`,
+  `http2::diagnostic::protocol_invalid_stream_id`,
+  `http2::diagnostic::protocol_invalid_payload_length`,
+  `http2::diagnostic::protocol_invalid_window_update_increment`,
+  `http2::diagnostic::protocol_invalid_request_header_list`,
+  `http2::diagnostic::protocol_invalid_response_header_list`,
+  `http2::diagnostic::protocol_content_length_mismatch`,
+  `http2::diagnostic::protocol_invalid_priority_dependency`,
+  `http2::diagnostic::protocol_stream_after_goaway`,
+  `http2::diagnostic::peer_limit_frame_size_exceeded`,
+  `http2::diagnostic::peer_limit_header_list_size_exceeded`,
+  `http2::diagnostic::peer_limit_header_table_size_exceeded`,
+  `http2::diagnostic::peer_limit_flow_control_window_exceeded`,
+  `http2::diagnostic::peer_limit_concurrent_streams_exceeded`,
+  `http2::diagnostic::peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
   `byte_read_u40_be`, `byte_read_u48_be`, `byte_read_u56_be`,
   `byte_read_u64_be`,
@@ -1242,7 +1242,7 @@ helpers, rather than the public schema application surface.
   `string_parse_int`, and `int_to_string`
 - compatibility-only float operator adapters remain compiler-owned
 
-The `http2_protocol_invalid_payload_length` helper is a Veln package function
+The `http2::diagnostic::protocol_invalid_payload_length` helper is a Veln package function
 and returns `Result<(), RuntimeDiagnostic>`, matching the source-visible
 invalid-payload-length detail used by the HTTP/2 protocol-core fixed
 payload-length examples, including `WINDOW_UPDATE`.
@@ -1305,28 +1305,28 @@ returned diagnostic values,
 values, and
 `RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(...)` for projecting
 `http2.protocol.stream_after_goaway` failures from returned diagnostic values.
-`http2_protocol_closed_with_pending(...)`,
-`http2_protocol_partial_preface(...)`,
-`http2_protocol_invalid_preface(...)`,
-`http2_protocol_initial_peer_settings_required(...)`,
-`http2_protocol_continuation_expected(...)`,
-`http2_protocol_invalid_frame_kind(...)`,
-`http2_protocol_invalid_stream_id(...)`,
-`http2_protocol_invalid_data_padding(...)`,
-`http2_protocol_invalid_window_update_increment(...)`,
-`http2_protocol_content_length_mismatch(...)`,
-`http2_protocol_unexpected_settings_ack(...)`,
-`http2_protocol_settings_not_allowed_for_endpoint(...)`,
-`http2_protocol_invalid_priority_dependency(...)`,
-`http2_protocol_stream_after_goaway(...)`,
-`http2_peer_limit_frame_size_exceeded(...)`,
-`http2_peer_limit_header_list_size_exceeded(...)`,
-`http2_peer_limit_header_table_size_exceeded(...)`,
-`http2_peer_limit_flow_control_window_exceeded(...)`,
-`http2_peer_limit_concurrent_streams_exceeded(...)`, and
-`http2_peer_limit_settings_value_out_of_range(...)`,
-`http2_protocol_invalid_request_header_list(...)`, and
-`http2_protocol_invalid_response_header_list(...)` return these payloads
+`http2::diagnostic::protocol_closed_with_pending(...)`,
+`http2::diagnostic::protocol_partial_preface(...)`,
+`http2::diagnostic::protocol_invalid_preface(...)`,
+`http2::diagnostic::protocol_initial_peer_settings_required(...)`,
+`http2::diagnostic::protocol_continuation_expected(...)`,
+`http2::diagnostic::protocol_invalid_frame_kind(...)`,
+`http2::diagnostic::protocol_invalid_stream_id(...)`,
+`http2::diagnostic::protocol_invalid_data_padding(...)`,
+`http2::diagnostic::protocol_invalid_window_update_increment(...)`,
+`http2::diagnostic::protocol_content_length_mismatch(...)`,
+`http2::diagnostic::protocol_unexpected_settings_ack(...)`,
+`http2::diagnostic::protocol_settings_not_allowed_for_endpoint(...)`,
+`http2::diagnostic::protocol_invalid_priority_dependency(...)`,
+`http2::diagnostic::protocol_stream_after_goaway(...)`,
+`http2::diagnostic::peer_limit_frame_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_header_list_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_header_table_size_exceeded(...)`,
+`http2::diagnostic::peer_limit_flow_control_window_exceeded(...)`,
+`http2::diagnostic::peer_limit_concurrent_streams_exceeded(...)`, and
+`http2::diagnostic::peer_limit_settings_value_out_of_range(...)`,
+`http2::diagnostic::protocol_invalid_request_header_list(...)`, and
+`http2::diagnostic::protocol_invalid_response_header_list(...)` return these payloads
 directly as `Result<(), RuntimeDiagnostic>`.
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of

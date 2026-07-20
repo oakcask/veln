@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 header-list helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -28,5 +29,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let header_block: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(header_block)?
-	http2_peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", preview)
+	http2::diagnostic::peer_limit_header_list_size_exceeded(12, 10, 9, 9, 1, "local_configuration", "header_list_receive_limit", preview)
 end

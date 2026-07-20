@@ -1,3 +1,4 @@
+use http2::diagnostic from "std"
 # HTTP/2 concurrent-stream helper projects human runtime diagnostics from the payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -30,5 +31,5 @@ end
 pub fn main() -> Result<(), RuntimeDiagnostic>
 	let frame_header: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(frame_header)?
-	http2_peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", preview)
+	http2::diagnostic::peer_limit_concurrent_streams_exceeded(9, 3, 2, 1, "server", "open-stream", "local_configuration", "peer_created_stream_receive_limit", preview)
 end
