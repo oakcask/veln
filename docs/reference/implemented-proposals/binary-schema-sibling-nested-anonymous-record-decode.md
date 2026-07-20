@@ -39,8 +39,8 @@ anonymous record encode behavior is covered by
   record sibling, including field path, byte offset, expected count,
   available count, and readiness.
 
-## Remaining Work
+## Boundary
 
-The broader schema declaration surface proposal remains open for generated
-runtime helper bindings outside the implemented binary helper boundaries and
-format-neutral helper boundaries.
+Schema composition is complete across the implemented helper boundaries.
+Additional anonymous-record leaf families and new binary field families are
+non-goals for this record and require separate focused proposals.

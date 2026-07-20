@@ -19,7 +19,8 @@ Current behavior is specified in
 [Execution](../../specification/execution.md). Executable evidence is under
 `examples/specification/run/schema-composition-binary-nested-paths/`,
 `examples/specification/run/schema-composition-format-neutral/`, and
-the matching `schema-composition-format-neutral-*-failure/` cases, plus
+the matching format-neutral and binary `schema-composition-*-failure/` cases,
+plus
 `examples/specification/check/schema-composition-diagnostics/`. Parser and
 formatter evidence remains in the syntax crate because composition adds no
 grammar or keyword.

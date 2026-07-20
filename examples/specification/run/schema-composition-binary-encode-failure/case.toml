@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln", "wire.veln", "facade.veln"]
+command = ["run", "--json", "main", "main.veln"]
 exit = 0
 
 [requires]
@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "3\nstable\nlocal alias\n4\nalias\nbody\n"
+equals = "schema.encode_value_unrepresentable\nParent.child.Child.value\nvalue must be between 0 and 65535\n5\n"
 
 [[json_assert]]
 path = "error"

@@ -110,8 +110,12 @@ surface is under
 decode and encode cases under
 `examples/specification/run/schema-composition-binary-nested-paths/` and
 `examples/specification/run/schema-composition-format-neutral/`. Nested
-format-neutral target validation failures in both directions are checked by
-the matching `schema-composition-format-neutral-*-failure/` cases.
+format-neutral target validation failures in both directions and binary target
+decode and encode failures are checked by the matching
+`schema-composition-format-neutral-*-failure/` and
+`schema-composition-binary-*-failure/` cases. The success cases include local
+and imported aliases, a same-module public target, and nested paths in every
+supported later expression position.
 Anonymous record fields in `format binary` schemas expose a nested
 schema-local visible record at that field when every leaf is an implemented
 exact-width unsigned primitive. Anonymous records may contain sibling nested

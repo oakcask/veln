@@ -30,8 +30,8 @@ element index, and then append the nested schema field path.
   checks truncation diagnostics with the parent dispatch field path, repeated
   element index, and nested schema field path.
 
-## Remaining Work
+## Boundary
 
-The broader schema declaration surface proposal remains open for generated
-runtime decode bindings outside the implemented binary helper boundaries and
-format-neutral recursive visible-shape helper boundary.
+Schema composition is complete across the implemented helper boundaries.
+Additional repeat payload families or unbounded recursive forms are non-goals
+for this record and require separate focused proposals.

@@ -43,8 +43,8 @@ the anonymous record encode path.
   generated helper resolution and nested metadata for the anonymous record
   encode boundary.
 
-## Remaining Work
+## Boundary
 
-The broader schema declaration surface proposal remains open for generated
-runtime helper bindings outside the implemented binary helper boundaries and
-format-neutral helper boundaries.
+Schema composition is complete across the implemented helper boundaries.
+Unsupported anonymous-record leaves and new binary field families are
+non-goals for this record and require separate focused proposals.

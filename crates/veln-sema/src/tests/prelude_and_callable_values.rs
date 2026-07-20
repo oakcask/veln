@@ -1,5 +1,8 @@
 use super::*;
-use crate::types::{SchemaRepeatPayload, repeat_schema_primitive};
+use crate::types::{
+    SchemaRepeatPayload, repeat_schema_primitive, schema_decode_value_type,
+    schema_encode_value_type,
+};
 
 const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes";
 
@@ -138,6 +141,109 @@ fn binary_schema_composition_resolves_later_targets_and_nested_references() {
         frame.fields[1].length_field.as_deref(),
         Some("header.length")
     );
+}
+
+#[test]
+fn binary_schema_composition_accepts_nested_references_in_every_expression_position() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  count: UInt8\n",
+            "  kind: UInt8\n",
+            "end\n",
+            "schema RepeatHost\n",
+            "  format binary\n",
+            "  header: Header\n",
+            "  items: Repeat(header.count, UInt8)\n",
+            "end\n",
+            "schema DispatchHost\n",
+            "  format binary\n",
+            "  header: Header\n",
+            "  payload: Dispatch(header.kind, 1 => UInt8)\n",
+            "end\n",
+            "schema ExtensionHost\n",
+            "  format binary\n",
+            "  header: Header\n",
+            "  payload: ExtensionDispatch(header.kind, header.length, 1 => UInt8)\n",
+            "end\n",
+            "schema PredicateHost\n",
+            "  format binary\n",
+            "  header: Header\n",
+            "  checked: UInt8 where checked == header.kind\n",
+            "  validate header.kind == 1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let eligibility = module
+        .schemas
+        .iter()
+        .skip(1)
+        .map(|schema| {
+            (
+                schema.name.as_deref().unwrap_or("<missing>"),
+                schema_decode_value_type(&module, schema).is_some(),
+                schema_encode_value_type(&module, schema).is_some(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        eligibility,
+        vec![
+            ("RepeatHost", true, true),
+            ("DispatchHost", true, true),
+            ("ExtensionHost", true, true),
+            ("PredicateHost", true, true),
+        ]
+    );
+}
+
+#[test]
+fn schema_composition_checks_decode_and_encode_eligibility_independently() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Expanding<A>\n",
+            "  Next(value: Expanding<fn(Int) -> String>)\n",
+            "end\n",
+            "schema DecodeOnlyTarget\n",
+            "  payload: Expanding<Int>\n",
+            "end\n",
+            "schema Host\n",
+            "  child: DecodeOnlyTarget\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let target = &module.schemas[0];
+
+    assert!(schema_decode_value_type(&module, target).is_some());
+    assert!(schema_encode_value_type(&module, target).is_none());
+
+    let lowered = lower_checked_surface_module(&module);
+    let host_reasons = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.composition_reference")
+        .filter_map(|diagnostic| match &diagnostic.details {
+            veln_diagnostics::JsonValue::Object(entries)
+                if entries.iter().any(|(key, value)| {
+                    key == "schema" && value == &veln_diagnostics::JsonValue::string("Host")
+                }) =>
+            {
+                entries.iter().find_map(|(key, value)| {
+                    (key == "reason").then(|| value.to_json().trim_matches('"').to_string())
+                })
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(host_reasons, vec!["encode_ineligible_target"]);
 }
 
 #[test]

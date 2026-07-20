@@ -223,8 +223,10 @@ enough.
   schema validation before the containing schema continues validation. Nested
   decode and encode failures retain the containing schema and binding before
   the target schema path, and neither direction commits a partial containing
-  value or byte sequence. The format-neutral direction and diagnostic-path
-  evidence is in the `schema-composition-format-neutral-*-failure/` cases.
+  value or byte sequence. The checked failure and diagnostic-path evidence is
+  in the `schema-composition-format-neutral-*-failure/` and
+  `schema-composition-binary-*-failure/` cases; the binary encode case also
+  checks that a failed nested attempt does not affect a later successful call.
 - Anonymous record fields in `format binary` schemas consume their exact-width
   unsigned primitive leaves in source order and expose the nested anonymous
   record shape at the field. Anonymous records may recurse when all leaves are

@@ -5011,7 +5011,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
     let inner = schema_call_inner(ty, "Dispatch")?;
     let mut args = split_top_level_args(inner).into_iter().peekable();
     let tag_field = args.next()?.to_string();
-    if !is_schema_identifier(&tag_field) {
+    if !is_simple_schema_field_reference(&tag_field) {
         return None;
     }
     let length_field = args
@@ -5020,7 +5020,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
         .map(|arg| (*arg).to_string());
     if length_field
         .as_deref()
-        .is_some_and(|length_field| !is_schema_identifier(length_field))
+        .is_some_and(|length_field| !is_simple_schema_field_reference(length_field))
     {
         return None;
     }
@@ -5051,7 +5051,9 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
     let mut args = split_top_level_args(inner).into_iter();
     let tag_field = args.next()?.to_string();
     let length_field = args.next()?.to_string();
-    if !is_schema_identifier(&tag_field) || !is_schema_identifier(&length_field) {
+    if !is_simple_schema_field_reference(&tag_field)
+        || !is_simple_schema_field_reference(&length_field)
+    {
         return None;
     }
     let cases = args

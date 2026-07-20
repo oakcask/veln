@@ -46,8 +46,8 @@ anonymous record encode behavior is covered by
 - `../../../examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`
   checks truncation JSON keeps every recursive anonymous record path segment.
 
-## Remaining Work
+## Boundary
 
-The broader schema declaration surface proposal remains open for generated
-runtime helper bindings outside the implemented binary helper boundaries and
-format-neutral helper boundaries.
+Schema composition is complete across the implemented helper boundaries.
+Unsupported anonymous-record leaves and new binary field families are
+non-goals for this record and require separate focused proposals.

@@ -1,0 +1,57 @@
+# A composed binary encode failure returns no partial bytes and leaves later calls usable.
+use stdio
+
+schema Child
+	format binary
+
+	kind: UInt8
+	value: UInt16be
+end
+
+schema Parent
+	format binary
+
+	prefix: UInt8
+	child: Child
+	suffix: UInt8
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn emit_count(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
+		Err(_) => stdio::println("unexpected second encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let failed: Result<ByteChunk, EncodeError> = encode Parent from {prefix: 1, child: {kind: 2, value: 70000}, suffix: 3}
+	match failed
+		Ok(_) => stdio::println("unexpected partial encode success")
+		Err(error) => emit_error(error)
+	end
+	emit_count(encode Parent from {prefix: 1, child: {kind: 2, value: 300}, suffix: 3})
+end

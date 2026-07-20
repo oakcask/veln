@@ -9,6 +9,12 @@ schema Frame
 	header: Header
 	imported: wire::ImportedHeader
 	aliased: facade::AliasHeader
+	local_aliased: LocalHeaderAlias
+	public_header: PublicHeader
+	items: Repeat(header.count, UInt8)
+	tagged: Dispatch(header.kind, 7 => UInt8)
+	extended: ExtensionDispatch(header.kind, header.dispatch_length, 7 => UInt8)
+	checked: UInt8 where checked == header.kind
 	payload: ByteView(header.length)
 	validate header.kind == 7
 end
@@ -17,10 +23,29 @@ schema Header
 	format binary
 
 	length: UInt8
+	count: UInt8
 	kind: UInt8
+	dispatch_length: UInt8
 end
 
-fn emit_decoded(step: DecodeStep<{header: {length: Int, kind: Int}, imported: {length: Int, kind: Int}, aliased: {length: Int, kind: Int}, payload: ByteView}>) -> () effects [stdio]
+pub schema LocalHeaderAlias = PublicLocalHeader
+
+pub schema PublicLocalHeader
+	format binary
+
+	length: UInt8
+	count: UInt8
+	kind: UInt8
+	dispatch_length: UInt8
+end
+
+pub schema PublicHeader
+	format binary
+
+	flag: UInt8
+end
+
+fn emit_decoded(step: DecodeStep<{header: {length: Int, count: Int, kind: Int, dispatch_length: Int}, imported: {length: Int, kind: Int}, aliased: {length: Int, kind: Int}, local_aliased: {length: Int, count: Int, kind: Int, dispatch_length: Int}, public_header: {flag: Int}, items: List<Int>, tagged: Int, extended: SchemaDispatchPayload<Int>, checked: Int, payload: ByteView}>) -> () effects [stdio]
 	match step
 		Decoded(_, consumed) => stdio::println(int_to_string(byte_count_to_int(consumed)))
 		NeedMore(_) => stdio::println("unexpected need-more")
@@ -36,10 +61,11 @@ fn emit_encoded(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("030701080209aabbcc")?
-	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(9)?)?
+	let bytes: ByteChunk = byte_chunk_from_hex("0302070101080209030207010a0b0c0d0e07aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(21)?)?
 	emit_decoded(decode Frame from view at byte_offset(0)?)
-	let payload: ByteView = byte_view(bytes, byte_offset(6)?, byte_count(3)?)?
-	emit_encoded(encode Frame from {header: {length: 3, kind: 7}, imported: {length: 1, kind: 8}, aliased: {length: 2, kind: 9}, payload: payload})
+	let payload: ByteView = byte_view(bytes, byte_offset(18)?, byte_count(3)?)?
+	let items: List<Int> = list_cons(11, list_cons(12, list_nil()))
+	emit_encoded(encode Frame from {header: {length: 3, count: 2, kind: 7, dispatch_length: 1}, imported: {length: 1, kind: 8}, aliased: {length: 2, kind: 9}, local_aliased: {length: 3, count: 2, kind: 7, dispatch_length: 1}, public_header: {flag: 10}, items: items, tagged: 13, extended: Known(14), checked: 7, payload: payload})
 	Ok(())
 end

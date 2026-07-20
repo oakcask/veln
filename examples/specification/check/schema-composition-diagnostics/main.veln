@@ -91,6 +91,13 @@ schema ForwardHost
 	header: Header
 end
 
+schema DispatchForwardHost
+	format binary
+
+	payload: Dispatch(header.length, 1 => UInt8)
+	header: Header
+end
+
 schema NoInjectionHost
 	format binary
 
