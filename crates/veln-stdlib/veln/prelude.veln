@@ -1,4 +1,5 @@
 use bytes
+use diagnostic
 
 pub type Byte = bytes::Byte
 pub type ByteChunk = bytes::ByteChunk
@@ -80,58 +81,13 @@ pub type EncodeError
 	EncodeError(id: String, field_path: String, reason: String)
 end
 
-pub type RuntimeDiagnostic
-	RuntimeDiagnostic(id: String, message: String, detail: RuntimeDiagnosticDetail)
-end
-
-pub type RuntimeDiagnosticDetail
-	RuntimeByteDiagnostic(byte_offset: ByteOffset, field_path: List<RuntimeDiagnosticFieldPathSegment>, facts: RuntimeByteDiagnosticFacts, preview: RuntimeBytePreview)
-	RuntimeValueDiagnostic(field_path: List<RuntimeDiagnosticFieldPathSegment>, reason: String)
-	RuntimeHpackFixtureDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
-	RuntimeHpackFixtureDynamicIndexDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
-	RuntimeHpackFixtureDynamicNameDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
-	RuntimeHpackFixtureTableSizeUpdateDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, observed_header_table_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolClosedWithPendingDiagnostic(byte_offset: Int, pending_count: Int, active_continuation: String, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolPartialPrefaceDiagnostic(byte_offset: Int, pending_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(byte_offset: Int, expected_byte: Int, actual_byte: Int, matched_prefix_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolContinuationExpectedDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_stream_id: Int, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, required_stream_id_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(byte_offset: Int, stream_id: Int, previous_peer_stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(byte_offset: Int, observed_header_list_size: Int, allowed_header_list_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(byte_offset: Int, observed_header_table_size: Int, allowed_header_table_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(byte_offset: Int, stream_id: Int, attempted_concurrent_stream_count: Int, allowed_concurrent_stream_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitSettingsValueDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, observed_payload_length: Int, expected_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(byte_offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, expected_content_length: Int, observed_body_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(byte_offset: Int, stream_id: Int, observed_window_increment: Int, accepted_min_window_increment: Int, accepted_max_window_increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(byte_offset: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
-	RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
-end
-
-pub type RuntimeDiagnosticFieldPathSegment
-	RuntimeDiagnosticFieldPathSegment(kind: String, name: String)
-end
-
-pub type RuntimeByteDiagnosticFacts
-	RuntimeByteCountFacts(expected_count: ByteCount, available_count: ByteCount, readiness: String)
-	RuntimeByteRangeFacts(requested_count: ByteCount, available_count: ByteCount)
-	RuntimeByteFixedValueFacts(expected_value: Int, actual_value: Int)
-	RuntimeByteReasonFacts(reason: String)
-end
-
-pub type RuntimeBytePreview
-	RuntimeBytePreview(data: String, preview_byte_count: ByteCount, total_byte_count: ByteCount, truncated: Bool)
-	NoRuntimeBytePreview
-end
+pub type RuntimeDiagnostic = diagnostic::RuntimeDiagnostic
+pub type RuntimeDiagnosticDetail = diagnostic::RuntimeDiagnosticDetail
+pub type RuntimeDiagnosticFieldPathSegment = diagnostic::RuntimeDiagnosticFieldPathSegment
+pub type RuntimeByteDiagnosticFacts = diagnostic::RuntimeByteDiagnosticFacts
+pub type RuntimeBytePreview = diagnostic::RuntimeBytePreview
+pub type Http2DiagnosticDetail = diagnostic::Http2DiagnosticDetail
+pub type HpackDiagnosticDetail = diagnostic::HpackDiagnosticDetail
 
 pub type EncodeStep<TState>
 	Encoded(chunks: List<ByteChunk>)

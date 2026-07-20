@@ -31,7 +31,7 @@ fn invalid_continuation_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.continuation_expected",
 		error,
-		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", byte_chunk([])))
 	)
 end
 
@@ -39,7 +39,7 @@ fn continuation_payload(offset: Int, actual_kind: Int, actual_stream: Int, expec
 	RuntimeDiagnostic(
 		"http2.protocol.continuation_expected",
 		"HTTP/2 expected CONTINUATION frame at byte offset 9",
-		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context), context_accumulated_header_block_bytes(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, context_active_continuation(context), context_accumulated_header_block_bytes(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 9, RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 8, 0, 3, 4, connection-flow-control, rfc9113_window_update_payload_length, ByteChunk([Byte(1), Byte(2), Byte(3)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 8, 0, 3, 4, connection-flow-control, rfc9113_window_update_payload_length, ByteChunk([Byte(1), Byte(2), Byte(3)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -88,35 +88,35 @@ equals = "rfc9113_window_update_payload_length"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.frame_kind"
+path = "value.detail.detail.frame_kind"
 equals = 8
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.stream_id"
+path = "value.detail.detail.stream_id"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_payload_length"
+path = "value.detail.detail.observed_payload_length"
 equals = 3
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_payload_length"
+path = "value.detail.detail.expected_payload_length"
 equals = 4
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.constructor"
+path = "value.detail.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields"
+path = "value.detail.detail.fields"
 missing = true

@@ -4,7 +4,7 @@ fn fallback_payload(message: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.unsupported_header_block",
 		message,
-		RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([])))
 	)
 end
 

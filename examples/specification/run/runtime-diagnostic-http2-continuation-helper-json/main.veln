@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.continuation_expected",
 		error,
-		RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", byte_chunk([])))
 	)
 end
 

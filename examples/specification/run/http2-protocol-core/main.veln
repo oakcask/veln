@@ -8792,27 +8792,27 @@ fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, String>
 end
 
 fn closed_runtime_payload(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.protocol.closed_with_pending", "HTTP/2 input ended with pending bytes", RuntimeHttp2ProtocolClosedWithPendingDiagnostic(offset, pending_count, active_continuation, expected_stream, started_kind, started_offset, accumulated_header_block_bytes, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.protocol.closed_with_pending", "HTTP/2 input ended with pending bytes", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(offset, pending_count, active_continuation, expected_stream, started_kind, started_offset, accumulated_header_block_bytes, rule_provenance, preview_chunk)))
 end
 
 fn continuation_runtime_payload(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.protocol.continuation_expected", "HTTP/2 expected CONTINUATION frame", RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, accumulated_header_block_bytes, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.protocol.continuation_expected", "HTTP/2 expected CONTINUATION frame", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation, accumulated_header_block_bytes, rule_provenance, preview_chunk)))
 end
 
 fn flow_control_window_runtime_payload(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.peer_limit.flow_control_window_exceeded", "HTTP/2 flow-control window exceeded at byte offset 0", RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.peer_limit.flow_control_window_exceeded", "HTTP/2 flow-control window exceeded at byte offset 0", RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, preview_chunk)))
 end
 
 fn invalid_data_padding_runtime_payload(offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.protocol.invalid_data_padding", "HTTP/2 invalid DATA padding at byte offset 9", RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.protocol.invalid_data_padding", "HTTP/2 invalid DATA padding at byte offset 9", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(offset, stream_id, pad_length, remaining_payload_length, active_state, rule_provenance, preview_chunk)))
 end
 
 fn content_length_mismatch_runtime_payload(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.protocol.content_length_mismatch", "HTTP/2 content-length body length mismatch at byte offset 9", RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.protocol.content_length_mismatch", "HTTP/2 content-length body length mismatch at byte offset 9", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, preview_chunk)))
 end
 
 fn priority_dependency_runtime_payload(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview_chunk: ByteChunk) -> RuntimeDiagnostic
-	RuntimeDiagnostic("http2.protocol.invalid_priority_dependency", "HTTP/2 invalid PRIORITY dependency at byte offset 0", RuntimeHttp2ProtocolPriorityDependencyDiagnostic(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview_chunk))
+	RuntimeDiagnostic("http2.protocol.invalid_priority_dependency", "HTTP/2 invalid PRIORITY dependency at byte offset 0", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(offset, stream_id, dependency_stream_id, active_state, rule_provenance, preview_chunk)))
 end
 
 fn project_closed_with_pending_payload(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview_chunk: ByteChunk) -> Result<(), RuntimeDiagnostic>
@@ -8840,7 +8840,7 @@ fn project_priority_dependency_payload(offset: Int, stream_id: Int, dependency_s
 end
 
 fn hpack_static_unsupported_index(offset: Int, observed_size: Int, observed_first_byte: Int, expected_header: String, decoder_module: String, preview_chunk: ByteChunk) -> Result<(), RuntimeDiagnostic>
-	Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHpackFixtureDiagnostic(offset, observed_size, observed_first_byte, expected_header, decoder_module, preview_chunk)))
+	Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(offset, observed_size, observed_first_byte, expected_header, decoder_module, preview_chunk))))
 end
 
 fn accept_runtime_diagnostic(result: Result<(), RuntimeDiagnostic>) -> Result<(), String>
@@ -8867,7 +8867,7 @@ fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2Diagno
 		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, preview_chunk) => accept_runtime_diagnostic(http2::diagnostic::protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, state_continuation_label(diagnostic_context_state(context)), state_continuation_count(diagnostic_context_state(context)), context_rule_provenance(failure, diagnostic_context_state(context)), byte_chunk_view(preview_chunk)?))
 		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => accept_runtime_diagnostic(http2::diagnostic::protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance, empty_byte_preview()?))
 		InvalidStreamId(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance) => accept_runtime_diagnostic(http2::diagnostic::protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance, diagnostic_context_pending_view(context)?))
-		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => accept_runtime_diagnostic(Err(RuntimeDiagnostic("http2.protocol.peer_stream_id_not_increasing", "HTTP/2 peer-created stream id is not increasing", RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk))))
+		PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk) => accept_runtime_diagnostic(Err(RuntimeDiagnostic("http2.protocol.peer_stream_id_not_increasing", "HTTP/2 peer-created stream id is not increasing", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(offset, stream_id, previous_stream_id, endpoint_role, active_state, rule_provenance, preview_chunk)))))
 		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2::diagnostic::protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview))
 		InvalidWindowUpdateIncrement(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview) => accept_runtime_diagnostic(http2::diagnostic::protocol_invalid_window_update_increment(offset, stream_id, observed_increment, accepted_min_increment, accepted_max_increment, active_state, rule_provenance, preview))
 		InvalidRequestHeaderList(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview_chunk) => accept_runtime_diagnostic(http2::diagnostic::protocol_invalid_request_header_list(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, failure_active_state(failure), failure_rule_provenance(failure), byte_chunk_view(preview_chunk)?))

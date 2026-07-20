@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_stream_id, HTTP/2 invalid stream id at byte offset 0, RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, nonzero client-initiated stream id, server, stream-id-domain, server_receives_client_initiated_streams, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(2)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_stream_id, HTTP/2 invalid stream id at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 2, nonzero client-initiated stream id, server, stream-id-domain, server_receives_client_initiated_streams, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(1), Byte(4), Byte(0), Byte(0), Byte(0), Byte(2)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -88,30 +88,30 @@ equals = "server_receives_client_initiated_streams"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.frame_kind"
+path = "value.detail.detail.frame_kind"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.stream_id"
+path = "value.detail.detail.stream_id"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.required_stream_id_domain"
+path = "value.detail.detail.required_stream_id_domain"
 equals = "nonzero client-initiated stream id"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.endpoint_role"
+path = "value.detail.detail.endpoint_role"
 equals = "server"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.rule_provenance"
+path = "value.detail.detail.rule_provenance"
 equals = "server_receives_client_initiated_streams"

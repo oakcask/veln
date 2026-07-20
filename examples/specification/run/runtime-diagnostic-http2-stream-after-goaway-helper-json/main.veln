@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.stream_after_goaway",
 		error,
-		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id", byte_chunk([])))
 	)
 end
 

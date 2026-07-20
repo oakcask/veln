@@ -56,15 +56,15 @@ equals = "rfc9113_continuation_sequence"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolClosedWithPendingDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.active_continuation"
+path = "value.detail.detail.active_continuation"
 equals = "headers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.accumulated_header_block_bytes"
+path = "value.detail.detail.accumulated_header_block_bytes"
 equals = 3

@@ -25,7 +25,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_priority_dependency",
 		error,
-		RuntimeHttp2ProtocolPriorityDependencyDiagnostic(0, 1, 1, "stream-control", "rfc9113_priority_dependency", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(0, 1, 1, "stream-control", "rfc9113_priority_dependency", byte_chunk([])))
 	)
 end
 
@@ -33,7 +33,7 @@ fn priority_dependency_payload(offset: Int, stream_id: Int, dependency_stream_id
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_priority_dependency",
 		"HTTP/2 invalid PRIORITY dependency at byte offset 0",
-		RuntimeHttp2ProtocolPriorityDependencyDiagnostic(offset, stream_id, dependency_stream_id, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPriorityDependencyDiagnostic(offset, stream_id, dependency_stream_id, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

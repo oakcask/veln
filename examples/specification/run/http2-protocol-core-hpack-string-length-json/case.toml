@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.malformed_string_length, HPACK fixture malformed string length at byte offset 9, RuntimeHpackFixtureDiagnostic(9, 2, 4, fixture HPACK string length, hpack_fixture, ByteChunk([Byte(4), Byte(255)])))"
+equals = "RuntimeDiagnostic(hpack.fixture.malformed_string_length, HPACK fixture malformed string length at byte offset 9, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 2, 4, fixture HPACK string length, hpack_fixture, ByteChunk([Byte(4), Byte(255)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

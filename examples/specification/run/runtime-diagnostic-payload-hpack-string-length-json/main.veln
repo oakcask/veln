@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"hpack.fixture.malformed_string_length",
 		error,
-		RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK string length", "hpack_fixture", byte_chunk([]))
+		RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 0, -1, "fixture HPACK string length", "hpack_fixture", byte_chunk([])))
 	)
 end
 

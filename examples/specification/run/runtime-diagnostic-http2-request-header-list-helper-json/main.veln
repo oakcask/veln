@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_request_header_list",
 		error,
-		RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, "missing_required_pseudo_header", ":method", "headers", "request-headers", "rfc9113_request_pseudo_headers", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 9, 1, "missing_required_pseudo_header", ":method", "headers", "request-headers", "rfc9113_request_pseudo_headers", byte_chunk([])))
 	)
 end
 

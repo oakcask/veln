@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, 3, rfc9113_continuation_sequence, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1)])))"
+equals = "RuntimeDiagnostic(http2.protocol.continuation_expected, HTTP/2 expected CONTINUATION frame at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContinuationExpectedDiagnostic(9, 0, 1, 1, 1, 0, headers, 3, rfc9113_continuation_sequence, ByteChunk([Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(1)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -88,35 +88,35 @@ equals = true
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolContinuationExpectedDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.actual_frame_kind"
+path = "value.detail.detail.actual_frame_kind"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.actual_stream_id"
+path = "value.detail.detail.actual_stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_stream_id"
+path = "value.detail.detail.expected_stream_id"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.active_continuation"
+path = "value.detail.detail.active_continuation"
 equals = "headers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.accumulated_header_block_bytes"
+path = "value.detail.detail.accumulated_header_block_bytes"
 equals = 3
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.rule_provenance"
+path = "value.detail.detail.rule_provenance"
 equals = "rfc9113_continuation_sequence"

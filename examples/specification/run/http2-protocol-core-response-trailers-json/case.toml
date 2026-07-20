@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response trailer list contains pseudo-header :status at byte offset 12, RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, trailer_pseudo_header, :status, :status, response-trailers, rfc9113_trailer_pseudo_headers, ByteChunk([Byte(136)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_response_header_list, HTTP/2 response trailer list contains pseudo-header :status at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(12, 1, 1, trailer_pseudo_header, :status, :status, response-trailers, rfc9113_trailer_pseudo_headers, ByteChunk([Byte(136)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -92,45 +92,45 @@ equals = "rfc9113_trailer_pseudo_headers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.failed_header_fact"
+path = "value.detail.detail.failed_header_fact"
 equals = "trailer_pseudo_header"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.header_name"
+path = "value.detail.detail.header_name"
 equals = ":status"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.decoded_header_names"
+path = "value.detail.detail.decoded_header_names"
 equals = ":status"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.constructor"
+path = "value.detail.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.0.value"
+path = "value.detail.detail.preview.bytes.0.value"
 equals = 136
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.active_state"
+path = "value.detail.detail.active_state"
 equals = "response-trailers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.rule_provenance"
+path = "value.detail.detail.rule_provenance"
 equals = "rfc9113_trailer_pseudo_headers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.unexpected"
+path = "value.detail.detail.unexpected"
 missing = true

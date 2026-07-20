@@ -31,7 +31,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.stream_after_goaway",
 		error,
-		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, "graceful_shutdown", "local", "goaway_last_stream_id", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(0, 7, 5, "graceful_shutdown", "local", "goaway_last_stream_id", byte_chunk([])))
 	)
 end
 
@@ -39,7 +39,7 @@ fn stream_after_goaway_payload(offset: Int, stream_id: Int, last_stream_id: Int,
 	RuntimeDiagnostic(
 		"http2.protocol.stream_after_goaway",
 		"HTTP/2 stream opened after graceful shutdown at byte offset 0",
-		RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(offset, stream_id, last_stream_id, context_shutdown_state(context), context_endpoint_role(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(offset, stream_id, last_stream_id, context_shutdown_state(context), context_endpoint_role(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains invalid content-length at byte offset 12, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, content_length_invalid, content-length, :method,:scheme,:path,content-length, request-headers, rfc9113_content_length, ByteChunk([])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_request_header_list, HTTP/2 request header list contains invalid content-length at byte offset 12, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, content_length_invalid, content-length, :method,:scheme,:path,content-length, request-headers, rfc9113_content_length, ByteChunk([]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.id"

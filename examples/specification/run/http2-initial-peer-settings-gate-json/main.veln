@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.initial_peer_settings_required",
 		error,
-		RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", byte_chunk([])))
 	)
 end
 

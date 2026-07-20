@@ -21,7 +21,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.content_length_mismatch",
 		error,
-		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(9, 0, 1, 5, 3, "open-stream", "rfc9113_content_length_body", byte_chunk([])))
 	)
 end
 
@@ -65,7 +65,7 @@ fn content_length_payload(offset: Int, frame_kind: Int, stream_id: Int, expected
 	RuntimeDiagnostic(
 		"http2.protocol.content_length_mismatch",
 		"HTTP/2 content-length body length mismatch at byte offset 9",
-		RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(offset, frame_kind, stream_id, expected_length, observed_length, active_state, rule_provenance, byte_view_to_chunk(preview)))
 	)
 end
 

@@ -19,7 +19,7 @@ fn frame_size_payload(offset: Int, observed_length: Int, allowed_length: Int, fr
 	RuntimeDiagnostic(
 		"http2.peer_limit.frame_size_exceeded",
 		"HTTP/2 frame payload length exceeds receive maximum at byte offset 0",
-		RuntimeHttp2PeerLimitFrameSizeDiagnostic(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFrameSizeDiagnostic(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 
@@ -33,7 +33,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.frame_size_exceeded",
 		error,
-		RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([])))
 	)
 end
 

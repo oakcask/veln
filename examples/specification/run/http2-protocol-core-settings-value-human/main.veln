@@ -8,7 +8,7 @@ fn settings_value_payload(offset: Int, setting_identifier: Int, setting_name: St
 	RuntimeDiagnostic(
 		"http2.peer_limit.settings_value_out_of_range",
 		"HTTP/2 SETTINGS value outside accepted range at byte offset 15",
-		RuntimeHttp2PeerLimitSettingsValueDiagnostic(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, byte_view_to_chunk(preview)))
 	)
 end
 
@@ -16,7 +16,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.settings_value_out_of_range",
 		error,
-		RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", byte_chunk([])))
 	)
 end
 

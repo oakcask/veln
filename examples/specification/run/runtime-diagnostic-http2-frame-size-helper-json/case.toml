@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.peer_limit.frame_size_exceeded, HTTP/2 frame payload length exceeds receive maximum at byte offset 0, RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, local_configuration, ByteChunk([Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(3)])))"
+equals = "RuntimeDiagnostic(http2.peer_limit.frame_size_exceeded, HTTP/2 frame payload length exceeds receive maximum at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, local_configuration, ByteChunk([Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(3)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -80,55 +80,55 @@ equals = true
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.byte_offset"
+path = "value.detail.detail.byte_offset"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2PeerLimitFrameSizeDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_payload_length"
+path = "value.detail.detail.observed_payload_length"
 equals = 1025
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.allowed_max_frame_size"
+path = "value.detail.detail.allowed_max_frame_size"
 equals = 1024
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.frame_kind"
+path = "value.detail.detail.frame_kind"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.stream_id"
+path = "value.detail.detail.stream_id"
 equals = 3
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.receive_limit_provenance"
+path = "value.detail.detail.receive_limit_provenance"
 equals = "local_configuration"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.constructor"
+path = "value.detail.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.0.value"
+path = "value.detail.detail.preview.bytes.0.value"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.2.value"
+path = "value.detail.detail.preview.bytes.2.value"
 equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.8.value"
+path = "value.detail.detail.preview.bytes.8.value"
 equals = 3

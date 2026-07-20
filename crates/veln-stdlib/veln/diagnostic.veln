@@ -1,0 +1,62 @@
+use bytes
+
+type RuntimeDiagnostic
+	pub RuntimeDiagnostic(id: String, message: String, detail: RuntimeDiagnosticDetail)
+end
+
+type RuntimeDiagnosticDetail
+	pub RuntimeByteDiagnostic(byte_offset: ByteOffset, field_path: List<RuntimeDiagnosticFieldPathSegment>, facts: RuntimeByteDiagnosticFacts, preview: RuntimeBytePreview)
+	pub RuntimeValueDiagnostic(field_path: List<RuntimeDiagnosticFieldPathSegment>, reason: String)
+	pub RuntimeHttp2Diagnostic(detail: Http2DiagnosticDetail)
+	pub RuntimeHttp2HpackDiagnostic(detail: HpackDiagnosticDetail)
+end
+
+type HpackDiagnosticDetail
+	pub RuntimeHpackFixtureDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	pub RuntimeHpackFixtureDynamicIndexDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	pub RuntimeHpackFixtureDynamicNameDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, requested_dynamic_index: Int, dynamic_table_entry_count: Int, expected_fixture: String, codec_module: String, preview: ByteChunk)
+	pub RuntimeHpackFixtureTableSizeUpdateDiagnostic(byte_offset: Int, observed_header_block_size: Int, observed_first_byte: Int, observed_header_table_size: Int, frame_kind: Int, stream_id: Int, active_state: String, expected_fixture: String, codec_module: String, preview: ByteChunk)
+end
+
+type Http2DiagnosticDetail
+	pub RuntimeHttp2ProtocolClosedWithPendingDiagnostic(byte_offset: Int, pending_count: Int, active_continuation: String, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolPartialPrefaceDiagnostic(byte_offset: Int, pending_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(byte_offset: Int, expected_byte: Int, actual_byte: Int, matched_prefix_count: Int, expected_count: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolContinuationExpectedDiagnostic(byte_offset: Int, actual_frame_kind: Int, actual_stream_id: Int, expected_stream_id: Int, started_frame_kind: Int, started_byte_offset: Int, active_continuation: String, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(byte_offset: Int, actual_frame_kind: Int, stream_id: Int, expected_frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, required_stream_id_domain: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(byte_offset: Int, stream_id: Int, previous_peer_stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitFrameSizeDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_max_frame_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitHeaderListSizeDiagnostic(byte_offset: Int, observed_header_list_size: Int, allowed_header_list_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(byte_offset: Int, observed_header_table_size: Int, allowed_header_table_size: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic(byte_offset: Int, stream_id: Int, attempted_concurrent_stream_count: Int, allowed_concurrent_stream_count: Int, endpoint_role: String, active_state: String, receive_limit_provenance: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitSettingsValueDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, observed_payload_length: Int, expected_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic(byte_offset: Int, stream_id: Int, pad_length: Int, remaining_payload_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(byte_offset: Int, observed_payload_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolContentLengthMismatchDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, expected_content_length: Int, observed_body_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic(byte_offset: Int, frame_kind: Int, stream_id: Int, failed_header_fact: String, header_name: String, decoded_header_names: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic(byte_offset: Int, stream_id: Int, observed_window_increment: Int, accepted_min_window_increment: Int, accepted_max_window_increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic(byte_offset: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(byte_offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolPriorityDependencyDiagnostic(byte_offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	pub RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic(byte_offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+end
+
+type RuntimeDiagnosticFieldPathSegment
+	pub RuntimeDiagnosticFieldPathSegment(kind: String, name: String)
+end
+
+type RuntimeByteDiagnosticFacts
+	pub RuntimeByteCountFacts(expected_count: ByteCount, available_count: ByteCount, readiness: String)
+	pub RuntimeByteRangeFacts(requested_count: ByteCount, available_count: ByteCount)
+	pub RuntimeByteFixedValueFacts(expected_value: Int, actual_value: Int)
+	pub RuntimeByteReasonFacts(reason: String)
+end
+
+type RuntimeBytePreview
+	pub RuntimeBytePreview(data: String, preview_byte_count: ByteCount, total_byte_count: ByteCount, truncated: Bool)
+	pub NoRuntimeBytePreview
+end

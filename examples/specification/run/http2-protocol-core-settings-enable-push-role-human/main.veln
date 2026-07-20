@@ -5,7 +5,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.settings_not_allowed_for_endpoint",
 		error,
-		RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic(15, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", byte_chunk([])))
 	)
 end
 

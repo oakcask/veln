@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, 0, 0, 0, 0, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])))"
+equals = "RuntimeDiagnostic(http2.protocol.closed_with_pending, HTTP/2 input ended with 4 pending byte(s) at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolClosedWithPendingDiagnostic(0, 4, none, 0, 0, 0, 0, none, ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -108,35 +108,35 @@ equals = "HTTP/2 input ended with 4 pending byte(s) at byte offset 0"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolClosedWithPendingDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.byte_offset"
+path = "value.detail.detail.byte_offset"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.pending_count"
+path = "value.detail.detail.pending_count"
 equals = 4
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.active_continuation"
+path = "value.detail.detail.active_continuation"
 equals = "none"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_stream_id"
+path = "value.detail.detail.expected_stream_id"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.rule_provenance"
+path = "value.detail.detail.rule_provenance"
 equals = "none"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.constructor"
+path = "value.detail.detail.preview.constructor"
 equals = "ByteChunk"

@@ -77,7 +77,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_frame_kind",
 		error,
-		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "local-settings", "local_settings_enable_push_disabled", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "local-settings", "local_settings_enable_push_disabled", byte_chunk([])))
 	)
 end
 
@@ -85,7 +85,7 @@ fn invalid_frame_kind_payload(offset: Int, actual_kind: Int, stream_id: Int, exp
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_frame_kind",
 		"HTTP/2 invalid frame kind at byte offset 0",
-		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(offset, actual_kind, stream_id, expected_kind, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

@@ -579,6 +579,8 @@ under `../../specification/` and its executable example routes.
   [runtime-diagnostic-http2-data-settings-helper-payload.md](runtime-diagnostic-http2-data-settings-helper-payload.md).
 - Runtime diagnostic HTTP/2 side-table cleanup:
   [runtime-diagnostic-http2-side-table-cleanup.md](runtime-diagnostic-http2-side-table-cleanup.md).
+- Runtime diagnostic HTTP/2 type boundary:
+  [runtime-diagnostic-http2-type-boundary.md](runtime-diagnostic-http2-type-boundary.md).
 - Runtime diagnostic test JSON payload:
   [runtime-diagnostic-test-json-payload.md](runtime-diagnostic-test-json-payload.md).
 - Runtime diagnostic result value trace projection:

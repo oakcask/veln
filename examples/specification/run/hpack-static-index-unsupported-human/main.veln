@@ -1,7 +1,7 @@
 use hpack_fixture
 
 fn fallback_payload(error: String) -> RuntimeDiagnostic
-	RuntimeDiagnostic("hpack.fixture.unsupported_static_index", error, RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture HPACK static indexed header", "hpack_fixture", byte_chunk([])))
+	RuntimeDiagnostic("hpack.fixture.unsupported_static_index", error, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture HPACK static indexed header", "hpack_fixture", byte_chunk([]))))
 end
 
 fn fixture_bytes(text: String) -> Result<ByteChunk, RuntimeDiagnostic>

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_frame_kind, HTTP/2 invalid frame kind at byte offset 0, RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 0, 2, 1, reserved-by-peer-stream, reserved_by_peer_requires_response_headers, ByteChunk([Byte(0), Byte(0), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(2)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_frame_kind, HTTP/2 invalid frame kind at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 0, 2, 1, reserved-by-peer-stream, reserved_by_peer_requires_response_headers, ByteChunk([Byte(0), Byte(0), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0), Byte(2)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -80,20 +80,20 @@ equals = "reserved_by_peer_requires_response_headers"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.actual_frame_kind"
+path = "value.detail.detail.actual_frame_kind"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.stream_id"
+path = "value.detail.detail.stream_id"
 equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_frame_kind"
+path = "value.detail.detail.expected_frame_kind"
 equals = 1

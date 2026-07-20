@@ -75,7 +75,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_frame_kind",
 		error,
-		RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "server-receive", "server_receives_no_push_promise", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(0, 5, 1, 1, "server-receive", "server_receives_no_push_promise", byte_chunk([])))
 	)
 end
 

@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.peer_stream_id_not_increasing",
 		error,
-		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, "client", "idle-stream", "rfc9113_peer_stream_ids_increase", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, "client", "idle-stream", "rfc9113_peer_stream_ids_increase", byte_chunk([])))
 	)
 end
 
@@ -20,6 +20,6 @@ pub fn main() -> Result<(), RuntimeDiagnostic>
 	Err(RuntimeDiagnostic(
 		"http2.protocol.peer_stream_id_not_increasing",
 		"HTTP/2 peer-created stream id 2 is not greater than previous id 4 at byte offset 16",
-		RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, "client", "idle-stream", "rfc9113_peer_stream_ids_increase", preview)
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, "client", "idle-stream", "rfc9113_peer_stream_ids_increase", preview))
 	))
 end

@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.fixture.table_size_update_trailing_bytes, HPACK fixture table-size update has trailing bytes at byte offset 80, RuntimeHpackFixtureTableSizeUpdateDiagnostic(80, 3, 63, 33, 1, 1, hpack-fixture, fixture HPACK table-size update without trailing bytes, hpack_fixture, ByteChunk([Byte(63), Byte(2), Byte(0)])))"
+equals = "RuntimeDiagnostic(hpack.fixture.table_size_update_trailing_bytes, HPACK fixture table-size update has trailing bytes at byte offset 80, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(80, 3, 63, 33, 1, 1, hpack-fixture, fixture HPACK table-size update without trailing bytes, hpack_fixture, ByteChunk([Byte(63), Byte(2), Byte(0)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -92,10 +92,10 @@ equals = false
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHpackFixtureTableSizeUpdateDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_header_table_size"
+path = "value.detail.detail.observed_header_table_size"
 equals = 33

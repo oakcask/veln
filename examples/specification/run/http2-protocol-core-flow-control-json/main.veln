@@ -8,7 +8,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.flow_control_window_exceeded",
 		error,
-		RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(0, 4, 3, 0, 1, "open-stream", "stream_receive_window", byte_chunk([])))
 	)
 end
 
@@ -16,7 +16,7 @@ fn flow_control_payload(offset: Int, observed_length: Int, allowed_window_credit
 	RuntimeDiagnostic(
 		"http2.peer_limit.flow_control_window_exceeded",
 		"HTTP/2 flow-control window exceeded at byte offset 0",
-		RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFlowControlWindowDiagnostic(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance, byte_view_to_chunk(preview)))
 	)
 end
 

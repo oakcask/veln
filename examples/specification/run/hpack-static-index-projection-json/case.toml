@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(hpack.static.unsupported_index, HPACK static index is not supported, RuntimeHpackFixtureDiagnostic(15, 1, 128, HPACK static indexed header, hpack_static, ByteChunk([Byte(128)])))"
+equals = "RuntimeDiagnostic(hpack.static.unsupported_index, HPACK static index is not supported, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(15, 1, 128, HPACK static indexed header, hpack_static, ByteChunk([Byte(128)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

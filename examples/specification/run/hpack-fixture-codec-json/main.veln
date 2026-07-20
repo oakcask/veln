@@ -9,7 +9,7 @@ fn project_decode_result(result: Result<HpackDecodeTransition, HpackFixtureFailu
 end
 
 fn invalid_bad_header_block(error: String) -> Result<ByteChunk, RuntimeDiagnostic>
-	let detail: RuntimeDiagnosticDetail = RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([]))
+	let detail: RuntimeDiagnosticDetail = RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(0, 0, -1, "fixture header block", "hpack_fixture", byte_chunk([])))
 	Err(RuntimeDiagnostic("hpack.fixture.unsupported_header_block", error, detail))
 end
 

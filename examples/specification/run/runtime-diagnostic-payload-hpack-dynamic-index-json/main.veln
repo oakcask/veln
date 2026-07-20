@@ -1,10 +1,12 @@
 use http2::hpack::diagnostic from "std"
 # HPACK fixture helpers return dynamic-index RuntimeDiagnostic payloads.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
+	let protocol_detail: HpackDiagnosticDetail = RuntimeHpackFixtureDynamicIndexDiagnostic(27, 0, -1, 0, 0, "fixture dynamic indexed header", "hpack_fixture", byte_chunk([]))
+	let detail: RuntimeDiagnosticDetail = RuntimeHttp2HpackDiagnostic(protocol_detail)
 	RuntimeDiagnostic(
 		"hpack.fixture.dynamic_index_out_of_range",
 		error,
-		RuntimeHpackFixtureDynamicIndexDiagnostic(27, 0, -1, 0, 0, "fixture dynamic indexed header", "hpack_fixture", byte_chunk([]))
+		detail
 	)
 end
 

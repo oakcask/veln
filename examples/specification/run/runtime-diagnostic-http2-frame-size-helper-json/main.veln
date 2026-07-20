@@ -4,7 +4,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.peer_limit.frame_size_exceeded",
 		error,
-		RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitFrameSizeDiagnostic(0, 1025, 1024, 0, 3, "local_configuration", byte_chunk([])))
 	)
 end
 

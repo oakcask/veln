@@ -74,10 +74,17 @@ mod tests {
     }
 
     #[test]
-    fn bundle_contains_private_byte_module_without_exporting_it() {
+    fn bundle_contains_private_foundation_modules_without_exporting_them() {
         let package = package_bundle();
         assert!(package.files.iter().any(|file| file.path == "bytes.veln"));
+        assert!(
+            package
+                .files
+                .iter()
+                .any(|file| file.path == "diagnostic.veln")
+        );
         assert!(!package.exports.contains(&"bytes.veln"));
+        assert!(!package.exports.contains(&"diagnostic.veln"));
     }
 
     fn collect_distribution_sources(root: &Path, relative: &Path, paths: &mut Vec<String>) {

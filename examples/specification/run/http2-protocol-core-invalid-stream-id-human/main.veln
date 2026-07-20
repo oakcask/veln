@@ -75,7 +75,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_stream_id",
 		error,
-		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 0, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(0, 1, 0, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams", byte_chunk([])))
 	)
 end
 
@@ -83,7 +83,7 @@ fn invalid_stream_id_payload(offset: Int, frame_kind: Int, stream_id: Int, requi
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_stream_id",
 		"HTTP/2 invalid stream id at byte offset 0",
-		RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(offset, frame_kind, stream_id, required_domain, endpoint_role, context_active_state(context), context_rule_provenance(context), byte_view_to_chunk(preview)))
 	)
 end
 

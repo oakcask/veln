@@ -16,7 +16,7 @@ equals = "failed"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.peer_stream_id_not_increasing, HTTP/2 peer-created stream id 2 is not greater than previous id 4 at byte offset 16, RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, client, idle-stream, rfc9113_peer_stream_ids_increase, ByteChunk([Byte(0), Byte(0), Byte(7), Byte(5), Byte(4), Byte(0), Byte(0), Byte(0), Byte(1)])))"
+equals = "RuntimeDiagnostic(http2.protocol.peer_stream_id_not_increasing, HTTP/2 peer-created stream id 2 is not greater than previous id 4 at byte offset 16, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(16, 2, 4, client, idle-stream, rfc9113_peer_stream_ids_increase, ByteChunk([Byte(0), Byte(0), Byte(7), Byte(5), Byte(4), Byte(0), Byte(0), Byte(0), Byte(1)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"

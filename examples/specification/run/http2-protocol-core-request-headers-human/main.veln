@@ -23,7 +23,7 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), RuntimeDiagnostic>
 	match failure
-		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview)))
+		InvalidRequestHeaderList(message, offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, preview) => Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", message, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(offset, frame_kind, stream_id, failed_header_fact, header_name, decoded_header_names, context_active_state(context), context_rule_provenance(context), preview))))
 	end
 end
 
@@ -31,7 +31,7 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.invalid_request_header_list",
 		error,
-		RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "response_only_pseudo_header", ":status", ":status,:method,:scheme,:path", "request-headers", "rfc9113_request_pseudo_headers", byte_chunk([]))
+		RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "response_only_pseudo_header", ":status", ":status,:method,:scheme,:path", "request-headers", "rfc9113_request_pseudo_headers", byte_chunk([])))
 	)
 end
 

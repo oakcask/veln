@@ -1,10 +1,12 @@
 use http2::diagnostic from "std"
 # HTTP/2 header-table helper returns a RuntimeDiagnostic payload.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
+	let protocol_detail: Http2DiagnosticDetail = RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, "local_configuration", "hpack_dynamic_table_size_update", byte_chunk([]))
+	let detail: RuntimeDiagnosticDetail = RuntimeHttp2Diagnostic(protocol_detail)
 	RuntimeDiagnostic(
 		"http2.peer_limit.header_table_size_exceeded",
 		error,
-		RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic(35, 289, 160, 9, 1, "local_configuration", "hpack_dynamic_table_size_update", byte_chunk([]))
+		detail
 	)
 end
 

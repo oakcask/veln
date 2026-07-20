@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 0, RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(0, 4, 0, 5, 6, connection-control, rfc9113_settings_payload_item_length, ByteChunk([Byte(0), Byte(5), Byte(0), Byte(0), Byte(64)])))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(0, 4, 0, 5, 6, connection-control, rfc9113_settings_payload_item_length, ByteChunk([Byte(0), Byte(5), Byte(0), Byte(0), Byte(64)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -88,50 +88,50 @@ equals = "rfc9113_settings_payload_item_length"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.constructor"
+path = "value.detail.detail.constructor"
 equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.frame_kind"
+path = "value.detail.detail.frame_kind"
 equals = 4
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.stream_id"
+path = "value.detail.detail.stream_id"
 equals = 0
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.observed_payload_length"
+path = "value.detail.detail.observed_payload_length"
 equals = 5
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.expected_payload_length"
+path = "value.detail.detail.expected_payload_length"
 equals = 6
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.active_state"
+path = "value.detail.detail.active_state"
 equals = "connection-control"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.rule_provenance"
+path = "value.detail.detail.rule_provenance"
 equals = "rfc9113_settings_payload_item_length"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.constructor"
+path = "value.detail.detail.preview.constructor"
 equals = "ByteChunk"
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.preview.bytes.4.value"
+path = "value.detail.detail.preview.bytes.4.value"
 equals = 64
 
 [[result_value_assert]]
 value_path = "error.details.value"
-path = "value.detail.fields"
+path = "value.detail.detail.fields"
 missing = true
