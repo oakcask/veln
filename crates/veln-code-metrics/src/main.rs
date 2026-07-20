@@ -34,11 +34,20 @@ fn main() {
     findings.sort_by(Finding::compare);
     emit_findings(&findings, &config);
 
-    if config.dependency_summary {
-        emit_dependency_summary(&config);
-    }
+    let dependency_cycles = if config.dependency_summary {
+        emit_dependency_summary(&config)
+    } else {
+        0
+    };
 
-    if findings.iter().any(Finding::blocks_merge) {
+    if findings.iter().any(Finding::blocks_merge)
+        || config.deny_dependency_cycles && dependency_cycles > 0
+    {
+        if config.deny_dependency_cycles && dependency_cycles > 0 {
+            eprintln!(
+                "dependency graph contains {dependency_cycles} strongly connected group(s); inspect Dependency Graph Refactor Signal and remove an ownership cycle because cyclic boundaries force changes to coordinate in both directions"
+            );
+        }
         std::process::exit(1);
     }
 }
@@ -70,7 +79,7 @@ fn emit_findings(findings: &[Finding], config: &Config) {
     }
 }
 
-fn emit_dependency_summary(config: &Config) {
+fn emit_dependency_summary(config: &Config) -> usize {
     let files = match collect_configured_rust_files(config) {
         Ok(files) => files,
         Err(message) => exit_with_message(1, message),
@@ -83,9 +92,10 @@ fn emit_dependency_summary(config: &Config) {
         Ok(summary) => summary,
         Err(message) => exit_with_message(1, message),
     };
-    if let Err(message) = dependency_graph::emit_summary(&summary) {
+    if let Err(message) = dependency_graph::emit_summary(&summary.text) {
         exit_with_message(1, message);
     }
+    summary.cycle_count
 }
 
 #[derive(Debug)]
@@ -93,6 +103,7 @@ struct Config {
     dependency_cycle_limit: usize,
     dependency_hotspots: usize,
     dependency_summary: bool,
+    deny_dependency_cycles: bool,
     deny_numbered_split_files: bool,
     github_annotations: bool,
     file_line_threshold: usize,
@@ -119,6 +130,7 @@ struct ConfigBuilder {
     dependency_cycle_limit: usize,
     dependency_hotspots: usize,
     dependency_summary: bool,
+    deny_dependency_cycles: bool,
     deny_numbered_split_files: bool,
     github_annotations: bool,
     file_line_threshold: usize,
@@ -133,6 +145,7 @@ impl Default for ConfigBuilder {
             dependency_cycle_limit: DEFAULT_DEPENDENCY_CYCLE_LIMIT,
             dependency_hotspots: DEFAULT_DEPENDENCY_HOTSPOTS,
             dependency_summary: false,
+            deny_dependency_cycles: false,
             deny_numbered_split_files: false,
             github_annotations: false,
             file_line_threshold: DEFAULT_FILE_LINE_THRESHOLD,
@@ -151,6 +164,10 @@ impl ConfigBuilder {
     ) -> Result<(), String> {
         match arg.as_str() {
             "--dependency-summary" => self.dependency_summary = true,
+            "--deny-dependency-cycles" => {
+                self.dependency_summary = true;
+                self.deny_dependency_cycles = true;
+            }
             "--dependency-cycle-limit" => {
                 self.dependency_cycle_limit = parse_next_usize(args, "--dependency-cycle-limit")?;
             }
@@ -181,6 +198,7 @@ impl ConfigBuilder {
             dependency_cycle_limit: self.dependency_cycle_limit,
             dependency_hotspots: self.dependency_hotspots,
             dependency_summary: self.dependency_summary,
+            deny_dependency_cycles: self.deny_dependency_cycles,
             deny_numbered_split_files: self.deny_numbered_split_files,
             github_annotations: self.github_annotations,
             file_line_threshold: self.file_line_threshold,
@@ -215,7 +233,7 @@ fn parse_next_threshold(args: &mut impl Iterator<Item = String>) -> Result<f64, 
 }
 
 fn usage() -> String {
-    "usage: veln-code-metrics [--github-annotations] [--dependency-summary] [--dependency-hotspots N] [--dependency-cycle-limit N] [--deny-numbered-split-files] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
+    "usage: veln-code-metrics [--github-annotations] [--dependency-summary] [--dependency-hotspots N] [--dependency-cycle-limit N] [--deny-dependency-cycles] [--deny-numbered-split-files] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
         .to_string()
 }
 
@@ -757,6 +775,7 @@ fn fallback() -> i32 {
             dependency_cycle_limit: DEFAULT_DEPENDENCY_CYCLE_LIMIT,
             dependency_hotspots: DEFAULT_DEPENDENCY_HOTSPOTS,
             dependency_summary: false,
+            deny_dependency_cycles: false,
             deny_numbered_split_files: false,
             github_annotations: false,
             file_line_threshold: 3,
@@ -788,11 +807,13 @@ fn fallback() -> i32 {
             "3".to_string(),
             "--dependency-cycle-limit".to_string(),
             "2".to_string(),
+            "--deny-dependency-cycles".to_string(),
             "crates".to_string(),
         ])
         .unwrap();
 
         assert!(config.dependency_summary);
+        assert!(config.deny_dependency_cycles);
         assert_eq!(config.dependency_hotspots, 3);
         assert_eq!(config.dependency_cycle_limit, 2);
         assert_eq!(config.roots, vec![PathBuf::from("crates")]);

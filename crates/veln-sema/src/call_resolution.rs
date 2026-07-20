@@ -10,12 +10,15 @@ use crate::prelude::{
     core_prelude_signature, prelude_signature, qualified_core_prelude_builtin_signature,
     qualified_core_prelude_signature,
 };
+use crate::semantic_model::{CallOrigin, Type};
+use crate::type_lowering::core_type;
+use crate::type_relations::is_assignable;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::{
-    CallOrigin, CodecCallBoundary, CodecCallSignature, FunctionSignature,
-    SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
-    SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
+    CodecCallBoundary, CodecCallSignature, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX,
+    SCHEMA_DECODE_TARGET_PREFIX, SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
     SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX,
-    SCHEMA_VALIDATE_TARGET_PREFIX, Type, TypeEnvironment, core_type, is_assignable,
+    SCHEMA_VALIDATE_TARGET_PREFIX, TypeEnvironment,
 };
 
 pub(crate) struct TypeBinding<'a> {
@@ -179,11 +182,11 @@ fn type_applied_call_signature(
     }
     let explicit_item = type_args
         .first()
-        .and_then(|type_arg| crate::types::parse_type_annotation(type_arg).ok());
+        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let explicit_context = type_args
         .get(1)
         .filter(|_| is_task_spawn_with(segments))
-        .and_then(|type_arg| crate::types::parse_type_annotation(type_arg).ok());
+        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
     let (params, return_type) = concurrency_signature(
         segments,
         expected,

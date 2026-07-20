@@ -7,13 +7,15 @@ use veln_ir::{
 };
 
 use crate::adt::AdtRegistry;
+use crate::semantic_model::Type;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    SchemaRepeatSpec, Type, byte_view_multiple_constraint, byte_view_schema_primitive,
+    SchemaRepeatSpec, byte_view_multiple_constraint, byte_view_schema_primitive,
     closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
     extension_dispatch_schema_primitive, format_neutral_schema_field_type_for_schema,
-    parse_type_annotation, recursive_dispatch_decode_only_payload_case_is_eligible,
+    recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
     schema_dispatch_payload_schema, schema_length_expression_references,

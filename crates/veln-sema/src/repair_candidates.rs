@@ -1,6 +1,6 @@
 use veln_diagnostics::JsonValue;
 
-use crate::types::Type;
+use crate::semantic_model::Type;
 
 pub(crate) const CANDIDATE_STATUS_QUERY_ONLY: &str = "query_only";
 pub(crate) const APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";

@@ -10,8 +10,8 @@ use veln_ir::{
 };
 use veln_literals::parse_integer_literal;
 
-use crate::api::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
 use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
+use crate::model::{EntryArgScalar, EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
 use crate::runtime::{
     binary_method, concurrency_method, prelude_method, standard_library_method, stdio_method,
 };

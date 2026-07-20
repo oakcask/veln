@@ -1,7 +1,7 @@
 use veln_ast::ContractKind;
 use veln_literals::parse_integer_literal;
 
-use crate::types::{Binding, Type};
+use crate::semantic_model::{Binding, Type};
 
 pub(crate) enum ContractValidation {
     Valid,

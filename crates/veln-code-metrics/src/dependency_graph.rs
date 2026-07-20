@@ -6,11 +6,16 @@ use std::path::{Path, PathBuf};
 
 use syn::visit::{self, Visit};
 
+pub(crate) struct DependencySummary {
+    pub(crate) text: String,
+    pub(crate) cycle_count: usize,
+}
+
 pub(crate) fn collect_summary(
     files: impl IntoIterator<Item = PathBuf>,
     hotspot_limit: usize,
     cycle_limit: usize,
-) -> Result<String, String> {
+) -> Result<DependencySummary, String> {
     let mut sources = Vec::new();
     for path in files {
         let source = fs::read_to_string(&path)
@@ -18,7 +23,10 @@ pub(crate) fn collect_summary(
         sources.push(SourceFile { path, source });
     }
     let graph = DependencyGraph::from_sources(&sources)?;
-    Ok(graph.render_summary(hotspot_limit, cycle_limit))
+    Ok(DependencySummary {
+        text: graph.render_summary(hotspot_limit, cycle_limit),
+        cycle_count: graph.cyclic_components().len(),
+    })
 }
 
 pub(crate) fn emit_summary(summary: &str) -> Result<(), String> {
@@ -113,6 +121,7 @@ impl DependencyGraph {
                 crate_roots: &crate_roots,
                 current,
                 edges: &mut edges,
+                inline_modules: Vec::new(),
                 module_index: &module_index,
                 source_index: graph_source_index,
             };
@@ -267,18 +276,26 @@ struct DependencyVisitor<'a> {
     crate_roots: &'a std::collections::BTreeMap<String, PathBuf>,
     current: &'a ModuleKey,
     edges: &'a mut std::collections::BTreeSet<(usize, usize)>,
+    inline_modules: Vec<String>,
     module_index: &'a std::collections::BTreeMap<ModuleKey, usize>,
     source_index: usize,
 }
 
 impl DependencyVisitor<'_> {
+    fn current_key(&self) -> ModuleKey {
+        let mut current = self.current.clone();
+        current.segments.extend(self.inline_modules.iter().cloned());
+        current
+    }
+
     fn record_path(&mut self, path: &syn::Path) {
         let segments = path
             .segments
             .iter()
             .map(|segment| segment.ident.to_string())
             .collect::<Vec<_>>();
-        let Some(key) = resolve_dependency_path(self.current, self.crate_roots, &segments) else {
+        let current = self.current_key();
+        let Some(key) = resolve_dependency_path(&current, self.crate_roots, &segments) else {
             return;
         };
         self.record_key(key);
@@ -326,7 +343,8 @@ impl DependencyVisitor<'_> {
     }
 
     fn record_segments(&mut self, segments: Vec<String>) {
-        let Some(key) = resolve_dependency_path(self.current, self.crate_roots, &segments) else {
+        let current = self.current_key();
+        let Some(key) = resolve_dependency_path(&current, self.crate_roots, &segments) else {
             return;
         };
         self.record_key(key);
@@ -334,6 +352,17 @@ impl DependencyVisitor<'_> {
 }
 
 impl<'ast> Visit<'ast> for DependencyVisitor<'_> {
+    fn visit_visibility(&mut self, _visibility: &'ast syn::Visibility) {}
+
+    fn visit_item_mod(&mut self, item: &'ast syn::ItemMod) {
+        if item.content.is_none() {
+            return;
+        }
+        self.inline_modules.push(item.ident.to_string());
+        visit::visit_item_mod(self, item);
+        self.inline_modules.pop();
+    }
+
     fn visit_item_use(&mut self, item: &'ast syn::ItemUse) {
         self.record_use_tree(Vec::new(), &item.tree);
         visit::visit_item_use(self, item);
@@ -554,5 +583,44 @@ mod tests {
         assert!(summary.contains("crates/sample/src/a.rs"));
         assert!(summary.contains("crates/sample/src/b.rs"));
         assert!(summary.contains("Strongly connected groups: 1"));
+    }
+
+    #[test]
+    fn ignores_restricted_visibility_paths() {
+        let sources = vec![
+            SourceFile {
+                path: PathBuf::from("crates/sample/src/lib.rs"),
+                source: "mod item;".to_string(),
+            },
+            SourceFile {
+                path: PathBuf::from("crates/sample/src/item.rs"),
+                source: "pub(crate) fn visible() {} pub(in crate) struct Item;".to_string(),
+            },
+        ];
+
+        let graph = DependencyGraph::from_sources(&sources).unwrap();
+
+        assert_eq!(graph.edge_count(), 0);
+        assert!(graph.cyclic_components().is_empty());
+    }
+
+    #[test]
+    fn resolves_super_from_inline_modules_without_root_edges() {
+        let sources = vec![
+            SourceFile {
+                path: PathBuf::from("crates/sample/src/lib.rs"),
+                source: "mod item;".to_string(),
+            },
+            SourceFile {
+                path: PathBuf::from("crates/sample/src/item.rs"),
+                source: "fn visible() {} mod tests { use super::*; fn check() { visible(); } }"
+                    .to_string(),
+            },
+        ];
+
+        let graph = DependencyGraph::from_sources(&sources).unwrap();
+
+        assert_eq!(graph.edge_count(), 0);
+        assert!(graph.cyclic_components().is_empty());
     }
 }
