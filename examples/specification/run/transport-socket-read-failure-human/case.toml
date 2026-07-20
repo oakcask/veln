@@ -12,4 +12,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["transport read failed: forced_failure"]
+contains = ["transport read failed: forced_failure", "note: Local endpoint: 127.0.0.1:0.", "note: Peer endpoint: stream-1.", "note: Stream identity: stream-1.", "note: Lifecycle phase: before_operation.", "note: Commit state: input=false, output=false, ownership=false.", "note: Platform cause: VELN_NET_READ_FAILED."]

@@ -38,8 +38,16 @@ path = "error.details.phase"
 equals = "runtime"
 
 [[json_assert]]
+path = "error.details.id"
+equals = "runtime.transport_failure"
+
+[[json_assert]]
 path = "error.details.operation"
 equals = "write"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "forced_failure"
 
 [[json_assert]]
 path = "error.details.local_endpoint"
@@ -54,5 +62,25 @@ path = "error.details.stream_id"
 equals = "stream-1"
 
 [[json_assert]]
+path = "error.details.listener_id"
+missing = true
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "before_operation"
+
+[[json_assert]]
+path = "error.details.input_committed"
+equals = false
+
+[[json_assert]]
 path = "error.details.output_committed"
 equals = false
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "VELN_NET_WRITE_FAILED"

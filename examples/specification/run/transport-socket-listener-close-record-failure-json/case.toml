@@ -38,6 +38,54 @@ equals = "transport listener close failed: event_record_failed"
 path = "error.details.phase"
 equals = "runtime"
 
+[[json_assert]]
+path = "error.details.id"
+equals = "runtime.transport_failure"
+
+[[json_assert]]
+path = "error.details.operation"
+equals = "listener_close"
+
+[[json_assert]]
+path = "error.details.category"
+equals = "event_record_failed"
+
+[[json_assert]]
+path = "error.details.local_endpoint"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.peer_endpoint"
+missing = true
+
+[[json_assert]]
+path = "error.details.listener_id"
+equals = "127.0.0.1:0"
+
+[[json_assert]]
+path = "error.details.stream_id"
+missing = true
+
+[[json_assert]]
+path = "error.details.lifecycle_phase"
+equals = "closed_handle"
+
+[[json_assert]]
+path = "error.details.input_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.output_committed"
+equals = false
+
+[[json_assert]]
+path = "error.details.ownership_committed"
+equals = true
+
+[[json_assert]]
+path = "error.details.platform_cause"
+equals = "could not record VELN_NET_EVENTS"
+
 [[file_assert]]
 path = "net-events.log"
 equals = "listen 127.0.0.1:0\n"
