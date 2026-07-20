@@ -2225,8 +2225,13 @@ mod tests {
                 "main.veln",
                 concat!(
                     "pub fn main() -> Int\n",
-                    "  match Byte(42)\n",
-                    "    Byte(value) => value\n",
+                    "  let byte: Byte = Byte(42)\n",
+                    "  let chunk: ByteChunk = ByteChunk([byte])\n",
+                    "  let offset: ByteOffset = ByteOffset(3)\n",
+                    "  let count: ByteCount = byte_chunk_count(chunk)\n",
+                    "  let view: ByteView = ByteView(chunk, offset, count)\n",
+                    "  match view\n",
+                    "    ByteView(ByteChunk(_), ByteOffset(start), ByteCount(length)) => start + length\n",
                     "  end\n",
                     "end\n",
                 ),
@@ -2256,6 +2261,10 @@ mod tests {
             assert_eq!(aliases.len(), 1);
             assert_eq!(aliases[0].target, ["bytes", name]);
         }
+
+        let lowered = veln_sema::lower_checked_surface_module(&module);
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        assert!(lowered.core.is_some(), "byte alias usage should lower");
     }
 
     #[test]
