@@ -50,10 +50,12 @@ assertion has a classified replacement.
 
 ### Shared Byte and Diagnostic Types
 
-Move the generic byte ADTs to a private `std::bytes` module and the generic
-runtime-diagnostic envelope to a private `std::diagnostic` module. The prelude
-must continue to export the established `Byte*` and `RuntimeDiagnostic*` names
-through type aliases; this is a source-boundary refactor, not a rename.
+The generic byte ADTs are owned by a private `std::bytes` module and re-exported
+from the prelude under the established `Byte*` names. The remaining work in
+this step is to move the generic runtime-diagnostic envelope to a private
+`std::diagnostic` module while continuing to export the established
+`RuntimeDiagnostic*` names through type aliases; this is a source-boundary
+refactor, not a rename.
 
 Split HTTP/2 details out of the generic envelope:
 
@@ -164,8 +166,8 @@ it is not gradually weakened with broader substring matching.
 
 Each step must leave the standard package and workspace buildable:
 
-1. Finish the private byte and diagnostic type boundaries and update compiler,
-   JVM, JSON-parser, and raw-value expectations.
+1. Finish the private diagnostic type boundary and update compiler, JVM,
+   JSON-parser, and raw-value expectations.
 2. Complete HPACK state and codec behavior, then move pure HPACK assertions to
    adjacent tests.
 3. Complete connection, stream, settings, flow-control, headers, and shutdown

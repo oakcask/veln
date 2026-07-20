@@ -2218,6 +2218,47 @@ mod tests {
     }
 
     #[test]
+    fn ordinary_project_loads_private_byte_dependency_through_prelude() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub fn main() -> Int\n",
+                    "  match Byte(42)\n",
+                    "    Byte(value) => value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        for name in ["Byte", "ByteChunk", "ByteOffset", "ByteCount", "ByteView"] {
+            let owners = module
+                .types
+                .iter()
+                .filter(|type_decl| type_decl.name.as_deref() == Some(name))
+                .map(|type_decl| type_decl.module_name.as_deref())
+                .collect::<Vec<_>>();
+            assert_eq!(owners, [Some("std::bytes")]);
+
+            let aliases = module
+                .aliases
+                .iter()
+                .filter(|alias| {
+                    alias.module_name.as_deref() == Some("std::prelude")
+                        && alias.name.as_deref() == Some(name)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(aliases.len(), 1);
+            assert_eq!(aliases[0].target, ["bytes", name]);
+        }
+    }
+
+    #[test]
     fn explicit_standard_http2_import_loads_only_its_dependency_closure() {
         let project = Project {
             root: ".".into(),
@@ -2265,6 +2306,28 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "module.unexported_import"
                 && diagnostic.message.contains("http2::hpack::integer")
+        }));
+    }
+
+    #[test]
+    fn private_standard_byte_module_cannot_be_imported() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use bytes from \"std\"\n",
+                    "pub fn main() -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unexported_import" && diagnostic.message.contains("bytes")
         }));
     }
 

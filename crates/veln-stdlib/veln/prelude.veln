@@ -1,22 +1,10 @@
-pub type Byte
-	Byte(value: Int)
-end
+use bytes
 
-pub type ByteChunk
-	ByteChunk(bytes: Vec<Byte>)
-end
-
-pub type ByteOffset
-	ByteOffset(value: Int)
-end
-
-pub type ByteCount
-	ByteCount(value: Int)
-end
-
-pub type ByteView
-	ByteView(bytes: ByteChunk, offset: ByteOffset, count: ByteCount)
-end
+pub type Byte = bytes::Byte
+pub type ByteChunk = bytes::ByteChunk
+pub type ByteOffset = bytes::ByteOffset
+pub type ByteCount = bytes::ByteCount
+pub type ByteView = bytes::ByteView
 
 pub type StreamInput
 	Chunk(bytes: ByteChunk)

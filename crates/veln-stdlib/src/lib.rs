@@ -73,6 +73,13 @@ mod tests {
         );
     }
 
+    #[test]
+    fn bundle_contains_private_byte_module_without_exporting_it() {
+        let package = package_bundle();
+        assert!(package.files.iter().any(|file| file.path == "bytes.veln"));
+        assert!(!package.exports.contains(&"bytes.veln"));
+    }
+
     fn collect_distribution_sources(root: &Path, relative: &Path, paths: &mut Vec<String>) {
         let directory = root.join(relative);
         for entry in fs::read_dir(directory).expect("standard package directory should be readable")

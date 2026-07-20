@@ -11479,8 +11479,11 @@ fn standard_package_sources_are_embedded_and_checkable() {
             );
         }
         assert!(
-            !module.functions.is_empty(),
-            "embedded source should define functions"
+            !module.types.is_empty()
+                || !module.schemas.is_empty()
+                || !module.codecs.is_empty()
+                || !module.functions.is_empty(),
+            "embedded source should define a checkable declaration"
         );
     }
 }
