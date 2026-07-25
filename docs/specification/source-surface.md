@@ -93,9 +93,33 @@ arithmetic forms over earlier count fields, and the payload may use an
 exact-width primitive, a lowercase exact-width primitive, a nested binary
 schema, `ByteView(length_field)`, or
 `ByteView(left_length - right_length)`.
-Direct nested binary schema fields may name an eligible same-module schema or
-public imported schema and expose the nested schema-local visible record at
-that field.
+Nominal field type text resolves the ordinary type and schema namespaces
+independently. A unique schema or schema-alias target composes its schema-local
+visible record beneath the written field binding; target fields are never
+injected as unqualified fields. Same-module private or public targets and
+public targets or aliases reached through a written `use` path are supported.
+Format-neutral structural types and binary field primitives keep their existing
+grammar precedence when a local schema or schema alias has the same name. The
+checked collisions are under
+`examples/specification/check/schema-composition-grammar-precedence/`.
+Format-neutral schemas compose only format-neutral targets, and binary schemas
+compose only binary targets. Missing, private, wrong-kind, ambiguous,
+format-incompatible, cyclic, duplicate-binding, forward-reference, and
+direction-specific helper failures are declaration diagnostics.
+Later binary length, repeat, dispatch, field predicate, and schema validation
+expressions may reference an earlier composed `Int` through an explicit path
+such as `header.length`; the root binding must already be decoded. The checked
+surface is under
+`examples/specification/check/schema-composition-diagnostics/`, with executable
+decode and encode cases under
+`examples/specification/run/schema-composition-binary-nested-paths/` and
+`examples/specification/run/schema-composition-format-neutral/`. Nested
+format-neutral target validation failures in both directions and binary target
+decode and encode failures are checked by the matching
+`schema-composition-format-neutral-*-failure/` and
+`schema-composition-binary-*-failure/` cases. The success cases include local
+and imported aliases, a same-module public target, and nested paths in every
+supported later expression position.
 Anonymous record fields in `format binary` schemas expose a nested
 schema-local visible record at that field when every leaf is an implemented
 exact-width unsigned primitive. Anonymous records may contain sibling nested

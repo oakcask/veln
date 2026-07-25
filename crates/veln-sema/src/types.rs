@@ -2721,6 +2721,43 @@ fn schema_reference<'a>(
     }
 }
 
+pub(crate) fn schema_field_target<'a>(
+    module: &'a SurfaceModule,
+    containing_schema: &SchemaDecl,
+    text: &str,
+) -> Option<&'a SchemaDecl> {
+    if schema_field_uses_existing_grammar(containing_schema, text) {
+        return None;
+    }
+    let segments = schema_payload_name_path(text)?;
+    schema_reference(
+        module,
+        &segments,
+        containing_schema.module_name.as_deref(),
+        true,
+        &mut Vec::new(),
+    )
+}
+
+pub(crate) fn schema_field_uses_existing_grammar(schema: &SchemaDecl, text: &str) -> bool {
+    match schema.format.as_ref().map(|format| format.name.as_str()) {
+        None => matches!(text, "Int" | "Bool" | "Float" | "String"),
+        Some("binary") => {
+            exact_width_schema_primitive(text).is_some()
+                || lowercase_reserved_bits_schema_primitive(text).is_some()
+                || lowercase_schema_primitive(text).is_some()
+                || !lowercase_schema_primitive_nested_payloads(text).is_empty()
+                || byte_view_schema_primitive(text).is_some()
+                || repeat_schema_primitive(text).is_some()
+                || binary_schema_anonymous_record_decode_type(text).is_some()
+                || closed_dispatch_schema_primitive(text).is_some()
+                || extension_dispatch_schema_primitive(text).is_some()
+                || reserved_bits_schema_primitive(text).is_some()
+        }
+        Some(_) => false,
+    }
+}
+
 fn schema_in_module<'a>(
     module: &'a SurfaceModule,
     module_name: Option<&str>,
@@ -2858,14 +2895,27 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
     text: &str,
 ) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_visible_shape_type_for_schema(
+    if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
         adts,
         &ty,
         &mut FormatNeutralSchemaTraversalState::default(),
         FormatNeutralSchemaTraversal::Decode,
-    )
+    ) {
+        return Some(ty);
+    }
+    if let Some(target) = schema_field_target(module, schema, text)
+        && target.format.is_none()
+    {
+        return format_neutral_schema_composition_value_type(
+            module,
+            target,
+            FormatNeutralSchemaTraversal::Decode,
+            &mut Vec::new(),
+        );
+    }
+    None
 }
 
 pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<Type> {
@@ -2923,14 +2973,27 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     text: &str,
 ) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_visible_shape_type_for_schema(
+    if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
         adts,
         &ty,
         &mut FormatNeutralSchemaTraversalState::default(),
         FormatNeutralSchemaTraversal::Encode,
-    )
+    ) {
+        return Some(ty);
+    }
+    if let Some(target) = schema_field_target(module, schema, text)
+        && target.format.is_none()
+    {
+        return format_neutral_schema_composition_value_type(
+            module,
+            target,
+            FormatNeutralSchemaTraversal::Encode,
+            &mut Vec::new(),
+        );
+    }
+    None
 }
 
 pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
@@ -3006,6 +3069,43 @@ struct FormatNeutralSchemaTraversalState {
 enum FormatNeutralSchemaTraversal {
     Decode,
     Encode,
+}
+
+fn format_neutral_schema_composition_value_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    traversal: FormatNeutralSchemaTraversal,
+    stack: &mut Vec<(Option<String>, String)>,
+) -> Option<Type> {
+    let key = (schema.module_name.clone(), schema.name.clone()?);
+    if stack.contains(&key) {
+        return None;
+    }
+    stack.push(key);
+    let adts = AdtRegistry::from_module(module);
+    let mut fields = Vec::new();
+    for field in &schema.fields {
+        let parsed = parse_type_annotation(&field.ty).ok()?;
+        let ty = if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
+            module,
+            schema.module_name.as_deref(),
+            &adts,
+            &parsed,
+            &mut FormatNeutralSchemaTraversalState::default(),
+            traversal,
+        ) {
+            ty
+        } else if let Some(target) = schema_field_target(module, schema, &field.ty)
+            && target.format.is_none()
+        {
+            format_neutral_schema_composition_value_type(module, target, traversal, stack)?
+        } else {
+            return None;
+        };
+        fields.push((field.name.clone(), ty));
+    }
+    stack.pop();
+    Some(Type::Record(fields))
 }
 
 fn format_neutral_schema_visible_shape_type_for_schema(
@@ -3281,25 +3381,28 @@ fn schema_decode_record_fields_inner_after_push(
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
             (width, Type::int())
         } else if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
-            if length_expr
-                .references()
-                .into_iter()
-                .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
-            {
+            if length_expr.references().into_iter().any(|reference| {
+                schema_field_reference_type(&decoded_fields, reference) != Some(&Type::int())
+            }) {
                 return None;
             }
             (0, Type::named("ByteView", Vec::new()))
         } else if let Some(repeat) = repeat_schema_primitive(&field.ty) {
             if schema_length_expression_references(&repeat.count_field)?
                 .into_iter()
-                .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
+                .any(|reference| {
+                    schema_field_reference_type(&decoded_fields, reference) != Some(&Type::int())
+                })
             {
                 return None;
             }
             if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
                 && schema_length_expression_references(length_field)?
                     .into_iter()
-                    .any(|reference| decoded_fields.get(reference) != Some(&Type::int()))
+                    .any(|reference| {
+                        schema_field_reference_type(&decoded_fields, reference)
+                            != Some(&Type::int())
+                    })
             {
                 return None;
             }
@@ -3308,16 +3411,19 @@ fn schema_decode_record_fields_inner_after_push(
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
             (0, Type::named("List", vec![element_ty]))
-        } else if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
+        } else if let Some(nested) = schema_field_target(module, schema, &field.ty)
+            && nested.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
+        {
             (0, schema_decode_value_type_inner(module, nested, stack)?)
         } else if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
             (0, record_ty)
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-            if decoded_fields.get(&dispatch.tag_field) != Some(&Type::int())
+            if schema_field_reference_type(&decoded_fields, &dispatch.tag_field)
+                != Some(&Type::int())
                 || dispatch.length_field.as_ref().is_some_and(|length_field| {
-                    decoded_fields.get(length_field) != Some(&Type::int())
+                    schema_field_reference_type(&decoded_fields, length_field) != Some(&Type::int())
                 })
             {
                 return None;
@@ -3815,6 +3921,7 @@ fn schema_encode_schema_fields(
 ) -> Option<SchemaEncodeFields> {
     let mut fields = Vec::new();
     let mut exact_width_field_names = Vec::new();
+    let mut visible_field_types = BTreeMap::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
             supported_encode_reserved_bits(&schema.fields, index, reserved)?;
@@ -3823,15 +3930,15 @@ fn schema_encode_schema_fields(
         if exact_width_schema_primitive(&field.ty).is_some() {
             exact_width_field_names.push(field.name.clone());
             fields.push((field.name.clone(), Type::int()));
+            visible_field_types.insert(field.name.clone(), Type::int());
             continue;
         }
         if let Some(repeat) = repeat_schema_primitive(&field.ty) {
             if schema_length_expression_references(&repeat.count_field)?
                 .into_iter()
                 .any(|reference| {
-                    !exact_width_field_names
-                        .iter()
-                        .any(|field| field == reference)
+                    schema_field_reference_type(&visible_field_types, reference)
+                        != Some(&Type::int())
                 })
             {
                 return None;
@@ -3840,9 +3947,8 @@ fn schema_encode_schema_fields(
                 && schema_length_expression_references(length_field)?
                     .into_iter()
                     .any(|reference| {
-                        !exact_width_field_names
-                            .iter()
-                            .any(|field| field == reference)
+                        schema_field_reference_type(&visible_field_types, reference)
+                            != Some(&Type::int())
                     })
             {
                 return None;
@@ -3851,40 +3957,44 @@ fn schema_encode_schema_fields(
                 continue;
             }
             let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
-            fields.push((field.name.clone(), Type::named("List", vec![element_ty])));
+            let field_ty = Type::named("List", vec![element_ty]);
+            fields.push((field.name.clone(), field_ty.clone()));
+            visible_field_types.insert(field.name.clone(), field_ty);
             continue;
         }
         if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
             if length_expr.references().into_iter().any(|reference| {
-                !exact_width_field_names
-                    .iter()
-                    .any(|field| field == reference)
+                schema_field_reference_type(&visible_field_types, reference) != Some(&Type::int())
             }) {
                 return None;
             }
             fields.push((field.name.clone(), Type::named("ByteView", Vec::new())));
+            visible_field_types.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
             continue;
         }
-        if let Some(nested) = schema_dispatch_payload_schema(module, schema, &field.ty) {
-            fields.push((
-                field.name.clone(),
-                schema_encode_value_type(module, nested)?,
-            ));
+        if let Some(nested) = schema_field_target(module, schema, &field.ty)
+            && nested.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
+        {
+            let field_ty = schema_encode_value_type(module, nested)?;
+            fields.push((field.name.clone(), field_ty.clone()));
+            visible_field_types.insert(field.name.clone(), field_ty);
             continue;
         }
         if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
-            fields.push((field.name.clone(), record_ty));
+            fields.push((field.name.clone(), record_ty.clone()));
+            visible_field_types.insert(field.name.clone(), record_ty);
             continue;
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
         let recursive_dispatch_payload =
             recursive_dispatch_encode_payload_field(module, schema, field, &dispatch);
-        if !exact_width_field_names.contains(&dispatch.tag_field)
-            || dispatch
-                .length_field
-                .as_ref()
-                .is_some_and(|length_field| !exact_width_field_names.contains(length_field))
+        if schema_field_reference_type(&visible_field_types, &dispatch.tag_field)
+            != Some(&Type::int())
+            || dispatch.length_field.as_ref().is_some_and(|length_field| {
+                schema_field_reference_type(&visible_field_types, length_field)
+                    != Some(&Type::int())
+            })
             || (dispatch.length_field.is_some()
                 && !dispatch.preserves_unknown
                 && !recursive_dispatch_payload)
@@ -3901,12 +4011,12 @@ fn schema_encode_schema_fields(
             return None;
         }
         if dispatch.preserves_unknown {
-            fields.push((
-                field.name.clone(),
-                Type::named("SchemaDispatchPayload", vec![payload_ty]),
-            ));
+            let field_ty = Type::named("SchemaDispatchPayload", vec![payload_ty]);
+            fields.push((field.name.clone(), field_ty.clone()));
+            visible_field_types.insert(field.name.clone(), field_ty);
         } else {
-            fields.push((field.name.clone(), payload_ty));
+            fields.push((field.name.clone(), payload_ty.clone()));
+            visible_field_types.insert(field.name.clone(), payload_ty);
         }
     }
     Some((fields, exact_width_field_names))
@@ -4443,14 +4553,24 @@ fn split_top_level_once(text: &str, delimiter: char) -> Option<(&str, &str)> {
 }
 
 fn is_simple_schema_field_reference(text: &str) -> bool {
-    let mut chars = text.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !(first.is_ascii_alphabetic() || first == '_') {
-        return false;
+    !text.is_empty() && text.split('.').all(is_schema_identifier)
+}
+
+pub(crate) fn schema_field_reference_type<'a>(
+    fields: &'a BTreeMap<String, Type>,
+    reference: &str,
+) -> Option<&'a Type> {
+    let mut segments = reference.split('.');
+    let mut ty = fields.get(segments.next()?)?;
+    for segment in segments {
+        let Type::Record(record_fields) = ty else {
+            return None;
+        };
+        ty = record_fields
+            .iter()
+            .find_map(|(name, ty)| (name == segment).then_some(ty))?;
     }
-    chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    Some(ty)
 }
 
 pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {
@@ -4921,7 +5041,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
     let inner = schema_call_inner(ty, "Dispatch")?;
     let mut args = split_top_level_args(inner).into_iter().peekable();
     let tag_field = args.next()?.to_string();
-    if !is_schema_identifier(&tag_field) {
+    if !is_simple_schema_field_reference(&tag_field) {
         return None;
     }
     let length_field = args
@@ -4930,7 +5050,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
         .map(|arg| (*arg).to_string());
     if length_field
         .as_deref()
-        .is_some_and(|length_field| !is_schema_identifier(length_field))
+        .is_some_and(|length_field| !is_simple_schema_field_reference(length_field))
     {
         return None;
     }
@@ -4961,7 +5081,9 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
     let mut args = split_top_level_args(inner).into_iter();
     let tag_field = args.next()?.to_string();
     let length_field = args.next()?.to_string();
-    if !is_schema_identifier(&tag_field) || !is_schema_identifier(&length_field) {
+    if !is_simple_schema_field_reference(&tag_field)
+        || !is_simple_schema_field_reference(&length_field)
+    {
         return None;
     }
     let cases = args

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed first format-neutral container encode
-helper slice from `../../proposals/schema-declaration-surface.md`. Current
+helper slice from `schema-declaration-surface.md`. Current
 behavior is specified by `../../specification/source-surface.md` and
 `../../specification/execution.md`.
 
@@ -47,5 +47,7 @@ implemented proposal records.
 
 The completed recursive eligibility rule is recorded in
 [Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
-The broader schema declaration proposal remains open only for its binary
-helper and later schema-composition work.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Binary helper
+families outside the implemented slices are separate proposals or explicit
+non-goals.

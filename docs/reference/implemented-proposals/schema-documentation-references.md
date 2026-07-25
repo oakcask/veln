@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed documentation-comment schema reference
-slice from `../../proposals/schema-declaration-surface.md`. Current behavior is
+slice from `schema-declaration-surface.md`. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/commands.md`, and the checked executable examples under
 `../../../examples/specification/doc/`.
@@ -35,7 +35,6 @@ Resolved references render as code text in generated Markdown documentation.
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for schema-aware
-references from later schema composition surfaces beyond codec declaration
-heads, public schema member aliases, documentation comments, and binary
-fixture metadata.
+Schema-aware composition references are complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Any new reference
+position is a separate proposal rather than remaining work in this record.

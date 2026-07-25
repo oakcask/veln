@@ -1,0 +1,5 @@
+schema Hidden
+	format binary
+
+	value: UInt8
+end

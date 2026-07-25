@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed format-neutral source ADT helper slice
-from `../../proposals/schema-declaration-surface.md`. Current behavior is
+from `schema-declaration-surface.md`. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 
@@ -60,6 +60,7 @@ completed encode behavior is recorded in
 
 The recursive format-neutral encode boundary is complete and recorded in
 [Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
-The broader schema declaration proposal remains open only for binary schema
-fields outside the implemented helper slices and later schema composition
-surfaces.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Binary field
+families outside the implemented helper slices are separate proposals or
+explicit non-goals.

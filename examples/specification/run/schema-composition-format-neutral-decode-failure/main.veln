@@ -1,0 +1,14 @@
+# Format-neutral composition validates the nested decode target before its container.
+schema Child
+	value: Int where value > 0
+end
+
+schema Parent
+	child: Child
+	marker: Int where marker > 0
+end
+
+pub fn main() -> Result<(), String>
+	let ignored: {child: {value: Int}, marker: Int} = byte_decode_parent({child: {value: 0}, marker: 0})?
+	Ok(())
+end

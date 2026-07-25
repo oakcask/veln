@@ -1,0 +1,23 @@
+# A composed binary decode failure retains the containing binding and target path.
+
+schema Child
+	format binary
+
+	kind: UInt8
+	value: UInt16be
+end
+
+schema Parent
+	format binary
+
+	prefix: UInt8
+	child: Child
+	suffix: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010203")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let _: {prefix: Int, child: {kind: Int, value: Int}, suffix: Int} = byte_decode_parent(view)?
+	Ok(())
+end

@@ -4,7 +4,7 @@ Status: implemented
 
 This record preserves the completed bounded repeat
 `ByteView(left_length - right_length)` payload helper slice from
-`../../proposals/schema-declaration-surface.md`. Current behavior is specified
+`schema-declaration-surface.md`. Current behavior is specified
 by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 
@@ -36,6 +36,7 @@ helper slice.
 
 ## Remaining Work
 
-The broader schema declaration proposal remains open for binary schema fields
-outside the implemented helper slices, format-neutral encode helper fields
-beyond the implemented boundary, and later schema composition surfaces.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Binary field
+families and format-neutral helper shapes outside the implemented slices are
+separate proposals or explicit non-goals.

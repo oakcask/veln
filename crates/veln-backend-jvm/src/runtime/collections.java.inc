@@ -1058,7 +1058,7 @@
             pos += 1;
             while (!isAtEnd()) {
                 char ch = input.charAt(pos);
-                if (!(Character.isLetterOrDigit(ch) || ch == '_')) {
+                if (!(Character.isLetterOrDigit(ch) || ch == '_' || ch == '.')) {
                     break;
                 }
                 pos += 1;
@@ -2078,6 +2078,8 @@
             Long intValue = fieldValue instanceof Long ? (Long) fieldValue : null;
             if (intValue != null) {
                 supplied.put(fieldName, intValue);
+            } else {
+                schemaPutNestedIntFields(supplied, fieldName, fieldValue);
             }
             String predicateText = asString(predicateValues.get(index));
             if (predicateText.isEmpty()) {
@@ -2132,6 +2134,76 @@
             }
         }
         return ok(value);
+    }
+
+    public static Object validateDeclaredSchemaCompositionValue(
+        Object value,
+        Object metadata
+    ) {
+        java.util.List<Object> values = asList(metadata);
+        if (values.size() != 5) {
+            return err("invalid schema composition validation metadata");
+        }
+        String schemaName = asString(values.get(0));
+        java.util.List<Object> fieldNames = asList(values.get(1));
+        java.util.List<Object> nestedMetadata = asList(values.get(4));
+        if (fieldNames.size() != nestedMetadata.size()) {
+            return err("invalid schema composition validation metadata for schema `" + schemaName + "`");
+        }
+        java.util.Map<Object, Object> record = asMap(value);
+        for (int index = 0; index < fieldNames.size(); index += 1) {
+            Object nested = nestedMetadata.get(index);
+            if (!(nested instanceof java.util.List<?>)) {
+                continue;
+            }
+            String fieldName = asString(fieldNames.get(index));
+            Object nestedValidation = validateDeclaredSchemaCompositionValue(
+                record.get(fieldName),
+                nested
+            );
+            if (isErr(nestedValidation)) {
+                return prependSchemaCompositionValueDiagnostic(
+                    nestedValidation,
+                    schemaName,
+                    fieldName
+                );
+            }
+        }
+        return validateDeclaredSchemaValue(
+            value,
+            values.get(0),
+            values.get(1),
+            values.get(2),
+            values.get(3)
+        );
+    }
+
+    private static Object prependSchemaCompositionValueDiagnostic(
+        Object validation,
+        String containingSchema,
+        String binding
+    ) {
+        Object reason = resultValue(validation);
+        DiagnosticResultValue carried = carriedDiagnosticValue(reason);
+        if (carried == null || carried.valueDiagnostic == null) {
+            return validation;
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        path.add(new ByteDiagnosticFieldPathSegment("schema", containingSchema));
+        path.add(new ByteDiagnosticFieldPathSegment("field", binding));
+        path.addAll(carried.valueDiagnostic.fieldPath);
+        return err(new DiagnosticResultValue(
+            carried.value,
+            carried.fixtureHexDiagnostic,
+            carried.byteDiagnostic,
+            new ValueDiagnostic(
+                carried.valueDiagnostic.id,
+                path,
+                carried.valueDiagnostic.details
+            ),
+            carried.protocolDiagnostic
+        ));
     }
 
     public static Object byteEncodeDeclaredBinarySchema(
@@ -2694,6 +2766,8 @@
             Long intValue = schemaEncodedIntValue(value, field);
             if (intValue != null) {
                 supplied.put(field.name, intValue);
+            } else {
+                schemaPutNestedIntFields(supplied, field.name, value);
             }
             if (field.predicate == null) {
                 continue;
@@ -5846,8 +5920,10 @@
                     return nestedRead;
                 }
                 java.util.Map<Object, Object> nestedValue = asMap(unwrapOk(nestedRead));
-                values.put(field.name, nestedValue.get("value"));
+                Object visibleNestedValue = nestedValue.get("value");
+                values.put(field.name, visibleNestedValue);
                 decoded.put(field.name, Long.valueOf(0L));
+                schemaPutNestedIntFields(decoded, field.name, visibleNestedValue);
                 relativeOffset += asLong(nestedValue.get("consumed"));
                 continue;
             }
@@ -6504,6 +6580,15 @@
                     relativeOffset,
                     Math.max(0L, byteViewCountLong(view) - relativeOffset)
                 );
+                Object nestedDecoded = byteDecodeBinarySchemaWithBase(
+                    payloadView,
+                    field.payloadSchema,
+                    diagnosticBaseOffset + relativeOffset
+                );
+                if (isErr(nestedDecoded)) {
+                    return relativeOffset;
+                }
+                schemaPutNestedIntFields(decoded, field.name, unwrapOk(nestedDecoded));
                 long consumed = schemaConsumedWidth(
                     payloadView,
                     field.payloadSchema,
@@ -7443,7 +7528,7 @@
                 continue;
             }
             for (String ref : field.predicate.refs()) {
-                Integer refIndex = fieldIndexes.get(ref);
+                Integer refIndex = fieldIndexes.get(schemaReferenceRoot(ref));
                 if (refIndex == null) {
                     return err(
                         "unsupported schema predicate reference `"
@@ -7466,7 +7551,7 @@
         }
         if (schema.validation != null) {
             for (String ref : schema.validation.refs()) {
-                if (!fieldIndexes.containsKey(ref)) {
+                if (!fieldIndexes.containsKey(schemaReferenceRoot(ref))) {
                     return err(
                         "unsupported schema validation reference `"
                             + ref
@@ -7478,6 +7563,11 @@
             }
         }
         return null;
+    }
+
+    private static String schemaReferenceRoot(String reference) {
+        int separator = reference.indexOf('.');
+        return separator < 0 ? reference : reference.substring(0, separator);
     }
 
     private static String byteViewPreviewTrace(Object view, int maxPreviewBytes) {
@@ -7671,7 +7761,7 @@
         if (dispatch.preservesUnknown) {
             return schemaWriteExtensionDispatchPayload(fields, dispatch, schema, fieldName);
         }
-        long tagValue = asLong(fields.get(dispatch.tagField));
+        long tagValue = asLong(schemaPathValue(fields, dispatch.tagField));
         String fieldPath = schema.name + "." + fieldName;
         for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
             if (dispatchCase.tag != tagValue) {
@@ -7697,7 +7787,7 @@
                 return encoded;
             }
             if (!dispatch.lengthField.isEmpty()) {
-                long suppliedLength = asLong(fields.get(dispatch.lengthField));
+                long suppliedLength = asLong(schemaPathValue(fields, dispatch.lengthField));
                 return schemaDispatchLengthCheckedChunk(
                     unwrapOk(encoded),
                     suppliedLength,
@@ -7726,8 +7816,8 @@
         String fieldName
     ) {
         String fieldPath = schema.name + "." + fieldName;
-        long tagValue = asLong(fields.get(dispatch.tagField));
-        long suppliedLength = asLong(fields.get(dispatch.lengthField));
+        long tagValue = asLong(schemaPathValue(fields, dispatch.tagField));
+        long suppliedLength = asLong(schemaPathValue(fields, dispatch.lengthField));
         Object payload = fields.get(fieldName);
         SchemaDispatchCaseSpec selectedCase = null;
         for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
@@ -8175,7 +8265,7 @@
                     + "`"
             );
         }
-        Object left = fields.get(parsed.left);
+        Object left = schemaPathValue(fields, parsed.left);
         if (left == null) {
             return err(
                 "missing "
@@ -8190,7 +8280,7 @@
         if (parsed.isField()) {
             return ok(Long.valueOf(asLong(left)));
         }
-        Object right = fields.get(parsed.right);
+        Object right = schemaPathValue(fields, parsed.right);
         if (right == null) {
             return err(
                 "missing "
@@ -8278,8 +8368,34 @@
         try {
             return Long.valueOf(Long.parseLong(multiple));
         } catch (NumberFormatException ignored) {
-            Object value = decoded.get(multiple);
+            Object value = schemaPathValue(decoded, multiple);
             return value instanceof Long ? (Long) value : null;
+        }
+    }
+
+    private static Object schemaPathValue(java.util.Map<?, ?> fields, String path) {
+        Object direct = fields.get(path);
+        if (direct != null) return direct;
+        Object value = fields;
+        for (String segment : path.split("\\.")) {
+            if (!(value instanceof java.util.Map<?, ?>)) return null;
+            value = ((java.util.Map<?, ?>) value).get(segment);
+            if (value == null) return null;
+        }
+        return value;
+    }
+
+    private static void schemaPutNestedIntFields(
+        java.util.Map<String, Long> target,
+        String prefix,
+        Object value
+    ) {
+        if (!(value instanceof java.util.Map<?, ?>)) return;
+        for (java.util.Map.Entry<?, ?> entry : ((java.util.Map<?, ?>) value).entrySet()) {
+            String path = prefix + "." + asString(entry.getKey());
+            Object child = entry.getValue();
+            if (child instanceof Long) target.put(path, (Long) child);
+            else schemaPutNestedIntFields(target, path, child);
         }
     }
 
@@ -8360,20 +8476,18 @@
     }
 
     private static boolean isSchemaLengthExpressionIdentifier(String text) {
-        if (text.isEmpty()) {
-            return false;
-        }
-        char first = text.charAt(0);
-        if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_')) {
-            return false;
-        }
-        for (int index = 1; index < text.length(); index += 1) {
-            char ch = text.charAt(index);
-            if (!((ch >= 'A' && ch <= 'Z')
-                || (ch >= 'a' && ch <= 'z')
-                || (ch >= '0' && ch <= '9')
-                || ch == '_')) {
-                return false;
+        if (text.isEmpty()) return false;
+        String[] segments = text.split("\\.", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty()) return false;
+            char first = segment.charAt(0);
+            if (!((first >= 'A' && first <= 'Z')
+                || (first >= 'a' && first <= 'z') || first == '_')) return false;
+            for (int index = 1; index < segment.length(); index += 1) {
+                char ch = segment.charAt(index);
+                if (!((ch >= 'A' && ch <= 'Z')
+                    || (ch >= 'a' && ch <= 'z')
+                    || (ch >= '0' && ch <= '9') || ch == '_')) return false;
             }
         }
         return true;

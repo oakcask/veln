@@ -1,0 +1,12 @@
+pub schema UInt8
+	value: Int
+end
+
+pub schema UInt16be = UInt8
+
+pub schema BinaryHost
+	format binary
+
+	byte: UInt8
+	word: UInt16be
+end

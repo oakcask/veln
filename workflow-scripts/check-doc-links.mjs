@@ -7,7 +7,7 @@ if (isMainModule()) {
   const result = validateDocsLinks(path.resolve("docs"));
   if (!result.valid) {
     console.error(
-      "Fix the listed documentation links before merging; broken routes block readers and agents from finding the intended source.",
+      "Fix the listed documentation routes before merging; broken or misclassified routes block readers and agents from finding the intended source.",
     );
     for (const error of result.errors) {
       console.error(`- ${error}`);
@@ -37,6 +37,9 @@ export function validateDocsLinks(docsRoot) {
     );
     errors.push(
       ...validateProposalCatalogReferences({ docsRoot, file, text }),
+    );
+    errors.push(
+      ...validateImplementedProposalRoutes({ docsRoot, file, text }),
     );
   }
 
@@ -114,6 +117,63 @@ function validateProposalCatalogReferences({ docsRoot, file, text }) {
     }
   }
   return errors;
+}
+
+function validateImplementedProposalRoutes({ docsRoot, file, text }) {
+  const relativeFrom = path.relative(docsRoot, file);
+  const implementedRoot = path.join("reference", "implemented-proposals");
+  if (!relativeFrom.startsWith(`${implementedRoot}${path.sep}`)) {
+    return [];
+  }
+
+  const lines = stripMarkdownCode(text).split("\n");
+  const errors = [];
+  for (const link of localMarkdownLinks(stripMarkdownCode(text))) {
+    if (!isListItem(lines[link.line - 1])) {
+      continue;
+    }
+
+    const introduction = precedingParagraph(lines, link.line - 1);
+    if (
+      !/\bremaining (?:planned )?work\b/i.test(introduction) ||
+      !/\b(?:proposal )?routes?\b/i.test(introduction)
+    ) {
+      continue;
+    }
+
+    const [targetPath] = link.target.split("#", 1);
+    const targetFile = path.resolve(path.dirname(file), decodeUriPath(targetPath));
+    const relativeTarget = path.relative(docsRoot, targetFile);
+    if (relativeTarget.startsWith(`${implementedRoot}${path.sep}`)) {
+      errors.push(
+        `${relativeFrom}:${link.line}: remove implemented proposal from remaining-work routes: ${link.target}; completed routes must point readers to current specification and executable evidence`,
+      );
+    }
+  }
+  return errors;
+}
+
+function precedingParagraph(lines, listLineIndex) {
+  let index = listLineIndex - 1;
+  while (index >= 0 && (lines[index].trim() === "" || isListItem(lines[index]))) {
+    index -= 1;
+  }
+
+  const paragraph = [];
+  while (
+    index >= 0 &&
+    lines[index].trim() !== "" &&
+    !lines[index].startsWith("#") &&
+    !isListItem(lines[index])
+  ) {
+    paragraph.unshift(lines[index].trim());
+    index -= 1;
+  }
+  return paragraph.join(" ");
+}
+
+function isListItem(line) {
+  return /^\s*[-*+]\s+/.test(line);
 }
 
 function isBareImplementedProposalPath(value) {

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed arithmetic mapped-record encode slice from
-`../../proposals/schema-declaration-surface.md` and
+`schema-declaration-surface.md` and
 `binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, `../../specification/examples.md`, and the
@@ -40,6 +40,6 @@ arithmetic records.
 
 ## Remaining Work
 
-The broader schema declaration and binary schema proposals remain open for
-mapping, primitive, and dispatch behavior outside the implemented generated
-helper slices.
+Schema composition through field type positions is complete. Retired mapping
+syntax and unsupported binary field families remain explicit non-goals unless
+a separate proposal defines their source and helper boundaries.

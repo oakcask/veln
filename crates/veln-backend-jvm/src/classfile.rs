@@ -1026,7 +1026,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         name: &str,
         args: &[IrExpr],
     ) {
-        self.emit_schema_validate_call(code, name, args);
+        self.emit_schema_neutral_composition_call(code, name, args);
     }
 
     fn emit_schema_neutral_encode_call(
@@ -1035,7 +1035,32 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         name: &str,
         args: &[IrExpr],
     ) {
-        self.emit_schema_validate_call(code, name, args);
+        self.emit_schema_neutral_composition_call(code, name, args);
+    }
+
+    fn emit_schema_neutral_composition_call(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        args: &[IrExpr],
+    ) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema validation spec `{name}`"));
+        let [value] = args else {
+            panic!("format-neutral schema call should receive one record argument");
+        };
+        self.emit_expr(code, value);
+        self.emit_schema_validation_metadata(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "validateDeclaredSchemaCompositionValue",
+            &object_method_descriptor(2),
+        );
     }
 
     fn emit_schema_encode_step_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
@@ -1611,6 +1636,40 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             20 => this.emit_schema_dispatch_case_widths(code, schema),
             21 => this.emit_schema_dispatch_case_little_endian_values(code, schema),
             22 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            _ => unreachable!(),
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_validation_metadata(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, 5, |this, code, index| match index {
+            0 => code.ldc_string(&schema.schema_name),
+            1 => this.emit_schema_field_names(code, schema),
+            2 => this.emit_schema_field_predicates(code, schema),
+            3 => this.emit_schema_validation(code, schema),
+            4 => {
+                this.emit_object_array(code, schema.fields.len(), |this, code, field_index| {
+                    if let Some(payload_schema) = schema.fields[field_index].payload_schema.as_ref()
+                    {
+                        this.emit_schema_validation_metadata(code, payload_schema);
+                    } else {
+                        code.ldc_string("");
+                    }
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
             _ => unreachable!(),
         });
         code.invokestatic(

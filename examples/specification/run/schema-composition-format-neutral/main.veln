@@ -1,0 +1,37 @@
+# Format-neutral schema composition exposes only the explicit nested binding.
+use stdio
+use wire
+use facade
+
+schema Metadata
+	version: Int
+	label: String
+end
+
+pub schema LocalMetadataAlias = PublicMetadata
+
+pub schema PublicMetadata
+	version: Int
+	label: String
+end
+
+schema Envelope
+	metadata: Metadata
+	local_aliased: LocalMetadataAlias
+	imported: wire::ImportedMetadata
+	aliased: facade::AliasMetadata
+	payload: String
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let value: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = {metadata: {version: 3, label: "stable"}, local_aliased: {version: 6, label: "local alias"}, imported: {version: 4, label: "public"}, aliased: {version: 5, label: "alias"}, payload: "body"}
+	let decoded: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = byte_decode_envelope(value)?
+	let encoded: {metadata: {version: Int, label: String}, local_aliased: {version: Int, label: String}, imported: {version: Int, label: String}, aliased: {version: Int, label: String}, payload: String} = byte_encode_envelope(decoded)?
+	stdio::println(int_to_string(encoded.metadata.version))
+	stdio::println(encoded.metadata.label)
+	stdio::println(encoded.local_aliased.label)
+	stdio::println(int_to_string(encoded.imported.version))
+	stdio::println(encoded.aliased.label)
+	stdio::println(encoded.payload)
+	Ok(())
+end

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed format-neutral encode helper diagnostic
-cleanup slice from `../../proposals/schema-declaration-surface.md`. Current
+cleanup slice from `schema-declaration-surface.md`. Current
 behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and checked examples.
 
@@ -37,5 +37,7 @@ unsupported helper diagnostic with the already implemented helper boundary.
 
 The completed recursive eligibility rule is recorded in
 [Recursive Format-Neutral Schema Encode Shapes](recursive-format-neutral-schema-encode-shapes.md).
-The broader schema declaration proposal remains open only for its binary
-helper and later schema-composition work.
+Schema composition is complete under
+[Schema Declaration Surface](schema-declaration-surface.md). Binary helper
+families outside the implemented slices are separate proposals or explicit
+non-goals.

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record preserves the completed direct nested binary schema generated
-helper binding slice from `../../proposals/schema-declaration-surface.md`.
+helper binding slice from `schema-declaration-surface.md`.
 Current behavior is specified by `../../specification/source-surface.md`,
 `../../specification/execution.md`, and the checked executable examples under
 `../../../examples/specification/run/`.
@@ -29,10 +29,9 @@ the nested schema field path.
   checks truncation diagnostics with the parent field path and nested schema
   field path.
 
-## Remaining Work
+## Boundary
 
-The broader schema declaration surface proposal remains open for binary schema
-fields outside the implemented exact-width unsigned primitive, direct nested
-schema, bounded repeat, length-bounded `ByteView`,
-closed dispatch, and extension dispatch slices, plus format-neutral fields
-outside the implemented recursive visible-shape helper boundary.
+Schema composition is complete for the listed binary and format-neutral helper
+boundaries. New binary field families and format-neutral shapes outside those
+boundaries are non-goals for this record and require separate focused
+proposals.

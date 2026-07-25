@@ -1,0 +1,133 @@
+# Schema composition reports resolution, format, cycle, ordering, and binding failures.
+use wire
+use facade
+
+type Shared
+	Shared(Int)
+end
+
+type OnlyType
+	OnlyType(Int)
+end
+
+pub type SharedAlias = Shared
+
+schema SharedAlias
+	value: Int
+end
+
+pub schema WrongAlias = OnlyType
+pub schema AliasCycleA = AliasCycleB
+pub schema AliasCycleB = AliasCycleA
+
+schema Shared
+	value: Int
+end
+
+schema Header
+	format binary
+
+	length: UInt8
+	payload: ByteView(length)
+end
+
+schema Neutral
+	value: Int
+end
+
+schema MissingHost
+	missing: MissingSchema
+end
+
+schema WrongKindHost
+	format binary
+
+	value: OnlyType
+end
+
+schema PrivateHost
+	format binary
+
+	hidden: wire::Hidden
+end
+
+schema AmbiguousHost
+	value: Shared
+end
+
+schema TypeAliasAmbiguousHost
+	value: SharedAlias
+end
+
+schema WrongAliasHost
+	value: WrongAlias
+end
+
+schema CyclicAliasHost
+	value: AliasCycleA
+end
+
+schema PrivateAliasHost
+	value: facade::HiddenAlias
+end
+
+schema FormatHost
+	format binary
+
+	metadata: Neutral
+end
+
+schema CycleA
+	b: CycleB
+end
+
+schema CycleB
+	a: CycleA
+end
+
+schema ForwardHost
+	format binary
+
+	payload: ByteView(header.length)
+	header: Header
+end
+
+schema PredicateReferenceHost
+	format binary
+
+	checked: UInt8 where checked == later.length
+	later: Header
+	missing: UInt8 where missing == later.unknown
+	incompatible: UInt8 where incompatible == later.payload
+end
+
+schema DispatchForwardHost
+	format binary
+
+	payload: Dispatch(header.length, 1 => UInt8)
+	header: Header
+end
+
+schema NoInjectionHost
+	format binary
+
+	header: Header
+	payload: ByteView(length)
+end
+
+schema DuplicateHost
+	first: Int
+	first: String
+end
+
+schema Ineligible
+	format binary
+
+	callback: String
+end
+
+schema DirectionHost
+	format binary
+
+	child: Ineligible
+end

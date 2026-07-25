@@ -1,0 +1,10 @@
+pub schema Int
+	nested: String
+end
+
+pub schema String = Int
+
+pub schema NeutralHost
+	count: Int
+	label: String
+end

@@ -18,9 +18,9 @@ use crate::types::{
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, repeat_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_value_type,
-    schema_dispatch_payload_schema, schema_length_expression_references,
-    schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
-    supported_encode_reserved_bits,
+    schema_dispatch_payload_schema, schema_field_reference_type, schema_field_target,
+    schema_length_expression_references, schema_recursive_dispatch_helper_payload_type,
+    schema_recursive_dispatch_payload_type, supported_encode_reserved_bits,
 };
 
 pub(crate) fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
@@ -41,17 +41,22 @@ fn schema_decode_spec_inner(
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
-    if schema.format.is_none() {
-        return format_neutral_schema_decode_spec(module, schema);
-    }
-    if schema.format.as_ref()?.name != "binary" {
+    if schema
+        .format
+        .as_ref()
+        .is_some_and(|format| format.name != "binary")
+    {
         return None;
     }
     if stack.iter().any(|name| name == schema_name) {
         return None;
     }
     stack.push(schema_name.clone());
-    let spec = schema_decode_spec_inner_after_push(module, schema, stack);
+    let spec = if schema.format.is_none() {
+        format_neutral_schema_decode_spec(module, schema, stack)
+    } else {
+        schema_decode_spec_inner_after_push(module, schema, stack)
+    };
     stack.pop();
     spec
 }
@@ -59,6 +64,7 @@ fn schema_decode_spec_inner(
 fn format_neutral_schema_decode_spec(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
     let adts = AdtRegistry::from_module(module);
@@ -67,6 +73,13 @@ fn format_neutral_schema_decode_spec(
         .iter()
         .map(|field| {
             format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?;
+            let payload_schema =
+                (!matches!(field.ty.as_str(), "Int" | "Bool" | "Float" | "String"))
+                    .then(|| schema_field_target(module, schema, &field.ty))
+                    .flatten()
+                    .filter(|target| target.format.is_none())
+                    .and_then(|target| schema_decode_spec_inner(module, target, stack))
+                    .map(Box::new);
             Some(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
@@ -79,7 +92,7 @@ fn format_neutral_schema_decode_spec(
                 length_field: None,
                 length_multiple: None,
                 repeat: None,
-                payload_schema: None,
+                payload_schema,
                 dispatch: None,
                 reserved_bits: None,
             })
@@ -202,11 +215,9 @@ fn ir_schema_byte_view_field(
     decoded_field_types: &BTreeMap<String, Type>,
 ) -> Option<Option<IrSchemaDecodeField>> {
     let length_expr = byte_view_schema_primitive(&field.ty)?;
-    if length_expr
-        .references()
-        .into_iter()
-        .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
-    {
+    if length_expr.references().into_iter().any(|reference| {
+        schema_field_reference_type(decoded_field_types, reference) != Some(&Type::int())
+    }) {
         return Some(None);
     }
     Some(Some(IrSchemaDecodeField {
@@ -238,14 +249,18 @@ fn ir_schema_repeat_field(
     let repeat = repeat_schema_primitive(&field.ty)?;
     if schema_length_expression_references(&repeat.count_field)?
         .into_iter()
-        .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
+        .any(|reference| {
+            schema_field_reference_type(decoded_field_types, reference) != Some(&Type::int())
+        })
     {
         return Some(None);
     }
     if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
         && schema_length_expression_references(length_field)?
             .into_iter()
-            .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
+            .any(|reference| {
+                schema_field_reference_type(decoded_field_types, reference) != Some(&Type::int())
+            })
     {
         return Some(None);
     }
@@ -274,7 +289,15 @@ fn ir_schema_nested_schema_field(
     field: &SchemaField,
     stack: &mut Vec<String>,
 ) -> Option<Option<(Option<Type>, IrSchemaDecodeField)>> {
-    let nested_schema = schema_dispatch_payload_schema(module, schema, &field.ty)?;
+    let nested_schema = schema_field_target(module, schema, &field.ty)?;
+    if nested_schema
+        .format
+        .as_ref()
+        .map(|format| format.name.as_str())
+        != Some("binary")
+    {
+        return Some(None);
+    }
     let field_ty = schema_decode_value_type(module, nested_schema)?;
     let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
     Some(Some((
@@ -396,11 +419,10 @@ fn ir_schema_dispatch_field(
 ) -> Option<(Option<Type>, IrSchemaDecodeField)> {
     let dispatch = closed_dispatch_schema_primitive(&field.ty)
         .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-    if decoded_field_types.get(&dispatch.tag_field) != Some(&Type::int())
-        || dispatch
-            .length_field
-            .as_ref()
-            .is_some_and(|length_field| decoded_field_types.get(length_field) != Some(&Type::int()))
+    if schema_field_reference_type(decoded_field_types, &dispatch.tag_field) != Some(&Type::int())
+        || dispatch.length_field.as_ref().is_some_and(|length_field| {
+            schema_field_reference_type(decoded_field_types, length_field) != Some(&Type::int())
+        })
     {
         return None;
     }

@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.id"
+equals = "schema.validation_failed"
+
+[[json_assert]]
+path = "error.details.value_diagnostic.field_path"
+equals = [{"kind":"schema","name":"Parent"},{"kind":"field","name":"child"},{"kind":"schema","name":"Child"},{"kind":"field","name":"value"}]
+
+[[json_assert]]
+path = "error.details.value_diagnostic.predicate"
+equals = "value > 0"
