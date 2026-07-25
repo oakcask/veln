@@ -40,6 +40,6 @@ arithmetic records.
 
 ## Remaining Work
 
-The broader schema declaration and binary schema proposals remain open for
-mapping, primitive, and dispatch behavior outside the implemented generated
-helper slices.
+Schema composition through field type positions is complete. Retired mapping
+syntax and unsupported binary field families remain explicit non-goals unless
+a separate proposal defines their source and helper boundaries.

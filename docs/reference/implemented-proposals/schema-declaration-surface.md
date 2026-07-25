@@ -21,8 +21,9 @@ Current behavior is specified in
 `examples/specification/run/schema-composition-format-neutral/`, and
 the matching format-neutral and binary `schema-composition-*-failure/` cases,
 plus
-`examples/specification/check/schema-composition-diagnostics/`. Parser and
-formatter evidence remains in the syntax crate because composition adds no
+`examples/specification/check/schema-composition-diagnostics/` and
+`examples/specification/check/schema-composition-grammar-precedence/`. Parser
+and formatter evidence remains in the syntax crate because composition adds no
 grammar or keyword.
 
 The boundary deliberately adds no schema-to-type alias, binary field family,

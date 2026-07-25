@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["schema.composition_reference", "schema.composition_duplicate_binding", "missing_schema", "wrong_kind", "private_schema", "ambiguous_type_and_schema", "format_incompatible", "cyclic_composition", "forward_field_reference", "unknown_field_reference", "duplicate_binding", "decode_ineligible_target", "encode_ineligible_target"]
+contains = ["schema.composition_reference", "schema.composition_duplicate_binding", "schema.field_predicate_reference", "missing_schema", "wrong_kind", "private_schema", "ambiguous_type_and_schema", "format_incompatible", "cyclic_composition", "forward_field_reference", "unknown_field_reference", "incompatible_field_reference", "duplicate_binding", "decode_ineligible_target", "encode_ineligible_target"]
 
 [stderr]
 format = "empty"

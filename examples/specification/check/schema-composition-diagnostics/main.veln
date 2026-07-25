@@ -28,6 +28,7 @@ schema Header
 	format binary
 
 	length: UInt8
+	payload: ByteView(length)
 end
 
 schema Neutral
@@ -89,6 +90,15 @@ schema ForwardHost
 
 	payload: ByteView(header.length)
 	header: Header
+end
+
+schema PredicateReferenceHost
+	format binary
+
+	checked: UInt8 where checked == later.length
+	later: Header
+	missing: UInt8 where missing == later.unknown
+	incompatible: UInt8 where incompatible == later.payload
 end
 
 schema DispatchForwardHost

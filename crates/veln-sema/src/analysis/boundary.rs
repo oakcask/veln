@@ -16,7 +16,7 @@ use crate::types::{
     repeat_schema_primitive, reserved_bits_schema_primitive, schema_decode_step_function_name,
     schema_decode_value_type, schema_dispatch_payload_accepts_lowercase_primitive,
     schema_dispatch_payload_schema, schema_encode_function_name, schema_encode_value_type,
-    schema_field_reference_type, schema_field_target,
+    schema_field_reference_type, schema_field_target, schema_field_uses_existing_grammar,
     schema_field_uses_generalized_reserved_byte_prefix,
     schema_has_eligible_recursive_dispatch_payload, schema_has_recursive_dispatch_payload,
     schema_length_expression_references, schema_payload_has_generalized_reserved_byte_prefix,
@@ -637,7 +637,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 ));
                 continue;
             }
-            if let Some(target) = schema_field_target(module, schema, &field.ty) {
+            if !schema_field_uses_existing_grammar_at_boundary(schema, &field.ty)
+                && let Some(target) = schema_field_target(module, schema, &field.ty)
+            {
                 let decode_eligible = schema_decode_value_type(module, target).is_some();
                 let encode_eligible = schema_encode_value_type(module, target).is_some();
                 if !decode_eligible {
@@ -717,7 +719,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 match (format_name, primitive) {
                     (Some("binary"), Ok(_primitive)) => {
                         check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                        decoded_fields.insert(field.name.clone(), Type::int());
+                        record_decoded_schema_field(
+                            schema,
+                            field,
+                            Type::int(),
+                            &mut decoded_fields,
+                            &mut diagnostics,
+                        );
                     }
                     (Some("binary"), Err(reason)) => {
                         diagnostics.push(lowercase_schema_primitive_diagnostic(
@@ -764,7 +772,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     ));
                 } else {
                     check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                    decoded_fields.insert(field.name.clone(), Type::int());
+                    record_decoded_schema_field(
+                        schema,
+                        field,
+                        Type::int(),
+                        &mut decoded_fields,
+                        &mut diagnostics,
+                    );
                 }
                 continue;
             }
@@ -834,7 +848,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     &decoded_fields,
                     &mut diagnostics,
                 ) {
-                    decoded_fields.insert(field.name.clone(), field_ty);
+                    record_decoded_schema_field(
+                        schema,
+                        field,
+                        field_ty,
+                        &mut decoded_fields,
+                        &mut diagnostics,
+                    );
                 }
                 continue;
             }
@@ -848,14 +868,26 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 && let Some(field_ty) = schema_decode_value_type(module, payload_schema)
             {
                 check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                decoded_fields.insert(field.name.clone(), field_ty);
+                record_decoded_schema_field(
+                    schema,
+                    field,
+                    field_ty,
+                    &mut decoded_fields,
+                    &mut diagnostics,
+                );
                 continue;
             }
             if format_name == Some("binary")
                 && let Some(field_ty) = binary_schema_anonymous_record_decode_type(&field.ty)
             {
                 check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                decoded_fields.insert(field.name.clone(), field_ty);
+                record_decoded_schema_field(
+                    schema,
+                    field,
+                    field_ty,
+                    &mut decoded_fields,
+                    &mut diagnostics,
+                );
                 continue;
             }
             if format_name == Some("binary")
@@ -871,7 +903,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                     &decoded_fields,
                     &mut diagnostics,
                 ) {
-                    decoded_fields.insert(field.name.clone(), field_ty);
+                    record_decoded_schema_field(
+                        schema,
+                        field,
+                        field_ty,
+                        &mut decoded_fields,
+                        &mut diagnostics,
+                    );
                 }
                 continue;
             }
@@ -911,7 +949,13 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 let decode_field_type =
                     format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty);
                 if let Some(field_ty) = decode_field_type.clone() {
-                    decoded_fields.insert(field.name.clone(), field_ty);
+                    record_decoded_schema_field(
+                        schema,
+                        field,
+                        field_ty,
+                        &mut decoded_fields,
+                        &mut diagnostics,
+                    );
                 } else {
                     if schema_payload_name_path(&field.ty).is_some()
                         && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
@@ -1022,6 +1066,9 @@ fn schema_composition_reference_blocker(
     schema: &SchemaDecl,
     field: &SchemaField,
 ) -> Option<&'static str> {
+    if schema_field_uses_existing_grammar_at_boundary(schema, &field.ty) {
+        return None;
+    }
     let target = schema_field_target(module, schema, &field.ty)?;
     if schema_field_has_ordinary_type_target(module, schema, &field.ty) {
         return Some("ambiguous_type_and_schema");
@@ -1033,6 +1080,13 @@ fn schema_composition_reference_blocker(
     }
     schema_composition_reaches(module, target, schema, &mut Vec::new())
         .then_some("cyclic_composition")
+}
+
+fn schema_field_uses_existing_grammar_at_boundary(schema: &SchemaDecl, text: &str) -> bool {
+    schema_field_uses_existing_grammar(schema, text)
+        || (schema.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
+            && (exact_width_binary_primitive_name(text).is_some()
+                || reserved_bits_primitive(text).is_some()))
 }
 
 fn schema_field_has_ordinary_type_target(
@@ -1233,6 +1287,64 @@ fn check_schema_validation_clause(
                 "incompatible_field_reference",
                 format!(
                     "schema validation reference `{reference}` decodes as `{}`, not `Int`",
+                    ty.render()
+                ),
+                [("actual", JsonValue::string(ty.render()))],
+            ));
+        }
+    }
+}
+
+fn record_decoded_schema_field(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    field_ty: Type,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    check_schema_field_predicate_references(schema, field, &field_ty, decoded_fields, diagnostics);
+    decoded_fields.insert(field.name.clone(), field_ty);
+}
+
+fn check_schema_field_predicate_references(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    field_ty: &Type,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(where_clause) = &field.where_clause else {
+        return;
+    };
+    let mut visible_fields = decoded_fields.clone();
+    visible_fields.insert(field.name.clone(), field_ty.clone());
+    for reference in schema_validation_references(&where_clause.predicate) {
+        let Some(ty) = schema_field_reference_type(&visible_fields, &reference) else {
+            let reason = if schema_field_declared_after(schema, field, &reference) {
+                "forward_field_reference"
+            } else {
+                "unknown_field_reference"
+            };
+            diagnostics.push(schema_field_predicate_reference_diagnostic(
+                schema,
+                field,
+                &reference,
+                reason,
+                format!(
+                    "schema field predicate reference `{reference}` must name the field being checked or an earlier decoded schema field"
+                ),
+                [],
+            ));
+            continue;
+        };
+        if reference.contains('.') && ty != &Type::int() {
+            diagnostics.push(schema_field_predicate_reference_diagnostic(
+                schema,
+                field,
+                &reference,
+                "incompatible_field_reference",
+                format!(
+                    "schema field predicate reference `{reference}` decodes as `{}`, not `Int`",
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
@@ -1890,6 +2002,28 @@ fn schema_validation_reference_diagnostic<const N: usize>(
         DiagnosticKind::Name,
         message,
         Some(validation.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_field_predicate_reference_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reference: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("role", JsonValue::string("predicate")));
+    fields.push(("reference", JsonValue::string(reference.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.field_predicate_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(field.span.clone()),
         JsonValue::object(fields),
     )
 }

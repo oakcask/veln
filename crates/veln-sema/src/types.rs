@@ -2726,6 +2726,9 @@ pub(crate) fn schema_field_target<'a>(
     containing_schema: &SchemaDecl,
     text: &str,
 ) -> Option<&'a SchemaDecl> {
+    if schema_field_uses_existing_grammar(containing_schema, text) {
+        return None;
+    }
     let segments = schema_payload_name_path(text)?;
     schema_reference(
         module,
@@ -2734,6 +2737,25 @@ pub(crate) fn schema_field_target<'a>(
         true,
         &mut Vec::new(),
     )
+}
+
+pub(crate) fn schema_field_uses_existing_grammar(schema: &SchemaDecl, text: &str) -> bool {
+    match schema.format.as_ref().map(|format| format.name.as_str()) {
+        None => matches!(text, "Int" | "Bool" | "Float" | "String"),
+        Some("binary") => {
+            exact_width_schema_primitive(text).is_some()
+                || lowercase_reserved_bits_schema_primitive(text).is_some()
+                || lowercase_schema_primitive(text).is_some()
+                || !lowercase_schema_primitive_nested_payloads(text).is_empty()
+                || byte_view_schema_primitive(text).is_some()
+                || repeat_schema_primitive(text).is_some()
+                || binary_schema_anonymous_record_decode_type(text).is_some()
+                || closed_dispatch_schema_primitive(text).is_some()
+                || extension_dispatch_schema_primitive(text).is_some()
+                || reserved_bits_schema_primitive(text).is_some()
+        }
+        Some(_) => false,
+    }
 }
 
 fn schema_in_module<'a>(
@@ -2872,6 +2894,17 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
+    let ty = parse_type_annotation(text).ok()?;
+    if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
+        module,
+        schema.module_name.as_deref(),
+        adts,
+        &ty,
+        &mut FormatNeutralSchemaTraversalState::default(),
+        FormatNeutralSchemaTraversal::Decode,
+    ) {
+        return Some(ty);
+    }
     if let Some(target) = schema_field_target(module, schema, text)
         && target.format.is_none()
     {
@@ -2882,15 +2915,7 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
             &mut Vec::new(),
         );
     }
-    let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_visible_shape_type_for_schema(
-        module,
-        schema.module_name.as_deref(),
-        adts,
-        &ty,
-        &mut FormatNeutralSchemaTraversalState::default(),
-        FormatNeutralSchemaTraversal::Decode,
-    )
+    None
 }
 
 pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<Type> {
@@ -2947,6 +2972,17 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
+    let ty = parse_type_annotation(text).ok()?;
+    if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
+        module,
+        schema.module_name.as_deref(),
+        adts,
+        &ty,
+        &mut FormatNeutralSchemaTraversalState::default(),
+        FormatNeutralSchemaTraversal::Encode,
+    ) {
+        return Some(ty);
+    }
     if let Some(target) = schema_field_target(module, schema, text)
         && target.format.is_none()
     {
@@ -2957,15 +2993,7 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
             &mut Vec::new(),
         );
     }
-    let ty = parse_type_annotation(text).ok()?;
-    format_neutral_schema_visible_shape_type_for_schema(
-        module,
-        schema.module_name.as_deref(),
-        adts,
-        &ty,
-        &mut FormatNeutralSchemaTraversalState::default(),
-        FormatNeutralSchemaTraversal::Encode,
-    )
+    None
 }
 
 pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
@@ -3057,20 +3085,22 @@ fn format_neutral_schema_composition_value_type(
     let adts = AdtRegistry::from_module(module);
     let mut fields = Vec::new();
     for field in &schema.fields {
-        let ty = if let Some(target) = schema_field_target(module, schema, &field.ty)
+        let parsed = parse_type_annotation(&field.ty).ok()?;
+        let ty = if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
+            module,
+            schema.module_name.as_deref(),
+            &adts,
+            &parsed,
+            &mut FormatNeutralSchemaTraversalState::default(),
+            traversal,
+        ) {
+            ty
+        } else if let Some(target) = schema_field_target(module, schema, &field.ty)
             && target.format.is_none()
         {
             format_neutral_schema_composition_value_type(module, target, traversal, stack)?
         } else {
-            let parsed = parse_type_annotation(&field.ty).ok()?;
-            format_neutral_schema_visible_shape_type_for_schema(
-                module,
-                schema.module_name.as_deref(),
-                &adts,
-                &parsed,
-                &mut FormatNeutralSchemaTraversalState::default(),
-                traversal,
-            )?
+            return None;
         };
         fields.push((field.name.clone(), ty));
     }

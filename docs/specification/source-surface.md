@@ -98,6 +98,10 @@ independently. A unique schema or schema-alias target composes its schema-local
 visible record beneath the written field binding; target fields are never
 injected as unqualified fields. Same-module private or public targets and
 public targets or aliases reached through a written `use` path are supported.
+Format-neutral structural types and binary field primitives keep their existing
+grammar precedence when a local schema or schema alias has the same name. The
+checked collisions are under
+`examples/specification/check/schema-composition-grammar-precedence/`.
 Format-neutral schemas compose only format-neutral targets, and binary schemas
 compose only binary targets. Missing, private, wrong-kind, ambiguous,
 format-incompatible, cyclic, duplicate-binding, forward-reference, and

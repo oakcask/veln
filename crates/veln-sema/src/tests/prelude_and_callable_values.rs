@@ -1,4 +1,6 @@
 use super::*;
+use crate::schema::ir::schema_decode_specs;
+use crate::semantic_model::Type;
 use crate::types::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_decode_value_type,
     schema_encode_value_type,
@@ -101,6 +103,109 @@ fn schema_composition_preserves_alias_resolution_failures_and_type_alias_ambigui
             lowered.diagnostics
         );
     }
+}
+
+#[test]
+fn schema_field_grammar_precedes_colliding_schema_names_and_aliases() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub schema Int\n",
+            "  nested: String\n",
+            "end\n",
+            "pub schema String = Int\n",
+            "schema NeutralHost\n",
+            "  count: Int\n",
+            "  label: String\n",
+            "end\n",
+            "pub schema UInt8\n",
+            "  value: Int\n",
+            "end\n",
+            "pub schema UInt16be = UInt8\n",
+            "schema BinaryHost\n",
+            "  format binary\n",
+            "  byte: UInt8\n",
+            "  word: UInt16be\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[1]),
+        Some(Type::Record(vec![
+            ("count".to_string(), Type::int()),
+            ("label".to_string(), Type::string()),
+        ])),
+    );
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[3]),
+        Some(Type::Record(vec![
+            ("byte".to_string(), Type::int()),
+            ("word".to_string(), Type::int()),
+        ])),
+    );
+    let decode_specs = schema_decode_specs(&module);
+    for schema_name in ["NeutralHost", "BinaryHost"] {
+        let spec = decode_specs
+            .iter()
+            .find(|spec| spec.schema_name == schema_name)
+            .expect("host schema should lower to decode metadata");
+        assert!(
+            spec.fields
+                .iter()
+                .all(|field| field.payload_schema.is_none()),
+            "{schema_name} primitives must not carry nested schema metadata"
+        );
+    }
+}
+
+#[test]
+fn schema_field_predicates_reject_invalid_nested_references_at_declaration_time() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "end\n",
+            "schema Host\n",
+            "  format binary\n",
+            "  checked: UInt8 where checked == later.length\n",
+            "  later: Header\n",
+            "  missing: UInt8 where missing == later.unknown\n",
+            "  incompatible: UInt8 where incompatible == later.payload\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let reasons = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.field_predicate_reference")
+        .filter_map(|diagnostic| match &diagnostic.details {
+            veln_diagnostics::JsonValue::Object(entries) => {
+                entries.iter().find_map(|(key, value)| {
+                    (key == "reason").then(|| value.to_json().trim_matches('"').to_string())
+                })
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        reasons,
+        vec![
+            "forward_field_reference",
+            "unknown_field_reference",
+            "incompatible_field_reference",
+        ]
+    );
 }
 
 #[test]

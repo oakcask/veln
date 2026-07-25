@@ -73,10 +73,13 @@ fn format_neutral_schema_decode_spec(
         .iter()
         .map(|field| {
             format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?;
-            let payload_schema = schema_field_target(module, schema, &field.ty)
-                .filter(|target| target.format.is_none())
-                .and_then(|target| schema_decode_spec_inner(module, target, stack))
-                .map(Box::new);
+            let payload_schema =
+                (!matches!(field.ty.as_str(), "Int" | "Bool" | "Float" | "String"))
+                    .then(|| schema_field_target(module, schema, &field.ty))
+                    .flatten()
+                    .filter(|target| target.format.is_none())
+                    .and_then(|target| schema_decode_spec_inner(module, target, stack))
+                    .map(Box::new);
             Some(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
