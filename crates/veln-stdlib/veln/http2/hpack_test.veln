@@ -58,12 +58,18 @@ fn expect_decode_error(input: ByteChunk, prefix_bits: Int, expected: String) -> 
 end
 
 fn round_trip_prefix_width(prefix_bits: Int) -> Result<(), String>
-	let value: Int = (1 << prefix_bits) + 127
+	let prefix_max: Int = (1 << prefix_bits) - 1
 	let representation_bits: Int = 256 - (1 << prefix_bits)
-	let encoded: ByteChunk = http2::hpack::encode_integer(value, prefix_bits, representation_bits)?
-	let decoded: { value : Int, consumed : Int } = decode_chunk(encoded, prefix_bits)?
-	let encoded_matches: Bool = chunks_equal(encoded, byte_chunk_from_hex("ff8001")?)?
-	match encoded_matches and http2::hpack::decoded_integer_value(decoded) == value and http2::hpack::decoded_integer_consumed(decoded) == 3
+	let direct: ByteChunk = http2::hpack::encode_integer(prefix_max - 1, prefix_bits, representation_bits)?
+	let boundary: ByteChunk = http2::hpack::encode_integer(prefix_max, prefix_bits, representation_bits)?
+	let continued: ByteChunk = http2::hpack::encode_integer(prefix_max + 128, prefix_bits, representation_bits)?
+	let direct_decoded: { value : Int, consumed : Int } = decode_chunk(direct, prefix_bits)?
+	let boundary_decoded: { value : Int, consumed : Int } = decode_chunk(boundary, prefix_bits)?
+	let continued_decoded: { value : Int, consumed : Int } = decode_chunk(continued, prefix_bits)?
+	let encodings_match: Bool = chunks_equal(direct, byte_chunk_from_hex("fe")?)? and chunks_equal(boundary, byte_chunk_from_hex("ff00")?)? and chunks_equal(continued, byte_chunk_from_hex("ff8001")?)?
+	let values_match: Bool = http2::hpack::decoded_integer_value(direct_decoded) == prefix_max - 1 and http2::hpack::decoded_integer_value(boundary_decoded) == prefix_max and http2::hpack::decoded_integer_value(continued_decoded) == prefix_max + 128
+	let consumed_match: Bool = http2::hpack::decoded_integer_consumed(direct_decoded) == 1 and http2::hpack::decoded_integer_consumed(boundary_decoded) == 2 and http2::hpack::decoded_integer_consumed(continued_decoded) == 3
+	match encodings_match and values_match and consumed_match
 		true => match prefix_bits == 8
 			true => Ok(())
 			false => round_trip_prefix_width(prefix_bits + 1)
@@ -101,14 +107,17 @@ test integer_encode_rejects_invalid_inputs() -> Result<(), String>
 	let _ = expect_encode_error(-1, 5, 0, "HPACK integer value must not be negative")?
 	let _ = expect_encode_error(1, 0, 0, "HPACK integer prefix width must be between 1 and 8")?
 	let _ = expect_encode_error(1, 9, 0, "HPACK integer prefix width must be between 1 and 8")?
+	let _ = expect_encode_error(1, 5, -1, "HPACK integer representation bits must fit outside the prefix")?
 	let _ = expect_encode_error(1, 5, 1, "HPACK integer representation bits must fit outside the prefix")?
-	expect_encode_error(1, 5, 256, "HPACK integer representation bits must fit outside the prefix")
+	let _ = expect_encode_error(1, 5, 256, "HPACK integer representation bits must fit outside the prefix")?
+	expect_encode_error(1, 8, 128, "HPACK integer representation bits must fit outside the prefix")
 end
 
 test integer_decode_rejects_empty_invalid_and_incomplete_inputs() -> Result<(), String>
 	let _ = expect_decode_error(byte_chunk([]), 5, "HPACK integer input must not be empty")?
 	let _ = expect_decode_error(byte_chunk_from_hex("00")?, 0, "HPACK integer prefix width must be between 1 and 8")?
 	let _ = expect_decode_error(byte_chunk_from_hex("00")?, 9, "HPACK integer prefix width must be between 1 and 8")?
+	let _ = expect_decode_error(byte_chunk_from_hex("1f")?, 5, "incomplete HPACK integer continuation")?
 	expect_decode_error(byte_chunk_from_hex("1f80")?, 5, "incomplete HPACK integer continuation")
 end
 
@@ -122,6 +131,14 @@ test integer_decode_direct_value() -> Result<(), String>
 	match http2::hpack::decoded_integer_value(decoded) == 10 and http2::hpack::decoded_integer_consumed(decoded) == 1
 		true => Ok(())
 		false => Err("direct HPACK prefixed integer decoding changed")
+	end
+end
+
+test integer_decode_stops_after_terminal_octet() -> Result<(), String>
+	let decoded: { value : Int, consumed : Int } = decode_chunk(byte_chunk_from_hex("1f9a0aff")?, 5)?
+	match http2::hpack::decoded_integer_value(decoded) == 1337 and http2::hpack::decoded_integer_consumed(decoded) == 3
+		true => Ok(())
+		false => Err("HPACK prefixed integer consumed trailing input")
 	end
 end
 
