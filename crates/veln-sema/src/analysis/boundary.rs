@@ -956,18 +956,16 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                         &mut decoded_fields,
                         &mut diagnostics,
                     );
+                } else if schema_payload_name_path(&field.ty).is_some()
+                    && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
+                {
+                    diagnostics.push(schema_composition_reference_diagnostic(
+                        schema,
+                        field,
+                        unresolved_schema_composition_reason(module, schema, &field.ty),
+                    ));
                 } else {
-                    if schema_payload_name_path(&field.ty).is_some()
-                        && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
-                    {
-                        diagnostics.push(schema_composition_reference_diagnostic(
-                            schema,
-                            field,
-                            unresolved_schema_composition_reason(module, schema, &field.ty),
-                        ));
-                    } else {
-                        diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
-                    }
+                    diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
                 }
                 let encode_unsupported = format_neutral_schema_encode_field_type_for_schema(
                     module, schema, &adts, &field.ty,

@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"schema.format_neutral_encode_helper\"", "format-neutral schema field `callback_payload` cannot expose a generated decode helper", "format-neutral schema field `callback_payload` cannot expose a generated encode helper", "\"field_type\":\"CallbackPayload\"", "format-neutral schema field `optional_vec_payload` cannot expose a generated decode helper", "\"field_type\":\"Option<VecPayload>\"", "format-neutral schema field `bad_dict_payload` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, CallbackPayload>\"", "format-neutral schema field `private_imported_payload` cannot expose a generated decode helper", "format-neutral schema field `private_imported_payload` cannot expose a generated encode helper", "\"field_type\":\"wire::PrivateWirePayload\"", "format-neutral schema field `imported_callback_payload` cannot expose a generated decode helper", "format-neutral schema field `imported_callback_payload` cannot expose a generated encode helper", "\"field_type\":\"wire::WireCallbackPayload\"", "format-neutral schema field `missing_imported_payload` cannot expose a generated decode helper", "format-neutral schema field `missing_imported_payload` cannot expose a generated encode helper", "\"field_type\":\"missing::WirePayload\"", "format-neutral schema field `imported_schema_target` cannot expose a generated decode helper", "format-neutral schema field `imported_schema_target` cannot expose a generated encode helper", "\"field_type\":\"wire::WireSchema\"", "format-neutral schema field `metadata` cannot expose a generated decode helper", "\"field_type\":\"{ payload : CallbackPayload }\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "\"reason\":\"unsupported_format_neutral_encode_field_type\"", "Vec<T>", "Dict<String, T>", "same-module or public imported source ADTs whose constructor payloads are recursive visible shapes", "eligible same-module or public imported source ADTs", "Generated format-neutral decode helpers for schema `BadPacket`", "Generated format-neutral encode helpers for schema `BadPacket`"]
+contains = ["\"id\":\"schema.format_neutral_decode_helper\"", "\"id\":\"schema.format_neutral_encode_helper\"", "\"id\":\"schema.composition_reference\"", "format-neutral schema field `callback_payload` cannot expose a generated decode helper", "format-neutral schema field `callback_payload` cannot expose a generated encode helper", "\"field_type\":\"CallbackPayload\"", "format-neutral schema field `optional_vec_payload` cannot expose a generated decode helper", "\"field_type\":\"Option<VecPayload>\"", "format-neutral schema field `bad_dict_payload` cannot expose a generated decode helper", "\"field_type\":\"Dict<Int, CallbackPayload>\"", "schema field `private_imported_payload` cannot compose `wire::PrivateWirePayload` because it resolves in a non-schema namespace", "\"reason\":\"wrong_kind\"", "format-neutral schema field `imported_callback_payload` cannot expose a generated decode helper", "format-neutral schema field `imported_callback_payload` cannot expose a generated encode helper", "\"field_type\":\"wire::WireCallbackPayload\"", "schema field `missing_imported_payload` cannot compose `missing::WirePayload` because it does not resolve to a visible schema or supported binary field family", "\"reason\":\"missing_schema\"", "format-neutral schema field `metadata` cannot expose a generated decode helper", "\"field_type\":\"{ payload : CallbackPayload }\"", "\"reason\":\"unsupported_format_neutral_field_type\"", "\"reason\":\"unsupported_format_neutral_encode_field_type\"", "Vec<T>", "Dict<String, T>", "same-module or public imported source ADTs whose constructor payloads are recursive visible shapes", "eligible same-module or public imported source ADTs", "Generated format-neutral decode helpers for schema `BadPacket`", "Generated format-neutral encode helpers for schema `BadPacket`"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 13
+equals = 9
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
@@ -61,16 +61,10 @@ kind = "type"
 message = "format-neutral schema field `bad_dict_payload` cannot expose a generated decode helper because `Dict<Int, CallbackPayload>` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
 
 [[diagnostics]]
-id = "schema.format_neutral_decode_helper"
+id = "schema.composition_reference"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `private_imported_payload` cannot expose a generated decode helper because `wire::PrivateWirePayload` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
-
-[[diagnostics]]
-id = "schema.format_neutral_encode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `private_imported_payload` cannot expose a generated encode helper because `wire::PrivateWirePayload` is not a recursive format-neutral visible shape"
+message = "schema field `private_imported_payload` cannot compose `wire::PrivateWirePayload` because it resolves in a non-schema namespace"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
@@ -85,28 +79,10 @@ kind = "type"
 message = "format-neutral schema field `imported_callback_payload` cannot expose a generated encode helper because `wire::WireCallbackPayload` is not a recursive format-neutral visible shape"
 
 [[diagnostics]]
-id = "schema.format_neutral_decode_helper"
+id = "schema.composition_reference"
 severity = "error"
 kind = "type"
-message = "format-neutral schema field `missing_imported_payload` cannot expose a generated decode helper because `missing::WirePayload` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
-
-[[diagnostics]]
-id = "schema.format_neutral_encode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `missing_imported_payload` cannot expose a generated encode helper because `missing::WirePayload` is not a recursive format-neutral visible shape"
-
-[[diagnostics]]
-id = "schema.format_neutral_decode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `imported_schema_target` cannot expose a generated decode helper because `wire::WireSchema` is not a recursive format-neutral visible shape made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<recursive visible shape, recursive visible shape>, or same-module or public imported source ADTs whose constructor payloads are recursive visible shapes"
-
-[[diagnostics]]
-id = "schema.format_neutral_encode_helper"
-severity = "error"
-kind = "type"
-message = "format-neutral schema field `imported_schema_target` cannot expose a generated encode helper because `wire::WireSchema` is not a recursive format-neutral visible shape"
+message = "schema field `missing_imported_payload` cannot compose `missing::WirePayload` because it does not resolve to a visible schema or supported binary field family"
 
 [[diagnostics]]
 id = "schema.format_neutral_decode_helper"
