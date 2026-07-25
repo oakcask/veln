@@ -205,6 +205,33 @@ test("allows linked implemented proposal paths in the proposal catalog", () => {
   assert.equal(result.valid, true);
 });
 
+test("rejects implemented records listed as remaining proposal routes", () => {
+  using fixture = tempDocs("doc-links-implemented-remaining-route");
+  fixture.write(
+    "reference/implemented-proposals/driver.md",
+    [
+      "# Driver",
+      "",
+      "Remaining work is split into these proposal routes:",
+      "",
+      "- [active](../../proposals/active.md)",
+      "- [completed](completed.md)",
+    ].join("\n"),
+  );
+  fixture.write("proposals/active.md", "# Active\n");
+  fixture.write(
+    "reference/implemented-proposals/completed.md",
+    "# Completed\n",
+  );
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "reference/implemented-proposals/driver.md:6: remove implemented proposal from remaining-work routes: completed.md; completed routes must point readers to current specification and executable evidence",
+  ]);
+});
+
 test("rejects references to unversioned paths", () => {
   using fixture = tempDocs("doc-links-unversioned");
   fixture.git("init");

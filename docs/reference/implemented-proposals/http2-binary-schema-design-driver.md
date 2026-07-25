@@ -13,11 +13,18 @@ binary-schema, codec, and transport cases under
 
 ## Continuing Routes
 
-The broad driver is complete. Remaining work is deliberately split into two
-bounded proposal routes:
+The broad driver is complete. Its continuing planned work is the bounded
+protocol-core route:
 
 - [HTTP/2 Sans-I/O Protocol Core](../../proposals/http2-sans-io-protocol-core.md)
-- [Schema Declaration Surface](schema-declaration-surface.md)
+
+Schema composition is complete. Current behavior is specified in
+[Source Surface](../../specification/source-surface.md) and
+[Execution](../../specification/execution.md), and exercised by
+`examples/specification/check/schema-composition-diagnostics/` and the
+`examples/specification/run/schema-composition-*/` cases. The
+[Schema Declaration Surface](schema-declaration-surface.md) record preserves
+the completed route's rationale and evidence.
 
 The network integration route is also complete. Its historical context and
 completion evidence live in the
