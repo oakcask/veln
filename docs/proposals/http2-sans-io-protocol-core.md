@@ -54,7 +54,6 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 `hpack_dynamic_core.veln` into responsibility-named private modules behind the
 `std::http2::hpack` facade:
 
-- prefixed integer encode and decode, including incomplete and overflow cases;
 - Huffman encode and decode for arbitrary octets, including padding, EOS, and
   non-visible values;
 - the complete static table and exact-name lookup;

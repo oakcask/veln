@@ -21,3 +21,13 @@ the earlier boundary. They are not source compatibility aliases.
 Current specification examples import the public module explicitly. Private
 HPACK responsibility modules are loaded only through the dependency closure of
 the public facade and cannot be imported from the `std` package.
+
+## Prefixed-Integer Fixture Retirement
+
+The adjacent `http2/hpack_test.veln` coverage replaces the focused fixture's
+pure indexed-prefix, table-size-prefix, literal-length-prefix, unterminated
+continuation, and three encoding assertions. Their shared invariant is that
+one public finite codec preserves representation bits and round-trips every
+supported prefix width while rejecting incomplete or out-of-range
+continuations. Header-codec helpers remain in the fixture until their
+stateful callers move.

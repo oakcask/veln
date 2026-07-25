@@ -1,0 +1,25 @@
+use http2::hpack from "std"
+use stdio
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let canonical: ByteChunk = http2::hpack::encode_integer(1337, 5, 0)?
+	stdio::print("canonical ")
+	stdio::print(int_to_string(byte_at(canonical, 0)?))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_at(canonical, 1)?))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_at(canonical, 2)?))
+	let represented: ByteChunk = http2::hpack::encode_integer(10, 5, 224)?
+	stdio::print("represented ")
+	stdio::println(int_to_string(byte_at(represented, 0)?))
+	let decoded: { value : Int, consumed : Int } = http2::hpack::decode_integer(byte_view(canonical, byte_offset(0)?, byte_chunk_count(canonical))?, 5)?
+	stdio::print("round-trip ")
+	stdio::print(int_to_string(http2::hpack::decoded_integer_value(decoded)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::decoded_integer_consumed(decoded)))
+	Ok(())
+end
