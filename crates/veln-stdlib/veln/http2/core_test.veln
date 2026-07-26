@@ -85,6 +85,13 @@ fn initial_settings_rejects(state: InitialPeerSettingsGateState, kind: Int, flag
 	end)
 end
 
+fn require_initial_settings_transition(result: Result<InitialPeerSettingsTransition, InitialPeerSettingsFailure>) -> Result<InitialPeerSettingsTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::core::initial_peer_settings_failure_id(failure))
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -114,6 +121,18 @@ test initial_peer_settings_gate_accepts_server_and_client_roles() -> Result<(), 
 	end
 end
 
+test initial_peer_settings_gate_accepts_without_changing_input_state_or_preview() -> Result<(), String>
+	let state: InitialPeerSettingsGateState = http2::core::server_initial_peer_settings_gate()
+	let preview: ByteChunk = byte_chunk_from_hex("000006040000000000000500008000")?
+	let transition: InitialPeerSettingsTransition = require_initial_settings_transition(http2::core::accept_initial_peer_settings(state, 24, 4, 0, 0, preview))?
+	let accepted: InitialPeerSettingsAcceptedState = http2::core::initial_peer_settings_state(transition)
+	if http2::core::initial_peer_settings_is_waiting(state) and http2::core::initial_peer_settings_endpoint_role(state) == "server" and http2::core::accepted_initial_peer_settings_endpoint_role(accepted) == "server" and chunks_equal(preview, byte_chunk_from_hex("000006040000000000000500008000")?)?
+		Ok(())
+	else
+		Err("accepted initial peer SETTINGS changed the input state or preview")
+	end
+end
+
 test initial_peer_settings_gate_preserves_role_in_successful_next_state() -> Result<(), String>
 	let server: InitialPeerSettingsTransition = match http2::core::accept_initial_peer_settings(http2::core::server_initial_peer_settings_gate(), 24, 4, 0, 0, byte_chunk([]))
 		Ok(transition) => transition
@@ -133,7 +152,7 @@ test initial_peer_settings_gate_preserves_role_in_successful_next_state() -> Res
 end
 
 test initial_peer_settings_gate_rejects_non_settings_and_ack_frames() -> Result<(), String>
-	if initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 4, 1)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 4, 1)?
+	if initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 4, 1)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 4, 1)? and initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 4, 5)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 4, 5)?
 		Ok(())
 	else
 		Err("initial peer SETTINGS gate accepted a non-SETTINGS or SETTINGS ACK frame")

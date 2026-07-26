@@ -95,8 +95,9 @@ SETTINGS value application remain separate transition stages.
 
 The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
-accepted server and client roles, non-SETTINGS and ACK rejection, exact
-failure context, and immutable state and preview preservation. The focused
+accepted server and client roles, acceptance without mutating the input state
+or preview, non-SETTINGS and ACK rejection, exact failure context, and
+immutable failure state and preview preservation. The focused
 `http2-initial-peer-settings-gate-{human,json}` cases obtain the typed public
 failure and project it through `http2::diagnostic`. The aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
