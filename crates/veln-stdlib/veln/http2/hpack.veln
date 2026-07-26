@@ -5,9 +5,9 @@ use http2::hpack::huffman
 use http2::hpack::integer
 use http2::hpack::static_table
 
-pub type DynamicTable
-	DynamicTable(capacity: Int, size: Int, entry_count: Int)
-end
+pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
+
+pub type DynamicEntry = http2::hpack::dynamic_table::DynamicEntry
 
 pub type StaticEntry
 	StaticEntry(name: String, value: String)
@@ -65,26 +65,37 @@ pub fn static_name_index(name: String) -> Option<Int>
 end
 
 pub fn empty_dynamic_table(capacity: Int) -> Result<DynamicTable, String>
-	match capacity < 0
-		true => Err("HPACK dynamic table capacity must not be negative")
-		false => Ok(DynamicTable(capacity, 0, 0))
-	end
+	http2::hpack::dynamic_table::empty(capacity)
 end
 
 pub fn dynamic_table_capacity(table: DynamicTable) -> Int
-	match table
-		DynamicTable(capacity, _, _) => capacity
-	end
+	http2::hpack::dynamic_table::capacity(table)
 end
 
 pub fn dynamic_table_size(table: DynamicTable) -> Int
-	match table
-		DynamicTable(_, size, _) => size
-	end
+	http2::hpack::dynamic_table::size(table)
 end
 
 pub fn dynamic_table_entry_count(table: DynamicTable) -> Int
-	match table
-		DynamicTable(_, _, count) => count
-	end
+	http2::hpack::dynamic_table::entry_count(table)
+end
+
+pub fn insert_dynamic_table_entry(table: DynamicTable, name: String, value: ByteChunk) -> Result<DynamicTable, String>
+	http2::hpack::dynamic_table::insert(table, name, value)
+end
+
+pub fn dynamic_table_with_capacity(table: DynamicTable, capacity: Int) -> Result<DynamicTable, String>
+	http2::hpack::dynamic_table::with_capacity(table, capacity)
+end
+
+pub fn dynamic_table_entry(table: DynamicTable, index: Int) -> Option<DynamicEntry>
+	http2::hpack::dynamic_table::lookup(table, index)
+end
+
+pub fn dynamic_entry_name(entry: DynamicEntry) -> String
+	http2::hpack::dynamic_table::entry_name(entry)
+end
+
+pub fn dynamic_entry_value(entry: DynamicEntry) -> ByteChunk
+	http2::hpack::dynamic_table::entry_value(entry)
 end

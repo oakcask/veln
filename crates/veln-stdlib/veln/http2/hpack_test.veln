@@ -157,6 +157,20 @@ fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
 	end
 end
 
+fn dynamic_entry_matches(table: DynamicTable, index: Int, expected_name: String, expected_value: ByteChunk) -> Result<Bool, String>
+	match http2::hpack::dynamic_table_entry(table, index)
+		Some(entry) => Ok(http2::hpack::dynamic_entry_name(entry) == expected_name and chunks_equal(http2::hpack::dynamic_entry_value(entry), expected_value)?)
+		None => Ok(false)
+	end
+end
+
+fn dynamic_entry_is_missing(table: DynamicTable, index: Int) -> Bool
+	match http2::hpack::dynamic_table_entry(table, index)
+		Some(_) => false
+		None => true
+	end
+end
+
 fn decode_chunk(input: ByteChunk, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, String>
 	http2::hpack::decode_integer(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, prefix_bits)
 end
@@ -381,5 +395,103 @@ test dynamic_table_starts_empty() -> Result<(), String>
 		Ok(())
 	else
 		Err("HPACK dynamic table initial state changed")
+	end
+end
+
+test dynamic_table_inserts_newest_first_with_exact_octet_size() -> Result<(), String>
+	let empty: DynamicTable = http2::hpack::empty_dynamic_table(128)?
+	let first_value: ByteChunk = byte_chunk_from_hex("31")?
+	let second_value: ByteChunk = byte_chunk_from_hex("3232")?
+	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", first_value)?
+	let second: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", second_value)?
+	let entries_match: Bool = dynamic_entry_matches(second, 1, "bb", second_value)? and dynamic_entry_matches(second, 2, "a", first_value)?
+	let original_preserved: Bool = http2::hpack::dynamic_table_size(empty) == 0 and http2::hpack::dynamic_table_entry_count(empty) == 0 and http2::hpack::dynamic_table_size(first) == 34 and http2::hpack::dynamic_table_entry_count(first) == 1
+	if entries_match and original_preserved and http2::hpack::dynamic_table_size(second) == 70 and http2::hpack::dynamic_table_entry_count(second) == 2
+		Ok(())
+	else
+		Err("HPACK dynamic table insertion or size accounting changed")
+	end
+end
+
+test dynamic_table_evicts_oldest_entries_until_the_newest_prefix_fits() -> Result<(), String>
+	let empty: DynamicTable = http2::hpack::empty_dynamic_table(74)?
+	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
+	let second: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
+	let third: DynamicTable = http2::hpack::insert_dynamic_table_entry(second, "ccc", byte_chunk_from_hex("333333")?)?
+	let retained_match: Bool = dynamic_entry_matches(third, 1, "ccc", byte_chunk_from_hex("333333")?)? and dynamic_entry_matches(third, 2, "bb", byte_chunk_from_hex("3232")?)?
+	if retained_match and dynamic_entry_is_missing(third, 3) and http2::hpack::dynamic_table_size(third) == 74 and http2::hpack::dynamic_table_entry_count(third) == 2
+		Ok(())
+	else
+		Err("HPACK dynamic table oldest-first eviction changed")
+	end
+end
+
+test dynamic_table_oversize_insertion_clears_only_the_result_table() -> Result<(), String>
+	let empty: DynamicTable = http2::hpack::empty_dynamic_table(35)?
+	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("3131")?)?
+	let cleared: DynamicTable = http2::hpack::insert_dynamic_table_entry(original, "bb", byte_chunk_from_hex("3232")?)?
+	let original_match: Bool = dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("3131")?)?
+	if original_match and http2::hpack::dynamic_table_size(original) == 35 and http2::hpack::dynamic_table_entry_count(original) == 1 and http2::hpack::dynamic_table_size(cleared) == 0 and http2::hpack::dynamic_table_entry_count(cleared) == 0
+		Ok(())
+	else
+		Err("HPACK dynamic table oversize insertion behavior changed")
+	end
+end
+
+test dynamic_table_capacity_changes_are_immutable_and_evict_when_shrinking() -> Result<(), String>
+	let empty: DynamicTable = http2::hpack::empty_dynamic_table(100)?
+	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
+	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
+	let shrunk: DynamicTable = http2::hpack::dynamic_table_with_capacity(original, 36)?
+	let grown: DynamicTable = http2::hpack::dynamic_table_with_capacity(shrunk, 160)?
+	let shrunk_match: Bool = dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
+	let grown_match: Bool = dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
+	let original_preserved: Bool = http2::hpack::dynamic_table_capacity(original) == 100 and http2::hpack::dynamic_table_size(original) == 70 and http2::hpack::dynamic_table_entry_count(original) == 2
+	if shrunk_match and grown_match and original_preserved and http2::hpack::dynamic_table_capacity(shrunk) == 36 and http2::hpack::dynamic_table_size(shrunk) == 36 and http2::hpack::dynamic_table_capacity(grown) == 160 and http2::hpack::dynamic_table_size(grown) == 36
+		Ok(())
+	else
+		Err("HPACK dynamic table capacity transition changed")
+	end
+end
+
+test dynamic_table_zero_capacity_stays_empty_until_a_later_insertion() -> Result<(), String>
+	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
+	let zero: DynamicTable = http2::hpack::dynamic_table_with_capacity(original, 0)?
+	let ignored: DynamicTable = http2::hpack::insert_dynamic_table_entry(zero, "bb", byte_chunk_from_hex("3232")?)?
+	let grown: DynamicTable = http2::hpack::dynamic_table_with_capacity(ignored, 64)?
+	let inserted: DynamicTable = http2::hpack::insert_dynamic_table_entry(grown, "bb", byte_chunk_from_hex("3232")?)?
+	if http2::hpack::dynamic_table_entry_count(zero) == 0 and http2::hpack::dynamic_table_entry_count(ignored) == 0 and http2::hpack::dynamic_table_entry_count(grown) == 0 and dynamic_entry_matches(inserted, 1, "bb", byte_chunk_from_hex("3232")?)?
+		Ok(())
+	else
+		Err("HPACK zero-capacity dynamic table behavior changed")
+	end
+end
+
+test dynamic_table_rejects_negative_capacities_without_changing_input() -> Result<(), String>
+	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
+	let creation_rejected: Bool = match http2::hpack::empty_dynamic_table(-1)
+		Ok(_) => false
+		Err(failure) => failure == "HPACK dynamic table capacity must not be negative"
+	end
+	let transition_rejected: Bool = match http2::hpack::dynamic_table_with_capacity(original, -1)
+		Ok(_) => false
+		Err(failure) => failure == "HPACK dynamic table capacity must not be negative"
+	end
+	let original_preserved: Bool = http2::hpack::dynamic_table_capacity(original) == 64 and http2::hpack::dynamic_table_size(original) == 34 and dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("31")?)?
+	if creation_rejected and transition_rejected and original_preserved
+		Ok(())
+	else
+		Err("HPACK dynamic table negative capacity handling changed")
+	end
+end
+
+test dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets() -> Result<(), String>
+	let value: ByteChunk = byte_chunk_from_hex("00ff")?
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", value)?
+	let value_matches: Bool = dynamic_entry_matches(table, 1, "x", value)?
+	if value_matches and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_is_missing(table, -1) and dynamic_entry_is_missing(table, 0) and dynamic_entry_is_missing(table, 2)
+		Ok(())
+	else
+		Err("HPACK dynamic table lookup or octet preservation changed")
 	end
 end

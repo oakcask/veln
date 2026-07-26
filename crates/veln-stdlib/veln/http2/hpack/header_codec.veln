@@ -8,7 +8,7 @@ pub type HeaderField
 end
 
 pub type State
-	State(Table)
+	State(DynamicTable)
 end
 
 pub type DecodeTransition
