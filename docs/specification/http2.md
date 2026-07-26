@@ -37,8 +37,18 @@ are rejected. The canonical multi-octet encoding and representation-bit
 behavior are checked by
 `../../examples/specification/run/hpack-prefixed-integer-codec/`.
 
-Executable evidence lives in the adjacent standard-library `*_test.veln`
-files and in the focused HTTP/2 cases under `../../examples/specification/`.
+`http2::hpack::static_entry(index)` exposes every one-based HPACK static-table
+entry from 1 through 61; `static_entry_name(entry)` and
+`static_entry_value(entry)` project its exact fields.
+`static_entry_index(name, value)` returns the exact entry index, while
+`static_name_index(name)` returns the first index with the exact name. Indices
+outside the table and unknown names or values return `None`. The complete
+forward and reverse contract is checked by the adjacent standard-library
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln).
+
+Additional executable evidence lives in the adjacent standard-library
+`*_test.veln` files and in the focused HTTP/2 cases under
+`../../examples/specification/`.
 The broad protocol-core case remains coverage for state transitions and output
 chunk projections while focused cases retain human and JSON diagnostic
 coverage.

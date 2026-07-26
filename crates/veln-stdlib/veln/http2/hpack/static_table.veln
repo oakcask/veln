@@ -1,23 +1,96 @@
-pub type StaticEntry
-	StaticEntry(name: String, value: String)
-end
-
-pub fn lookup(index: Int) -> Option<StaticEntry>
+pub fn lookup(index: Int) -> Option<{ name : String, value : String }>
 	match index
-		1 => Some(StaticEntry(":authority", ""))
-		2 => Some(StaticEntry(":method", "GET"))
-		3 => Some(StaticEntry(":method", "POST"))
-		4 => Some(StaticEntry(":path", "/"))
-		5 => Some(StaticEntry(":path", "/index.html"))
-		6 => Some(StaticEntry(":scheme", "http"))
-		7 => Some(StaticEntry(":scheme", "https"))
-		8 => Some(StaticEntry(":status", "200"))
-		9 => Some(StaticEntry(":status", "204"))
-		10 => Some(StaticEntry(":status", "206"))
-		11 => Some(StaticEntry(":status", "304"))
-		12 => Some(StaticEntry(":status", "400"))
-		13 => Some(StaticEntry(":status", "404"))
-		14 => Some(StaticEntry(":status", "500"))
+		1 => Some({ name: ":authority", value: "" })
+		2 => Some({ name: ":method", value: "GET" })
+		3 => Some({ name: ":method", value: "POST" })
+		4 => Some({ name: ":path", value: "/" })
+		5 => Some({ name: ":path", value: "/index.html" })
+		6 => Some({ name: ":scheme", value: "http" })
+		7 => Some({ name: ":scheme", value: "https" })
+		8 => Some({ name: ":status", value: "200" })
+		9 => Some({ name: ":status", value: "204" })
+		10 => Some({ name: ":status", value: "206" })
+		11 => Some({ name: ":status", value: "304" })
+		12 => Some({ name: ":status", value: "400" })
+		13 => Some({ name: ":status", value: "404" })
+		14 => Some({ name: ":status", value: "500" })
+		15 => Some({ name: "accept-charset", value: "" })
+		16 => Some({ name: "accept-encoding", value: "gzip, deflate" })
+		17 => Some({ name: "accept-language", value: "" })
+		18 => Some({ name: "accept-ranges", value: "" })
+		19 => Some({ name: "accept", value: "" })
+		20 => Some({ name: "access-control-allow-origin", value: "" })
+		21 => Some({ name: "age", value: "" })
+		22 => Some({ name: "allow", value: "" })
+		23 => Some({ name: "authorization", value: "" })
+		24 => Some({ name: "cache-control", value: "" })
+		25 => Some({ name: "content-disposition", value: "" })
+		26 => Some({ name: "content-encoding", value: "" })
+		27 => Some({ name: "content-language", value: "" })
+		28 => Some({ name: "content-length", value: "" })
+		29 => Some({ name: "content-location", value: "" })
+		30 => Some({ name: "content-range", value: "" })
+		31 => Some({ name: "content-type", value: "" })
+		32 => Some({ name: "cookie", value: "" })
+		33 => Some({ name: "date", value: "" })
+		34 => Some({ name: "etag", value: "" })
+		35 => Some({ name: "expect", value: "" })
+		36 => Some({ name: "expires", value: "" })
+		37 => Some({ name: "from", value: "" })
+		38 => Some({ name: "host", value: "" })
+		39 => Some({ name: "if-match", value: "" })
+		40 => Some({ name: "if-modified-since", value: "" })
+		41 => Some({ name: "if-none-match", value: "" })
+		42 => Some({ name: "if-range", value: "" })
+		43 => Some({ name: "if-unmodified-since", value: "" })
+		44 => Some({ name: "last-modified", value: "" })
+		45 => Some({ name: "link", value: "" })
+		46 => Some({ name: "location", value: "" })
+		47 => Some({ name: "max-forwards", value: "" })
+		48 => Some({ name: "proxy-authenticate", value: "" })
+		49 => Some({ name: "proxy-authorization", value: "" })
+		50 => Some({ name: "range", value: "" })
+		51 => Some({ name: "referer", value: "" })
+		52 => Some({ name: "refresh", value: "" })
+		53 => Some({ name: "retry-after", value: "" })
+		54 => Some({ name: "server", value: "" })
+		55 => Some({ name: "set-cookie", value: "" })
+		56 => Some({ name: "strict-transport-security", value: "" })
+		57 => Some({ name: "transfer-encoding", value: "" })
+		58 => Some({ name: "user-agent", value: "" })
+		59 => Some({ name: "vary", value: "" })
+		60 => Some({ name: "via", value: "" })
+		61 => Some({ name: "www-authenticate", value: "" })
 		_ => None
 	end
+end
+
+fn find_entry_index(name: String, value: String, index: Int) -> Option<Int>
+	match lookup(index)
+		Some(entry) => if name == entry.name and value == entry.value
+			Some(index)
+		else
+			find_entry_index(name, value, index + 1)
+		end
+		None => None
+	end
+end
+
+pub fn entry_index(name: String, value: String) -> Option<Int>
+	find_entry_index(name, value, 1)
+end
+
+fn find_name_index(name: String, index: Int) -> Option<Int>
+	match lookup(index)
+		Some(entry) => if name == entry.name
+			Some(index)
+		else
+			find_name_index(name, index + 1)
+		end
+		None => None
+	end
+end
+
+pub fn name_index(name: String) -> Option<Int>
+	find_name_index(name, 1)
 end

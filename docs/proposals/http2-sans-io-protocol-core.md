@@ -56,7 +56,6 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 
 - Huffman encode and decode for arbitrary octets, including padding, EOS, and
   non-visible values;
-- the complete static table and exact-name lookup;
 - immutable dynamic-table insertion, eviction, capacity changes, index lookup,
   and size accounting;
 - indexed, literal-with-indexing, literal-without-indexing, never-indexed, and
