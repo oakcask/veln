@@ -56,8 +56,8 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 
 - Huffman encode and decode for arbitrary octets, including padding, EOS, and
   non-visible values;
-- immutable dynamic-table insertion, eviction, capacity changes, index lookup,
-  and size accounting;
+- integration of the implemented immutable dynamic table with production
+  header representation decode and encode transitions;
 - indexed, literal-with-indexing, literal-without-indexing, never-indexed, and
   table-size-update representations;
 - recursive header lists with octet-preserving values; and
@@ -125,6 +125,22 @@ Rows may be consolidated only when one parameterized or recursive test proves
 the same invariant. Consolidation must name the shared invariant; it must not
 discard a distinct endpoint role, starting state, transition, diagnostic
 precedence rule, or output projection.
+
+The immutable dynamic-table slice has this checked migration matrix. These
+rows migrate the pure state invariants from `hpack_dynamic_core.veln` to the
+adjacent standard-library `hpack_test.veln`; existing fixture codec and output
+projections remain because they also protect representation integration and
+observable output.
+
+| Source helper or assertion family | Migrated invariant | Destination | Coverage |
+| --- | --- | --- | --- |
+| `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
+| `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
+| `dynamic_core_entry_at` and newest/older accounting projections | one-based newest-to-oldest lookup and unavailable indices | `dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets` | success and unavailable lookup |
+| `dynamic_core_bounded_entry`, `dynamic_core_evict_for_table_size` | oldest-first eviction and oversize-entry clearing | `dynamic_table_evicts_oldest_entries_until_the_newest_prefix_fits`, `dynamic_table_oversize_insertion_clears_only_the_result_table` | success and input-state preservation |
+| `dynamic_core_with_table_size` | shrinking evicts, growing retains, and zero capacity stays empty | `dynamic_table_capacity_changes_are_immutable_and_evict_when_shrinking`, `dynamic_table_zero_capacity_stays_empty_until_a_later_insertion` | success and input-state preservation |
+| dynamic-table construction and capacity transition failures | negative capacities are rejected without changing the input | `dynamic_table_rejects_negative_capacities_without_changing_input` | failure-state preservation |
+| production octet-value accounting projections | values retain non-visible octets through lookup | `dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets` | success |
 
 Pure cases move next to their owning standard module as small
 `Result<(), String>` tests. Observable command behavior remains in focused

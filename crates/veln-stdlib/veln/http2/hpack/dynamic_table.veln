@@ -1,38 +1,129 @@
 use prelude
 
-pub type Entry
-	Entry(name: String, value: ByteChunk)
+pub type DynamicEntry
+	DynamicEntry(name: String, value: ByteChunk)
 end
 
-pub type Table
-	Table(capacity: Int, size: Int, entries: List<Entry>)
+pub type DynamicTable
+	DynamicTable(capacity: Int, size: Int, entries: List<DynamicEntry>)
 end
 
-pub fn empty(capacity: Int) -> Result<Table, String>
-	match capacity < 0
-		true => Err("HPACK dynamic table capacity must not be negative")
-		false => Ok(Table(capacity, 0, Nil))
+pub fn empty(capacity: Int) -> Result<DynamicTable, String>
+	if capacity < 0
+		Err("HPACK dynamic table capacity must not be negative")
+	else
+		Ok(DynamicTable(capacity, 0, Nil))
 	end
 end
 
-pub fn capacity(table: Table) -> Int
+pub fn capacity(table: DynamicTable) -> Int
 	match table
-		Table(value, _, _) => value
+		DynamicTable(value, _, _) => value
 	end
 end
 
-pub fn size(table: Table) -> Int
+pub fn size(table: DynamicTable) -> Int
 	match table
-		Table(_, value, _) => value
+		DynamicTable(_, value, _) => value
 	end
 end
 
-pub fn entry_count(table: Table) -> Int
+pub fn entry_count(table: DynamicTable) -> Int
 	match table
-		Table(_, _, entries) => list_fold(entries, 0, count_entry)
+		DynamicTable(_, _, entries) => list_fold(entries, 0, count_entry)
 	end
 end
 
-fn count_entry(count: Int, entry: Entry) -> Int
+fn count_entry(count: Int, entry: DynamicEntry) -> Int
 	count + 1
+end
+
+pub fn insert(table: DynamicTable, name: String, value: ByteChunk) -> Result<DynamicTable, String>
+	let name_bytes: ByteChunk = byte_chunk_from_visible_ascii_string(name)?
+	let inserted: DynamicEntry = DynamicEntry(name, value)
+	let inserted_size: Int = byte_count_to_int(byte_chunk_count(name_bytes)) + byte_count_to_int(byte_chunk_count(value)) + 32
+	match table
+		DynamicTable(table_capacity, _, entries) => if inserted_size > table_capacity
+			Ok(DynamicTable(table_capacity, 0, Nil))
+		else
+			table_with_entries(table_capacity, Cons(inserted, entries))
+		end
+	end
+end
+
+pub fn with_capacity(table: DynamicTable, next_capacity: Int) -> Result<DynamicTable, String>
+	if next_capacity < 0
+		Err("HPACK dynamic table capacity must not be negative")
+	else
+		match table
+			DynamicTable(_, _, entries) => table_with_entries(next_capacity, entries)
+		end
+	end
+end
+
+pub fn lookup(table: DynamicTable, index: Int) -> Option<DynamicEntry>
+	match table
+		DynamicTable(_, _, entries) => if index < 1
+			None
+		else
+			entry_at(entries, index)
+		end
+	end
+end
+
+pub fn entry_name(entry: DynamicEntry) -> String
+	match entry
+		DynamicEntry(name, _) => name
+	end
+end
+
+pub fn entry_value(entry: DynamicEntry) -> ByteChunk
+	match entry
+		DynamicEntry(_, value) => value
+	end
+end
+
+fn table_with_entries(table_capacity: Int, entries: List<DynamicEntry>) -> Result<DynamicTable, String>
+	let bounded: List<DynamicEntry> = entries_within_capacity(entries, table_capacity)?
+	Ok(DynamicTable(table_capacity, entries_size(bounded)?, bounded))
+end
+
+fn entries_within_capacity(entries: List<DynamicEntry>, remaining: Int) -> Result<List<DynamicEntry>, String>
+	match entries
+		Nil => Ok(Nil)
+		Cons(entry, older) => match entry_size(entry)
+			Ok(current_size) => if current_size <= remaining
+				Ok(Cons(entry, entries_within_capacity(older, remaining - current_size)?))
+			else
+				Ok(Nil)
+			end
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn entries_size(entries: List<DynamicEntry>) -> Result<Int, String>
+	match entries
+		Nil => Ok(0)
+		Cons(entry, older) => Ok(entry_size(entry)? + entries_size(older)?)
+	end
+end
+
+fn entry_size(entry: DynamicEntry) -> Result<Int, String>
+	match entry
+		DynamicEntry(name, value) => match byte_chunk_from_visible_ascii_string(name)
+			Ok(name_bytes) => Ok(byte_count_to_int(byte_chunk_count(name_bytes)) + byte_count_to_int(byte_chunk_count(value)) + 32)
+			Err(failure) => Err(failure)
+		end
+	end
+end
+
+fn entry_at(entries: List<DynamicEntry>, index: Int) -> Option<DynamicEntry>
+	match entries
+		Nil => None
+		Cons(entry, older) => match index
+			1 => Some(entry)
+			_ => entry_at(older, index - 1)
+		end
+	end
 end

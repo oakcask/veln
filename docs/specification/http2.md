@@ -17,7 +17,7 @@ The public routes are:
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer encoding and decoding, Huffman byte labels,
-  static entries, and immutable initial dynamic-table state.
+  static entries, and immutable dynamic-table state.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -45,6 +45,25 @@ entry from 1 through 61; `static_entry_name(entry)` and
 outside the table and unknown names or values return `None`. The complete
 forward and reverse contract is checked by the adjacent standard-library
 [`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln).
+
+`http2::hpack::empty_dynamic_table(capacity)` creates an immutable empty table
+and rejects a negative capacity. `insert_dynamic_table_entry(table, name,
+value)` inserts at index one, keeps entries in newest-to-oldest order, and
+accounts for each entry as the name octet count plus the value octet count plus
+32. It evicts the oldest entries until the result fits; an entry larger than
+the active capacity clears the result table. Header values are `ByteChunk`
+values and preserve arbitrary octets.
+
+`dynamic_table_with_capacity(table, capacity)` returns a new table, evicting
+after a shrink and retaining entries after a grow, and rejects a negative
+capacity. Successful and failed transitions leave the input table unchanged.
+The capacity, current size, and entry count have dedicated projections.
+`dynamic_table_entry(table, index)` performs one-based lookup and returns
+`None` for non-positive or unavailable indices; `dynamic_entry_name` and
+`dynamic_entry_value` project a found entry. The adjacent standard-library
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks exact size accounting, insertion order, eviction, capacity changes,
+lookup boundaries, arbitrary-octet values, and input-state preservation.
 
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under
