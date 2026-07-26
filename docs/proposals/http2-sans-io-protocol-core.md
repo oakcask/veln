@@ -192,6 +192,8 @@ pass independently.
 
 ### Standard Package
 
+- `bash scripts/agent-stdlib-test` runs the toolchain-owned standard project
+  through the guarded runner and executes every lowered standard test body.
 - Frame, HPACK, diagnostics, and core tests cover their responsibility without
   importing fixture modules.
 - The toolchain-owned standard project checks all source files, including

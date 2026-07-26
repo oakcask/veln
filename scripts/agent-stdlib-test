@@ -1,0 +1,13 @@
+set -euo pipefail
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+repository_root="$(CDPATH= cd -- "$script_dir/.." && pwd)"
+standard_root="$repository_root/crates/veln-stdlib/veln"
+
+cd "$standard_root"
+exec bash ../../../scripts/agent-run \
+  cargo run \
+  --manifest-path ../../../Cargo.toml \
+  --locked \
+  -p veln-cli \
+  -- test
