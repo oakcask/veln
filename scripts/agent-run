@@ -34,6 +34,60 @@ fi
 
 memory_kb=$((memory_mb * 1024))
 
+run_with_address_space_limit() {
+  (
+    ulimit -v "$memory_kb"
+    exec timeout --kill-after=10s "$timeout_limit" "$@"
+  )
+}
+
+run_with_systemd_limit() {
+  systemd-run \
+    --user \
+    --scope \
+    --quiet \
+    -p "MemoryMax=${memory_mb}M" \
+    sh -c '
+      memory_kb=$1
+      timeout_limit=$2
+      shift 2
+      ulimit -v "$memory_kb"
+      exec timeout --kill-after=10s "$timeout_limit" "$@"
+    ' agent-run "$memory_kb" "$timeout_limit" "$@"
+}
+
+report_failure() {
+  status="$1"
+  enforcement="$2"
+
+  case "$status" in
+    124)
+      failure="timed out after $timeout_limit"
+      ;;
+    134)
+      failure="aborted with SIGABRT, commonly after an allocation failure"
+      ;;
+    137)
+      failure="terminated with SIGKILL, possibly after timeout escalation or a memory limit"
+      ;;
+    143)
+      failure="terminated with SIGTERM"
+      ;;
+    *)
+      if [ "$status" -gt 128 ]; then
+        failure="terminated by signal $((status - 128))"
+      else
+        failure="exited with status $status"
+      fi
+      ;;
+  esac
+
+  printf 'agent-run: guarded command %s\n' "$failure" >&2
+  printf 'agent-run: active limits were timeout=%s memory=%sMiB enforcement=%s\n' \
+    "$timeout_limit" "$memory_mb" "$enforcement" >&2
+  printf 'agent-run: inspect the preceding output for runaway recursion, unbounded growth, or repeated work before raising a limit\n' >&2
+}
+
 write_java_wrapper() {
   tool="$1"
   real_tool="$2"
@@ -76,17 +130,20 @@ configure_java_tools
 
 if [ "$systemd_mode" != 0 ] && command -v systemd-run >/dev/null 2>&1; then
   if systemd-run --user --scope --quiet true >/dev/null 2>&1; then
-    systemd-run \
-      --user \
-      --scope \
-      --quiet \
-      -p "MemoryMax=${memory_mb}M" \
-      timeout --foreground --kill-after=10s "$timeout_limit" "$@"
-    exit $?
+    if run_with_systemd_limit "$@"; then
+      exit 0
+    else
+      status=$?
+      report_failure "$status" "systemd-cgroup+address-space"
+      exit "$status"
+    fi
   fi
 fi
 
-(
-  ulimit -v "$memory_kb"
-  exec timeout --foreground --kill-after=10s "$timeout_limit" "$@"
-)
+if run_with_address_space_limit "$@"; then
+  exit 0
+else
+  status=$?
+  report_failure "$status" "address-space"
+  exit "$status"
+fi

@@ -42,6 +42,14 @@ end goal.
 - Override memory in megabytes with `VELN_AGENT_MEMORY_MB`.
 - Override default Rust build parallelism for `agent-test` with
   `VELN_AGENT_CARGO_JOBS`.
+- `agent-run` always applies an inherited address-space limit. When a usable
+  user systemd manager is available, it also places the full process tree in a
+  memory-limited scope so either boundary can stop runaway descendants.
+
+On failure, inspect the runner summary for the active enforcement mode and
+limits. If the surrounding WSL instance, container, or terminal disappears,
+also inspect the host or kernel OOM record before retrying; losing the runner's
+own summary can mean the outer environment exhausted memory first.
 
 Prefer lowering parallelism before raising memory for broad Rust builds and
 tests so the failure remains diagnosable. The guarded runner may use a systemd
