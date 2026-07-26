@@ -63,7 +63,11 @@ The capacity, current size, and entry count have dedicated projections.
 `dynamic_entry_value` project a found entry. The adjacent standard-library
 [`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
 checks exact size accounting, insertion order, eviction, capacity changes,
-lookup boundaries, arbitrary-octet values, and input-state preservation.
+lookup boundaries, arbitrary-octet values, and input-state preservation. The
+focused
+[`hpack-dynamic-table-state`](../../examples/specification/run/hpack-dynamic-table-state/)
+case checks the same facade from an external package and records its projected
+state and octet values through command output.
 
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under
