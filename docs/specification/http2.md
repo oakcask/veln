@@ -266,6 +266,12 @@ replacement, and stream collection replacement. The focused
 case imports `http2::core` from `std` and records public aggregate state,
 HPACK table, SETTINGS ACK, peer stream admission, stream collection,
 flow-control credit, and lifecycle projections.
+The focused
+[`http2-core-stream-collection`](../../examples/specification/run/http2-core-stream-collection/)
+case records stream collection add, replace, lookup, missing-update,
+active-count, lifecycle, credit, content-length, immutable input, and
+entry-construction failure projections without depending on the aggregate
+connection case.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

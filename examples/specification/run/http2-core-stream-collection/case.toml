@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "empty count 0 active 0 has1 false has3 false has5 false\nwith-first count 1 active 1 has1 true has3 false has5 false\nwith-two count 2 active 2 has1 true has3 true has5 false\nreplaced count 2 active 1 has1 true has3 true has5 false\nreplaced-first stream 1 lifecycle closed error 0 recv 0 send 65535 expected 10 observed 10\nreplaced-second stream 3 lifecycle half-closed-remote error 0 recv 42 send 7 expected -1 observed 0\nreplaced-missing missing\nwith-two-first stream 1 lifecycle open error 0 recv 65535 send 65535 expected 10 observed 0\nbase count 1 active 1 has1 false has3 false has5 true\nupdated count 1 active 0 has1 false has3 false has5 true\nmissing-update count 1 active 1 has1 false has3 false has5 true\nbase-five stream 5 lifecycle open error 0 recv 100 send 90 expected 12 observed 3\nupdated-five stream 5 lifecycle reset error 8 recv 33 send 44 expected 12 observed 12\nmissing-update-five stream 5 lifecycle open error 0 recv 100 send 90 expected 12 observed 3\ninvalid-receive failure stream_window_credit observed -2147483648 min -2147483647 max 2147483647\ninvalid-send failure stream_window_credit observed 2147483648 min -2147483647 max 2147483647\n"
+
+[[json_assert]]
+path = "error"
+equals = null
