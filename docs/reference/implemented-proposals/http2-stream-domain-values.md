@@ -4,12 +4,13 @@ Status: implemented
 
 This record preserves the completed stream-identifier domain-value slice from
 the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
-`../../specification/execution.md` and the checked executable case under
+`../../specification/http2.md`, the adjacent standard-library tests, and the
+checked executable case under
 `../../../examples/specification/run/http2-protocol-core/`.
 
 ## Completed Behavior
 
-The executable protocol core keeps the wire schema boundary unchanged:
+The public `std::http2::core` facade keeps the wire schema boundary unchanged:
 `UInt31be` stream fields decode to ordinary `Int` values. Before a received
 frame reaches stream-state admission, ordinary Veln constructors validate and
 wrap real stream identifiers as nonzero `StreamId` values. Client-initiated
@@ -25,15 +26,18 @@ endpoint role, active state, and rule provenance.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/stream_domain.veln`
-  defines the ordinary domain values, constructors, and reference
-  classification boundary.
+- `../../../crates/veln-stdlib/veln/http2/core.veln` defines the public domain
+  values, constructors, and reference classification boundary.
+- `../../../crates/veln-stdlib/veln/http2/core_test.veln` checks accepted
+  client and server stream ids, retained values, connection and real-stream
+  reference projections, and zero, out-of-range, client-parity, and
+  server-parity failures.
 - `../../../examples/specification/run/http2-protocol-core/main.veln` routes
-  connection, client-initiated, and server-initiated validation through those
-  values before state admission.
+  connection, client-initiated, and server-initiated validation through the
+  public facade before state admission.
 - `../../../examples/specification/run/http2-protocol-core/case.toml` checks
-  accepted client and server stream ids, the connection reference, and zero,
-  out-of-range, client-parity, and server-parity failures.
+  the retained observable stream-id diagnostics, complete stdout, and
+  transition ordering.
 
 ## Remaining Scope
 

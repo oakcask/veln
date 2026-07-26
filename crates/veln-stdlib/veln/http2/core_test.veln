@@ -105,12 +105,31 @@ test stream_domains_are_role_aware() -> Result<(), String>
 	end
 end
 
-test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
+test stream_domains_project_connection_and_real_references() -> Result<(), String>
+	let client: StreamId = http2::core::client_stream_id(1)?
+	let server: StreamId = http2::core::server_stream_id(2)?
+	let connection: StreamRef = http2::core::connection_stream_ref()
+	let client_ref: StreamRef = http2::core::real_stream_ref(client)
+	let server_ref: StreamRef = http2::core::real_stream_ref(server)
+	if http2::core::stream_ref_is_connection(connection) and not http2::core::stream_ref_is_real(connection) and http2::core::stream_ref_value(connection) == 0 and not http2::core::stream_ref_is_connection(client_ref) and http2::core::stream_ref_is_real(client_ref) and http2::core::stream_ref_value(client_ref) == 1 and not http2::core::stream_ref_is_connection(server_ref) and http2::core::stream_ref_is_real(server_ref) and http2::core::stream_ref_value(server_ref) == 2
+		Ok(())
+	else
+		Err("HTTP/2 stream references did not preserve connection or real-stream projections")
+	end
+end
+
+test stream_domains_accept_lower_bounds_and_reject_invalid_boundaries() -> Result<(), String>
 	match http2::core::client_stream_id(0)
 		Ok(_) => Err("zero entered the HTTP/2 stream id domain")
-		Err(_) => match http2::core::server_stream_id(3)
-			Ok(_) => Err("odd stream id entered the server stream domain")
-			Err(_) => Ok(())
+		Err(_) => match http2::core::server_stream_id(2147483648)
+			Ok(_) => Err("one above the HTTP/2 stream id upper bound entered the domain")
+			Err(_) => match http2::core::client_stream_id(2)
+				Ok(_) => Err("even stream id entered the client stream domain")
+				Err(_) => match http2::core::server_stream_id(3)
+					Ok(_) => Err("odd stream id entered the server stream domain")
+					Err(_) => Ok(())
+				end
+			end
 		end
 	end
 end
