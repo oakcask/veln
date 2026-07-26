@@ -1,0 +1,101 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::header_codec
+use http2::hpack::table_size_update
+
+pub type HeaderBlockCodecFailure
+	HeaderBlockCodecUnsupportedRepresentation(first_octet: Int)
+	HeaderBlockCodecMisplacedTableSizeUpdate
+	HeaderBlockCodecIndexedFailure(failure: HeaderCodecFailure)
+	HeaderBlockCodecLiteralFailure(failure: HeaderCodecFailure)
+	HeaderBlockCodecTableSizeUpdateFailure(failure: TableSizeUpdateCodecFailure)
+end
+
+pub type HeaderBlockCodecTransition
+	HeaderBlockCodecTransition(headers: List<HeaderCodecField>, consumed: Int, table: DynamicTable)
+end
+
+fn remaining_input(input: ByteView, consumed: Int, first: Int) -> Result<ByteView, HeaderBlockCodecFailure>
+	match byte_count(consumed)
+		Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(first))
+		Ok(count) => match byte_view_drop(input, count)
+			Ok(remaining) => Ok(remaining)
+			Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(first))
+		end
+	end
+end
+
+fn prepend_header(header: HeaderCodecField, consumed: Int, tail: HeaderBlockCodecTransition) -> HeaderBlockCodecTransition
+	match tail
+		HeaderBlockCodecTransition(headers, tail_consumed, table) => HeaderBlockCodecTransition(Cons(header, headers), consumed + tail_consumed, table)
+	end
+end
+
+fn prepend_update(consumed: Int, tail: HeaderBlockCodecTransition) -> HeaderBlockCodecTransition
+	match tail
+		HeaderBlockCodecTransition(headers, tail_consumed, table) => HeaderBlockCodecTransition(headers, consumed + tail_consumed, table)
+	end
+end
+
+fn decode_remaining(input: ByteView, table: DynamicTable, peer_maximum: Int, fields_started: Bool) -> Result<HeaderBlockCodecTransition, HeaderBlockCodecFailure>
+	if byte_count_to_int(byte_view_count(input)) == 0
+		Ok(HeaderBlockCodecTransition(Nil, 0, table))
+	else
+		match byte_read_u8_be(input)
+			Err(_) => Err(HeaderBlockCodecUnsupportedRepresentation(0))
+			Ok(first) => if (first & 128) == 128
+				match http2::hpack::header_codec::decode_indexed(input, table)
+					Err(failure) => Err(HeaderBlockCodecIndexedFailure(failure))
+					Ok(transition) => match decode_remaining(remaining_input(input, http2::hpack::header_codec::transition_consumed(transition), first)?, http2::hpack::header_codec::transition_table(transition), peer_maximum, true)
+						Err(failure) => Err(failure)
+						Ok(tail) => Ok(prepend_header(http2::hpack::header_codec::transition_header(transition), http2::hpack::header_codec::transition_consumed(transition), tail))
+					end
+				end
+			else if (first & 224) == 32
+				if fields_started
+					Err(HeaderBlockCodecMisplacedTableSizeUpdate)
+				else
+					match http2::hpack::table_size_update::decode(input, table, peer_maximum)
+						Err(failure) => Err(HeaderBlockCodecTableSizeUpdateFailure(failure))
+						Ok(transition) => match decode_remaining(remaining_input(input, http2::hpack::table_size_update::transition_consumed(transition), first)?, http2::hpack::table_size_update::transition_table(transition), peer_maximum, false)
+							Err(failure) => Err(failure)
+							Ok(tail) => Ok(prepend_update(http2::hpack::table_size_update::transition_consumed(transition), tail))
+						end
+					end
+				end
+			else if (first & 192) == 64 or (first & 240) == 0 or (first & 240) == 16
+				match http2::hpack::header_codec::decode_literal(input, table)
+					Err(failure) => Err(HeaderBlockCodecLiteralFailure(failure))
+					Ok(decoded) => match decode_remaining(remaining_input(input, http2::hpack::header_codec::transition_consumed(decoded.transition), first)?, http2::hpack::header_codec::transition_table(decoded.transition), peer_maximum, true)
+						Err(failure) => Err(failure)
+						Ok(tail) => Ok(prepend_header(http2::hpack::header_codec::transition_header(decoded.transition), http2::hpack::header_codec::transition_consumed(decoded.transition), tail))
+					end
+				end
+			else
+				Err(HeaderBlockCodecUnsupportedRepresentation(first))
+			end
+		end
+	end
+end
+
+pub fn decode(input: ByteView, table: DynamicTable, peer_maximum: Int) -> Result<HeaderBlockCodecTransition, HeaderBlockCodecFailure>
+	decode_remaining(input, table, peer_maximum, false)
+end
+
+pub fn transition_headers(transition: HeaderBlockCodecTransition) -> List<HeaderCodecField>
+	match transition
+		HeaderBlockCodecTransition(headers, _, _) => headers
+	end
+end
+
+pub fn transition_consumed(transition: HeaderBlockCodecTransition) -> Int
+	match transition
+		HeaderBlockCodecTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn transition_table(transition: HeaderBlockCodecTransition) -> DynamicTable
+	match transition
+		HeaderBlockCodecTransition(_, _, table) => table
+	end
+end

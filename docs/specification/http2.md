@@ -18,7 +18,7 @@ The public routes are:
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
   immutable dynamic-table state, table-size updates, and indexed and literal
-  header-field decoding.
+  header-field and complete header-block decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -142,6 +142,27 @@ multi-octet indices and lengths, exact value octets, insertion, and failure
 preservation. The focused
 [`hpack-literal-header-field`](../../examples/specification/run/hpack-literal-header-field/)
 case records public raw result values and representative typed failures.
+
+`http2::hpack::decode_header_block(input, table, peer_maximum)` recursively
+decodes a complete ordered block of indexed and literal fields. `HeaderList`
+keeps wire order, and every `HeaderField` retains its value as an exact
+`ByteChunk`. The transition reports the full list, total consumed octets, and
+next immutable table, so an incrementally indexed field is available to later
+fields in the same block and to a later decode.
+
+One or more bounded table-size updates may lead the block. An update after the
+first field is a focused misplaced-update failure. Indexed, literal, and
+table-size-update codec failures remain available as their existing typed
+families beneath the block failure. A failure exposes neither a partial list
+nor a next table and leaves the caller's input table unchanged. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks empty and mixed blocks, field order, exact non-visible octets, dynamic
+transitions across fields and decodes, every literal representation, list
+boundaries, update-only and leading-update blocks, nested failures, and
+failure-state preservation.
+The focused
+[`hpack-header-block-decoding`](../../examples/specification/run/hpack-header-block-decoding/)
+case records public result values and representative failure kinds.
 
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under
