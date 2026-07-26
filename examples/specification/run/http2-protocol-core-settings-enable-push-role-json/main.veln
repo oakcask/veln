@@ -1,3 +1,4 @@
+use http2::core from "std"
 use http2::diagnostic from "std"
 # Client-side SETTINGS_ENABLE_PUSH rejection projects structured details.
 
@@ -9,22 +10,27 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn settings_item() -> Result<ByteView, RuntimeDiagnostic>
+fn project(validation: PeerSettingsValidation) -> Result<(), RuntimeDiagnostic>
+	match http2::core::peer_settings_validation_status(validation)
+		"rejected" => project_failure(validation)
+		_ => Err(invalid_payload("client peer SETTINGS_ENABLE_PUSH was accepted"))
+	end
+end
+
+fn project_failure(validation: PeerSettingsValidation) -> Result<(), RuntimeDiagnostic>
+	let failure: PeerSettingsFailure = match http2::core::peer_settings_validation_failure(validation)
+		Ok(value) => value
+		Err(error) => Err(invalid_payload(error))?
+	end
+	http2::diagnostic::protocol_settings_not_allowed_for_endpoint(http2::core::peer_settings_failure_offset(failure), http2::core::peer_settings_failure_setting_identifier(failure), http2::core::peer_settings_failure_setting_name(failure), http2::core::peer_settings_failure_endpoint_role(failure), http2::core::peer_settings_failure_frame_kind(failure), http2::core::peer_settings_failure_active_state(failure), http2::core::peer_settings_failure_rule_provenance(failure), http2::core::peer_settings_failure_preview(failure))
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	match byte_chunk_from_hex("000200000001")
-		Ok(bytes) => match byte_offset(0)
-			Ok(offset) => match byte_count(6)
-				Ok(count) => match byte_view(bytes, offset, count)
-					Ok(view) => Ok(view)
-					Err(error) => Err(invalid_payload(error))
-				end
-				Err(error) => Err(invalid_payload(error))
-			end
+		Ok(payload) => match http2::core::validate_peer_settings_payload(15, "client", payload)
+			Ok(validation) => project(validation)
 			Err(error) => Err(invalid_payload(error))
 		end
 		Err(error) => Err(invalid_payload(error))
 	end
-end
-
-pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2::diagnostic::protocol_settings_not_allowed_for_endpoint(15, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", settings_item()?)
 end

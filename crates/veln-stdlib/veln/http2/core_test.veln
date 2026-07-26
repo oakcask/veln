@@ -129,6 +129,49 @@ fn local_setting_rejects(item: LocalSettingsItem, expected_identifier: Int, expe
 	end
 end
 
+fn peer_settings_accepts(hex: String, endpoint_role: String, expected_count: Int) -> Result<Bool, String>
+	match http2::core::validate_peer_settings_payload(9, endpoint_role, byte_chunk_from_hex(hex)?)
+		Ok(validation) => Ok(http2::core::peer_settings_validation_status(validation) == "accepted" and http2::core::peer_settings_accepted_item_count(validation) == expected_count)
+		Err(_) => Ok(false)
+	end
+end
+
+fn peer_settings_rejects(hex: String, endpoint_role: String, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_observed: Int, expected_min: Int, expected_max: Int, expected_preview_hex: String) -> Result<Bool, String>
+	match http2::core::validate_peer_settings_payload(9, endpoint_role, byte_chunk_from_hex(hex)?)
+		Ok(validation) => peer_settings_value_rejection_matches(validation, expected_offset, expected_identifier, expected_name, expected_observed, expected_min, expected_max, expected_preview_hex)
+		Err(_) => Ok(false)
+	end
+end
+
+fn peer_settings_value_rejection_matches(validation: PeerSettingsValidation, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_observed: Int, expected_min: Int, expected_max: Int, expected_preview_hex: String) -> Result<Bool, String>
+	match http2::core::peer_settings_validation_status(validation)
+		"rejected" => peer_settings_value_failure_matches(http2::core::peer_settings_validation_failure(validation)?, expected_offset, expected_identifier, expected_name, expected_observed, expected_min, expected_max, expected_preview_hex)
+		_ => Ok(false)
+	end
+end
+
+fn peer_settings_value_failure_matches(failure: PeerSettingsFailure, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_observed: Int, expected_min: Int, expected_max: Int, expected_preview_hex: String) -> Result<Bool, String>
+	Ok(http2::core::peer_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::peer_settings_failure_offset(failure) == expected_offset and http2::core::peer_settings_failure_setting_identifier(failure) == expected_identifier and http2::core::peer_settings_failure_setting_name(failure) == expected_name and http2::core::peer_settings_failure_observed_value(failure) == expected_observed and http2::core::peer_settings_failure_accepted_min_value(failure) == expected_min and http2::core::peer_settings_failure_accepted_max_value(failure) == expected_max and http2::core::peer_settings_failure_peer_limit_provenance(failure) == "peer_settings" and chunks_equal(byte_view_to_chunk(http2::core::peer_settings_failure_preview(failure)), byte_chunk_from_hex(expected_preview_hex)?)?)
+end
+
+fn peer_settings_role_rejects(hex: String, endpoint_role: String, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_rule: String, expected_preview_hex: String) -> Result<Bool, String>
+	match http2::core::validate_peer_settings_payload(9, endpoint_role, byte_chunk_from_hex(hex)?)
+		Ok(validation) => peer_settings_role_rejection_matches(validation, endpoint_role, expected_offset, expected_identifier, expected_name, expected_rule, expected_preview_hex)
+		Err(_) => Ok(false)
+	end
+end
+
+fn peer_settings_role_rejection_matches(validation: PeerSettingsValidation, endpoint_role: String, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_rule: String, expected_preview_hex: String) -> Result<Bool, String>
+	match http2::core::peer_settings_validation_status(validation)
+		"rejected" => peer_settings_role_failure_matches(http2::core::peer_settings_validation_failure(validation)?, endpoint_role, expected_offset, expected_identifier, expected_name, expected_rule, expected_preview_hex)
+		_ => Ok(false)
+	end
+end
+
+fn peer_settings_role_failure_matches(failure: PeerSettingsFailure, endpoint_role: String, expected_offset: Int, expected_identifier: Int, expected_name: String, expected_rule: String, expected_preview_hex: String) -> Result<Bool, String>
+	Ok(http2::core::peer_settings_failure_id(failure) == "http2.protocol.settings_not_allowed_for_endpoint" and http2::core::peer_settings_failure_offset(failure) == expected_offset and http2::core::peer_settings_failure_setting_identifier(failure) == expected_identifier and http2::core::peer_settings_failure_setting_name(failure) == expected_name and http2::core::peer_settings_failure_endpoint_role(failure) == endpoint_role and http2::core::peer_settings_failure_frame_kind(failure) == 4 and http2::core::peer_settings_failure_active_state(failure) == "peer-settings" and http2::core::peer_settings_failure_rule_provenance(failure) == expected_rule and chunks_equal(byte_view_to_chunk(http2::core::peer_settings_failure_preview(failure)), byte_chunk_from_hex(expected_preview_hex)?)?)
+end
+
 fn stream_id_accepts(result: Result<StreamId, String>, expected: Int) -> Bool
 	match result
 		Ok(stream_id) => http2::core::stream_id_value(stream_id) == expected
@@ -697,5 +740,63 @@ test local_settings_send_rejects_client_enable_connect_protocol_without_output()
 			Err("client local SETTINGS_ENABLE_CONNECT_PROTOCOL rejection lost context")
 		end
 		_ => Err("client local SETTINGS_ENABLE_CONNECT_PROTOCOL was accepted")
+	end
+end
+
+test peer_settings_validation_accepts_every_supported_setting_boundary() -> Result<(), String>
+	if peer_settings_accepts("0001000000000001ffffffff0002000000000002000000010003000000000003ffffffff00040000000000047fffffff000500004000000500ffffff0006000000000006ffffffff", "server", 12)? and peer_settings_accepts("0001000000000001ffffffff0003000000000003ffffffff00040000000000047fffffff000500004000000500ffffff0006000000000006ffffffff000800000000000800000001", "client", 12)?
+		Ok(())
+	else
+		Err("peer SETTINGS validation did not accept every supported setting boundary")
+	end
+end
+
+test peer_settings_validation_rejects_supported_out_of_range_values() -> Result<(), String>
+	if peer_settings_rejects("000200000002", "server", 9, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "000200000002")? and peer_settings_rejects("000480000000", "server", 9, 4, "SETTINGS_INITIAL_WINDOW_SIZE", 2147483648, 0, 2147483647, "000480000000")? and peer_settings_rejects("000500003fff", "server", 9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "000500003fff")? and peer_settings_rejects("000501000000", "server", 9, 5, "SETTINGS_MAX_FRAME_SIZE", 16777216, 16384, 16777215, "000501000000")? and peer_settings_rejects("000800000002", "client", 9, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", 2, 0, 1, "000800000002")?
+		Ok(())
+	else
+		Err("peer SETTINGS validation accepted an out-of-range supported setting")
+	end
+end
+
+test peer_settings_validation_ignores_unknown_items_and_preserves_wire_order() -> Result<(), String>
+	let accepted: Bool = peer_settings_accepts("aaaa12345678000500004000bbbb00000000000200000001", "server", 4)?
+	let invalid_after_unknown: Bool = peer_settings_rejects("aaaa12345678000500003fff", "server", 15, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "000500003fff")?
+	let duplicate_later_invalid: Bool = peer_settings_rejects("000500004000aaaa12345678000500003fff", "server", 21, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "000500003fff")?
+	if accepted and invalid_after_unknown and duplicate_later_invalid
+		Ok(())
+	else
+		Err("peer SETTINGS validation lost unknown-item, wire-order, or duplicate precedence")
+	end
+end
+
+test peer_settings_validation_rejects_endpoint_role_rules() -> Result<(), String>
+	if peer_settings_role_rejects("000200000001", "client", 9, 2, "SETTINGS_ENABLE_PUSH", "rfc9113_client_must_not_receive_settings_enable_push", "000200000001")? and peer_settings_role_rejects("000800000001", "server", 9, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "rfc8441_client_must_not_send_settings_enable_connect_protocol", "000800000001")?
+		Ok(())
+	else
+		Err("peer SETTINGS validation accepted a setting disallowed for the endpoint role")
+	end
+end
+
+test peer_settings_validation_failure_preserves_input_and_exact_context() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("aaaa12345678000200000002000500003fff")?
+	match http2::core::validate_peer_settings_payload(33, "server", payload)
+		Ok(validation) => peer_settings_failure_preserves_input(validation, payload)
+		Err(error) => Err(error)
+	end
+end
+
+fn peer_settings_failure_preserves_input(validation: PeerSettingsValidation, payload: ByteChunk) -> Result<(), String>
+	match http2::core::peer_settings_validation_status(validation)
+		"rejected" => peer_settings_failure_context_matches(http2::core::peer_settings_validation_failure(validation)?, payload)
+		_ => Err("invalid peer SETTINGS payload exposed success")
+	end
+end
+
+fn peer_settings_failure_context_matches(failure: PeerSettingsFailure, payload: ByteChunk) -> Result<(), String>
+	if http2::core::peer_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::peer_settings_failure_offset(failure) == 39 and http2::core::peer_settings_failure_setting_identifier(failure) == 2 and http2::core::peer_settings_failure_setting_name(failure) == "SETTINGS_ENABLE_PUSH" and http2::core::peer_settings_failure_observed_value(failure) == 2 and http2::core::peer_settings_failure_accepted_min_value(failure) == 0 and http2::core::peer_settings_failure_accepted_max_value(failure) == 1 and http2::core::peer_settings_failure_active_state(failure) == "peer-settings" and http2::core::peer_settings_failure_rule_provenance(failure) == "http2_settings_value_range" and chunks_equal(byte_view_to_chunk(http2::core::peer_settings_failure_preview(failure)), byte_chunk_from_hex("000200000002")?)? and chunks_equal(payload, byte_chunk_from_hex("aaaa12345678000200000002000500003fff")?)?
+		Ok(())
+	else
+		Err("peer SETTINGS validation failure lost exact context or mutated input")
 	end
 end

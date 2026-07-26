@@ -6,6 +6,7 @@ use http2::core::ping
 use http2::core::pending_header_block
 use http2::core::settings_ack
 use http2::core::local_settings
+use http2::core::peer_settings
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -50,6 +51,10 @@ pub type LocalSettingsItem = http2::core::local_settings::LocalSettingsItem
 pub type LocalSettingsPolicy = http2::core::local_settings::LocalSettingsPolicy
 
 pub type LocalSettingsFailure = http2::core::local_settings::LocalSettingsFailure
+
+pub type PeerSettingsValidation = http2::core::peer_settings::PeerSettingsValidation
+
+pub type PeerSettingsFailure = http2::core::peer_settings::PeerSettingsFailure
 
 pub type LocalSettingsSendDecision
 	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
@@ -754,4 +759,72 @@ end
 
 pub fn local_settings_failure_preview(failure: LocalSettingsFailure) -> ByteView
 	http2::core::local_settings::failure_preview(failure)
+end
+
+pub fn validate_peer_settings_payload(payload_offset: Int, endpoint_role: String, payload: ByteChunk) -> Result<PeerSettingsValidation, String>
+	http2::core::peer_settings::validate_payload(payload_offset, endpoint_role, payload)
+end
+
+pub fn peer_settings_accepted_item_count(validation: PeerSettingsValidation) -> Int
+	http2::core::peer_settings::accepted_item_count(validation)
+end
+
+pub fn peer_settings_validation_status(validation: PeerSettingsValidation) -> String
+	http2::core::peer_settings::status(validation)
+end
+
+pub fn peer_settings_validation_failure(validation: PeerSettingsValidation) -> Result<PeerSettingsFailure, String>
+	http2::core::peer_settings::validation_failure(validation)
+end
+
+pub fn peer_settings_failure_id(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_id(failure)
+end
+
+pub fn peer_settings_failure_offset(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_offset(failure)
+end
+
+pub fn peer_settings_failure_setting_identifier(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_setting_identifier(failure)
+end
+
+pub fn peer_settings_failure_setting_name(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_setting_name(failure)
+end
+
+pub fn peer_settings_failure_observed_value(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_observed_value(failure)
+end
+
+pub fn peer_settings_failure_accepted_min_value(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_accepted_min_value(failure)
+end
+
+pub fn peer_settings_failure_accepted_max_value(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_accepted_max_value(failure)
+end
+
+pub fn peer_settings_failure_peer_limit_provenance(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_peer_limit_provenance(failure)
+end
+
+pub fn peer_settings_failure_endpoint_role(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_endpoint_role(failure)
+end
+
+pub fn peer_settings_failure_frame_kind(failure: PeerSettingsFailure) -> Int
+	http2::core::peer_settings::failure_frame_kind(failure)
+end
+
+pub fn peer_settings_failure_active_state(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_active_state(failure)
+end
+
+pub fn peer_settings_failure_rule_provenance(failure: PeerSettingsFailure) -> String
+	http2::core::peer_settings::failure_rule_provenance(failure)
+end
+
+pub fn peer_settings_failure_preview(failure: PeerSettingsFailure) -> ByteView
+	http2::core::peer_settings::failure_preview(failure)
 end

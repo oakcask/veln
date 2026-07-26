@@ -1927,11 +1927,24 @@ fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, ki
 		4 => if settings_ack_set(flags)
 			Ok(SettingsValueOk)
 		else if settings_payload_has_complete_items(length)
-			validate_settings_items(pending, next_offset, 9, 9 + length, endpoint_role)
+			match http2::core::validate_peer_settings_payload(next_offset + 9, endpoint_role_label(endpoint_role), frame_payload_chunk(pending, length)?)
+				Ok(validation) => match http2::core::peer_settings_validation_status(validation)
+					"accepted" => Ok(SettingsValueOk)
+					_ => Ok(SettingsValueFailed(peer_settings_failure_to_fixture(http2::core::peer_settings_validation_failure(validation)?)))
+				end
+				Err(error) => Err(error)
+			end
 		else
 			Ok(SettingsValueOk)
 		end
 		_ => Ok(SettingsValueOk)
+	end
+end
+
+fn peer_settings_failure_to_fixture(failure: PeerSettingsFailure) -> Http2ProtocolFailure
+	match http2::core::peer_settings_failure_id(failure)
+		"http2.peer_limit.settings_value_out_of_range" => SettingsValueOutOfRange(http2::core::peer_settings_failure_offset(failure), http2::core::peer_settings_failure_setting_identifier(failure), http2::core::peer_settings_failure_setting_name(failure), http2::core::peer_settings_failure_observed_value(failure), http2::core::peer_settings_failure_accepted_min_value(failure), http2::core::peer_settings_failure_accepted_max_value(failure), http2::core::peer_settings_failure_peer_limit_provenance(failure), http2::core::peer_settings_failure_preview(failure))
+		_ => SettingsNotAllowedForEndpoint(http2::core::peer_settings_failure_offset(failure), http2::core::peer_settings_failure_setting_identifier(failure), http2::core::peer_settings_failure_setting_name(failure), http2::core::peer_settings_failure_endpoint_role(failure), http2::core::peer_settings_failure_frame_kind(failure), http2::core::peer_settings_failure_active_state(failure), http2::core::peer_settings_failure_rule_provenance(failure), http2::core::peer_settings_failure_preview(failure))
 	end
 end
 
@@ -1940,84 +1953,6 @@ fn settings_payload_has_complete_items(length: Int) -> Bool
 		length / 6 * 6 == length
 	else
 		false
-	end
-end
-
-fn validate_settings_items(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, payload_end_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	if item_wire_offset == payload_end_offset
-		Ok(SettingsValueOk)
-	else
-		match validate_single_settings_value(pending, next_offset, item_wire_offset, endpoint_role)?
-			SettingsValueOk => validate_settings_items(pending, next_offset, item_wire_offset + 6, payload_end_offset, endpoint_role)
-			SettingsValueFailed(error) => Ok(SettingsValueFailed(error))
-		end
-	end
-end
-
-fn validate_single_settings_value(pending: ByteChunk, next_offset: Int, item_wire_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	let item_offset: ByteOffset = byte_offset(item_wire_offset)?
-	let item_count: ByteCount = byte_count(6)?
-	let item: ByteView = byte_view(pending, item_offset, item_count)?
-	let identifier_count: ByteCount = byte_count(2)?
-	let value_offset: ByteOffset = byte_offset(2)?
-	let value_count: ByteCount = byte_count(4)?
-	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
-	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
-	match identifier
-		5 => validate_max_frame_size_setting(next_offset + item_wire_offset, value, item)
-		4 => validate_initial_window_size_setting(next_offset + item_wire_offset, value, item)
-		2 => validate_enable_push_setting_for_role(next_offset + item_wire_offset, value, item, endpoint_role)
-		8 => validate_enable_connect_protocol_setting_for_role(next_offset + item_wire_offset, value, item, endpoint_role)
-		_ => Ok(SettingsValueOk)
-	end
-end
-
-fn validate_enable_connect_protocol_setting_for_role(item_offset: Int, value: Int, preview: ByteView, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	match endpoint_role
-		ServerEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "server", 4, "peer-settings", "rfc8441_client_must_not_send_settings_enable_connect_protocol", preview)))
-		ClientEndpoint => validate_enable_connect_protocol_setting(item_offset, value, preview, "peer_settings")
-	end
-end
-
-fn validate_enable_push_setting_for_role(item_offset: Int, value: Int, preview: ByteView, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	match endpoint_role
-		ClientEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", preview)))
-		ServerEndpoint => validate_enable_push_setting(item_offset, value, preview)
-	end
-end
-
-fn validate_max_frame_size_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
-	if value < 16384
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
-	else if value > 16777215
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn validate_initial_window_size_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
-	match initial_window_size(value)
-		Ok(_) => Ok(SettingsValueOk)
-		Err(_) => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, max_flow_control_value(), "peer_settings", preview)))
-	end
-end
-
-fn validate_enable_push_setting(item_offset: Int, value: Int, preview: ByteView) -> Result<SettingsRangeDecision, String>
-	if value > 1
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn validate_enable_connect_protocol_setting(item_offset: Int, value: Int, preview: ByteView, provenance: String) -> Result<SettingsRangeDecision, String>
-	if value < 0
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, provenance, preview)))
-	else if value > 1
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, provenance, preview)))
-	else
-		Ok(SettingsValueOk)
 	end
 end
 
