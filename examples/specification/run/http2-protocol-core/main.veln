@@ -502,18 +502,6 @@ type OutboundGoawayDecision
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
 end
 
-type OutboundPingAckDecision
-	OutboundPingAckAccepted(ByteChunk)
-	OutboundPingAckNoResponse
-	OutboundPingAckEncodeFailed(EncodeError)
-end
-
-type OutboundPingDecision
-	OutboundPingAccepted(Int, ByteChunk)
-	OutboundPingRejected(Int, Http2ProtocolFailure)
-	OutboundPingEncodeFailed(Int, EncodeError)
-end
-
 type OutboundSettingsDecision
 	OutboundSettingsAccepted(Int, Int, Http2ConnectionState, ByteChunk)
 	OutboundSettingsRejected(Http2ProtocolFailure)
@@ -2840,51 +2828,27 @@ fn encode_local_max_header_list_size_intent(value: Int, decode_state: Http2Decod
 	end
 end
 
-fn send_ping_ack_for_received(step: Http2Step) -> Result<OutboundPingAckDecision, String>
+fn send_ping_ack_for_received(step: Http2Step) -> Result<PingResponseDecision, String>
 	match step
 		FrameDecoded(_, _, _, kind, flags, _, _, frame) => match kind
-			6 => if ping_ack_set(flags)
-				Ok(OutboundPingAckNoResponse)
-			else
-				encode_ping_ack_intent(frame)
-			end
-			_ => Ok(OutboundPingAckNoResponse)
+			6 => encode_ping_ack_intent(flags, frame)
+			_ => Ok(http2::core::respond_to_ping(1, byte_chunk([])))
 		end
-		Waiting(_) => Ok(OutboundPingAckNoResponse)
-		Failed(_, _) => Ok(OutboundPingAckNoResponse)
+		Waiting(_) => Ok(http2::core::respond_to_ping(1, byte_chunk([])))
+		Failed(_, _) => Ok(http2::core::respond_to_ping(1, byte_chunk([])))
 	end
 end
 
-fn encode_ping_ack_intent(frame: Http2Frame) -> Result<OutboundPingAckDecision, String>
+fn encode_ping_ack_intent(flags: Int, frame: Http2Frame) -> Result<PingResponseDecision, String>
 	match frame
-		KnownFrame(_, _, _, payload) => encode_ping_ack_payload(byte_view_to_chunk(payload))
-		PriorityFrame(_, _, _, _, _) => Ok(OutboundPingAckNoResponse)
-		UnknownFrame(_, _, _, _) => Ok(OutboundPingAckNoResponse)
+		KnownFrame(_, _, _, payload) => Ok(http2::core::respond_to_ping(flags, byte_view_to_chunk(payload)))
+		PriorityFrame(_, _, _, _, _) => Ok(http2::core::respond_to_ping(1, byte_chunk([])))
+		UnknownFrame(_, _, _, _) => Ok(http2::core::respond_to_ping(1, byte_chunk([])))
 	end
 end
 
-fn encode_ping_ack_payload(payload: ByteChunk) -> Result<OutboundPingAckDecision, String>
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 8, kind: 6, flags: 1, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundPingAckAccepted(byte_append(header, payload)))
-		Err(error) => Ok(OutboundPingAckEncodeFailed(error))
-	end
-end
-
-fn send_ping(payload: ByteChunk) -> Result<OutboundPingDecision, String>
-	let payload_length: Int = byte_count_to_int(byte_chunk_count(payload))
-	match payload_length
-		8 => encode_ping_intent(payload, payload_length)
-		_ => Ok(OutboundPingRejected(payload_length, InvalidPayloadLength(0, 6, 0, payload_length, 8, "connection-control", "outbound_ping_payload_length", byte_view(payload, byte_offset(0)?, byte_count(payload_length)?)?)))
-	end
-end
-
-fn encode_ping_intent(payload: ByteChunk, payload_length: Int) -> Result<OutboundPingDecision, String>
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 8, kind: 6, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundPingAccepted(payload_length, byte_append(header, payload)))
-		Err(error) => Ok(OutboundPingEncodeFailed(payload_length, error))
-	end
+fn send_ping(payload: ByteChunk) -> Result<PingRequestDecision, String>
+	Ok(http2::core::send_ping(payload))
 end
 
 fn send_goaway(last_stream_id: Int, error_code: Int, debug_data: ByteChunk, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
@@ -7758,100 +7722,52 @@ fn outbound_goaway_encode_detail(decision: OutboundGoawayDecision) -> String
 	end
 end
 
-fn outbound_ping_ack_status(decision: OutboundPingAckDecision) -> String
-	match decision
-		OutboundPingAckAccepted(_) => "accepted"
-		OutboundPingAckNoResponse => "no_response"
-		OutboundPingAckEncodeFailed(_) => "encode_error"
-	end
+fn outbound_ping_ack_status(decision: PingResponseDecision) -> String
+	http2::core::ping_response_status(decision)
 end
 
-fn outbound_ping_ack_reason(decision: OutboundPingAckDecision) -> String
-	match decision
-		OutboundPingAckAccepted(_) => "none"
-		OutboundPingAckNoResponse => "ack_received"
-		OutboundPingAckEncodeFailed(error) => encode_error_id(error)
-	end
+fn outbound_ping_ack_reason(decision: PingResponseDecision) -> String
+	http2::core::ping_response_reason(decision)
 end
 
-fn outbound_ping_ack_chunk(decision: OutboundPingAckDecision) -> ByteChunk
-	match decision
-		OutboundPingAckAccepted(chunk) => chunk
-		OutboundPingAckNoResponse => byte_chunk([])
-		OutboundPingAckEncodeFailed(_) => byte_chunk([])
-	end
+fn outbound_ping_ack_chunk(decision: PingResponseDecision) -> ByteChunk
+	http2::core::ping_response_bytes(decision)
 end
 
-fn outbound_ping_ack_encode_path(decision: OutboundPingAckDecision) -> String
-	match decision
-		OutboundPingAckAccepted(_) => "none"
-		OutboundPingAckNoResponse => "none"
-		OutboundPingAckEncodeFailed(error) => encode_error_path(error)
-	end
+fn outbound_ping_ack_encode_path(decision: PingResponseDecision) -> String
+	http2::core::ping_response_encode_reason(decision)
 end
 
-fn outbound_ping_ack_encode_detail(decision: OutboundPingAckDecision) -> String
-	match decision
-		OutboundPingAckAccepted(_) => "none"
-		OutboundPingAckNoResponse => "none"
-		OutboundPingAckEncodeFailed(error) => encode_error_reason(error)
-	end
+fn outbound_ping_ack_encode_detail(decision: PingResponseDecision) -> String
+	http2::core::ping_response_encode_reason(decision)
 end
 
-fn outbound_ping_status(decision: OutboundPingDecision) -> String
-	match decision
-		OutboundPingAccepted(_, _) => "accepted"
-		OutboundPingRejected(_, _) => "rejected"
-		OutboundPingEncodeFailed(_, _) => "encode_error"
-	end
+fn outbound_ping_status(decision: PingRequestDecision) -> String
+	http2::core::ping_request_status(decision)
 end
 
-fn outbound_ping_reason(decision: OutboundPingDecision) -> String
-	match decision
-		OutboundPingAccepted(_, _) => "none"
-		OutboundPingRejected(_, error) => failure_id(error)
-		OutboundPingEncodeFailed(_, error) => encode_error_id(error)
-	end
+fn outbound_ping_reason(decision: PingRequestDecision) -> String
+	http2::core::ping_request_reason(decision)
 end
 
-fn outbound_ping_payload_length(decision: OutboundPingDecision) -> Int
-	match decision
-		OutboundPingAccepted(payload_length, _) => payload_length
-		OutboundPingRejected(_, error) => failure_observed_length(error)
-		OutboundPingEncodeFailed(payload_length, _) => payload_length
-	end
+fn outbound_ping_payload_length(decision: PingRequestDecision) -> Int
+	http2::core::ping_request_payload_length(decision)
 end
 
-fn outbound_ping_expected_payload_length(decision: OutboundPingDecision) -> Int
-	match decision
-		OutboundPingAccepted(_, _) => 8
-		OutboundPingRejected(_, error) => failure_allowed_length(error)
-		OutboundPingEncodeFailed(_, _) => 8
-	end
+fn outbound_ping_expected_payload_length(decision: PingRequestDecision) -> Int
+	http2::core::ping_request_expected_payload_length(decision)
 end
 
-fn outbound_ping_chunk(decision: OutboundPingDecision) -> ByteChunk
-	match decision
-		OutboundPingAccepted(_, chunk) => chunk
-		OutboundPingRejected(_, _) => byte_chunk([])
-		OutboundPingEncodeFailed(_, _) => byte_chunk([])
-	end
+fn outbound_ping_chunk(decision: PingRequestDecision) -> ByteChunk
+	http2::core::ping_request_bytes(decision)
 end
 
-fn outbound_ping_encode_path(decision: OutboundPingDecision) -> String
-	match decision
-		OutboundPingAccepted(_, _) => "none"
-		OutboundPingRejected(_, _) => "none"
-		OutboundPingEncodeFailed(_, error) => encode_error_path(error)
-	end
+fn outbound_ping_encode_path(decision: PingRequestDecision) -> String
+	http2::core::ping_request_encode_reason(decision)
 end
 
-fn outbound_ping_encode_detail(decision: OutboundPingDecision) -> String
-	match decision
-		OutboundPingAccepted(_, _) => "none"
-		OutboundPingRejected(_, _) => "none"
-		OutboundPingEncodeFailed(_, error) => encode_error_reason(error)
-	end
+fn outbound_ping_encode_detail(decision: PingRequestDecision) -> String
+	http2::core::ping_request_encode_reason(decision)
 end
 
 fn outbound_settings_status(decision: OutboundSettingsDecision) -> String
@@ -9964,7 +9880,7 @@ fn print_outbound_goaway_chunk(label: String, decision: OutboundGoawayDecision, 
 	end
 end
 
-fn print_outbound_ping_ack(label: String, decision: OutboundPingAckDecision) -> () effects [stdio]
+fn print_outbound_ping_ack(label: String, decision: PingResponseDecision) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" outbound-ping-ack ")
 	stdio::print(outbound_ping_ack_status(decision))
@@ -9976,15 +9892,14 @@ fn print_outbound_ping_ack(label: String, decision: OutboundPingAckDecision) -> 
 	stdio::println(outbound_ping_ack_encode_detail(decision))
 end
 
-fn print_outbound_ping_ack_chunks(label: String, decision: OutboundPingAckDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	match decision
-		OutboundPingAckAccepted(_) => emit_encoded_header(label, outbound_ping_ack_chunk(decision), expected_hex)
-		OutboundPingAckNoResponse => print_empty_output_chunks(label)
-		OutboundPingAckEncodeFailed(_) => print_empty_output_chunks(label)
+fn print_outbound_ping_ack_chunks(label: String, decision: PingResponseDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	match http2::core::ping_response_status(decision)
+		"accepted" => emit_encoded_header(label, outbound_ping_ack_chunk(decision), expected_hex)
+		_ => print_empty_output_chunks(label)
 	end
 end
 
-fn print_outbound_ping(label: String, decision: OutboundPingDecision) -> () effects [stdio]
+fn print_outbound_ping(label: String, decision: PingRequestDecision) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" outbound-ping ")
 	stdio::print(outbound_ping_status(decision))
@@ -10000,11 +9915,10 @@ fn print_outbound_ping(label: String, decision: OutboundPingDecision) -> () effe
 	stdio::println(outbound_ping_encode_detail(decision))
 end
 
-fn print_outbound_ping_chunk(label: String, decision: OutboundPingDecision, expected_hex: String) -> Result<(), String> effects [stdio]
-	match decision
-		OutboundPingAccepted(_, _) => emit_encoded_header(label, outbound_ping_chunk(decision), expected_hex)
-		OutboundPingRejected(_, _) => print_empty_output_chunks(label)
-		OutboundPingEncodeFailed(_, _) => print_empty_output_chunks(label)
+fn print_outbound_ping_chunk(label: String, decision: PingRequestDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	match http2::core::ping_request_status(decision)
+		"accepted" => emit_encoded_header(label, outbound_ping_chunk(decision), expected_hex)
+		_ => print_empty_output_chunks(label)
 	end
 end
 
@@ -14342,13 +14256,13 @@ fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 end
 
 fn print_outbound_ping_cases() -> Result<(), String> effects [stdio]
-	let outbound_ping_accepted: OutboundPingDecision = send_ping(byte_chunk_from_hex("0102030405060708")?)?
+	let outbound_ping_accepted: PingRequestDecision = send_ping(byte_chunk_from_hex("0102030405060708")?)?
 	print_outbound_ping("outbound-ping-accepted", outbound_ping_accepted)
 	let ignored_outbound_ping_accepted_chunk: () = print_outbound_ping_chunk("http2-outbound-ping", outbound_ping_accepted, "0000080600000000000102030405060708")?
-	let outbound_ping_short: OutboundPingDecision = send_ping(byte_chunk_from_hex("01020304050607")?)?
+	let outbound_ping_short: PingRequestDecision = send_ping(byte_chunk_from_hex("01020304050607")?)?
 	print_outbound_ping("outbound-ping-short", outbound_ping_short)
 	let ignored_outbound_ping_short_chunk: () = print_outbound_ping_chunk("http2-outbound-ping-short", outbound_ping_short, "")?
-	let outbound_ping_long: OutboundPingDecision = send_ping(byte_chunk_from_hex("010203040506070809")?)?
+	let outbound_ping_long: PingRequestDecision = send_ping(byte_chunk_from_hex("010203040506070809")?)?
 	print_outbound_ping("outbound-ping-long", outbound_ping_long)
 	let ignored_outbound_ping_long_chunk: () = print_outbound_ping_chunk("http2-outbound-ping-long", outbound_ping_long, "")?
 	Ok(())
@@ -14357,12 +14271,12 @@ end
 fn print_ping_cases() -> Result<(), String> effects [stdio]
 	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), frame_state())?
 	print_ping("ping-data", ping_data)
-	let ping_ack_intent: OutboundPingAckDecision = send_ping_ack_for_received(ping_data)?
+	let ping_ack_intent: PingResponseDecision = send_ping_ack_for_received(ping_data)?
 	print_outbound_ping_ack("outbound-ping-ack", ping_ack_intent)
 	let ignored_ping_ack_chunk: () = print_outbound_ping_ack_chunks("http2-ping-ack", ping_ack_intent, "0000080601000000000102030405060708")?
 	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), frame_state())?
 	print_ping("ping-ack", ping_ack)
-	let ping_ack_no_response: OutboundPingAckDecision = send_ping_ack_for_received(ping_ack)?
+	let ping_ack_no_response: PingResponseDecision = send_ping_ack_for_received(ping_ack)?
 	print_outbound_ping_ack("outbound-ping-ack-received", ping_ack_no_response)
 	let ignored_ping_ack_no_response: () = print_outbound_ping_ack_chunks("http2-ping-ack-received", ping_ack_no_response, "")?
 	let ping_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000706000000000001020304050607")?), frame_state())?

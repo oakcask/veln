@@ -2,6 +2,7 @@ use prelude
 use http2::core::connection_preface
 use http2::core::frame_payload_length
 use http2::core::initial_peer_settings
+use http2::core::ping
 use http2::core::pending_header_block
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -27,6 +28,10 @@ pub type PendingHeaderBlock = http2::core::pending_header_block::PendingHeaderBl
 pub type HeaderBlockTransition = http2::core::pending_header_block::HeaderBlockTransition
 
 pub type HeaderBlockFailure = http2::core::pending_header_block::HeaderBlockFailure
+
+pub type PingRequestDecision = http2::core::ping::PingRequestDecision
+
+pub type PingResponseDecision = http2::core::ping::PingResponseDecision
 
 pub type StreamId
 	ValidatedStreamId(Int)
@@ -377,4 +382,56 @@ end
 
 pub fn header_block_failure_rule_provenance(failure: HeaderBlockFailure) -> String
 	http2::core::pending_header_block::failure_rule_provenance(failure)
+end
+
+pub fn send_ping(payload: ByteChunk) -> PingRequestDecision
+	http2::core::ping::request(payload)
+end
+
+pub fn ping_request_status(decision: PingRequestDecision) -> String
+	http2::core::ping::request_status(decision)
+end
+
+pub fn ping_request_reason(decision: PingRequestDecision) -> String
+	http2::core::ping::request_reason(decision)
+end
+
+pub fn ping_request_payload_length(decision: PingRequestDecision) -> Int
+	http2::core::ping::request_payload_length(decision)
+end
+
+pub fn ping_request_expected_payload_length(decision: PingRequestDecision) -> Int
+	http2::core::ping::request_expected_payload_length(decision)
+end
+
+pub fn ping_request_bytes(decision: PingRequestDecision) -> ByteChunk
+	http2::core::ping::request_bytes(decision)
+end
+
+pub fn ping_request_failure(decision: PingRequestDecision) -> Result<FramePayloadLengthFailure, String>
+	http2::core::ping::request_failure(decision)
+end
+
+pub fn ping_request_encode_reason(decision: PingRequestDecision) -> String
+	http2::core::ping::request_encode_reason(decision)
+end
+
+pub fn respond_to_ping(flags: Int, payload: ByteChunk) -> PingResponseDecision
+	http2::core::ping::response(flags, payload)
+end
+
+pub fn ping_response_status(decision: PingResponseDecision) -> String
+	http2::core::ping::response_status(decision)
+end
+
+pub fn ping_response_reason(decision: PingResponseDecision) -> String
+	http2::core::ping::response_reason(decision)
+end
+
+pub fn ping_response_bytes(decision: PingResponseDecision) -> ByteChunk
+	http2::core::ping::response_bytes(decision)
+end
+
+pub fn ping_response_encode_reason(decision: PingResponseDecision) -> String
+	http2::core::ping::response_encode_reason(decision)
 end

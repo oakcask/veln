@@ -22,7 +22,8 @@ The public routes are:
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains, immutable
   connection-preface and initial-peer-SETTINGS transitions, pure frame
-  payload-length validation, and immutable pending header-block sequencing.
+  payload-length validation, immutable pending header-block sequencing, and
+  pure PING request and ACK response transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -47,6 +48,19 @@ prefix. DATA, CONTINUATION, and unknown kinds have no additional fixed or
 minimum length constraint in this validator. Padding content, frame-header
 decoding, and maximum-frame-size validation remain separate responsibilities.
 
+`http2::core::send_ping(payload)` accepts exactly eight opaque payload octets
+and emits one complete frame byte chunk with a length-`8`, kind-`6`,
+flags-`0`, stream-`0` header followed by the unchanged payload. Seven, nine,
+or otherwise invalid payload lengths return the shared
+`FramePayloadLengthFailure` from `validate_frame_payload_length(...)`, expose
+no bytes, and leave the caller's payload unchanged. Encoding failure is a
+distinct transition shape, although the public constants are representable.
+
+`http2::core::respond_to_ping(flags, payload)` emits one ACK frame byte chunk
+for a validated non-ACK PING by preserving the eight-octet payload and using a
+length-`8`, kind-`6`, flags-`1`, stream-`0` header. A received PING ACK returns
+an explicit no-response action with no bytes, preventing an ACK loop.
+
 The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
 one-below, exact, and one-above boundaries where distinct, the complete
@@ -56,6 +70,12 @@ payload-length human and JSON cases project the active-state label and the
 failure's stored preview through
 `http2::diagnostic`; the aggregate protocol-core case retains wider decode
 ordering and complete-stdout integration.
+The same adjacent test checks exact PING request bytes, seven- and nine-octet
+rejection, failure preview and output preservation, exact ACK bytes, payload
+preservation, and received-ACK no-response behavior. The focused
+[`http2-core-ping-transitions`](../../examples/specification/run/http2-core-ping-transitions/)
+case imports `http2::core` from `std` and records the public request, ACK,
+no-response, representative failure projections, and emitted bytes.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.
