@@ -73,7 +73,9 @@ length-`6 * item_count`, kind-`4`, flags-`0`, stream-`0` SETTINGS frame,
 preserve item order in the payload, update the local sent policy for
 `SETTINGS_ENABLE_PUSH` and `SETTINGS_ENABLE_CONNECT_PROTOCOL` with the
 six-byte item offset, and record exactly one outstanding local SETTINGS batch
-in the caller-supplied `SettingsAckState`.
+in the caller-supplied `SettingsAckState`. An empty batch emits the zero-length
+non-ACK SETTINGS frame, records one outstanding empty batch, and leaves local
+policy unchanged.
 
 Local `SETTINGS_ENABLE_PUSH` and `SETTINGS_ENABLE_CONNECT_PROTOCOL` accept
 only `0..1`; `SETTINGS_INITIAL_WINDOW_SIZE` accepts `0..2147483647`;
@@ -145,8 +147,8 @@ case imports `http2::core` from `std` and records public success, no-pending,
 representative failure, FIFO, coalescing, and exact-byte projections.
 The same adjacent test checks every supported local SETTINGS item as one
 bounded set, exact accepted bytes, ordered multi-item batches, local policy
-offsets, ACK queue integration, endpoint role rejection, and immutable
-failure/output behavior. The focused
+offsets, empty-batch ACK tracking, ACK queue integration, endpoint role
+rejection, and immutable failure/output behavior. The focused
 [`http2-core-local-settings-send`](../../examples/specification/run/http2-core-local-settings-send/)
 case imports `http2::core` from `std` and records public result and
 output-chunk projections for accepted and rejected local SETTINGS sends.

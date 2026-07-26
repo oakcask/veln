@@ -716,6 +716,17 @@ test local_settings_send_preserves_order_policy_offsets_and_ack_fifo() -> Result
 	end
 end
 
+test local_settings_send_empty_batch_emits_frame_and_records_ack() -> Result<(), String>
+	let initial_policy: LocalSettingsPolicy = http2::core::local_settings_policy_with_enable_push(http2::core::empty_local_settings_policy(), 0, 12)
+	let decision: LocalSettingsSendDecision = require_local_settings_sent(http2::core::send_local_settings_batch(Nil, "server", initial_policy, http2::core::empty_settings_ack_state())?)?
+	let ack_state: SettingsAckState = http2::core::local_settings_send_ack_state(decision)
+	if http2::core::local_settings_send_identifier(decision) == 0 and http2::core::local_settings_send_value(decision) == 0 and chunks_equal(http2::core::local_settings_send_bytes(decision), byte_chunk_from_hex("000000040000000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(ack_state)) == 0 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(ack_state)) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(ack_state)) == 1 and http2::core::local_settings_policy_has_enable_push(http2::core::local_settings_send_policy(decision)) and http2::core::local_settings_policy_enable_push_value(http2::core::local_settings_send_policy(decision)) == 0 and http2::core::local_settings_policy_enable_push_offset(http2::core::local_settings_send_policy(decision)) == 12
+		Ok(())
+	else
+		Err("empty local SETTINGS batch lost frame bytes, ACK tracking, or policy state")
+	end
+end
+
 test local_settings_send_failure_preserves_policy_ack_state_and_output() -> Result<(), String>
 	let initial_ack: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 5, 1)
 	let initial_policy: LocalSettingsPolicy = http2::core::local_settings_send_policy(require_local_settings_sent(http2::core::send_local_setting(http2::core::local_settings_enable_push(0), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?)
