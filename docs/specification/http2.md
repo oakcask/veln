@@ -17,7 +17,8 @@ The public routes are:
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
-  immutable dynamic-table state, and indexed and literal header-field decoding.
+  immutable dynamic-table state, table-size updates, and indexed and literal
+  header-field decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -81,6 +82,23 @@ focused
 [`hpack-dynamic-table-state`](../../examples/specification/run/hpack-dynamic-table-state/)
 case checks the same facade from an external package and records its projected
 state and octet values through command output.
+
+`http2::hpack::decode_table_size_update(input, table, peer_maximum)` decodes
+one `001xxxxx` dynamic table-size update with the five-bit-prefixed integer
+codec. The transition reports the requested capacity, consumed octet count,
+and next immutable table. Shrinking evicts oldest entries through the ordinary
+capacity transition, while growing retains entries.
+
+The typed `TableSizeUpdateFailure` distinguishes a different representation,
+a malformed integer, an incomplete integer, and a capacity above the explicit
+peer-advertised maximum. Capacity-limit projections report both the requested
+capacity and the peer maximum. Every failure contains no next table and leaves
+the input table unchanged. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks boundary and multi-octet values, shrink and growth transitions, every
+failure class, and state preservation. The focused
+[`hpack-table-size-update`](../../examples/specification/run/hpack-table-size-update/)
+case records public transition values and representative typed failures.
 
 `http2::hpack::decode_indexed_header_field(input, table)` decodes one HPACK
 indexed header-field representation with the full seven-bit-prefixed integer.

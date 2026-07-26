@@ -1,0 +1,54 @@
+use http2::hpack from "std"
+use stdio
+
+fn require_transition(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateTransition, String>
+	match http2::hpack::decode_table_size_update(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table, peer_maximum)
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::table_size_update_failure_kind(failure))
+	end
+end
+
+fn print_failure(label: String, input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<(), String> effects [stdio]
+	match http2::hpack::decode_table_size_update(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table, peer_maximum)
+		Ok(_) => Err("expected table-size update decoding to fail")
+		Err(failure) => print_failure_value(label, failure)
+	end
+end
+
+fn print_failure_value(label: String, failure: TableSizeUpdateFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::hpack::table_size_update_failure_kind(failure))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::table_size_update_failure_capacity(failure)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::table_size_update_failure_peer_maximum(failure)))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
+	let transition: TableSizeUpdateTransition = require_transition(byte_chunk_from_hex("3f05")?, table, 100)?
+	let next: DynamicTable = http2::hpack::table_size_update_table(transition)
+	stdio::print("shrink ")
+	stdio::print(int_to_string(http2::hpack::table_size_update_capacity(transition)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::table_size_update_consumed(transition)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_capacity(next)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_size(next)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(next)))
+	let _ = print_failure("wrong", byte_chunk_from_hex("80")?, table, 100)?
+	let _ = print_failure("incomplete", byte_chunk_from_hex("3f80")?, table, 100)?
+	let _ = print_failure("limit", byte_chunk_from_hex("3f3a")?, table, 64)?
+	stdio::print("original ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_capacity(table)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_size(table)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(table)))
+	Ok(())
+end

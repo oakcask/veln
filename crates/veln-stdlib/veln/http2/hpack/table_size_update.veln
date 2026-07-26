@@ -1,0 +1,93 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::integer
+
+pub type TableSizeUpdateCodecFailure
+	TableSizeUpdateCodecNotRepresentation
+	TableSizeUpdateCodecMalformedInteger
+	TableSizeUpdateCodecIncompleteInteger
+	TableSizeUpdateCodecCapacityLimit(capacity: Int, peer_maximum: Int)
+end
+
+pub type TableSizeUpdateCodecTransition
+	TableSizeUpdateCodecTransition(capacity: Int, consumed: Int, table: DynamicTable)
+end
+
+fn incomplete_integer(failure: String) -> Bool
+	failure == "HPACK integer input must not be empty" or failure == "incomplete HPACK integer continuation"
+end
+
+fn decode_integer(input: ByteView) -> Result<{ value : Int, consumed : Int }, TableSizeUpdateCodecFailure>
+	match http2::hpack::integer::decode(input, 5)
+		Ok(decoded) => Ok(decoded)
+		Err(failure) => if incomplete_integer(failure)
+			Err(TableSizeUpdateCodecIncompleteInteger)
+		else
+			Err(TableSizeUpdateCodecMalformedInteger)
+		end
+	end
+end
+
+fn apply_update(decoded: { value : Int, consumed : Int }, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateCodecTransition, TableSizeUpdateCodecFailure>
+	let capacity: Int = http2::hpack::integer::value(decoded)
+	if capacity > peer_maximum
+		Err(TableSizeUpdateCodecCapacityLimit(capacity, peer_maximum))
+	else
+		match http2::hpack::dynamic_table::with_capacity(table, capacity)
+			Ok(next_table) => Ok(TableSizeUpdateCodecTransition(capacity, http2::hpack::integer::consumed(decoded), next_table))
+			Err(_) => Err(TableSizeUpdateCodecMalformedInteger)
+		end
+	end
+end
+
+pub fn decode(input: ByteView, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateCodecTransition, TableSizeUpdateCodecFailure>
+	match byte_read_u8_be(input)
+		Err(_) => Err(TableSizeUpdateCodecIncompleteInteger)
+		Ok(first) => if (first & 224) != 32
+			Err(TableSizeUpdateCodecNotRepresentation)
+		else
+			apply_update(decode_integer(input)?, table, peer_maximum)
+		end
+	end
+end
+
+pub fn transition_capacity(transition: TableSizeUpdateCodecTransition) -> Int
+	match transition
+		TableSizeUpdateCodecTransition(capacity, _, _) => capacity
+	end
+end
+
+pub fn transition_consumed(transition: TableSizeUpdateCodecTransition) -> Int
+	match transition
+		TableSizeUpdateCodecTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn transition_table(transition: TableSizeUpdateCodecTransition) -> DynamicTable
+	match transition
+		TableSizeUpdateCodecTransition(_, _, table) => table
+	end
+end
+
+pub fn failure_kind(failure: TableSizeUpdateCodecFailure) -> Int
+	match failure
+		TableSizeUpdateCodecNotRepresentation => 0
+		TableSizeUpdateCodecMalformedInteger => 1
+		TableSizeUpdateCodecIncompleteInteger => 2
+		TableSizeUpdateCodecCapacityLimit(_, _) => 3
+	end
+end
+
+pub fn failure_capacity(failure: TableSizeUpdateCodecFailure) -> Int
+	match failure
+		TableSizeUpdateCodecCapacityLimit(capacity, _) => capacity
+		_ => 0
+	end
+end
+
+pub fn failure_peer_maximum(failure: TableSizeUpdateCodecFailure) -> Int
+	match failure
+		TableSizeUpdateCodecCapacityLimit(_, peer_maximum) => peer_maximum
+		_ => 0
+	end
+end
