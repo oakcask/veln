@@ -78,6 +78,32 @@ fn print_failure(label: String, failure: FlowControlDomainFailure) -> () effects
 	stdio::println(int_to_string(http2::core::flow_control_failure_accepted_max_value(failure)))
 end
 
+fn print_lifecycle(label: String, lifecycle: CoreStreamLifecycle) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" label ")
+	stdio::print(http2::core::stream_lifecycle_label(lifecycle))
+	stdio::print(" active ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_is_active(lifecycle)))
+	stdio::print(" receive_window ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_has_receive_window(lifecycle)))
+	stdio::print(" open_projection ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_projects_open_stream(lifecycle)))
+	stdio::print(" data ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_data(lifecycle)))
+	stdio::print(" reset ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_reset(lifecycle)))
+	stdio::print(" window_update ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_window_update(lifecycle)))
+	stdio::print(" priority ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_priority(lifecycle)))
+	stdio::print(" state ")
+	stdio::print(http2::core::stream_lifecycle_active_state(lifecycle))
+	stdio::print(" rule ")
+	stdio::print(http2::core::stream_lifecycle_rejection_rule(lifecycle))
+	stdio::print(" error ")
+	stdio::println(int_to_string(http2::core::stream_lifecycle_error_code(lifecycle)))
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let empty: CoreStreamCollection = http2::core::empty_stream_collection()
 	let first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 10, 0))?
@@ -114,5 +140,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_lookup("missing-update-five", missing_update, 5)
 	let _ = print_entry_rejection("invalid-receive", http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 0 - 2147483648, 0, 0, 0))?
 	let _ = print_entry_rejection("invalid-send", http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 0, 2147483648, 0, 0))?
+	print_lifecycle("open", http2::core::stream_open_lifecycle())
+	print_lifecycle("push", http2::core::stream_client_push_associated_lifecycle())
+	print_lifecycle("reserved-peer", http2::core::stream_reserved_by_peer_lifecycle())
+	print_lifecycle("reserved-local", http2::core::stream_reserved_local_lifecycle())
+	print_lifecycle("half-local", http2::core::stream_half_closed_local_lifecycle())
+	print_lifecycle("half-remote", http2::core::stream_half_closed_remote_lifecycle())
+	print_lifecycle("closed", http2::core::stream_closed_lifecycle())
+	print_lifecycle("reset", http2::core::stream_reset_lifecycle(11))
 	Ok(())
 end

@@ -364,6 +364,36 @@ test stream_collection_updates_lifecycle_credit_and_content_length_immutably() -
 	end
 end
 
+test stream_lifecycle_predicates_cover_reserved_and_closed_states() -> Result<(), String>
+	let open: CoreStreamLifecycle = http2::core::stream_open_lifecycle()
+	let push: CoreStreamLifecycle = http2::core::stream_client_push_associated_lifecycle()
+	let reserved_peer: CoreStreamLifecycle = http2::core::stream_reserved_by_peer_lifecycle()
+	let reserved_local: CoreStreamLifecycle = http2::core::stream_reserved_local_lifecycle()
+	let half_local: CoreStreamLifecycle = http2::core::stream_half_closed_local_lifecycle()
+	let half_remote: CoreStreamLifecycle = http2::core::stream_half_closed_remote_lifecycle()
+	let closed: CoreStreamLifecycle = http2::core::stream_closed_lifecycle()
+	let reset: CoreStreamLifecycle = http2::core::stream_reset_lifecycle(11)
+	if http2::core::stream_lifecycle_label(push) == "client-push-associated" and http2::core::stream_lifecycle_label(reserved_peer) == "reserved-by-peer" and http2::core::stream_lifecycle_label(reserved_local) == "reserved-local" and http2::core::stream_lifecycle_has_receive_window(open) and http2::core::stream_lifecycle_has_receive_window(push) and http2::core::stream_lifecycle_has_receive_window(half_local) and not http2::core::stream_lifecycle_has_receive_window(reserved_peer) and http2::core::stream_lifecycle_is_active(reserved_peer) and http2::core::stream_lifecycle_is_active(reserved_local) and not http2::core::stream_lifecycle_is_active(closed) and not http2::core::stream_lifecycle_is_active(reset) and http2::core::stream_lifecycle_projects_open_stream(open) and http2::core::stream_lifecycle_projects_open_stream(push) and not http2::core::stream_lifecycle_projects_open_stream(half_local) and http2::core::stream_lifecycle_accepts_data(half_local) and not http2::core::stream_lifecycle_accepts_data(half_remote) and http2::core::stream_lifecycle_accepts_window_update(half_remote) and not http2::core::stream_lifecycle_accepts_window_update(half_local) and http2::core::stream_lifecycle_accepts_priority(open) and not http2::core::stream_lifecycle_accepts_priority(reserved_peer)
+		Ok(())
+	else
+		Err("HTTP/2 stream lifecycle predicates did not preserve the expected active, receive, or frame-admission states")
+	end
+end
+
+test stream_lifecycle_rejection_context_matches_protocol_labels() -> Result<(), String>
+	let reserved_peer: CoreStreamLifecycle = http2::core::stream_reserved_by_peer_lifecycle()
+	let reserved_local: CoreStreamLifecycle = http2::core::stream_reserved_local_lifecycle()
+	let half_local: CoreStreamLifecycle = http2::core::stream_half_closed_local_lifecycle()
+	let half_remote: CoreStreamLifecycle = http2::core::stream_half_closed_remote_lifecycle()
+	let closed: CoreStreamLifecycle = http2::core::stream_closed_lifecycle()
+	let reset: CoreStreamLifecycle = http2::core::stream_reset_lifecycle(13)
+	if http2::core::stream_lifecycle_active_state(reserved_peer) == "reserved-by-peer-stream" and http2::core::stream_lifecycle_rejection_rule(reserved_peer) == "reserved_by_peer_requires_response_headers" and http2::core::stream_lifecycle_active_state(reserved_local) == "reserved-local-stream" and http2::core::stream_lifecycle_rejection_rule(reserved_local) == "reserved_local_rejects_peer_frames" and http2::core::stream_lifecycle_active_state(half_local) == "half-closed-local-stream" and http2::core::stream_lifecycle_rejection_rule(half_local) == "half_closed_local_data_only" and http2::core::stream_lifecycle_active_state(half_remote) == "half-closed-remote-stream" and http2::core::stream_lifecycle_rejection_rule(half_remote) == "half_closed_remote_rejects_later_frames" and http2::core::stream_lifecycle_active_state(closed) == "closed-by-peer-stream" and http2::core::stream_lifecycle_rejection_rule(closed) == "closed_by_peer_rejects_later_frames" and http2::core::stream_lifecycle_active_state(reset) == "reset-stream" and http2::core::stream_lifecycle_rejection_rule(reset) == "reset_stream_rejects_later_frames" and http2::core::stream_lifecycle_error_code(reset) == 13
+		Ok(())
+	else
+		Err("HTTP/2 stream lifecycle rejection labels changed")
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?

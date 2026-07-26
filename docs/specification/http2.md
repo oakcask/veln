@@ -26,10 +26,11 @@ The public routes are:
   immutable local SETTINGS send transitions, pure peer SETTINGS item
   validation, immutable peer SETTINGS state application, immutable SETTINGS
   acknowledgement state, peer-created stream admission high-water tracking,
-  pure flow-control numeric domains, pure PING request and ACK response
-  transitions, and an immutable aggregate connection state that composes those
-  migrated components with the public HPACK dynamic table and an immutable
-  stream collection.
+  pure flow-control numeric domains, stream lifecycle projection and
+  frame-admission predicates, pure PING request and ACK response transitions,
+  and an immutable aggregate connection state that composes those migrated
+  components with the public HPACK dynamic table and an immutable stream
+  collection.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -108,9 +109,18 @@ leaving earlier collection values unchanged; focused update helpers replace
 lifecycle, receive credit, send credit, or content-length accounting only for
 an existing stream. Projections expose stream count, active stream count,
 lookup, stream ids, lifecycle labels and reset error codes, receive and send
-credits, and content-length counters. The collection is state ownership for
-later receive and send transitions; it does not by itself perform frame
-dispatch, header validation, flow-control debits, or lifecycle admission.
+credits, and content-length counters.
+
+Stream lifecycle values distinguish open, client-push-associated,
+reserved-by-peer, reserved-local, half-closed-local, half-closed-remote,
+closed, and reset states. Public predicates expose whether a lifecycle is
+active, retains receive-window credit, projects as an open stream, and accepts
+DATA, RST_STREAM, WINDOW_UPDATE, or PRIORITY in the current receive
+transition. Public projection helpers also expose the active-state label and
+rejection-rule label used by later protocol failures. The collection is state
+ownership for later receive and send transitions; it does not by itself
+perform frame dispatch, header validation, flow-control debits, or lifecycle
+admission.
 
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
@@ -270,8 +280,10 @@ The focused
 [`http2-core-stream-collection`](../../examples/specification/run/http2-core-stream-collection/)
 case records stream collection add, replace, lookup, missing-update,
 active-count, lifecycle, credit, content-length, immutable input, and
-entry-construction failure projections without depending on the aggregate
-connection case.
+entry-construction failure projections. It also records public lifecycle
+active-state, receive-window, open-projection, frame-admission, rejection-rule,
+and reset-error-code projections without depending on the aggregate connection
+case.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

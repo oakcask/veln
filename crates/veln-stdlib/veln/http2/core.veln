@@ -380,6 +380,18 @@ pub fn stream_open_lifecycle() -> CoreStreamLifecycle
 	http2::core::stream_state::open_lifecycle()
 end
 
+pub fn stream_client_push_associated_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::client_push_associated_lifecycle()
+end
+
+pub fn stream_reserved_by_peer_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::reserved_by_peer_lifecycle()
+end
+
+pub fn stream_reserved_local_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::reserved_local_lifecycle()
+end
+
 pub fn stream_half_closed_local_lifecycle() -> CoreStreamLifecycle
 	http2::core::stream_state::half_closed_local_lifecycle()
 end
@@ -458,6 +470,42 @@ end
 
 pub fn stream_lifecycle_label(lifecycle: CoreStreamLifecycle) -> String
 	http2::core::stream_state::lifecycle_label(lifecycle)
+end
+
+pub fn stream_lifecycle_has_receive_window(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_has_receive_window(lifecycle)
+end
+
+pub fn stream_lifecycle_is_active(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_is_active(lifecycle)
+end
+
+pub fn stream_lifecycle_projects_open_stream(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_projects_open_stream(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_data(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_data(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_reset(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_reset(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_window_update(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_window_update(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_priority(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_priority(lifecycle)
+end
+
+pub fn stream_lifecycle_active_state(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_active_state(lifecycle)
+end
+
+pub fn stream_lifecycle_rejection_rule(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_rejection_rule(lifecycle)
 end
 
 pub fn stream_lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
