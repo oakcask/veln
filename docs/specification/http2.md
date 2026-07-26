@@ -107,9 +107,10 @@ stream id, lifecycle, receive credit, send credit, and content-length expected
 and observed counters. Collection updates add or replace one stream id,
 leaving earlier collection values unchanged; focused update helpers replace
 lifecycle, receive credit, send credit, or content-length accounting only for
-an existing stream. Projections expose stream count, active stream count,
-lookup, stream ids, lifecycle labels and reset error codes, receive and send
-credits, and content-length counters.
+an existing stream. Updates that target an absent stream leave the collection
+and its existing entries unchanged. Projections expose stream count, active
+stream count, lookup, stream ids, lifecycle labels and reset error codes,
+receive and send credits, and content-length counters.
 
 Stream lifecycle values distinguish open, client-push-associated,
 reserved-by-peer, reserved-local, half-closed-local, half-closed-remote,
@@ -284,6 +285,9 @@ entry-construction failure projections. It also records public lifecycle
 active-state, receive-window, open-projection, frame-admission, rejection-rule,
 and reset-error-code projections without depending on the aggregate connection
 case.
+The adjacent test also checks every missing-stream update helper as a no-op
+and verifies that embedding the resulting collection in `CoreConnectionState`
+preserves the caller-owned stream data.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

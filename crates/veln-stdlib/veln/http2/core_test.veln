@@ -364,6 +364,43 @@ test stream_collection_updates_lifecycle_credit_and_content_length_immutably() -
 	end
 end
 
+test stream_collection_missing_updates_preserve_all_components() -> Result<(), String>
+	let base_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
+	let base: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), base_entry)
+	let recv_credit: CoreStreamWindowCredit = require_stream_credit(33)?
+	let send_credit: CoreStreamWindowCredit = require_stream_credit(44)?
+	let missing_lifecycle: CoreStreamCollection = http2::core::stream_collection_with_lifecycle(base, 7, http2::core::stream_reset_lifecycle(8))
+	let missing_receive: CoreStreamCollection = http2::core::stream_collection_with_receive_credit(base, 7, recv_credit)
+	let missing_send: CoreStreamCollection = http2::core::stream_collection_with_send_credit(base, 7, send_credit)
+	let missing_content: CoreStreamCollection = http2::core::stream_collection_with_content_length(base, 7, 99, 44)
+	let base_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(base, 5))?
+	let lifecycle_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(missing_lifecycle, 5))?
+	let receive_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(missing_receive, 5))?
+	let send_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(missing_send, 5))?
+	let content_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(missing_content, 5))?
+	if http2::core::stream_collection_count(missing_lifecycle) == 1 and http2::core::stream_collection_count(missing_receive) == 1 and http2::core::stream_collection_count(missing_send) == 1 and http2::core::stream_collection_count(missing_content) == 1 and not http2::core::stream_collection_has_stream(missing_lifecycle, 7) and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(base_found)) == "open" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(lifecycle_found)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(receive_found)) == 100 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(send_found)) == 90 and http2::core::stream_entry_content_length_expected(content_found) == 12 and http2::core::stream_entry_content_length_observed(content_found) == 3
+		Ok(())
+	else
+		Err("HTTP/2 stream collection missing-stream updates changed caller-owned state")
+	end
+end
+
+test connection_state_preserves_stream_collection_for_missing_stream_updates() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let base_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), base_entry)
+	let with_streams: CoreConnectionState = http2::core::connection_state_with_streams(state, streams)
+	let recv_credit: CoreStreamWindowCredit = require_stream_credit(33)?
+	let missing_update: CoreStreamCollection = http2::core::stream_collection_with_receive_credit(http2::core::connection_state_streams(with_streams), 7, recv_credit)
+	let updated_state: CoreConnectionState = http2::core::connection_state_with_streams(with_streams, missing_update)
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(updated_state), 5))?
+	if http2::core::connection_state_next_offset(state) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(updated_state)) == 1 and not http2::core::stream_collection_has_stream(http2::core::connection_state_streams(updated_state), 7) and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(found)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 100 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(found)) == 90 and http2::core::stream_entry_content_length_expected(found) == 12 and http2::core::stream_entry_content_length_observed(found) == 3
+		Ok(())
+	else
+		Err("HTTP/2 connection state did not preserve stream collection after a missing-stream update")
+	end
+end
+
 test stream_lifecycle_predicates_cover_reserved_and_closed_states() -> Result<(), String>
 	let open: CoreStreamLifecycle = http2::core::stream_open_lifecycle()
 	let push: CoreStreamLifecycle = http2::core::stream_client_push_associated_lifecycle()
