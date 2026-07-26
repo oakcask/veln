@@ -86,8 +86,8 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 	end
 end
 
-pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
-	http2::core::frame_payload_length::validate(offset, frame_kind, flags, stream_id, observed_length, preview)
+pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	http2::core::frame_payload_length::validate(offset, frame_kind, flags, stream_id, observed_length, active_state, preview)
 end
 
 pub fn frame_payload_length_failure_offset(failure: FramePayloadLengthFailure) -> Int

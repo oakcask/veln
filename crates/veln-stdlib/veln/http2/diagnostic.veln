@@ -33,8 +33,8 @@ pub fn protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: 
 	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 end
 
-pub fn protocol_frame_payload_length_failure(failure: FramePayloadLengthFailure, preview: ByteView) -> Result<(), RuntimeDiagnostic>
-	protocol_invalid_payload_length(
+pub fn protocol_frame_payload_length_failure(failure: FramePayloadLengthFailure) -> Result<(), RuntimeDiagnostic>
+	prelude_builtin::http2_protocol_invalid_payload_length_chunk(
 		http2::core::frame_payload_length_failure_offset(failure),
 		http2::core::frame_payload_length_failure_frame_kind(failure),
 		http2::core::frame_payload_length_failure_stream_id(failure),
@@ -42,7 +42,7 @@ pub fn protocol_frame_payload_length_failure(failure: FramePayloadLengthFailure,
 		http2::core::frame_payload_length_failure_expected_length(failure),
 		http2::core::frame_payload_length_failure_active_state(failure),
 		http2::core::frame_payload_length_failure_rule_provenance(failure),
-		preview
+		http2::core::frame_payload_length_failure_preview(failure)
 	)
 end
 

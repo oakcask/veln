@@ -2908,6 +2908,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidPayloadLength",
         ),
         (
+            "http2_protocol_invalid_payload_length_chunk",
+            "http2ProtocolInvalidPayloadLengthChunk",
+        ),
+        (
             "http2_protocol_invalid_window_update_increment",
             "http2ProtocolInvalidWindowUpdateIncrement",
         ),

@@ -696,6 +696,19 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
             ],
             unit_runtime_diagnostic_result(),
         )),
+        "http2_protocol_invalid_payload_length_chunk" => Some((
+            vec![
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::int(),
+                T::string(),
+                T::string(),
+                types.byte_chunk.clone(),
+            ],
+            unit_runtime_diagnostic_result(),
+        )),
         "http2_protocol_invalid_window_update_increment" => Some((
             vec![
                 T::int(),

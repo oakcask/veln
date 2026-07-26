@@ -1854,7 +1854,14 @@ fn is_unknown_frame_kind(kind: Int) -> Bool
 end
 
 fn validate_protocol_payload(offset: Int, payload: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ProtocolPayloadDecision, String>
-	match http2::core::validate_frame_payload_length(offset, kind, flags, stream_id, length, payload)
+	let active_state: String = match kind
+		6 => "connection-control"
+		7 => "connection-control"
+		8 => "flow-control"
+		4 => "connection-control"
+		_ => "stream-control"
+	end
+	match http2::core::validate_frame_payload_length(offset, kind, flags, stream_id, length, active_state, payload)
 		Ok(_) => Ok(ProtocolPayloadOk)
 		Err(failure) => Ok(ProtocolPayloadFailed(InvalidPayloadLength(http2::core::frame_payload_length_failure_offset(failure), http2::core::frame_payload_length_failure_frame_kind(failure), http2::core::frame_payload_length_failure_stream_id(failure), http2::core::frame_payload_length_failure_observed_length(failure), http2::core::frame_payload_length_failure_expected_length(failure), http2::core::frame_payload_length_failure_active_state(failure), http2::core::frame_payload_length_failure_rule_provenance(failure), byte_view(http2::core::frame_payload_length_failure_preview(failure), byte_offset(0)?, byte_count(http2::core::frame_payload_length_failure_observed_length(failure))?)?)))
 	end

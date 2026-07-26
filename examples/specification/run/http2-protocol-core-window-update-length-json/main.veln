@@ -74,8 +74,8 @@ pub fn main() -> Result<(), RuntimeDiagnostic>
 	let bytes: ByteChunk = input_bytes()?
 	let view: ByteView = input_view(bytes)?
 	let frame: {length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView} = decode_frame(view)?
-	match http2::core::validate_frame_payload_length(9, frame.kind, frame.flags, frame.stream_id, frame.length, byte_view_to_chunk(frame.payload))
+	match http2::core::validate_frame_payload_length(9, frame.kind, frame.flags, frame.stream_id, frame.length, context_active_state(context), byte_view_to_chunk(frame.payload))
 		Ok(_) => Err(invalid_payload("invalid WINDOW_UPDATE payload length was accepted"))
-		Err(failure) => http2::diagnostic::protocol_frame_payload_length_failure(failure, frame.payload)
+		Err(failure) => http2::diagnostic::protocol_frame_payload_length_failure(failure)
 	end
 end

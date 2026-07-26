@@ -56,14 +56,14 @@ fn active_headers(fragment: ByteChunk) -> PendingHeaderBlock
 end
 
 fn payload_length_accepts(kind: Int, flags: Int, length: Int) -> Bool
-	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, byte_chunk([]))
+	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, "test-state", byte_chunk([]))
 		Ok(_) => true
 		Err(_) => false
 	end
 end
 
 fn payload_length_rejects(kind: Int, flags: Int, length: Int, expected: Int, active_state: String, rule: String) -> Bool
-	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, byte_chunk([]))
+	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, active_state, byte_chunk([]))
 		Ok(_) => false
 		Err(failure) => http2::core::frame_payload_length_failure_offset(failure) == 17 and http2::core::frame_payload_length_failure_frame_kind(failure) == kind and http2::core::frame_payload_length_failure_stream_id(failure) == 3 and http2::core::frame_payload_length_failure_observed_length(failure) == length and http2::core::frame_payload_length_failure_expected_length(failure) == expected and http2::core::frame_payload_length_failure_active_state(failure) == active_state and http2::core::frame_payload_length_failure_rule_provenance(failure) == rule
 	end
@@ -105,7 +105,7 @@ test frame_payload_length_validates_settings_ack_and_item_boundaries() -> Result
 end
 
 test frame_payload_length_validates_headers_prefix_flag_matrix() -> Result<(), String>
-	if payload_length_accepts(1, 0, 0) and payload_length_rejects(1, 8, 0, 1, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 8, 1) and payload_length_accepts(1, 8, 2) and payload_length_rejects(1, 32, 4, 5, "stream-control", "rfc9113_headers_priority_payload_length") and payload_length_accepts(1, 32, 5) and payload_length_accepts(1, 32, 6) and payload_length_rejects(1, 40, 5, 6, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 40, 6) and payload_length_accepts(1, 40, 7)
+	if payload_length_accepts(1, 0, 0) and payload_length_accepts(1, 0, 1) and payload_length_rejects(1, 8, 0, 1, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 8, 1) and payload_length_accepts(1, 8, 2) and payload_length_rejects(1, 32, 4, 5, "stream-control", "rfc9113_headers_priority_payload_length") and payload_length_accepts(1, 32, 5) and payload_length_accepts(1, 32, 6) and payload_length_rejects(1, 40, 5, 6, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 40, 6) and payload_length_accepts(1, 40, 7)
 		Ok(())
 	else
 		Err("HEADERS payload prefixes did not follow PADDED and PRIORITY flags")
@@ -130,7 +130,7 @@ end
 
 test frame_payload_length_failure_preserves_exact_preview_without_output() -> Result<(), String>
 	let preview: ByteChunk = byte_chunk_from_hex("00010203040506")?
-	match http2::core::validate_frame_payload_length(29, 6, 0, 0, 7, preview)
+	match http2::core::validate_frame_payload_length(29, 6, 0, 0, 7, "connection-control", preview)
 		Ok(_) => Err("invalid PING exposed a successful validation result")
 		Err(failure) => if http2::core::frame_payload_length_failure_offset(failure) == 29 and http2::core::frame_payload_length_failure_frame_kind(failure) == 6 and http2::core::frame_payload_length_failure_stream_id(failure) == 0 and http2::core::frame_payload_length_failure_observed_length(failure) == 7 and http2::core::frame_payload_length_failure_expected_length(failure) == 8 and chunks_equal(http2::core::frame_payload_length_failure_preview(failure), preview)? and chunks_equal(preview, byte_chunk_from_hex("00010203040506")?)?
 			Ok(())

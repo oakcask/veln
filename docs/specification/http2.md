@@ -30,7 +30,8 @@ the module-qualified API. Diagnostic ids, human rendering, and
 `details.protocol_diagnostic` projections remain stable.
 
 `http2::core::validate_frame_payload_length(...)` performs pure inbound frame
-shape validation. It returns either a typed success or a
+shape validation. The caller supplies the active-state label associated with
+its protocol projection. The function returns either a typed success or a
 `FramePayloadLengthFailure` containing the offset, frame kind, stream id,
 observed and expected lengths, active-state label, rule provenance, and exact
 supplied payload preview. Rejection exposes no partial success and does not
@@ -50,7 +51,8 @@ The adjacent
 one-below, exact, and one-above boundaries where distinct, the complete
 HEADERS and PUSH_PROMISE flag matrix, unconstrained kinds, exact failure data,
 preview preservation, and absence of success output on rejection. Focused
-payload-length human and JSON cases project the public failure through
+payload-length human and JSON cases project the active-state label and the
+failure's stored preview through
 `http2::diagnostic`; the aggregate protocol-core case retains wider decode
 ordering and complete-stdout integration.
 

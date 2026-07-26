@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 9, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(9, 8, 0, 3, 4, connection-flow-control, rfc9113_window_update_payload_length, ByteChunk([Byte(1), Byte(2), Byte(3)]))))"
+equals = "RuntimeDiagnostic(http2.protocol.invalid_payload_length, HTTP/2 invalid payload length at byte offset 0, RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic(0, 2, 1, 4, 5, stream-control, rfc9113_priority_payload_length, ByteChunk([Byte(170), Byte(187), Byte(204), Byte(221)]))))"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.kind"
@@ -32,7 +32,7 @@ equals = "http2.protocol.invalid_payload_length"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_offset.value"
-equals = 9
+equals = 0
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_offset.kind"
@@ -40,23 +40,23 @@ equals = "ByteOffset"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.frame_kind"
-equals = 8
+equals = 2
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.stream_id"
-equals = 0
+equals = 1
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.stream_ref"
-equals = "connection"
+equals = "stream"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.observed_payload_length"
-equals = 3
+equals = 4
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.expected_payload_length"
-equals = 4
+equals = 5
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.encoding"
@@ -64,15 +64,15 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.data"
-equals = "010203"
+equals = "aabbccdd"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
-equals = 3
+equals = 4
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
-equals = 3
+equals = 4
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.byte_preview.truncated"
@@ -80,11 +80,11 @@ equals = false
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
-equals = "connection-flow-control"
+equals = "stream-control"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.rule_provenance"
-equals = "rfc9113_window_update_payload_length"
+equals = "rfc9113_priority_payload_length"
 
 [[result_value_assert]]
 value_path = "error.details.value"
@@ -94,22 +94,22 @@ equals = "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic"
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.frame_kind"
-equals = 8
+equals = 2
 
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.stream_id"
-equals = 0
+equals = 1
 
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.observed_payload_length"
-equals = 3
+equals = 4
 
 [[result_value_assert]]
 value_path = "error.details.value"
 path = "value.detail.detail.expected_payload_length"
-equals = 4
+equals = 5
 
 [[result_value_assert]]
 value_path = "error.details.value"
