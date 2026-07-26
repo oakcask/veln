@@ -2,6 +2,7 @@ use prelude
 use http2::hpack::dynamic_table
 use http2::hpack::integer
 use http2::hpack::static_table
+use http2::hpack::string_codec
 
 pub type HeaderCodecField
 	HeaderCodecField(name: String, value: ByteChunk)
@@ -13,6 +14,19 @@ pub type HeaderCodecFailure
 	HeaderCodecZeroIndex
 	HeaderCodecUnavailableStaticEntry(index: Int)
 	HeaderCodecUnavailableDynamicEntry(index: Int, dynamic_index: Int, entry_count: Int)
+	HeaderCodecMalformedNameIndex
+	HeaderCodecIncompleteNameIndex
+	HeaderCodecUnavailableStaticName(index: Int)
+	HeaderCodecUnavailableDynamicName(index: Int, dynamic_index: Int, entry_count: Int)
+	HeaderCodecMalformedNameLength
+	HeaderCodecIncompleteNameLength
+	HeaderCodecTruncatedRawName(expected: Int, available: Int)
+	HeaderCodecNameHuffmanFailure
+	HeaderCodecInvalidNameOctets
+	HeaderCodecMalformedValueLength
+	HeaderCodecIncompleteValueLength
+	HeaderCodecTruncatedRawValue(expected: Int, available: Int)
+	HeaderCodecValueHuffmanFailure
 end
 
 pub type HeaderCodecTransition
@@ -30,6 +44,17 @@ fn decode_integer(input: ByteView) -> Result<{ value : Int, consumed : Int }, He
 			Err(HeaderCodecIncompleteInteger)
 		else
 			Err(HeaderCodecMalformedInteger)
+		end
+	end
+end
+
+fn decode_name_integer(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, HeaderCodecFailure>
+	match http2::hpack::integer::decode(input, prefix_bits)
+		Ok(decoded) => Ok(decoded)
+		Err(failure) => if incomplete_integer(failure)
+			Err(HeaderCodecIncompleteNameIndex)
+		else
+			Err(HeaderCodecMalformedNameIndex)
 		end
 	end
 end
@@ -75,6 +100,139 @@ pub fn decode_indexed(input: ByteView, table: DynamicTable) -> Result<HeaderCode
 	end
 end
 
+fn literal_prefix_bits(first: Int) -> Result<{ prefix_bits : Int, representation : Int }, HeaderCodecFailure>
+	if (first & 192) == 64
+		Ok({ prefix_bits: 6, representation: 0 })
+	else if (first & 240) == 0
+		Ok({ prefix_bits: 4, representation: 1 })
+	else if (first & 240) == 16
+		Ok({ prefix_bits: 4, representation: 2 })
+	else
+		Err(HeaderCodecMalformedNameIndex)
+	end
+end
+
+fn indexed_name(index: Int, table: DynamicTable) -> Result<String, HeaderCodecFailure>
+	if index <= 61
+		match http2::hpack::static_table::lookup(index)
+			Some(entry) => Ok(entry.name)
+			None => Err(HeaderCodecUnavailableStaticName(index))
+		end
+	else
+		indexed_dynamic_name(index, table, index - 61)
+	end
+end
+
+fn indexed_dynamic_name(index: Int, table: DynamicTable, dynamic_index: Int) -> Result<String, HeaderCodecFailure>
+	match http2::hpack::dynamic_table::lookup(table, dynamic_index)
+		Some(entry) => Ok(http2::hpack::dynamic_table::entry_name(entry))
+		None => Err(HeaderCodecUnavailableDynamicName(index, dynamic_index, http2::hpack::dynamic_table::entry_count(table)))
+	end
+end
+
+fn name_string_failure(failure: StringCodecFailure) -> HeaderCodecFailure
+	match http2::hpack::string_codec::failure_kind(failure)
+		0 => HeaderCodecMalformedNameLength
+		1 => HeaderCodecIncompleteNameLength
+		2 => HeaderCodecTruncatedRawName(http2::hpack::string_codec::failure_expected(failure), http2::hpack::string_codec::failure_available(failure))
+		_ => HeaderCodecNameHuffmanFailure
+	end
+end
+
+fn value_string_failure(failure: StringCodecFailure) -> HeaderCodecFailure
+	match http2::hpack::string_codec::failure_kind(failure)
+		0 => HeaderCodecMalformedValueLength
+		1 => HeaderCodecIncompleteValueLength
+		2 => HeaderCodecTruncatedRawValue(http2::hpack::string_codec::failure_expected(failure), http2::hpack::string_codec::failure_available(failure))
+		_ => HeaderCodecValueHuffmanFailure
+	end
+end
+
+fn decode_name_string(input: ByteView) -> Result<StringCodecValue, HeaderCodecFailure>
+	match http2::hpack::string_codec::decode(input)
+		Ok(decoded) => Ok(decoded)
+		Err(failure) => Err(name_string_failure(failure))
+	end
+end
+
+fn decode_value_string(input: ByteView) -> Result<StringCodecValue, HeaderCodecFailure>
+	match http2::hpack::string_codec::decode(input)
+		Ok(decoded) => Ok(decoded)
+		Err(failure) => Err(value_string_failure(failure))
+	end
+end
+
+fn drop_consumed(input: ByteView, consumed: Int, name: Bool) -> Result<ByteView, HeaderCodecFailure>
+	match byte_count(consumed)
+		Err(_) => if name
+			Err(HeaderCodecMalformedNameLength)
+		else
+			Err(HeaderCodecMalformedValueLength)
+		end
+		Ok(count) => match byte_view_drop(input, count)
+			Ok(remaining) => Ok(remaining)
+			Err(_) => if name
+				Err(HeaderCodecIncompleteNameLength)
+			else
+				Err(HeaderCodecIncompleteValueLength)
+			end
+		end
+	end
+end
+
+fn decode_literal_name(input: ByteView, table: DynamicTable, prefix_bits: Int) -> Result<{ name : String, consumed : Int }, HeaderCodecFailure>
+	let decoded_index: { value : Int, consumed : Int } = decode_name_integer(input, prefix_bits)?
+	let name_index: Int = http2::hpack::integer::value(decoded_index)
+	let index_consumed: Int = http2::hpack::integer::consumed(decoded_index)
+	if name_index == 0
+		decode_direct_literal_name(input, index_consumed)
+	else
+		Ok({ name: indexed_name(name_index, table)?, consumed: index_consumed })
+	end
+end
+
+fn decode_direct_literal_name(input: ByteView, index_consumed: Int) -> Result<{ name : String, consumed : Int }, HeaderCodecFailure>
+	let name_input: ByteView = drop_consumed(input, index_consumed, true)?
+	let decoded_name: StringCodecValue = decode_name_string(name_input)?
+	match byte_chunk_to_visible_ascii_string(http2::hpack::string_codec::value(decoded_name))
+		Ok(name) => Ok({ name: name, consumed: index_consumed + http2::hpack::string_codec::consumed(decoded_name) })
+		Err(_) => Err(HeaderCodecInvalidNameOctets)
+	end
+end
+
+fn literal_transition(input: ByteView, table: DynamicTable, representation: Int, decoded_name: { name : String, consumed : Int }) -> Result<HeaderCodecTransition, HeaderCodecFailure>
+	let value_input: ByteView = drop_consumed(input, decoded_name.consumed, false)?
+	let decoded_value: StringCodecValue = decode_value_string(value_input)?
+	let value: ByteChunk = http2::hpack::string_codec::value(decoded_value)
+	let consumed: Int = decoded_name.consumed + http2::hpack::string_codec::consumed(decoded_value)
+	let next_table: DynamicTable = literal_next_table(table, representation, decoded_name.name, value)?
+	Ok(HeaderCodecTransition(HeaderCodecField(decoded_name.name, value), consumed, next_table))
+end
+
+fn literal_next_table(table: DynamicTable, representation: Int, name: String, value: ByteChunk) -> Result<DynamicTable, HeaderCodecFailure>
+	if representation == 0
+		match http2::hpack::dynamic_table::insert(table, name, value)
+			Ok(inserted) => Ok(inserted)
+			Err(_) => Err(HeaderCodecInvalidNameOctets)
+		end
+	else
+		Ok(table)
+	end
+end
+
+fn decode_literal_first(input: ByteView, table: DynamicTable, first: Int) -> Result<{ transition : HeaderCodecTransition, representation : Int }, HeaderCodecFailure>
+	let prefix: { prefix_bits : Int, representation : Int } = literal_prefix_bits(first)?
+	let decoded_name: { name : String, consumed : Int } = decode_literal_name(input, table, prefix.prefix_bits)?
+	Ok({ transition: literal_transition(input, table, prefix.representation, decoded_name)?, representation: prefix.representation })
+end
+
+pub fn decode_literal(input: ByteView, table: DynamicTable) -> Result<{ transition : HeaderCodecTransition, representation : Int }, HeaderCodecFailure>
+	match byte_read_u8_be(input)
+		Err(_) => Err(HeaderCodecIncompleteNameIndex)
+		Ok(first) => decode_literal_first(input, table, first)
+	end
+end
+
 pub fn transition_header(transition: HeaderCodecTransition) -> HeaderCodecField
 	match transition
 		HeaderCodecTransition(header, _, _) => header
@@ -112,6 +270,19 @@ pub fn failure_kind(failure: HeaderCodecFailure) -> Int
 		HeaderCodecZeroIndex => 2
 		HeaderCodecUnavailableStaticEntry(_) => 3
 		HeaderCodecUnavailableDynamicEntry(_, _, _) => 4
+		HeaderCodecMalformedNameIndex => 5
+		HeaderCodecIncompleteNameIndex => 6
+		HeaderCodecUnavailableStaticName(_) => 7
+		HeaderCodecUnavailableDynamicName(_, _, _) => 8
+		HeaderCodecMalformedNameLength => 9
+		HeaderCodecIncompleteNameLength => 10
+		HeaderCodecTruncatedRawName(_, _) => 11
+		HeaderCodecNameHuffmanFailure => 12
+		HeaderCodecInvalidNameOctets => 13
+		HeaderCodecMalformedValueLength => 14
+		HeaderCodecIncompleteValueLength => 15
+		HeaderCodecTruncatedRawValue(_, _) => 16
+		HeaderCodecValueHuffmanFailure => 17
 	end
 end
 
@@ -119,6 +290,8 @@ pub fn failure_index(failure: HeaderCodecFailure) -> Int
 	match failure
 		HeaderCodecUnavailableStaticEntry(index) => index
 		HeaderCodecUnavailableDynamicEntry(index, _, _) => index
+		HeaderCodecUnavailableStaticName(index) => index
+		HeaderCodecUnavailableDynamicName(index, _, _) => index
 		_ => 0
 	end
 end
@@ -126,6 +299,7 @@ end
 pub fn failure_dynamic_index(failure: HeaderCodecFailure) -> Int
 	match failure
 		HeaderCodecUnavailableDynamicEntry(_, dynamic_index, _) => dynamic_index
+		HeaderCodecUnavailableDynamicName(_, dynamic_index, _) => dynamic_index
 		_ => 0
 	end
 end
@@ -133,6 +307,23 @@ end
 pub fn failure_dynamic_entry_count(failure: HeaderCodecFailure) -> Int
 	match failure
 		HeaderCodecUnavailableDynamicEntry(_, _, entry_count) => entry_count
+		HeaderCodecUnavailableDynamicName(_, _, entry_count) => entry_count
+		_ => 0
+	end
+end
+
+pub fn failure_expected(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecTruncatedRawName(expected, _) => expected
+		HeaderCodecTruncatedRawValue(expected, _) => expected
+		_ => 0
+	end
+end
+
+pub fn failure_available(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecTruncatedRawName(_, available) => available
+		HeaderCodecTruncatedRawValue(_, available) => available
 		_ => 0
 	end
 end

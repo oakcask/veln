@@ -183,6 +183,17 @@ fn decode_indexed_chunk(input: ByteChunk, table: DynamicTable) -> Result<Result<
 	Ok(http2::hpack::decode_indexed_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table))
 end
 
+fn decode_literal_chunk(input: ByteChunk, table: DynamicTable) -> Result<Result<LiteralDecodeTransition, LiteralDecodeFailure>, String>
+	Ok(http2::hpack::decode_literal_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table))
+end
+
+fn require_literal_chunk(input: ByteChunk, table: DynamicTable) -> Result<LiteralDecodeTransition, String>
+	match decode_literal_chunk(input, table)?
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::literal_decode_failure_kind(failure))
+	end
+end
+
 fn require_indexed_chunk(input: ByteChunk, table: DynamicTable) -> Result<IndexedDecodeTransition, String>
 	match decode_indexed_chunk(input, table)?
 		Ok(transition) => Ok(transition)
@@ -197,6 +208,26 @@ end
 fn indexed_transition_matches(transition: IndexedDecodeTransition, expected_name: String, expected_value: ByteChunk, expected_consumed: Int) -> Result<Bool, String>
 	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(transition)
 	Ok(http2::hpack::indexed_header_name(header) == expected_name and chunks_equal(http2::hpack::indexed_header_value(header), expected_value)? and http2::hpack::indexed_decode_consumed(transition) == expected_consumed)
+end
+
+fn literal_transition_matches(transition: LiteralDecodeTransition, expected_representation: String, expected_name: String, expected_value: ByteChunk, expected_consumed: Int) -> Result<Bool, String>
+	let header: LiteralHeaderField = http2::hpack::literal_decode_header(transition)
+	Ok(http2::hpack::literal_decode_representation(transition) == expected_representation and http2::hpack::literal_header_name(header) == expected_name and chunks_equal(http2::hpack::literal_header_value(header), expected_value)? and http2::hpack::literal_decode_consumed(transition) == expected_consumed)
+end
+
+fn repeated_octet(octet: Int, count: Int) -> Result<ByteChunk, String>
+	if count == 0
+		Ok(byte_chunk([]))
+	else
+		Ok(byte_append(byte_write_u8_be(octet)?, repeated_octet(octet, count - 1)?))
+	end
+end
+
+fn literal_failure_kind(input: ByteChunk, table: DynamicTable, expected: String) -> Result<Bool, String>
+	match decode_literal_chunk(input, table)?
+		Err(failure) => Ok(http2::hpack::literal_decode_failure_kind(failure) == expected)
+		Ok(_) => Ok(false)
+	end
 end
 
 fn table_matches_two_entries(table: DynamicTable, expected_capacity: Int, expected_size: Int) -> Result<Bool, String>
@@ -741,5 +772,72 @@ test indexed_header_decoder_reports_unavailable_dynamic_entries_without_next_sta
 		Ok(())
 	else
 		Err("HPACK unavailable indexed entry failure or input state changed")
+	end
+end
+
+test literal_header_decoder_supports_all_representations_and_table_transitions() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(256)?, "older", byte_chunk_from_hex("31")?)?
+	let incremental: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("44072f746172676574")?, table)?
+	let without: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("04052f736b6970")?, table)?
+	let never: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("14072f736563726574")?, table)?
+	let results_match: Bool = literal_transition_matches(incremental, "incremental_indexing", ":path", byte_chunk_from_hex("2f746172676574")?, 9)? and literal_transition_matches(without, "without_indexing", ":path", byte_chunk_from_hex("2f736b6970")?, 7)? and literal_transition_matches(never, "never_indexed", ":path", byte_chunk_from_hex("2f736563726574")?, 9)?
+	let inserted: DynamicTable = http2::hpack::literal_decode_table(incremental)
+	let states_match: Bool = dynamic_entry_matches(inserted, 1, ":path", byte_chunk_from_hex("2f746172676574")?)? and dynamic_entry_matches(inserted, 2, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(without), 1, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(never), 1, "older", byte_chunk_from_hex("31")?)?
+	if results_match and states_match and http2::hpack::dynamic_table_entry_count(table) == 1
+		Ok(())
+	else
+		Err("HPACK literal representation or immutable table transition changed")
+	end
+end
+
+test literal_header_decoder_preserves_raw_and_huffman_octets() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(128)?
+	let raw: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("4001780200ff")?, table)?
+	let huffman_name: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("008349509f026f6b")?, table)?
+	let huffman_value: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("0485ffc7ffffdd")?, table)?
+	if literal_transition_matches(raw, "incremental_indexing", "x", byte_chunk_from_hex("00ff")?, 6)? and literal_transition_matches(huffman_name, "without_indexing", "test", byte_chunk_from_hex("6f6b")?, 8)? and literal_transition_matches(huffman_value, "without_indexing", ":path", byte_chunk_from_hex("00ff")?, 7)?
+		Ok(())
+	else
+		Err("HPACK literal raw or Huffman octet decoding changed")
+	end
+end
+
+test literal_header_decoder_resolves_dynamic_names_and_multi_octet_prefixes() -> Result<(), String>
+	let table: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
+	let direct: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("0f7000")?, table)?
+	let long_name: ByteChunk = repeated_octet(97, 128)?
+	let long_input: ByteChunk = byte_append(byte_chunk_from_hex("007f01")?, byte_append(long_name, byte_chunk_from_hex("00")?))
+	let long: LiteralDecodeTransition = require_literal_chunk(long_input, table)?
+	let long_value: ByteChunk = repeated_octet(255, 128)?
+	let long_value_input: ByteChunk = byte_append(byte_chunk_from_hex("047f01")?, long_value)
+	let long_value_transition: LiteralDecodeTransition = require_literal_chunk(long_value_input, table)?
+	if literal_transition_matches(direct, "without_indexing", "x", byte_chunk([]), 3)? and http2::hpack::literal_decode_consumed(long) == 132 and http2::hpack::literal_header_name(http2::hpack::literal_decode_header(long)) == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and literal_transition_matches(long_value_transition, "without_indexing", ":path", long_value, 131)?
+		Ok(())
+	else
+		Err("HPACK literal multi-octet name index or length decoding changed")
+	end
+end
+
+test literal_header_decoder_returns_focused_name_failures_without_changing_state() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let failures_match: Bool = literal_failure_kind(byte_chunk([]), table, "incomplete_name_index")? and literal_failure_kind(byte_chunk_from_hex("80")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f80808080808080808000")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f3000")?, table, "unavailable_dynamic_name")? and literal_failure_kind(byte_chunk_from_hex("00")?, table, "incomplete_name_length")? and literal_failure_kind(byte_chunk_from_hex("00ff80808080808080808000")?, table, "malformed_name_length")? and literal_failure_kind(byte_chunk_from_hex("000378")?, table, "truncated_raw_name")? and literal_failure_kind(byte_chunk_from_hex("0001ff00")?, table, "invalid_name_octets")? and literal_failure_kind(byte_chunk_from_hex("00810000")?, table, "name_huffman_failure")?
+	if failures_match and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
+		Ok(())
+	else
+		Err("HPACK literal name failure classification or state preservation changed")
+	end
+end
+
+test literal_header_decoder_returns_focused_value_failures_without_changing_state() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let truncated_details: Bool = match decode_literal_chunk(byte_chunk_from_hex("040378")?, table)?
+		Err(failure) => http2::hpack::literal_decode_failure_kind(failure) == "truncated_raw_value" and http2::hpack::literal_decode_failure_expected_octets(failure) == 3 and http2::hpack::literal_decode_failure_available_octets(failure) == 1
+		Ok(_) => false
+	end
+	let failures_match: Bool = literal_failure_kind(byte_chunk_from_hex("04")?, table, "incomplete_value_length")? and literal_failure_kind(byte_chunk_from_hex("04ff80808080808080808000")?, table, "malformed_value_length")? and truncated_details and literal_failure_kind(byte_chunk_from_hex("048100")?, table, "value_huffman_failure")?
+	if failures_match and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
+		Ok(())
+	else
+		Err("HPACK literal value failure classification or state preservation changed")
 	end
 end

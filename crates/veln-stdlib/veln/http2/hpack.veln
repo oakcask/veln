@@ -25,6 +25,30 @@ pub type IndexedDecodeTransition
 	IndexedDecodeTransition(header: IndexedHeaderField, consumed: Int, table: DynamicTable)
 end
 
+pub type LiteralHeaderField
+	LiteralHeaderField(name: String, value: ByteChunk)
+end
+
+pub type LiteralDecodeFailure
+	MalformedLiteralNameIndex
+	IncompleteLiteralNameIndex
+	UnavailableLiteralStaticName(index: Int)
+	UnavailableLiteralDynamicName(index: Int, dynamic_index: Int, entry_count: Int)
+	MalformedLiteralNameLength
+	IncompleteLiteralNameLength
+	TruncatedLiteralRawName(expected: Int, available: Int)
+	LiteralNameHuffmanFailure
+	InvalidLiteralNameOctets
+	MalformedLiteralValueLength
+	IncompleteLiteralValueLength
+	TruncatedLiteralRawValue(expected: Int, available: Int)
+	LiteralValueHuffmanFailure
+end
+
+pub type LiteralDecodeTransition
+	LiteralDecodeTransition(header: LiteralHeaderField, consumed: Int, table: DynamicTable, representation: Int)
+end
+
 pub type StaticEntry
 	StaticEntry(name: String, value: String)
 end
@@ -196,6 +220,133 @@ end
 pub fn indexed_decode_failure_dynamic_entry_count(failure: IndexedDecodeFailure) -> Int
 	match failure
 		UnavailableDynamicEntry(_, _, entry_count) => entry_count
+		_ => 0
+	end
+end
+
+fn literal_decode_failure(failure: HeaderCodecFailure) -> LiteralDecodeFailure
+	match http2::hpack::header_codec::failure_kind(failure)
+		5 => MalformedLiteralNameIndex
+		6 => IncompleteLiteralNameIndex
+		7 => UnavailableLiteralStaticName(http2::hpack::header_codec::failure_index(failure))
+		8 => UnavailableLiteralDynamicName(http2::hpack::header_codec::failure_index(failure), http2::hpack::header_codec::failure_dynamic_index(failure), http2::hpack::header_codec::failure_dynamic_entry_count(failure))
+		9 => MalformedLiteralNameLength
+		10 => IncompleteLiteralNameLength
+		11 => TruncatedLiteralRawName(http2::hpack::header_codec::failure_expected(failure), http2::hpack::header_codec::failure_available(failure))
+		12 => LiteralNameHuffmanFailure
+		13 => InvalidLiteralNameOctets
+		14 => MalformedLiteralValueLength
+		15 => IncompleteLiteralValueLength
+		16 => TruncatedLiteralRawValue(http2::hpack::header_codec::failure_expected(failure), http2::hpack::header_codec::failure_available(failure))
+		_ => LiteralValueHuffmanFailure
+	end
+end
+
+fn literal_decode_transition(decoded: { transition : HeaderCodecTransition, representation : Int }) -> LiteralDecodeTransition
+	let transition: HeaderCodecTransition = decoded.transition
+	let header: HeaderCodecField = http2::hpack::header_codec::transition_header(transition)
+	LiteralDecodeTransition(LiteralHeaderField(http2::hpack::header_codec::header_name(header), http2::hpack::header_codec::header_value(header)), http2::hpack::header_codec::transition_consumed(transition), http2::hpack::header_codec::transition_table(transition), decoded.representation)
+end
+
+pub fn decode_literal_header_field(input: ByteView, table: DynamicTable) -> Result<LiteralDecodeTransition, LiteralDecodeFailure>
+	match http2::hpack::header_codec::decode_literal(input, table)
+		Ok(decoded) => Ok(literal_decode_transition(decoded))
+		Err(failure) => Err(literal_decode_failure(failure))
+	end
+end
+
+pub fn literal_decode_header(transition: LiteralDecodeTransition) -> LiteralHeaderField
+	match transition
+		LiteralDecodeTransition(header, _, _, _) => header
+	end
+end
+
+pub fn literal_decode_consumed(transition: LiteralDecodeTransition) -> Int
+	match transition
+		LiteralDecodeTransition(_, consumed, _, _) => consumed
+	end
+end
+
+pub fn literal_decode_table(transition: LiteralDecodeTransition) -> DynamicTable
+	match transition
+		LiteralDecodeTransition(_, _, table, _) => table
+	end
+end
+
+pub fn literal_decode_representation(transition: LiteralDecodeTransition) -> String
+	match transition
+		LiteralDecodeTransition(_, _, _, representation) => match representation
+			0 => "incremental_indexing"
+			1 => "without_indexing"
+			_ => "never_indexed"
+		end
+	end
+end
+
+pub fn literal_header_name(header: LiteralHeaderField) -> String
+	match header
+		LiteralHeaderField(name, _) => name
+	end
+end
+
+pub fn literal_header_value(header: LiteralHeaderField) -> ByteChunk
+	match header
+		LiteralHeaderField(_, value) => value
+	end
+end
+
+pub fn literal_decode_failure_kind(failure: LiteralDecodeFailure) -> String
+	match failure
+		MalformedLiteralNameIndex => "malformed_name_index"
+		IncompleteLiteralNameIndex => "incomplete_name_index"
+		UnavailableLiteralStaticName(_) => "unavailable_static_name"
+		UnavailableLiteralDynamicName(_, _, _) => "unavailable_dynamic_name"
+		MalformedLiteralNameLength => "malformed_name_length"
+		IncompleteLiteralNameLength => "incomplete_name_length"
+		TruncatedLiteralRawName(_, _) => "truncated_raw_name"
+		LiteralNameHuffmanFailure => "name_huffman_failure"
+		InvalidLiteralNameOctets => "invalid_name_octets"
+		MalformedLiteralValueLength => "malformed_value_length"
+		IncompleteLiteralValueLength => "incomplete_value_length"
+		TruncatedLiteralRawValue(_, _) => "truncated_raw_value"
+		LiteralValueHuffmanFailure => "value_huffman_failure"
+	end
+end
+
+pub fn literal_decode_failure_index(failure: LiteralDecodeFailure) -> Int
+	match failure
+		UnavailableLiteralStaticName(index) => index
+		UnavailableLiteralDynamicName(index, _, _) => index
+		_ => 0
+	end
+end
+
+pub fn literal_decode_failure_dynamic_index(failure: LiteralDecodeFailure) -> Int
+	match failure
+		UnavailableLiteralDynamicName(_, dynamic_index, _) => dynamic_index
+		_ => 0
+	end
+end
+
+pub fn literal_decode_failure_dynamic_entry_count(failure: LiteralDecodeFailure) -> Int
+	match failure
+		UnavailableLiteralDynamicName(_, _, entry_count) => entry_count
+		_ => 0
+	end
+end
+
+pub fn literal_decode_failure_expected_octets(failure: LiteralDecodeFailure) -> Int
+	match failure
+		TruncatedLiteralRawName(expected, _) => expected
+		TruncatedLiteralRawValue(expected, _) => expected
+		_ => 0
+	end
+end
+
+pub fn literal_decode_failure_available_octets(failure: LiteralDecodeFailure) -> Int
+	match failure
+		TruncatedLiteralRawName(_, available) => available
+		TruncatedLiteralRawValue(_, available) => available
 		_ => 0
 	end
 end
