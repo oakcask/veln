@@ -16,8 +16,8 @@ The public routes are:
 
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
-- `http2::hpack`: prefixed-integer encoding and decoding, Huffman byte labels,
-  static entries, and immutable dynamic-table state.
+- `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
+  and immutable dynamic-table state.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -36,6 +36,19 @@ invalid widths, incomplete continuations, and encodings beyond the `Int` range
 are rejected. The canonical multi-octet encoding and representation-bit
 behavior are checked by
 `../../examples/specification/run/hpack-prefixed-integer-codec/`.
+
+`http2::hpack::encode_huffman(bytes)` encodes arbitrary `ByteChunk` octets
+with the HPACK static Huffman table and the required EOS-prefix padding.
+`decode_huffman(input)` returns the exact decoded `ByteChunk`, including
+non-visible octets. It rejects EOS as a payload symbol, invalid or overlong
+padding, and truncated or invalid code sequences. A failure returns no partial
+decoded value. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks canonical vectors, every single octet, recursive input, padding
+boundaries, and rejection paths. The focused
+[`hpack-huffman-codec`](../../examples/specification/run/hpack-huffman-codec/)
+case records the public facade's encoded and decoded octets and representative
+failures.
 
 `http2::hpack::static_entry(index)` exposes every one-based HPACK static-table
 entry from 1 through 61; `static_entry_name(entry)` and

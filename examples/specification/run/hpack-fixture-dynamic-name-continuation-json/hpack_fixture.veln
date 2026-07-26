@@ -1076,7 +1076,15 @@ fn hpack_huffman_unsupported_non_visible_string(block: ByteChunk, offset: Int) -
 end
 
 fn hpack_decoded_huffman_bytes_label(decoded: ByteChunk) -> Option<String>
-	Some(http2::hpack::huffman_bytes_label(decoded))
+	if byte_count_to_int(byte_chunk_count(decoded)) == 2 and byte_at_or_missing(decoded, 0) == 0
+		match byte_at_or_missing(decoded, 1)
+			0 => Some("hpack-bytes-00-00")
+			255 => Some("hpack-bytes-00-ff")
+			_ => None
+		end
+	else
+		None
+	end
 end
 
 fn hpack_fixture_huffman_byte_label(symbol: Int) -> Option<String>

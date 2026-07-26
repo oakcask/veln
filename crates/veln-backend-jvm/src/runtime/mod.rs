@@ -35,8 +35,6 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_append" => "byteAppend",
     "byte_chunk_from_hex" => "byteChunkFromHex",
     "byte_chunk_to_visible_ascii_string" => "byteChunkToVisibleAsciiString",
-    "hpack_fixture_huffman_bytes_label" => "hpackFixtureHuffmanBytesLabel",
-    "hpack_fixture_huffman_label_bytes" => "hpackFixtureHuffmanLabelBytes",
     "byte_chunk_from_visible_ascii_string" => "byteChunkFromVisibleAsciiString",
     "byte_take" => "byteTake",
     "byte_drop" => "byteDrop",

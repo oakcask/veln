@@ -175,6 +175,62 @@ fn decode_chunk(input: ByteChunk, prefix_bits: Int) -> Result<{ value : Int, con
 	http2::hpack::decode_integer(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, prefix_bits)
 end
 
+fn decode_huffman_chunk(input: ByteChunk) -> Result<ByteChunk, String>
+	http2::hpack::decode_huffman(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?)
+end
+
+fn expect_huffman_encoding(input_hex: String, expected_hex: String) -> Result<(), String>
+	let actual: ByteChunk = http2::hpack::encode_huffman(byte_chunk_from_hex(input_hex)?)?
+	if chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
+		Ok(())
+	else
+		Err("HPACK Huffman encoding changed")
+	end
+end
+
+fn expect_huffman_decoding(input_hex: String, expected_hex: String) -> Result<(), String>
+	let actual: ByteChunk = decode_huffman_chunk(byte_chunk_from_hex(input_hex)?)?
+	if chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
+		Ok(())
+	else
+		Err("HPACK Huffman decoding changed")
+	end
+end
+
+fn expect_huffman_decode_error(input_hex: String, expected: String) -> Result<(), String>
+	match decode_huffman_chunk(byte_chunk_from_hex(input_hex)?)
+		Ok(_) => Err("expected HPACK Huffman decoding to fail")
+		Err(actual) => if actual == expected
+			Ok(())
+		else
+			Err("unexpected HPACK Huffman decoding failure")
+		end
+	end
+end
+
+fn every_huffman_octet_round_trips(symbol: Int) -> Result<Bool, String>
+	let input: ByteChunk = byte_write_u8_be(symbol)?
+	let encoded: ByteChunk = http2::hpack::encode_huffman(input)?
+	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	if chunks_equal(input, decoded)?
+		if symbol == 255
+			Ok(true)
+		else
+			every_huffman_octet_round_trips(symbol + 1)
+		end
+	else
+		Ok(false)
+	end
+end
+
+fn octet_sequence(first: Int, last: Int) -> Result<ByteChunk, String>
+	if first > last
+		Ok(byte_chunk([]))
+	else
+		Ok(byte_append(byte_write_u8_be(first)?, octet_sequence(first + 1, last)?))
+	end
+end
+
 fn expect_encoding(value: Int, prefix_bits: Int, representation_bits: Int, expected_hex: String) -> Result<(), String>
 	let actual: ByteChunk = http2::hpack::encode_integer(value, prefix_bits, representation_bits)?
 	let equal: Bool = chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
@@ -313,6 +369,64 @@ test integer_decode_stops_after_terminal_octet() -> Result<(), String>
 	else
 		Err("HPACK prefixed integer consumed trailing input")
 	end
+end
+
+test huffman_codec_preserves_canonical_vectors() -> Result<(), String>
+	let _ = expect_huffman_encoding("7777772e6578616d706c652e636f6d", "f1e3c2e5f23a6ba0ab90f4ff")?
+	let _ = expect_huffman_encoding("6e6f2d6361636865", "a8eb10649cbf")?
+	let _ = expect_huffman_decoding("25a849e95ba97d7f", "637573746f6d2d6b6579")?
+	expect_huffman_decoding("25a849e95bb8e8b4bf", "637573746f6d2d76616c7565")
+end
+
+test huffman_codec_accepts_empty_input() -> Result<(), String>
+	let encoded: ByteChunk = http2::hpack::encode_huffman(byte_chunk([]))?
+	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	if byte_count_to_int(byte_chunk_count(encoded)) == 0 and byte_count_to_int(byte_chunk_count(decoded)) == 0
+		Ok(())
+	else
+		Err("empty HPACK Huffman input changed")
+	end
+end
+
+test huffman_codec_round_trips_every_single_octet() -> Result<(), String>
+	if every_huffman_octet_round_trips(0)?
+		Ok(())
+	else
+		Err("HPACK Huffman single-octet round trip changed")
+	end
+end
+
+test huffman_codec_round_trips_recursive_multi_octet_input() -> Result<(), String>
+	let input: ByteChunk = octet_sequence(0, 3)?
+	let encoded: ByteChunk = http2::hpack::encode_huffman(input)?
+	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	if chunks_equal(input, decoded)?
+		Ok(())
+	else
+		Err("HPACK Huffman recursive octet round trip changed")
+	end
+end
+
+test huffman_codec_preserves_non_visible_octets() -> Result<(), String>
+	let _ = expect_huffman_encoding("00ff", "ffc7ffffdd")?
+	expect_huffman_decoding("ffc7ffffdd", "00ff")
+end
+
+test huffman_encoder_uses_eos_prefix_padding_at_bit_boundaries() -> Result<(), String>
+	let _ = expect_huffman_encoding("30", "07")?
+	let _ = expect_huffman_encoding("26", "f8")?
+	expect_huffman_encoding("65", "2f")
+end
+
+test huffman_decoder_rejects_eos_invalid_padding_and_truncated_codes() -> Result<(), String>
+	let _ = expect_huffman_decode_error("ffffffff", "HPACK Huffman payload contains EOS symbol")?
+	let _ = expect_huffman_decode_error("00", "invalid HPACK Huffman padding")?
+	let _ = expect_huffman_decode_error("ff", "invalid HPACK Huffman padding")?
+	expect_huffman_decode_error("fe", "invalid HPACK Huffman code sequence")
+end
+
+test huffman_decode_failure_exposes_no_partial_output() -> Result<(), String>
+	expect_huffman_decode_error("1e", "invalid HPACK Huffman padding")
 end
 
 test static_table_contains_entries_one_through_fourteen() -> Result<(), String>

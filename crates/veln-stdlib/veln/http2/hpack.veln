@@ -29,12 +29,12 @@ pub fn decoded_integer_consumed(decoded: { value : Int, consumed : Int }) -> Int
 	http2::hpack::integer::consumed(decoded)
 end
 
-pub fn huffman_bytes_label(bytes: ByteChunk) -> String
-	http2::hpack::huffman::bytes_label(bytes)
+pub fn encode_huffman(bytes: ByteChunk) -> Result<ByteChunk, String>
+	http2::hpack::huffman::encode_bytes(bytes)
 end
 
-pub fn huffman_label_bytes(label: String) -> Option<ByteChunk>
-	http2::hpack::huffman::label_bytes(label)
+pub fn decode_huffman(input: ByteView) -> Result<ByteChunk, String>
+	http2::hpack::huffman::decode_bytes(input)
 end
 
 pub fn static_entry(index: Int) -> Option<StaticEntry>
