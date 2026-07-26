@@ -1,0 +1,209 @@
+use prelude
+
+pub type ConnectionPrefaceState
+	MatchingConnectionPreface(starting_offset: Int, matched: ByteChunk)
+	CompleteConnectionPreface(next_offset: Int)
+end
+
+pub type ConnectionPrefaceTransition
+	ConnectionPrefaceTransition(state: ConnectionPrefaceState, completed: Bool, suffix: ByteChunk)
+end
+
+pub type ConnectionPrefaceFailure
+	InvalidConnectionPreface(offset: Int, expected_octet: Int, actual_octet: Int, matched_count: Int, preview: ByteChunk)
+	PartialConnectionPreface(starting_offset: Int, pending_count: Int, preview: ByteChunk)
+end
+
+pub fn empty(starting_offset: Int) -> ConnectionPrefaceState
+	MatchingConnectionPreface(starting_offset, byte_chunk([]))
+end
+
+pub fn advance(state: ConnectionPrefaceState, input: ByteChunk) -> Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>
+	match state
+		MatchingConnectionPreface(starting_offset, matched) => advance_combined(starting_offset, byte_append(matched, input))
+		CompleteConnectionPreface(_) => Ok(ConnectionPrefaceTransition(state, true, input))
+	end
+end
+
+fn advance_combined(starting_offset: Int, combined: ByteChunk) -> Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>
+	match first_mismatch(combined, 0, byte_count_to_int(byte_chunk_count(combined)))
+		Some(index) => Err(InvalidConnectionPreface(starting_offset + index, expected_octet(index), octet_at(combined, index), index, combined))
+		None => complete_or_wait(starting_offset, combined)
+	end
+end
+
+fn complete_or_wait(starting_offset: Int, combined: ByteChunk) -> Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>
+	let available: Int = byte_count_to_int(byte_chunk_count(combined))
+	if available < preface_count()
+		Ok(ConnectionPrefaceTransition(MatchingConnectionPreface(starting_offset, combined), false, byte_chunk([])))
+	else
+		match byte_count(preface_count())
+			Ok(count) => match byte_drop(combined, count)
+				Ok(suffix) => Ok(ConnectionPrefaceTransition(CompleteConnectionPreface(starting_offset + preface_count()), true, suffix))
+				Err(_) => Ok(ConnectionPrefaceTransition(MatchingConnectionPreface(starting_offset, combined), false, byte_chunk([])))
+			end
+			Err(_) => Ok(ConnectionPrefaceTransition(MatchingConnectionPreface(starting_offset, combined), false, byte_chunk([])))
+		end
+	end
+end
+
+fn first_mismatch(input: ByteChunk, index: Int, available: Int) -> Option<Int>
+	if index == available or index == preface_count()
+		None
+	else if octet_at(input, index) == expected_octet(index)
+		first_mismatch(input, index + 1, available)
+	else
+		Some(index)
+	end
+end
+
+fn octet_at(input: ByteChunk, index: Int) -> Int
+	match byte_offset(index)
+		Ok(offset) => match byte_count(1)
+			Ok(count) => match byte_view(input, offset, count)
+				Ok(view) => match byte_read_u8_be(view)
+					Ok(value) => value
+					Err(_) => 0
+				end
+				Err(_) => 0
+			end
+			Err(_) => 0
+		end
+		Err(_) => 0
+	end
+end
+
+fn preface_count() -> Int
+	24
+end
+
+fn expected_octet(index: Int) -> Int
+	match index
+		0 => 80
+		1 => 82
+		2 => 73
+		3 => 32
+		4 => 42
+		5 => 32
+		6 => 72
+		7 => 84
+		8 => 84
+		9 => 80
+		10 => 47
+		11 => 50
+		12 => 46
+		13 => 48
+		14 => 13
+		15 => 10
+		16 => 13
+		17 => 10
+		18 => 83
+		19 => 77
+		20 => 13
+		21 => 10
+		22 => 13
+		_ => 10
+	end
+end
+
+pub fn close(state: ConnectionPrefaceState) -> Result<ConnectionPrefaceState, ConnectionPrefaceFailure>
+	match state
+		MatchingConnectionPreface(starting_offset, matched) => Err(PartialConnectionPreface(starting_offset, byte_count_to_int(byte_chunk_count(matched)), matched))
+		CompleteConnectionPreface(_) => Ok(state)
+	end
+end
+
+pub fn transition_state(transition: ConnectionPrefaceTransition) -> ConnectionPrefaceState
+	match transition
+		ConnectionPrefaceTransition(state, _, _) => state
+	end
+end
+
+pub fn transition_completed(transition: ConnectionPrefaceTransition) -> Bool
+	match transition
+		ConnectionPrefaceTransition(_, completed, _) => completed
+	end
+end
+
+pub fn transition_suffix(transition: ConnectionPrefaceTransition) -> ByteChunk
+	match transition
+		ConnectionPrefaceTransition(_, _, suffix) => suffix
+	end
+end
+
+pub fn state_completed(state: ConnectionPrefaceState) -> Bool
+	match state
+		MatchingConnectionPreface(_, _) => false
+		CompleteConnectionPreface(_) => true
+	end
+end
+
+pub fn state_starting_offset(state: ConnectionPrefaceState) -> Int
+	match state
+		MatchingConnectionPreface(starting_offset, _) => starting_offset
+		CompleteConnectionPreface(next_offset) => next_offset - preface_count()
+	end
+end
+
+pub fn state_matched_count(state: ConnectionPrefaceState) -> Int
+	match state
+		MatchingConnectionPreface(_, matched) => byte_count_to_int(byte_chunk_count(matched))
+		CompleteConnectionPreface(_) => preface_count()
+	end
+end
+
+pub fn state_matched_prefix(state: ConnectionPrefaceState) -> ByteChunk
+	match state
+		MatchingConnectionPreface(_, matched) => matched
+		CompleteConnectionPreface(_) => byte_chunk([])
+	end
+end
+
+pub fn failure_kind(failure: ConnectionPrefaceFailure) -> String
+	match failure
+		InvalidConnectionPreface(_, _, _, _, _) => "invalid_preface"
+		PartialConnectionPreface(_, _, _) => "partial_preface"
+	end
+end
+
+pub fn failure_offset(failure: ConnectionPrefaceFailure) -> Int
+	match failure
+		InvalidConnectionPreface(offset, _, _, _, _) => offset
+		PartialConnectionPreface(starting_offset, _, _) => starting_offset
+	end
+end
+
+pub fn failure_expected_octet(failure: ConnectionPrefaceFailure) -> Int
+	match failure
+		InvalidConnectionPreface(_, expected, _, _, _) => expected
+		PartialConnectionPreface(_, _, _) => 0
+	end
+end
+
+pub fn failure_actual_octet(failure: ConnectionPrefaceFailure) -> Int
+	match failure
+		InvalidConnectionPreface(_, _, actual, _, _) => actual
+		PartialConnectionPreface(_, _, _) => 0
+	end
+end
+
+pub fn failure_matched_count(failure: ConnectionPrefaceFailure) -> Int
+	match failure
+		InvalidConnectionPreface(_, _, _, matched_count, _) => matched_count
+		PartialConnectionPreface(_, pending_count, _) => pending_count
+	end
+end
+
+pub fn failure_pending_count(failure: ConnectionPrefaceFailure) -> Int
+	match failure
+		InvalidConnectionPreface(_, _, _, _, _) => 0
+		PartialConnectionPreface(_, pending_count, _) => pending_count
+	end
+end
+
+pub fn failure_preview(failure: ConnectionPrefaceFailure) -> ByteChunk
+	match failure
+		InvalidConnectionPreface(_, _, _, _, preview) => preview
+		PartialConnectionPreface(_, _, preview) => preview
+	end
+end

@@ -29,6 +29,28 @@ The JVM adapter keeps its intrinsic link names private; source code calls only
 the module-qualified API. Diagnostic ids, human rendering, and
 `details.protocol_diagnostic` projections remain stable.
 
+`http2::core::empty_connection_preface(starting_offset)` creates immutable
+state for the 24-octet client connection preface.
+`accept_connection_preface(state, input)` accepts a complete preface in one
+chunk or retains its matched prefix across arbitrary chunk boundaries. A
+successful transition reports completion and exposes every trailing input
+octet through `connection_preface_suffix(...)` for the later initial-SETTINGS
+transition.
+
+A mismatch failure reports its absolute offset, expected and actual octets,
+matched count, and preview input. `close_connection_preface(state)` reports a
+distinct partial-preface failure with the original starting offset, pending
+count, and preview. Failures expose neither a next state nor a consumable
+suffix, and the input state remains unchanged. The adjacent
+[`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
+complete, byte-by-byte, unevenly chunked, trailing-input, first, middle, and
+final mismatch, partial-close, and immutable failure-state behavior. The
+focused `http2-protocol-core-preface-{invalid,partial}-{human,json}` cases
+obtain these public failures and project them through `http2::diagnostic`;
+the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case retains initial-SETTINGS integration and its complete stdout assertion.
+
 `http2::core::empty_pending_header_block()` constructs idle continuation
 state. `start_header_block(...)` accepts an already validated HEADERS or
 PUSH_PROMISE fragment. END_HEADERS completes the block immediately; otherwise
