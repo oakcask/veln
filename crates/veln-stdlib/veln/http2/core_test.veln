@@ -1,5 +1,6 @@
 use prelude
 use http2::core
+use http2::core::settings_ack
 
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
@@ -69,6 +70,10 @@ fn payload_length_rejects(kind: Int, flags: Int, length: Int, expected: Int, act
 	end
 end
 
+fn fail_settings_ack_header(length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ByteChunk, String>
+	Err("injected SETTINGS ACK header failure")
+end
+
 fn initial_settings_accepts(state: InitialPeerSettingsGateState) -> Result<Bool, String>
 	let preview: ByteChunk = byte_chunk_from_hex("000000040000000000")?
 	Ok(match http2::core::accept_initial_peer_settings(state, 24, 4, 0, 0, preview)
@@ -113,9 +118,10 @@ end
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
-	match http2::core::stream_id_value(client) == 1 and http2::core::stream_id_value(server) == 2
-		true => Ok(())
-		false => Err("HTTP/2 stream domains did not retain validated values")
+	if http2::core::stream_id_value(client) == 1 and http2::core::stream_id_value(server) == 2
+		Ok(())
+	else
+		Err("HTTP/2 stream domains did not retain validated values")
 	end
 end
 
@@ -592,5 +598,17 @@ test settings_ack_peer_ack_send_emits_exact_bytes_and_clears_only_pending() -> R
 		Ok(())
 	else
 		Err("peer SETTINGS ACK send did not emit exact bytes or preserve local state")
+	end
+end
+
+test settings_ack_peer_ack_encode_failure_preserves_state_reason_and_output() -> Result<(), String>
+	let outstanding: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 3, 1)
+	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(outstanding, 4, 0, 6)
+	let decision: PeerSettingsAckSendDecision = http2::core::settings_ack::send_pending_peer_ack_with_encoder(pending, fail_settings_ack_header)
+	let next: SettingsAckState = http2::core::pending_settings_ack_send_state(decision)
+	if http2::core::pending_settings_ack_send_status(decision) == "encode_error" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(decision))) == 0 and http2::core::pending_settings_ack_encode_reason(decision) == "injected SETTINGS ACK header failure" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(next)) == 3 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(next)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(next)) == "active" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(pending)) == 3 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(pending)) == "active"
+		Ok(())
+	else
+		Err("peer SETTINGS ACK encode failure changed state, reason, or output")
 	end
 end

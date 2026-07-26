@@ -99,8 +99,8 @@ case imports `http2::core` from `std` and records the public request, ACK,
 no-response, representative failure projections, and emitted bytes.
 The adjacent test also checks SETTINGS ACK FIFO acknowledgement, unexpected ACK
 failure context, independent local and peer ACK state, peer ACK coalescing,
-no-pending behavior, exact emitted bytes, and failure/input preservation. The
-focused
+no-pending behavior, exact emitted bytes, encode-failure output preservation,
+and failure/input preservation. The focused
 [`http2-core-settings-ack-state`](../../examples/specification/run/http2-core-settings-ack-state/)
 case imports `http2::core` from `std` and records public success, no-pending,
 representative failure, FIFO, coalescing, and exact-byte projections.

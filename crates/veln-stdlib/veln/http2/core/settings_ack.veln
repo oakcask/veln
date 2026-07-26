@@ -83,9 +83,13 @@ pub fn is_settings_ack_frame(kind: Int, flags: Int) -> Bool
 end
 
 pub fn send_pending_peer_ack(state: SettingsAckState) -> PeerSettingsAckSendDecision
+	send_pending_peer_ack_with_encoder(state, http2::frame::encode_header)
+end
+
+pub fn send_pending_peer_ack_with_encoder(state: SettingsAckState, encode_header: fn(Int, Int, Int, Int) -> Result<ByteChunk, String>) -> PeerSettingsAckSendDecision
 	match state
 		SettingsAckState(_, NoPendingPeerSettingsAck) => PeerSettingsAckNoPending(state)
-		SettingsAckState(outstanding_settings, PendingPeerSettingsAck) => match http2::frame::encode_header(0, 4, 1, 0)
+		SettingsAckState(outstanding_settings, PendingPeerSettingsAck) => match encode_header(0, 4, 1, 0)
 			Ok(header) => PeerSettingsAckSent(SettingsAckState(outstanding_settings, NoPendingPeerSettingsAck), header)
 			Err(reason) => PeerSettingsAckEncodeFailed(state, reason)
 		end
