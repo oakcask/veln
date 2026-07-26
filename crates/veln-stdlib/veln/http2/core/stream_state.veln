@@ -1,0 +1,227 @@
+use prelude
+use http2::core::flow_control
+
+pub type CoreStreamLifecycle
+	CoreStreamOpen
+	CoreStreamHalfClosedLocal
+	CoreStreamHalfClosedRemote
+	CoreStreamClosed
+	CoreStreamReset(error_code: Int)
+end
+
+pub type CoreStreamEntry
+	CoreStreamEntry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit: CoreStreamWindowCredit, send_credit: CoreStreamWindowCredit, content_length_expected: Int, content_length_observed: Int)
+end
+
+pub type CoreStreamCollection
+	CoreStreamCollection(streams: List<CoreStreamEntry>)
+end
+
+pub fn empty() -> CoreStreamCollection
+	CoreStreamCollection(Nil)
+end
+
+pub fn entry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit_value: Int, send_credit_value: Int, content_length_expected: Int, content_length_observed: Int) -> Result<CoreStreamEntry, FlowControlDomainFailure>
+	let receive_credit: CoreStreamWindowCredit = http2::core::flow_control::stream_window_credit(receive_credit_value)?
+	let send_credit: CoreStreamWindowCredit = http2::core::flow_control::stream_window_credit(send_credit_value)?
+	Ok(CoreStreamEntry(stream_id, lifecycle, receive_credit, send_credit, content_length_expected, content_length_observed))
+end
+
+pub fn open_lifecycle() -> CoreStreamLifecycle
+	CoreStreamOpen
+end
+
+pub fn half_closed_local_lifecycle() -> CoreStreamLifecycle
+	CoreStreamHalfClosedLocal
+end
+
+pub fn half_closed_remote_lifecycle() -> CoreStreamLifecycle
+	CoreStreamHalfClosedRemote
+end
+
+pub fn closed_lifecycle() -> CoreStreamLifecycle
+	CoreStreamClosed
+end
+
+pub fn reset_lifecycle(error_code: Int) -> CoreStreamLifecycle
+	CoreStreamReset(error_code)
+end
+
+pub fn add_or_replace(collection: CoreStreamCollection, entry: CoreStreamEntry) -> CoreStreamCollection
+	match collection
+		CoreStreamCollection(streams) => CoreStreamCollection(Cons(entry, remove_stream(entry_stream_id(entry), streams)))
+	end
+end
+
+pub fn with_lifecycle(collection: CoreStreamCollection, stream_id: Int, lifecycle: CoreStreamLifecycle) -> CoreStreamCollection
+	match find_entry(collection, stream_id)
+		Some(found) => add_or_replace(collection, entry_with_lifecycle(found, lifecycle))
+		None => collection
+	end
+end
+
+pub fn with_receive_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	match find_entry(collection, stream_id)
+		Some(found) => add_or_replace(collection, entry_with_receive_credit(found, credit))
+		None => collection
+	end
+end
+
+pub fn with_send_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	match find_entry(collection, stream_id)
+		Some(found) => add_or_replace(collection, entry_with_send_credit(found, credit))
+		None => collection
+	end
+end
+
+pub fn with_content_length(collection: CoreStreamCollection, stream_id: Int, expected: Int, observed: Int) -> CoreStreamCollection
+	match find_entry(collection, stream_id)
+		Some(found) => add_or_replace(collection, entry_with_content_length(found, expected, observed))
+		None => collection
+	end
+end
+
+pub fn find_entry(collection: CoreStreamCollection, stream_id: Int) -> Option<CoreStreamEntry>
+	match collection
+		CoreStreamCollection(streams) => find_entry_in(streams, stream_id)
+	end
+end
+
+pub fn has_stream(collection: CoreStreamCollection, stream_id: Int) -> Bool
+	match find_entry(collection, stream_id)
+		Some(_) => true
+		None => false
+	end
+end
+
+pub fn count(collection: CoreStreamCollection) -> Int
+	match collection
+		CoreStreamCollection(streams) => list_fold(streams, 0, count_entry)
+	end
+end
+
+pub fn active_count(collection: CoreStreamCollection) -> Int
+	match collection
+		CoreStreamCollection(streams) => active_count_in(streams, 0)
+	end
+end
+
+pub fn entry_stream_id(entry_value: CoreStreamEntry) -> Int
+	match entry_value
+		CoreStreamEntry(stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn entry_lifecycle(entry_value: CoreStreamEntry) -> CoreStreamLifecycle
+	match entry_value
+		CoreStreamEntry(_, lifecycle, _, _, _, _) => lifecycle
+	end
+end
+
+pub fn entry_receive_credit(entry_value: CoreStreamEntry) -> CoreStreamWindowCredit
+	match entry_value
+		CoreStreamEntry(_, _, receive_credit, _, _, _) => receive_credit
+	end
+end
+
+pub fn entry_send_credit(entry_value: CoreStreamEntry) -> CoreStreamWindowCredit
+	match entry_value
+		CoreStreamEntry(_, _, _, send_credit, _, _) => send_credit
+	end
+end
+
+pub fn entry_content_length_expected(entry_value: CoreStreamEntry) -> Int
+	match entry_value
+		CoreStreamEntry(_, _, _, _, expected, _) => expected
+	end
+end
+
+pub fn entry_content_length_observed(entry_value: CoreStreamEntry) -> Int
+	match entry_value
+		CoreStreamEntry(_, _, _, _, _, observed) => observed
+	end
+end
+
+pub fn lifecycle_label(lifecycle: CoreStreamLifecycle) -> String
+	match lifecycle
+		CoreStreamOpen => "open"
+		CoreStreamHalfClosedLocal => "half-closed-local"
+		CoreStreamHalfClosedRemote => "half-closed-remote"
+		CoreStreamClosed => "closed"
+		CoreStreamReset(_) => "reset"
+	end
+end
+
+pub fn lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
+	match lifecycle
+		CoreStreamReset(error_code) => error_code
+		_ => 0
+	end
+end
+
+fn entry_with_lifecycle(entry_value: CoreStreamEntry, lifecycle: CoreStreamLifecycle) -> CoreStreamEntry
+	match entry_value
+		CoreStreamEntry(stream_id, _, receive_credit, send_credit, expected, observed) => CoreStreamEntry(stream_id, lifecycle, receive_credit, send_credit, expected, observed)
+	end
+end
+
+fn entry_with_receive_credit(entry_value: CoreStreamEntry, credit: CoreStreamWindowCredit) -> CoreStreamEntry
+	match entry_value
+		CoreStreamEntry(stream_id, lifecycle, _, send_credit, expected, observed) => CoreStreamEntry(stream_id, lifecycle, credit, send_credit, expected, observed)
+	end
+end
+
+fn entry_with_send_credit(entry_value: CoreStreamEntry, credit: CoreStreamWindowCredit) -> CoreStreamEntry
+	match entry_value
+		CoreStreamEntry(stream_id, lifecycle, receive_credit, _, expected, observed) => CoreStreamEntry(stream_id, lifecycle, receive_credit, credit, expected, observed)
+	end
+end
+
+fn entry_with_content_length(entry_value: CoreStreamEntry, expected: Int, observed: Int) -> CoreStreamEntry
+	match entry_value
+		CoreStreamEntry(stream_id, lifecycle, receive_credit, send_credit, _, _) => CoreStreamEntry(stream_id, lifecycle, receive_credit, send_credit, expected, observed)
+	end
+end
+
+fn remove_stream(stream_id: Int, streams: List<CoreStreamEntry>) -> List<CoreStreamEntry>
+	match streams
+		Nil => Nil
+		Cons(head, tail) => if entry_stream_id(head) == stream_id
+			remove_stream(stream_id, tail)
+		else
+			Cons(head, remove_stream(stream_id, tail))
+		end
+	end
+end
+
+fn find_entry_in(streams: List<CoreStreamEntry>, stream_id: Int) -> Option<CoreStreamEntry>
+	match streams
+		Nil => None
+		Cons(head, tail) => if entry_stream_id(head) == stream_id
+			Some(head)
+		else
+			find_entry_in(tail, stream_id)
+		end
+	end
+end
+
+fn count_entry(acc: Int, entry_value: CoreStreamEntry) -> Int
+	acc + 1
+end
+
+fn active_count_in(streams: List<CoreStreamEntry>, acc: Int) -> Int
+	match streams
+		Nil => acc
+		Cons(head, tail) => active_count_in(tail, acc + active_value(entry_lifecycle(head)))
+	end
+end
+
+fn active_value(lifecycle: CoreStreamLifecycle) -> Int
+	match lifecycle
+		CoreStreamOpen => 1
+		CoreStreamHalfClosedLocal => 1
+		CoreStreamHalfClosedRemote => 1
+		CoreStreamClosed => 0
+		CoreStreamReset(_) => 0
+	end
+end

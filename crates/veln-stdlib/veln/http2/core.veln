@@ -13,6 +13,7 @@ use http2::core::peer_settings
 use http2::core::peer_settings_state
 use http2::core::peer_stream_admission
 use http2::core::flow_control
+use http2::core::stream_state
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -75,6 +76,12 @@ pub type CorePeerStreamAdmissionState = http2::core::peer_stream_admission::Core
 pub type CorePeerStreamAdmissionDecision = http2::core::peer_stream_admission::CorePeerStreamAdmissionDecision
 
 pub type CorePeerStreamAdmissionFailure = http2::core::peer_stream_admission::CorePeerStreamAdmissionFailure
+
+pub type CoreStreamCollection = http2::core::stream_state::CoreStreamCollection
+
+pub type CoreStreamEntry = http2::core::stream_state::CoreStreamEntry
+
+pub type CoreStreamLifecycle = http2::core::stream_state::CoreStreamLifecycle
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -144,6 +151,10 @@ pub fn connection_state_peer_stream_admission(state: CoreConnectionState) -> Cor
 	http2::core::connection_state::peer_stream_admission(state)
 end
 
+pub fn connection_state_streams(state: CoreConnectionState) -> CoreStreamCollection
+	http2::core::connection_state::streams(state)
+end
+
 pub fn connection_state_receive_credit(state: CoreConnectionState) -> CoreConnectionWindowCredit
 	http2::core::connection_state::connection_receive_credit(state)
 end
@@ -206,6 +217,10 @@ end
 
 pub fn connection_state_with_peer_stream_admission(state: CoreConnectionState, peer_stream_admission: CorePeerStreamAdmissionState) -> CoreConnectionState
 	http2::core::connection_state::with_peer_stream_admission(state, peer_stream_admission)
+end
+
+pub fn connection_state_with_streams(state: CoreConnectionState, streams: CoreStreamCollection) -> CoreConnectionState
+	http2::core::connection_state::with_streams(state, streams)
 end
 
 pub fn connection_state_with_receive_credit(state: CoreConnectionState, credit: CoreConnectionWindowCredit) -> CoreConnectionState
@@ -351,6 +366,102 @@ end
 
 pub fn peer_stream_admission_failure_preview(failure: CorePeerStreamAdmissionFailure) -> ByteChunk
 	http2::core::peer_stream_admission::admission_failure_preview(failure)
+end
+
+pub fn empty_stream_collection() -> CoreStreamCollection
+	http2::core::stream_state::empty()
+end
+
+pub fn stream_entry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit: Int, send_credit: Int, content_length_expected: Int, content_length_observed: Int) -> Result<CoreStreamEntry, FlowControlDomainFailure>
+	http2::core::stream_state::entry(stream_id, lifecycle, receive_credit, send_credit, content_length_expected, content_length_observed)
+end
+
+pub fn stream_open_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::open_lifecycle()
+end
+
+pub fn stream_half_closed_local_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::half_closed_local_lifecycle()
+end
+
+pub fn stream_half_closed_remote_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::half_closed_remote_lifecycle()
+end
+
+pub fn stream_closed_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::closed_lifecycle()
+end
+
+pub fn stream_reset_lifecycle(error_code: Int) -> CoreStreamLifecycle
+	http2::core::stream_state::reset_lifecycle(error_code)
+end
+
+pub fn stream_collection_add_or_replace(collection: CoreStreamCollection, entry: CoreStreamEntry) -> CoreStreamCollection
+	http2::core::stream_state::add_or_replace(collection, entry)
+end
+
+pub fn stream_collection_with_lifecycle(collection: CoreStreamCollection, stream_id: Int, lifecycle: CoreStreamLifecycle) -> CoreStreamCollection
+	http2::core::stream_state::with_lifecycle(collection, stream_id, lifecycle)
+end
+
+pub fn stream_collection_with_receive_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	http2::core::stream_state::with_receive_credit(collection, stream_id, credit)
+end
+
+pub fn stream_collection_with_send_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	http2::core::stream_state::with_send_credit(collection, stream_id, credit)
+end
+
+pub fn stream_collection_with_content_length(collection: CoreStreamCollection, stream_id: Int, expected: Int, observed: Int) -> CoreStreamCollection
+	http2::core::stream_state::with_content_length(collection, stream_id, expected, observed)
+end
+
+pub fn stream_collection_find(collection: CoreStreamCollection, stream_id: Int) -> Option<CoreStreamEntry>
+	http2::core::stream_state::find_entry(collection, stream_id)
+end
+
+pub fn stream_collection_has_stream(collection: CoreStreamCollection, stream_id: Int) -> Bool
+	http2::core::stream_state::has_stream(collection, stream_id)
+end
+
+pub fn stream_collection_count(collection: CoreStreamCollection) -> Int
+	http2::core::stream_state::count(collection)
+end
+
+pub fn stream_collection_active_count(collection: CoreStreamCollection) -> Int
+	http2::core::stream_state::active_count(collection)
+end
+
+pub fn stream_entry_stream_id(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_stream_id(entry)
+end
+
+pub fn stream_entry_lifecycle(entry: CoreStreamEntry) -> CoreStreamLifecycle
+	http2::core::stream_state::entry_lifecycle(entry)
+end
+
+pub fn stream_entry_receive_credit(entry: CoreStreamEntry) -> CoreStreamWindowCredit
+	http2::core::stream_state::entry_receive_credit(entry)
+end
+
+pub fn stream_entry_send_credit(entry: CoreStreamEntry) -> CoreStreamWindowCredit
+	http2::core::stream_state::entry_send_credit(entry)
+end
+
+pub fn stream_entry_content_length_expected(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_content_length_expected(entry)
+end
+
+pub fn stream_entry_content_length_observed(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_content_length_observed(entry)
+end
+
+pub fn stream_lifecycle_label(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_label(lifecycle)
+end
+
+pub fn stream_lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
+	http2::core::stream_state::lifecycle_error_code(lifecycle)
 end
 
 pub fn max_flow_control_value() -> Int

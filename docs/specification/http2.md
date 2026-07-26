@@ -28,7 +28,8 @@ The public routes are:
   acknowledgement state, peer-created stream admission high-water tracking,
   pure flow-control numeric domains, pure PING request and ACK response
   transitions, and an immutable aggregate connection state that composes those
-  migrated components with the public HPACK dynamic table.
+  migrated components with the public HPACK dynamic table and an immutable
+  stream collection.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -86,17 +87,30 @@ connection state for the endpoint role. The state starts with the matching
 connection-preface offset, role-specific initial peer SETTINGS gate, idle
 pending header-block state, an empty production HPACK dynamic table with
 capacity `4096`, peer SETTINGS protocol defaults, empty SETTINGS ACK state,
-empty peer stream admission state, connection receive credit `65535`, empty
-local SETTINGS policy, and an open lifecycle.
+empty peer stream admission state, empty stream collection, connection receive
+credit `65535`, empty local SETTINGS policy, and an open lifecycle.
 
 Projection functions expose each component without mutating the aggregate.
 `connection_state_with_*` functions return new aggregate states for individual
 component replacement, including next offset, preface, initial peer SETTINGS
 gate, pending header block, HPACK table, peer SETTINGS state, SETTINGS ACK
-state, peer stream admission state, connection receive credit, local SETTINGS
-policy, and lifecycle. The lifecycle projection distinguishes `open`,
-`draining`, and `closed` with last-stream-id and error-code fields for GOAWAY
-integration.
+state, peer stream admission state, stream collection, connection receive
+credit, local SETTINGS policy, and lifecycle. The lifecycle projection
+distinguishes `open`, `draining`, and `closed` with last-stream-id and
+error-code fields for GOAWAY integration.
+
+`http2::core::empty_stream_collection()` creates immutable standard-owned
+stream state with no entries. `stream_entry(...)` validates receive and send
+stream-window credits through the public flow-control domains, then records a
+stream id, lifecycle, receive credit, send credit, and content-length expected
+and observed counters. Collection updates add or replace one stream id,
+leaving earlier collection values unchanged; focused update helpers replace
+lifecycle, receive credit, send credit, or content-length accounting only for
+an existing stream. Projections expose stream count, active stream count,
+lookup, stream ids, lifecycle labels and reset error codes, receive and send
+credits, and content-length counters. The collection is state ownership for
+later receive and send transitions; it does not by itself perform frame
+dispatch, header validation, flow-control debits, or lifecycle admission.
 
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
@@ -246,11 +260,12 @@ and immutable input state. The focused
 case imports `http2::core` from `std` and records public state, decision, and
 failure projections.
 The adjacent test also checks aggregate connection state defaults for server
-and client roles and immutable component replacement. The focused
+and client roles, empty stream collection defaults, immutable component
+replacement, and stream collection replacement. The focused
 [`http2-core-connection-state`](../../examples/specification/run/http2-core-connection-state/)
 case imports `http2::core` from `std` and records public aggregate state,
-HPACK table, SETTINGS ACK, peer stream admission, flow-control credit, and
-lifecycle projections.
+HPACK table, SETTINGS ACK, peer stream admission, stream collection,
+flow-control credit, and lifecycle projections.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

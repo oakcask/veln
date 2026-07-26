@@ -268,9 +268,23 @@ fn require_peer_stream_admission_failure(decision: CorePeerStreamAdmissionDecisi
 	http2::core::peer_stream_admission_decision_failure(decision)
 end
 
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_found_stream(entry: Option<CoreStreamEntry>) -> Result<CoreStreamEntry, String>
+	match entry
+		Some(found) => Ok(found)
+		None => Err("expected HTTP/2 core stream entry")
+	end
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
-	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
+	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
 		Ok(())
 	else
 		Err("HTTP/2 server connection state did not compose the expected default core components")
@@ -292,10 +306,12 @@ test connection_state_updates_are_immutable() -> Result<(), String>
 	let next_peer_settings: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state), 9)
 	let next_ack: SettingsAckState = http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(state), 5, 1)
 	let next_admission: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(9, http2::core::connection_state_peer_stream_admission(state))
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 65535, 32768, 5, 2))?
+	let next_streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream)
 	let next_credit: CoreConnectionWindowCredit = require_connection_credit(42)?
 	let next_policy: LocalSettingsPolicy = http2::core::local_settings_policy_with_enable_push(http2::core::connection_state_local_settings_policy(state), 0, 12)
-	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_local_settings_policy(http2::core::connection_state_with_receive_credit(http2::core::connection_state_with_peer_stream_admission(http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_peer_settings(http2::core::connection_state_with_hpack_table(http2::core::connection_state_with_next_offset(state, 31), hpack_table), next_peer_settings), next_ack), next_admission), next_credit), next_policy), http2::core::connection_lifecycle_draining(9, 0))
-	if http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 0 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open" and http2::core::connection_state_next_offset(updated) == 31 and http2::core::connection_state_hpack_table_entry_count(updated) == 1 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(updated)) == 9 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(updated))) == 5 and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(updated)) == 9 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(updated)) == 42 and http2::core::local_settings_policy_enable_push_value(http2::core::connection_state_local_settings_policy(updated)) == 0 and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(updated)) == "draining" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(updated)) == 9
+	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_local_settings_policy(http2::core::connection_state_with_receive_credit(http2::core::connection_state_with_streams(http2::core::connection_state_with_peer_stream_admission(http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_peer_settings(http2::core::connection_state_with_hpack_table(http2::core::connection_state_with_next_offset(state, 31), hpack_table), next_peer_settings), next_ack), next_admission), next_streams), next_credit), next_policy), http2::core::connection_lifecycle_draining(9, 0))
+	if http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 0 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open" and http2::core::connection_state_next_offset(updated) == 31 and http2::core::connection_state_hpack_table_entry_count(updated) == 1 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(updated)) == 9 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(updated))) == 5 and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(updated)) == 9 and http2::core::stream_collection_count(http2::core::connection_state_streams(updated)) == 1 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(updated), 9))?)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(updated), 9))?)) == 32768 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(updated)) == 42 and http2::core::local_settings_policy_enable_push_value(http2::core::connection_state_local_settings_policy(updated)) == 0 and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(updated)) == "draining" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(updated)) == 9
 		Ok(())
 	else
 		Err("HTTP/2 connection state update changed input state or lost a component projection")
@@ -312,6 +328,39 @@ test connection_state_replaces_protocol_gates_and_closed_lifecycle_immutably() -
 		Ok(())
 	else
 		Err("HTTP/2 connection state did not immutably replace protocol gates or closed lifecycle")
+	end
+end
+
+test stream_collection_adds_replaces_and_finds_stream_entries_immutably() -> Result<(), String>
+	let empty: CoreStreamCollection = http2::core::empty_stream_collection()
+	let first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 10, 0))?
+	let second: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_half_closed_remote_lifecycle(), 42, 7, 0 - 1, 0))?
+	let replaced_first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_closed_lifecycle(), 0, 65535, 10, 10))?
+	let with_first: CoreStreamCollection = http2::core::stream_collection_add_or_replace(empty, first)
+	let with_two: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_first, second)
+	let replaced: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_two, replaced_first)
+	let found_first: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(replaced, 1))?
+	let found_second: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(replaced, 3))?
+	if http2::core::stream_collection_count(empty) == 0 and http2::core::stream_collection_count(with_first) == 1 and http2::core::stream_collection_count(with_two) == 2 and http2::core::stream_collection_count(replaced) == 2 and http2::core::stream_collection_has_stream(replaced, 1) and http2::core::stream_collection_has_stream(replaced, 3) and not http2::core::stream_collection_has_stream(replaced, 5) and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(found_first)) == "closed" and http2::core::stream_entry_content_length_observed(found_first) == 10 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(found_second)) == "half-closed-remote" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found_second)) == 42 and http2::core::stream_collection_active_count(replaced) == 1 and http2::core::stream_collection_count(with_two) == 2 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(require_found_stream(http2::core::stream_collection_find(with_two, 1))?)) == "open"
+		Ok(())
+	else
+		Err("HTTP/2 stream collection did not immutably add, replace, or find entries")
+	end
+end
+
+test stream_collection_updates_lifecycle_credit_and_content_length_immutably() -> Result<(), String>
+	let base_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
+	let base: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), base_entry)
+	let recv_credit: CoreStreamWindowCredit = require_stream_credit(33)?
+	let send_credit: CoreStreamWindowCredit = require_stream_credit(44)?
+	let updated: CoreStreamCollection = http2::core::stream_collection_with_content_length(http2::core::stream_collection_with_send_credit(http2::core::stream_collection_with_receive_credit(http2::core::stream_collection_with_lifecycle(base, 5, http2::core::stream_reset_lifecycle(8)), 5, recv_credit), 5, send_credit), 5, 12, 12)
+	let missing_update: CoreStreamCollection = http2::core::stream_collection_with_lifecycle(base, 7, http2::core::stream_closed_lifecycle())
+	let base_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(base, 5))?
+	let updated_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(updated, 5))?
+	if http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(base_found)) == "open" and http2::core::stream_entry_content_length_observed(base_found) == 3 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(updated_found)) == "reset" and http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(updated_found)) == 8 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(updated_found)) == 33 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(updated_found)) == 44 and http2::core::stream_entry_content_length_expected(updated_found) == 12 and http2::core::stream_entry_content_length_observed(updated_found) == 12 and http2::core::stream_collection_active_count(updated) == 0 and http2::core::stream_collection_count(missing_update) == 1 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(require_found_stream(http2::core::stream_collection_find(missing_update, 5))?)) == "open"
+		Ok(())
+	else
+		Err("HTTP/2 stream collection update changed input state or lost stream data")
 	end
 end
 

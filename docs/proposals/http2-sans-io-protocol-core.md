@@ -156,7 +156,7 @@ output.
 | peer SETTINGS item validation assertions for supported values, unknown identifiers, duplicates, role rules, failure context, and invalid initial SETTINGS value precedence | the public core facade owns pure complete-payload validation for supported peer SETTINGS identifiers; unknown items are ignored; known duplicates are inspected in wire order; value-range and endpoint-role failures expose exact absolute item offsets, six-octet previews, stable diagnostic ids, metadata, and provenance without applying partial state | `peer_settings_validation_accepts_every_supported_setting_boundary`, `peer_settings_validation_rejects_supported_out_of_range_values`, `peer_settings_validation_ignores_unknown_items_and_preserves_wire_order`, `peer_settings_validation_rejects_endpoint_role_rules`, `peer_settings_validation_failure_preserves_input_and_exact_context`, `http2-protocol-core-settings-value-human`, `http2-protocol-core-settings-value-json`, `http2-protocol-core-settings-enable-push-role-human`, `http2-protocol-core-settings-enable-push-role-json`, and retained integration assertions in `http2-protocol-core` | pure supported-setting, boundary, unknown-item, duplicate ordering, first-failure, diagnostic-input, endpoint-role, and immutable-input coverage moved to `core_test.veln`; focused human and JSON cases obtain public typed failures through `http2::core`; the monolithic case calls the public validator while retaining SETTINGS state application, frame decode, ACK scheduling, receive-limit updates, initial-gate precedence, complete stdout, and wider integration |
 | peer SETTINGS state projection assertions for defaults, known item application, duplicate settings, unknown settings, partial items, and peer-created stream high-water | immutable peer advertised SETTINGS state exposes protocol defaults separately from absent advertised values, applies complete validated payload items in wire order, keeps the last duplicate value active, ignores unknown identifiers, preserves state for partial payloads, records absolute item offsets, and updates peer-created stream high-water through an explicit state transition | `peer_settings_state_starts_with_protocol_defaults`, `peer_settings_state_applies_known_items_and_ignores_unknown_items`, `peer_settings_state_uses_last_duplicate_value`, `peer_settings_state_preserves_enable_push_and_connect_offsets_independently`, `peer_settings_state_preserves_state_for_partial_payloads`, `peer_settings_state_records_peer_created_stream_high_water`, `http2-core-peer-settings-state`, and retained integration assertions in `http2-protocol-core` | pure defaults, known-item state, duplicate last-value behavior, unknown-item preservation, independent enable-push and connect-protocol offset preservation, partial-payload state preservation, offset projection, and high-water immutability moved to `core_test.veln`; focused external-package result projections moved to `http2-core-peer-settings-state`; the monolithic case still retains frame decode, ACK scheduling, receive-limit updates, initial-gate precedence, complete stdout, and wider integration |
 | peer-created stream admission monotonicity, ignored trailers, known stream reuse, failure context, and failure-state preservation assertions | immutable peer stream admission state starts empty, records only new non-trailer HEADERS streams, ignores already tracked streams and non-HEADERS frames, accepts empty and higher stream ids without advancing the input state, records high-water stream ids monotonically, rejects non-increasing stream ids with exact previous high-water, endpoint role, active state, rule provenance, and preview, and exposes no next state on failure | `peer_stream_admission_records_only_new_non_trailer_headers`, `peer_stream_admission_record_stream_id_is_monotonic`, `peer_stream_admission_acceptance_keeps_caller_owned_high_water`, `peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state`, `http2-core-peer-stream-admission`, and retained `http2-protocol-core` stream lifecycle, complete stdout, and output-chunk integration | pure high-water, trailer, known-stream, monotonic recording, empty acceptance, higher-id acceptance, failure-data, preview, and immutable-input coverage moved to `core_test.veln`; focused external-package result projections moved to `http2-core-peer-stream-admission`; the monolithic case still owns actual receive-flow-control stream collections, reset and closed-stream integration, diagnostic projection, complete stdout, and wider transition ordering |
-| aggregate connection state defaults and component replacement | standard-owned immutable aggregate connection state composes endpoint role, next offset, connection preface, initial peer SETTINGS gate, pending header block, production HPACK dynamic table, peer SETTINGS state, SETTINGS ACK state, peer stream admission, connection receive credit, local SETTINGS policy, and lifecycle; component replacement returns a new aggregate without mutating the input state | `connection_state_starts_with_composed_server_defaults`, `connection_state_starts_with_client_role`, `connection_state_updates_are_immutable`, `connection_state_replaces_protocol_gates_and_closed_lifecycle_immutably`, `http2-core-connection-state`, and retained `http2-protocol-core` receive/send transition integration | pure aggregate defaults, role-specific initialization, production HPACK table ownership, lifecycle projection, protocol-gate replacement, active pending-header replacement, closed lifecycle projection, and immutable component replacement moved to `core_test.veln`; focused external-package projections moved to `http2-core-connection-state`; the monolithic case still owns stream collections, HPACK-carrying receive transitions, outbound transitions, complete stdout, and output-chunk integration |
+| aggregate connection state defaults, stream collection ownership, and component replacement | standard-owned immutable aggregate connection state composes endpoint role, next offset, connection preface, initial peer SETTINGS gate, pending header block, production HPACK dynamic table, peer SETTINGS state, SETTINGS ACK state, peer stream admission, empty stream collection, connection receive credit, local SETTINGS policy, and lifecycle; component replacement returns a new aggregate without mutating the input state | `connection_state_starts_with_composed_server_defaults`, `connection_state_starts_with_client_role`, `connection_state_updates_are_immutable`, `connection_state_replaces_protocol_gates_and_closed_lifecycle_immutably`, `stream_collection_adds_replaces_and_finds_stream_entries_immutably`, `stream_collection_updates_lifecycle_credit_and_content_length_immutably`, `http2-core-connection-state`, and retained `http2-protocol-core` receive/send transition integration | pure aggregate defaults, role-specific initialization, production HPACK table ownership, stream collection state ownership, stream lifecycle label and reset projection, receive and send credit projection, content-length counter projection, lifecycle projection, protocol-gate replacement, active pending-header replacement, closed lifecycle projection, and immutable component replacement moved to `core_test.veln`; focused external-package projections moved to `http2-core-connection-state`; the monolithic case still owns HPACK-carrying receive transitions, header validation, per-frame flow-control debit/refill transitions, outbound transitions, complete stdout, and output-chunk integration |
 | flow-control numeric domain helper assertions | connection window credit, stream window credit, configured initial window size, and `WINDOW_UPDATE` increment domains expose their role-specific bounds through the public core facade; debit and refill helpers return immutable next-credit decisions or exact domain failures without changing input credit or increment values | `flow_control_domains_accept_boundaries`, `flow_control_domains_reject_out_of_range_values`, `flow_control_debit_and_refill_are_immutable`, `flow_control_failures_preserve_input_credit`, `http2-core-flow-control-domains` | pure domain construction, boundary rejection, negative stream credit, debit, refill, overflow failure data, and input preservation moved to `core_test.veln`; focused external-package result projections moved to `http2-core-flow-control-domains`; monolithic DATA, peer `SETTINGS_INITIAL_WINDOW_SIZE`, received and outbound `WINDOW_UPDATE`, complete stdout, and diagnostic integration remain while the wider state machine is migrated |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
@@ -258,6 +258,53 @@ deletable only when all of the following are true:
   residuals; and
 - `../specification/http2.md` describes the resulting implemented API and
   routes to its executable evidence.
+
+## Current Completion Review
+
+The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
+
+### Newly Promoted Stream-Collection Slice
+
+- `std::http2::core` now has a standard-owned immutable stream collection and
+  stream-entry lifecycle state. The collection records stream ids, lifecycle
+  labels including reset error codes, receive and send stream-window credits,
+  and content-length expected and observed counters. Add, replace, lookup, and
+  focused update helpers preserve the caller's input collection.
+- `CoreConnectionState` now composes the stream collection as part of the
+  aggregate standard-owned state. The adjacent `core_test.veln` checks empty
+  aggregate defaults, immutable aggregate replacement, stream add/replace,
+  lookup, active counts, credit replacement, lifecycle replacement, and
+  content-length replacement. The focused `http2-core-connection-state` case
+  records the public stream-count and active-stream-count projections from an
+  ordinary external package.
+- This slice is state ownership only. It does not yet move frame dispatch,
+  header validation, DATA/WINDOW_UPDATE credit transitions, outbound send
+  transitions, or GOAWAY drain decisions out of the monolithic case.
+
+### Remaining Deletion-Gate Blockers
+
+- `examples/specification/run/http2-protocol-core/` still contains
+  `main.veln`, `hpack_fixture.veln`, `hpack_static.veln`,
+  `hpack_dynamic_core.veln`, and `case.toml`. The monolithic source still owns
+  HPACK-carrying receive transitions, frame dispatch, header and
+  content-length validation, per-frame receive and send flow-control
+  transitions, outbound transitions, graceful shutdown integration, complete
+  stdout, and output-chunk integration.
+- Fixture HPACK state and compatibility routes remain in the aggregate case;
+  completed header blocks still need to be converted to the public typed
+  `std::http2::hpack` codec boundary before the fixture can be removed.
+- The checked migration matrix is not empty, and the aggregate exact stdout
+  and output-chunk assertions remain deletion blockers until every line and
+  chunk table has focused replacement coverage.
+
+### Required Continuation
+
+Continue from the new public stream collection by moving stream lifecycle
+admission, DATA and WINDOW_UPDATE credit application, header/content-length
+state transitions, outbound send transitions, and GOAWAY drain behavior behind
+`std::http2::core`. Keep each transition immutable and preserve failure-state
+atomicity across the connection, stream collection, HPACK table, pending
+continuation, flow-control credits, and output bytes.
 
 When the gate is met, remove `main.veln`, `stream_domain.veln`,
 `hpack_fixture.veln`, `hpack_static.veln`, `hpack_dynamic_core.veln`, and the
