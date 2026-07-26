@@ -31,6 +31,26 @@ fn require_transition(result: Result<HeaderBlockTransition, HeaderBlockFailure>)
 	end
 end
 
+fn require_preface_transition(result: Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>) -> Result<ConnectionPrefaceTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::core::connection_preface_failure_kind(failure))
+	end
+end
+
+fn accept_preface_byte_by_byte(state: ConnectionPrefaceState, input: ByteChunk, index: Int, count: Int) -> Result<ConnectionPrefaceTransition, String>
+	let remaining: ByteChunk = byte_drop(input, byte_count(index)?)?
+	let octet: ByteChunk = byte_take(remaining, byte_count(1)?)?
+	let transition: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(state, octet))?
+	if index + 1 == count
+		Ok(transition)
+	else if http2::core::connection_preface_is_complete(transition)
+		Err("connection preface completed before the final octet")
+	else
+		accept_preface_byte_by_byte(http2::core::connection_preface_state(transition), input, index + 1, count)
+	end
+end
+
 fn active_headers(fragment: ByteChunk) -> PendingHeaderBlock
 	http2::core::header_block_state(http2::core::start_header_block(1, 1, 17, 1, true, 0, fragment, false))
 end
@@ -51,6 +71,94 @@ test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
 			Ok(_) => Err("odd stream id entered the server stream domain")
 			Err(_) => Ok(())
 		end
+	end
+end
+
+test connection_preface_accepts_complete_input_and_preserves_trailing_bytes() -> Result<(), String>
+	let input: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0aaabbcc")?
+	let transition: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(0), input))?
+	let state: ConnectionPrefaceState = http2::core::connection_preface_state(transition)
+	if http2::core::connection_preface_is_complete(transition) and http2::core::connection_preface_state_is_complete(state) and http2::core::connection_preface_starting_offset(state) == 0 and http2::core::connection_preface_matched_count(state) == 24 and chunks_equal(http2::core::connection_preface_suffix(transition), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("complete connection preface did not preserve its trailing input")
+	end
+end
+
+test connection_preface_accepts_byte_by_byte_input() -> Result<(), String>
+	let input: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")?
+	let transition: ConnectionPrefaceTransition = accept_preface_byte_by_byte(http2::core::empty_connection_preface(17), input, 0, 24)?
+	if http2::core::connection_preface_is_complete(transition) and http2::core::connection_preface_starting_offset(http2::core::connection_preface_state(transition)) == 17 and byte_count_to_int(byte_chunk_count(http2::core::connection_preface_suffix(transition))) == 0
+		Ok(())
+	else
+		Err("byte-by-byte connection preface did not complete at the final octet")
+	end
+end
+
+test connection_preface_accepts_uneven_chunks_and_retains_matched_prefix() -> Result<(), String>
+	let first: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(9), byte_chunk_from_hex("505249202a")?))?
+	let first_state: ConnectionPrefaceState = http2::core::connection_preface_state(first)
+	let second: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(first_state, byte_chunk_from_hex("20485454502f32")?))?
+	let second_state: ConnectionPrefaceState = http2::core::connection_preface_state(second)
+	let done: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(second_state, byte_chunk_from_hex("2e300d0a0d0a534d0d0a0d0a")?))?
+	if not http2::core::connection_preface_is_complete(first) and http2::core::connection_preface_matched_count(first_state) == 5 and chunks_equal(http2::core::connection_preface_matched_prefix(first_state), byte_chunk_from_hex("505249202a")?)? and not http2::core::connection_preface_is_complete(second) and http2::core::connection_preface_matched_count(second_state) == 12 and http2::core::connection_preface_is_complete(done)
+		Ok(())
+	else
+		Err("uneven connection-preface chunks lost their matched prefix")
+	end
+end
+
+test connection_preface_reports_first_middle_and_final_mismatches() -> Result<(), String>
+	let first: Bool = match http2::core::accept_connection_preface(http2::core::empty_connection_preface(100), byte_chunk_from_hex("00")?)
+		Ok(_) => false
+		Err(failure) => http2::core::connection_preface_failure_kind(failure) == "invalid_preface" and http2::core::connection_preface_failure_offset(failure) == 100 and http2::core::connection_preface_failure_expected_octet(failure) == 80 and http2::core::connection_preface_failure_actual_octet(failure) == 0 and http2::core::connection_preface_failure_matched_count(failure) == 0
+	end
+	let middle: Bool = match http2::core::accept_connection_preface(http2::core::empty_connection_preface(100), byte_chunk_from_hex("505249202a20485454502f322f")?)
+		Ok(_) => false
+		Err(failure) => http2::core::connection_preface_failure_offset(failure) == 112 and http2::core::connection_preface_failure_expected_octet(failure) == 46 and http2::core::connection_preface_failure_actual_octet(failure) == 47 and http2::core::connection_preface_failure_matched_count(failure) == 12
+	end
+	let prefix: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(100), byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d")?))?
+	let final: Bool = match http2::core::accept_connection_preface(http2::core::connection_preface_state(prefix), byte_chunk_from_hex("00")?)
+		Ok(_) => false
+		Err(failure) => http2::core::connection_preface_failure_offset(failure) == 123 and http2::core::connection_preface_failure_expected_octet(failure) == 10 and http2::core::connection_preface_failure_actual_octet(failure) == 0 and http2::core::connection_preface_failure_matched_count(failure) == 23
+	end
+	if first and middle and final
+		Ok(())
+	else
+		Err("connection-preface mismatch coordinates were not exact")
+	end
+end
+
+test connection_preface_close_reports_partial_input() -> Result<(), String>
+	let partial: ByteChunk = byte_chunk_from_hex("505249202a20485454502f32")?
+	let transition: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(40), partial))?
+	match http2::core::close_connection_preface(http2::core::connection_preface_state(transition))
+		Ok(_) => Err("partial connection preface accepted end of input")
+		Err(failure) => if http2::core::connection_preface_failure_kind(failure) == "partial_preface" and http2::core::connection_preface_failure_offset(failure) == 40 and http2::core::connection_preface_failure_pending_count(failure) == 12 and chunks_equal(http2::core::connection_preface_failure_preview(failure), partial)?
+			Ok(())
+		else
+			Err("partial connection-preface failure lost its starting offset, count, or preview")
+		end
+	end
+end
+
+test connection_preface_failures_preserve_immutable_input_state() -> Result<(), String>
+	let prefix: ByteChunk = byte_chunk_from_hex("505249202a20")?
+	let transition: ConnectionPrefaceTransition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(7), prefix))?
+	let state: ConnectionPrefaceState = http2::core::connection_preface_state(transition)
+	let mismatch_preview: ByteChunk = byte_chunk_from_hex("505249202a2000")?
+	let mismatch: Bool = match http2::core::accept_connection_preface(state, byte_chunk_from_hex("00")?)
+		Ok(_) => false
+		Err(failure) => chunks_equal(http2::core::connection_preface_failure_preview(failure), mismatch_preview)?
+	end
+	let closed: Bool = match http2::core::close_connection_preface(state)
+		Ok(_) => false
+		Err(failure) => chunks_equal(http2::core::connection_preface_failure_preview(failure), prefix)?
+	end
+	if mismatch and closed and http2::core::connection_preface_starting_offset(state) == 7 and http2::core::connection_preface_matched_count(state) == 6 and chunks_equal(http2::core::connection_preface_matched_prefix(state), prefix)?
+		Ok(())
+	else
+		Err("connection-preface failure changed its input state or diagnostic input")
 	end
 end
 

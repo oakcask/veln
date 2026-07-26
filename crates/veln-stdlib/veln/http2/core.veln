@@ -1,5 +1,12 @@
 use prelude
+use http2::core::connection_preface
 use http2::core::pending_header_block
+
+pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
+
+pub type ConnectionPrefaceTransition = http2::core::connection_preface::ConnectionPrefaceTransition
+
+pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionPrefaceFailure
 
 pub type PendingHeaderBlock = http2::core::pending_header_block::PendingHeaderBlock
 
@@ -72,6 +79,74 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn empty_connection_preface(starting_offset: Int) -> ConnectionPrefaceState
+	http2::core::connection_preface::empty(starting_offset)
+end
+
+pub fn accept_connection_preface(state: ConnectionPrefaceState, input: ByteChunk) -> Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>
+	http2::core::connection_preface::advance(state, input)
+end
+
+pub fn close_connection_preface(state: ConnectionPrefaceState) -> Result<ConnectionPrefaceState, ConnectionPrefaceFailure>
+	http2::core::connection_preface::close(state)
+end
+
+pub fn connection_preface_state(transition: ConnectionPrefaceTransition) -> ConnectionPrefaceState
+	http2::core::connection_preface::transition_state(transition)
+end
+
+pub fn connection_preface_is_complete(transition: ConnectionPrefaceTransition) -> Bool
+	http2::core::connection_preface::transition_completed(transition)
+end
+
+pub fn connection_preface_suffix(transition: ConnectionPrefaceTransition) -> ByteChunk
+	http2::core::connection_preface::transition_suffix(transition)
+end
+
+pub fn connection_preface_state_is_complete(state: ConnectionPrefaceState) -> Bool
+	http2::core::connection_preface::state_completed(state)
+end
+
+pub fn connection_preface_starting_offset(state: ConnectionPrefaceState) -> Int
+	http2::core::connection_preface::state_starting_offset(state)
+end
+
+pub fn connection_preface_matched_count(state: ConnectionPrefaceState) -> Int
+	http2::core::connection_preface::state_matched_count(state)
+end
+
+pub fn connection_preface_matched_prefix(state: ConnectionPrefaceState) -> ByteChunk
+	http2::core::connection_preface::state_matched_prefix(state)
+end
+
+pub fn connection_preface_failure_kind(failure: ConnectionPrefaceFailure) -> String
+	http2::core::connection_preface::failure_kind(failure)
+end
+
+pub fn connection_preface_failure_offset(failure: ConnectionPrefaceFailure) -> Int
+	http2::core::connection_preface::failure_offset(failure)
+end
+
+pub fn connection_preface_failure_expected_octet(failure: ConnectionPrefaceFailure) -> Int
+	http2::core::connection_preface::failure_expected_octet(failure)
+end
+
+pub fn connection_preface_failure_actual_octet(failure: ConnectionPrefaceFailure) -> Int
+	http2::core::connection_preface::failure_actual_octet(failure)
+end
+
+pub fn connection_preface_failure_matched_count(failure: ConnectionPrefaceFailure) -> Int
+	http2::core::connection_preface::failure_matched_count(failure)
+end
+
+pub fn connection_preface_failure_pending_count(failure: ConnectionPrefaceFailure) -> Int
+	http2::core::connection_preface::failure_pending_count(failure)
+end
+
+pub fn connection_preface_failure_preview(failure: ConnectionPrefaceFailure) -> ByteChunk
+	http2::core::connection_preface::failure_preview(failure)
 end
 
 pub fn empty_pending_header_block() -> PendingHeaderBlock
