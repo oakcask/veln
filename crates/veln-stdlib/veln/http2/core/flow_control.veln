@@ -1,0 +1,171 @@
+use prelude
+
+pub type CoreConnectionWindowCredit
+	Http2CoreConnectionWindowCredit(Int)
+end
+
+pub type CoreStreamWindowCredit
+	Http2CoreStreamWindowCredit(Int)
+end
+
+pub type CoreInitialWindowSize
+	Http2CoreInitialWindowSize(Int)
+end
+
+pub type CoreWindowUpdateIncrement
+	Http2CoreWindowUpdateIncrement(Int)
+end
+
+pub type FlowControlDomainFailure
+	FlowControlDomainOutOfRange(String, Int, Int, Int)
+end
+
+pub type FlowControlCreditDecision
+	FlowControlCreditAccepted(value: Int)
+	FlowControlCreditRejected(failure: FlowControlDomainFailure)
+end
+
+pub fn max_value() -> Int
+	2147483647
+end
+
+pub fn min_stream_window_credit() -> Int
+	0 - max_value()
+end
+
+pub fn connection_window_credit(value: Int) -> Result<CoreConnectionWindowCredit, FlowControlDomainFailure>
+	if value < 0
+		Err(FlowControlDomainOutOfRange("connection_window_credit", value, 0, max_value()))
+	else if value > max_value()
+		Err(FlowControlDomainOutOfRange("connection_window_credit", value, 0, max_value()))
+	else
+		Ok(Http2CoreConnectionWindowCredit(value))
+	end
+end
+
+pub fn stream_window_credit(value: Int) -> Result<CoreStreamWindowCredit, FlowControlDomainFailure>
+	if value < min_stream_window_credit()
+		Err(FlowControlDomainOutOfRange("stream_window_credit", value, min_stream_window_credit(), max_value()))
+	else if value > max_value()
+		Err(FlowControlDomainOutOfRange("stream_window_credit", value, min_stream_window_credit(), max_value()))
+	else
+		Ok(Http2CoreStreamWindowCredit(value))
+	end
+end
+
+pub fn initial_window_size(value: Int) -> Result<CoreInitialWindowSize, FlowControlDomainFailure>
+	if value < 0
+		Err(FlowControlDomainOutOfRange("initial_window_size", value, 0, max_value()))
+	else if value > max_value()
+		Err(FlowControlDomainOutOfRange("initial_window_size", value, 0, max_value()))
+	else
+		Ok(Http2CoreInitialWindowSize(value))
+	end
+end
+
+pub fn window_update_increment(value: Int) -> Result<CoreWindowUpdateIncrement, FlowControlDomainFailure>
+	if value < 1
+		Err(FlowControlDomainOutOfRange("window_update_increment", value, 1, max_value()))
+	else if value > max_value()
+		Err(FlowControlDomainOutOfRange("window_update_increment", value, 1, max_value()))
+	else
+		Ok(Http2CoreWindowUpdateIncrement(value))
+	end
+end
+
+pub fn connection_window_credit_value(credit: CoreConnectionWindowCredit) -> Int
+	match credit
+		Http2CoreConnectionWindowCredit(value) => value
+	end
+end
+
+pub fn stream_window_credit_value(credit: CoreStreamWindowCredit) -> Int
+	match credit
+		Http2CoreStreamWindowCredit(value) => value
+	end
+end
+
+pub fn initial_window_size_value(size: CoreInitialWindowSize) -> Int
+	match size
+		Http2CoreInitialWindowSize(value) => value
+	end
+end
+
+pub fn window_update_increment_value(increment: CoreWindowUpdateIncrement) -> Int
+	match increment
+		Http2CoreWindowUpdateIncrement(value) => value
+	end
+end
+
+pub fn debit_connection_window(credit: CoreConnectionWindowCredit, length: Int) -> FlowControlCreditDecision
+	match connection_window_credit(connection_window_credit_value(credit) - length)
+		Ok(next) => FlowControlCreditAccepted(connection_window_credit_value(next))
+		Err(failure) => FlowControlCreditRejected(failure)
+	end
+end
+
+pub fn debit_stream_window(credit: CoreStreamWindowCredit, length: Int) -> FlowControlCreditDecision
+	match stream_window_credit(stream_window_credit_value(credit) - length)
+		Ok(next) => FlowControlCreditAccepted(stream_window_credit_value(next))
+		Err(failure) => FlowControlCreditRejected(failure)
+	end
+end
+
+pub fn refill_connection_window(credit: CoreConnectionWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	match connection_window_credit(connection_window_credit_value(credit) + window_update_increment_value(increment))
+		Ok(next) => FlowControlCreditAccepted(connection_window_credit_value(next))
+		Err(failure) => FlowControlCreditRejected(failure)
+	end
+end
+
+pub fn refill_stream_window(credit: CoreStreamWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	match stream_window_credit(stream_window_credit_value(credit) + window_update_increment_value(increment))
+		Ok(next) => FlowControlCreditAccepted(stream_window_credit_value(next))
+		Err(failure) => FlowControlCreditRejected(failure)
+	end
+end
+
+pub fn credit_decision_status(decision: FlowControlCreditDecision) -> String
+	match decision
+		FlowControlCreditAccepted(_) => "accepted"
+		FlowControlCreditRejected(_) => "rejected"
+	end
+end
+
+pub fn credit_decision_value(decision: FlowControlCreditDecision) -> Int
+	match decision
+		FlowControlCreditAccepted(value) => value
+		FlowControlCreditRejected(_) => 0
+	end
+end
+
+pub fn credit_decision_failure(decision: FlowControlCreditDecision) -> Result<FlowControlDomainFailure, String>
+	match decision
+		FlowControlCreditAccepted(_) => Err("accepted flow-control credit decision has no failure")
+		FlowControlCreditRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_domain(failure: FlowControlDomainFailure) -> String
+	match failure
+		FlowControlDomainOutOfRange(domain, _, _, _) => domain
+	end
+end
+
+pub fn failure_observed_value(failure: FlowControlDomainFailure) -> Int
+	match failure
+		FlowControlDomainOutOfRange(_, observed_value, _, _) => observed_value
+	end
+end
+
+pub fn failure_accepted_min_value(failure: FlowControlDomainFailure) -> Int
+	match failure
+		FlowControlDomainOutOfRange(_, _, accepted_min_value, _) => accepted_min_value
+	end
+end
+
+pub fn failure_accepted_max_value(failure: FlowControlDomainFailure) -> Int
+	match failure
+		FlowControlDomainOutOfRange(_, _, _, accepted_max_value) => accepted_max_value
+	end
+end

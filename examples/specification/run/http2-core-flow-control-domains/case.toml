@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "bounds max 2147483647 min_stream -2147483647\nconnection-debit decision accepted value 6\nstream-refill decision accepted value 3\nconnection-overdebit decision rejected value 0\nconnection-overdebit failure connection_window_credit observed -1 min 0 max 2147483647\nconnection-negative failure connection_window_credit observed -1 min 0 max 2147483647\nincrement-zero failure window_update_increment observed 0 min 1 max 2147483647\ninputs connection 10 stream -5 increment 8\n"
+
+[[json_assert]]
+path = "error"
+equals = null

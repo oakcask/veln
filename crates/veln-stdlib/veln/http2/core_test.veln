@@ -186,6 +186,83 @@ fn stream_id_rejects(result: Result<StreamId, String>) -> Bool
 	end
 end
 
+fn connection_credit_accepts(value: Int) -> Bool
+	match http2::core::connection_window_credit(value)
+		Ok(credit) => http2::core::connection_window_credit_value(credit) == value
+		Err(_) => false
+	end
+end
+
+fn stream_credit_accepts(value: Int) -> Bool
+	match http2::core::stream_window_credit(value)
+		Ok(credit) => http2::core::stream_window_credit_value(credit) == value
+		Err(_) => false
+	end
+end
+
+fn initial_window_accepts(value: Int) -> Bool
+	match http2::core::initial_window_size(value)
+		Ok(size) => http2::core::initial_window_size_value(size) == value
+		Err(_) => false
+	end
+end
+
+fn window_update_increment_accepts(value: Int) -> Bool
+	match http2::core::window_update_increment(value)
+		Ok(increment) => http2::core::window_update_increment_value(increment) == value
+		Err(_) => false
+	end
+end
+
+fn flow_control_rejects(result: Result<CoreConnectionWindowCredit, FlowControlDomainFailure>, expected_domain: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Bool
+	match result
+		Ok(_) => false
+		Err(failure) => http2::core::flow_control_failure_domain(failure) == expected_domain and http2::core::flow_control_failure_observed_value(failure) == expected_observed and http2::core::flow_control_failure_accepted_min_value(failure) == expected_min and http2::core::flow_control_failure_accepted_max_value(failure) == expected_max
+	end
+end
+
+fn flow_control_stream_rejects(result: Result<CoreStreamWindowCredit, FlowControlDomainFailure>, expected_domain: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Bool
+	match result
+		Ok(_) => false
+		Err(failure) => http2::core::flow_control_failure_domain(failure) == expected_domain and http2::core::flow_control_failure_observed_value(failure) == expected_observed and http2::core::flow_control_failure_accepted_min_value(failure) == expected_min and http2::core::flow_control_failure_accepted_max_value(failure) == expected_max
+	end
+end
+
+fn flow_control_initial_rejects(result: Result<CoreInitialWindowSize, FlowControlDomainFailure>, expected_domain: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Bool
+	match result
+		Ok(_) => false
+		Err(failure) => http2::core::flow_control_failure_domain(failure) == expected_domain and http2::core::flow_control_failure_observed_value(failure) == expected_observed and http2::core::flow_control_failure_accepted_min_value(failure) == expected_min and http2::core::flow_control_failure_accepted_max_value(failure) == expected_max
+	end
+end
+
+fn flow_control_increment_rejects(result: Result<CoreWindowUpdateIncrement, FlowControlDomainFailure>, expected_domain: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Bool
+	match result
+		Ok(_) => false
+		Err(failure) => http2::core::flow_control_failure_domain(failure) == expected_domain and http2::core::flow_control_failure_observed_value(failure) == expected_observed and http2::core::flow_control_failure_accepted_min_value(failure) == expected_min and http2::core::flow_control_failure_accepted_max_value(failure) == expected_max
+	end
+end
+
+fn require_connection_credit(value: Int) -> Result<CoreConnectionWindowCredit, String>
+	match http2::core::connection_window_credit(value)
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_stream_credit(value: Int) -> Result<CoreStreamWindowCredit, String>
+	match http2::core::stream_window_credit(value)
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_window_update_increment(value: Int) -> Result<CoreWindowUpdateIncrement, String>
+	match http2::core::window_update_increment(value)
+		Ok(increment) => Ok(increment)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -214,6 +291,52 @@ test stream_domains_accept_lower_bounds_and_reject_invalid_boundaries() -> Resul
 		Ok(())
 	else
 		Err("HTTP/2 stream id domains did not preserve lower-bound, upper-bound, zero, and parity invariants")
+	end
+end
+
+test flow_control_domains_accept_boundaries() -> Result<(), String>
+	if connection_credit_accepts(0) and connection_credit_accepts(2147483647) and stream_credit_accepts(0 - 2147483647) and stream_credit_accepts(0) and stream_credit_accepts(2147483647) and initial_window_accepts(0) and initial_window_accepts(2147483647) and window_update_increment_accepts(1) and window_update_increment_accepts(2147483647)
+		Ok(())
+	else
+		Err("HTTP/2 flow-control domains rejected accepted boundary values")
+	end
+end
+
+test flow_control_domains_reject_out_of_range_values() -> Result<(), String>
+	if flow_control_rejects(http2::core::connection_window_credit(0 - 1), "connection_window_credit", 0 - 1, 0, 2147483647) and flow_control_rejects(http2::core::connection_window_credit(2147483648), "connection_window_credit", 2147483648, 0, 2147483647) and flow_control_stream_rejects(http2::core::stream_window_credit(0 - 2147483648), "stream_window_credit", 0 - 2147483648, 0 - 2147483647, 2147483647) and flow_control_stream_rejects(http2::core::stream_window_credit(2147483648), "stream_window_credit", 2147483648, 0 - 2147483647, 2147483647) and flow_control_initial_rejects(http2::core::initial_window_size(0 - 1), "initial_window_size", 0 - 1, 0, 2147483647) and flow_control_initial_rejects(http2::core::initial_window_size(2147483648), "initial_window_size", 2147483648, 0, 2147483647) and flow_control_increment_rejects(http2::core::window_update_increment(0), "window_update_increment", 0, 1, 2147483647) and flow_control_increment_rejects(http2::core::window_update_increment(2147483648), "window_update_increment", 2147483648, 1, 2147483647)
+		Ok(())
+	else
+		Err("HTTP/2 flow-control domains accepted an out-of-range value")
+	end
+end
+
+test flow_control_debit_and_refill_are_immutable() -> Result<(), String>
+	let connection: CoreConnectionWindowCredit = require_connection_credit(10)?
+	let stream: CoreStreamWindowCredit = require_stream_credit(0 - 5)?
+	let increment: CoreWindowUpdateIncrement = require_window_update_increment(8)?
+	let debited_connection: FlowControlCreditDecision = http2::core::debit_connection_window(connection, 4)
+	let debited_stream: FlowControlCreditDecision = http2::core::debit_stream_window(stream, 2)
+	let refilled_connection: FlowControlCreditDecision = http2::core::refill_connection_window(connection, increment)
+	let refilled_stream: FlowControlCreditDecision = http2::core::refill_stream_window(stream, increment)
+	if http2::core::flow_control_credit_decision_status(debited_connection) == "accepted" and http2::core::flow_control_credit_decision_value(debited_connection) == 6 and http2::core::flow_control_credit_decision_status(debited_stream) == "accepted" and http2::core::flow_control_credit_decision_value(debited_stream) == 0 - 7 and http2::core::flow_control_credit_decision_status(refilled_connection) == "accepted" and http2::core::flow_control_credit_decision_value(refilled_connection) == 18 and http2::core::flow_control_credit_decision_status(refilled_stream) == "accepted" and http2::core::flow_control_credit_decision_value(refilled_stream) == 3 and http2::core::connection_window_credit_value(connection) == 10 and http2::core::stream_window_credit_value(stream) == 0 - 5 and http2::core::window_update_increment_value(increment) == 8
+		Ok(())
+	else
+		Err("HTTP/2 flow-control debit or refill did not preserve immutable inputs")
+	end
+end
+
+test flow_control_failures_preserve_input_credit() -> Result<(), String>
+	let connection: CoreConnectionWindowCredit = require_connection_credit(3)?
+	let stream: CoreStreamWindowCredit = require_stream_credit(2147483646)?
+	let increment: CoreWindowUpdateIncrement = require_window_update_increment(2)?
+	let debited: FlowControlCreditDecision = http2::core::debit_connection_window(connection, 4)
+	let refilled: FlowControlCreditDecision = http2::core::refill_stream_window(stream, increment)
+	let debit_failure: FlowControlDomainFailure = http2::core::flow_control_credit_decision_failure(debited)?
+	let refill_failure: FlowControlDomainFailure = http2::core::flow_control_credit_decision_failure(refilled)?
+	if http2::core::flow_control_failure_domain(debit_failure) == "connection_window_credit" and http2::core::flow_control_failure_observed_value(debit_failure) == 0 - 1 and http2::core::flow_control_failure_domain(refill_failure) == "stream_window_credit" and http2::core::flow_control_failure_observed_value(refill_failure) == 2147483648 and http2::core::connection_window_credit_value(connection) == 3 and http2::core::stream_window_credit_value(stream) == 2147483646
+		Ok(())
+	else
+		Err("HTTP/2 flow-control failure changed input credit or lost diagnostic data")
 	end
 end
 

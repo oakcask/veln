@@ -7,6 +7,7 @@ use http2::core::pending_header_block
 use http2::core::settings_ack
 use http2::core::local_settings
 use http2::core::peer_settings
+use http2::core::flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -55,6 +56,18 @@ pub type LocalSettingsFailure = http2::core::local_settings::LocalSettingsFailur
 pub type PeerSettingsValidation = http2::core::peer_settings::PeerSettingsValidation
 
 pub type PeerSettingsFailure = http2::core::peer_settings::PeerSettingsFailure
+
+pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
+
+pub type CoreStreamWindowCredit = http2::core::flow_control::CoreStreamWindowCredit
+
+pub type CoreInitialWindowSize = http2::core::flow_control::CoreInitialWindowSize
+
+pub type CoreWindowUpdateIncrement = http2::core::flow_control::CoreWindowUpdateIncrement
+
+pub type FlowControlDomainFailure = http2::core::flow_control::FlowControlDomainFailure
+
+pub type FlowControlCreditDecision = http2::core::flow_control::FlowControlCreditDecision
 
 pub type LocalSettingsSendDecision
 	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
@@ -127,6 +140,90 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn max_flow_control_value() -> Int
+	http2::core::flow_control::max_value()
+end
+
+pub fn min_stream_window_credit() -> Int
+	http2::core::flow_control::min_stream_window_credit()
+end
+
+pub fn connection_window_credit(value: Int) -> Result<CoreConnectionWindowCredit, FlowControlDomainFailure>
+	http2::core::flow_control::connection_window_credit(value)
+end
+
+pub fn stream_window_credit(value: Int) -> Result<CoreStreamWindowCredit, FlowControlDomainFailure>
+	http2::core::flow_control::stream_window_credit(value)
+end
+
+pub fn initial_window_size(value: Int) -> Result<CoreInitialWindowSize, FlowControlDomainFailure>
+	http2::core::flow_control::initial_window_size(value)
+end
+
+pub fn window_update_increment(value: Int) -> Result<CoreWindowUpdateIncrement, FlowControlDomainFailure>
+	http2::core::flow_control::window_update_increment(value)
+end
+
+pub fn connection_window_credit_value(credit: CoreConnectionWindowCredit) -> Int
+	http2::core::flow_control::connection_window_credit_value(credit)
+end
+
+pub fn stream_window_credit_value(credit: CoreStreamWindowCredit) -> Int
+	http2::core::flow_control::stream_window_credit_value(credit)
+end
+
+pub fn initial_window_size_value(size: CoreInitialWindowSize) -> Int
+	http2::core::flow_control::initial_window_size_value(size)
+end
+
+pub fn window_update_increment_value(increment: CoreWindowUpdateIncrement) -> Int
+	http2::core::flow_control::window_update_increment_value(increment)
+end
+
+pub fn debit_connection_window(credit: CoreConnectionWindowCredit, length: Int) -> FlowControlCreditDecision
+	http2::core::flow_control::debit_connection_window(credit, length)
+end
+
+pub fn debit_stream_window(credit: CoreStreamWindowCredit, length: Int) -> FlowControlCreditDecision
+	http2::core::flow_control::debit_stream_window(credit, length)
+end
+
+pub fn refill_connection_window(credit: CoreConnectionWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	http2::core::flow_control::refill_connection_window(credit, increment)
+end
+
+pub fn refill_stream_window(credit: CoreStreamWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	http2::core::flow_control::refill_stream_window(credit, increment)
+end
+
+pub fn flow_control_credit_decision_status(decision: FlowControlCreditDecision) -> String
+	http2::core::flow_control::credit_decision_status(decision)
+end
+
+pub fn flow_control_credit_decision_value(decision: FlowControlCreditDecision) -> Int
+	http2::core::flow_control::credit_decision_value(decision)
+end
+
+pub fn flow_control_credit_decision_failure(decision: FlowControlCreditDecision) -> Result<FlowControlDomainFailure, String>
+	http2::core::flow_control::credit_decision_failure(decision)
+end
+
+pub fn flow_control_failure_domain(failure: FlowControlDomainFailure) -> String
+	http2::core::flow_control::failure_domain(failure)
+end
+
+pub fn flow_control_failure_observed_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_observed_value(failure)
+end
+
+pub fn flow_control_failure_accepted_min_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_accepted_min_value(failure)
+end
+
+pub fn flow_control_failure_accepted_max_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_accepted_max_value(failure)
 end
 
 pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>

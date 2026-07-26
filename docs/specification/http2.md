@@ -24,14 +24,28 @@ The public routes are:
   connection-preface and initial-peer-SETTINGS transitions, pure frame
   payload-length validation, immutable pending header-block sequencing,
   immutable local SETTINGS send transitions, pure peer SETTINGS item
-  validation, immutable SETTINGS acknowledgement state, and pure PING request
-  and ACK response transitions.
+  validation, immutable SETTINGS acknowledgement state, pure flow-control
+  numeric domains, and pure PING request and ACK response transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
 The JVM adapter keeps its intrinsic link names private; source code calls only
 the module-qualified API. Diagnostic ids, human rendering, and
 `details.protocol_diagnostic` projections remain stable.
+
+`http2::core` exposes flow-control domain types for connection window credit,
+stream window credit, configured initial window size, and received
+`WINDOW_UPDATE` increments. Connection credit and configured initial window
+sizes accept `0..2147483647`; stream credit accepts `-2147483647..2147483647`
+so peer initial-window reductions can be represented before later refill; and
+`WINDOW_UPDATE` increments accept `1..2147483647`. Out-of-range construction
+returns a `FlowControlDomainFailure` with the domain label, observed value, and
+accepted bounds.
+
+`debit_connection_window(...)`, `debit_stream_window(...)`,
+`refill_connection_window(...)`, and `refill_stream_window(...)` return
+accepted next-credit decisions or the same typed domain failure without
+changing the caller's input credit or increment value.
 
 `http2::core::validate_frame_payload_length(...)` performs pure inbound frame
 shape validation. The caller supplies the active-state label associated with
@@ -132,6 +146,12 @@ payload-length human and JSON cases project the active-state label and the
 failure's stored preview through
 `http2::diagnostic`; the aggregate protocol-core case retains wider decode
 ordering and complete-stdout integration.
+The same adjacent test checks flow-control domain boundaries, immutable debit
+and refill transitions, negative stream-credit preservation, overflow
+failures, and input preservation. The focused
+[`http2-core-flow-control-domains`](../../examples/specification/run/http2-core-flow-control-domains/)
+case imports `http2::core` from `std` and records public boundary, failure,
+debit, refill, and input-preservation projections.
 The same adjacent test checks exact PING request bytes, seven- and nine-octet
 rejection, failure preview and output preservation, exact ACK bytes, payload
 preservation, and received-ACK no-response behavior. The focused
