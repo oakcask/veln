@@ -1,6 +1,7 @@
 use prelude
 use http2::hpack::dynamic_table
 use http2::hpack::header_codec
+use http2::hpack::header_list_decoder
 use http2::hpack::huffman
 use http2::hpack::integer
 use http2::hpack::static_table
@@ -48,6 +49,27 @@ end
 
 pub type LiteralDecodeTransition
 	LiteralDecodeTransition(header: LiteralHeaderField, consumed: Int, table: DynamicTable, representation: Int)
+end
+
+pub type HeaderField
+	HeaderField(name: String, value: ByteChunk)
+end
+
+pub type HeaderList
+	EmptyHeaderList
+	HeaderListField(header: HeaderField, remaining: HeaderList)
+end
+
+pub type HeaderBlockDecodeFailure
+	UnsupportedHeaderRepresentation(first_octet: Int)
+	MisplacedTableSizeUpdate
+	HeaderBlockIndexedFailure(failure: IndexedDecodeFailure)
+	HeaderBlockLiteralFailure(failure: LiteralDecodeFailure)
+	HeaderBlockTableSizeUpdateFailure(failure: TableSizeUpdateFailure)
+end
+
+pub type HeaderBlockDecodeTransition
+	HeaderBlockDecodeTransition(headers: HeaderList, consumed: Int, table: DynamicTable)
 end
 
 pub type TableSizeUpdateFailure
@@ -421,5 +443,122 @@ pub fn literal_decode_failure_available_octets(failure: LiteralDecodeFailure) ->
 		TruncatedLiteralRawName(_, available) => available
 		TruncatedLiteralRawValue(_, available) => available
 		_ => 0
+	end
+end
+
+fn header_list_fields(fields: List<HeaderCodecField>) -> HeaderList
+	match fields
+		Nil => EmptyHeaderList
+		Cons(field, remaining) => HeaderListField(HeaderField(http2::hpack::header_codec::header_name(field), http2::hpack::header_codec::header_value(field)), header_list_fields(remaining))
+	end
+end
+
+fn header_block_failure(failure: HeaderBlockCodecFailure) -> HeaderBlockDecodeFailure
+	match failure
+		HeaderBlockCodecUnsupportedRepresentation(first_octet) => UnsupportedHeaderRepresentation(first_octet)
+		HeaderBlockCodecMisplacedTableSizeUpdate => MisplacedTableSizeUpdate
+		HeaderBlockCodecIndexedFailure(indexed) => HeaderBlockIndexedFailure(indexed_decode_failure(indexed))
+		HeaderBlockCodecLiteralFailure(literal) => HeaderBlockLiteralFailure(literal_decode_failure(literal))
+		HeaderBlockCodecTableSizeUpdateFailure(update) => HeaderBlockTableSizeUpdateFailure(table_size_update_failure(update))
+		_ => UnsupportedHeaderRepresentation(0)
+	end
+end
+
+fn header_block_transition(transition: HeaderBlockCodecTransition) -> HeaderBlockDecodeTransition
+	HeaderBlockDecodeTransition(header_list_fields(http2::hpack::header_list_decoder::transition_headers(transition)), http2::hpack::header_list_decoder::transition_consumed(transition), http2::hpack::header_list_decoder::transition_table(transition))
+end
+
+pub fn decode_header_block(input: ByteView, table: DynamicTable, peer_maximum: Int) -> Result<HeaderBlockDecodeTransition, HeaderBlockDecodeFailure>
+	match http2::hpack::header_list_decoder::decode(input, table, peer_maximum)
+		Ok(transition) => Ok(header_block_transition(transition))
+		Err(failure) => Err(header_block_failure(failure))
+	end
+end
+
+pub fn header_block_headers(transition: HeaderBlockDecodeTransition) -> HeaderList
+	match transition
+		HeaderBlockDecodeTransition(headers, _, _) => headers
+	end
+end
+
+pub fn header_block_consumed(transition: HeaderBlockDecodeTransition) -> Int
+	match transition
+		HeaderBlockDecodeTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn header_block_table(transition: HeaderBlockDecodeTransition) -> DynamicTable
+	match transition
+		HeaderBlockDecodeTransition(_, _, table) => table
+	end
+end
+
+pub fn header_field_name(header: HeaderField) -> String
+	match header
+		HeaderField(name, _) => name
+	end
+end
+
+pub fn header_field_value(header: HeaderField) -> ByteChunk
+	match header
+		HeaderField(_, value) => value
+	end
+end
+
+pub fn header_list_count(headers: HeaderList) -> Int
+	match headers
+		EmptyHeaderList => 0
+		HeaderListField(_, remaining) => 1 + header_list_count(remaining)
+	end
+end
+
+pub fn header_list_at(headers: HeaderList, index: Int) -> Option<HeaderField>
+	match headers
+		EmptyHeaderList => None
+		HeaderListField(header, remaining) => if index == 0
+			Some(header)
+		else if index < 0
+			None
+		else
+			header_list_at(remaining, index - 1)
+		end
+	end
+end
+
+pub fn header_block_failure_kind(failure: HeaderBlockDecodeFailure) -> String
+	match failure
+		UnsupportedHeaderRepresentation(_) => "unsupported_representation"
+		MisplacedTableSizeUpdate => "misplaced_table_size_update"
+		HeaderBlockIndexedFailure(_) => "indexed_failure"
+		HeaderBlockLiteralFailure(_) => "literal_failure"
+		HeaderBlockTableSizeUpdateFailure(_) => "table_size_update_failure"
+	end
+end
+
+pub fn header_block_failure_first_octet(failure: HeaderBlockDecodeFailure) -> Int
+	match failure
+		UnsupportedHeaderRepresentation(first_octet) => first_octet
+		_ => 0
+	end
+end
+
+pub fn header_block_indexed_failure(failure: HeaderBlockDecodeFailure) -> Option<IndexedDecodeFailure>
+	match failure
+		HeaderBlockIndexedFailure(indexed) => Some(indexed)
+		_ => None
+	end
+end
+
+pub fn header_block_literal_failure(failure: HeaderBlockDecodeFailure) -> Option<LiteralDecodeFailure>
+	match failure
+		HeaderBlockLiteralFailure(literal) => Some(literal)
+		_ => None
+	end
+end
+
+pub fn header_block_table_size_update_failure(failure: HeaderBlockDecodeFailure) -> Option<TableSizeUpdateFailure>
+	match failure
+		HeaderBlockTableSizeUpdateFailure(update) => Some(update)
+		_ => None
 	end
 end

@@ -1,0 +1,46 @@
+use http2::hpack from "std"
+use stdio
+
+fn require_transition(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<HeaderBlockDecodeTransition, String>
+	match http2::hpack::decode_header_block(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table, peer_maximum)
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::header_block_failure_kind(failure))
+	end
+end
+
+fn require_header(headers: HeaderList, index: Int) -> Result<HeaderField, String>
+	match http2::hpack::header_list_at(headers, index)
+		Some(header) => Ok(header)
+		None => Err("expected decoded HPACK header")
+	end
+end
+
+fn failure_kind(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<String, String>
+	match http2::hpack::decode_header_block(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table, peer_maximum)
+		Ok(_) => Err("expected HPACK header-block failure")
+		Err(failure) => Ok(http2::hpack::header_block_failure_kind(failure))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
+	let transition: HeaderBlockDecodeTransition = require_transition(byte_chunk_from_hex("824001780200ffbe04012f")?, table, 256)?
+	let headers: HeaderList = http2::hpack::header_block_headers(transition)
+	stdio::print("decoded ")
+	stdio::print(int_to_string(http2::hpack::header_list_count(headers)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::header_block_consumed(transition)))
+	let header: HeaderField = require_header(headers, 1)?
+	let value: ByteChunk = http2::hpack::header_field_value(header)
+	stdio::print(http2::hpack::header_field_name(header))
+	stdio::print("=")
+	stdio::print(int_to_string(byte_read_u8_be(byte_view(value, byte_offset(0)?, byte_count(1)?)?)?))
+	stdio::print(",")
+	stdio::println(int_to_string(byte_read_u8_be(byte_view(value, byte_offset(1)?, byte_count(1)?)?)?))
+	stdio::print("table ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_table(transition))))
+	stdio::println(failure_kind(byte_chunk_from_hex("8220")?, table, 256)?)
+	stdio::println(failure_kind(byte_chunk_from_hex("04")?, table, 256)?)
+	stdio::println(failure_kind(byte_chunk_from_hex("3f3a")?, table, 64)?)
+	Ok(())
+end
