@@ -154,16 +154,6 @@ type PeerSettingsState
 	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, LocalSentEnablePush, Int)
 end
 
-type OutboundLocalSettingsItem
-	OutboundSettingsHeaderTableSize(Int)
-	OutboundSettingsEnablePush(Int)
-	OutboundSettingsInitialWindowSize(Int)
-	OutboundSettingsMaxConcurrentStreams(Int)
-	OutboundSettingsMaxFrameSize(Int)
-	OutboundSettingsMaxHeaderListSize(Int)
-	OutboundSettingsEnableConnectProtocol(Int)
-end
-
 type Http2ConnectionState
 	ConnectionState(Http2DecodeState, OutstandingLocalSettings, PendingPeerSettingsAck)
 end
@@ -2435,10 +2425,6 @@ fn connection_state(decode_state: Http2DecodeState) -> Http2ConnectionState
 	ConnectionState(decode_state, http2::core::no_outstanding_settings(), http2::core::no_pending_settings_ack())
 end
 
-fn add_outstanding_settings(outstanding_settings: OutstandingLocalSettings, identifier: Int, count: Int) -> OutstandingLocalSettings
-	http2::core::settings_ack_outstanding(http2::core::record_local_settings_batch(http2::core::settings_ack_state(outstanding_settings, http2::core::no_pending_settings_ack()), identifier, count))
-end
-
 fn receive_connection(input: Http2Input, connection: Http2ConnectionState) -> Result<Http2ConnectionStep, String>
 	match connection
 		ConnectionState(decode_state, outstanding_settings, pending_ack) => update_connection_after_receive(receive(input, decode_state)?, outstanding_settings, pending_ack)
@@ -2481,143 +2467,21 @@ fn send_pending_settings_ack_for_parts(decode_state: Http2DecodeState, decision:
 end
 
 fn send_local_max_frame_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_max_frame_size_setting(0, value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_settings_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
+	send_local_setting(http2::core::local_settings_max_frame_size(value), ServerEndpoint, connection)
 end
 
 fn send_local_max_frame_size_and_enable_push_settings(max_frame_size_value: Int, enable_push_value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	let items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsMaxFrameSize(max_frame_size_value), Cons(OutboundSettingsEnablePush(enable_push_value), Nil))
+	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_max_frame_size(max_frame_size_value), Cons(http2::core::local_settings_enable_push(enable_push_value), Nil))
 	send_local_settings_batch(items, connection)
 end
 
-fn send_local_settings_batch(items: List<OutboundLocalSettingsItem>, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+fn send_local_settings_batch(items: List<LocalSettingsItem>, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
 	send_local_settings_batch_for_role(items, ServerEndpoint, connection)
 end
 
-fn send_local_settings_batch_for_role(items: List<OutboundLocalSettingsItem>, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_settings_batch_items_for_role(items, 0, endpoint_role)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_settings_batch_intent(items, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
-end
-
-fn validate_local_settings_batch_items(items: List<OutboundLocalSettingsItem>, item_offset: Int) -> Result<SettingsRangeDecision, String>
-	validate_local_settings_batch_items_for_role(items, item_offset, ServerEndpoint)
-end
-
-fn validate_local_settings_batch_items_for_role(items: List<OutboundLocalSettingsItem>, item_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	match items
-		Nil => Ok(SettingsValueOk)
-		Cons(item, tail) => match validate_local_settings_batch_item_for_role(item, item_offset, endpoint_role)?
-			SettingsValueOk => validate_local_settings_batch_items_for_role(tail, item_offset + 6, endpoint_role)
-			SettingsValueFailed(error) => Ok(SettingsValueFailed(error))
-		end
-	end
-end
-
-fn validate_local_settings_batch_item(item: OutboundLocalSettingsItem, item_offset: Int) -> Result<SettingsRangeDecision, String>
-	validate_local_settings_batch_item_for_role(item, item_offset, ServerEndpoint)
-end
-
-fn validate_local_settings_batch_item_for_role(item: OutboundLocalSettingsItem, item_offset: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
-	match item
-		OutboundSettingsHeaderTableSize(value) => validate_local_u32_setting(item_offset, 1, "SETTINGS_HEADER_TABLE_SIZE", value)
-		OutboundSettingsEnablePush(value) => validate_local_enable_push_setting(item_offset, value)
-		OutboundSettingsInitialWindowSize(value) => validate_local_initial_window_size_setting(item_offset, value)
-		OutboundSettingsMaxConcurrentStreams(value) => validate_local_u32_setting(item_offset, 3, "SETTINGS_MAX_CONCURRENT_STREAMS", value)
-		OutboundSettingsMaxFrameSize(value) => validate_local_max_frame_size_setting(item_offset, value)
-		OutboundSettingsMaxHeaderListSize(value) => validate_local_u32_setting(item_offset, 6, "SETTINGS_MAX_HEADER_LIST_SIZE", value)
-		OutboundSettingsEnableConnectProtocol(value) => match endpoint_role
-			ServerEndpoint => validate_enable_connect_protocol_setting(item_offset, value, empty_byte_preview()?, "local_settings")
-			ClientEndpoint => Ok(SettingsValueFailed(SettingsNotAllowedForEndpoint(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "client", 4, "local-settings", "rfc8441_only_servers_send_settings_enable_connect_protocol", empty_byte_preview()?)))
-		end
-	end
-end
-
-fn encode_local_settings_batch_intent(items: List<OutboundLocalSettingsItem>, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = encode_local_settings_batch_payload(items)?
-	let item_count: Int = local_settings_batch_item_count(items)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6 * item_count, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(local_settings_batch_first_identifier(items), local_settings_batch_first_value(items), ConnectionState(apply_local_settings_batch_to_state(items, 0, decode_state), add_outstanding_settings(outstanding_settings, local_settings_batch_first_identifier(items), item_count), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
-end
-
-fn encode_local_settings_batch_payload(items: List<OutboundLocalSettingsItem>) -> Result<ByteChunk, String>
-	match items
-		Nil => Ok(byte_chunk([]))
-		Cons(item, tail) => Ok(byte_append(encode_local_settings_batch_item(item)?, encode_local_settings_batch_payload(tail)?))
-	end
-end
-
-fn encode_local_settings_batch_item(item: OutboundLocalSettingsItem) -> Result<ByteChunk, String>
-	Ok(byte_append(byte_write_u16_be(local_settings_item_identifier(item))?, byte_write_u32_be(local_settings_item_value(item))?))
-end
-
-fn apply_local_settings_batch_to_state(items: List<OutboundLocalSettingsItem>, item_offset: Int, decode_state: Http2DecodeState) -> Http2DecodeState
-	match items
-		Nil => decode_state
-		Cons(item, tail) => apply_local_settings_batch_to_state(tail, item_offset + 6, apply_local_settings_item_to_state(item, item_offset, decode_state))
-	end
-end
-
-fn apply_local_settings_item_to_state(item: OutboundLocalSettingsItem, item_offset: Int, decode_state: Http2DecodeState) -> Http2DecodeState
-	match item
-		OutboundSettingsEnablePush(value) => update_local_enable_push_state(decode_state, value, item_offset)
-		OutboundSettingsEnableConnectProtocol(value) => update_local_enable_connect_protocol_state(decode_state, value, item_offset)
-		_ => decode_state
-	end
-end
-
-fn local_settings_batch_item_count(items: List<OutboundLocalSettingsItem>) -> Int
-	match items
-		Nil => 0
-		Cons(_, tail) => 1 + local_settings_batch_item_count(tail)
-	end
-end
-
-fn local_settings_batch_first_identifier(items: List<OutboundLocalSettingsItem>) -> Int
-	match items
-		Nil => 0
-		Cons(item, _) => local_settings_item_identifier(item)
-	end
-end
-
-fn local_settings_batch_first_value(items: List<OutboundLocalSettingsItem>) -> Int
-	match items
-		Nil => 0
-		Cons(item, _) => local_settings_item_value(item)
-	end
-end
-
-fn local_settings_item_identifier(item: OutboundLocalSettingsItem) -> Int
-	match item
-		OutboundSettingsHeaderTableSize(_) => 1
-		OutboundSettingsEnablePush(_) => 2
-		OutboundSettingsInitialWindowSize(_) => 4
-		OutboundSettingsMaxConcurrentStreams(_) => 3
-		OutboundSettingsMaxFrameSize(_) => 5
-		OutboundSettingsMaxHeaderListSize(_) => 6
-		OutboundSettingsEnableConnectProtocol(_) => 8
-	end
-end
-
-fn local_settings_item_value(item: OutboundLocalSettingsItem) -> Int
-	match item
-		OutboundSettingsHeaderTableSize(value) => value
-		OutboundSettingsEnablePush(value) => value
-		OutboundSettingsInitialWindowSize(value) => value
-		OutboundSettingsMaxConcurrentStreams(value) => value
-		OutboundSettingsMaxFrameSize(value) => value
-		OutboundSettingsMaxHeaderListSize(value) => value
-		OutboundSettingsEnableConnectProtocol(value) => value
+fn send_local_settings_batch_for_role(items: List<LocalSettingsItem>, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match connection
+		ConnectionState(decode_state, outstanding_settings, pending_ack) => local_settings_core_decision_to_fixture(decode_state, http2::core::send_local_settings_batch(items, endpoint_role_label(endpoint_role), local_settings_policy_from_state(decode_state), http2::core::settings_ack_state(outstanding_settings, pending_ack))?)
 	end
 end
 
@@ -2628,145 +2492,86 @@ fn update_local_enable_connect_protocol_state(state: Http2DecodeState, value: In
 end
 
 fn send_local_enable_connect_protocol_setting(value: Int, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	let items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsEnableConnectProtocol(value), Nil)
+	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_enable_connect_protocol(value), Nil)
 	send_local_settings_batch_for_role(items, endpoint_role, connection)
 end
 
-fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(5)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(5, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 5, 1), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
+fn send_local_setting(item: LocalSettingsItem, endpoint_role: Http2EndpointRole, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	send_local_settings_batch_for_role(Cons(item, Nil), endpoint_role, connection)
 end
 
 fn send_local_initial_window_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_initial_window_size_setting(0, value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_initial_window_size_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
-end
-
-fn encode_local_initial_window_size_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(4)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(4, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 4, 1), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
+	send_local_setting(http2::core::local_settings_initial_window_size(value), ServerEndpoint, connection)
 end
 
 fn send_local_max_concurrent_streams_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_u32_setting(0, 3, "SETTINGS_MAX_CONCURRENT_STREAMS", value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_max_concurrent_streams_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
-end
-
-fn encode_local_max_concurrent_streams_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(3)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(3, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 3, 1), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
+	send_local_setting(http2::core::local_settings_max_concurrent_streams(value), ServerEndpoint, connection)
 end
 
 fn send_local_enable_push_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_enable_push_setting(0, value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_enable_push_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
-end
-
-fn validate_local_max_frame_size_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
-	if value < 16384
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_byte_preview()?)))
-	else if value > 16777215
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_byte_preview()?)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn validate_local_initial_window_size_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
-	if value < 0
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_byte_preview()?)))
-	else if value > 2147483647
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_byte_preview()?)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn validate_local_enable_push_setting(offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
-	if value < 0
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
-	else if value > 1
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_byte_preview()?)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn validate_local_u32_setting(offset: Int, identifier: Int, setting_name: String, value: Int) -> Result<SettingsRangeDecision, String>
-	if value < 0
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, identifier, setting_name, value, 0, 4294967295, "local_settings", empty_byte_preview()?)))
-	else if value > 4294967295
-		Ok(SettingsValueFailed(SettingsValueOutOfRange(offset, identifier, setting_name, value, 0, 4294967295, "local_settings", empty_byte_preview()?)))
-	else
-		Ok(SettingsValueOk)
-	end
-end
-
-fn encode_local_enable_push_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(2)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(2, value, ConnectionState(update_local_enable_push_state(decode_state, value, 0), add_outstanding_settings(outstanding_settings, 2, 1), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
+	send_local_setting(http2::core::local_settings_enable_push(value), ServerEndpoint, connection)
 end
 
 fn send_local_header_table_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_u32_setting(0, 1, "SETTINGS_HEADER_TABLE_SIZE", value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_header_table_size_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
-	end
-end
-
-fn encode_local_header_table_size_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(1)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(1, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 1, 1), pending_ack), byte_append(header, payload)))
-		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
-	end
+	send_local_setting(http2::core::local_settings_header_table_size(value), ServerEndpoint, connection)
 end
 
 fn send_local_max_header_list_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
-	match validate_local_u32_setting(0, 6, "SETTINGS_MAX_HEADER_LIST_SIZE", value)?
-		SettingsValueOk => match connection
-			ConnectionState(decode_state, outstanding_settings, pending_ack) => encode_local_max_header_list_size_intent(value, decode_state, outstanding_settings, pending_ack)
-		end
-		SettingsValueFailed(error) => Ok(OutboundSettingsRejected(error))
+	send_local_setting(http2::core::local_settings_max_header_list_size(value), ServerEndpoint, connection)
+end
+
+fn endpoint_role_label(endpoint_role: Http2EndpointRole) -> String
+	match endpoint_role
+		ServerEndpoint => "server"
+		ClientEndpoint => "client"
 	end
 end
 
-fn encode_local_max_header_list_size_intent(value: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<OutboundSettingsDecision, String>
-	let payload: ByteChunk = byte_append(byte_write_u16_be(6)?, byte_write_u32_be(value)?)
-	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({ length: 6, kind: 4, flags: 0, stream_id: 0 })
-	match encoded_header
-		Ok(header) => Ok(OutboundSettingsAccepted(6, value, ConnectionState(decode_state, add_outstanding_settings(outstanding_settings, 6, 1), pending_ack), byte_append(header, payload)))
+fn local_settings_policy_from_state(decode_state: Http2DecodeState) -> LocalSettingsPolicy
+	match state_peer_settings(decode_state)
+		PeerSettings(_, _, _, _, _, _, NoLocalSentEnablePush, _) => http2::core::empty_local_settings_policy()
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePush(value, item_offset), _) => http2::core::local_settings_policy_with_enable_push(http2::core::empty_local_settings_policy(), value, item_offset)
+		PeerSettings(_, _, _, _, _, _, LocalSentEnableConnectProtocol(value, item_offset), _) => http2::core::local_settings_policy_with_enable_connect_protocol(http2::core::empty_local_settings_policy(), value, item_offset)
+		PeerSettings(_, _, _, _, _, _, LocalSentEnablePushAndConnectProtocol(push_value, push_offset, connect_value, connect_offset), _) => http2::core::local_settings_policy_with_enable_connect_protocol(http2::core::local_settings_policy_with_enable_push(http2::core::empty_local_settings_policy(), push_value, push_offset), connect_value, connect_offset)
+	end
+end
+
+fn apply_local_settings_policy_to_state(decode_state: Http2DecodeState, policy: LocalSettingsPolicy) -> Http2DecodeState
+	let with_push: Http2DecodeState = if http2::core::local_settings_policy_has_enable_push(policy)
+		update_local_enable_push_state(decode_state, http2::core::local_settings_policy_enable_push_value(policy), http2::core::local_settings_policy_enable_push_offset(policy))
+	else
+		decode_state
+	end
+	if http2::core::local_settings_policy_has_enable_connect_protocol(policy)
+		update_local_enable_connect_protocol_state(with_push, http2::core::local_settings_policy_enable_connect_protocol_value(policy), http2::core::local_settings_policy_enable_connect_protocol_offset(policy))
+	else
+		with_push
+	end
+end
+
+fn local_settings_core_decision_to_fixture(decode_state: Http2DecodeState, decision: LocalSettingsSendDecision) -> Result<OutboundSettingsDecision, String>
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => Ok(OutboundSettingsAccepted(http2::core::local_settings_send_identifier(decision), http2::core::local_settings_send_value(decision), connection_from_local_settings_decision(decode_state, decision), http2::core::local_settings_send_bytes(decision)))
+		"rejected" => Ok(OutboundSettingsRejected(local_settings_failure_to_protocol(http2::core::local_settings_send_failure(decision)?)))
+		_ => local_settings_encode_failed_decision()
+	end
+end
+
+fn connection_from_local_settings_decision(decode_state: Http2DecodeState, decision: LocalSettingsSendDecision) -> Http2ConnectionState
+	let next_ack_state: SettingsAckState = http2::core::local_settings_send_ack_state(decision)
+	ConnectionState(apply_local_settings_policy_to_state(decode_state, http2::core::local_settings_send_policy(decision)), http2::core::settings_ack_outstanding(next_ack_state), http2::core::settings_ack_pending_peer_ack(next_ack_state))
+end
+
+fn local_settings_failure_to_protocol(failure: LocalSettingsFailure) -> Http2ProtocolFailure
+	match http2::core::local_settings_failure_id(failure)
+		"http2.protocol.settings_not_allowed_for_endpoint" => SettingsNotAllowedForEndpoint(http2::core::local_settings_failure_offset(failure), http2::core::local_settings_failure_setting_identifier(failure), http2::core::local_settings_failure_setting_name(failure), http2::core::local_settings_failure_endpoint_role(failure), http2::core::local_settings_failure_frame_kind(failure), http2::core::local_settings_failure_active_state(failure), http2::core::local_settings_failure_rule_provenance(failure), http2::core::local_settings_failure_preview(failure))
+		_ => SettingsValueOutOfRange(http2::core::local_settings_failure_offset(failure), http2::core::local_settings_failure_setting_identifier(failure), http2::core::local_settings_failure_setting_name(failure), http2::core::local_settings_failure_observed_value(failure), http2::core::local_settings_failure_accepted_min_value(failure), http2::core::local_settings_failure_accepted_max_value(failure), http2::core::local_settings_failure_peer_limit_provenance(failure), http2::core::local_settings_failure_preview(failure))
+	end
+end
+
+fn local_settings_encode_failed_decision() -> Result<OutboundSettingsDecision, String>
+	match encode_frame_header({ length: -1, kind: 4, flags: 0, stream_id: 0 })
+		Ok(_) => Err("local SETTINGS encode failure could not be represented")
 		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
 	end
 end
@@ -9054,7 +8859,7 @@ fn print_local_enable_push_settings_case() -> Result<(), String> effects [stdio]
 end
 
 fn print_local_settings_ordered_batch_cases() -> Result<(), String> effects [stdio]
-	let ordered_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsHeaderTableSize(4096), Cons(OutboundSettingsInitialWindowSize(65535), Cons(OutboundSettingsMaxFrameSize(32768), Nil)))
+	let ordered_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_initial_window_size(65535), Cons(http2::core::local_settings_max_frame_size(32768), Nil)))
 	let ordered_sent: OutboundSettingsDecision = send_local_settings_batch(ordered_items, connection_state(frame_state()))?
 	print_outbound_settings("local-settings-ordered-batch-sent", ordered_sent)
 	let ignored_ordered_chunk: () = emit_encoded_header("http2-local-settings-ordered-batch", outbound_settings_chunk(ordered_sent), "00001204000000000000010000100000040000ffff000500008000")?
@@ -9069,22 +8874,22 @@ fn print_local_settings_ordered_batch_cases() -> Result<(), String> effects [std
 	let later_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), connection_step_state(ordered_ack))?
 	print_step("local-settings-ordered-batch-later-ack", connection_step_decode_step(later_ack))
 	print_outstanding_settings("local-settings-ordered-batch-later-ack", connection_step_state(later_ack))
-	let range_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsHeaderTableSize(4096), Cons(OutboundSettingsEnablePush(2), Cons(OutboundSettingsMaxHeaderListSize(8192), Nil)))
+	let range_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(2), Cons(http2::core::local_settings_max_header_list_size(8192), Nil)))
 	let range_decision: OutboundSettingsDecision = send_local_settings_batch(range_items, connection_state(frame_state()))?
 	print_outbound_settings("local-settings-large-batch-range", range_decision)
 	let ignored_range_chunk: () = print_empty_output_chunks("http2-local-settings-large-batch-range")?
 	print_settings_failure("local-settings-large-batch-range", Failed(frame_state(), outbound_settings_failure(range_decision)))
-	let header_table_range_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsHeaderTableSize(4294967296), Cons(OutboundSettingsEnablePush(1), Nil))
+	let header_table_range_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4294967296), Cons(http2::core::local_settings_enable_push(1), Nil))
 	let header_table_range_decision: OutboundSettingsDecision = send_local_settings_batch(header_table_range_items, connection_state(frame_state()))?
 	print_outbound_settings("local-settings-header-table-size-batch-range", header_table_range_decision)
 	let ignored_header_table_range_chunk: () = print_empty_output_chunks("http2-local-settings-header-table-size-batch-range")?
 	print_settings_failure("local-settings-header-table-size-batch-range", Failed(frame_state(), outbound_settings_failure(header_table_range_decision)))
-	let max_concurrent_range_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsHeaderTableSize(4096), Cons(OutboundSettingsMaxConcurrentStreams(4294967296), Cons(OutboundSettingsEnablePush(1), Nil)))
+	let max_concurrent_range_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_max_concurrent_streams(4294967296), Cons(http2::core::local_settings_enable_push(1), Nil)))
 	let max_concurrent_range_decision: OutboundSettingsDecision = send_local_settings_batch(max_concurrent_range_items, connection_state(frame_state()))?
 	print_outbound_settings("local-settings-max-concurrent-streams-batch-range", max_concurrent_range_decision)
 	let ignored_max_concurrent_range_chunk: () = print_empty_output_chunks("http2-local-settings-max-concurrent-streams-batch-range")?
 	print_settings_failure("local-settings-max-concurrent-streams-batch-range", Failed(frame_state(), outbound_settings_failure(max_concurrent_range_decision)))
-	let max_header_list_range_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsHeaderTableSize(4096), Cons(OutboundSettingsMaxConcurrentStreams(100), Cons(OutboundSettingsMaxHeaderListSize(4294967296), Nil)))
+	let max_header_list_range_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_max_concurrent_streams(100), Cons(http2::core::local_settings_max_header_list_size(4294967296), Nil)))
 	let max_header_list_range_decision: OutboundSettingsDecision = send_local_settings_batch(max_header_list_range_items, connection_state(frame_state()))?
 	print_outbound_settings("local-settings-max-header-list-size-batch-range", max_header_list_range_decision)
 	let ignored_max_header_list_range_chunk: () = print_empty_output_chunks("http2-local-settings-max-header-list-size-batch-range")?
@@ -11114,7 +10919,7 @@ fn require_extended_connect_negotiation_cases() -> Result<(), String>
 	let disabled_setting: OutboundSettingsDecision = send_local_enable_connect_protocol_setting(0, ServerEndpoint, connection_state(frame_state()))?
 	let disabled_request: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), connection_decode_state(outbound_settings_connection(disabled_setting)))?
 	let ignored_disabled_request: () = require_request_header_failure_fact("disabled extended CONNECT setting allowed a request", disabled_request, "extended_connect_not_negotiated")?
-	let ordered_items: List<OutboundLocalSettingsItem> = Cons(OutboundSettingsMaxFrameSize(32768), Cons(OutboundSettingsEnableConnectProtocol(1), Cons(OutboundSettingsMaxHeaderListSize(8192), Nil)))
+	let ordered_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_max_frame_size(32768), Cons(http2::core::local_settings_enable_connect_protocol(1), Cons(http2::core::local_settings_max_header_list_size(8192), Nil)))
 	let ordered_setting: OutboundSettingsDecision = send_local_settings_batch_for_role(ordered_items, ServerEndpoint, connection_state(frame_state()))?
 	let ordered_request: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010400000001767778")?), connection_decode_state(outbound_settings_connection(ordered_setting)))?
 	let ignored_ordered_request: () = require_frame_decoded("ordered local setting batch lost extended CONNECT capability", ordered_request)?

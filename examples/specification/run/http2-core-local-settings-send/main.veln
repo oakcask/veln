@@ -1,0 +1,111 @@
+use http2::core from "std"
+use stdio
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_decision(label: String, decision: LocalSettingsSendDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" local-settings ")
+	stdio::print(http2::core::local_settings_send_status(decision))
+	stdio::print(" setting_identifier ")
+	stdio::print(int_to_string(http2::core::local_settings_send_identifier(decision)))
+	stdio::print(" value ")
+	stdio::print(int_to_string(http2::core::local_settings_send_value(decision)))
+	stdio::print(" outstanding ")
+	stdio::print(http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(decision))))
+	stdio::print(" pending_batches ")
+	stdio::println(int_to_string(http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(decision)))))
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => print_chunk(label, http2::core::local_settings_send_bytes(decision), "000012040000000000000500008000000200000000000800000001")
+		_ => Ok(print_empty(label))
+	end
+end
+
+fn print_failure(label: String, decision: LocalSettingsSendDecision) -> Result<(), String> effects [stdio]
+	match decision
+		LocalSettingsRejected(failure) => Ok(print_failure_detail(label, failure))
+		_ => Err("local SETTINGS decision did not reject")
+	end
+end
+
+fn print_failure_detail(label: String, failure: LocalSettingsFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::local_settings_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::local_settings_failure_offset(failure)))
+	stdio::print(" setting ")
+	stdio::print(http2::core::local_settings_failure_setting_name(failure))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::local_settings_failure_observed_value(failure)))
+	stdio::print(" provenance ")
+	stdio::println(http2::core::local_settings_failure_peer_limit_provenance(failure))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_max_frame_size(32768), Cons(http2::core::local_settings_enable_push(0), Cons(http2::core::local_settings_enable_connect_protocol(1), Nil)))
+	let accepted: LocalSettingsSendDecision = http2::core::send_local_settings_batch(items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	let _ = print_decision("ordered", accepted)?
+	stdio::print("ordered policy enable_push ")
+	stdio::print(int_to_string(http2::core::local_settings_policy_enable_push_value(http2::core::local_settings_send_policy(accepted))))
+	stdio::print(" push_offset ")
+	stdio::print(int_to_string(http2::core::local_settings_policy_enable_push_offset(http2::core::local_settings_send_policy(accepted))))
+	stdio::print(" connect ")
+	stdio::print(int_to_string(http2::core::local_settings_policy_enable_connect_protocol_value(http2::core::local_settings_send_policy(accepted))))
+	stdio::print(" connect_offset ")
+	stdio::println(int_to_string(http2::core::local_settings_policy_enable_connect_protocol_offset(http2::core::local_settings_send_policy(accepted))))
+
+	let rejected_items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(2), Nil))
+	let rejected: LocalSettingsSendDecision = http2::core::send_local_settings_batch(rejected_items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	let _ = print_decision("range", rejected)?
+	let _ = print_failure("range", rejected)?
+	Ok(())
+end

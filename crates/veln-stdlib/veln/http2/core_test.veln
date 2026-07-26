@@ -101,6 +101,34 @@ fn require_ping_request_failure(decision: PingRequestDecision) -> Result<FramePa
 	http2::core::ping_request_failure(decision)
 end
 
+fn require_local_settings_sent(decision: LocalSettingsSendDecision) -> Result<LocalSettingsSendDecision, String>
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => Ok(decision)
+		"rejected" => Err(http2::core::local_settings_failure_id(require_local_settings_failure(decision)?))
+		_ => Err(http2::core::local_settings_send_encode_reason(decision))
+	end
+end
+
+fn require_local_settings_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, String>
+	match decision
+		LocalSettingsRejected(failure) => Ok(failure)
+		_ => Err("local SETTINGS send did not reject")
+	end
+end
+
+fn local_setting_accepts(item: LocalSettingsItem, expected_identifier: Int, expected_hex: String) -> Result<Bool, String>
+	let decision: LocalSettingsSendDecision = require_local_settings_sent(http2::core::send_local_setting(item, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?
+	Ok(http2::core::local_settings_send_identifier(decision) == expected_identifier and chunks_equal(http2::core::local_settings_send_bytes(decision), byte_chunk_from_hex(expected_hex)?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(decision))) == expected_identifier and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(decision))) == 1)
+end
+
+fn local_setting_rejects(item: LocalSettingsItem, expected_identifier: Int, expected_name: String, expected_observed: Int, expected_min: Int, expected_max: Int) -> Result<Bool, String>
+	let decision: LocalSettingsSendDecision = http2::core::send_local_setting(item, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	match decision
+		LocalSettingsRejected(failure) => Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == 0 and http2::core::local_settings_failure_setting_identifier(failure) == expected_identifier and http2::core::local_settings_failure_setting_name(failure) == expected_name and http2::core::local_settings_failure_observed_value(failure) == expected_observed and http2::core::local_settings_failure_accepted_min_value(failure) == expected_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0)
+		_ => Ok(false)
+	end
+end
+
 fn stream_id_accepts(result: Result<StreamId, String>, expected: Int) -> Bool
 	match result
 		Ok(stream_id) => http2::core::stream_id_value(stream_id) == expected
@@ -610,5 +638,64 @@ test settings_ack_peer_ack_encode_failure_preserves_state_reason_and_output() ->
 		Ok(())
 	else
 		Err("peer SETTINGS ACK encode failure changed state, reason, or output")
+	end
+end
+
+test local_settings_send_accepts_every_supported_setting_boundary() -> Result<(), String>
+	if local_setting_accepts(http2::core::local_settings_header_table_size(0), 1, "000006040000000000000100000000")? and local_setting_accepts(http2::core::local_settings_header_table_size(4294967295), 1, "0000060400000000000001ffffffff")? and local_setting_accepts(http2::core::local_settings_enable_push(0), 2, "000006040000000000000200000000")? and local_setting_accepts(http2::core::local_settings_enable_push(1), 2, "000006040000000000000200000001")? and local_setting_accepts(http2::core::local_settings_max_concurrent_streams(0), 3, "000006040000000000000300000000")? and local_setting_accepts(http2::core::local_settings_max_concurrent_streams(4294967295), 3, "0000060400000000000003ffffffff")? and local_setting_accepts(http2::core::local_settings_initial_window_size(0), 4, "000006040000000000000400000000")? and local_setting_accepts(http2::core::local_settings_initial_window_size(2147483647), 4, "00000604000000000000047fffffff")? and local_setting_accepts(http2::core::local_settings_max_frame_size(16384), 5, "000006040000000000000500004000")? and local_setting_accepts(http2::core::local_settings_max_frame_size(16777215), 5, "000006040000000000000500ffffff")? and local_setting_accepts(http2::core::local_settings_max_header_list_size(0), 6, "000006040000000000000600000000")? and local_setting_accepts(http2::core::local_settings_max_header_list_size(4294967295), 6, "0000060400000000000006ffffffff")? and local_setting_accepts(http2::core::local_settings_enable_connect_protocol(0), 8, "000006040000000000000800000000")? and local_setting_accepts(http2::core::local_settings_enable_connect_protocol(1), 8, "000006040000000000000800000001")?
+		Ok(())
+	else
+		Err("local SETTINGS send did not accept every supported setting boundary")
+	end
+end
+
+test local_settings_send_rejects_every_supported_setting_outside_range() -> Result<(), String>
+	if local_setting_rejects(http2::core::local_settings_header_table_size(-1), 1, "SETTINGS_HEADER_TABLE_SIZE", -1, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_header_table_size(4294967296), 1, "SETTINGS_HEADER_TABLE_SIZE", 4294967296, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_enable_push(-1), 2, "SETTINGS_ENABLE_PUSH", -1, 0, 1)? and local_setting_rejects(http2::core::local_settings_enable_push(2), 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1)? and local_setting_rejects(http2::core::local_settings_max_concurrent_streams(-1), 3, "SETTINGS_MAX_CONCURRENT_STREAMS", -1, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_max_concurrent_streams(4294967296), 3, "SETTINGS_MAX_CONCURRENT_STREAMS", 4294967296, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_initial_window_size(-1), 4, "SETTINGS_INITIAL_WINDOW_SIZE", -1, 0, 2147483647)? and local_setting_rejects(http2::core::local_settings_initial_window_size(2147483648), 4, "SETTINGS_INITIAL_WINDOW_SIZE", 2147483648, 0, 2147483647)? and local_setting_rejects(http2::core::local_settings_max_frame_size(16383), 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215)? and local_setting_rejects(http2::core::local_settings_max_frame_size(16777216), 5, "SETTINGS_MAX_FRAME_SIZE", 16777216, 16384, 16777215)? and local_setting_rejects(http2::core::local_settings_max_header_list_size(-1), 6, "SETTINGS_MAX_HEADER_LIST_SIZE", -1, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_max_header_list_size(4294967296), 6, "SETTINGS_MAX_HEADER_LIST_SIZE", 4294967296, 0, 4294967295)? and local_setting_rejects(http2::core::local_settings_enable_connect_protocol(-1), 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", -1, 0, 1)? and local_setting_rejects(http2::core::local_settings_enable_connect_protocol(2), 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", 2, 0, 1)?
+		Ok(())
+	else
+		Err("local SETTINGS send accepted an out-of-range supported setting")
+	end
+end
+
+test local_settings_send_preserves_order_policy_offsets_and_ack_fifo() -> Result<(), String>
+	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(0), Cons(http2::core::local_settings_max_concurrent_streams(100), Cons(http2::core::local_settings_initial_window_size(65535), Cons(http2::core::local_settings_max_frame_size(32768), Cons(http2::core::local_settings_max_header_list_size(8192), Cons(http2::core::local_settings_enable_connect_protocol(1), Nil)))))))
+	let first: LocalSettingsSendDecision = require_local_settings_sent(http2::core::send_local_settings_batch(items, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?
+	let second: LocalSettingsSendDecision = require_local_settings_sent(http2::core::send_local_setting(http2::core::local_settings_enable_push(1), "server", http2::core::local_settings_send_policy(first), http2::core::local_settings_send_ack_state(first))?)?
+	let ack_preview: ByteView = byte_view(byte_chunk_from_hex("000000040100000000")?, byte_offset(0)?, byte_count(9)?)?
+	let acknowledged_first: SettingsAckState = match http2::core::accept_settings_ack(http2::core::local_settings_send_ack_state(second), 17, ack_preview)
+		Ok(state) => state
+		Err(_) => Err("first local SETTINGS batch ACK failed")?
+	end
+	if chunks_equal(http2::core::local_settings_send_bytes(first), byte_chunk_from_hex("00002a04000000000000010000100000020000000000030000006400040000ffff000500008000000600002000000800000001")?)? and http2::core::local_settings_policy_enable_push_value(http2::core::local_settings_send_policy(first)) == 0 and http2::core::local_settings_policy_enable_push_offset(http2::core::local_settings_send_policy(first)) == 6 and http2::core::local_settings_policy_enable_connect_protocol_value(http2::core::local_settings_send_policy(first)) == 1 and http2::core::local_settings_policy_enable_connect_protocol_offset(http2::core::local_settings_send_policy(first)) == 36 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(second))) == 1 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(second))) == 7 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(second))) == 2 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(acknowledged_first)) == 2 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(acknowledged_first)) == 1
+		Ok(())
+	else
+		Err("ordered local SETTINGS send lost bytes, policy offsets, or FIFO ACK state")
+	end
+end
+
+test local_settings_send_failure_preserves_policy_ack_state_and_output() -> Result<(), String>
+	let initial_ack: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 5, 1)
+	let initial_policy: LocalSettingsPolicy = http2::core::local_settings_send_policy(require_local_settings_sent(http2::core::send_local_setting(http2::core::local_settings_enable_push(0), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?)
+	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_connect_protocol(2), Cons(http2::core::local_settings_enable_push(1), Nil)))
+	let decision: LocalSettingsSendDecision = http2::core::send_local_settings_batch(items, "server", initial_policy, initial_ack)?
+	match decision
+		LocalSettingsRejected(failure) => if http2::core::local_settings_failure_offset(failure) == 6 and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_policy_enable_push_value(initial_policy) == 0 and http2::core::local_settings_policy_enable_push_offset(initial_policy) == 0 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(initial_ack)) == 5 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(initial_ack)) == 1 and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
+			Ok(())
+		else
+			Err("local SETTINGS range failure changed policy, ACK state, or output")
+		end
+		_ => Err("invalid local SETTINGS batch was accepted")
+	end
+end
+
+test local_settings_send_rejects_client_enable_connect_protocol_without_output() -> Result<(), String>
+	let decision: LocalSettingsSendDecision = http2::core::send_local_setting(http2::core::local_settings_enable_connect_protocol(1), "client", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?
+	match decision
+		LocalSettingsRejected(failure) => if http2::core::local_settings_failure_id(failure) == "http2.protocol.settings_not_allowed_for_endpoint" and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_failure_endpoint_role(failure) == "client" and http2::core::local_settings_failure_active_state(failure) == "local-settings" and http2::core::local_settings_failure_rule_provenance(failure) == "rfc8441_only_servers_send_settings_enable_connect_protocol" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
+			Ok(())
+		else
+			Err("client local SETTINGS_ENABLE_CONNECT_PROTOCOL rejection lost context")
+		end
+		_ => Err("client local SETTINGS_ENABLE_CONNECT_PROTOCOL was accepted")
 	end
 end

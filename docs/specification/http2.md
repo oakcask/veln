@@ -23,8 +23,8 @@ The public routes are:
 - `http2::core`: connection and role-specific stream-id domains, immutable
   connection-preface and initial-peer-SETTINGS transitions, pure frame
   payload-length validation, immutable pending header-block sequencing,
-  immutable SETTINGS acknowledgement state, and pure PING request and ACK
-  response transitions.
+  immutable local SETTINGS send transitions, immutable SETTINGS
+  acknowledgement state, and pure PING request and ACK response transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -61,6 +61,26 @@ distinct transition shape, although the public constants are representable.
 for a validated non-ACK PING by preserving the eight-octet payload and using a
 length-`8`, kind-`6`, flags-`1`, stream-`0` header. A received PING ACK returns
 an explicit no-response action with no bytes, preventing an ACK loop.
+
+`http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
+of the supported local SETTINGS items:
+`SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_ENABLE_PUSH`,
+`SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_INITIAL_WINDOW_SIZE`,
+`SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_HEADER_LIST_SIZE`, and
+`SETTINGS_ENABLE_CONNECT_PROTOCOL`. Accepted batches emit exactly one
+length-`6 * item_count`, kind-`4`, flags-`0`, stream-`0` SETTINGS frame,
+preserve item order in the payload, update the local sent policy for
+`SETTINGS_ENABLE_PUSH` and `SETTINGS_ENABLE_CONNECT_PROTOCOL` with the
+six-byte item offset, and record exactly one outstanding local SETTINGS batch
+in the caller-supplied `SettingsAckState`.
+
+Local `SETTINGS_ENABLE_PUSH` and `SETTINGS_ENABLE_CONNECT_PROTOCOL` accept
+only `0..1`; `SETTINGS_INITIAL_WINDOW_SIZE` accepts `0..2147483647`;
+`SETTINGS_MAX_FRAME_SIZE` accepts `16384..16777215`; and the remaining
+four-byte SETTINGS values accept `0..4294967295`. A client endpoint cannot
+send `SETTINGS_ENABLE_CONNECT_PROTOCOL`. Validation and encoding failures
+return a typed decision with no output bytes and without exposing a next
+policy or next ACK state.
 
 `http2::core::empty_settings_ack_state()` creates immutable state with no
 outstanding local SETTINGS batch and no pending peer SETTINGS ACK. Local
@@ -104,6 +124,13 @@ and failure/input preservation. The focused
 [`http2-core-settings-ack-state`](../../examples/specification/run/http2-core-settings-ack-state/)
 case imports `http2::core` from `std` and records public success, no-pending,
 representative failure, FIFO, coalescing, and exact-byte projections.
+The same adjacent test checks every supported local SETTINGS item as one
+bounded set, exact accepted bytes, ordered multi-item batches, local policy
+offsets, ACK queue integration, endpoint role rejection, and immutable
+failure/output behavior. The focused
+[`http2-core-local-settings-send`](../../examples/specification/run/http2-core-local-settings-send/)
+case imports `http2::core` from `std` and records public result and
+output-chunk projections for accepted and rejected local SETTINGS sends.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.
