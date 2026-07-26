@@ -179,6 +179,66 @@ fn decode_huffman_chunk(input: ByteChunk) -> Result<ByteChunk, String>
 	http2::hpack::decode_huffman(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?)
 end
 
+fn decode_indexed_chunk(input: ByteChunk, table: DynamicTable) -> Result<Result<IndexedDecodeTransition, IndexedDecodeFailure>, String>
+	Ok(http2::hpack::decode_indexed_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table))
+end
+
+fn require_indexed_chunk(input: ByteChunk, table: DynamicTable) -> Result<IndexedDecodeTransition, String>
+	match decode_indexed_chunk(input, table)?
+		Ok(transition) => Ok(transition)
+		Err(_) => Err("expected HPACK indexed header decoding to succeed")
+	end
+end
+
+fn unavailable_indexed_failure_matches(failure: IndexedDecodeFailure, index: Int, dynamic_index: Int, entry_count: Int) -> Bool
+	http2::hpack::indexed_decode_failure_kind(failure) == "unavailable_dynamic_entry" and http2::hpack::indexed_decode_failure_index(failure) == index and http2::hpack::indexed_decode_failure_dynamic_index(failure) == dynamic_index and http2::hpack::indexed_decode_failure_dynamic_entry_count(failure) == entry_count
+end
+
+fn indexed_transition_matches(transition: IndexedDecodeTransition, expected_name: String, expected_value: ByteChunk, expected_consumed: Int) -> Result<Bool, String>
+	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(transition)
+	Ok(http2::hpack::indexed_header_name(header) == expected_name and chunks_equal(http2::hpack::indexed_header_value(header), expected_value)? and http2::hpack::indexed_decode_consumed(transition) == expected_consumed)
+end
+
+fn table_matches_two_entries(table: DynamicTable, expected_capacity: Int, expected_size: Int) -> Result<Bool, String>
+	Ok(http2::hpack::dynamic_table_capacity(table) == expected_capacity and http2::hpack::dynamic_table_size(table) == expected_size and http2::hpack::dynamic_table_entry_count(table) == 2 and dynamic_entry_matches(table, 1, "newest", byte_chunk_from_hex("00ff")?)? and dynamic_entry_matches(table, 2, "older", byte_chunk_from_hex("31")?)?)
+end
+
+fn static_value_bytes(value: String) -> Result<ByteChunk, String>
+	if value == ""
+		Ok(byte_chunk([]))
+	else if value == "gzip, deflate"
+		byte_chunk_from_hex("677a69702c206465666c617465")
+	else
+		byte_chunk_from_visible_ascii_string(value)
+	end
+end
+
+fn indexed_static_range_matches(index: Int) -> Result<Bool, String>
+	if index > 61
+		Ok(true)
+	else
+		match http2::hpack::static_entry(index)
+			Some(entry) => match decode_indexed_chunk(byte_write_u8_be(128 + index)?, http2::hpack::empty_dynamic_table(0)?)?
+				Ok(transition) => if indexed_transition_matches(transition, http2::hpack::static_entry_name(entry), static_value_bytes(http2::hpack::static_entry_value(entry))?, 1)?
+					indexed_static_range_matches(index + 1)
+				else
+					Err(int_to_string(index))
+				end
+				Err(failure) => Err(http2::hpack::indexed_decode_failure_kind(failure))
+			end
+			None => Err(int_to_string(index))
+		end
+	end
+end
+
+fn build_indexed_dynamic_table(remaining: Int, table: DynamicTable) -> Result<DynamicTable, String>
+	if remaining == 0
+		Ok(table)
+	else
+		build_indexed_dynamic_table(remaining - 1, http2::hpack::insert_dynamic_table_entry(table, "x", byte_write_u8_be(remaining - 1)?)?)
+	end
+end
+
 fn expect_huffman_encoding(input_hex: String, expected_hex: String) -> Result<(), String>
 	let actual: ByteChunk = http2::hpack::encode_huffman(byte_chunk_from_hex(input_hex)?)?
 	if chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
@@ -607,5 +667,79 @@ test dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets() ->
 		Ok(())
 	else
 		Err("HPACK dynamic table lookup or octet preservation changed")
+	end
+end
+
+test indexed_header_decoder_resolves_every_static_entry() -> Result<(), String>
+	if indexed_static_range_matches(1)?
+		Ok(())
+	else
+		Err("HPACK indexed static entry decoding changed")
+	end
+end
+
+test indexed_header_decoder_resolves_dynamic_entries_newest_first() -> Result<(), String>
+	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "older", byte_chunk_from_hex("31")?)?
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
+	let newest: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("be")?, table)?
+	let previous: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
+	let matches: Bool = indexed_transition_matches(newest, "newest", byte_chunk_from_hex("00ff")?, 1)? and indexed_transition_matches(previous, "older", byte_chunk_from_hex("31")?, 1)?
+	let states_preserved: Bool = table_matches_two_entries(table, 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(newest), 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(previous), 128, 78)?
+	if matches and states_preserved
+		Ok(())
+	else
+		Err("HPACK indexed dynamic entry order or state preservation changed")
+	end
+end
+
+test indexed_header_decoder_accepts_multi_octet_dynamic_indices() -> Result<(), String>
+	let table: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
+	let transition: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
+	if indexed_transition_matches(transition, "x", byte_write_u8_be(65)?, 2)? and http2::hpack::dynamic_table_entry_count(http2::hpack::indexed_decode_table(transition)) == 66
+		Ok(())
+	else
+		Err("HPACK multi-octet indexed dynamic entry decoding changed")
+	end
+end
+
+test indexed_header_decoder_returns_focused_integer_and_zero_failures() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let empty: Bool = match decode_indexed_chunk(byte_chunk([]), table)?
+		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "incomplete_integer"
+		_ => false
+	end
+	let incomplete: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff80")?, table)?
+		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "incomplete_integer"
+		_ => false
+	end
+	let malformed: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff80808080808080808000")?, table)?
+		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "malformed_integer"
+		_ => false
+	end
+	let zero: Bool = match decode_indexed_chunk(byte_chunk_from_hex("80")?, table)?
+		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "zero_index"
+		_ => false
+	end
+	if empty and incomplete and malformed and zero and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
+		Ok(())
+	else
+		Err("HPACK indexed integer failure classification or state preservation changed")
+	end
+end
+
+test indexed_header_decoder_reports_unavailable_dynamic_entries_without_next_state() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let unavailable: Bool = match decode_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
+		Err(failure) => unavailable_indexed_failure_matches(failure, 63, 2, 1)
+		_ => false
+	end
+	let wide_unavailable: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
+		Err(failure) => unavailable_indexed_failure_matches(failure, 127, 66, 1)
+		_ => false
+	end
+	if unavailable and wide_unavailable and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
+		Ok(())
+	else
+		Err("HPACK unavailable indexed entry failure or input state changed")
 	end
 end

@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "static :method 71 1 0\ndynamic newest 0 1 2\nzero zero_index 0 0 0\nincomplete incomplete_integer 0 0 0\nunavailable unavailable_dynamic_entry 64 3 2\noriginal 78 2\n"
+
+[[json_assert]]
+path = "error"
+equals = null

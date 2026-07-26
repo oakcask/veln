@@ -9,6 +9,22 @@ pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
 
 pub type DynamicEntry = http2::hpack::dynamic_table::DynamicEntry
 
+pub type IndexedHeaderField
+	IndexedHeaderField(name: String, value: ByteChunk)
+end
+
+pub type IndexedDecodeFailure
+	MalformedIndexedInteger
+	IncompleteIndexedInteger
+	ZeroIndexedHeader
+	UnavailableStaticEntry(index: Int)
+	UnavailableDynamicEntry(index: Int, dynamic_index: Int, entry_count: Int)
+end
+
+pub type IndexedDecodeTransition
+	IndexedDecodeTransition(header: IndexedHeaderField, consumed: Int, table: DynamicTable)
+end
+
 pub type StaticEntry
 	StaticEntry(name: String, value: String)
 end
@@ -98,4 +114,88 @@ end
 
 pub fn dynamic_entry_value(entry: DynamicEntry) -> ByteChunk
 	http2::hpack::dynamic_table::entry_value(entry)
+end
+
+fn indexed_decode_failure(failure: HeaderCodecFailure) -> IndexedDecodeFailure
+	match http2::hpack::header_codec::failure_kind(failure)
+		0 => MalformedIndexedInteger
+		1 => IncompleteIndexedInteger
+		2 => ZeroIndexedHeader
+		3 => UnavailableStaticEntry(http2::hpack::header_codec::failure_index(failure))
+		_ => UnavailableDynamicEntry(http2::hpack::header_codec::failure_index(failure), http2::hpack::header_codec::failure_dynamic_index(failure), http2::hpack::header_codec::failure_dynamic_entry_count(failure))
+	end
+end
+
+fn indexed_decode_transition(transition: HeaderCodecTransition) -> IndexedDecodeTransition
+	let header: HeaderCodecField = http2::hpack::header_codec::transition_header(transition)
+	IndexedDecodeTransition(IndexedHeaderField(http2::hpack::header_codec::header_name(header), http2::hpack::header_codec::header_value(header)), http2::hpack::header_codec::transition_consumed(transition), http2::hpack::header_codec::transition_table(transition))
+end
+
+pub fn decode_indexed_header_field(input: ByteView, table: DynamicTable) -> Result<IndexedDecodeTransition, IndexedDecodeFailure>
+	match http2::hpack::header_codec::decode_indexed(input, table)
+		Ok(transition) => Ok(indexed_decode_transition(transition))
+		Err(failure) => Err(indexed_decode_failure(failure))
+	end
+end
+
+pub fn indexed_decode_header(transition: IndexedDecodeTransition) -> IndexedHeaderField
+	match transition
+		IndexedDecodeTransition(header, _, _) => header
+	end
+end
+
+pub fn indexed_decode_consumed(transition: IndexedDecodeTransition) -> Int
+	match transition
+		IndexedDecodeTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn indexed_decode_table(transition: IndexedDecodeTransition) -> DynamicTable
+	match transition
+		IndexedDecodeTransition(_, _, table) => table
+	end
+end
+
+pub fn indexed_header_name(header: IndexedHeaderField) -> String
+	match header
+		IndexedHeaderField(name, _) => name
+	end
+end
+
+pub fn indexed_header_value(header: IndexedHeaderField) -> ByteChunk
+	match header
+		IndexedHeaderField(_, value) => value
+	end
+end
+
+pub fn indexed_decode_failure_kind(failure: IndexedDecodeFailure) -> String
+	match failure
+		MalformedIndexedInteger => "malformed_integer"
+		IncompleteIndexedInteger => "incomplete_integer"
+		ZeroIndexedHeader => "zero_index"
+		UnavailableStaticEntry(_) => "unavailable_static_entry"
+		UnavailableDynamicEntry(_, _, _) => "unavailable_dynamic_entry"
+	end
+end
+
+pub fn indexed_decode_failure_index(failure: IndexedDecodeFailure) -> Int
+	match failure
+		UnavailableStaticEntry(index) => index
+		UnavailableDynamicEntry(index, _, _) => index
+		_ => 0
+	end
+end
+
+pub fn indexed_decode_failure_dynamic_index(failure: IndexedDecodeFailure) -> Int
+	match failure
+		UnavailableDynamicEntry(_, dynamic_index, _) => dynamic_index
+		_ => 0
+	end
+end
+
+pub fn indexed_decode_failure_dynamic_entry_count(failure: IndexedDecodeFailure) -> Int
+	match failure
+		UnavailableDynamicEntry(_, _, entry_count) => entry_count
+		_ => 0
+	end
 end
