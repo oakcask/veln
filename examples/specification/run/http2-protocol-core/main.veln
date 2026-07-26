@@ -1949,10 +1949,6 @@ fn settings_ack_set(flags: Int) -> Bool
 	flags / 2 * 2 != flags
 end
 
-fn ping_ack_set(flags: Int) -> Bool
-	flags / 2 * 2 != flags
-end
-
 fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int, endpoint_role: Http2EndpointRole) -> Result<SettingsRangeDecision, String>
 	match kind
 		4 => if settings_ack_set(flags)

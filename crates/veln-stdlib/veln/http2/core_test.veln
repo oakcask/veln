@@ -264,9 +264,11 @@ test ping_request_rejects_seven_and_nine_octets_without_output() -> Result<(), S
 end
 
 test ping_request_failure_preserves_input_and_failure_preview() -> Result<(), String>
-	let payload: ByteChunk = byte_chunk_from_hex("01020304050607")?
-	let failure: FramePayloadLengthFailure = require_ping_request_failure(http2::core::send_ping(payload))?
-	if http2::core::frame_payload_length_failure_frame_kind(failure) == 6 and http2::core::frame_payload_length_failure_stream_id(failure) == 0 and http2::core::frame_payload_length_failure_observed_length(failure) == 7 and http2::core::frame_payload_length_failure_expected_length(failure) == 8 and http2::core::frame_payload_length_failure_active_state(failure) == "connection-control" and http2::core::frame_payload_length_failure_rule_provenance(failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::frame_payload_length_failure_preview(failure), payload)? and chunks_equal(payload, byte_chunk_from_hex("01020304050607")?)?
+	let short_payload: ByteChunk = byte_chunk_from_hex("01020304050607")?
+	let long_payload: ByteChunk = byte_chunk_from_hex("010203040506070809")?
+	let short_failure: FramePayloadLengthFailure = require_ping_request_failure(http2::core::send_ping(short_payload))?
+	let long_failure: FramePayloadLengthFailure = require_ping_request_failure(http2::core::send_ping(long_payload))?
+	if http2::core::frame_payload_length_failure_frame_kind(short_failure) == 6 and http2::core::frame_payload_length_failure_stream_id(short_failure) == 0 and http2::core::frame_payload_length_failure_observed_length(short_failure) == 7 and http2::core::frame_payload_length_failure_expected_length(short_failure) == 8 and http2::core::frame_payload_length_failure_active_state(short_failure) == "connection-control" and http2::core::frame_payload_length_failure_rule_provenance(short_failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::frame_payload_length_failure_preview(short_failure), short_payload)? and chunks_equal(short_payload, byte_chunk_from_hex("01020304050607")?)? and http2::core::frame_payload_length_failure_frame_kind(long_failure) == 6 and http2::core::frame_payload_length_failure_stream_id(long_failure) == 0 and http2::core::frame_payload_length_failure_observed_length(long_failure) == 9 and http2::core::frame_payload_length_failure_expected_length(long_failure) == 8 and http2::core::frame_payload_length_failure_active_state(long_failure) == "connection-control" and http2::core::frame_payload_length_failure_rule_provenance(long_failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::frame_payload_length_failure_preview(long_failure), long_payload)? and chunks_equal(long_payload, byte_chunk_from_hex("010203040506070809")?)?
 		Ok(())
 	else
 		Err("PING request failure changed input or failure context")
