@@ -54,8 +54,6 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 `hpack_dynamic_core.veln` into responsibility-named private modules behind the
 `std::http2::hpack` facade:
 
-- Huffman encode and decode for arbitrary octets, including padding, EOS, and
-  non-visible values;
 - integration of the implemented immutable dynamic table with production
   header representation decode and encode transitions;
 - indexed, literal-with-indexing, literal-without-indexing, never-indexed, and
@@ -67,6 +65,14 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 Fixture display labels, canned header lists, stdout formatting, and expected
 value construction do not belong in the standard package. Public HPACK names
 must not retain the `hpack_fixture_` prefix.
+
+The stateless HPACK Huffman codec is complete under `std::http2::hpack`.
+Its public facade accepts arbitrary octets, preserves non-visible decoded
+values, applies EOS-prefix padding, and rejects EOS, invalid padding, and
+truncated or invalid codes without exposing partial output. The former public
+fixture byte-label facade and its private adapter intrinsics are removed.
+Remaining HPACK work is representation and state integration; it must reuse
+this codec instead of adding a second label-based or fixture codec.
 
 The production codec must also replace the three remaining generic
 `hpack.fixture.unsupported_header_block` fallback families with focused typed
@@ -141,6 +147,9 @@ observable output.
 | `dynamic_core_with_table_size` | shrinking evicts, growing retains, and zero capacity stays empty | `dynamic_table_capacity_changes_are_immutable_and_evict_when_shrinking`, `dynamic_table_zero_capacity_stays_empty_until_a_later_insertion` | success and input-state preservation |
 | dynamic-table construction and capacity transition failures | negative capacities are rejected without changing the input | `dynamic_table_rejects_negative_capacities_without_changing_input` | failure-state preservation |
 | production octet-value accounting projections | values retain non-visible octets through lookup | `dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets` | success |
+| `hpack_static_huffman_symbol`, code table, and payload encode helpers | the complete static table encodes arbitrary octets and applies EOS-prefix padding | `huffman_codec_preserves_canonical_vectors`, `huffman_codec_round_trips_every_single_octet`, `huffman_encoder_uses_eos_prefix_padding_at_bit_boundaries` | success and emitted bytes |
+| checked Huffman decode loops and non-visible label projections | decoding preserves exact arbitrary octets without a label compatibility API | `huffman_codec_round_trips_every_single_octet`, `huffman_codec_round_trips_recursive_multi_octet_input`, `huffman_codec_preserves_non_visible_octets`, `hpack-huffman-codec` | success and raw octets |
+| malformed padding, EOS, and incomplete-code assertion families | failures expose no partial decoded value and distinguish representative invalid payloads | `huffman_decoder_rejects_eos_invalid_padding_and_truncated_codes`, `huffman_decode_failure_exposes_no_partial_output`, `hpack-huffman-codec` | failure and failure-output preservation |
 
 Pure cases move next to their owning standard module as small
 `Result<(), String>` tests. Observable command behavior remains in focused

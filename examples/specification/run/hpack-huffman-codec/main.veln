@@ -1,0 +1,66 @@
+use http2::hpack from "std"
+use stdio
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn print_bytes(bytes: ByteChunk, index: Int, count: Int) -> Result<(), String> effects [stdio]
+	if index == count
+		print_bytes_done()
+	else
+		print_byte(bytes, index, count)
+	end
+end
+
+fn print_bytes_done() -> Result<(), String> effects [stdio]
+	stdio::println("")
+	Ok(())
+end
+
+fn print_byte(bytes: ByteChunk, index: Int, count: Int) -> Result<(), String> effects [stdio]
+	print_separator(index)
+	stdio::print(int_to_string(byte_at(bytes, index)?))
+	print_bytes(bytes, index + 1, count)
+end
+
+fn print_separator(index: Int) -> () effects [stdio]
+	if index > 0
+		stdio::print(" ")
+	else
+		()
+	end
+end
+
+fn print_chunk(label: String, bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	print_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+end
+
+fn decode_payload(bytes: ByteChunk) -> Result<ByteChunk, String>
+	http2::hpack::decode_huffman(byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?)
+end
+
+fn decode_failure(input_hex: String) -> Result<String, String>
+	match decode_payload(byte_chunk_from_hex(input_hex)?)
+		Ok(_) => Err("invalid HPACK Huffman payload was accepted")
+		Err(failure) => Ok(failure)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let canonical: ByteChunk = http2::hpack::encode_huffman(byte_chunk_from_visible_ascii_string("www.example.com")?)?
+	let _ = print_chunk("encoded", canonical)?
+
+	let non_visible: ByteChunk = decode_payload(byte_chunk_from_hex("ffc7ffffdd")?)?
+	let _ = print_chunk("decoded", non_visible)?
+
+	stdio::print("eos ")
+	stdio::println(decode_failure("ffffffff")?)
+	stdio::print("padding ")
+	stdio::println(decode_failure("00")?)
+	stdio::print("truncated ")
+	stdio::println(decode_failure("fe")?)
+	Ok(())
+end

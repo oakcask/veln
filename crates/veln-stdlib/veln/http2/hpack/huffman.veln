@@ -1,9 +1,100 @@
 use prelude
+use http2::hpack::huffman_table
 
-pub fn bytes_label(bytes: ByteChunk) -> String
-	prelude_builtin::hpack_fixture_huffman_bytes_label(bytes)
+type HuffmanEncoding
+	HuffmanEncoding(encoded: ByteChunk, current_byte: Int, current_bit_count: Int)
 end
 
-pub fn label_bytes(label: String) -> Option<ByteChunk>
-	prelude_builtin::hpack_fixture_huffman_label_bytes(label)
+pub fn encode_bytes(bytes: ByteChunk) -> Result<ByteChunk, String>
+	encode_byte(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)), HuffmanEncoding(byte_chunk([]), 0, 0))
+end
+
+fn encode_byte(bytes: ByteChunk, index: Int, count: Int, encoding: HuffmanEncoding) -> Result<ByteChunk, String>
+	if index == count
+		finish_encoding(encoding)
+	else
+		encode_byte_symbol(bytes, index, count, encoding, byte_read_u8_be(byte_view(bytes, byte_offset(index)?, byte_count(1)?)?)?)
+	end
+end
+
+fn encode_byte_symbol(bytes: ByteChunk, index: Int, count: Int, encoding: HuffmanEncoding, symbol: Int) -> Result<ByteChunk, String>
+	let code: HuffmanCode = http2::hpack::huffman_table::code(symbol)
+	let next: HuffmanEncoding = encode_code_bits(code, 0, encoding)?
+	encode_byte(bytes, index + 1, count, next)
+end
+
+fn finish_encoding(encoding: HuffmanEncoding) -> Result<ByteChunk, String>
+	match encoding
+		HuffmanEncoding(encoded, _, 0) => Ok(encoded)
+		HuffmanEncoding(encoded, current_byte, current_bit_count) => Ok(byte_append(encoded, byte_write_u8_be((current_byte << (8 - current_bit_count)) + (1 << (8 - current_bit_count)) - 1)?))
+	end
+end
+
+fn encode_code_bits(code: HuffmanCode, bit_index: Int, encoding: HuffmanEncoding) -> Result<HuffmanEncoding, String>
+	if bit_index == http2::hpack::huffman_table::length(code)
+		Ok(encoding)
+	else
+		encode_code_bit(code, bit_index, encoding, http2::hpack::huffman_table::length(code) - bit_index - 1)
+	end
+end
+
+fn encode_code_bit(code: HuffmanCode, bit_index: Int, encoding: HuffmanEncoding, shift: Int) -> Result<HuffmanEncoding, String>
+	let bit: Int = (http2::hpack::huffman_table::value(code) >> shift) & 1
+	encode_code_bits(code, bit_index + 1, append_bit(encoding, bit)?)
+end
+
+fn append_bit(encoding: HuffmanEncoding, bit: Int) -> Result<HuffmanEncoding, String>
+	match encoding
+		HuffmanEncoding(encoded, current_byte, current_bit_count) => append_bit_fields(encoded, current_byte * 2 + bit, current_bit_count + 1)
+	end
+end
+
+fn append_bit_fields(encoded: ByteChunk, next_byte: Int, next_bit_count: Int) -> Result<HuffmanEncoding, String>
+	if next_bit_count == 8
+		Ok(HuffmanEncoding(byte_append(encoded, byte_write_u8_be(next_byte)?), 0, 0))
+	else
+		Ok(HuffmanEncoding(encoded, next_byte, next_bit_count))
+	end
+end
+
+pub fn decode_bytes(input: ByteView) -> Result<ByteChunk, String>
+	let encoded: ByteChunk = byte_view_to_chunk(input)
+	decode_bits(encoded, 0, byte_count_to_int(byte_chunk_count(encoded)) * 8, byte_chunk([]), 0, 0)
+end
+
+fn decode_bits(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Result<ByteChunk, String>
+	if bit_index == total_bits
+		finish_decoding(decoded, code, length)
+	else
+		decode_source_byte(encoded, bit_index, total_bits, decoded, code, length, byte_read_u8_be(byte_view(encoded, byte_offset(bit_index / 8)?, byte_count(1)?)?)?)
+	end
+end
+
+fn decode_source_byte(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int, source_byte: Int) -> Result<ByteChunk, String>
+	let bit: Int = (source_byte >> (7 - (bit_index & 7))) & 1
+	decode_bit(encoded, bit_index, total_bits, decoded, code * 2 + bit, length + 1)
+end
+
+fn decode_bit(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Result<ByteChunk, String>
+	match http2::hpack::huffman_table::matching_symbol(code, length, 0)
+		Some(256) => Err("HPACK Huffman payload contains EOS symbol")
+		Some(symbol) => decode_bits(encoded, bit_index + 1, total_bits, byte_append(decoded, byte_write_u8_be(symbol)?), 0, 0)
+		None => if length == 30
+			Err("invalid HPACK Huffman code sequence")
+		else
+			decode_bits(encoded, bit_index + 1, total_bits, decoded, code, length)
+		end
+	end
+end
+
+fn finish_decoding(decoded: ByteChunk, code: Int, length: Int) -> Result<ByteChunk, String>
+	if length == 0 or (length <= 7 and code == (1 << length) - 1)
+		Ok(decoded)
+	else if code == (1 << length) - 1
+		Err("invalid HPACK Huffman padding")
+	else if length > 7
+		Err("invalid HPACK Huffman code sequence")
+	else
+		Err("invalid HPACK Huffman padding")
+	end
 end

@@ -797,8 +797,6 @@ compiler_adapter_symbol_set! {
     "byte_append",
     "byte_chunk_from_hex",
     "byte_chunk_to_visible_ascii_string",
-    "hpack_fixture_huffman_bytes_label",
-    "hpack_fixture_huffman_label_bytes",
     "byte_chunk_from_visible_ascii_string",
     "byte_take",
     "byte_drop",
