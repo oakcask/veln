@@ -25,8 +25,9 @@ The public routes are:
   payload-length validation, immutable pending header-block sequencing,
   immutable local SETTINGS send transitions, pure peer SETTINGS item
   validation, immutable peer SETTINGS state application, immutable SETTINGS
-  acknowledgement state, pure flow-control numeric domains, and pure PING
-  request and ACK response transitions.
+  acknowledgement state, peer-created stream admission high-water tracking,
+  pure flow-control numeric domains, and pure PING request and ACK response
+  transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -136,6 +137,18 @@ peer-created stream high-water projection is updated only through
 `peer_settings_with_highest_peer_created_stream_id(...)`, keeping SETTINGS
 application separate from stream admission.
 
+`http2::core::empty_peer_stream_admission()` creates immutable peer-created
+stream admission state with no recorded high-water stream id.
+`record_new_headers_peer_stream(kind, stream_id, completed_is_trailer,
+peer_stream_is_known, state)` records only new non-trailer HEADERS streams
+that are not already tracked by the caller's stream state. It leaves trailers,
+known streams, and non-HEADERS frames unchanged. `validate_new_peer_stream(...)`
+accepts a candidate stream id only when no previous peer-created stream exists
+or the candidate is greater than the recorded high-water id. Rejection returns
+a `CorePeerStreamAdmissionFailure` containing the offset, candidate stream id,
+previous stream id, endpoint role, active-state label, rule provenance, and
+exact caller-supplied preview without exposing a next state.
+
 `http2::core::empty_settings_ack_state()` creates immutable state with no
 outstanding local SETTINGS batch and no pending peer SETTINGS ACK. Local
 SETTINGS senders record each already validated and emitted batch through
@@ -205,6 +218,13 @@ The focused
 [`http2-core-peer-settings-state`](../../examples/specification/run/http2-core-peer-settings-state/)
 case imports `http2::core` from `std` and records the public state
 projections.
+The adjacent test also checks peer-created stream admission recording,
+ignored trailer and known-stream cases, higher-id acceptance, non-increasing
+stream-id rejection, exact failure data, preview preservation, and immutable
+input state. The focused
+[`http2-core-peer-stream-admission`](../../examples/specification/run/http2-core-peer-stream-admission/)
+case imports `http2::core` from `std` and records public state, decision, and
+failure projections.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

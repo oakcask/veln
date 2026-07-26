@@ -8,6 +8,7 @@ use http2::core::settings_ack
 use http2::core::local_settings
 use http2::core::peer_settings
 use http2::core::peer_settings_state
+use http2::core::peer_stream_admission
 use http2::core::flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -59,6 +60,12 @@ pub type PeerSettingsValidation = http2::core::peer_settings::PeerSettingsValida
 pub type PeerSettingsFailure = http2::core::peer_settings::PeerSettingsFailure
 
 pub type PeerSettingsState = http2::core::peer_settings_state::PeerSettingsState
+
+pub type CorePeerStreamAdmissionState = http2::core::peer_stream_admission::CorePeerStreamAdmissionState
+
+pub type CorePeerStreamAdmissionDecision = http2::core::peer_stream_admission::CorePeerStreamAdmissionDecision
+
+pub type CorePeerStreamAdmissionFailure = http2::core::peer_stream_admission::CorePeerStreamAdmissionFailure
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -143,6 +150,66 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn empty_peer_stream_admission() -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::empty()
+end
+
+pub fn peer_stream_admission_highest_stream_id(state: CorePeerStreamAdmissionState) -> Int
+	http2::core::peer_stream_admission::highest_stream_id(state)
+end
+
+pub fn validate_new_peer_stream(offset: Int, stream_id: Int, endpoint_role: String, state: CorePeerStreamAdmissionState, preview: ByteChunk) -> CorePeerStreamAdmissionDecision
+	http2::core::peer_stream_admission::validate_new_peer_stream(offset, stream_id, endpoint_role, state, preview)
+end
+
+pub fn record_peer_stream_id(stream_id: Int, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::record_stream_id(stream_id, state)
+end
+
+pub fn record_new_headers_peer_stream(kind: Int, stream_id: Int, completed_is_trailer: Bool, peer_stream_is_known: Bool, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::record_new_headers_stream(kind, stream_id, completed_is_trailer, peer_stream_is_known, state)
+end
+
+pub fn peer_stream_admission_decision_status(decision: CorePeerStreamAdmissionDecision) -> String
+	http2::core::peer_stream_admission::admission_decision_status(decision)
+end
+
+pub fn peer_stream_admission_decision_state(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionState, String>
+	http2::core::peer_stream_admission::admission_decision_state(decision)
+end
+
+pub fn peer_stream_admission_decision_failure(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionFailure, String>
+	http2::core::peer_stream_admission::admission_decision_failure(decision)
+end
+
+pub fn peer_stream_admission_failure_offset(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_offset(failure)
+end
+
+pub fn peer_stream_admission_failure_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_stream_id(failure)
+end
+
+pub fn peer_stream_admission_failure_previous_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_previous_stream_id(failure)
+end
+
+pub fn peer_stream_admission_failure_endpoint_role(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_endpoint_role(failure)
+end
+
+pub fn peer_stream_admission_failure_active_state(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_active_state(failure)
+end
+
+pub fn peer_stream_admission_failure_rule_provenance(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_rule_provenance(failure)
+end
+
+pub fn peer_stream_admission_failure_preview(failure: CorePeerStreamAdmissionFailure) -> ByteChunk
+	http2::core::peer_stream_admission::admission_failure_preview(failure)
 end
 
 pub fn max_flow_control_value() -> Int

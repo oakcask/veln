@@ -1,0 +1,119 @@
+use prelude
+
+pub type CorePeerStreamAdmissionState
+	Http2CoreNoPeerStreamAdmitted
+	Http2CoreHighestPeerStreamId(Int)
+end
+
+pub type CorePeerStreamAdmissionDecision
+	Http2CorePeerStreamAdmitted(CorePeerStreamAdmissionState)
+	Http2CorePeerStreamRejected(CorePeerStreamAdmissionFailure)
+end
+
+pub type CorePeerStreamAdmissionFailure
+	PeerStreamIdNotIncreasing(Int, Int, Int, String, String, String, ByteChunk)
+end
+
+pub fn empty() -> CorePeerStreamAdmissionState
+	Http2CoreNoPeerStreamAdmitted
+end
+
+pub fn highest_stream_id(state: CorePeerStreamAdmissionState) -> Int
+	match state
+		Http2CoreNoPeerStreamAdmitted => 0
+		Http2CoreHighestPeerStreamId(stream_id) => stream_id
+	end
+end
+
+pub fn validate_new_peer_stream(offset: Int, stream_id: Int, endpoint_role: String, state: CorePeerStreamAdmissionState, preview: ByteChunk) -> CorePeerStreamAdmissionDecision
+	match state
+		Http2CoreNoPeerStreamAdmitted => Http2CorePeerStreamAdmitted(state)
+		Http2CoreHighestPeerStreamId(previous_stream_id) => if stream_id > previous_stream_id
+			Http2CorePeerStreamAdmitted(state)
+		else
+			Http2CorePeerStreamRejected(PeerStreamIdNotIncreasing(offset, stream_id, previous_stream_id, endpoint_role, "idle-stream", "peer_created_stream_ids_increase", preview))
+		end
+	end
+end
+
+pub fn record_new_headers_stream(kind: Int, stream_id: Int, completed_is_trailer: Bool, peer_stream_is_known: Bool, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	if kind == 1 and not completed_is_trailer and not peer_stream_is_known
+		record_stream_id(stream_id, state)
+	else
+		state
+	end
+end
+
+pub fn record_stream_id(stream_id: Int, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	match state
+		Http2CoreNoPeerStreamAdmitted => Http2CoreHighestPeerStreamId(stream_id)
+		Http2CoreHighestPeerStreamId(highest_stream_id) => if stream_id > highest_stream_id
+			Http2CoreHighestPeerStreamId(stream_id)
+		else
+			state
+		end
+	end
+end
+
+pub fn admission_decision_status(decision: CorePeerStreamAdmissionDecision) -> String
+	match decision
+		Http2CorePeerStreamAdmitted(_) => "accepted"
+		Http2CorePeerStreamRejected(_) => "rejected"
+	end
+end
+
+pub fn admission_decision_state(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionState, String>
+	match decision
+		Http2CorePeerStreamAdmitted(state) => Ok(state)
+		Http2CorePeerStreamRejected(_) => Err("rejected peer stream admission has no next state")
+	end
+end
+
+pub fn admission_decision_failure(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionFailure, String>
+	match decision
+		Http2CorePeerStreamAdmitted(_) => Err("accepted peer stream admission has no failure")
+		Http2CorePeerStreamRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn admission_failure_offset(failure: CorePeerStreamAdmissionFailure) -> Int
+	match failure
+		PeerStreamIdNotIncreasing(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn admission_failure_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	match failure
+		PeerStreamIdNotIncreasing(_, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn admission_failure_previous_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	match failure
+		PeerStreamIdNotIncreasing(_, _, previous_stream_id, _, _, _, _) => previous_stream_id
+	end
+end
+
+pub fn admission_failure_endpoint_role(failure: CorePeerStreamAdmissionFailure) -> String
+	match failure
+		PeerStreamIdNotIncreasing(_, _, _, endpoint_role, _, _, _) => endpoint_role
+	end
+end
+
+pub fn admission_failure_active_state(failure: CorePeerStreamAdmissionFailure) -> String
+	match failure
+		PeerStreamIdNotIncreasing(_, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn admission_failure_rule_provenance(failure: CorePeerStreamAdmissionFailure) -> String
+	match failure
+		PeerStreamIdNotIncreasing(_, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn admission_failure_preview(failure: CorePeerStreamAdmissionFailure) -> ByteChunk
+	match failure
+		PeerStreamIdNotIncreasing(_, _, _, _, _, _, preview) => preview
+	end
+end
