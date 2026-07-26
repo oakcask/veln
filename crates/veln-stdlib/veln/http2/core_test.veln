@@ -282,6 +282,10 @@ fn require_found_stream(entry: Option<CoreStreamEntry>) -> Result<CoreStreamEntr
 	end
 end
 
+fn require_stream_frame_failure(decision: CoreStreamFrameAdmissionDecision) -> Result<CoreStreamFrameAdmissionFailure, String>
+	http2::core::stream_frame_admission_failure(decision)
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -428,6 +432,72 @@ test stream_lifecycle_rejection_context_matches_protocol_labels() -> Result<(), 
 		Ok(())
 	else
 		Err("HTTP/2 stream lifecycle rejection labels changed")
+	end
+end
+
+test stream_frame_admission_accepts_connection_controls_and_unknown_extension_kinds() -> Result<(), String>
+	let streams: CoreStreamCollection = http2::core::empty_stream_collection()
+	let settings: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 4, 0, streams, byte_chunk_from_hex("000000040000000000")?)
+	let ping: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 6, 0, streams, byte_chunk_from_hex("000008060000000000")?)
+	let goaway: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 7, 0, streams, byte_chunk_from_hex("000008070000000000")?)
+	let connection_window: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 8, 0, streams, byte_chunk_from_hex("000004080000000000")?)
+	let unknown_connection: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 99, 0, streams, byte_chunk_from_hex("000000630000000000")?)
+	let unknown_stream: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 99, 1, http2::core::stream_collection_add_or_replace(streams, require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, 0, 0))?), byte_chunk_from_hex("000000630000000001")?)
+	if http2::core::stream_frame_admission_status(settings) == "accepted" and http2::core::stream_frame_admission_status(ping) == "accepted" and http2::core::stream_frame_admission_status(goaway) == "accepted" and http2::core::stream_frame_admission_status(connection_window) == "accepted" and http2::core::stream_frame_admission_status(unknown_connection) == "accepted" and http2::core::stream_frame_admission_status(unknown_stream) == "accepted"
+		Ok(())
+	else
+		Err("HTTP/2 stream frame admission rejected accepted connection or extension frame kinds")
+	end
+end
+
+test stream_frame_admission_rejects_wrong_connection_and_idle_stream_kinds() -> Result<(), String>
+	let streams: CoreStreamCollection = http2::core::empty_stream_collection()
+	let connection_data: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(13, 0, 0, streams, byte_chunk_from_hex("000000000000000000")?)
+	let idle_data: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(17, 0, 1, streams, byte_chunk_from_hex("000000000000000001")?)
+	let invalid_known: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(19, 6, 1, streams, byte_chunk_from_hex("000008060000000001")?)
+	let connection_failure: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(connection_data)?
+	let idle_failure: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(idle_data)?
+	let invalid_failure: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(invalid_known)?
+	if http2::core::stream_frame_admission_failure_id(connection_failure) == "http2.protocol.invalid_frame_kind" and http2::core::stream_frame_admission_failure_offset(connection_failure) == 13 and http2::core::stream_frame_admission_failure_frame_kind(connection_failure) == 0 and http2::core::stream_frame_admission_failure_stream_id(connection_failure) == 0 and http2::core::stream_frame_admission_failure_expected_kind(connection_failure) == 4 and http2::core::stream_frame_admission_failure_active_state(connection_failure) == "connection-control" and http2::core::stream_frame_admission_failure_rule_provenance(connection_failure) == "connection_frames_require_settings" and http2::core::stream_frame_admission_failure_active_state(idle_failure) == "idle-stream" and http2::core::stream_frame_admission_failure_rule_provenance(idle_failure) == "idle_streams_require_headers" and http2::core::stream_frame_admission_failure_frame_kind(invalid_failure) == 6 and http2::core::stream_frame_admission_failure_rule_provenance(invalid_failure) == "idle_streams_require_headers"
+		Ok(())
+	else
+		Err("HTTP/2 stream frame admission failure lost connection or idle-stream diagnostic context")
+	end
+end
+
+test stream_frame_admission_applies_lifecycle_specific_receive_rules() -> Result<(), String>
+	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, 0, 0))?
+	let push: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_client_push_associated_lifecycle(), 10, 10, 0, 0))?
+	let reserved_peer: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_reserved_by_peer_lifecycle(), 10, 10, 0, 0))?
+	let half_remote: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_remote_lifecycle(), 10, 10, 0, 0))?
+	let closed: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_closed_lifecycle(), 10, 10, 0, 0))?
+	let reset: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(11, http2::core::stream_reset_lifecycle(8), 10, 10, 0, 0))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), open), push), reserved_peer), half_remote), closed), reset)
+	let data_open: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 0, 1, streams, byte_chunk([]))
+	let push_promise: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 5, 3, streams, byte_chunk([]))
+	let priority_idle: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 2, 13, streams, byte_chunk([]))
+	let window_half_remote: CoreStreamFrameAdmissionDecision = http2::core::validate_inbound_frame_kind(0, 8, 7, streams, byte_chunk([]))
+	let reserved_data: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(http2::core::validate_inbound_frame_kind(0, 0, 5, streams, byte_chunk([])))?
+	let half_remote_data: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(http2::core::validate_inbound_frame_kind(0, 0, 7, streams, byte_chunk([])))?
+	let closed_window: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(http2::core::validate_inbound_frame_kind(0, 8, 9, streams, byte_chunk([])))?
+	let reset_priority: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(http2::core::validate_inbound_frame_kind(0, 2, 11, streams, byte_chunk([])))?
+	if http2::core::stream_frame_admission_status(data_open) == "accepted" and http2::core::stream_frame_admission_status(push_promise) == "accepted" and http2::core::stream_frame_admission_status(priority_idle) == "accepted" and http2::core::stream_frame_admission_status(window_half_remote) == "accepted" and http2::core::stream_frame_admission_failure_active_state(reserved_data) == "reserved-by-peer-stream" and http2::core::stream_frame_admission_failure_rule_provenance(reserved_data) == "reserved_by_peer_requires_response_headers" and http2::core::stream_frame_admission_failure_active_state(half_remote_data) == "half-closed-remote-stream" and http2::core::stream_frame_admission_failure_rule_provenance(half_remote_data) == "half_closed_remote_rejects_later_frames" and http2::core::stream_frame_admission_failure_active_state(closed_window) == "closed-by-peer-stream" and http2::core::stream_frame_admission_failure_rule_provenance(closed_window) == "closed_by_peer_rejects_later_frames" and http2::core::stream_frame_admission_failure_active_state(reset_priority) == "reset-stream" and http2::core::stream_frame_admission_failure_rule_provenance(reset_priority) == "reset_stream_rejects_later_frames"
+		Ok(())
+	else
+		Err("HTTP/2 stream frame admission did not apply lifecycle-specific receive rules")
+	end
+end
+
+test stream_frame_admission_preserves_collection_and_preview_on_failure() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("000000000000000005")?
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_reserved_by_peer_lifecycle(), 42, 17, 10, 4))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry)
+	let failure: CoreStreamFrameAdmissionFailure = require_stream_frame_failure(http2::core::validate_inbound_frame_kind(23, 0, 5, streams, preview))?
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(streams, 5))?
+	if http2::core::stream_collection_count(streams) == 1 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(found)) == "reserved-by-peer" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 42 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(found)) == 17 and http2::core::stream_entry_content_length_expected(found) == 10 and http2::core::stream_entry_content_length_observed(found) == 4 and chunks_equal(http2::core::stream_frame_admission_failure_preview(failure), preview)?
+		Ok(())
+	else
+		Err("HTTP/2 stream frame admission failure changed input streams or preview")
 	end
 end
 

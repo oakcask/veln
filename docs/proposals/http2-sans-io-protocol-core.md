@@ -158,6 +158,7 @@ output.
 | peer-created stream admission monotonicity, ignored trailers, known stream reuse, failure context, and failure-state preservation assertions | immutable peer stream admission state starts empty, records only new non-trailer HEADERS streams, ignores already tracked streams and non-HEADERS frames, accepts empty and higher stream ids without advancing the input state, records high-water stream ids monotonically, rejects non-increasing stream ids with exact previous high-water, endpoint role, active state, rule provenance, and preview, and exposes no next state on failure | `peer_stream_admission_records_only_new_non_trailer_headers`, `peer_stream_admission_record_stream_id_is_monotonic`, `peer_stream_admission_acceptance_keeps_caller_owned_high_water`, `peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state`, `http2-core-peer-stream-admission`, and retained `http2-protocol-core` stream lifecycle, complete stdout, and output-chunk integration | pure high-water, trailer, known-stream, monotonic recording, empty acceptance, higher-id acceptance, failure-data, preview, and immutable-input coverage moved to `core_test.veln`; focused external-package result projections moved to `http2-core-peer-stream-admission`; the monolithic case still owns actual receive-flow-control stream collections, reset and closed-stream integration, diagnostic projection, complete stdout, and wider transition ordering |
 | aggregate connection state defaults, stream collection ownership, and component replacement | standard-owned immutable aggregate connection state composes endpoint role, next offset, connection preface, initial peer SETTINGS gate, pending header block, production HPACK dynamic table, peer SETTINGS state, SETTINGS ACK state, peer stream admission, empty stream collection, connection receive credit, local SETTINGS policy, and lifecycle; component replacement returns a new aggregate without mutating the input state | `connection_state_starts_with_composed_server_defaults`, `connection_state_starts_with_client_role`, `connection_state_updates_are_immutable`, `connection_state_replaces_protocol_gates_and_closed_lifecycle_immutably`, `stream_collection_adds_replaces_and_finds_stream_entries_immutably`, `stream_collection_updates_lifecycle_credit_and_content_length_immutably`, `stream_collection_missing_updates_preserve_all_components`, `connection_state_preserves_stream_collection_for_missing_stream_updates`, `http2-core-connection-state`, and retained `http2-protocol-core` receive/send transition integration | pure aggregate defaults, role-specific initialization, production HPACK table ownership, stream collection state ownership, stream lifecycle label and reset projection, receive and send credit projection, missing-stream no-op preservation, content-length counter projection, lifecycle projection, protocol-gate replacement, active pending-header replacement, closed lifecycle projection, and immutable component replacement moved to `core_test.veln`; focused external-package projections moved to `http2-core-connection-state` and `http2-core-stream-collection`; the monolithic case still owns HPACK-carrying receive transitions, header validation, per-frame flow-control debit/refill transitions, outbound transitions, complete stdout, and output-chunk integration |
 | stream lifecycle receive-admission predicate helpers | standard-owned stream lifecycle state distinguishes open, client-push-associated, reserved-by-peer, reserved-local, half-closed-local, half-closed-remote, closed, and reset states; pure projections report active stream status, receive-window ownership, open-stream projection, DATA, RST_STREAM, WINDOW_UPDATE, and PRIORITY admission, active-state labels, rejection-rule labels, and reset error codes | `stream_lifecycle_predicates_cover_reserved_and_closed_states`, `stream_lifecycle_rejection_context_matches_protocol_labels`, and `http2-core-stream-collection` | pure lifecycle labels, active status, receive-window ownership, open projection, per-frame admission predicates, diagnostic active-state labels, rejection-rule labels, and reset error-code projection moved to `core_test.veln`; focused external-package projections moved to `http2-core-stream-collection`; the monolithic case still owns applying those decisions inside receive dispatch, header validation, flow-control transitions, complete stdout, and output-chunk integration |
+| inbound frame-kind admission over stream collections | standard-owned receive-dispatch admission accepts connection controls and unknown extension kinds, rejects known stream frames on stream zero with connection-control context, accepts HEADERS before stream lookup, applies DATA, RST_STREAM, WINDOW_UPDATE, PRIORITY, and unknown extension admission to current stream lifecycle, accepts idle PRIORITY, accepts PUSH_PROMISE only on client-push-associated streams, and preserves stream collection plus frame-header preview on failure | `stream_frame_admission_accepts_connection_controls_and_unknown_extension_kinds`, `stream_frame_admission_rejects_wrong_connection_and_idle_stream_kinds`, `stream_frame_admission_applies_lifecycle_specific_receive_rules`, `stream_frame_admission_preserves_collection_and_preview_on_failure`, `http2-core-stream-frame-admission`, and retained `http2-protocol-core` receive-dispatch integration | pure connection-frame, idle-stream, lifecycle-specific DATA, RST_STREAM, WINDOW_UPDATE, PRIORITY, PUSH_PROMISE, unknown extension, exact failure-context, immutable-stream-collection, and preview-preservation coverage moved to `core_test.veln`; focused external-package projections moved to `http2-core-stream-frame-admission`; the monolithic case still owns payload parsing, HPACK-carrying receive transitions, header validation, flow-control debit/refill, complete stdout, and output-chunk integration |
 | flow-control numeric domain helper assertions | connection window credit, stream window credit, configured initial window size, and `WINDOW_UPDATE` increment domains expose their role-specific bounds through the public core facade; debit and refill helpers return immutable next-credit decisions or exact domain failures without changing input credit or increment values | `flow_control_domains_accept_boundaries`, `flow_control_domains_reject_out_of_range_values`, `flow_control_debit_and_refill_are_immutable`, `flow_control_failures_preserve_input_credit`, `http2-core-flow-control-domains` | pure domain construction, boundary rejection, negative stream credit, debit, refill, overflow failure data, and input preservation moved to `core_test.veln`; focused external-package result projections moved to `http2-core-flow-control-domains`; monolithic DATA, peer `SETTINGS_INITIAL_WINDOW_SIZE`, received and outbound `WINDOW_UPDATE`, complete stdout, and diagnostic integration remain while the wider state machine is migrated |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
@@ -266,16 +267,19 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
 
 ### Newly Promoted Stream-Collection Slice
 
-- `std::http2::core` now has a standard-owned immutable stream collection and
-  stream-entry lifecycle state. The collection records stream ids, lifecycle
-  labels including client-push-associated, reserved-by-peer, reserved-local,
+- `std::http2::core` now has a standard-owned immutable stream collection,
+  stream-entry lifecycle state, and inbound frame-kind admission boundary over
+  the stream collection. The collection records stream ids, lifecycle labels
+  including client-push-associated, reserved-by-peer, reserved-local,
   half-closed, closed, and reset states with reset error codes, receive and
   send stream-window credits, and content-length expected and observed
   counters. Add, replace, lookup, and focused update helpers preserve the
   caller's input collection. Public lifecycle predicates now expose active
   status, receive-window ownership, open-stream projection, DATA, RST_STREAM,
   WINDOW_UPDATE, and PRIORITY admission, active-state labels, and
-  rejection-rule labels.
+  rejection-rule labels. The admission boundary applies those predicates to
+  incoming frame kinds while preserving the input collection and preview on
+  failure.
 - `CoreConnectionState` now composes the stream collection as part of the
   aggregate standard-owned state. The adjacent `core_test.veln` checks empty
   aggregate defaults, immutable aggregate replacement, stream add/replace,
@@ -284,12 +288,15 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
   checks the public stream lifecycle predicate matrix and rejection-label
   projections. The focused
   `http2-core-connection-state` case records the public stream-count and
-  active-stream-count projections from an ordinary external package, while
+  active-stream-count projections from an ordinary external package,
   `http2-core-stream-collection` records stream-entry, missing-update, and
-  lifecycle predicate projections.
-- This slice is state ownership only. It does not yet move frame dispatch,
-  header validation, DATA/WINDOW_UPDATE credit transitions, outbound send
-  transitions, or GOAWAY drain decisions out of the monolithic case.
+  lifecycle predicate projections, and
+  `http2-core-stream-frame-admission` records the public admission decision and
+  failure projections.
+- This slice moves the frame-kind admission decision, but it does not yet move
+  payload parsing, header validation, DATA/WINDOW_UPDATE credit transitions,
+  outbound send transitions, or GOAWAY drain decisions out of the monolithic
+  case.
 
 ### Remaining Deletion-Gate Blockers
 

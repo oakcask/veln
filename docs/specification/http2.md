@@ -289,6 +289,32 @@ The adjacent test also checks every missing-stream update helper as a no-op
 and verifies that embedding the resulting collection in `CoreConnectionState`
 preserves the caller-owned stream data.
 
+`http2::core::validate_inbound_frame_kind(offset, frame_kind, stream_id,
+streams, preview)` is the standard-owned pure admission boundary for the
+receive dispatcher before payload-specific state is applied. It accepts
+connection-level SETTINGS, PING, GOAWAY, WINDOW_UPDATE, and unknown extension
+frames on stream zero; rejects other known frame kinds on stream zero with the
+`connection_frames_require_settings` context; accepts HEADERS before stream
+collection lookup; applies DATA, RST_STREAM, WINDOW_UPDATE, PRIORITY, and
+unknown extension admission to the current stream lifecycle; accepts PRIORITY
+for idle streams; and accepts PUSH_PROMISE only on client-push-associated
+streams. Rejections expose the stable `http2.protocol.invalid_frame_kind` id,
+offset, actual kind, stream id, expected kind, active-state label, rule
+provenance, and supplied frame-header preview, without returning a next state
+or mutating the input collection.
+
+The adjacent test checks connection-control acceptance, unknown extension
+handling, idle stream rejection, lifecycle-specific DATA, WINDOW_UPDATE,
+PRIORITY, and PUSH_PROMISE admission, exact failure context, immutable stream
+collection preservation, and preview preservation. The focused
+[`http2-core-stream-frame-admission`](../../examples/specification/run/http2-core-stream-frame-admission/)
+case imports `http2::core` from `std` and records public decision and failure
+projections. Payload-specific frame application, header validation,
+flow-control debit or refill, HPACK-carrying transitions, complete stdout, and
+output-chunk integration remain in the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case until those responsibilities are migrated.
+
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.
 `accept_connection_preface(state, input)` accepts a complete preface in one

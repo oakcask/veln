@@ -1,0 +1,59 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn print_decision(label: String, decision: CoreStreamFrameAdmissionDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(http2::core::stream_frame_admission_status(decision))
+	match http2::core::stream_frame_admission_status(decision)
+		"rejected" => print_failure(label, http2::core::stream_frame_admission_failure(decision)?)
+		_ => Ok(())
+	end
+end
+
+fn print_failure(label: String, failure: CoreStreamFrameAdmissionFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::stream_frame_admission_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::stream_frame_admission_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::stream_frame_admission_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::stream_frame_admission_failure_stream_id(failure)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_frame_admission_failure_expected_kind(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::stream_frame_admission_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::stream_frame_admission_failure_rule_provenance(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::stream_frame_admission_failure_preview(failure)))))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 0, 0))?
+	let push: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_client_push_associated_lifecycle(), 65535, 65535, 0, 0))?
+	let reserved: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_reserved_by_peer_lifecycle(), 65535, 65535, 0, 0))?
+	let half_remote: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_remote_lifecycle(), 65535, 65535, 0, 0))?
+	let closed: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_closed_lifecycle(), 0, 65535, 0, 0))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), open), push), reserved), half_remote), closed)
+	let _ = print_decision("settings-connection", http2::core::validate_inbound_frame_kind(0, 4, 0, streams, byte_chunk_from_hex("000000040000000000")?))?
+	let _ = print_decision("data-open", http2::core::validate_inbound_frame_kind(0, 0, 1, streams, byte_chunk_from_hex("000000000000000001")?))?
+	let _ = print_decision("push-associated", http2::core::validate_inbound_frame_kind(0, 5, 3, streams, byte_chunk_from_hex("000000050000000003")?))?
+	let _ = print_decision("priority-idle", http2::core::validate_inbound_frame_kind(0, 2, 11, streams, byte_chunk_from_hex("00000502000000000b")?))?
+	let _ = print_decision("window-half-remote", http2::core::validate_inbound_frame_kind(0, 8, 7, streams, byte_chunk_from_hex("000004080000000007")?))?
+	let _ = print_decision("connection-data", http2::core::validate_inbound_frame_kind(13, 0, 0, streams, byte_chunk_from_hex("000000000000000000")?))?
+	let _ = print_decision("reserved-data", http2::core::validate_inbound_frame_kind(17, 0, 5, streams, byte_chunk_from_hex("000000000000000005")?))?
+	let _ = print_decision("closed-window", http2::core::validate_inbound_frame_kind(19, 8, 9, streams, byte_chunk_from_hex("000004080000000009")?))?
+	let _ = print_decision("push-missing", http2::core::validate_inbound_frame_kind(23, 5, 11, streams, byte_chunk_from_hex("00000005000000000b")?))?
+	Ok(())
+end

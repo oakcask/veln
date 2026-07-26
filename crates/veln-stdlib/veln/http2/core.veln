@@ -14,6 +14,7 @@ use http2::core::peer_settings_state
 use http2::core::peer_stream_admission
 use http2::core::flow_control
 use http2::core::stream_state
+use http2::core::stream_frame_admission
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -82,6 +83,10 @@ pub type CoreStreamCollection = http2::core::stream_state::CoreStreamCollection
 pub type CoreStreamEntry = http2::core::stream_state::CoreStreamEntry
 
 pub type CoreStreamLifecycle = http2::core::stream_state::CoreStreamLifecycle
+
+pub type CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::CoreStreamFrameAdmissionDecision
+
+pub type CoreStreamFrameAdmissionFailure = http2::core::stream_frame_admission::CoreStreamFrameAdmissionFailure
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -510,6 +515,50 @@ end
 
 pub fn stream_lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
 	http2::core::stream_state::lifecycle_error_code(lifecycle)
+end
+
+pub fn validate_inbound_frame_kind(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	http2::core::stream_frame_admission::validate_inbound(offset, frame_kind, stream_id, streams, preview)
+end
+
+pub fn stream_frame_admission_status(decision: CoreStreamFrameAdmissionDecision) -> String
+	http2::core::stream_frame_admission::decision_status(decision)
+end
+
+pub fn stream_frame_admission_failure(decision: CoreStreamFrameAdmissionDecision) -> Result<CoreStreamFrameAdmissionFailure, String>
+	http2::core::stream_frame_admission::decision_failure(decision)
+end
+
+pub fn stream_frame_admission_failure_id(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_id(failure)
+end
+
+pub fn stream_frame_admission_failure_offset(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_offset(failure)
+end
+
+pub fn stream_frame_admission_failure_frame_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_frame_kind(failure)
+end
+
+pub fn stream_frame_admission_failure_stream_id(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_stream_id(failure)
+end
+
+pub fn stream_frame_admission_failure_expected_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_expected_kind(failure)
+end
+
+pub fn stream_frame_admission_failure_active_state(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_active_state(failure)
+end
+
+pub fn stream_frame_admission_failure_rule_provenance(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_rule_provenance(failure)
+end
+
+pub fn stream_frame_admission_failure_preview(failure: CoreStreamFrameAdmissionFailure) -> ByteChunk
+	http2::core::stream_frame_admission::failure_preview(failure)
 end
 
 pub fn max_flow_control_value() -> Int
