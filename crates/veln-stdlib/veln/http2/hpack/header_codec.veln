@@ -22,7 +22,7 @@ end
 pub fn decode_indexed(input: ByteView, state: State) -> Result<DecodeTransition, String>
 	let decoded: { value : Int, consumed : Int } = http2::hpack::integer::decode(input, 7)?
 	match http2::hpack::static_table::lookup(http2::hpack::integer::value(decoded))
-		Some(http2::hpack::static_table::StaticEntry(name, value)) => Ok(DecodeTransition(HeaderField(name, value), http2::hpack::integer::consumed(decoded), state))
+		Some(entry) => Ok(DecodeTransition(HeaderField(entry.name, entry.value), http2::hpack::integer::consumed(decoded), state))
 		None => Err("HPACK indexed field is not available in the static table")
 	end
 end

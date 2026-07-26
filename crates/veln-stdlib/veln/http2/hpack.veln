@@ -39,9 +39,29 @@ end
 
 pub fn static_entry(index: Int) -> Option<StaticEntry>
 	match http2::hpack::static_table::lookup(index)
-		Some(http2::hpack::static_table::StaticEntry(name, value)) => Some(StaticEntry(name, value))
+		Some(entry) => Some(StaticEntry(entry.name, entry.value))
 		None => None
 	end
+end
+
+pub fn static_entry_name(entry: StaticEntry) -> String
+	match entry
+		StaticEntry(name, _) => name
+	end
+end
+
+pub fn static_entry_value(entry: StaticEntry) -> String
+	match entry
+		StaticEntry(_, value) => value
+	end
+end
+
+pub fn static_entry_index(name: String, value: String) -> Option<Int>
+	http2::hpack::static_table::entry_index(name, value)
+end
+
+pub fn static_name_index(name: String) -> Option<Int>
+	http2::hpack::static_table::name_index(name)
 end
 
 pub fn empty_dynamic_table(capacity: Int) -> Result<DynamicTable, String>

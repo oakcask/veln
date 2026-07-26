@@ -1,6 +1,138 @@
 use prelude
 use http2::hpack
 
+type ExpectedStaticEntry
+	ExpectedStaticEntry(name: String, value: String, first_name_index: Int)
+end
+
+fn expected_static_entry(index: Int) -> Option<ExpectedStaticEntry>
+	match index
+		1 => Some(ExpectedStaticEntry(":authority", "", 1))
+		2 => Some(ExpectedStaticEntry(":method", "GET", 2))
+		3 => Some(ExpectedStaticEntry(":method", "POST", 2))
+		4 => Some(ExpectedStaticEntry(":path", "/", 4))
+		5 => Some(ExpectedStaticEntry(":path", "/index.html", 4))
+		6 => Some(ExpectedStaticEntry(":scheme", "http", 6))
+		7 => Some(ExpectedStaticEntry(":scheme", "https", 6))
+		8 => Some(ExpectedStaticEntry(":status", "200", 8))
+		9 => Some(ExpectedStaticEntry(":status", "204", 8))
+		10 => Some(ExpectedStaticEntry(":status", "206", 8))
+		11 => Some(ExpectedStaticEntry(":status", "304", 8))
+		12 => Some(ExpectedStaticEntry(":status", "400", 8))
+		13 => Some(ExpectedStaticEntry(":status", "404", 8))
+		14 => Some(ExpectedStaticEntry(":status", "500", 8))
+		15 => Some(ExpectedStaticEntry("accept-charset", "", 15))
+		16 => Some(ExpectedStaticEntry("accept-encoding", "gzip, deflate", 16))
+		17 => Some(ExpectedStaticEntry("accept-language", "", 17))
+		18 => Some(ExpectedStaticEntry("accept-ranges", "", 18))
+		19 => Some(ExpectedStaticEntry("accept", "", 19))
+		20 => Some(ExpectedStaticEntry("access-control-allow-origin", "", 20))
+		21 => Some(ExpectedStaticEntry("age", "", 21))
+		22 => Some(ExpectedStaticEntry("allow", "", 22))
+		23 => Some(ExpectedStaticEntry("authorization", "", 23))
+		24 => Some(ExpectedStaticEntry("cache-control", "", 24))
+		25 => Some(ExpectedStaticEntry("content-disposition", "", 25))
+		26 => Some(ExpectedStaticEntry("content-encoding", "", 26))
+		27 => Some(ExpectedStaticEntry("content-language", "", 27))
+		28 => Some(ExpectedStaticEntry("content-length", "", 28))
+		29 => Some(ExpectedStaticEntry("content-location", "", 29))
+		30 => Some(ExpectedStaticEntry("content-range", "", 30))
+		31 => Some(ExpectedStaticEntry("content-type", "", 31))
+		32 => Some(ExpectedStaticEntry("cookie", "", 32))
+		33 => Some(ExpectedStaticEntry("date", "", 33))
+		34 => Some(ExpectedStaticEntry("etag", "", 34))
+		35 => Some(ExpectedStaticEntry("expect", "", 35))
+		36 => Some(ExpectedStaticEntry("expires", "", 36))
+		37 => Some(ExpectedStaticEntry("from", "", 37))
+		38 => Some(ExpectedStaticEntry("host", "", 38))
+		39 => Some(ExpectedStaticEntry("if-match", "", 39))
+		40 => Some(ExpectedStaticEntry("if-modified-since", "", 40))
+		41 => Some(ExpectedStaticEntry("if-none-match", "", 41))
+		42 => Some(ExpectedStaticEntry("if-range", "", 42))
+		43 => Some(ExpectedStaticEntry("if-unmodified-since", "", 43))
+		44 => Some(ExpectedStaticEntry("last-modified", "", 44))
+		45 => Some(ExpectedStaticEntry("link", "", 45))
+		46 => Some(ExpectedStaticEntry("location", "", 46))
+		47 => Some(ExpectedStaticEntry("max-forwards", "", 47))
+		48 => Some(ExpectedStaticEntry("proxy-authenticate", "", 48))
+		49 => Some(ExpectedStaticEntry("proxy-authorization", "", 49))
+		50 => Some(ExpectedStaticEntry("range", "", 50))
+		51 => Some(ExpectedStaticEntry("referer", "", 51))
+		52 => Some(ExpectedStaticEntry("refresh", "", 52))
+		53 => Some(ExpectedStaticEntry("retry-after", "", 53))
+		54 => Some(ExpectedStaticEntry("server", "", 54))
+		55 => Some(ExpectedStaticEntry("set-cookie", "", 55))
+		56 => Some(ExpectedStaticEntry("strict-transport-security", "", 56))
+		57 => Some(ExpectedStaticEntry("transfer-encoding", "", 57))
+		58 => Some(ExpectedStaticEntry("user-agent", "", 58))
+		59 => Some(ExpectedStaticEntry("vary", "", 59))
+		60 => Some(ExpectedStaticEntry("via", "", 60))
+		61 => Some(ExpectedStaticEntry("www-authenticate", "", 61))
+		_ => None
+	end
+end
+
+fn option_int_matches(actual: Option<Int>, expected: Int) -> Bool
+	match actual
+		Some(value) => value == expected
+		None => false
+	end
+end
+
+fn static_entry_matches(index: Int) -> Bool
+	match expected_static_entry(index)
+		Some(ExpectedStaticEntry(expected_name, expected_value, _)) => match http2::hpack::static_entry(index)
+			Some(actual) => http2::hpack::static_entry_name(actual) == expected_name and http2::hpack::static_entry_value(actual) == expected_value
+			None => false
+		end
+		None => false
+	end
+end
+
+fn static_entry_reverse_matches(index: Int) -> Bool
+	match expected_static_entry(index)
+		Some(ExpectedStaticEntry(name, value, _)) => option_int_matches(http2::hpack::static_entry_index(name, value), index)
+		None => false
+	end
+end
+
+fn static_name_reverse_matches(index: Int) -> Bool
+	match expected_static_entry(index)
+		Some(ExpectedStaticEntry(name, _, first_name_index)) => option_int_matches(http2::hpack::static_name_index(name), first_name_index)
+		None => false
+	end
+end
+
+fn static_entry_range_matches(index: Int, last: Int) -> Bool
+	if index > last
+		true
+	else if static_entry_matches(index)
+		static_entry_range_matches(index + 1, last)
+	else
+		false
+	end
+end
+
+fn every_static_entry_reverse_matches(index: Int) -> Bool
+	if index > 61
+		true
+	else if static_entry_reverse_matches(index)
+		every_static_entry_reverse_matches(index + 1)
+	else
+		false
+	end
+end
+
+fn every_static_name_reverse_matches(index: Int) -> Bool
+	if index > 61
+		true
+	else if static_name_reverse_matches(index)
+		every_static_name_reverse_matches(index + 1)
+	else
+		false
+	end
+end
+
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
 end
@@ -166,6 +298,80 @@ test integer_decode_stops_after_terminal_octet() -> Result<(), String>
 		Ok(())
 	else
 		Err("HPACK prefixed integer consumed trailing input")
+	end
+end
+
+test static_table_contains_entries_one_through_fourteen() -> Result<(), String>
+	if static_entry_range_matches(1, 14)
+		Ok(())
+	else
+		Err("HPACK static table entry changed")
+	end
+end
+
+test static_table_contains_entries_fifteen_through_thirty() -> Result<(), String>
+	if static_entry_range_matches(15, 30)
+		Ok(())
+	else
+		Err("HPACK static table entry changed")
+	end
+end
+
+test static_table_contains_entries_thirty_one_through_forty_five() -> Result<(), String>
+	if static_entry_range_matches(31, 45)
+		Ok(())
+	else
+		Err("HPACK static table entry changed")
+	end
+end
+
+test static_table_contains_entries_forty_six_through_sixty_one() -> Result<(), String>
+	if static_entry_range_matches(46, 61)
+		Ok(())
+	else
+		Err("HPACK static table entry changed")
+	end
+end
+
+test static_entry_reverse_lookup_covers_every_entry() -> Result<(), String>
+	if every_static_entry_reverse_matches(1)
+		Ok(())
+	else
+		Err("HPACK static table entry reverse lookup changed")
+	end
+end
+
+test static_name_reverse_lookup_returns_first_matching_index() -> Result<(), String>
+	let duplicates_match: Bool = option_int_matches(http2::hpack::static_name_index(":method"), 2) and option_int_matches(http2::hpack::static_name_index(":path"), 4) and option_int_matches(http2::hpack::static_name_index(":scheme"), 6) and option_int_matches(http2::hpack::static_name_index(":status"), 8)
+	if every_static_name_reverse_matches(1) and duplicates_match
+		Ok(())
+	else
+		Err("HPACK static table name reverse lookup changed")
+	end
+end
+
+test static_table_lookups_reject_indices_names_and_values_outside_the_table() -> Result<(), String>
+	let forward_misses: Bool = match http2::hpack::static_entry(0)
+		Some(_) => false
+		None => match http2::hpack::static_entry(62)
+			Some(_) => false
+			None => true
+		end
+	end
+	let reverse_misses: Bool = match http2::hpack::static_entry_index(":method", "PUT")
+		Some(_) => false
+		None => match http2::hpack::static_entry_index("unknown-header", "")
+			Some(_) => false
+			None => match http2::hpack::static_name_index("unknown-header")
+				Some(_) => false
+				None => true
+			end
+		end
+	end
+	if forward_misses and reverse_misses
+		Ok(())
+	else
+		Err("HPACK static table lookup unexpectedly matched")
 	end
 end
 
