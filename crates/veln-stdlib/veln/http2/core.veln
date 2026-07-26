@@ -1,5 +1,6 @@
 use prelude
 use http2::core::connection_preface
+use http2::core::frame_payload_length
 use http2::core::pending_header_block
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -7,6 +8,10 @@ pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPre
 pub type ConnectionPrefaceTransition = http2::core::connection_preface::ConnectionPrefaceTransition
 
 pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionPrefaceFailure
+
+pub type FramePayloadLength = http2::core::frame_payload_length::FramePayloadLength
+
+pub type FramePayloadLengthFailure = http2::core::frame_payload_length::FramePayloadLengthFailure
 
 pub type PendingHeaderBlock = http2::core::pending_header_block::PendingHeaderBlock
 
@@ -79,6 +84,42 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	http2::core::frame_payload_length::validate(offset, frame_kind, flags, stream_id, observed_length, active_state, preview)
+end
+
+pub fn frame_payload_length_failure_offset(failure: FramePayloadLengthFailure) -> Int
+	http2::core::frame_payload_length::failure_offset(failure)
+end
+
+pub fn frame_payload_length_failure_frame_kind(failure: FramePayloadLengthFailure) -> Int
+	http2::core::frame_payload_length::failure_frame_kind(failure)
+end
+
+pub fn frame_payload_length_failure_stream_id(failure: FramePayloadLengthFailure) -> Int
+	http2::core::frame_payload_length::failure_stream_id(failure)
+end
+
+pub fn frame_payload_length_failure_observed_length(failure: FramePayloadLengthFailure) -> Int
+	http2::core::frame_payload_length::failure_observed_length(failure)
+end
+
+pub fn frame_payload_length_failure_expected_length(failure: FramePayloadLengthFailure) -> Int
+	http2::core::frame_payload_length::failure_expected_length(failure)
+end
+
+pub fn frame_payload_length_failure_active_state(failure: FramePayloadLengthFailure) -> String
+	http2::core::frame_payload_length::failure_active_state(failure)
+end
+
+pub fn frame_payload_length_failure_rule_provenance(failure: FramePayloadLengthFailure) -> String
+	http2::core::frame_payload_length::failure_rule_provenance(failure)
+end
+
+pub fn frame_payload_length_failure_preview(failure: FramePayloadLengthFailure) -> ByteChunk
+	http2::core::frame_payload_length::failure_preview(failure)
 end
 
 pub fn empty_connection_preface(starting_offset: Int) -> ConnectionPrefaceState

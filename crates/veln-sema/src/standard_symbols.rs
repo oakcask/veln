@@ -823,6 +823,7 @@ compiler_adapter_symbol_set! {
     "http2_protocol_invalid_frame_kind",
     "http2_protocol_invalid_stream_id",
     "http2_protocol_invalid_payload_length",
+    "http2_protocol_invalid_payload_length_chunk",
     "http2_protocol_invalid_window_update_increment",
     "http2_protocol_invalid_data_padding",
     "http2_protocol_content_length_mismatch",

@@ -3246,6 +3246,47 @@
         ));
     }
 
+    public static Object http2ProtocolInvalidPayloadLengthChunk(
+        Object offset,
+        Object frameKind,
+        Object streamId,
+        Object observedLength,
+        Object expectedLength,
+        Object activeState,
+        Object ruleProvenance,
+        Object preview
+    ) {
+        long byteOffset = asLong(offset);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        long observed = asLong(observedLength);
+        long expected = asLong(expectedLength);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
+        Object detail = http2DiagnosticDetail(
+            "Http2DiagnosticDetail::RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+            new Object[] {
+                Long.valueOf(byteOffset),
+                Long.valueOf(kind),
+                Long.valueOf(stream),
+                Long.valueOf(observed),
+                Long.valueOf(expected),
+                state,
+                provenance,
+                preview
+            }
+        );
+        return err(adt(
+            "RuntimeDiagnostic::RuntimeDiagnostic",
+            new Object[] {
+                "http2.protocol.invalid_payload_length",
+                message,
+                detail
+            }
+        ));
+    }
+
     public static Object http2ProtocolInvalidWindowUpdateIncrement(
         Object offset,
         Object streamId,

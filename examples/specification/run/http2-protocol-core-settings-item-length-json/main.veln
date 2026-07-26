@@ -1,4 +1,5 @@
 use http2::diagnostic from "std"
+use http2::core from "std"
 # HTTP/2 SETTINGS item payload length failures project structured runtime details.
 
 type Http2ProtocolFailure
@@ -64,5 +65,8 @@ pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "rfc9113_settings_payload_item_length")
 	let bytes: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(bytes)?
-	http2_protocol_diagnostic(InvalidPayloadLength(0, 4, 0, 5, 6, preview), context)
+	match http2::core::validate_frame_payload_length(0, 4, 0, 0, 5, context_active_state(context), bytes)
+		Ok(_) => Err(invalid_payload("partial SETTINGS item payload was accepted"))
+		Err(failure) => http2::diagnostic::protocol_frame_payload_length_failure(failure)
+	end
 end

@@ -55,6 +55,20 @@ fn active_headers(fragment: ByteChunk) -> PendingHeaderBlock
 	http2::core::header_block_state(http2::core::start_header_block(1, 1, 17, 1, true, 0, fragment, false))
 end
 
+fn payload_length_accepts(kind: Int, flags: Int, length: Int) -> Bool
+	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, "test-state", byte_chunk([]))
+		Ok(_) => true
+		Err(_) => false
+	end
+end
+
+fn payload_length_rejects(kind: Int, flags: Int, length: Int, expected: Int, active_state: String, rule: String) -> Bool
+	match http2::core::validate_frame_payload_length(17, kind, flags, 3, length, active_state, byte_chunk([]))
+		Ok(_) => false
+		Err(failure) => http2::core::frame_payload_length_failure_offset(failure) == 17 and http2::core::frame_payload_length_failure_frame_kind(failure) == kind and http2::core::frame_payload_length_failure_stream_id(failure) == 3 and http2::core::frame_payload_length_failure_observed_length(failure) == length and http2::core::frame_payload_length_failure_expected_length(failure) == expected and http2::core::frame_payload_length_failure_active_state(failure) == active_state and http2::core::frame_payload_length_failure_rule_provenance(failure) == rule
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -70,6 +84,58 @@ test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
 		Err(_) => match http2::core::server_stream_id(3)
 			Ok(_) => Err("odd stream id entered the server stream domain")
 			Err(_) => Ok(())
+		end
+	end
+end
+
+test frame_payload_length_validates_fixed_and_minimum_boundaries() -> Result<(), String>
+	if payload_length_rejects(6, 0, 7, 8, "connection-control", "rfc9113_ping_payload_length") and payload_length_accepts(6, 0, 8) and payload_length_rejects(6, 0, 9, 8, "connection-control", "rfc9113_ping_payload_length") and payload_length_rejects(7, 0, 7, 8, "connection-control", "rfc9113_goaway_payload_length") and payload_length_accepts(7, 0, 8) and payload_length_accepts(7, 0, 9) and payload_length_rejects(8, 0, 3, 4, "flow-control", "rfc9113_window_update_payload_length") and payload_length_accepts(8, 0, 4) and payload_length_rejects(8, 0, 5, 4, "flow-control", "rfc9113_window_update_payload_length") and payload_length_rejects(3, 0, 3, 4, "stream-control", "rfc9113_rst_stream_payload_length") and payload_length_accepts(3, 0, 4) and payload_length_rejects(3, 0, 5, 4, "stream-control", "rfc9113_rst_stream_payload_length") and payload_length_rejects(2, 0, 4, 5, "stream-control", "rfc9113_priority_payload_length") and payload_length_accepts(2, 0, 5) and payload_length_rejects(2, 0, 6, 5, "stream-control", "rfc9113_priority_payload_length")
+		Ok(())
+	else
+		Err("fixed or minimum frame payload boundaries were not enforced")
+	end
+end
+
+test frame_payload_length_validates_settings_ack_and_item_boundaries() -> Result<(), String>
+	if payload_length_accepts(4, 1, 0) and payload_length_rejects(4, 1, 1, 0, "connection-control", "rfc9113_settings_ack_payload_length") and payload_length_accepts(4, 0, 0) and payload_length_rejects(4, 0, 5, 6, "connection-control", "rfc9113_settings_payload_item_length") and payload_length_accepts(4, 0, 6) and payload_length_rejects(4, 0, 7, 6, "connection-control", "rfc9113_settings_payload_item_length") and payload_length_accepts(4, 0, 12)
+		Ok(())
+	else
+		Err("SETTINGS ACK or item payload boundaries were not enforced")
+	end
+end
+
+test frame_payload_length_validates_headers_prefix_flag_matrix() -> Result<(), String>
+	if payload_length_accepts(1, 0, 0) and payload_length_accepts(1, 0, 1) and payload_length_rejects(1, 8, 0, 1, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 8, 1) and payload_length_accepts(1, 8, 2) and payload_length_rejects(1, 32, 4, 5, "stream-control", "rfc9113_headers_priority_payload_length") and payload_length_accepts(1, 32, 5) and payload_length_accepts(1, 32, 6) and payload_length_rejects(1, 40, 5, 6, "stream-control", "rfc9113_headers_padded_prefix_length") and payload_length_accepts(1, 40, 6) and payload_length_accepts(1, 40, 7)
+		Ok(())
+	else
+		Err("HEADERS payload prefixes did not follow PADDED and PRIORITY flags")
+	end
+end
+
+test frame_payload_length_validates_push_promise_prefix_flag_matrix() -> Result<(), String>
+	if payload_length_rejects(5, 0, 3, 4, "stream-control", "rfc9113_push_promise_payload_length") and payload_length_accepts(5, 0, 4) and payload_length_accepts(5, 0, 5) and payload_length_rejects(5, 8, 4, 5, "stream-control", "rfc9113_push_promise_padded_prefix_length") and payload_length_accepts(5, 8, 5) and payload_length_accepts(5, 8, 6)
+		Ok(())
+	else
+		Err("PUSH_PROMISE payload prefixes did not follow PADDED")
+	end
+end
+
+test frame_payload_length_leaves_unconstrained_kinds_unrestricted() -> Result<(), String>
+	if payload_length_accepts(0, 0, 0) and payload_length_accepts(0, 0, 9) and payload_length_accepts(9, 0, 0) and payload_length_accepts(9, 0, 9) and payload_length_accepts(10, 255, 0) and payload_length_accepts(10, 255, 9)
+		Ok(())
+	else
+		Err("an unconstrained frame kind acquired a payload length restriction")
+	end
+end
+
+test frame_payload_length_failure_preserves_exact_preview_without_output() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("00010203040506")?
+	match http2::core::validate_frame_payload_length(29, 6, 0, 0, 7, "connection-control", preview)
+		Ok(_) => Err("invalid PING exposed a successful validation result")
+		Err(failure) => if http2::core::frame_payload_length_failure_offset(failure) == 29 and http2::core::frame_payload_length_failure_frame_kind(failure) == 6 and http2::core::frame_payload_length_failure_stream_id(failure) == 0 and http2::core::frame_payload_length_failure_observed_length(failure) == 7 and http2::core::frame_payload_length_failure_expected_length(failure) == 8 and chunks_equal(http2::core::frame_payload_length_failure_preview(failure), preview)? and chunks_equal(preview, byte_chunk_from_hex("00010203040506")?)?
+			Ok(())
+		else
+			Err("payload length failure lost data or changed caller input")
 		end
 	end
 end
