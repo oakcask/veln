@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "shrink 36 2 36 36 1\nwrong not_table_size_update 0 0\nincomplete incomplete_integer 0 0\nlimit capacity_limit 89 64\noriginal 100 70 2\n"
+equals = "shrink 36 2 36 36 1\nwrong not_table_size_update 0 0\nincomplete incomplete_integer 0 0\nmalformed malformed_integer 0 0\nlimit capacity_limit 89 64\noriginal 100 70 2\n"
 
 [[json_assert]]
 path = "error"

@@ -43,6 +43,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(next)))
 	let _ = print_failure("wrong", byte_chunk_from_hex("80")?, table, 100)?
 	let _ = print_failure("incomplete", byte_chunk_from_hex("3f80")?, table, 100)?
+	let _ = print_failure("malformed", byte_chunk_from_hex("3f80808080808080808000")?, table, 100)?
 	let _ = print_failure("limit", byte_chunk_from_hex("3f3a")?, table, 64)?
 	stdio::print("original ")
 	stdio::print(int_to_string(http2::hpack::dynamic_table_capacity(table)))
