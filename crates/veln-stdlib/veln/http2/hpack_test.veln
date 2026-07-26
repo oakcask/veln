@@ -187,6 +187,24 @@ fn decode_literal_chunk(input: ByteChunk, table: DynamicTable) -> Result<Result<
 	Ok(http2::hpack::decode_literal_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table))
 end
 
+fn decode_table_size_update_chunk(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<Result<TableSizeUpdateTransition, TableSizeUpdateFailure>, String>
+	Ok(http2::hpack::decode_table_size_update(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table, peer_maximum))
+end
+
+fn require_table_size_update_chunk(input: ByteChunk, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateTransition, String>
+	match decode_table_size_update_chunk(input, table, peer_maximum)?
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::table_size_update_failure_kind(failure))
+	end
+end
+
+fn table_size_update_failure_matches(input: ByteChunk, table: DynamicTable, peer_maximum: Int, expected: String) -> Result<Bool, String>
+	match decode_table_size_update_chunk(input, table, peer_maximum)?
+		Err(failure) => Ok(http2::hpack::table_size_update_failure_kind(failure) == expected)
+		Ok(_) => Ok(false)
+	end
+end
+
 fn require_literal_chunk(input: ByteChunk, table: DynamicTable) -> Result<LiteralDecodeTransition, String>
 	match decode_literal_chunk(input, table)?
 		Ok(transition) => Ok(transition)
@@ -839,5 +857,50 @@ test literal_header_decoder_returns_focused_value_failures_without_changing_stat
 		Ok(())
 	else
 		Err("HPACK literal value failure classification or state preservation changed")
+	end
+end
+
+test table_size_update_decoder_accepts_boundary_and_multi_octet_capacities() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let zero: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("20")?, table, 4096)?
+	let direct: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3e")?, table, 4096)?
+	let saturated: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f00")?, table, 4096)?
+	let wide: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3fe11f")?, table, 4096)?
+	let values_match: Bool = http2::hpack::table_size_update_capacity(zero) == 0 and http2::hpack::table_size_update_consumed(zero) == 1 and http2::hpack::table_size_update_capacity(direct) == 30 and http2::hpack::table_size_update_consumed(direct) == 1 and http2::hpack::table_size_update_capacity(saturated) == 31 and http2::hpack::table_size_update_consumed(saturated) == 2 and http2::hpack::table_size_update_capacity(wide) == 4096 and http2::hpack::table_size_update_consumed(wide) == 3
+	if values_match and http2::hpack::dynamic_table_capacity(table) == 4096
+		Ok(())
+	else
+		Err("HPACK table-size update boundary decoding or input state changed")
+	end
+end
+
+test table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention() -> Result<(), String>
+	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
+	let shrunk_transition: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f05")?, table, 100)?
+	let shrunk: DynamicTable = http2::hpack::table_size_update_table(shrunk_transition)
+	let grown_transition: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f8101")?, shrunk, 160)?
+	let grown: DynamicTable = http2::hpack::table_size_update_table(grown_transition)
+	let shrink_match: Bool = http2::hpack::dynamic_table_capacity(shrunk) == 36 and http2::hpack::dynamic_table_size(shrunk) == 36 and dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
+	let growth_match: Bool = http2::hpack::dynamic_table_capacity(grown) == 160 and http2::hpack::dynamic_table_size(grown) == 36 and dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
+	let original_match: Bool = http2::hpack::dynamic_table_capacity(table) == 100 and http2::hpack::dynamic_table_size(table) == 70 and http2::hpack::dynamic_table_entry_count(table) == 2
+	if shrink_match and growth_match and original_match
+		Ok(())
+	else
+		Err("HPACK table-size update immutable capacity transition changed")
+	end
+end
+
+test table_size_update_decoder_returns_focused_failures_without_changing_state() -> Result<(), String>
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let failure_kinds_match: Bool = table_size_update_failure_matches(byte_chunk_from_hex("80")?, table, 64, "not_table_size_update")? and table_size_update_failure_matches(byte_chunk([]), table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80")?, table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80808080808080808000")?, table, 64, "malformed_integer")?
+	let limit_match: Bool = match decode_table_size_update_chunk(byte_chunk_from_hex("3f3a")?, table, 64)?
+		Err(failure) => http2::hpack::table_size_update_failure_kind(failure) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(failure) == 89 and http2::hpack::table_size_update_failure_peer_maximum(failure) == 64
+		Ok(_) => false
+	end
+	if failure_kinds_match and limit_match and http2::hpack::dynamic_table_capacity(table) == 64 and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
+		Ok(())
+	else
+		Err("HPACK table-size update failure classification or state preservation changed")
 	end
 end

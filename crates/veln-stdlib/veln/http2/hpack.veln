@@ -4,6 +4,7 @@ use http2::hpack::header_codec
 use http2::hpack::huffman
 use http2::hpack::integer
 use http2::hpack::static_table
+use http2::hpack::table_size_update
 
 pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
 
@@ -47,6 +48,17 @@ end
 
 pub type LiteralDecodeTransition
 	LiteralDecodeTransition(header: LiteralHeaderField, consumed: Int, table: DynamicTable, representation: Int)
+end
+
+pub type TableSizeUpdateFailure
+	NotTableSizeUpdate
+	MalformedTableSizeUpdateInteger
+	IncompleteTableSizeUpdateInteger
+	TableSizeUpdateCapacityLimit(capacity: Int, peer_maximum: Int)
+end
+
+pub type TableSizeUpdateTransition
+	TableSizeUpdateTransition(capacity: Int, consumed: Int, table: DynamicTable)
 end
 
 pub type StaticEntry
@@ -138,6 +150,67 @@ end
 
 pub fn dynamic_entry_value(entry: DynamicEntry) -> ByteChunk
 	http2::hpack::dynamic_table::entry_value(entry)
+end
+
+fn table_size_update_failure(failure: TableSizeUpdateCodecFailure) -> TableSizeUpdateFailure
+	match http2::hpack::table_size_update::failure_kind(failure)
+		0 => NotTableSizeUpdate
+		1 => MalformedTableSizeUpdateInteger
+		2 => IncompleteTableSizeUpdateInteger
+		_ => TableSizeUpdateCapacityLimit(http2::hpack::table_size_update::failure_capacity(failure), http2::hpack::table_size_update::failure_peer_maximum(failure))
+	end
+end
+
+fn table_size_update_transition(transition: TableSizeUpdateCodecTransition) -> TableSizeUpdateTransition
+	TableSizeUpdateTransition(http2::hpack::table_size_update::transition_capacity(transition), http2::hpack::table_size_update::transition_consumed(transition), http2::hpack::table_size_update::transition_table(transition))
+end
+
+pub fn decode_table_size_update(input: ByteView, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateTransition, TableSizeUpdateFailure>
+	match http2::hpack::table_size_update::decode(input, table, peer_maximum)
+		Ok(transition) => Ok(table_size_update_transition(transition))
+		Err(failure) => Err(table_size_update_failure(failure))
+	end
+end
+
+pub fn table_size_update_capacity(transition: TableSizeUpdateTransition) -> Int
+	match transition
+		TableSizeUpdateTransition(capacity, _, _) => capacity
+	end
+end
+
+pub fn table_size_update_consumed(transition: TableSizeUpdateTransition) -> Int
+	match transition
+		TableSizeUpdateTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn table_size_update_table(transition: TableSizeUpdateTransition) -> DynamicTable
+	match transition
+		TableSizeUpdateTransition(_, _, table) => table
+	end
+end
+
+pub fn table_size_update_failure_kind(failure: TableSizeUpdateFailure) -> String
+	match failure
+		NotTableSizeUpdate => "not_table_size_update"
+		MalformedTableSizeUpdateInteger => "malformed_integer"
+		IncompleteTableSizeUpdateInteger => "incomplete_integer"
+		TableSizeUpdateCapacityLimit(_, _) => "capacity_limit"
+	end
+end
+
+pub fn table_size_update_failure_capacity(failure: TableSizeUpdateFailure) -> Int
+	match failure
+		TableSizeUpdateCapacityLimit(capacity, _) => capacity
+		_ => 0
+	end
+end
+
+pub fn table_size_update_failure_peer_maximum(failure: TableSizeUpdateFailure) -> Int
+	match failure
+		TableSizeUpdateCapacityLimit(_, peer_maximum) => peer_maximum
+		_ => 0
+	end
 end
 
 fn indexed_decode_failure(failure: HeaderCodecFailure) -> IndexedDecodeFailure

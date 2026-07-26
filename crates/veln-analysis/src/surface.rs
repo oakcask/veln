@@ -2466,6 +2466,9 @@ mod tests {
         for entry in [
             "protocol_diagnostic_keeps_stable_id",
             "frame_decode_and_encode_header",
+            "table_size_update_decoder_accepts_boundary_and_multi_octet_capacities",
+            "table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention",
+            "table_size_update_decoder_returns_focused_failures_without_changing_state",
         ] {
             let lowered = analysis
                 .lower_reachable_entry(entry, FunctionKind::Test)
