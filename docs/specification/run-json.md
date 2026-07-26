@@ -1316,12 +1316,11 @@ literal-without-indexing and literal-never-indexed retain the carried dynamic
 name entry, literal-with-indexing inserts the decoded Huffman value for later
 `0xbe` reuse, and malformed Huffman padding remains on the focused fixture
 fallback path.
-The same standalone boundary checks the source-visible HPACK integer core:
-seven-bit indexed fields, five-bit table-size updates, and seven-bit
-literal-length shapes decode and encode through the shared bounded helper, and
-non-terminating continuations report `hpack.integer.malformed` with byte
-offset, prefix width, observed byte count, observed first byte, bounded
-preview count, and module name in stdout.
+The fixture keeps prefixed-integer decoding private to its header codec and
+does not print a standalone integer transcript. The public finite codec is
+specified in `http2.md` and its checked JSON command envelope and stdout are
+owned by
+`examples/specification/run/hpack-prefixed-integer-codec/`.
 The HTTP/2 aggregate case checks completed HEADERS and final CONTINUATION
 routing through that same source-visible raw literal-name boundary before
 fixture fallback, and completed HEADERS routing through the same

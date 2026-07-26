@@ -1,9 +1,39 @@
 use prelude
 
+pub fn encode_prefixed(value: Int, prefix_bits: Int, representation_bits: Int) -> Result<ByteChunk, String>
+	match prefix_bits < 1 or prefix_bits > 8
+		true => Err("HPACK integer prefix width must be between 1 and 8")
+		false => encode_with_prefix(value, (1 << prefix_bits) - 1, representation_bits)
+	end
+end
+
+fn encode_with_prefix(value: Int, prefix_max: Int, representation_bits: Int) -> Result<ByteChunk, String>
+	match value < 0
+		true => Err("HPACK integer value must not be negative")
+		false => match representation_bits < 0 or representation_bits > 255 or (representation_bits & prefix_max) != 0
+			true => Err("HPACK integer representation bits must fit outside the prefix")
+			false => match value < prefix_max
+				true => byte_write_u8_be(representation_bits + value)
+				false => Ok(byte_append(byte_write_u8_be(representation_bits + prefix_max)?, encode_continuation(value - prefix_max)?))
+			end
+		end
+	end
+end
+
+fn encode_continuation(remaining: Int) -> Result<ByteChunk, String>
+	match remaining < 128
+		true => byte_write_u8_be(remaining)
+		false => Ok(byte_append(byte_write_u8_be((remaining & 127) + 128)?, encode_continuation(remaining / 128)?))
+	end
+end
+
 pub fn decode(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, String>
 	match prefix_bits < 1 or prefix_bits > 8
 		true => Err("HPACK integer prefix width must be between 1 and 8")
-		false => decode_first(input, (1 << prefix_bits) - 1)
+		false => match byte_count_to_int(byte_view_count(input)) == 0
+			true => Err("HPACK integer input must not be empty")
+			false => decode_first(input, (1 << prefix_bits) - 1)
+		end
 	end
 end
 
@@ -27,7 +57,14 @@ fn decode_continuation(input: ByteView, value: Int, shift: Int, consumed: Int) -
 end
 
 fn decode_continuation_byte(input: ByteView, value: Int, shift: Int, consumed: Int, next: Int) -> Result<{ value : Int, consumed : Int }, String>
-	let accumulated: Int = value + ((next & 127) << shift)
+	let payload: Int = next & 127
+	match shift == 56 and payload == 127 and value > 72057594037927935
+		true => Err("HPACK integer continuation is too large")
+		false => decode_accumulated(input, value + (payload << shift), shift, consumed, next)
+	end
+end
+
+fn decode_accumulated(input: ByteView, accumulated: Int, shift: Int, consumed: Int, next: Int) -> Result<{ value : Int, consumed : Int }, String>
 	match (next & 128) == 0
 		true => Ok({ value: accumulated, consumed: consumed + 1 })
 		false => decode_continuation(byte_view_drop(input, byte_count(1)?)?, accumulated, shift + 7, consumed + 1)

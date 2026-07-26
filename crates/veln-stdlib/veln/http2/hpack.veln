@@ -13,6 +13,10 @@ pub type StaticEntry
 	StaticEntry(name: String, value: String)
 end
 
+pub fn encode_integer(value: Int, prefix_bits: Int, representation_bits: Int) -> Result<ByteChunk, String>
+	http2::hpack::integer::encode_prefixed(value, prefix_bits, representation_bits)
+end
+
 pub fn decode_integer(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consumed : Int }, String>
 	http2::hpack::integer::decode(input, prefix_bits)
 end
