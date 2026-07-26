@@ -964,6 +964,16 @@ test peer_settings_state_uses_last_duplicate_value() -> Result<(), String>
 	end
 end
 
+test peer_settings_state_preserves_enable_push_and_connect_offsets_independently() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("000800000001000200000001000800000000000200000000")?
+	let state: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 30, payload)?
+	if http2::core::peer_settings_enable_push(state) == 0 and http2::core::peer_settings_enable_push_offset(state) == 48 and http2::core::peer_settings_enable_connect_protocol(state) == 0 and http2::core::peer_settings_enable_connect_protocol_offset(state) == 42
+		Ok(())
+	else
+		Err("peer SETTINGS enable-push and connect-protocol offsets were not preserved independently")
+	end
+end
+
 test peer_settings_state_preserves_state_for_partial_payloads() -> Result<(), String>
 	let initial: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 9, byte_chunk_from_hex("000500008000")?)?
 	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(initial, 15, byte_chunk_from_hex("0006000020")?)?
@@ -975,11 +985,11 @@ test peer_settings_state_preserves_state_for_partial_payloads() -> Result<(), St
 end
 
 test peer_settings_state_records_peer_created_stream_high_water() -> Result<(), String>
-	let initial: PeerSettingsState = http2::core::empty_peer_settings_state()
+	let initial: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 9, byte_chunk_from_hex("000500008000000400000003")?)?
 	let raised: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(initial, 7)
-	if http2::core::peer_settings_highest_peer_created_stream_id(raised) == 7 and http2::core::peer_settings_highest_peer_created_stream_id(initial) == 0
+	if http2::core::peer_settings_highest_peer_created_stream_id(raised) == 7 and http2::core::peer_settings_highest_peer_created_stream_id(initial) == 0 and http2::core::peer_settings_max_frame_size(raised) == 32768 and http2::core::peer_settings_max_frame_size_offset(raised) == 9 and http2::core::peer_settings_initial_window_size(raised) == 3 and http2::core::peer_settings_initial_window_size_offset(raised) == 15
 		Ok(())
 	else
-		Err("peer-created stream high-water update mutated the input state")
+		Err("peer-created stream high-water update mutated the input SETTINGS state")
 	end
 end

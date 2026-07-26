@@ -128,9 +128,11 @@ SETTINGS state with protocol defaults for active values: maximum frame size
 applies a complete, already validated non-ACK peer SETTINGS payload to caller
 state. Unknown identifiers are ignored. Known duplicate items are applied in
 wire order, so the last known item leaves the active advertised value.
-Recorded item offsets are absolute payload offsets. A payload whose byte count
-is not divisible by six leaves the input state unchanged. The peer-created
-stream high-water projection is updated only through
+Recorded item offsets are absolute payload offsets, including independent
+offsets for `SETTINGS_ENABLE_PUSH` and
+`SETTINGS_ENABLE_CONNECT_PROTOCOL` when both are present. A payload whose byte
+count is not divisible by six leaves the input state unchanged. The
+peer-created stream high-water projection is updated only through
 `peer_settings_with_highest_peer_created_stream_id(...)`, keeping SETTINGS
 application separate from stream admission.
 

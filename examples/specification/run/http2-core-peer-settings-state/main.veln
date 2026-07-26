@@ -50,7 +50,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_state("applied", applied)
 	let duplicate: PeerSettingsState = http2::core::apply_peer_settings_payload(applied, 57, byte_chunk_from_hex("000500010000")?)?
 	print_state("duplicate", duplicate)
-	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(duplicate, 63, byte_chunk_from_hex("0006000020")?)?
+	let toggled: PeerSettingsState = http2::core::apply_peer_settings_payload(duplicate, 63, byte_chunk_from_hex("000800000001000200000001000800000000000200000000")?)?
+	print_state("toggled", toggled)
+	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(toggled, 87, byte_chunk_from_hex("0006000020")?)?
 	print_state("partial", partial)
 	let raised: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(partial, 7)
 	print_state("high-water", raised)
