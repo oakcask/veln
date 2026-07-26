@@ -42,12 +42,8 @@ type HpackDynamicCoreLiteralIndexing
 	DynamicCoreLiteralNeverIndexed
 end
 
-pub type HpackDynamicCoreIntegerPrefix
+type HpackDynamicCoreIntegerPrefix
 	HpackDynamicCoreIntegerPrefix(value: Int, prefix_size: Int)
-end
-
-pub type HpackDynamicCoreIntegerEncoding
-	HpackDynamicCoreIntegerEncoding(encoded: ByteChunk)
 end
 
 fn dynamic_core_byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
@@ -153,25 +149,6 @@ fn dynamic_core_prefix_width(prefix_max: Int) -> Int
 	end
 end
 
-fn hpack_integer_prefix_max(prefix_width: Int) -> Int
-	match prefix_width
-		4 => 15
-		5 => 31
-		6 => 63
-		7 => 127
-		_ => 0
-	end
-end
-
-pub fn decode_hpack_integer_prefix(prefix_value: Int, prefix_width: Int, block: ByteChunk, next_index: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
-	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
-	let prefix_max: Int = hpack_integer_prefix_max(prefix_width)
-	match prefix_max > 0
-		true => dynamic_core_decode_prefixed_integer_with_width(prefix_value, prefix_max, prefix_width, block, observed_size, next_index, offset)
-		false => dynamic_core_malformed_integer_prefix(block, prefix_width, offset)
-	end
-end
-
 fn dynamic_core_decode_prefixed_integer(prefix_value: Int, prefix_max: Int, block: ByteChunk, observed_size: Int, next_index: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
 	dynamic_core_decode_prefixed_integer_with_width(prefix_value, prefix_max, dynamic_core_prefix_width(prefix_max), block, observed_size, next_index, offset)
 end
@@ -197,53 +174,6 @@ end
 
 fn dynamic_core_malformed_integer_prefix(block: ByteChunk, prefix_width: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
 	Err(DynamicCoreMalformedInteger(offset, byte_count_to_int(byte_chunk_count(block)), dynamic_core_byte_at_or_missing(block, 0), prefix_width, "source-visible HPACK integer", "hpack_dynamic_core", block))
-end
-
-fn dynamic_core_malformed_integer_encoding(value: Int, prefix_width: Int, offset: Int) -> Result<ByteChunk, HpackDynamicCoreFailure>
-	Err(DynamicCoreMalformedInteger(offset, 0, value, prefix_width, "source-visible HPACK integer", "hpack_dynamic_core", byte_chunk([])))
-end
-
-fn encode_hpack_integer_tail(remaining: Int, prefix_width: Int, offset: Int) -> Result<ByteChunk, HpackDynamicCoreFailure>
-	match remaining < 128
-		true => encode_hpack_integer_tail_byte(remaining, prefix_width, offset)
-		false => match encode_hpack_integer_tail_byte((remaining - (remaining / 128) * 128) + 128, prefix_width, offset)
-			Ok(current) => match encode_hpack_integer_tail(remaining / 128, prefix_width, offset)
-				Ok(next) => Ok(byte_append(current, next))
-				Err(failure) => Err(failure)
-			end
-			Err(failure) => Err(failure)
-		end
-	end
-end
-
-fn encode_hpack_integer_tail_byte(value: Int, prefix_width: Int, offset: Int) -> Result<ByteChunk, HpackDynamicCoreFailure>
-	match byte_write_u8_be(value)
-		Ok(encoded) => Ok(encoded)
-		Err(_) => dynamic_core_malformed_integer_encoding(value, prefix_width, offset)
-	end
-end
-
-pub fn encode_hpack_integer_prefix(value: Int, prefix_width: Int, prefix_base: Int, offset: Int) -> Result<HpackDynamicCoreIntegerEncoding, HpackDynamicCoreFailure>
-	let prefix_max: Int = hpack_integer_prefix_max(prefix_width)
-	match prefix_max > 0 and value >= 0
-		true => match value < prefix_max
-			true => match byte_write_u8_be(prefix_base + value)
-				Ok(encoded) => Ok(HpackDynamicCoreIntegerEncoding(encoded))
-				Err(_) => Err(DynamicCoreMalformedInteger(offset, 0, prefix_base + value, prefix_width, "source-visible HPACK integer", "hpack_dynamic_core", byte_chunk([])))
-			end
-			false => match byte_write_u8_be(prefix_base + prefix_max)
-				Ok(prefix) => match encode_hpack_integer_tail(value - prefix_max, prefix_width, offset)
-					Ok(tail) => Ok(HpackDynamicCoreIntegerEncoding(byte_append(prefix, tail)))
-					Err(failure) => Err(failure)
-				end
-				Err(_) => Err(DynamicCoreMalformedInteger(offset, 0, prefix_base + prefix_max, prefix_width, "source-visible HPACK integer", "hpack_dynamic_core", byte_chunk([])))
-			end
-		end
-		false => match dynamic_core_malformed_integer_encoding(value, prefix_width, offset)
-			Ok(encoded) => Ok(HpackDynamicCoreIntegerEncoding(encoded))
-			Err(failure) => Err(failure)
-		end
-	end
 end
 
 fn dynamic_core_indexed_header(name: String, value: String) -> HpackDynamicCoreHeaderList
@@ -792,19 +722,5 @@ pub fn dynamic_core_failure_decoder_module(failure: HpackDynamicCoreFailure) -> 
 		DynamicCoreIndexOutOfRange(_, _, _, _, _, _, decoder_module, _) => decoder_module
 		DynamicCoreMalformedHuffmanPadding(_, _, _, _, decoder_module, _) => decoder_module
 		DynamicCoreMalformedInteger(_, _, _, _, _, decoder_module, _) => decoder_module
-	end
-end
-
-pub fn hpack_integer_prefix_value(prefix: HpackDynamicCoreIntegerPrefix) -> Int
-	dynamic_core_integer_prefix_value(prefix)
-end
-
-pub fn hpack_integer_prefix_size(prefix: HpackDynamicCoreIntegerPrefix) -> Int
-	dynamic_core_integer_prefix_size(prefix)
-end
-
-pub fn hpack_integer_encoding_bytes(encoding: HpackDynamicCoreIntegerEncoding) -> ByteChunk
-	match encoding
-		HpackDynamicCoreIntegerEncoding(encoded) => encoded
 	end
 end

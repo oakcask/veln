@@ -481,14 +481,13 @@ enough.
   table without advancing state, including the checked multi-continuation
   out-of-range representation `0xff 0x80 0x01`. HTTP/2 completed HEADERS
   decoding tries this source-visible dynamic indexed boundary before fixture
-  fallback for accepted and out-of-range dynamic indexed fields. The same
-  ordinary-source boundary exposes a bounded HPACK integer core for the
-  checked indexed-field, table-size update, and string-literal-length prefix
-  widths. The standalone boundary decodes those integer shapes, encodes the
-  same bounded shapes, and reports non-terminating continuations through the
-  focused `hpack.integer.malformed` fact with byte offset, prefix width,
-  observed byte count, observed first byte, bounded preview count, and module
-  name under `examples/specification/run/hpack-fixture-codec-boundary/`.
+  fallback for accepted and out-of-range dynamic indexed fields. Its private
+  prefixed-integer decoder remains part of the header codec for indexed-field,
+  table-size update, and string-literal-length representations; the fixture
+  does not expose a standalone integer facade. The reusable finite integer
+  codec is the public `http2::hpack` API specified in
+  `http2.md` and checked by
+  `examples/specification/run/hpack-prefixed-integer-codec/`.
   At the checked HPACK fixture boundary, up to two consecutive dynamic
   table-size updates at the start of one header block are decoded and applied
   in wire order. A following supported header field is decoded with the final

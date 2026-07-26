@@ -2,26 +2,25 @@
 
 Status: implemented
 
-This record preserves the completed source-visible HPACK integer core slice
-from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
-by `../../specification/execution.md`,
-`../../specification/run-json.md`, and the checked executable case
-`../../../examples/specification/run/hpack-fixture-codec-boundary/`.
+This record preserves the completed HPACK integer core slice from the HTTP/2
+sans-I/O protocol-core proposal. Current public behavior is specified by
+`../../specification/http2.md` and the checked executable case
+`../../../examples/specification/run/hpack-prefixed-integer-codec/`.
 
 ## Completed Behavior
 
-The `hpack_dynamic_core` boundary exposes a bounded HPACK integer decoder and
-encoder for the prefix widths used by the checked protocol slice. The decoder
-accepts saturated prefix values and continuation bytes for seven-bit indexed
-header fields, five-bit dynamic table-size update values, and seven-bit string
-literal lengths. The encoder emits the same bounded integer shapes for indexed
-fields, table-size updates, and literal lengths.
+The original `hpack_dynamic_core` boundary established a bounded HPACK integer
+decoder and encoder for the prefix widths used by the checked protocol slice.
+That work proved saturated prefix values and continuation bytes for indexed
+header fields, dynamic table-size updates, and string literal lengths before
+the reusable codec moved behind the public `http2::hpack` facade.
 
-Malformed non-terminating integer continuations now report a focused
-`hpack.integer.malformed` fact from the source-visible integer core. The
-payload records the byte offset, prefix width, observed byte count, observed
-first byte, bounded preview count, module name, and the bounded inspected byte
-preview.
+The fixture copies no longer expose the standalone integer facade or its
+encode-only helpers. Their private prefixed-integer decoder remains in place
+only where the fixture header codec needs it. Public callers use
+`http2::hpack::encode_integer` and `http2::hpack::decode_integer`, which share
+the one-through-eight-bit width contract and reject incomplete or
+out-of-range encodings through ordinary `Result` failures.
 
 This remains a deterministic specification slice. It does not add full HPACK
 compression, unbounded integer growth, unbounded dynamic-table behavior, or
@@ -29,13 +28,14 @@ new protocol stream-state rules.
 
 ## Evidence
 
-- `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
-  source-visible integer decode for a seven-bit indexed representation, a
-  five-bit table-size update representation, and a seven-bit literal-length
-  representation.
-- The same case checks a non-terminating continuation failure with the focused
-  id, byte offset, prefix width, observed byte count, observed first byte, and
-  bounded preview count, and `hpack_dynamic_core` module name.
-- The same case checks source-visible integer encoding for the indexed,
-  table-size update, and literal-length shapes used by the existing HPACK
-  fixture/core boundaries.
+- `../../../crates/veln-stdlib/veln/http2/hpack_test.veln` checks direct and
+  saturated-prefix values, multi-octet values, every supported prefix width,
+  round trips, representation bits, and rejected boundaries.
+- `../../../examples/specification/run/hpack-prefixed-integer-codec/` checks
+  the public facade with the canonical multi-octet encoding, preserved
+  representation bits, round trips, and the indexed-field, table-size, and
+  literal-length shapes that motivated the historical slice.
+- `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
+  `../../../examples/specification/run/http2-protocol-core/` retain coverage
+  for fixture-internal prefixed-integer decoding as part of header codec
+  behavior, without exposing a second integer API.
