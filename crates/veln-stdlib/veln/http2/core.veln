@@ -16,6 +16,7 @@ use http2::core::receive_flow_control
 use http2::core::flow_control
 use http2::core::stream_state
 use http2::core::stream_frame_admission
+use http2::core::window_update_flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -92,6 +93,10 @@ pub type CoreStreamFrameAdmissionFailure = http2::core::stream_frame_admission::
 pub type CoreDataReceiveFlowControlDecision = http2::core::receive_flow_control::CoreDataReceiveFlowControlDecision
 
 pub type CoreDataReceiveFlowControlFailure = http2::core::receive_flow_control::CoreDataReceiveFlowControlFailure
+
+pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
+
+pub type CoreStreamWindowUpdateFlowControlFailure = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlFailure
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -261,25 +266,28 @@ pub type StreamRef
 end
 
 pub fn stream_id(value: Int) -> Result<StreamId, String>
-	match value > 0 and value <= 2147483647
-		true => Ok(ValidatedStreamId(value))
-		false => Err("stream id must be between 1 and 2147483647")
+	if value > 0 and value <= 2147483647
+		Ok(ValidatedStreamId(value))
+	else
+		Err("stream id must be between 1 and 2147483647")
 	end
 end
 
 pub fn client_stream_id(value: Int) -> Result<StreamId, String>
 	let validated: StreamId = stream_id(value)?
-	match (value / 2) * 2 != value
-		true => Ok(validated)
-		false => Err("client-initiated stream id must be odd")
+	if value / 2 * 2 != value
+		Ok(validated)
+	else
+		Err("client-initiated stream id must be odd")
 	end
 end
 
 pub fn server_stream_id(value: Int) -> Result<StreamId, String>
 	let validated: StreamId = stream_id(value)?
-	match (value / 2) * 2 == value
-		true => Ok(validated)
-		false => Err("server-initiated stream id must be even")
+	if value / 2 * 2 == value
+		Ok(validated)
+	else
+		Err("server-initiated stream id must be even")
 	end
 end
 
@@ -616,6 +624,54 @@ end
 
 pub fn data_receive_flow_control_failure_preview(failure: CoreDataReceiveFlowControlFailure) -> ByteChunk
 	http2::core::receive_flow_control::failure_preview(failure)
+end
+
+pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
+	http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, preview)
+end
+
+pub fn stream_window_update_flow_control_status(decision: CoreStreamWindowUpdateFlowControlDecision) -> String
+	http2::core::window_update_flow_control::decision_status(decision)
+end
+
+pub fn stream_window_update_flow_control_state(decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_flow_control::decision_state(decision)
+end
+
+pub fn stream_window_update_flow_control_failure(decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<CoreStreamWindowUpdateFlowControlFailure, String>
+	http2::core::window_update_flow_control::decision_failure(decision)
+end
+
+pub fn stream_window_update_flow_control_failure_id(failure: CoreStreamWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::failure_id(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_offset(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_offset(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_stream_id(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_stream_id(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_increment(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_increment(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_domain(failure: CoreStreamWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::failure_domain(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_observed_value(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_observed_value(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_stream_credit(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_stream_credit(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_preview(failure: CoreStreamWindowUpdateFlowControlFailure) -> ByteChunk
+	http2::core::window_update_flow_control::failure_preview(failure)
 end
 
 pub fn max_flow_control_value() -> Int

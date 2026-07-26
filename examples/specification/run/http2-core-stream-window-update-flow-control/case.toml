@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "accepted accepted\nupdated receive 13 send 30\ninput receive 13 send 21\ninvalid failure http2.flow_control.invalid_window_update_increment offset 61 stream 5 increment 0 domain window_update_increment observed 0 stream-credit 21 preview 9\noverflow failure http2.flow_control.window_exceeded offset 67 stream 5 increment 9 domain stream_window_credit observed 2147483649 stream-credit 2147483640 preview 9\nmissing failure http2.protocol.invalid_stream_reference offset 71 stream 7 increment 1 domain stream_reference observed 0 stream-credit 0 preview 9\n"
+
+[[json_assert]]
+path = "error"
+equals = null

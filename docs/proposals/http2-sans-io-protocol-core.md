@@ -160,6 +160,7 @@ output.
 | stream lifecycle receive-admission predicate helpers | standard-owned stream lifecycle state distinguishes open, client-push-associated, reserved-by-peer, reserved-local, half-closed-local, half-closed-remote, closed, and reset states; pure projections report active stream status, receive-window ownership, open-stream projection, DATA, RST_STREAM, WINDOW_UPDATE, and PRIORITY admission, active-state labels, rejection-rule labels, and reset error codes | `stream_lifecycle_predicates_cover_reserved_and_closed_states`, `stream_lifecycle_rejection_context_matches_protocol_labels`, and `http2-core-stream-collection` | pure lifecycle labels, active status, receive-window ownership, open projection, per-frame admission predicates, diagnostic active-state labels, rejection-rule labels, and reset error-code projection moved to `core_test.veln`; focused external-package projections moved to `http2-core-stream-collection`; the monolithic case still owns applying those decisions inside receive dispatch, header validation, flow-control transitions, complete stdout, and output-chunk integration |
 | inbound frame-kind admission over stream collections | standard-owned receive-dispatch admission accepts connection controls and unknown extension kinds, rejects known stream frames on stream zero with connection-control context, accepts HEADERS before stream lookup, applies DATA, RST_STREAM, WINDOW_UPDATE, PRIORITY, and unknown extension admission to current stream lifecycle, accepts idle PRIORITY, accepts PUSH_PROMISE only on client-push-associated streams, and preserves stream collection plus frame-header preview on failure | `stream_frame_admission_accepts_connection_controls_and_unknown_extension_kinds`, `stream_frame_admission_rejects_wrong_connection_and_idle_stream_kinds`, `stream_frame_admission_applies_lifecycle_specific_receive_rules`, `stream_frame_admission_preserves_collection_and_preview_on_failure`, `http2-core-stream-frame-admission`, and retained `http2-protocol-core` receive-dispatch integration | pure connection-frame, idle-stream, lifecycle-specific DATA, RST_STREAM, WINDOW_UPDATE, PRIORITY, PUSH_PROMISE, unknown extension, exact failure-context, immutable-stream-collection, and preview-preservation coverage moved to `core_test.veln`; focused external-package projections moved to `http2-core-stream-frame-admission`; the monolithic case still owns payload parsing, HPACK-carrying receive transitions, header validation, flow-control debit/refill, complete stdout, and output-chunk integration |
 | DATA receive flow-control application over aggregate connection state | standard-owned DATA receive flow-control debits both aggregate connection receive credit and the target stream receive credit immutably; connection-window failure, stream-window failure, and missing-stream failure expose exact context and preview without returning a next state or mutating the input aggregate | `data_receive_flow_control_debits_connection_and_stream_immutably`, `data_receive_flow_control_failures_preserve_state_and_preview`, `http2-core-data-receive-flow-control`, and retained `http2-protocol-core` DATA integration | pure aggregate-state DATA debit, connection failure, stream failure, missing-stream failure, exact failure context, immutable input-state, and preview-preservation coverage moved to `core_test.veln`; focused external-package state and failure projections moved to `http2-core-data-receive-flow-control`; the monolithic case still owns DATA payload parsing, content-length integration, frame dispatch ordering, diagnostic projection, complete stdout, and output-chunk integration |
+| stream-level WINDOW_UPDATE receive flow-control application over aggregate connection state | standard-owned stream-level WINDOW_UPDATE receive flow-control refills the target stream send credit immutably; invalid increment, stream-window overflow, and missing-stream failure expose exact context and preview without returning a next state or mutating the input aggregate | `stream_window_update_flow_control_refills_send_credit_immutably`, `stream_window_update_flow_control_failures_preserve_state_and_preview`, `http2-core-stream-window-update-flow-control`, and retained `http2-protocol-core` WINDOW_UPDATE integration | pure aggregate-state stream send-credit refill, invalid increment, stream overflow, missing stream, exact failure context, immutable input-state, and preview-preservation coverage moved to `core_test.veln`; focused external-package state and failure projections moved to `http2-core-stream-window-update-flow-control`; the monolithic case still owns WINDOW_UPDATE payload parsing, connection-level send-credit refill, frame dispatch ordering, diagnostic projection, complete stdout, and output-chunk integration |
 | flow-control numeric domain helper assertions | connection window credit, stream window credit, configured initial window size, and `WINDOW_UPDATE` increment domains expose their role-specific bounds through the public core facade; debit and refill helpers return immutable next-credit decisions or exact domain failures without changing input credit or increment values | `flow_control_domains_accept_boundaries`, `flow_control_domains_reject_out_of_range_values`, `flow_control_debit_and_refill_are_immutable`, `flow_control_failures_preserve_input_credit`, `http2-core-flow-control-domains` | pure domain construction, boundary rejection, negative stream credit, debit, refill, overflow failure data, and input preservation moved to `core_test.veln`; focused external-package result projections moved to `http2-core-flow-control-domains`; monolithic DATA, peer `SETTINGS_INITIAL_WINDOW_SIZE`, received and outbound `WINDOW_UPDATE`, complete stdout, and diagnostic integration remain while the wider state machine is migrated |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
@@ -302,10 +303,18 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
   adjacent `core_test.veln` checks the success and failure-state invariants,
   and the focused `http2-core-data-receive-flow-control` case records public
   state and failure projections.
+- `std::http2::core` now owns the immutable stream-level WINDOW_UPDATE receive
+  flow-control refill over `CoreConnectionState`: accepted stream
+  WINDOW_UPDATE increments refill the target stream send credit, while invalid
+  increment, stream-window overflow, and missing-stream failure expose focused
+  context and preserve the input aggregate and preview. The adjacent
+  `core_test.veln` checks the success and failure-state invariants, and the
+  focused `http2-core-stream-window-update-flow-control` case records public
+  state and failure projections.
 - These slices move frame-kind admission and DATA credit debit, but they do
-  not yet move payload parsing, header validation, WINDOW_UPDATE credit
-  transitions, outbound send transitions, or GOAWAY drain decisions out of the
-  monolithic case.
+  not yet move payload parsing, header validation, connection-level
+  WINDOW_UPDATE credit transitions, outbound send transitions, or GOAWAY drain
+  decisions out of the monolithic case.
 
 ### Remaining Deletion-Gate Blockers
 
@@ -325,12 +334,13 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
 
 ### Required Continuation
 
-Continue from the new public stream collection and DATA credit debit by moving
-payload parsing integration, WINDOW_UPDATE credit application,
-header/content-length state transitions, outbound send transitions, and GOAWAY
-drain behavior behind `std::http2::core`. Keep each transition immutable and
-preserve failure-state atomicity across the connection, stream collection,
-HPACK table, pending continuation, flow-control credits, and output bytes.
+Continue from the new public stream collection, DATA credit debit, and
+stream-level WINDOW_UPDATE refill by moving payload parsing integration,
+connection-level WINDOW_UPDATE credit application, header/content-length state
+transitions, outbound send transitions, and GOAWAY drain behavior behind
+`std::http2::core`. Keep each transition immutable and preserve failure-state
+atomicity across the connection, stream collection, HPACK table, pending
+continuation, flow-control credits, and output bytes.
 
 When the gate is met, remove `main.veln`, `hpack_fixture.veln`,
 `hpack_static.veln`, `hpack_dynamic_core.veln`, and the monolithic
