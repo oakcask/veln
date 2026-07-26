@@ -20,14 +20,39 @@ The public routes are:
   immutable dynamic-table state, table-size updates, indexed and literal
   header-field encoding, and complete header-block encoding and decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
-- `http2::core`: connection and role-specific stream-id domains plus immutable
-  pending header-block sequencing.
+- `http2::core`: connection and role-specific stream-id domains, pure frame
+  payload-length validation, and immutable pending header-block sequencing.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
 The JVM adapter keeps its intrinsic link names private; source code calls only
 the module-qualified API. Diagnostic ids, human rendering, and
 `details.protocol_diagnostic` projections remain stable.
+
+`http2::core::validate_frame_payload_length(...)` performs pure inbound frame
+shape validation. It returns either a typed success or a
+`FramePayloadLengthFailure` containing the offset, frame kind, stream id,
+observed and expected lengths, active-state label, rule provenance, and exact
+supplied payload preview. Rejection exposes no partial success and does not
+alter the caller's immutable preview.
+
+PING is exactly 8 payload octets; GOAWAY is at least 8; WINDOW_UPDATE and
+RST_STREAM are exactly 4; and PRIORITY is exactly 5. A SETTINGS frame with ACK
+is empty, while a SETTINGS frame without ACK has a length divisible by 6.
+HEADERS requires the PADDED and PRIORITY prefixes selected by its flags.
+PUSH_PROMISE requires its promised-stream prefix and the optional PADDED
+prefix. DATA, CONTINUATION, and unknown kinds have no additional fixed or
+minimum length constraint in this validator. Padding content, frame-header
+decoding, and maximum-frame-size validation remain separate responsibilities.
+
+The adjacent
+[`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
+one-below, exact, and one-above boundaries where distinct, the complete
+HEADERS and PUSH_PROMISE flag matrix, unconstrained kinds, exact failure data,
+preview preservation, and absence of success output on rejection. Focused
+payload-length human and JSON cases project the public failure through
+`http2::diagnostic`; the aggregate protocol-core case retains wider decode
+ordering and complete-stdout integration.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

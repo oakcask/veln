@@ -1,4 +1,5 @@
 use prelude
+use http2::core
 
 pub fn protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_header_block_bytes: Int, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation, expected_stream, started_kind, started_offset, accumulated_header_block_bytes, rule_provenance, preview)
@@ -30,6 +31,19 @@ end
 
 pub fn protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>
 	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+end
+
+pub fn protocol_frame_payload_length_failure(failure: FramePayloadLengthFailure, preview: ByteView) -> Result<(), RuntimeDiagnostic>
+	protocol_invalid_payload_length(
+		http2::core::frame_payload_length_failure_offset(failure),
+		http2::core::frame_payload_length_failure_frame_kind(failure),
+		http2::core::frame_payload_length_failure_stream_id(failure),
+		http2::core::frame_payload_length_failure_observed_length(failure),
+		http2::core::frame_payload_length_failure_expected_length(failure),
+		http2::core::frame_payload_length_failure_active_state(failure),
+		http2::core::frame_payload_length_failure_rule_provenance(failure),
+		preview
+	)
 end
 
 pub fn protocol_invalid_window_update_increment(offset: Int, stream_id: Int, observed_increment: Int, accepted_min_increment: Int, accepted_max_increment: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), RuntimeDiagnostic>

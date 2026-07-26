@@ -1,4 +1,5 @@
 use http2::diagnostic from "std"
+use http2::core from "std"
 # HTTP/2 SETTINGS ACK payload length failures project to human diagnostics.
 
 type Http2ProtocolFailure
@@ -64,5 +65,8 @@ pub fn main() -> Result<(), RuntimeDiagnostic>
 	let context: Http2DiagnosticContext = DiagnosticContext("connection-control", "rfc9113_settings_ack_payload_length")
 	let bytes: ByteChunk = preview_bytes()?
 	let preview: ByteView = preview_view(bytes)?
-	http2_protocol_diagnostic(InvalidPayloadLength(0, 4, 0, 6, 0, preview), context)
+	match http2::core::validate_frame_payload_length(0, 4, 1, 0, 6, bytes)
+		Ok(_) => Err(invalid_payload("invalid SETTINGS ACK payload length was accepted"))
+		Err(failure) => http2::diagnostic::protocol_frame_payload_length_failure(failure, preview)
+	end
 end

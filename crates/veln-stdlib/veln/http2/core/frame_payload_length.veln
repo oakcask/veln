@@ -1,0 +1,157 @@
+use prelude
+
+pub type FramePayloadLength
+	ValidFramePayloadLength(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk)
+end
+
+pub type FramePayloadLengthFailure
+	InvalidFramePayloadLength(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn validate(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	match frame_kind
+		6 => validate_fixed(offset, frame_kind, flags, stream_id, observed_length, 8, "connection-control", "rfc9113_ping_payload_length", preview)
+		7 => validate_minimum(offset, frame_kind, flags, stream_id, observed_length, 8, "connection-control", "rfc9113_goaway_payload_length", preview)
+		8 => validate_fixed(offset, frame_kind, flags, stream_id, observed_length, 4, "flow-control", "rfc9113_window_update_payload_length", preview)
+		4 => validate_settings(offset, flags, stream_id, observed_length, preview)
+		3 => validate_fixed(offset, frame_kind, flags, stream_id, observed_length, 4, "stream-control", "rfc9113_rst_stream_payload_length", preview)
+		2 => validate_fixed(offset, frame_kind, flags, stream_id, observed_length, 5, "stream-control", "rfc9113_priority_payload_length", preview)
+		1 => validate_headers(offset, flags, stream_id, observed_length, preview)
+		5 => validate_push_promise(offset, flags, stream_id, observed_length, preview)
+		_ => valid(offset, frame_kind, flags, stream_id, observed_length, preview)
+	end
+end
+
+fn validate_settings(offset: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	if ack_set(flags)
+		validate_fixed(offset, 4, flags, stream_id, observed_length, 0, "connection-control", "rfc9113_settings_ack_payload_length", preview)
+	else if observed_length / 6 * 6 == observed_length
+		valid(offset, 4, flags, stream_id, observed_length, preview)
+	else
+		invalid(offset, 4, stream_id, observed_length, 6, "connection-control", "rfc9113_settings_payload_item_length", preview)
+	end
+end
+
+fn validate_headers(offset: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	let expected_length: Int = headers_prefix_length(flags)
+	if observed_length >= expected_length
+		valid(offset, 1, flags, stream_id, observed_length, preview)
+	else if padded_set(flags)
+		invalid(offset, 1, stream_id, observed_length, expected_length, "stream-control", "rfc9113_headers_padded_prefix_length", preview)
+	else
+		invalid(offset, 1, stream_id, observed_length, expected_length, "stream-control", "rfc9113_headers_priority_payload_length", preview)
+	end
+end
+
+fn validate_push_promise(offset: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	let expected_length: Int = if padded_set(flags)
+		5
+	else
+		4
+	end
+	if observed_length >= expected_length
+		valid(offset, 5, flags, stream_id, observed_length, preview)
+	else if padded_set(flags)
+		invalid(offset, 5, stream_id, observed_length, expected_length, "stream-control", "rfc9113_push_promise_padded_prefix_length", preview)
+	else
+		invalid(offset, 5, stream_id, observed_length, expected_length, "stream-control", "rfc9113_push_promise_payload_length", preview)
+	end
+end
+
+fn validate_fixed(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	if observed_length == expected_length
+		valid(offset, frame_kind, flags, stream_id, observed_length, preview)
+	else
+		invalid(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+	end
+end
+
+fn validate_minimum(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	if observed_length >= expected_length
+		valid(offset, frame_kind, flags, stream_id, observed_length, preview)
+	else
+		invalid(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
+	end
+end
+
+fn valid(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	Ok(ValidFramePayloadLength(offset, frame_kind, flags, stream_id, observed_length, preview))
+end
+
+fn invalid(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
+	Err(InvalidFramePayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview))
+end
+
+fn headers_prefix_length(flags: Int) -> Int
+	let padded_length: Int = if padded_set(flags)
+		1
+	else
+		0
+	end
+	let priority_length: Int = if priority_set(flags)
+		5
+	else
+		0
+	end
+	padded_length + priority_length
+end
+
+fn ack_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
+
+fn padded_set(flags: Int) -> Bool
+	flags / 8 * 8 != flags / 16 * 16
+end
+
+fn priority_set(flags: Int) -> Bool
+	flags / 32 * 32 != flags / 64 * 64
+end
+
+pub fn failure_offset(failure: FramePayloadLengthFailure) -> Int
+	match failure
+		InvalidFramePayloadLength(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: FramePayloadLengthFailure) -> Int
+	match failure
+		InvalidFramePayloadLength(_, frame_kind, _, _, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_stream_id(failure: FramePayloadLengthFailure) -> Int
+	match failure
+		InvalidFramePayloadLength(_, _, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_observed_length(failure: FramePayloadLengthFailure) -> Int
+	match failure
+		InvalidFramePayloadLength(_, _, _, observed_length, _, _, _, _) => observed_length
+	end
+end
+
+pub fn failure_expected_length(failure: FramePayloadLengthFailure) -> Int
+	match failure
+		InvalidFramePayloadLength(_, _, _, _, expected_length, _, _, _) => expected_length
+	end
+end
+
+pub fn failure_active_state(failure: FramePayloadLengthFailure) -> String
+	match failure
+		InvalidFramePayloadLength(_, _, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: FramePayloadLengthFailure) -> String
+	match failure
+		InvalidFramePayloadLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: FramePayloadLengthFailure) -> ByteChunk
+	match failure
+		InvalidFramePayloadLength(_, _, _, _, _, _, _, preview) => preview
+	end
+end
