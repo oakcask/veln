@@ -2401,6 +2401,7 @@ mod tests {
                 "main.veln",
                 concat!(
                     "use http2::hpack::integer from \"std\"\n",
+                    "use http2::core::pending_header_block from \"std\"\n",
                     "pub fn main() -> Int\n",
                     "  0\n",
                     "end\n",
@@ -2413,6 +2414,12 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "module.unexported_import"
                 && diagnostic.message.contains("http2::hpack::integer")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unexported_import"
+                && diagnostic
+                    .message
+                    .contains("http2::core::pending_header_block")
         }));
     }
 
