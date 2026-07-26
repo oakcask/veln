@@ -15,9 +15,9 @@ current language behavior unless the matching page under
 ## Catalog
 
 - [HTTP/2 Standard Library Completion and Fixture Retirement](http2-sans-io-protocol-core.md):
-  complete HPACK and sans-I/O core ownership, migrate every monolithic fixture
-  assertion, and remove the broad protocol-core case only after its deletion
-  gate is satisfied.
+  complete sans-I/O core ownership, migrate the remaining monolithic fixture
+  assertions, and remove the broad protocol-core case only after its deletion
+  gate is satisfied; production HPACK encoding and decoding are complete.
 
 ## Selection Rule
 

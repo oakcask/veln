@@ -1,0 +1,24 @@
+use prelude
+use http2::hpack::huffman
+use http2::hpack::integer
+
+pub fn raw(value: ByteChunk) -> Result<ByteChunk, String>
+	let length: Int = byte_count_to_int(byte_chunk_count(value))
+	Ok(byte_append(http2::hpack::integer::encode_prefixed(length, 7, 0)?, value))
+end
+
+pub fn huffman(value: ByteChunk) -> Result<ByteChunk, String>
+	let encoded: ByteChunk = http2::hpack::huffman::encode_bytes(value)?
+	let length: Int = byte_count_to_int(byte_chunk_count(encoded))
+	Ok(byte_append(http2::hpack::integer::encode_prefixed(length, 7, 128)?, encoded))
+end
+
+pub fn automatic(value: ByteChunk) -> Result<ByteChunk, String>
+	let raw_value: ByteChunk = raw(value)?
+	let huffman_value: ByteChunk = huffman(value)?
+	if byte_count_to_int(byte_chunk_count(huffman_value)) < byte_count_to_int(byte_chunk_count(raw_value))
+		Ok(huffman_value)
+	else
+		Ok(raw_value)
+	end
+end

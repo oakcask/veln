@@ -2351,6 +2351,49 @@ mod tests {
     }
 
     #[test]
+    fn explicit_standard_hpack_import_loads_encoder_dependency_closure() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use http2::hpack from \"std\"\n",
+                    "pub fn main() -> Result<DynamicTable, String>\n",
+                    "  http2::hpack::empty_dynamic_table(64)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        for dependency in [
+            "std::http2::hpack",
+            "std::http2::hpack::header_encoder",
+            "std::http2::hpack::header_list_encoder",
+            "std::http2::hpack::string_encoder",
+        ] {
+            assert!(
+                module
+                    .functions
+                    .iter()
+                    .any(|function| function.module_name.as_deref() == Some(dependency)),
+                "missing HPACK dependency {dependency}"
+            );
+        }
+        assert!(module.functions.iter().all(|function| {
+            !matches!(
+                function.module_name.as_deref(),
+                Some("std::http2::frame")
+                    | Some("std::http2::core")
+                    | Some("std::http2::diagnostic")
+                    | Some("std::http2::hpack::diagnostic")
+            )
+        }));
+    }
+
+    #[test]
     fn private_standard_http2_modules_cannot_be_imported() {
         let project = Project {
             root: ".".into(),

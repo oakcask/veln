@@ -1,0 +1,93 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::header_codec
+use http2::hpack::header_encoder
+use http2::hpack::integer
+
+pub type HeaderListEncodeCodecFailure
+	HeaderListEncodeActiveCapacity(capacity: Int)
+	HeaderListEncodeHeader(position: Int, failure: HeaderEncodeCodecFailure)
+	HeaderListEncodeIntegerFailure
+	HeaderListEncodeTableFailure
+end
+
+pub type HeaderListEncodeCodecTransition
+	HeaderListEncodeCodecTransition(bytes: ByteChunk, table: DynamicTable)
+end
+
+fn encode_fields(fields: List<HeaderCodecField>, table: DynamicTable, position: Int) -> Result<HeaderListEncodeCodecTransition, HeaderListEncodeCodecFailure>
+	match fields
+		Nil => Ok(HeaderListEncodeCodecTransition(byte_chunk([]), table))
+		Cons(field, remaining) => match http2::hpack::header_encoder::encode_automatic(http2::hpack::header_codec::header_name(field), http2::hpack::header_codec::header_value(field), table)
+			Err(failure) => Err(HeaderListEncodeHeader(position, failure))
+			Ok(first) => match encode_fields(remaining, http2::hpack::header_encoder::transition_table(first), position + 1)
+				Err(failure) => Err(failure)
+				Ok(rest) => Ok(HeaderListEncodeCodecTransition(byte_append(http2::hpack::header_encoder::transition_bytes(first), transition_bytes(rest)), transition_table(rest)))
+			end
+		end
+	end
+end
+
+fn select_capacity(table: DynamicTable, active_capacity: Int) -> Result<HeaderListEncodeCodecTransition, HeaderListEncodeCodecFailure>
+	if active_capacity < 0
+		Err(HeaderListEncodeActiveCapacity(active_capacity))
+	else if http2::hpack::dynamic_table::capacity(table) <= active_capacity
+		Ok(HeaderListEncodeCodecTransition(byte_chunk([]), table))
+	else
+		match http2::hpack::dynamic_table::with_capacity(table, active_capacity)
+			Err(_) => Err(HeaderListEncodeTableFailure)
+			Ok(next_table) => match http2::hpack::integer::encode_prefixed(active_capacity, 5, 32)
+				Err(_) => Err(HeaderListEncodeIntegerFailure)
+				Ok(bytes) => Ok(HeaderListEncodeCodecTransition(bytes, next_table))
+			end
+		end
+	end
+end
+
+pub fn encode_headers(fields: List<HeaderCodecField>, table: DynamicTable, active_capacity: Int) -> Result<HeaderListEncodeCodecTransition, HeaderListEncodeCodecFailure>
+	let capacity: HeaderListEncodeCodecTransition = select_capacity(table, active_capacity)?
+	let encoded: HeaderListEncodeCodecTransition = encode_fields(fields, transition_table(capacity), 0)?
+	Ok(HeaderListEncodeCodecTransition(byte_append(transition_bytes(capacity), transition_bytes(encoded)), transition_table(encoded)))
+end
+
+pub fn transition_bytes(transition: HeaderListEncodeCodecTransition) -> ByteChunk
+	match transition
+		HeaderListEncodeCodecTransition(bytes, _) => bytes
+	end
+end
+
+pub fn transition_table(transition: HeaderListEncodeCodecTransition) -> DynamicTable
+	match transition
+		HeaderListEncodeCodecTransition(_, table) => table
+	end
+end
+
+pub fn failure_kind(failure: HeaderListEncodeCodecFailure) -> Int
+	match failure
+		HeaderListEncodeActiveCapacity(_) => 0
+		HeaderListEncodeHeader(_, _) => 1
+		HeaderListEncodeIntegerFailure => 2
+		HeaderListEncodeTableFailure => 3
+	end
+end
+
+pub fn failure_capacity(failure: HeaderListEncodeCodecFailure) -> Int
+	match failure
+		HeaderListEncodeActiveCapacity(capacity) => capacity
+		_ => 0
+	end
+end
+
+pub fn failure_position(failure: HeaderListEncodeCodecFailure) -> Int
+	match failure
+		HeaderListEncodeHeader(position, _) => position
+		_ => 0
+	end
+end
+
+pub fn failure_header(failure: HeaderListEncodeCodecFailure) -> Option<HeaderEncodeCodecFailure>
+	match failure
+		HeaderListEncodeHeader(_, header_failure) => Some(header_failure)
+		_ => None
+	end
+end

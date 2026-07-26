@@ -1,7 +1,9 @@
 use prelude
 use http2::hpack::dynamic_table
 use http2::hpack::header_codec
+use http2::hpack::header_encoder
 use http2::hpack::header_list_decoder
+use http2::hpack::header_list_encoder
 use http2::hpack::huffman
 use http2::hpack::integer
 use http2::hpack::static_table
@@ -60,6 +62,18 @@ pub type HeaderList
 	HeaderListField(header: HeaderField, remaining: HeaderList)
 end
 
+pub fn header_field(name: String, value: ByteChunk) -> HeaderField
+	HeaderField(name, value)
+end
+
+pub fn empty_header_list() -> HeaderList
+	EmptyHeaderList
+end
+
+pub fn prepend_header_field(header: HeaderField, remaining: HeaderList) -> HeaderList
+	HeaderListField(header, remaining)
+end
+
 pub type HeaderBlockDecodeFailure
 	UnsupportedHeaderRepresentation(first_octet: Int)
 	MisplacedTableSizeUpdate
@@ -70,6 +84,33 @@ end
 
 pub type HeaderBlockDecodeTransition
 	HeaderBlockDecodeTransition(headers: HeaderList, consumed: Int, table: DynamicTable)
+end
+
+pub type HeaderEncodeFailure
+	InvalidEncodeRepresentation
+	InvalidEncodeName
+	ZeroEncodeIndex
+	UnavailableEncodeStaticIndex(index: Int)
+	UnavailableEncodeDynamicIndex(index: Int, dynamic_index: Int, entry_count: Int)
+	EncodeIndexedFieldMismatch(index: Int)
+	EncodeIntegerFailure
+	EncodeStringFailure
+	EncodeTableFailure
+end
+
+pub type HeaderEncodeTransition
+	HeaderEncodeTransition(bytes: ByteChunk, table: DynamicTable)
+end
+
+pub type HeaderBlockEncodeFailure
+	InvalidActiveCapacity(capacity: Int)
+	HeaderBlockFieldEncodeFailure(position: Int, failure: HeaderEncodeFailure)
+	HeaderBlockIntegerEncodeFailure
+	HeaderBlockTableEncodeFailure
+end
+
+pub type HeaderBlockEncodeTransition
+	HeaderBlockEncodeTransition(bytes: ByteChunk, table: DynamicTable)
 end
 
 pub type TableSizeUpdateFailure
@@ -172,6 +213,91 @@ end
 
 pub fn dynamic_entry_value(entry: DynamicEntry) -> ByteChunk
 	http2::hpack::dynamic_table::entry_value(entry)
+end
+
+fn header_encode_failure(failure: HeaderEncodeCodecFailure) -> HeaderEncodeFailure
+	match http2::hpack::header_encoder::failure_kind(failure)
+		0 => InvalidEncodeRepresentation
+		1 => InvalidEncodeName
+		2 => ZeroEncodeIndex
+		3 => UnavailableEncodeStaticIndex(http2::hpack::header_encoder::failure_index(failure))
+		4 => UnavailableEncodeDynamicIndex(http2::hpack::header_encoder::failure_index(failure), http2::hpack::header_encoder::failure_dynamic_index(failure), http2::hpack::header_encoder::failure_entry_count(failure))
+		5 => EncodeIndexedFieldMismatch(http2::hpack::header_encoder::failure_index(failure))
+		6 => EncodeIntegerFailure
+		7 => EncodeStringFailure
+		_ => EncodeTableFailure
+	end
+end
+
+fn header_encode_transition(transition: HeaderEncodeCodecTransition) -> HeaderEncodeTransition
+	HeaderEncodeTransition(http2::hpack::header_encoder::transition_bytes(transition), http2::hpack::header_encoder::transition_table(transition))
+end
+
+pub fn encode_indexed_header_field(header: HeaderField, index: Int, table: DynamicTable) -> Result<HeaderEncodeTransition, HeaderEncodeFailure>
+	match header
+		HeaderField(name, value) => match http2::hpack::header_encoder::encode_indexed(index, name, value, table)
+			Ok(transition) => Ok(header_encode_transition(transition))
+			Err(failure) => Err(header_encode_failure(failure))
+		end
+	end
+end
+
+pub fn encode_literal_header_field(header: HeaderField, representation: Int, name_index: Int, huffman_name: Bool, huffman_value: Bool, table: DynamicTable) -> Result<HeaderEncodeTransition, HeaderEncodeFailure>
+	match header
+		HeaderField(name, value) => match http2::hpack::header_encoder::encode_literal(name, value, representation, name_index, huffman_name, huffman_value, table)
+			Ok(transition) => Ok(header_encode_transition(transition))
+			Err(failure) => Err(header_encode_failure(failure))
+		end
+	end
+end
+
+pub fn header_encode_bytes(transition: HeaderEncodeTransition) -> ByteChunk
+	match transition
+		HeaderEncodeTransition(bytes, _) => bytes
+	end
+end
+
+pub fn header_encode_table(transition: HeaderEncodeTransition) -> DynamicTable
+	match transition
+		HeaderEncodeTransition(_, table) => table
+	end
+end
+
+pub fn header_encode_failure_kind(failure: HeaderEncodeFailure) -> String
+	match failure
+		InvalidEncodeRepresentation => "invalid_representation"
+		InvalidEncodeName => "invalid_name"
+		ZeroEncodeIndex => "zero_index"
+		UnavailableEncodeStaticIndex(_) => "unavailable_static_index"
+		UnavailableEncodeDynamicIndex(_, _, _) => "unavailable_dynamic_index"
+		EncodeIndexedFieldMismatch(_) => "indexed_field_mismatch"
+		EncodeIntegerFailure => "integer_encoding"
+		EncodeStringFailure => "string_encoding"
+		EncodeTableFailure => "table_transition"
+	end
+end
+
+pub fn header_encode_failure_index(failure: HeaderEncodeFailure) -> Int
+	match failure
+		UnavailableEncodeStaticIndex(index) => index
+		UnavailableEncodeDynamicIndex(index, _, _) => index
+		EncodeIndexedFieldMismatch(index) => index
+		_ => 0
+	end
+end
+
+pub fn header_encode_failure_dynamic_index(failure: HeaderEncodeFailure) -> Int
+	match failure
+		UnavailableEncodeDynamicIndex(_, index, _) => index
+		_ => 0
+	end
+end
+
+pub fn header_encode_failure_dynamic_entry_count(failure: HeaderEncodeFailure) -> Int
+	match failure
+		UnavailableEncodeDynamicIndex(_, _, count) => count
+		_ => 0
+	end
 end
 
 fn table_size_update_failure(failure: TableSizeUpdateCodecFailure) -> TableSizeUpdateFailure
@@ -450,6 +576,74 @@ fn header_list_fields(fields: List<HeaderCodecField>) -> HeaderList
 	match fields
 		Nil => EmptyHeaderList
 		Cons(field, remaining) => HeaderListField(HeaderField(http2::hpack::header_codec::header_name(field), http2::hpack::header_codec::header_value(field)), header_list_fields(remaining))
+	end
+end
+
+fn header_codec_fields(headers: HeaderList) -> List<HeaderCodecField>
+	match headers
+		EmptyHeaderList => Nil
+		HeaderListField(HeaderField(name, value), remaining) => Cons(http2::hpack::header_codec::field(name, value), header_codec_fields(remaining))
+	end
+end
+
+fn header_block_encode_failure(failure: HeaderListEncodeCodecFailure) -> HeaderBlockEncodeFailure
+	match http2::hpack::header_list_encoder::failure_kind(failure)
+		0 => InvalidActiveCapacity(http2::hpack::header_list_encoder::failure_capacity(failure))
+		1 => match http2::hpack::header_list_encoder::failure_header(failure)
+			Some(header_failure) => HeaderBlockFieldEncodeFailure(http2::hpack::header_list_encoder::failure_position(failure), header_encode_failure(header_failure))
+			None => HeaderBlockTableEncodeFailure
+		end
+		2 => HeaderBlockIntegerEncodeFailure
+		_ => HeaderBlockTableEncodeFailure
+	end
+end
+
+pub fn encode_header_block(headers: HeaderList, table: DynamicTable, active_capacity: Int) -> Result<HeaderBlockEncodeTransition, HeaderBlockEncodeFailure>
+	match http2::hpack::header_list_encoder::encode_headers(header_codec_fields(headers), table, active_capacity)
+		Err(failure) => Err(header_block_encode_failure(failure))
+		Ok(transition) => Ok(HeaderBlockEncodeTransition(http2::hpack::header_list_encoder::transition_bytes(transition), http2::hpack::header_list_encoder::transition_table(transition)))
+	end
+end
+
+pub fn header_block_encode_bytes(transition: HeaderBlockEncodeTransition) -> ByteChunk
+	match transition
+		HeaderBlockEncodeTransition(bytes, _) => bytes
+	end
+end
+
+pub fn header_block_encode_table(transition: HeaderBlockEncodeTransition) -> DynamicTable
+	match transition
+		HeaderBlockEncodeTransition(_, table) => table
+	end
+end
+
+pub fn header_block_encode_failure_kind(failure: HeaderBlockEncodeFailure) -> String
+	match failure
+		InvalidActiveCapacity(_) => "active_capacity"
+		HeaderBlockFieldEncodeFailure(_, _) => "header_field"
+		HeaderBlockIntegerEncodeFailure => "integer_encoding"
+		HeaderBlockTableEncodeFailure => "table_transition"
+	end
+end
+
+pub fn header_block_encode_failure_position(failure: HeaderBlockEncodeFailure) -> Int
+	match failure
+		HeaderBlockFieldEncodeFailure(position, _) => position
+		_ => 0
+	end
+end
+
+pub fn header_block_encode_header_failure(failure: HeaderBlockEncodeFailure) -> Option<HeaderEncodeFailure>
+	match failure
+		HeaderBlockFieldEncodeFailure(_, header_failure) => Some(header_failure)
+		_ => None
+	end
+end
+
+pub fn header_block_encode_failure_capacity(failure: HeaderBlockEncodeFailure) -> Int
+	match failure
+		InvalidActiveCapacity(capacity) => capacity
+		_ => 0
 	end
 end
 

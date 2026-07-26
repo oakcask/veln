@@ -33,6 +33,10 @@ pub type HeaderCodecTransition
 	HeaderCodecTransition(header: HeaderCodecField, consumed: Int, table: DynamicTable)
 end
 
+pub fn field(name: String, value: ByteChunk) -> HeaderCodecField
+	HeaderCodecField(name, value)
+end
+
 fn incomplete_integer(failure: String) -> Bool
 	failure == "HPACK integer input must not be empty" or failure == "incomplete HPACK integer continuation"
 end
