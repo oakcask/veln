@@ -358,6 +358,31 @@ test peer_stream_admission_records_only_new_non_trailer_headers() -> Result<(), 
 	end
 end
 
+test peer_stream_admission_record_stream_id_is_monotonic() -> Result<(), String>
+	let empty: CorePeerStreamAdmissionState = http2::core::empty_peer_stream_admission()
+	let first: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(7, empty)
+	let lower: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(3, first)
+	let equal: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(7, lower)
+	let higher: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(11, equal)
+	if http2::core::peer_stream_admission_highest_stream_id(empty) == 0 and http2::core::peer_stream_admission_highest_stream_id(first) == 7 and http2::core::peer_stream_admission_highest_stream_id(lower) == 7 and http2::core::peer_stream_admission_highest_stream_id(equal) == 7 and http2::core::peer_stream_admission_highest_stream_id(higher) == 11
+		Ok(())
+	else
+		Err("peer stream admission record transition was not monotonic")
+	end
+end
+
+test peer_stream_admission_acceptance_keeps_caller_owned_high_water() -> Result<(), String>
+	let empty: CorePeerStreamAdmissionState = http2::core::empty_peer_stream_admission()
+	let recorded: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(5, empty)
+	let accepted_empty: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(9, 1, "server", empty, byte_chunk_from_hex("000000010400000001")?)
+	let accepted_higher: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(17, 9, "server", recorded, byte_chunk_from_hex("000000010400000009")?)
+	if http2::core::peer_stream_admission_decision_status(accepted_empty) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_empty)?) == 0 and http2::core::peer_stream_admission_decision_status(accepted_higher) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_higher)?) == 5 and http2::core::peer_stream_admission_highest_stream_id(recorded) == 5
+		Ok(())
+	else
+		Err("peer stream admission acceptance advanced caller-owned high-water state")
+	end
+end
+
 test peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state() -> Result<(), String>
 	let state: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(5, http2::core::empty_peer_stream_admission())
 	let accepted: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(17, 7, "server", state, byte_chunk_from_hex("000000010400000007")?)

@@ -219,9 +219,10 @@ The focused
 case imports `http2::core` from `std` and records the public state
 projections.
 The adjacent test also checks peer-created stream admission recording,
-ignored trailer and known-stream cases, higher-id acceptance, non-increasing
-stream-id rejection, exact failure data, preview preservation, and immutable
-input state. The focused
+monotonic high-water updates, ignored trailer and known-stream cases, empty
+and higher-id acceptance without advancing caller-owned high-water state,
+non-increasing stream-id rejection, exact failure data, preview preservation,
+and immutable input state. The focused
 [`http2-core-peer-stream-admission`](../../examples/specification/run/http2-core-peer-stream-admission/)
 case imports `http2::core` from `std` and records public state, decision, and
 failure projections.
