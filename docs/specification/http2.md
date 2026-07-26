@@ -20,7 +20,8 @@ The public routes are:
   immutable dynamic-table state, table-size updates, indexed and literal
   header-field encoding, and complete header-block encoding and decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
-- `http2::core`: connection and role-specific stream-id domains, pure frame
+- `http2::core`: connection and role-specific stream-id domains, immutable
+  connection-preface and initial-peer-SETTINGS transitions, pure frame
   payload-length validation, and immutable pending header-block sequencing.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
@@ -77,6 +78,31 @@ obtain these public failures and project them through `http2::diagnostic`;
 the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case retains initial-SETTINGS integration and its complete stdout assertion.
+
+`http2::core::server_initial_peer_settings_gate()` and
+`client_initial_peer_settings_gate()` create immutable role-specific state for
+the first complete peer frame. `accept_initial_peer_settings(...)` accepts
+only a non-ACK SETTINGS frame. A successful transition exposes the accepted
+next state and retains the endpoint role.
+
+A non-SETTINGS frame or initial SETTINGS ACK returns an
+`InitialPeerSettingsFailure` with the stable diagnostic id, offset, frame kind,
+flags, stream id, endpoint role, active-state label, rule provenance, and exact
+supplied frame-header preview. Rejection exposes no transition or next state
+and leaves the input state and preview unchanged. Frame-header completeness,
+maximum-frame-size validation, stream-id and SETTINGS payload validation, and
+SETTINGS value application remain separate transition stages.
+
+The adjacent
+[`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
+accepted server and client roles, non-SETTINGS and ACK rejection, exact
+failure context, and immutable state and preview preservation. The focused
+`http2-initial-peer-settings-gate-{human,json}` cases obtain the typed public
+failure and project it through `http2::diagnostic`. The aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case calls the same public gate after complete-header, frame-size, and
+complete-frame checks, then retains wider stream-id, payload, SETTINGS-value,
+state, and complete-stdout integration coverage.
 
 `http2::core::empty_pending_header_block()` constructs idle continuation
 state. `start_header_block(...)` accepts an already validated HEADERS or

@@ -69,6 +69,22 @@ fn payload_length_rejects(kind: Int, flags: Int, length: Int, expected: Int, act
 	end
 end
 
+fn initial_settings_accepts(state: InitialPeerSettingsGateState) -> Result<Bool, String>
+	let preview: ByteChunk = byte_chunk_from_hex("000000040000000000")?
+	Ok(match http2::core::accept_initial_peer_settings(state, 24, 4, 0, 0, preview)
+		Ok(_) => true
+		Err(_) => false
+	end)
+end
+
+fn initial_settings_rejects(state: InitialPeerSettingsGateState, kind: Int, flags: Int) -> Result<Bool, String>
+	let preview: ByteChunk = byte_chunk_from_hex("000000060100000000")?
+	Ok(match http2::core::accept_initial_peer_settings(state, 24, kind, flags, 0, preview)
+		Ok(_) => false
+		Err(_) => true
+	end)
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -85,6 +101,68 @@ test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
 			Ok(_) => Err("odd stream id entered the server stream domain")
 			Err(_) => Ok(())
 		end
+	end
+end
+
+test initial_peer_settings_gate_accepts_server_and_client_roles() -> Result<(), String>
+	let server: InitialPeerSettingsGateState = http2::core::server_initial_peer_settings_gate()
+	let client: InitialPeerSettingsGateState = http2::core::client_initial_peer_settings_gate()
+	if initial_settings_accepts(server)? and initial_settings_accepts(client)?
+		Ok(())
+	else
+		Err("initial peer SETTINGS gate rejected a non-ACK SETTINGS frame")
+	end
+end
+
+test initial_peer_settings_gate_preserves_role_in_successful_next_state() -> Result<(), String>
+	let server: InitialPeerSettingsTransition = match http2::core::accept_initial_peer_settings(http2::core::server_initial_peer_settings_gate(), 24, 4, 0, 0, byte_chunk([]))
+		Ok(transition) => transition
+		Err(_) => Err("server initial peer SETTINGS transition failed")?
+	end
+	let client: InitialPeerSettingsTransition = match http2::core::accept_initial_peer_settings(http2::core::client_initial_peer_settings_gate(), 0, 4, 2, 0, byte_chunk([]))
+		Ok(transition) => transition
+		Err(_) => Err("client initial peer SETTINGS transition failed")?
+	end
+	let server_state: InitialPeerSettingsAcceptedState = http2::core::initial_peer_settings_state(server)
+	let client_state: InitialPeerSettingsAcceptedState = http2::core::initial_peer_settings_state(client)
+	if http2::core::accepted_initial_peer_settings_endpoint_role(server_state) == "server" and http2::core::accepted_initial_peer_settings_endpoint_role(client_state) == "client"
+		Ok(())
+	else
+		Err("accepted initial peer SETTINGS transition lost its endpoint role or next state")
+	end
+end
+
+test initial_peer_settings_gate_rejects_non_settings_and_ack_frames() -> Result<(), String>
+	if initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 6, 0)? and initial_settings_rejects(http2::core::server_initial_peer_settings_gate(), 4, 1)? and initial_settings_rejects(http2::core::client_initial_peer_settings_gate(), 4, 1)?
+		Ok(())
+	else
+		Err("initial peer SETTINGS gate accepted a non-SETTINGS or SETTINGS ACK frame")
+	end
+end
+
+test initial_peer_settings_gate_failure_preserves_exact_context() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("000000060100000000")?
+	match http2::core::accept_initial_peer_settings(http2::core::server_initial_peer_settings_gate(), 24, 6, 1, 0, preview)
+		Ok(_) => Err("invalid initial peer frame exposed a successful transition")
+		Err(failure) => if http2::core::initial_peer_settings_failure_id(failure) == "http2.protocol.initial_peer_settings_required" and http2::core::initial_peer_settings_failure_offset(failure) == 24 and http2::core::initial_peer_settings_failure_frame_kind(failure) == 6 and http2::core::initial_peer_settings_failure_flags(failure) == 1 and http2::core::initial_peer_settings_failure_stream_id(failure) == 0 and http2::core::initial_peer_settings_failure_endpoint_role(failure) == "server" and http2::core::initial_peer_settings_failure_active_state(failure) == "expect-initial-peer-settings" and http2::core::initial_peer_settings_failure_rule_provenance(failure) == "rfc9113_initial_peer_frame_requires_non_ack_settings" and chunks_equal(http2::core::initial_peer_settings_failure_preview(failure), preview)?
+			Ok(())
+		else
+			Err("initial peer SETTINGS failure lost exact diagnostic context")
+		end
+	end
+end
+
+test initial_peer_settings_gate_failure_preserves_input_state_and_preview() -> Result<(), String>
+	let state: InitialPeerSettingsGateState = http2::core::client_initial_peer_settings_gate()
+	let preview: ByteChunk = byte_chunk_from_hex("000000040100000000")?
+	let rejected: Bool = match http2::core::accept_initial_peer_settings(state, 41, 4, 1, 0, preview)
+		Ok(_) => false
+		Err(failure) => http2::core::initial_peer_settings_failure_endpoint_role(failure) == "client" and chunks_equal(http2::core::initial_peer_settings_failure_preview(failure), preview)?
+	end
+	if rejected and http2::core::initial_peer_settings_is_waiting(state) and http2::core::initial_peer_settings_endpoint_role(state) == "client" and chunks_equal(preview, byte_chunk_from_hex("000000040100000000")?)?
+		Ok(())
+	else
+		Err("initial peer SETTINGS rejection changed the input state or preview")
 	end
 end
 

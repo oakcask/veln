@@ -741,10 +741,10 @@ fn expected_preface_byte(index: Int) -> Int
 	end
 end
 
-fn endpoint_role_label(endpoint_role: Http2EndpointRole) -> String
+fn initial_peer_settings_gate(endpoint_role: Http2EndpointRole) -> InitialPeerSettingsGateState
 	match endpoint_role
-		ServerEndpoint => "server"
-		ClientEndpoint => "client"
+		ServerEndpoint => http2::core::server_initial_peer_settings_gate()
+		ClientEndpoint => http2::core::client_initial_peer_settings_gate()
 	end
 end
 
@@ -766,13 +766,14 @@ fn decode_initial_peer_settings_header(pending: ByteChunk, next_offset: Int, con
 		Ok(Failed(preserved_state, FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
 	else if available < 9 + header.length
 		Ok(Waiting(preserved_state))
-	else if header.kind != 4 or settings_ack_set(header.flags)
-		Ok(Failed(preserved_state, InitialPeerSettingsRequired(next_offset, header.kind, header.flags, header.stream_id, endpoint_role_label(endpoint_role), "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", byte_view_to_chunk(header_view))))
 	else
-		match decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, header.length, header.kind, header.flags, header.stream_id, 9 + header.length, byte_view_to_chunk(header_view), endpoint_role)?
-			FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame) => Ok(FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame))
-			Waiting(_) => Ok(Waiting(preserved_state))
-			Failed(_, failure) => Ok(Failed(preserved_state, failure))
+		match http2::core::accept_initial_peer_settings(initial_peer_settings_gate(endpoint_role), next_offset, header.kind, header.flags, header.stream_id, byte_view_to_chunk(header_view))
+			Err(failure) => Ok(Failed(preserved_state, InitialPeerSettingsRequired(http2::core::initial_peer_settings_failure_offset(failure), http2::core::initial_peer_settings_failure_frame_kind(failure), http2::core::initial_peer_settings_failure_flags(failure), http2::core::initial_peer_settings_failure_stream_id(failure), http2::core::initial_peer_settings_failure_endpoint_role(failure), http2::core::initial_peer_settings_failure_active_state(failure), http2::core::initial_peer_settings_failure_rule_provenance(failure), http2::core::initial_peer_settings_failure_preview(failure))))
+			Ok(_) => match decode_complete_frame(pending, next_offset, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission, header.length, header.kind, header.flags, header.stream_id, 9 + header.length, byte_view_to_chunk(header_view), endpoint_role)?
+				FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame) => Ok(FrameDecoded(state, offset, length, kind, flags, stream_id, completed_header_block, frame))
+				Waiting(_) => Ok(Waiting(preserved_state))
+				Failed(_, failure) => Ok(Failed(preserved_state, failure))
+			end
 		end
 	end
 end
