@@ -1,4 +1,5 @@
 use http2::diagnostic from "std"
+use http2::core from "std"
 # The initial peer SETTINGS gate projects all observed frame and connection context.
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -8,14 +9,18 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn frame_header() -> Result<ByteView, RuntimeDiagnostic>
+fn frame_header() -> Result<ByteChunk, RuntimeDiagnostic>
 	match byte_chunk_from_hex("000000060100000000")
-		Ok(bytes) => match byte_offset(0)
-			Ok(offset) => match byte_count(9)
-				Ok(count) => match byte_view(bytes, offset, count)
-					Ok(view) => Ok(view)
-					Err(error) => Err(invalid_payload(error))
-				end
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(invalid_payload(error))
+	end
+end
+
+fn frame_header_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_count(byte_count_to_int(byte_chunk_count(bytes)))
+			Ok(count) => match byte_view(bytes, offset, count)
+				Ok(view) => Ok(view)
 				Err(error) => Err(invalid_payload(error))
 			end
 			Err(error) => Err(invalid_payload(error))
@@ -25,5 +30,9 @@ fn frame_header() -> Result<ByteView, RuntimeDiagnostic>
 end
 
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	http2::diagnostic::protocol_initial_peer_settings_required(24, 6, 1, 0, "server", "expect-initial-peer-settings", "rfc9113_initial_peer_frame_requires_non_ack_settings", frame_header()?)
+	let preview: ByteChunk = frame_header()?
+	match http2::core::accept_initial_peer_settings(http2::core::server_initial_peer_settings_gate(), 24, 6, 1, 0, preview)
+		Ok(_) => Err(invalid_payload("initial peer SETTINGS gate accepted an invalid frame"))
+		Err(failure) => http2::diagnostic::protocol_initial_peer_settings_required(http2::core::initial_peer_settings_failure_offset(failure), http2::core::initial_peer_settings_failure_frame_kind(failure), http2::core::initial_peer_settings_failure_flags(failure), http2::core::initial_peer_settings_failure_stream_id(failure), http2::core::initial_peer_settings_failure_endpoint_role(failure), http2::core::initial_peer_settings_failure_active_state(failure), http2::core::initial_peer_settings_failure_rule_provenance(failure), frame_header_view(http2::core::initial_peer_settings_failure_preview(failure))?)
+	end
 end

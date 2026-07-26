@@ -1,0 +1,125 @@
+use prelude
+
+pub type InitialPeerSettingsGateState
+	ExpectInitialPeerSettings(endpoint_role: String)
+end
+
+pub type InitialPeerSettingsAcceptedState
+	InitialPeerSettingsAccepted(endpoint_role: String)
+end
+
+pub type InitialPeerSettingsTransition
+	InitialPeerSettingsTransition(state: InitialPeerSettingsAcceptedState)
+end
+
+pub type InitialPeerSettingsFailure
+	InitialPeerSettingsRequired(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn server_gate() -> InitialPeerSettingsGateState
+	ExpectInitialPeerSettings("server")
+end
+
+pub fn client_gate() -> InitialPeerSettingsGateState
+	ExpectInitialPeerSettings("client")
+end
+
+pub fn advance(state: InitialPeerSettingsGateState, offset: Int, frame_kind: Int, flags: Int, stream_id: Int, preview: ByteChunk) -> Result<InitialPeerSettingsTransition, InitialPeerSettingsFailure>
+	match state
+		ExpectInitialPeerSettings(endpoint_role) => if frame_kind == 4 and not ack_set(flags)
+			Ok(InitialPeerSettingsTransition(InitialPeerSettingsAccepted(endpoint_role)))
+		else
+			Err(InitialPeerSettingsRequired(offset, frame_kind, flags, stream_id, endpoint_role, active_state_label(), rule_provenance(), preview))
+		end
+	end
+end
+
+fn ack_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
+
+fn active_state_label() -> String
+	"expect-initial-peer-settings"
+end
+
+fn rule_provenance() -> String
+	"rfc9113_initial_peer_frame_requires_non_ack_settings"
+end
+
+pub fn transition_state(transition: InitialPeerSettingsTransition) -> InitialPeerSettingsAcceptedState
+	match transition
+		InitialPeerSettingsTransition(state) => state
+	end
+end
+
+pub fn state_is_waiting(state: InitialPeerSettingsGateState) -> Bool
+	match state
+		ExpectInitialPeerSettings(_) => true
+	end
+end
+
+pub fn state_endpoint_role(state: InitialPeerSettingsGateState) -> String
+	match state
+		ExpectInitialPeerSettings(endpoint_role) => endpoint_role
+	end
+end
+
+pub fn accepted_state_endpoint_role(state: InitialPeerSettingsAcceptedState) -> String
+	match state
+		InitialPeerSettingsAccepted(endpoint_role) => endpoint_role
+	end
+end
+
+pub fn failure_id(failure: InitialPeerSettingsFailure) -> String
+	match failure
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, _) => "http2.protocol.initial_peer_settings_required"
+	end
+end
+
+pub fn failure_offset(failure: InitialPeerSettingsFailure) -> Int
+	match failure
+		InitialPeerSettingsRequired(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: InitialPeerSettingsFailure) -> Int
+	match failure
+		InitialPeerSettingsRequired(_, frame_kind, _, _, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_flags(failure: InitialPeerSettingsFailure) -> Int
+	match failure
+		InitialPeerSettingsRequired(_, _, flags, _, _, _, _, _) => flags
+	end
+end
+
+pub fn failure_stream_id(failure: InitialPeerSettingsFailure) -> Int
+	match failure
+		InitialPeerSettingsRequired(_, _, _, stream_id, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_endpoint_role(failure: InitialPeerSettingsFailure) -> String
+	match failure
+		InitialPeerSettingsRequired(_, _, _, _, endpoint_role, _, _, _) => endpoint_role
+	end
+end
+
+pub fn failure_active_state(failure: InitialPeerSettingsFailure) -> String
+	match failure
+		InitialPeerSettingsRequired(_, _, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: InitialPeerSettingsFailure) -> String
+	match failure
+		InitialPeerSettingsRequired(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: InitialPeerSettingsFailure) -> ByteChunk
+	match failure
+		InitialPeerSettingsRequired(_, _, _, _, _, _, _, preview) => preview
+	end
+end

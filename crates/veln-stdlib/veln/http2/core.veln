@@ -1,6 +1,7 @@
 use prelude
 use http2::core::connection_preface
 use http2::core::frame_payload_length
+use http2::core::initial_peer_settings
 use http2::core::pending_header_block
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -12,6 +13,14 @@ pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionP
 pub type FramePayloadLength = http2::core::frame_payload_length::FramePayloadLength
 
 pub type FramePayloadLengthFailure = http2::core::frame_payload_length::FramePayloadLengthFailure
+
+pub type InitialPeerSettingsGateState = http2::core::initial_peer_settings::InitialPeerSettingsGateState
+
+pub type InitialPeerSettingsAcceptedState = http2::core::initial_peer_settings::InitialPeerSettingsAcceptedState
+
+pub type InitialPeerSettingsTransition = http2::core::initial_peer_settings::InitialPeerSettingsTransition
+
+pub type InitialPeerSettingsFailure = http2::core::initial_peer_settings::InitialPeerSettingsFailure
 
 pub type PendingHeaderBlock = http2::core::pending_header_block::PendingHeaderBlock
 
@@ -120,6 +129,70 @@ end
 
 pub fn frame_payload_length_failure_preview(failure: FramePayloadLengthFailure) -> ByteChunk
 	http2::core::frame_payload_length::failure_preview(failure)
+end
+
+pub fn server_initial_peer_settings_gate() -> InitialPeerSettingsGateState
+	http2::core::initial_peer_settings::server_gate()
+end
+
+pub fn client_initial_peer_settings_gate() -> InitialPeerSettingsGateState
+	http2::core::initial_peer_settings::client_gate()
+end
+
+pub fn accept_initial_peer_settings(state: InitialPeerSettingsGateState, offset: Int, frame_kind: Int, flags: Int, stream_id: Int, preview: ByteChunk) -> Result<InitialPeerSettingsTransition, InitialPeerSettingsFailure>
+	http2::core::initial_peer_settings::advance(state, offset, frame_kind, flags, stream_id, preview)
+end
+
+pub fn initial_peer_settings_state(transition: InitialPeerSettingsTransition) -> InitialPeerSettingsAcceptedState
+	http2::core::initial_peer_settings::transition_state(transition)
+end
+
+pub fn initial_peer_settings_is_waiting(state: InitialPeerSettingsGateState) -> Bool
+	http2::core::initial_peer_settings::state_is_waiting(state)
+end
+
+pub fn initial_peer_settings_endpoint_role(state: InitialPeerSettingsGateState) -> String
+	http2::core::initial_peer_settings::state_endpoint_role(state)
+end
+
+pub fn accepted_initial_peer_settings_endpoint_role(state: InitialPeerSettingsAcceptedState) -> String
+	http2::core::initial_peer_settings::accepted_state_endpoint_role(state)
+end
+
+pub fn initial_peer_settings_failure_id(failure: InitialPeerSettingsFailure) -> String
+	http2::core::initial_peer_settings::failure_id(failure)
+end
+
+pub fn initial_peer_settings_failure_offset(failure: InitialPeerSettingsFailure) -> Int
+	http2::core::initial_peer_settings::failure_offset(failure)
+end
+
+pub fn initial_peer_settings_failure_frame_kind(failure: InitialPeerSettingsFailure) -> Int
+	http2::core::initial_peer_settings::failure_frame_kind(failure)
+end
+
+pub fn initial_peer_settings_failure_flags(failure: InitialPeerSettingsFailure) -> Int
+	http2::core::initial_peer_settings::failure_flags(failure)
+end
+
+pub fn initial_peer_settings_failure_stream_id(failure: InitialPeerSettingsFailure) -> Int
+	http2::core::initial_peer_settings::failure_stream_id(failure)
+end
+
+pub fn initial_peer_settings_failure_endpoint_role(failure: InitialPeerSettingsFailure) -> String
+	http2::core::initial_peer_settings::failure_endpoint_role(failure)
+end
+
+pub fn initial_peer_settings_failure_active_state(failure: InitialPeerSettingsFailure) -> String
+	http2::core::initial_peer_settings::failure_active_state(failure)
+end
+
+pub fn initial_peer_settings_failure_rule_provenance(failure: InitialPeerSettingsFailure) -> String
+	http2::core::initial_peer_settings::failure_rule_provenance(failure)
+end
+
+pub fn initial_peer_settings_failure_preview(failure: InitialPeerSettingsFailure) -> ByteChunk
+	http2::core::initial_peer_settings::failure_preview(failure)
 end
 
 pub fn empty_connection_preface(starting_offset: Int) -> ConnectionPrefaceState
