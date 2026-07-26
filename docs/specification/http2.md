@@ -50,7 +50,8 @@ preview octets without exposing a next state or completed block. The input
 state remains unchanged. Adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) coverage
 checks immediate, multi-frame HEADERS, multi-frame PUSH_PROMISE, non-final,
-wrong-kind, wrong-stream, and closed-input paths. The focused
+wrong-kind, wrong-stream, active and idle closed-input paths, and exact
+diagnostic-input preservation. The focused
 `http2-protocol-core-continuation-*` cases project the public failures through
 the stable human and JSON diagnostics, while the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)

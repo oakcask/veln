@@ -124,3 +124,34 @@ test pending_header_block_rejects_closed_input_without_changing_state() -> Resul
 		Err("closed-input failure changed or discarded the pending header block")
 	end
 end
+
+test pending_header_block_accepts_closed_input_while_idle() -> Result<(), String>
+	let state: PendingHeaderBlock = http2::core::empty_pending_header_block()
+	match http2::core::close_pending_header_block(state, 29, 0, byte_chunk([]))
+		Ok(closed) => if not http2::core::pending_header_block_is_active(closed) and byte_count_to_int(byte_chunk_count(http2::core::pending_header_block_bytes(closed))) == 0
+			Ok(())
+		else
+			Err("closing idle input created pending header-block state")
+		end
+		Err(_) => Err("closing idle input unexpectedly failed")
+	end
+end
+
+test pending_header_block_failures_preserve_diagnostic_input() -> Result<(), String>
+	let state: PendingHeaderBlock = active_headers(byte_chunk_from_hex("aabbcc")?)
+	let frame_preview: ByteChunk = byte_chunk_from_hex("000001090400000003dd")?
+	let wrong_stream: Bool = match http2::core::continue_header_block(state, 29, 9, 4, 3, byte_chunk_from_hex("dd")?, frame_preview)
+		Ok(_) => false
+		Err(failure) => chunks_equal(http2::core::header_block_failure_preview(failure), frame_preview)?
+	end
+	let pending_preview: ByteChunk = byte_chunk_from_hex("010203")?
+	let closed: Bool = match http2::core::close_pending_header_block(state, 40, 7, pending_preview)
+		Ok(_) => false
+		Err(failure) => http2::core::header_block_failure_pending_count(failure) == 7 and chunks_equal(http2::core::header_block_failure_preview(failure), pending_preview)?
+	end
+	if wrong_stream and closed and chunks_equal(http2::core::pending_header_block_bytes(state), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("CONTINUATION failure did not preserve diagnostic input or pending state")
+	end
+end

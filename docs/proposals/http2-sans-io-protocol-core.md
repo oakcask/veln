@@ -99,7 +99,7 @@ Promote the pure protocol state and transitions from `main.veln` and
 `std::http2::core`:
 
 - connection preface and the initial peer SETTINGS gate;
-- frame-kind, payload-length, stream-id-domain, and continuation sequencing;
+- frame-kind, payload-length, and stream-id-domain validation;
 - client, server, connection, promised, and peer-created stream domains;
 - stream lifecycle, priority, reset, reservation, and monotonic peer stream
   admission;
@@ -137,15 +137,15 @@ the same invariant. Consolidation must name the shared invariant; it must not
 discard a distinct endpoint role, starting state, transition, diagnostic
 precedence rule, or output projection.
 
-The immutable dynamic-table slice has this checked migration matrix. These
-rows migrate the pure state invariants from `hpack_dynamic_core.veln` to the
-adjacent standard-library `hpack_test.veln`; existing fixture codec and output
-projections remain because they also protect representation integration and
-observable output.
+The following checked migration matrix records completed slices alongside the
+remaining fixture-owned integration evidence. Each row identifies the owning
+adjacent standard-library test or focused specification case while retaining
+fixture projections that still protect distinct integration or observable
+output.
 
 | Source helper or assertion family | Migrated invariant | Destination | Coverage |
 | --- | --- | --- | --- |
-| `continuation-more`, `continuation-extra`, `continuation-done`, `continuation`, `continuation-stream`, `unknown-continuation`, `continuation-closed`, and pure PUSH_PROMISE continuation assertions | immutable pending state preserves initiating metadata and octets; HEADERS and PUSH_PROMISE fragments complete only in wire order; wrong-kind, wrong-stream, and closed-input failures expose no next state or completed block and preserve the input | `pending_header_block_completes_immediate_headers`, `pending_header_block_completes_multi_frame_headers_in_wire_order`, `pending_header_block_completes_multi_frame_push_promise`, `pending_header_block_preserves_non_final_accumulation_and_metadata`, `pending_header_block_rejects_wrong_kind_and_stream_without_next_output`, `pending_header_block_rejects_closed_input_without_changing_state`, `http2-protocol-core-continuation-human`, `http2-protocol-core-continuation-json`, `http2-protocol-core-continuation-stream-json`, `http2-protocol-core-continuation-closed-human`, `http2-protocol-core-continuation-closed-json` | pure success, failure, input-state and failure-output preservation moved to `core_test.veln`; focused cases own human and JSON projection; the monolithic assertions remain only for decoded-frame, HPACK, stream-lifecycle, complete stdout, and output-chunk integration |
+| `continuation-more`, `continuation-extra`, `continuation-done`, `continuation`, `continuation-stream`, `unknown-continuation`, `continuation-closed`, and pure PUSH_PROMISE continuation assertions | immutable pending state preserves initiating metadata and octets; HEADERS and PUSH_PROMISE fragments complete only in wire order; idle closure succeeds; wrong-kind, wrong-stream, and closed-input failures preserve diagnostic input, expose no next state or completed block, and preserve the input | `pending_header_block_completes_immediate_headers`, `pending_header_block_completes_multi_frame_headers_in_wire_order`, `pending_header_block_completes_multi_frame_push_promise`, `pending_header_block_preserves_non_final_accumulation_and_metadata`, `pending_header_block_rejects_wrong_kind_and_stream_without_next_output`, `pending_header_block_rejects_closed_input_without_changing_state`, `pending_header_block_accepts_closed_input_while_idle`, `pending_header_block_failures_preserve_diagnostic_input`, `http2-protocol-core-continuation-human`, `http2-protocol-core-continuation-json`, `http2-protocol-core-continuation-stream-json`, `http2-protocol-core-continuation-closed-human`, `http2-protocol-core-continuation-closed-json` | pure success, failure, diagnostic-input, input-state, and failure-output preservation moved to `core_test.veln`; focused cases own human and JSON projection; the monolithic assertions remain only for decoded-frame, HPACK, stream-lifecycle, complete stdout, and output-chunk integration |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
 | `dynamic_core_entry_at` and newest/older accounting projections | one-based newest-to-oldest lookup and unavailable indices | `dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets` | success and unavailable lookup |
