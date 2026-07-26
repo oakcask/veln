@@ -1,16 +1,6 @@
+use http2::core from "std"
+use http2::diagnostic from "std"
 # A later invalid duplicate HTTP/2 SETTINGS item projects structured details.
-
-type Http2ProtocolFailure
-	SettingsValueOutOfRange {offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView}
-end
-
-fn settings_value_payload(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView) -> RuntimeDiagnostic
-	RuntimeDiagnostic(
-		"http2.peer_limit.settings_value_out_of_range",
-		"HTTP/2 SETTINGS value outside accepted range at byte offset 15",
-		RuntimeHttp2Diagnostic(RuntimeHttp2PeerLimitSettingsValueDiagnostic(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, byte_view_to_chunk(preview)))
-	)
-end
 
 fn invalid_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
@@ -20,34 +10,27 @@ fn invalid_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
-	match failure
-		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview) => Err(settings_value_payload(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance, preview))
+fn project(validation: PeerSettingsValidation) -> Result<(), RuntimeDiagnostic>
+	match http2::core::peer_settings_validation_status(validation)
+		"rejected" => project_failure(validation)
+		_ => Err(invalid_payload("invalid peer SETTINGS value was accepted"))
 	end
 end
 
-fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+fn project_failure(validation: PeerSettingsValidation) -> Result<(), RuntimeDiagnostic>
+	let failure: PeerSettingsFailure = match http2::core::peer_settings_validation_failure(validation)
+		Ok(value) => value
+		Err(error) => Err(invalid_payload(error))?
+	end
+	http2::diagnostic::peer_limit_settings_value_out_of_range(http2::core::peer_settings_failure_offset(failure), http2::core::peer_settings_failure_setting_identifier(failure), http2::core::peer_settings_failure_setting_name(failure), http2::core::peer_settings_failure_observed_value(failure), http2::core::peer_settings_failure_accepted_min_value(failure), http2::core::peer_settings_failure_accepted_max_value(failure), http2::core::peer_settings_failure_peer_limit_provenance(failure), http2::core::peer_settings_failure_preview(failure))
+end
+
+pub fn main() -> Result<(), RuntimeDiagnostic>
 	match byte_chunk_from_hex("000200000002")
-		Ok(bytes) => Ok(bytes)
-		Err(error) => Err(invalid_payload(error))
-	end
-end
-
-fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
-	match byte_offset(0)
-		Ok(offset) => match byte_count(6)
-			Ok(count) => match byte_view(bytes, offset, count)
-				Ok(view) => Ok(view)
-				Err(error) => Err(invalid_payload(error))
-			end
+		Ok(payload) => match http2::core::validate_peer_settings_payload(15, "server", payload)
+			Ok(validation) => project(validation)
 			Err(error) => Err(invalid_payload(error))
 		end
 		Err(error) => Err(invalid_payload(error))
 	end
-end
-
-pub fn main() -> Result<(), RuntimeDiagnostic>
-	let item: ByteChunk = preview_bytes()?
-	let preview: ByteView = preview_view(item)?
-	project(SettingsValueOutOfRange(15, 2, "SETTINGS_ENABLE_PUSH", 2, 0, 1, "peer_settings", preview))
 end

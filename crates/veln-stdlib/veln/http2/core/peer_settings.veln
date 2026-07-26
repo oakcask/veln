@@ -1,0 +1,198 @@
+use prelude
+
+pub type PeerSettingsValidation
+	PeerSettingsValidated(Int)
+	PeerSettingsRejected(PeerSettingsFailure)
+end
+
+pub type PeerSettingsFailure
+	PeerSettingsValueOutOfRange(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView)
+	PeerSettingsNotAllowedForEndpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView)
+end
+
+pub fn validate_payload(payload_offset: Int, endpoint_role: String, payload: ByteChunk) -> Result<PeerSettingsValidation, String>
+	validate_items(payload, payload_offset, 0, byte_count_to_int(byte_chunk_count(payload)), endpoint_role)
+end
+
+pub fn accepted_item_count(validation: PeerSettingsValidation) -> Int
+	match validation
+		PeerSettingsValidated(count) => count
+		PeerSettingsRejected(_) => 0
+	end
+end
+
+pub fn status(validation: PeerSettingsValidation) -> String
+	match validation
+		PeerSettingsValidated(_) => "accepted"
+		PeerSettingsRejected(_) => "rejected"
+	end
+end
+
+pub fn validation_failure(validation: PeerSettingsValidation) -> Result<PeerSettingsFailure, String>
+	match validation
+		PeerSettingsValidated(_) => Err("accepted peer SETTINGS validation has no failure")
+		PeerSettingsRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_id(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "http2.protocol.settings_not_allowed_for_endpoint"
+	end
+end
+
+pub fn failure_offset(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		PeerSettingsNotAllowedForEndpoint(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_setting_identifier(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+		PeerSettingsNotAllowedForEndpoint(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+	end
+end
+
+pub fn failure_setting_name(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, setting_name, _, _, _, _, _) => setting_name
+		PeerSettingsNotAllowedForEndpoint(_, _, setting_name, _, _, _, _, _) => setting_name
+	end
+end
+
+pub fn failure_observed_value(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, observed_value, _, _, _, _) => observed_value
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_accepted_min_value(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _, _) => accepted_min_value
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_accepted_max_value(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _, _) => accepted_max_value
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_peer_limit_provenance(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance, _) => peer_limit_provenance
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
+	end
+end
+
+pub fn failure_endpoint_role(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
+		PeerSettingsNotAllowedForEndpoint(_, _, _, endpoint_role, _, _, _, _) => endpoint_role
+	end
+end
+
+pub fn failure_frame_kind(failure: PeerSettingsFailure) -> Int
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 4
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_active_state(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "peer-settings"
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: PeerSettingsFailure) -> String
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2_settings_value_range"
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: PeerSettingsFailure) -> ByteView
+	match failure
+		PeerSettingsValueOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		PeerSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, preview) => preview
+	end
+end
+
+fn validate_items(payload: ByteChunk, payload_offset: Int, item_offset: Int, payload_count: Int, endpoint_role: String) -> Result<PeerSettingsValidation, String>
+	if item_offset == payload_count
+		Ok(PeerSettingsValidated(payload_count / 6))
+	else
+		match validate_item(payload, payload_offset, item_offset, endpoint_role)?
+			Ok(()) => validate_items(payload, payload_offset, item_offset + 6, payload_count, endpoint_role)
+			Err(failure) => Ok(PeerSettingsRejected(failure))
+		end
+	end
+end
+
+fn validate_item(payload: ByteChunk, payload_offset: Int, item_offset: Int, endpoint_role: String) -> Result<Result<(), PeerSettingsFailure>, String>
+	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
+	let item_bytes: ByteChunk = byte_view_to_chunk(item)
+	let identifier: Int = byte_read_u16_be(byte_view(item_bytes, byte_offset(0)?, byte_count(2)?)?)?
+	let value: Int = byte_read_u32_be(byte_view(item_bytes, byte_offset(2)?, byte_count(4)?)?)?
+	let absolute_offset: Int = payload_offset + item_offset
+	match identifier
+		1 => validate_u32_setting(absolute_offset, 1, "SETTINGS_HEADER_TABLE_SIZE", value, item)
+		2 => validate_enable_push_setting(absolute_offset, value, item, endpoint_role)
+		3 => validate_u32_setting(absolute_offset, 3, "SETTINGS_MAX_CONCURRENT_STREAMS", value, item)
+		4 => validate_initial_window_size_setting(absolute_offset, value, item)
+		5 => validate_max_frame_size_setting(absolute_offset, value, item)
+		6 => validate_u32_setting(absolute_offset, 6, "SETTINGS_MAX_HEADER_LIST_SIZE", value, item)
+		8 => validate_enable_connect_protocol_setting(absolute_offset, value, item, endpoint_role)
+		_ => Ok(Ok(()))
+	end
+end
+
+fn validate_enable_push_setting(offset: Int, value: Int, preview: ByteView, endpoint_role: String) -> Result<Result<(), PeerSettingsFailure>, String>
+	if endpoint_role == "client"
+		Ok(Err(PeerSettingsNotAllowedForEndpoint(offset, 2, "SETTINGS_ENABLE_PUSH", "client", 4, "peer-settings", "rfc9113_client_must_not_receive_settings_enable_push", preview)))
+	else if value > 1
+		Ok(Err(PeerSettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "peer_settings", preview)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_enable_connect_protocol_setting(offset: Int, value: Int, preview: ByteView, endpoint_role: String) -> Result<Result<(), PeerSettingsFailure>, String>
+	if endpoint_role == "server"
+		Ok(Err(PeerSettingsNotAllowedForEndpoint(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", "server", 4, "peer-settings", "rfc8441_client_must_not_send_settings_enable_connect_protocol", preview)))
+	else if value > 1
+		Ok(Err(PeerSettingsValueOutOfRange(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, "peer_settings", preview)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_initial_window_size_setting(offset: Int, value: Int, preview: ByteView) -> Result<Result<(), PeerSettingsFailure>, String>
+	if value > 2147483647
+		Ok(Err(PeerSettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings", preview)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_max_frame_size_setting(offset: Int, value: Int, preview: ByteView) -> Result<Result<(), PeerSettingsFailure>, String>
+	if value < 16384
+		Ok(Err(PeerSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
+	else if value > 16777215
+		Ok(Err(PeerSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings", preview)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_u32_setting(offset: Int, identifier: Int, setting_name: String, value: Int, preview: ByteView) -> Result<Result<(), PeerSettingsFailure>, String>
+	Ok(Ok(()))
+end
