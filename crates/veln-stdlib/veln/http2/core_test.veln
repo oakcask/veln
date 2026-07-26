@@ -934,3 +934,52 @@ fn peer_settings_failure_context_matches(failure: PeerSettingsFailure, payload: 
 		Err("peer SETTINGS validation failure lost exact context or mutated input")
 	end
 end
+
+test peer_settings_state_starts_with_protocol_defaults() -> Result<(), String>
+	let state: PeerSettingsState = http2::core::empty_peer_settings_state()
+	if http2::core::peer_settings_max_frame_size(state) == 0 and http2::core::peer_settings_active_max_frame_size(state) == 16384 and http2::core::peer_settings_initial_window_size(state) == 0 and http2::core::peer_settings_active_initial_window_size(state) == 65535 and http2::core::peer_settings_max_concurrent_streams(state) == 0 and http2::core::peer_settings_active_max_concurrent_streams(state) == 2147483647 and http2::core::peer_settings_header_table_size(state) == 0 and http2::core::peer_settings_active_header_table_size(state) == 4096 and http2::core::peer_settings_max_header_list_size(state) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(state) == 0
+		Ok(())
+	else
+		Err("empty peer SETTINGS state did not expose protocol defaults")
+	end
+end
+
+test peer_settings_state_applies_known_items_and_ignores_unknown_items() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("aaaa12345678000500008000000400000003000200000000000300000002000100001000000600002000000800000001")?
+	let state: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 9, payload)?
+	if http2::core::peer_settings_max_frame_size(state) == 32768 and http2::core::peer_settings_max_frame_size_offset(state) == 15 and http2::core::peer_settings_initial_window_size(state) == 3 and http2::core::peer_settings_initial_window_size_offset(state) == 21 and http2::core::peer_settings_enable_push(state) == 0 and http2::core::peer_settings_enable_push_offset(state) == 27 and http2::core::peer_settings_max_concurrent_streams(state) == 2 and http2::core::peer_settings_max_concurrent_streams_offset(state) == 33 and http2::core::peer_settings_header_table_size(state) == 4096 and http2::core::peer_settings_header_table_size_offset(state) == 39 and http2::core::peer_settings_max_header_list_size(state) == 8192 and http2::core::peer_settings_max_header_list_size_offset(state) == 45 and http2::core::peer_settings_enable_connect_protocol(state) == 1 and http2::core::peer_settings_enable_connect_protocol_offset(state) == 51
+		Ok(())
+	else
+		Err("peer SETTINGS state did not apply known items with absolute offsets")
+	end
+end
+
+test peer_settings_state_uses_last_duplicate_value() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("000500008000000500010000")?
+	let state: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 9, payload)?
+	if http2::core::peer_settings_max_frame_size(state) == 65536 and http2::core::peer_settings_max_frame_size_offset(state) == 15 and http2::core::peer_settings_active_max_frame_size(state) == 65536
+		Ok(())
+	else
+		Err("duplicate peer SETTINGS item did not leave the last value active")
+	end
+end
+
+test peer_settings_state_preserves_state_for_partial_payloads() -> Result<(), String>
+	let initial: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::empty_peer_settings_state(), 9, byte_chunk_from_hex("000500008000")?)?
+	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(initial, 15, byte_chunk_from_hex("0006000020")?)?
+	if http2::core::peer_settings_max_frame_size(partial) == 32768 and http2::core::peer_settings_max_frame_size_offset(partial) == 9 and http2::core::peer_settings_max_header_list_size(partial) == 0
+		Ok(())
+	else
+		Err("partial peer SETTINGS payload changed advertised state")
+	end
+end
+
+test peer_settings_state_records_peer_created_stream_high_water() -> Result<(), String>
+	let initial: PeerSettingsState = http2::core::empty_peer_settings_state()
+	let raised: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(initial, 7)
+	if http2::core::peer_settings_highest_peer_created_stream_id(raised) == 7 and http2::core::peer_settings_highest_peer_created_stream_id(initial) == 0
+		Ok(())
+	else
+		Err("peer-created stream high-water update mutated the input state")
+	end
+end

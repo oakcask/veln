@@ -7,6 +7,7 @@ use http2::core::pending_header_block
 use http2::core::settings_ack
 use http2::core::local_settings
 use http2::core::peer_settings
+use http2::core::peer_settings_state
 use http2::core::flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -56,6 +57,8 @@ pub type LocalSettingsFailure = http2::core::local_settings::LocalSettingsFailur
 pub type PeerSettingsValidation = http2::core::peer_settings::PeerSettingsValidation
 
 pub type PeerSettingsFailure = http2::core::peer_settings::PeerSettingsFailure
+
+pub type PeerSettingsState = http2::core::peer_settings_state::PeerSettingsState
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -924,4 +927,92 @@ end
 
 pub fn peer_settings_failure_preview(failure: PeerSettingsFailure) -> ByteView
 	http2::core::peer_settings::failure_preview(failure)
+end
+
+pub fn empty_peer_settings_state() -> PeerSettingsState
+	http2::core::peer_settings_state::empty()
+end
+
+pub fn apply_peer_settings_payload(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk) -> Result<PeerSettingsState, String>
+	http2::core::peer_settings_state::apply_payload(state, payload_offset, payload)
+end
+
+pub fn peer_settings_with_highest_peer_created_stream_id(state: PeerSettingsState, stream_id: Int) -> PeerSettingsState
+	http2::core::peer_settings_state::with_highest_peer_created_stream_id(state, stream_id)
+end
+
+pub fn peer_settings_max_frame_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_frame_size_value(state)
+end
+
+pub fn peer_settings_max_frame_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_frame_size_offset(state)
+end
+
+pub fn peer_settings_active_max_frame_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_max_frame_size(state)
+end
+
+pub fn peer_settings_initial_window_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::initial_window_size_value(state)
+end
+
+pub fn peer_settings_initial_window_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::initial_window_size_offset(state)
+end
+
+pub fn peer_settings_active_initial_window_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_initial_window_size(state)
+end
+
+pub fn peer_settings_enable_push(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_push_value(state)
+end
+
+pub fn peer_settings_enable_push_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_push_offset(state)
+end
+
+pub fn peer_settings_enable_connect_protocol(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_connect_protocol_value(state)
+end
+
+pub fn peer_settings_enable_connect_protocol_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_connect_protocol_offset(state)
+end
+
+pub fn peer_settings_max_concurrent_streams(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_concurrent_streams_value(state)
+end
+
+pub fn peer_settings_max_concurrent_streams_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_concurrent_streams_offset(state)
+end
+
+pub fn peer_settings_active_max_concurrent_streams(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_max_concurrent_streams(state)
+end
+
+pub fn peer_settings_header_table_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::header_table_size_value(state)
+end
+
+pub fn peer_settings_header_table_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::header_table_size_offset(state)
+end
+
+pub fn peer_settings_active_header_table_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_header_table_size(state)
+end
+
+pub fn peer_settings_max_header_list_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_header_list_size_value(state)
+end
+
+pub fn peer_settings_max_header_list_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_header_list_size_offset(state)
+end
+
+pub fn peer_settings_highest_peer_created_stream_id(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::highest_peer_created_stream_id(state)
 end

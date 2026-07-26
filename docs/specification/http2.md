@@ -24,8 +24,9 @@ The public routes are:
   connection-preface and initial-peer-SETTINGS transitions, pure frame
   payload-length validation, immutable pending header-block sequencing,
   immutable local SETTINGS send transitions, pure peer SETTINGS item
-  validation, immutable SETTINGS acknowledgement state, pure flow-control
-  numeric domains, and pure PING request and ACK response transitions.
+  validation, immutable peer SETTINGS state application, immutable SETTINGS
+  acknowledgement state, pure flow-control numeric domains, and pure PING
+  request and ACK response transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -117,6 +118,22 @@ peer `SETTINGS_ENABLE_CONNECT_PROTOCOL`. Rejection returns typed value-range
 or endpoint-role failures with stable diagnostic ids, setting metadata,
 provenance, and no partial success.
 
+`http2::core::empty_peer_settings_state()` creates immutable peer advertised
+SETTINGS state with protocol defaults for active values: maximum frame size
+`16384`, initial stream window `65535`, maximum concurrent streams
+`2147483647`, and HPACK header-table size `4096`. Explicit projections return
+`0` for absent advertised values and offsets.
+
+`http2::core::apply_peer_settings_payload(state, payload_offset, payload)`
+applies a complete, already validated non-ACK peer SETTINGS payload to caller
+state. Unknown identifiers are ignored. Known duplicate items are applied in
+wire order, so the last known item leaves the active advertised value.
+Recorded item offsets are absolute payload offsets. A payload whose byte count
+is not divisible by six leaves the input state unchanged. The peer-created
+stream high-water projection is updated only through
+`peer_settings_with_highest_peer_created_stream_id(...)`, keeping SETTINGS
+application separate from stream admission.
+
 `http2::core::empty_settings_ack_state()` creates immutable state with no
 outstanding local SETTINGS batch and no pending peer SETTINGS ACK. Local
 SETTINGS senders record each already validated and emitted batch through
@@ -179,6 +196,13 @@ context, endpoint-role failures, and immutable failure input. The focused
 `http2-protocol-core-settings-enable-push-role-{human,json}` cases obtain the
 public typed failures through `http2::core` before projecting them through
 `http2::diagnostic`.
+The adjacent test also checks peer SETTINGS state defaults, known item
+application, unknown item preservation, duplicate last-value behavior, partial
+payload state preservation, and peer-created stream high-water immutability.
+The focused
+[`http2-core-peer-settings-state`](../../examples/specification/run/http2-core-peer-settings-state/)
+case imports `http2::core` from `std` and records the public state
+projections.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.
