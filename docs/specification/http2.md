@@ -22,8 +22,9 @@ The public routes are:
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains, immutable
   connection-preface and initial-peer-SETTINGS transitions, pure frame
-  payload-length validation, immutable pending header-block sequencing, and
-  pure PING request and ACK response transitions.
+  payload-length validation, immutable pending header-block sequencing,
+  immutable SETTINGS acknowledgement state, and pure PING request and ACK
+  response transitions.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -61,6 +62,26 @@ for a validated non-ACK PING by preserving the eight-octet payload and using a
 length-`8`, kind-`6`, flags-`1`, stream-`0` header. A received PING ACK returns
 an explicit no-response action with no bytes, preventing an ACK loop.
 
+`http2::core::empty_settings_ack_state()` creates immutable state with no
+outstanding local SETTINGS batch and no pending peer SETTINGS ACK. Local
+SETTINGS senders record each already validated and emitted batch through
+`record_local_settings_batch(...)`, which keeps the first setting identifier
+and item count for FIFO acknowledgement projections. `accept_settings_ack(...)`
+accepts a validated peer SETTINGS ACK only when a local batch is outstanding;
+it removes exactly the oldest batch. Without an outstanding batch, it returns
+`SettingsAckFailure` with the stable
+`http2.protocol.unexpected_settings_ack` id, offset, active-state label, rule
+provenance, and caller-supplied preview without exposing a next state.
+
+`settings_ack_after_peer_frame(...)` records one pending outbound ACK after a
+validated non-ACK peer SETTINGS frame with payload items and coalesces later
+peer SETTINGS frames into the same pending intent. `send_pending_settings_ack`
+returns a no-pending action with no bytes when there is no intent; otherwise
+it emits exactly `000000040100000000` and clears only the peer-ACK side of the
+state. The local outstanding queue, peer advertised SETTINGS values, HPACK
+state, flow-control state, stream state, and shutdown state remain caller-owned
+and separate from this acknowledgement state.
+
 The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
 one-below, exact, and one-above boundaries where distinct, the complete
@@ -76,6 +97,13 @@ preservation, and received-ACK no-response behavior. The focused
 [`http2-core-ping-transitions`](../../examples/specification/run/http2-core-ping-transitions/)
 case imports `http2::core` from `std` and records the public request, ACK,
 no-response, representative failure projections, and emitted bytes.
+The adjacent test also checks SETTINGS ACK FIFO acknowledgement, unexpected ACK
+failure context, independent local and peer ACK state, peer ACK coalescing,
+no-pending behavior, exact emitted bytes, encode-failure output preservation,
+and failure/input preservation. The focused
+[`http2-core-settings-ack-state`](../../examples/specification/run/http2-core-settings-ack-state/)
+case imports `http2::core` from `std` and records public success, no-pending,
+representative failure, FIFO, coalescing, and exact-byte projections.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

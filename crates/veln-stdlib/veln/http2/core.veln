@@ -4,6 +4,7 @@ use http2::core::frame_payload_length
 use http2::core::initial_peer_settings
 use http2::core::ping
 use http2::core::pending_header_block
+use http2::core::settings_ack
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -32,6 +33,16 @@ pub type HeaderBlockFailure = http2::core::pending_header_block::HeaderBlockFail
 pub type PingRequestDecision = http2::core::ping::PingRequestDecision
 
 pub type PingResponseDecision = http2::core::ping::PingResponseDecision
+
+pub type SettingsAckState = http2::core::settings_ack::SettingsAckState
+
+pub type OutstandingLocalSettings = http2::core::settings_ack::OutstandingLocalSettings
+
+pub type PendingPeerSettingsAck = http2::core::settings_ack::PendingPeerSettingsAck
+
+pub type SettingsAckFailure = http2::core::settings_ack::SettingsAckFailure
+
+pub type PeerSettingsAckSendDecision = http2::core::settings_ack::PeerSettingsAckSendDecision
 
 pub type StreamId
 	ValidatedStreamId(Int)
@@ -434,4 +445,104 @@ end
 
 pub fn ping_response_encode_reason(decision: PingResponseDecision) -> String
 	http2::core::ping::response_encode_reason(decision)
+end
+
+pub fn empty_settings_ack_state() -> SettingsAckState
+	http2::core::settings_ack::empty()
+end
+
+pub fn no_outstanding_settings() -> OutstandingLocalSettings
+	http2::core::settings_ack::outstanding(http2::core::settings_ack::empty())
+end
+
+pub fn no_pending_settings_ack() -> PendingPeerSettingsAck
+	http2::core::settings_ack::pending_peer_ack(http2::core::settings_ack::empty())
+end
+
+pub fn settings_ack_state(outstanding: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> SettingsAckState
+	http2::core::settings_ack::with_parts(outstanding, pending_ack)
+end
+
+pub fn settings_ack_outstanding(state: SettingsAckState) -> OutstandingLocalSettings
+	http2::core::settings_ack::outstanding(state)
+end
+
+pub fn settings_ack_pending_peer_ack(state: SettingsAckState) -> PendingPeerSettingsAck
+	http2::core::settings_ack::pending_peer_ack(state)
+end
+
+pub fn record_local_settings_batch(state: SettingsAckState, first_identifier: Int, item_count: Int) -> SettingsAckState
+	http2::core::settings_ack::record_local_batch(state, first_identifier, item_count)
+end
+
+pub fn accept_settings_ack(state: SettingsAckState, offset: Int, preview: ByteView) -> Result<SettingsAckState, SettingsAckFailure>
+	http2::core::settings_ack::accept_peer_ack(state, offset, preview)
+end
+
+pub fn settings_ack_after_peer_frame(state: SettingsAckState, kind: Int, flags: Int, length: Int) -> SettingsAckState
+	http2::core::settings_ack::after_peer_frame(state, kind, flags, length)
+end
+
+pub fn settings_ack_frame(kind: Int, flags: Int) -> Bool
+	http2::core::settings_ack::is_settings_ack_frame(kind, flags)
+end
+
+pub fn send_pending_settings_ack(state: SettingsAckState) -> PeerSettingsAckSendDecision
+	http2::core::settings_ack::send_pending_peer_ack(state)
+end
+
+pub fn outstanding_settings_label(outstanding: OutstandingLocalSettings) -> String
+	http2::core::settings_ack::outstanding_label(outstanding)
+end
+
+pub fn outstanding_settings_identifier(outstanding: OutstandingLocalSettings) -> Int
+	http2::core::settings_ack::outstanding_first_identifier(outstanding)
+end
+
+pub fn outstanding_settings_count(outstanding: OutstandingLocalSettings) -> Int
+	http2::core::settings_ack::outstanding_first_count(outstanding)
+end
+
+pub fn outstanding_settings_batch_count(outstanding: OutstandingLocalSettings) -> Int
+	http2::core::settings_ack::outstanding_batch_count(outstanding)
+end
+
+pub fn pending_settings_ack_label(pending_ack: PendingPeerSettingsAck) -> String
+	http2::core::settings_ack::pending_peer_ack_label(pending_ack)
+end
+
+pub fn settings_ack_failure_id(failure: SettingsAckFailure) -> String
+	http2::core::settings_ack::failure_id(failure)
+end
+
+pub fn settings_ack_failure_offset(failure: SettingsAckFailure) -> Int
+	http2::core::settings_ack::failure_offset(failure)
+end
+
+pub fn settings_ack_failure_active_state(failure: SettingsAckFailure) -> String
+	http2::core::settings_ack::failure_active_state(failure)
+end
+
+pub fn settings_ack_failure_rule_provenance(failure: SettingsAckFailure) -> String
+	http2::core::settings_ack::failure_rule_provenance(failure)
+end
+
+pub fn settings_ack_failure_preview(failure: SettingsAckFailure) -> ByteView
+	http2::core::settings_ack::failure_preview(failure)
+end
+
+pub fn pending_settings_ack_send_status(decision: PeerSettingsAckSendDecision) -> String
+	http2::core::settings_ack::send_status(decision)
+end
+
+pub fn pending_settings_ack_send_state(decision: PeerSettingsAckSendDecision) -> SettingsAckState
+	http2::core::settings_ack::send_state(decision)
+end
+
+pub fn pending_settings_ack_send_bytes(decision: PeerSettingsAckSendDecision) -> ByteChunk
+	http2::core::settings_ack::send_bytes(decision)
+end
+
+pub fn pending_settings_ack_encode_reason(decision: PeerSettingsAckSendDecision) -> String
+	http2::core::settings_ack::send_encode_reason(decision)
 end

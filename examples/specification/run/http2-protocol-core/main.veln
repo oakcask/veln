@@ -154,15 +154,6 @@ type PeerSettingsState
 	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, LocalSentEnablePush, Int)
 end
 
-type OutstandingLocalSettingsBatch
-	LocalSettingsBatch(Int, Int)
-end
-
-type OutstandingLocalSettings
-	NoOutstandingLocalSettings
-	OutstandingLocalSettings(List<OutstandingLocalSettingsBatch>)
-end
-
 type OutboundLocalSettingsItem
 	OutboundSettingsHeaderTableSize(Int)
 	OutboundSettingsEnablePush(Int)
@@ -171,11 +162,6 @@ type OutboundLocalSettingsItem
 	OutboundSettingsMaxFrameSize(Int)
 	OutboundSettingsMaxHeaderListSize(Int)
 	OutboundSettingsEnableConnectProtocol(Int)
-end
-
-type PendingPeerSettingsAck
-	NoPendingPeerSettingsAck
-	PendingPeerSettingsAck
 end
 
 type Http2ConnectionState
@@ -508,9 +494,7 @@ type OutboundSettingsDecision
 end
 
 type OutboundSettingsAckDecision
-	OutboundSettingsAckAccepted(Http2ConnectionState, ByteChunk)
-	OutboundSettingsAckNoPending(Http2ConnectionState)
-	OutboundSettingsAckEncodeFailed(Http2ConnectionState, EncodeError)
+	OutboundSettingsAck(Http2ConnectionState, PeerSettingsAckSendDecision)
 end
 
 type Http2Step
@@ -2447,38 +2431,12 @@ fn padded_data_encoded_length_remaining(remaining_length: Int, padding_length: I
 	end
 end
 
-fn send_settings_ack() -> Result<ByteChunk, EncodeError>
-	encode_frame_header({ length: 0, kind: 4, flags: 1, stream_id: 0 })
-end
-
 fn connection_state(decode_state: Http2DecodeState) -> Http2ConnectionState
-	ConnectionState(decode_state, NoOutstandingLocalSettings, NoPendingPeerSettingsAck)
-end
-
-fn append_outstanding_settings_batch(batches: List<OutstandingLocalSettingsBatch>, batch: OutstandingLocalSettingsBatch) -> List<OutstandingLocalSettingsBatch>
-	match batches
-		Nil => Cons(batch, Nil)
-		Cons(head, tail) => Cons(head, append_outstanding_settings_batch(tail, batch))
-	end
+	ConnectionState(decode_state, http2::core::no_outstanding_settings(), http2::core::no_pending_settings_ack())
 end
 
 fn add_outstanding_settings(outstanding_settings: OutstandingLocalSettings, identifier: Int, count: Int) -> OutstandingLocalSettings
-	let batch: OutstandingLocalSettingsBatch = LocalSettingsBatch(identifier, count)
-	match outstanding_settings
-		NoOutstandingLocalSettings => OutstandingLocalSettings(Cons(batch, Nil))
-		OutstandingLocalSettings(batches) => OutstandingLocalSettings(append_outstanding_settings_batch(batches, batch))
-	end
-end
-
-fn acknowledge_outstanding_settings(outstanding_settings: OutstandingLocalSettings) -> OutstandingLocalSettings
-	match outstanding_settings
-		NoOutstandingLocalSettings => NoOutstandingLocalSettings
-		OutstandingLocalSettings(batches) => match batches
-			Nil => NoOutstandingLocalSettings
-			Cons(_, Nil) => NoOutstandingLocalSettings
-			Cons(_, tail) => OutstandingLocalSettings(tail)
-		end
-	end
+	http2::core::settings_ack_outstanding(http2::core::record_local_settings_batch(http2::core::settings_ack_state(outstanding_settings, http2::core::no_pending_settings_ack()), identifier, count))
 end
 
 fn receive_connection(input: Http2Input, connection: Http2ConnectionState) -> Result<Http2ConnectionStep, String>
@@ -2489,47 +2447,37 @@ end
 
 fn update_connection_after_receive(step: Http2Step, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> Result<Http2ConnectionStep, String>
 	match step
-		FrameDecoded(decode_state, offset, length, kind, flags, stream_id, _, _) => if settings_ack_frame(kind, flags)
+		FrameDecoded(decode_state, offset, length, kind, flags, stream_id, _, _) => if http2::core::settings_ack_frame(kind, flags)
 			receive_settings_ack(offset, decode_state, outstanding_settings, pending_ack, step, frame_header_preview(length, kind, flags, stream_id)?)
 		else
-			Ok(ConnectionFrameDecoded(ConnectionState(decode_state, outstanding_settings, peer_settings_ack_after_frame(kind, flags, length, pending_ack)), step))
+			connection_frame_after_peer_frame(decode_state, outstanding_settings, pending_ack, step, kind, flags, length)
 		end
 		Waiting(decode_state) => Ok(ConnectionWaiting(ConnectionState(decode_state, outstanding_settings, pending_ack)))
 		Failed(decode_state, failure) => Ok(ConnectionFailed(ConnectionState(decode_state, outstanding_settings, pending_ack), failure))
 	end
 end
 
-fn peer_settings_ack_after_frame(kind: Int, flags: Int, length: Int, pending_ack: PendingPeerSettingsAck) -> PendingPeerSettingsAck
-	if kind == 4 and not settings_ack_set(flags) and length > 0
-		PendingPeerSettingsAck
-	else
-		pending_ack
-	end
-end
-
-fn settings_ack_frame(kind: Int, flags: Int) -> Bool
-	match kind
-		4 => settings_ack_set(flags)
-		_ => false
-	end
+fn connection_frame_after_peer_frame(decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck, step: Http2Step, kind: Int, flags: Int, length: Int) -> Result<Http2ConnectionStep, String>
+	let next_ack_state: SettingsAckState = http2::core::settings_ack_after_peer_frame(http2::core::settings_ack_state(outstanding_settings, pending_ack), kind, flags, length)
+	Ok(ConnectionFrameDecoded(ConnectionState(decode_state, http2::core::settings_ack_outstanding(next_ack_state), http2::core::settings_ack_pending_peer_ack(next_ack_state)), step))
 end
 
 fn receive_settings_ack(offset: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck, step: Http2Step, preview: ByteView) -> Result<Http2ConnectionStep, String>
-	match outstanding_settings
-		NoOutstandingLocalSettings => Ok(ConnectionFailed(ConnectionState(decode_state, NoOutstandingLocalSettings, pending_ack), UnexpectedSettingsAck(offset, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings", preview)))
-		OutstandingLocalSettings(Nil) => Ok(ConnectionFailed(ConnectionState(decode_state, NoOutstandingLocalSettings, pending_ack), UnexpectedSettingsAck(offset, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings", preview)))
-		OutstandingLocalSettings(_) => Ok(ConnectionFrameDecoded(ConnectionState(decode_state, acknowledge_outstanding_settings(outstanding_settings), pending_ack), step))
+	match http2::core::accept_settings_ack(http2::core::settings_ack_state(outstanding_settings, pending_ack), offset, preview)
+		Ok(next_ack_state) => Ok(ConnectionFrameDecoded(ConnectionState(decode_state, http2::core::settings_ack_outstanding(next_ack_state), http2::core::settings_ack_pending_peer_ack(next_ack_state)), step))
+		Err(failure) => Ok(ConnectionFailed(ConnectionState(decode_state, outstanding_settings, pending_ack), UnexpectedSettingsAck(http2::core::settings_ack_failure_offset(failure), http2::core::settings_ack_failure_active_state(failure), http2::core::settings_ack_failure_rule_provenance(failure), http2::core::settings_ack_failure_preview(failure))))
 	end
 end
 
 fn send_pending_settings_ack(connection: Http2ConnectionState) -> Result<OutboundSettingsAckDecision, String>
 	match connection
-		ConnectionState(decode_state, outstanding_settings, NoPendingPeerSettingsAck) => Ok(OutboundSettingsAckNoPending(connection))
-		ConnectionState(decode_state, outstanding_settings, PendingPeerSettingsAck) => match send_settings_ack()
-			Ok(header) => Ok(OutboundSettingsAckAccepted(ConnectionState(decode_state, outstanding_settings, NoPendingPeerSettingsAck), header))
-			Err(error) => Ok(OutboundSettingsAckEncodeFailed(connection, error))
-		end
+		ConnectionState(decode_state, outstanding_settings, pending_ack) => Ok(send_pending_settings_ack_for_parts(decode_state, http2::core::send_pending_settings_ack(http2::core::settings_ack_state(outstanding_settings, pending_ack))))
 	end
+end
+
+fn send_pending_settings_ack_for_parts(decode_state: Http2DecodeState, decision: PeerSettingsAckSendDecision) -> OutboundSettingsAckDecision
+	let next_state: SettingsAckState = http2::core::pending_settings_ack_send_state(decision)
+	OutboundSettingsAck(ConnectionState(decode_state, http2::core::settings_ack_outstanding(next_state), http2::core::settings_ack_pending_peer_ack(next_state)), decision)
 end
 
 fn send_local_max_frame_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
@@ -6401,52 +6349,23 @@ fn connection_step_failure(step: Http2ConnectionStep) -> Http2ProtocolFailure
 end
 
 fn outstanding_settings_label(outstanding_settings: OutstandingLocalSettings) -> String
-	match outstanding_settings
-		NoOutstandingLocalSettings => "none"
-		OutstandingLocalSettings(Nil) => "none"
-		OutstandingLocalSettings(_) => "active"
-	end
+	http2::core::outstanding_settings_label(outstanding_settings)
 end
 
 fn outstanding_settings_identifier(outstanding_settings: OutstandingLocalSettings) -> Int
-	match outstanding_settings
-		NoOutstandingLocalSettings => 0
-		OutstandingLocalSettings(batches) => match batches
-			Nil => 0
-			Cons(LocalSettingsBatch(identifier, _), _) => identifier
-		end
-	end
+	http2::core::outstanding_settings_identifier(outstanding_settings)
 end
 
 fn outstanding_settings_count(outstanding_settings: OutstandingLocalSettings) -> Int
-	match outstanding_settings
-		NoOutstandingLocalSettings => 0
-		OutstandingLocalSettings(batches) => match batches
-			Nil => 0
-			Cons(LocalSettingsBatch(_, count), _) => count
-		end
-	end
-end
-
-fn outstanding_settings_batch_count_value(batches: List<OutstandingLocalSettingsBatch>) -> Int
-	match batches
-		Nil => 0
-		Cons(_, tail) => 1 + outstanding_settings_batch_count_value(tail)
-	end
+	http2::core::outstanding_settings_count(outstanding_settings)
 end
 
 fn outstanding_settings_batch_count(outstanding_settings: OutstandingLocalSettings) -> Int
-	match outstanding_settings
-		NoOutstandingLocalSettings => 0
-		OutstandingLocalSettings(batches) => outstanding_settings_batch_count_value(batches)
-	end
+	http2::core::outstanding_settings_batch_count(outstanding_settings)
 end
 
 fn pending_settings_ack_label(pending_ack: PendingPeerSettingsAck) -> String
-	match pending_ack
-		NoPendingPeerSettingsAck => "none"
-		PendingPeerSettingsAck => "active"
-	end
+	http2::core::pending_settings_ack_label(pending_ack)
 end
 
 fn state_shutdown_state_value(state: Http2DecodeState) -> ConnectionShutdownState
@@ -9041,25 +8960,19 @@ end
 
 fn outbound_settings_ack_status(decision: OutboundSettingsAckDecision) -> String
 	match decision
-		OutboundSettingsAckAccepted(_, _) => "accepted"
-		OutboundSettingsAckNoPending(_) => "no_pending"
-		OutboundSettingsAckEncodeFailed(_, _) => "encode_error"
+		OutboundSettingsAck(_, send_decision) => http2::core::pending_settings_ack_send_status(send_decision)
 	end
 end
 
 fn outbound_settings_ack_connection(decision: OutboundSettingsAckDecision) -> Http2ConnectionState
 	match decision
-		OutboundSettingsAckAccepted(connection, _) => connection
-		OutboundSettingsAckNoPending(connection) => connection
-		OutboundSettingsAckEncodeFailed(connection, _) => connection
+		OutboundSettingsAck(connection, _) => connection
 	end
 end
 
 fn outbound_settings_ack_chunk(decision: OutboundSettingsAckDecision) -> ByteChunk
 	match decision
-		OutboundSettingsAckAccepted(_, chunk) => chunk
-		OutboundSettingsAckNoPending(_) => byte_chunk([])
-		OutboundSettingsAckEncodeFailed(_, _) => byte_chunk([])
+		OutboundSettingsAck(_, send_decision) => http2::core::pending_settings_ack_send_bytes(send_decision)
 	end
 end
 
@@ -12535,7 +12448,8 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_peer_limits: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000400000003")?), frame_state())?
 	print_step("outbound-peer-limits", outbound_peer_limits)
 	print_peer_settings("outbound-peer-limits", step_state(outbound_peer_limits))
-	let ignored_settings_ack_intent: () = print_encoded_header("http2-settings-ack", send_settings_ack(), "000000040100000000")?
+	let settings_ack_intent: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(http2::core::settings_ack_after_peer_frame(http2::core::empty_settings_ack_state(), 4, 0, 6))
+	let ignored_settings_ack_intent: () = emit_encoded_header("http2-settings-ack", http2::core::pending_settings_ack_send_bytes(settings_ack_intent), "000000040100000000")?
 	print_peer_settings("outbound-settings-ack-intent-state", step_state(outbound_peer_limits))
 	let outbound_peer_settings: PeerSettingsState = state_peer_settings(step_state(outbound_peer_limits))
 	let outbound_initial: OutboundSendCredit = outbound_send_credit_with_open_stream(65535, 1, active_peer_initial_window_size(outbound_peer_settings))
