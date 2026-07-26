@@ -5,7 +5,6 @@ use http2::core from "std"
 use hpack_fixture
 use hpack_static
 use hpack_dynamic_core
-use stream_domain
 use stdio
 
 schema Http2FrameHeaderWire
@@ -1107,7 +1106,7 @@ end
 
 fn require_connection_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
 	match stream_id
-		0 => if stream_domain::stream_ref_is_connection(stream_domain::connection_stream_ref())
+		0 => if http2::core::stream_ref_is_connection(http2::core::connection_stream_ref())
 			ProtocolStreamIdOk
 		else
 			ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "connection stream id zero", "server", "stream-id-domain", "connection_frames_require_stream_zero"))
@@ -1117,8 +1116,8 @@ fn require_connection_stream_id(offset: Int, kind: Int, stream_id: Int) -> Proto
 end
 
 fn require_client_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_domain::client_stream_id(stream_id)
-		Ok(value) => if stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
+	match http2::core::client_stream_id(stream_id)
+		Ok(value) => if http2::core::stream_ref_is_real(http2::core::real_stream_ref(value))
 			ProtocolStreamIdOk
 		else
 			ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", "stream-id-domain", "server_receives_client_initiated_streams"))
@@ -1128,8 +1127,8 @@ fn require_client_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolS
 end
 
 fn require_server_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_domain::server_stream_id(stream_id)
-		Ok(value) => if stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
+	match http2::core::server_stream_id(stream_id)
+		Ok(value) => if http2::core::stream_ref_is_real(http2::core::real_stream_ref(value))
 			ProtocolStreamIdOk
 		else
 			ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
@@ -1139,8 +1138,8 @@ fn require_server_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolS
 end
 
 fn require_server_promised_stream_id(offset: Int, kind: Int, stream_id: Int) -> ProtocolStreamIdDecision
-	match stream_domain::server_stream_id(stream_id)
-		Ok(value) => if stream_domain::stream_ref_is_real(stream_domain::real_stream_ref(value))
+	match http2::core::server_stream_id(stream_id)
+		Ok(value) => if http2::core::stream_ref_is_real(http2::core::real_stream_ref(value))
 			ProtocolStreamIdOk
 		else
 			ProtocolStreamIdFailed(InvalidStreamId(offset, kind, stream_id, "nonzero server-initiated promised stream id", "client", "stream-id-domain", "client_push_promise_requires_server_stream"))
@@ -3158,21 +3157,16 @@ fn outbound_headers_preflight(stream_id: Int, payload_length: Int, end_stream: B
 	if outbound_local_stream_is_open(stream_id, outbound_headers_connection_lifecycle(state))
 		OutboundHeadersExistingStream
 	else
-		outbound_new_headers_stream_domain_preflight(stream_id, payload_length, end_stream, state)
+		outbound_new_headers_stream_id_preflight(stream_id, payload_length, end_stream, state)
 	end
 end
 
-fn outbound_new_headers_stream_domain_preflight(stream_id: Int, payload_length: Int, end_stream: Bool, state: OutboundHeadersConnectionState) -> OutboundHeadersPreflight
+fn outbound_new_headers_stream_id_preflight(stream_id: Int, payload_length: Int, end_stream: Bool, state: OutboundHeadersConnectionState) -> OutboundHeadersPreflight
 	match stream_id
 		0 => OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
-		_ => if stream_id_is_representable(stream_id)
-			if stream_id_is_client_initiated(stream_id)
-				outbound_new_headers_stream_role_preflight(stream_id, payload_length, end_stream, state)
-			else
-				OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
-			end
-		else
-			OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
+		_ => match http2::core::client_stream_id(stream_id)
+			Ok(_) => outbound_new_headers_stream_role_preflight(stream_id, payload_length, end_stream, state)
+			Err(_) => OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
 		end
 	end
 end
@@ -14283,7 +14277,6 @@ fn print_ping_cases() -> Result<(), String> effects [stdio]
 end
 
 fn print_stream_id_domain_cases(header_start: Http2Step) -> Result<(), String> effects [stdio]
-	let ignored_stream_domain_cases: () = stream_domain::verify_stream_domain_cases()?
 	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
 	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
 	let headers_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), frame_state())?
