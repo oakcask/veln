@@ -26,8 +26,9 @@ The public routes are:
   immutable local SETTINGS send transitions, pure peer SETTINGS item
   validation, immutable peer SETTINGS state application, immutable SETTINGS
   acknowledgement state, peer-created stream admission high-water tracking,
-  pure flow-control numeric domains, and pure PING request and ACK response
-  transitions.
+  pure flow-control numeric domains, pure PING request and ACK response
+  transitions, and an immutable aggregate connection state that composes those
+  migrated components with the public HPACK dynamic table.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -78,6 +79,24 @@ distinct transition shape, although the public constants are representable.
 for a validated non-ACK PING by preserving the eight-octet payload and using a
 length-`8`, kind-`6`, flags-`1`, stream-`0` header. A received PING ACK returns
 an explicit no-response action with no bytes, preventing an ACK loop.
+
+`http2::core::server_connection_state(starting_offset)` and
+`client_connection_state(starting_offset)` create immutable aggregate
+connection state for the endpoint role. The state starts with the matching
+connection-preface offset, role-specific initial peer SETTINGS gate, idle
+pending header-block state, an empty production HPACK dynamic table with
+capacity `4096`, peer SETTINGS protocol defaults, empty SETTINGS ACK state,
+empty peer stream admission state, connection receive credit `65535`, empty
+local SETTINGS policy, and an open lifecycle.
+
+Projection functions expose each component without mutating the aggregate.
+`connection_state_with_*` functions return new aggregate states for individual
+component replacement, including next offset, preface, initial peer SETTINGS
+gate, pending header block, HPACK table, peer SETTINGS state, SETTINGS ACK
+state, peer stream admission state, connection receive credit, local SETTINGS
+policy, and lifecycle. The lifecycle projection distinguishes `open`,
+`draining`, and `closed` with last-stream-id and error-code fields for GOAWAY
+integration.
 
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
@@ -226,6 +245,12 @@ and immutable input state. The focused
 [`http2-core-peer-stream-admission`](../../examples/specification/run/http2-core-peer-stream-admission/)
 case imports `http2::core` from `std` and records public state, decision, and
 failure projections.
+The adjacent test also checks aggregate connection state defaults for server
+and client roles and immutable component replacement. The focused
+[`http2-core-connection-state`](../../examples/specification/run/http2-core-connection-state/)
+case imports `http2::core` from `std` and records public aggregate state,
+HPACK table, SETTINGS ACK, peer stream admission, flow-control credit, and
+lifecycle projections.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.

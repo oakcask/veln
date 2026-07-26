@@ -1,0 +1,222 @@
+use prelude
+use http2::core::connection_preface
+use http2::core::flow_control
+use http2::core::initial_peer_settings
+use http2::core::local_settings
+use http2::core::peer_settings_state
+use http2::core::peer_stream_admission
+use http2::core::pending_header_block
+use http2::core::settings_ack
+use http2::hpack
+use http2::hpack::dynamic_table
+
+pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
+
+pub type CoreConnectionLifecycle
+	CoreConnectionOpen
+	CoreConnectionDraining(last_stream_id: Int, error_code: Int)
+	CoreConnectionClosed(last_stream_id: Int, error_code: Int)
+end
+
+pub type CoreConnectionState
+	CoreConnectionState(endpoint_role: String, next_offset: Int, preface: ConnectionPrefaceState, initial_peer_settings: InitialPeerSettingsGateState, pending_header_block: PendingHeaderBlock, hpack_table: DynamicTable, peer_settings: PeerSettingsState, settings_ack: SettingsAckState, peer_stream_admission: CorePeerStreamAdmissionState, connection_receive_credit: CoreConnectionWindowCredit, local_settings_policy: LocalSettingsPolicy, lifecycle: CoreConnectionLifecycle)
+end
+
+pub fn server(starting_offset: Int) -> Result<CoreConnectionState, String>
+	initial("server", starting_offset, http2::core::initial_peer_settings::server_gate())
+end
+
+pub fn client(starting_offset: Int) -> Result<CoreConnectionState, String>
+	initial("client", starting_offset, http2::core::initial_peer_settings::client_gate())
+end
+
+fn initial(endpoint_role: String, starting_offset: Int, initial_peer_settings: InitialPeerSettingsGateState) -> Result<CoreConnectionState, String>
+	let hpack_table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let connection_credit: CoreConnectionWindowCredit = match http2::core::flow_control::connection_window_credit(65535)
+		Ok(credit) => credit
+		Err(_) => Err("HTTP/2 default connection window credit was invalid")?
+	end
+	Ok(CoreConnectionState(endpoint_role, starting_offset, http2::core::connection_preface::empty(starting_offset), initial_peer_settings, http2::core::pending_header_block::idle(), hpack_table, http2::core::peer_settings_state::empty(), http2::core::settings_ack::empty(), http2::core::peer_stream_admission::empty(), connection_credit, http2::core::local_settings::empty_policy(), CoreConnectionOpen))
+end
+
+pub fn endpoint_role(state: CoreConnectionState) -> String
+	match state
+		CoreConnectionState(endpoint_role, _, _, _, _, _, _, _, _, _, _, _) => endpoint_role
+	end
+end
+
+pub fn next_offset(state: CoreConnectionState) -> Int
+	match state
+		CoreConnectionState(_, next_offset, _, _, _, _, _, _, _, _, _, _) => next_offset
+	end
+end
+
+pub fn preface(state: CoreConnectionState) -> ConnectionPrefaceState
+	match state
+		CoreConnectionState(_, _, preface_state, _, _, _, _, _, _, _, _, _) => preface_state
+	end
+end
+
+pub fn initial_peer_settings(state: CoreConnectionState) -> InitialPeerSettingsGateState
+	match state
+		CoreConnectionState(_, _, _, initial_peer_settings, _, _, _, _, _, _, _, _) => initial_peer_settings
+	end
+end
+
+pub fn pending_header_block(state: CoreConnectionState) -> PendingHeaderBlock
+	match state
+		CoreConnectionState(_, _, _, _, pending_header_block, _, _, _, _, _, _, _) => pending_header_block
+	end
+end
+
+pub fn hpack_table(state: CoreConnectionState) -> DynamicTable
+	match state
+		CoreConnectionState(_, _, _, _, _, hpack_table, _, _, _, _, _, _) => hpack_table
+	end
+end
+
+pub fn hpack_table_capacity(state: CoreConnectionState) -> Int
+	http2::hpack::dynamic_table_capacity(hpack_table(state))
+end
+
+pub fn hpack_table_size(state: CoreConnectionState) -> Int
+	http2::hpack::dynamic_table_size(hpack_table(state))
+end
+
+pub fn hpack_table_entry_count(state: CoreConnectionState) -> Int
+	http2::hpack::dynamic_table_entry_count(hpack_table(state))
+end
+
+pub fn peer_settings(state: CoreConnectionState) -> PeerSettingsState
+	match state
+		CoreConnectionState(_, _, _, _, _, _, peer_settings, _, _, _, _, _) => peer_settings
+	end
+end
+
+pub fn settings_ack(state: CoreConnectionState) -> SettingsAckState
+	match state
+		CoreConnectionState(_, _, _, _, _, _, _, settings_ack, _, _, _, _) => settings_ack
+	end
+end
+
+pub fn peer_stream_admission(state: CoreConnectionState) -> CorePeerStreamAdmissionState
+	match state
+		CoreConnectionState(_, _, _, _, _, _, _, _, peer_stream_admission, _, _, _) => peer_stream_admission
+	end
+end
+
+pub fn connection_receive_credit(state: CoreConnectionState) -> CoreConnectionWindowCredit
+	match state
+		CoreConnectionState(_, _, _, _, _, _, _, _, _, connection_credit, _, _) => connection_credit
+	end
+end
+
+pub fn local_settings_policy(state: CoreConnectionState) -> LocalSettingsPolicy
+	match state
+		CoreConnectionState(_, _, _, _, _, _, _, _, _, _, local_settings_policy, _) => local_settings_policy
+	end
+end
+
+pub fn lifecycle(state: CoreConnectionState) -> CoreConnectionLifecycle
+	match state
+		CoreConnectionState(_, _, _, _, _, _, _, _, _, _, _, lifecycle) => lifecycle
+	end
+end
+
+pub fn lifecycle_label(lifecycle: CoreConnectionLifecycle) -> String
+	match lifecycle
+		CoreConnectionOpen => "open"
+		CoreConnectionDraining(_, _) => "draining"
+		CoreConnectionClosed(_, _) => "closed"
+	end
+end
+
+pub fn lifecycle_last_stream_id(lifecycle: CoreConnectionLifecycle) -> Int
+	match lifecycle
+		CoreConnectionOpen => 0
+		CoreConnectionDraining(last_stream_id, _) => last_stream_id
+		CoreConnectionClosed(last_stream_id, _) => last_stream_id
+	end
+end
+
+pub fn lifecycle_error_code(lifecycle: CoreConnectionLifecycle) -> Int
+	match lifecycle
+		CoreConnectionOpen => 0
+		CoreConnectionDraining(_, error_code) => error_code
+		CoreConnectionClosed(_, error_code) => error_code
+	end
+end
+
+pub fn with_next_offset(state: CoreConnectionState, next_offset: Int) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, _, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_preface(state: CoreConnectionState, preface_state: ConnectionPrefaceState) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, _, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_initial_peer_settings(state: CoreConnectionState, initial_peer_settings: InitialPeerSettingsGateState) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, _, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_pending_header_block(state: CoreConnectionState, pending_header_block: PendingHeaderBlock) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, _, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_hpack_table(state: CoreConnectionState, hpack_table: DynamicTable) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, _, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_peer_settings(state: CoreConnectionState, peer_settings: PeerSettingsState) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, _, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_settings_ack(state: CoreConnectionState, settings_ack: SettingsAckState) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, _, peer_stream_admission, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_peer_stream_admission(state: CoreConnectionState, peer_stream_admission: CorePeerStreamAdmissionState) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, _, connection_credit, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_connection_receive_credit(state: CoreConnectionState, connection_credit: CoreConnectionWindowCredit) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, _, local_settings_policy, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_local_settings_policy(state: CoreConnectionState, local_settings_policy: LocalSettingsPolicy) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, _, lifecycle) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn with_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifecycle) -> CoreConnectionState
+	match state
+		CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, _) => CoreConnectionState(endpoint_role, next_offset, preface_state, initial_peer_settings, pending_header_block, hpack_table, peer_settings, settings_ack, peer_stream_admission, connection_credit, local_settings_policy, lifecycle)
+	end
+end
+
+pub fn draining(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	CoreConnectionDraining(last_stream_id, error_code)
+end
+
+pub fn closed(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	CoreConnectionClosed(last_stream_id, error_code)
+end

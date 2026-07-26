@@ -1,0 +1,50 @@
+use http2::core from "std"
+use stdio
+
+fn bool_label(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" role ")
+	stdio::print(http2::core::connection_state_endpoint_role(state))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::connection_state_next_offset(state)))
+	stdio::print(" preface_start ")
+	stdio::print(int_to_string(http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state))))
+	stdio::print(" initial_role ")
+	stdio::print(http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)))
+	stdio::print(" pending ")
+	stdio::print(bool_label(http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state))))
+	stdio::print(" hpack_capacity ")
+	stdio::print(int_to_string(http2::core::connection_state_hpack_table_capacity(state)))
+	stdio::print(" hpack_entries ")
+	stdio::print(int_to_string(http2::core::connection_state_hpack_table_entry_count(state)))
+	stdio::print(" peer_frame ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state))))
+	stdio::print(" ack ")
+	stdio::print(http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))))
+	stdio::print(" peer_stream ")
+	stdio::print(int_to_string(http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state))))
+	stdio::print(" credit ")
+	stdio::print(int_to_string(http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state))))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)))
+	stdio::print(" last ")
+	stdio::println(int_to_string(http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(state))))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let server: CoreConnectionState = http2::core::server_connection_state(24)?
+	let client: CoreConnectionState = http2::core::client_connection_state(7)?
+	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_peer_stream_admission(http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_peer_settings(http2::core::connection_state_with_next_offset(server, 31), http2::core::peer_settings_with_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(server), 9)), http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(server), 5, 1)), http2::core::record_peer_stream_id(9, http2::core::connection_state_peer_stream_admission(server))), http2::core::connection_lifecycle_draining(9, 0))
+	print_state("server", server)
+	print_state("client", client)
+	print_state("updated", updated)
+	print_state("server-after-update", server)
+	Ok(())
+end

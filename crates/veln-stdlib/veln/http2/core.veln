@@ -1,5 +1,8 @@
 use prelude
+use http2::hpack
+use http2::hpack::dynamic_table
 use http2::core::connection_preface
+use http2::core::connection_state
 use http2::core::frame_payload_length
 use http2::core::initial_peer_settings
 use http2::core::ping
@@ -16,6 +19,12 @@ pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPre
 pub type ConnectionPrefaceTransition = http2::core::connection_preface::ConnectionPrefaceTransition
 
 pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionPrefaceFailure
+
+pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
+
+pub type CoreConnectionState = http2::core::connection_state::CoreConnectionState
+
+pub type CoreConnectionLifecycle = http2::core::connection_state::CoreConnectionLifecycle
 
 pub type FramePayloadLength = http2::core::frame_payload_length::FramePayloadLength
 
@@ -78,6 +87,138 @@ pub type CoreWindowUpdateIncrement = http2::core::flow_control::CoreWindowUpdate
 pub type FlowControlDomainFailure = http2::core::flow_control::FlowControlDomainFailure
 
 pub type FlowControlCreditDecision = http2::core::flow_control::FlowControlCreditDecision
+
+pub fn server_connection_state(starting_offset: Int) -> Result<CoreConnectionState, String>
+	http2::core::connection_state::server(starting_offset)
+end
+
+pub fn client_connection_state(starting_offset: Int) -> Result<CoreConnectionState, String>
+	http2::core::connection_state::client(starting_offset)
+end
+
+pub fn connection_state_endpoint_role(state: CoreConnectionState) -> String
+	http2::core::connection_state::endpoint_role(state)
+end
+
+pub fn connection_state_next_offset(state: CoreConnectionState) -> Int
+	http2::core::connection_state::next_offset(state)
+end
+
+pub fn connection_state_preface(state: CoreConnectionState) -> ConnectionPrefaceState
+	http2::core::connection_state::preface(state)
+end
+
+pub fn connection_state_initial_peer_settings(state: CoreConnectionState) -> InitialPeerSettingsGateState
+	http2::core::connection_state::initial_peer_settings(state)
+end
+
+pub fn connection_state_pending_header_block(state: CoreConnectionState) -> PendingHeaderBlock
+	http2::core::connection_state::pending_header_block(state)
+end
+
+pub fn connection_state_hpack_table(state: CoreConnectionState) -> DynamicTable
+	http2::core::connection_state::hpack_table(state)
+end
+
+pub fn connection_state_hpack_table_capacity(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_capacity(state)
+end
+
+pub fn connection_state_hpack_table_size(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_size(state)
+end
+
+pub fn connection_state_hpack_table_entry_count(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_entry_count(state)
+end
+
+pub fn connection_state_peer_settings(state: CoreConnectionState) -> PeerSettingsState
+	http2::core::connection_state::peer_settings(state)
+end
+
+pub fn connection_state_settings_ack(state: CoreConnectionState) -> SettingsAckState
+	http2::core::connection_state::settings_ack(state)
+end
+
+pub fn connection_state_peer_stream_admission(state: CoreConnectionState) -> CorePeerStreamAdmissionState
+	http2::core::connection_state::peer_stream_admission(state)
+end
+
+pub fn connection_state_receive_credit(state: CoreConnectionState) -> CoreConnectionWindowCredit
+	http2::core::connection_state::connection_receive_credit(state)
+end
+
+pub fn connection_state_local_settings_policy(state: CoreConnectionState) -> LocalSettingsPolicy
+	http2::core::connection_state::local_settings_policy(state)
+end
+
+pub fn connection_state_lifecycle(state: CoreConnectionState) -> CoreConnectionLifecycle
+	http2::core::connection_state::lifecycle(state)
+end
+
+pub fn connection_lifecycle_label(lifecycle: CoreConnectionLifecycle) -> String
+	http2::core::connection_state::lifecycle_label(lifecycle)
+end
+
+pub fn connection_lifecycle_last_stream_id(lifecycle: CoreConnectionLifecycle) -> Int
+	http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+end
+
+pub fn connection_lifecycle_error_code(lifecycle: CoreConnectionLifecycle) -> Int
+	http2::core::connection_state::lifecycle_error_code(lifecycle)
+end
+
+pub fn connection_lifecycle_draining(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	http2::core::connection_state::draining(last_stream_id, error_code)
+end
+
+pub fn connection_lifecycle_closed(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	http2::core::connection_state::closed(last_stream_id, error_code)
+end
+
+pub fn connection_state_with_next_offset(state: CoreConnectionState, next_offset: Int) -> CoreConnectionState
+	http2::core::connection_state::with_next_offset(state, next_offset)
+end
+
+pub fn connection_state_with_preface(state: CoreConnectionState, preface: ConnectionPrefaceState) -> CoreConnectionState
+	http2::core::connection_state::with_preface(state, preface)
+end
+
+pub fn connection_state_with_initial_peer_settings(state: CoreConnectionState, initial_peer_settings: InitialPeerSettingsGateState) -> CoreConnectionState
+	http2::core::connection_state::with_initial_peer_settings(state, initial_peer_settings)
+end
+
+pub fn connection_state_with_pending_header_block(state: CoreConnectionState, pending_header_block: PendingHeaderBlock) -> CoreConnectionState
+	http2::core::connection_state::with_pending_header_block(state, pending_header_block)
+end
+
+pub fn connection_state_with_hpack_table(state: CoreConnectionState, hpack_table: DynamicTable) -> CoreConnectionState
+	http2::core::connection_state::with_hpack_table(state, hpack_table)
+end
+
+pub fn connection_state_with_peer_settings(state: CoreConnectionState, peer_settings: PeerSettingsState) -> CoreConnectionState
+	http2::core::connection_state::with_peer_settings(state, peer_settings)
+end
+
+pub fn connection_state_with_settings_ack(state: CoreConnectionState, settings_ack: SettingsAckState) -> CoreConnectionState
+	http2::core::connection_state::with_settings_ack(state, settings_ack)
+end
+
+pub fn connection_state_with_peer_stream_admission(state: CoreConnectionState, peer_stream_admission: CorePeerStreamAdmissionState) -> CoreConnectionState
+	http2::core::connection_state::with_peer_stream_admission(state, peer_stream_admission)
+end
+
+pub fn connection_state_with_receive_credit(state: CoreConnectionState, credit: CoreConnectionWindowCredit) -> CoreConnectionState
+	http2::core::connection_state::with_connection_receive_credit(state, credit)
+end
+
+pub fn connection_state_with_local_settings_policy(state: CoreConnectionState, policy: LocalSettingsPolicy) -> CoreConnectionState
+	http2::core::connection_state::with_local_settings_policy(state, policy)
+end
+
+pub fn connection_state_with_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifecycle) -> CoreConnectionState
+	http2::core::connection_state::with_lifecycle(state, lifecycle)
+end
 
 pub type LocalSettingsSendDecision
 	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)

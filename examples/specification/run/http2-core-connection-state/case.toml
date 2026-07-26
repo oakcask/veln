@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "server role server offset 24 preface_start 24 initial_role server pending false hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 credit 65535 lifecycle open last 0\nclient role client offset 7 preface_start 7 initial_role client pending false hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 credit 65535 lifecycle open last 0\nupdated role server offset 31 preface_start 24 initial_role server pending false hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack active peer_stream 9 credit 65535 lifecycle draining last 9\nserver-after-update role server offset 24 preface_start 24 initial_role server pending false hpack_capacity 4096 hpack_entries 0 peer_frame 16384 ack none peer_stream 0 credit 65535 lifecycle open last 0\n"
+
+[[json_assert]]
+path = "error"
+equals = null

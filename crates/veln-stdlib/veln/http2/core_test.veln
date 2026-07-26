@@ -1,5 +1,6 @@
 use prelude
 use http2::core
+use http2::hpack
 use http2::core::settings_ack
 
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
@@ -265,6 +266,40 @@ end
 
 fn require_peer_stream_admission_failure(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionFailure, String>
 	http2::core::peer_stream_admission_decision_failure(decision)
+end
+
+test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(24)?
+	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
+		Ok(())
+	else
+		Err("HTTP/2 server connection state did not compose the expected default core components")
+	end
+end
+
+test connection_state_starts_with_client_role() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::client_connection_state(7)?
+	if http2::core::connection_state_endpoint_role(state) == "client" and http2::core::connection_state_next_offset(state) == 7 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 7 and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "client" and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535
+		Ok(())
+	else
+		Err("HTTP/2 client connection state did not retain role-specific initial components")
+	end
+end
+
+test connection_state_updates_are_immutable() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let hpack_table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::core::connection_state_hpack_table(state), "content-length", byte_chunk_from_hex("35")?)?
+	let next_peer_settings: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state), 9)
+	let next_ack: SettingsAckState = http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(state), 5, 1)
+	let next_admission: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(9, http2::core::connection_state_peer_stream_admission(state))
+	let next_credit: CoreConnectionWindowCredit = require_connection_credit(42)?
+	let next_policy: LocalSettingsPolicy = http2::core::local_settings_policy_with_enable_push(http2::core::connection_state_local_settings_policy(state), 0, 12)
+	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_local_settings_policy(http2::core::connection_state_with_receive_credit(http2::core::connection_state_with_peer_stream_admission(http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_peer_settings(http2::core::connection_state_with_hpack_table(http2::core::connection_state_with_next_offset(state, 31), hpack_table), next_peer_settings), next_ack), next_admission), next_credit), next_policy), http2::core::connection_lifecycle_draining(9, 0))
+	if http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 0 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open" and http2::core::connection_state_next_offset(updated) == 31 and http2::core::connection_state_hpack_table_entry_count(updated) == 1 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(updated)) == 9 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(updated))) == 5 and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(updated)) == 9 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(updated)) == 42 and http2::core::local_settings_policy_enable_push_value(http2::core::connection_state_local_settings_policy(updated)) == 0 and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(updated)) == "draining" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(updated)) == 9
+		Ok(())
+	else
+		Err("HTTP/2 connection state update changed input state or lost a component projection")
+	end
 end
 
 test stream_domains_are_role_aware() -> Result<(), String>
