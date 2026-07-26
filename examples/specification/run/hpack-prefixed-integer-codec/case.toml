@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "canonical 31 154 10\nrepresented 234\nround-trip 1337 3\n"
+equals = "canonical 31 154 10\nrepresented 234\nround-trip 1337 3\nindexed-prefix 255 0\ntable-size-prefix 63 129 1\nliteral-length-prefix 127 1\nindexed-decoded 255 3\ntable-size-decoded 289 3\nliteral-length-decoded 128 2\n"
 
 [[json_assert]]
 path = "error"
