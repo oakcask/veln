@@ -1,0 +1,467 @@
+use prelude
+use http2::frame
+
+pub type LocalSettingsItem
+	LocalSettingsHeaderTableSize(Int)
+	LocalSettingsEnablePush(Int)
+	LocalSettingsInitialWindowSize(Int)
+	LocalSettingsMaxConcurrentStreams(Int)
+	LocalSettingsMaxFrameSize(Int)
+	LocalSettingsMaxHeaderListSize(Int)
+	LocalSettingsEnableConnectProtocol(Int)
+end
+
+pub type LocalSettingsPolicy
+	NoLocalSettingsPolicy
+	LocalSettingsEnablePushPolicy(Int, Int)
+	LocalSettingsEnableConnectProtocolPolicy(Int, Int)
+	LocalSettingsEnablePushAndConnectProtocolPolicy(Int, Int, Int, Int)
+end
+
+pub type LocalSettingsFailure
+	LocalSettingsValueOutOfRange(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String, preview: ByteView)
+	LocalSettingsNotAllowedForEndpoint(offset: Int, setting_identifier: Int, setting_name: String, endpoint_role: String, frame_kind: Int, active_state: String, rule_provenance: String, preview: ByteView)
+end
+
+pub type LocalSettingsTransition
+	LocalSettingsTransitionSent(Int, Int, LocalSettingsPolicy, Int, ByteChunk)
+	LocalSettingsTransitionRejected(LocalSettingsFailure)
+	LocalSettingsTransitionEncodeFailed(String)
+end
+
+pub fn empty_policy() -> LocalSettingsPolicy
+	NoLocalSettingsPolicy
+end
+
+pub fn header_table_size(value: Int) -> LocalSettingsItem
+	LocalSettingsHeaderTableSize(value)
+end
+
+pub fn enable_push(value: Int) -> LocalSettingsItem
+	LocalSettingsEnablePush(value)
+end
+
+pub fn initial_window_size(value: Int) -> LocalSettingsItem
+	LocalSettingsInitialWindowSize(value)
+end
+
+pub fn max_concurrent_streams(value: Int) -> LocalSettingsItem
+	LocalSettingsMaxConcurrentStreams(value)
+end
+
+pub fn max_frame_size(value: Int) -> LocalSettingsItem
+	LocalSettingsMaxFrameSize(value)
+end
+
+pub fn max_header_list_size(value: Int) -> LocalSettingsItem
+	LocalSettingsMaxHeaderListSize(value)
+end
+
+pub fn enable_connect_protocol(value: Int) -> LocalSettingsItem
+	LocalSettingsEnableConnectProtocol(value)
+end
+
+pub fn send_batch(items: List<LocalSettingsItem>, endpoint_role: String, policy: LocalSettingsPolicy) -> Result<LocalSettingsTransition, String>
+	match validate_items(items, 0, endpoint_role)?
+		Ok(()) => encode_batch(items, policy)
+		Err(failure) => Ok(LocalSettingsTransitionRejected(failure))
+	end
+end
+
+pub fn send_single(item: LocalSettingsItem, endpoint_role: String, policy: LocalSettingsPolicy) -> Result<LocalSettingsTransition, String>
+	send_batch(Cons(item, Nil), endpoint_role, policy)
+end
+
+pub fn policy_enable_push_value(policy: LocalSettingsPolicy) -> Int
+	match policy
+		NoLocalSettingsPolicy => 0
+		LocalSettingsEnablePushPolicy(value, _) => value
+		LocalSettingsEnableConnectProtocolPolicy(_, _) => 0
+		LocalSettingsEnablePushAndConnectProtocolPolicy(value, _, _, _) => value
+	end
+end
+
+pub fn policy_has_enable_push(policy: LocalSettingsPolicy) -> Bool
+	match policy
+		NoLocalSettingsPolicy => false
+		LocalSettingsEnablePushPolicy(_, _) => true
+		LocalSettingsEnableConnectProtocolPolicy(_, _) => false
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, _, _, _) => true
+	end
+end
+
+pub fn policy_enable_push_offset(policy: LocalSettingsPolicy) -> Int
+	match policy
+		NoLocalSettingsPolicy => 0
+		LocalSettingsEnablePushPolicy(_, offset) => offset
+		LocalSettingsEnableConnectProtocolPolicy(_, _) => 0
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, offset, _, _) => offset
+	end
+end
+
+pub fn policy_with_enable_push(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	with_enable_push(policy, value, item_offset)
+end
+
+pub fn policy_enable_connect_protocol_value(policy: LocalSettingsPolicy) -> Int
+	match policy
+		NoLocalSettingsPolicy => 0
+		LocalSettingsEnablePushPolicy(_, _) => 0
+		LocalSettingsEnableConnectProtocolPolicy(value, _) => value
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, _, value, _) => value
+	end
+end
+
+pub fn policy_has_enable_connect_protocol(policy: LocalSettingsPolicy) -> Bool
+	match policy
+		NoLocalSettingsPolicy => false
+		LocalSettingsEnablePushPolicy(_, _) => false
+		LocalSettingsEnableConnectProtocolPolicy(_, _) => true
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, _, _, _) => true
+	end
+end
+
+pub fn policy_enable_connect_protocol_offset(policy: LocalSettingsPolicy) -> Int
+	match policy
+		NoLocalSettingsPolicy => 0
+		LocalSettingsEnablePushPolicy(_, _) => 0
+		LocalSettingsEnableConnectProtocolPolicy(_, offset) => offset
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, _, _, offset) => offset
+	end
+end
+
+pub fn policy_with_enable_connect_protocol(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	with_enable_connect_protocol(policy, value, item_offset)
+end
+
+pub fn status(decision: LocalSettingsTransition) -> String
+	match decision
+		LocalSettingsTransitionSent(_, _, _, _, _) => "accepted"
+		LocalSettingsTransitionRejected(_) => "rejected"
+		LocalSettingsTransitionEncodeFailed(_) => "encode_error"
+	end
+end
+
+pub fn first_identifier(decision: LocalSettingsTransition) -> Int
+	match decision
+		LocalSettingsTransitionSent(identifier, _, _, _, _) => identifier
+		LocalSettingsTransitionRejected(failure) => failure_setting_identifier(failure)
+		LocalSettingsTransitionEncodeFailed(_) => 0
+	end
+end
+
+pub fn first_value(decision: LocalSettingsTransition) -> Int
+	match decision
+		LocalSettingsTransitionSent(_, value, _, _, _) => value
+		LocalSettingsTransitionRejected(failure) => failure_observed_value(failure)
+		LocalSettingsTransitionEncodeFailed(_) => 0
+	end
+end
+
+pub fn policy(decision: LocalSettingsTransition) -> LocalSettingsPolicy
+	match decision
+		LocalSettingsTransitionSent(_, _, next_policy, _, _) => next_policy
+		LocalSettingsTransitionRejected(_) => NoLocalSettingsPolicy
+		LocalSettingsTransitionEncodeFailed(_) => NoLocalSettingsPolicy
+	end
+end
+
+pub fn item_count(decision: LocalSettingsTransition) -> Int
+	match decision
+		LocalSettingsTransitionSent(_, _, _, count, _) => count
+		LocalSettingsTransitionRejected(_) => 0
+		LocalSettingsTransitionEncodeFailed(_) => 0
+	end
+end
+
+pub fn bytes(decision: LocalSettingsTransition) -> ByteChunk
+	match decision
+		LocalSettingsTransitionSent(_, _, _, _, chunk) => chunk
+		LocalSettingsTransitionRejected(_) => byte_chunk([])
+		LocalSettingsTransitionEncodeFailed(_) => byte_chunk([])
+	end
+end
+
+pub fn encode_reason(decision: LocalSettingsTransition) -> String
+	match decision
+		LocalSettingsTransitionSent(_, _, _, _, _) => "none"
+		LocalSettingsTransitionRejected(_) => "none"
+		LocalSettingsTransitionEncodeFailed(reason) => reason
+	end
+end
+
+pub fn transition_failure(decision: LocalSettingsTransition) -> Result<LocalSettingsFailure, String>
+	match decision
+		LocalSettingsTransitionRejected(failure) => Ok(failure)
+		_ => Err("local SETTINGS transition has no failure")
+	end
+end
+
+pub fn failure_id(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "http2.protocol.settings_not_allowed_for_endpoint"
+	end
+end
+
+pub fn failure_offset(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(offset, _, _, _, _, _, _, _) => offset
+		LocalSettingsNotAllowedForEndpoint(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_setting_identifier(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+		LocalSettingsNotAllowedForEndpoint(_, setting_identifier, _, _, _, _, _, _) => setting_identifier
+	end
+end
+
+pub fn failure_setting_name(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, setting_name, _, _, _, _, _) => setting_name
+		LocalSettingsNotAllowedForEndpoint(_, _, setting_name, _, _, _, _, _) => setting_name
+	end
+end
+
+pub fn failure_observed_value(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, observed_value, _, _, _, _) => observed_value
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_accepted_min_value(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _, _) => accepted_min_value
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_accepted_max_value(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _, _) => accepted_max_value
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_peer_limit_provenance(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance, _) => peer_limit_provenance
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, _) => "none"
+	end
+end
+
+pub fn failure_endpoint_role(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "none"
+		LocalSettingsNotAllowedForEndpoint(_, _, _, endpoint_role, _, _, _, _) => endpoint_role
+	end
+end
+
+pub fn failure_frame_kind(failure: LocalSettingsFailure) -> Int
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => 4
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, frame_kind, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_active_state(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "connection-control"
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: LocalSettingsFailure) -> String
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, _) => "http2_settings_value_range"
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: LocalSettingsFailure) -> ByteView
+	match failure
+		LocalSettingsValueOutOfRange(_, _, _, _, _, _, _, preview) => preview
+		LocalSettingsNotAllowedForEndpoint(_, _, _, _, _, _, _, preview) => preview
+	end
+end
+
+fn validate_items(items: List<LocalSettingsItem>, item_offset: Int, endpoint_role: String) -> Result<Result<(), LocalSettingsFailure>, String>
+	match items
+		Nil => Ok(Ok(()))
+		Cons(item, tail) => match validate_item(item, item_offset, endpoint_role)?
+			Ok(()) => validate_items(tail, item_offset + 6, endpoint_role)
+			Err(failure) => Ok(Err(failure))
+		end
+	end
+end
+
+fn validate_item(item: LocalSettingsItem, item_offset: Int, endpoint_role: String) -> Result<Result<(), LocalSettingsFailure>, String>
+	match item
+		LocalSettingsHeaderTableSize(value) => validate_u32_setting(item_offset, 1, "SETTINGS_HEADER_TABLE_SIZE", value)
+		LocalSettingsEnablePush(value) => validate_enable_push_setting(item_offset, value)
+		LocalSettingsInitialWindowSize(value) => validate_initial_window_size_setting(item_offset, value)
+		LocalSettingsMaxConcurrentStreams(value) => validate_u32_setting(item_offset, 3, "SETTINGS_MAX_CONCURRENT_STREAMS", value)
+		LocalSettingsMaxFrameSize(value) => validate_max_frame_size_setting(item_offset, value)
+		LocalSettingsMaxHeaderListSize(value) => validate_u32_setting(item_offset, 6, "SETTINGS_MAX_HEADER_LIST_SIZE", value)
+		LocalSettingsEnableConnectProtocol(value) => if endpoint_role == "server"
+			validate_enable_connect_protocol_setting(item_offset, value)
+		else
+			Ok(Err(LocalSettingsNotAllowedForEndpoint(item_offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", endpoint_role, 4, "local-settings", "rfc8441_only_servers_send_settings_enable_connect_protocol", empty_preview()?)))
+		end
+	end
+end
+
+fn validate_max_frame_size_setting(offset: Int, value: Int) -> Result<Result<(), LocalSettingsFailure>, String>
+	if value < 16384
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_preview()?)))
+	else if value > 16777215
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "local_settings", empty_preview()?)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_initial_window_size_setting(offset: Int, value: Int) -> Result<Result<(), LocalSettingsFailure>, String>
+	if value < 0
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_preview()?)))
+	else if value > 2147483647
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "local_settings", empty_preview()?)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_enable_push_setting(offset: Int, value: Int) -> Result<Result<(), LocalSettingsFailure>, String>
+	if value < 0
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_preview()?)))
+	else if value > 1
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 2, "SETTINGS_ENABLE_PUSH", value, 0, 1, "local_settings", empty_preview()?)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_enable_connect_protocol_setting(offset: Int, value: Int) -> Result<Result<(), LocalSettingsFailure>, String>
+	if value < 0
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, "local_settings", empty_preview()?)))
+	else if value > 1
+		Ok(Err(LocalSettingsValueOutOfRange(offset, 8, "SETTINGS_ENABLE_CONNECT_PROTOCOL", value, 0, 1, "local_settings", empty_preview()?)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn validate_u32_setting(offset: Int, identifier: Int, setting_name: String, value: Int) -> Result<Result<(), LocalSettingsFailure>, String>
+	if value < 0
+		Ok(Err(LocalSettingsValueOutOfRange(offset, identifier, setting_name, value, 0, 4294967295, "local_settings", empty_preview()?)))
+	else if value > 4294967295
+		Ok(Err(LocalSettingsValueOutOfRange(offset, identifier, setting_name, value, 0, 4294967295, "local_settings", empty_preview()?)))
+	else
+		Ok(Ok(()))
+	end
+end
+
+fn encode_batch(items: List<LocalSettingsItem>, policy: LocalSettingsPolicy) -> Result<LocalSettingsTransition, String>
+	let item_count: Int = count_items(items)
+	let payload: ByteChunk = encode_payload(items)?
+	match http2::frame::encode_header(6 * item_count, 4, 0, 0)
+		Ok(header) => Ok(LocalSettingsTransitionSent(first_item_identifier(items), first_value_from_items(items), apply_policy(items, 0, policy), item_count, byte_append(header, payload)))
+		Err(reason) => Ok(LocalSettingsTransitionEncodeFailed(reason))
+	end
+end
+
+fn encode_payload(items: List<LocalSettingsItem>) -> Result<ByteChunk, String>
+	match items
+		Nil => Ok(byte_chunk([]))
+		Cons(item, tail) => Ok(byte_append(encode_item(item)?, encode_payload(tail)?))
+	end
+end
+
+fn encode_item(item: LocalSettingsItem) -> Result<ByteChunk, String>
+	Ok(byte_append(byte_write_u16_be(item_identifier(item))?, byte_write_u32_be(item_value(item))?))
+end
+
+fn apply_policy(items: List<LocalSettingsItem>, item_offset: Int, policy: LocalSettingsPolicy) -> LocalSettingsPolicy
+	match items
+		Nil => policy
+		Cons(item, tail) => apply_policy(tail, item_offset + 6, apply_item_policy(item, item_offset, policy))
+	end
+end
+
+fn apply_item_policy(item: LocalSettingsItem, item_offset: Int, policy: LocalSettingsPolicy) -> LocalSettingsPolicy
+	match item
+		LocalSettingsEnablePush(value) => with_enable_push(policy, value, item_offset)
+		LocalSettingsEnableConnectProtocol(value) => with_enable_connect_protocol(policy, value, item_offset)
+		_ => policy
+	end
+end
+
+fn with_enable_push(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	match policy
+		NoLocalSettingsPolicy => LocalSettingsEnablePushPolicy(value, item_offset)
+		LocalSettingsEnablePushPolicy(_, _) => LocalSettingsEnablePushPolicy(value, item_offset)
+		LocalSettingsEnableConnectProtocolPolicy(connect_value, connect_offset) => LocalSettingsEnablePushAndConnectProtocolPolicy(value, item_offset, connect_value, connect_offset)
+		LocalSettingsEnablePushAndConnectProtocolPolicy(_, _, connect_value, connect_offset) => LocalSettingsEnablePushAndConnectProtocolPolicy(value, item_offset, connect_value, connect_offset)
+	end
+end
+
+fn with_enable_connect_protocol(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	match policy
+		NoLocalSettingsPolicy => LocalSettingsEnableConnectProtocolPolicy(value, item_offset)
+		LocalSettingsEnablePushPolicy(push_value, push_offset) => LocalSettingsEnablePushAndConnectProtocolPolicy(push_value, push_offset, value, item_offset)
+		LocalSettingsEnableConnectProtocolPolicy(_, _) => LocalSettingsEnableConnectProtocolPolicy(value, item_offset)
+		LocalSettingsEnablePushAndConnectProtocolPolicy(push_value, push_offset, _, _) => LocalSettingsEnablePushAndConnectProtocolPolicy(push_value, push_offset, value, item_offset)
+	end
+end
+
+fn count_items(items: List<LocalSettingsItem>) -> Int
+	match items
+		Nil => 0
+		Cons(_, tail) => 1 + count_items(tail)
+	end
+end
+
+fn first_item_identifier(items: List<LocalSettingsItem>) -> Int
+	match items
+		Nil => 0
+		Cons(item, _) => item_identifier(item)
+	end
+end
+
+fn first_value_from_items(items: List<LocalSettingsItem>) -> Int
+	match items
+		Nil => 0
+		Cons(item, _) => item_value(item)
+	end
+end
+
+fn item_identifier(item: LocalSettingsItem) -> Int
+	match item
+		LocalSettingsHeaderTableSize(_) => 1
+		LocalSettingsEnablePush(_) => 2
+		LocalSettingsInitialWindowSize(_) => 4
+		LocalSettingsMaxConcurrentStreams(_) => 3
+		LocalSettingsMaxFrameSize(_) => 5
+		LocalSettingsMaxHeaderListSize(_) => 6
+		LocalSettingsEnableConnectProtocol(_) => 8
+	end
+end
+
+fn item_value(item: LocalSettingsItem) -> Int
+	match item
+		LocalSettingsHeaderTableSize(value) => value
+		LocalSettingsEnablePush(value) => value
+		LocalSettingsInitialWindowSize(value) => value
+		LocalSettingsMaxConcurrentStreams(value) => value
+		LocalSettingsMaxFrameSize(value) => value
+		LocalSettingsMaxHeaderListSize(value) => value
+		LocalSettingsEnableConnectProtocol(value) => value
+	end
+end
+
+fn empty_preview() -> Result<ByteView, String>
+	byte_view(byte_chunk([]), byte_offset(0)?, byte_count(0)?)
+end

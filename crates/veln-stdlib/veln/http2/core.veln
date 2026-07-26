@@ -5,6 +5,7 @@ use http2::core::initial_peer_settings
 use http2::core::ping
 use http2::core::pending_header_block
 use http2::core::settings_ack
+use http2::core::local_settings
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
@@ -43,6 +44,18 @@ pub type PendingPeerSettingsAck = http2::core::settings_ack::PendingPeerSettings
 pub type SettingsAckFailure = http2::core::settings_ack::SettingsAckFailure
 
 pub type PeerSettingsAckSendDecision = http2::core::settings_ack::PeerSettingsAckSendDecision
+
+pub type LocalSettingsItem = http2::core::local_settings::LocalSettingsItem
+
+pub type LocalSettingsPolicy = http2::core::local_settings::LocalSettingsPolicy
+
+pub type LocalSettingsFailure = http2::core::local_settings::LocalSettingsFailure
+
+pub type LocalSettingsSendDecision
+	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
+	LocalSettingsRejected(LocalSettingsFailure)
+	LocalSettingsEncodeFailed(LocalSettingsPolicy, SettingsAckState, String)
+end
 
 pub type StreamId
 	ValidatedStreamId(Int)
@@ -545,4 +558,200 @@ end
 
 pub fn pending_settings_ack_encode_reason(decision: PeerSettingsAckSendDecision) -> String
 	http2::core::settings_ack::send_encode_reason(decision)
+end
+
+pub fn empty_local_settings_policy() -> LocalSettingsPolicy
+	http2::core::local_settings::empty_policy()
+end
+
+pub fn local_settings_header_table_size(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::header_table_size(value)
+end
+
+pub fn local_settings_enable_push(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::enable_push(value)
+end
+
+pub fn local_settings_initial_window_size(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::initial_window_size(value)
+end
+
+pub fn local_settings_max_concurrent_streams(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::max_concurrent_streams(value)
+end
+
+pub fn local_settings_max_frame_size(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::max_frame_size(value)
+end
+
+pub fn local_settings_max_header_list_size(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::max_header_list_size(value)
+end
+
+pub fn local_settings_enable_connect_protocol(value: Int) -> LocalSettingsItem
+	http2::core::local_settings::enable_connect_protocol(value)
+end
+
+pub fn send_local_settings_batch(items: List<LocalSettingsItem>, endpoint_role: String, policy: LocalSettingsPolicy, ack_state: SettingsAckState) -> Result<LocalSettingsSendDecision, String>
+	local_settings_transition_to_decision(policy, ack_state, http2::core::local_settings::send_batch(items, endpoint_role, policy)?)
+end
+
+pub fn send_local_setting(item: LocalSettingsItem, endpoint_role: String, policy: LocalSettingsPolicy, ack_state: SettingsAckState) -> Result<LocalSettingsSendDecision, String>
+	local_settings_transition_to_decision(policy, ack_state, http2::core::local_settings::send_single(item, endpoint_role, policy)?)
+end
+
+fn local_settings_transition_to_decision(input_policy: LocalSettingsPolicy, input_ack_state: SettingsAckState, transition: LocalSettingsTransition) -> Result<LocalSettingsSendDecision, String>
+	match http2::core::local_settings::status(transition)
+		"accepted" => Ok(LocalSettingsSent(http2::core::local_settings::first_identifier(transition), http2::core::local_settings::first_value(transition), http2::core::local_settings::policy(transition), http2::core::settings_ack::record_local_batch(input_ack_state, http2::core::local_settings::first_identifier(transition), http2::core::local_settings::item_count(transition)), http2::core::local_settings::bytes(transition)))
+		"rejected" => Ok(LocalSettingsRejected(http2::core::local_settings::transition_failure(transition)?))
+		_ => Ok(LocalSettingsEncodeFailed(input_policy, input_ack_state, http2::core::local_settings::encode_reason(transition)))
+	end
+end
+
+pub fn local_settings_policy_enable_push_value(policy: LocalSettingsPolicy) -> Int
+	http2::core::local_settings::policy_enable_push_value(policy)
+end
+
+pub fn local_settings_policy_has_enable_push(policy: LocalSettingsPolicy) -> Bool
+	http2::core::local_settings::policy_has_enable_push(policy)
+end
+
+pub fn local_settings_policy_enable_push_offset(policy: LocalSettingsPolicy) -> Int
+	http2::core::local_settings::policy_enable_push_offset(policy)
+end
+
+pub fn local_settings_policy_with_enable_push(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	http2::core::local_settings::policy_with_enable_push(policy, value, item_offset)
+end
+
+pub fn local_settings_policy_enable_connect_protocol_value(policy: LocalSettingsPolicy) -> Int
+	http2::core::local_settings::policy_enable_connect_protocol_value(policy)
+end
+
+pub fn local_settings_policy_has_enable_connect_protocol(policy: LocalSettingsPolicy) -> Bool
+	http2::core::local_settings::policy_has_enable_connect_protocol(policy)
+end
+
+pub fn local_settings_policy_enable_connect_protocol_offset(policy: LocalSettingsPolicy) -> Int
+	http2::core::local_settings::policy_enable_connect_protocol_offset(policy)
+end
+
+pub fn local_settings_policy_with_enable_connect_protocol(policy: LocalSettingsPolicy, value: Int, item_offset: Int) -> LocalSettingsPolicy
+	http2::core::local_settings::policy_with_enable_connect_protocol(policy, value, item_offset)
+end
+
+pub fn local_settings_send_status(decision: LocalSettingsSendDecision) -> String
+	match decision
+		LocalSettingsSent(_, _, _, _, _) => "accepted"
+		LocalSettingsRejected(_) => "rejected"
+		LocalSettingsEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+pub fn local_settings_send_identifier(decision: LocalSettingsSendDecision) -> Int
+	match decision
+		LocalSettingsSent(identifier, _, _, _, _) => identifier
+		LocalSettingsRejected(failure) => http2::core::local_settings::failure_setting_identifier(failure)
+		LocalSettingsEncodeFailed(_, _, _) => 0
+	end
+end
+
+pub fn local_settings_send_value(decision: LocalSettingsSendDecision) -> Int
+	match decision
+		LocalSettingsSent(_, value, _, _, _) => value
+		LocalSettingsRejected(failure) => http2::core::local_settings::failure_observed_value(failure)
+		LocalSettingsEncodeFailed(_, _, _) => 0
+	end
+end
+
+pub fn local_settings_send_policy(decision: LocalSettingsSendDecision) -> LocalSettingsPolicy
+	match decision
+		LocalSettingsSent(_, _, policy, _, _) => policy
+		LocalSettingsRejected(_) => http2::core::local_settings::empty_policy()
+		LocalSettingsEncodeFailed(policy, _, _) => policy
+	end
+end
+
+pub fn local_settings_send_ack_state(decision: LocalSettingsSendDecision) -> SettingsAckState
+	match decision
+		LocalSettingsSent(_, _, _, ack_state, _) => ack_state
+		LocalSettingsRejected(_) => http2::core::settings_ack::empty()
+		LocalSettingsEncodeFailed(_, ack_state, _) => ack_state
+	end
+end
+
+pub fn local_settings_send_bytes(decision: LocalSettingsSendDecision) -> ByteChunk
+	match decision
+		LocalSettingsSent(_, _, _, _, bytes) => bytes
+		LocalSettingsRejected(_) => byte_chunk([])
+		LocalSettingsEncodeFailed(_, _, _) => byte_chunk([])
+	end
+end
+
+pub fn local_settings_send_encode_reason(decision: LocalSettingsSendDecision) -> String
+	match decision
+		LocalSettingsSent(_, _, _, _, _) => "none"
+		LocalSettingsRejected(_) => "none"
+		LocalSettingsEncodeFailed(_, _, reason) => reason
+	end
+end
+
+pub fn local_settings_send_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, String>
+	match decision
+		LocalSettingsSent(_, _, _, _, _) => Err("accepted local SETTINGS send has no failure")
+		LocalSettingsRejected(failure) => Ok(failure)
+		LocalSettingsEncodeFailed(_, _, _) => Err("encoded local SETTINGS send has no protocol failure")
+	end
+end
+
+pub fn local_settings_failure_id(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_id(failure)
+end
+
+pub fn local_settings_failure_offset(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_offset(failure)
+end
+
+pub fn local_settings_failure_setting_identifier(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_setting_identifier(failure)
+end
+
+pub fn local_settings_failure_setting_name(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_setting_name(failure)
+end
+
+pub fn local_settings_failure_observed_value(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_observed_value(failure)
+end
+
+pub fn local_settings_failure_accepted_min_value(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_accepted_min_value(failure)
+end
+
+pub fn local_settings_failure_accepted_max_value(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_accepted_max_value(failure)
+end
+
+pub fn local_settings_failure_peer_limit_provenance(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_peer_limit_provenance(failure)
+end
+
+pub fn local_settings_failure_endpoint_role(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_endpoint_role(failure)
+end
+
+pub fn local_settings_failure_frame_kind(failure: LocalSettingsFailure) -> Int
+	http2::core::local_settings::failure_frame_kind(failure)
+end
+
+pub fn local_settings_failure_active_state(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_active_state(failure)
+end
+
+pub fn local_settings_failure_rule_provenance(failure: LocalSettingsFailure) -> String
+	http2::core::local_settings::failure_rule_provenance(failure)
+end
+
+pub fn local_settings_failure_preview(failure: LocalSettingsFailure) -> ByteView
+	http2::core::local_settings::failure_preview(failure)
 end
