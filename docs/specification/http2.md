@@ -112,12 +112,17 @@ table. Typed failures distinguish invalid representations or names, zero and
 unavailable indices, indexed-field mismatches, integer or string encoding, and
 table transitions. Block failures add the zero-based field position and active
 capacity selection. A failure exposes no partial bytes or next state and
-leaves the input list and table unchanged. The adjacent
+leaves the input list and table unchanged. Invalid representations and names,
+zero indices, unavailable static and dynamic indices, indexed-field
+mismatches, invalid active capacity, and nested field failures are reachable
+through public encoder calls. The integer, string, and table failure variants
+are defensive mappings for private codec failures that valid public values
+cannot produce. The adjacent
 [`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
-checks exact static and multi-octet dynamic bytes, every literal form and name
-source, raw and Huffman strings, empty and non-visible values, in-block reuse,
-capacity eviction, list boundaries, decode-after-encode behavior, and failure
-preservation. The focused
+checks exact static and multi-octet dynamic bytes, the complete literal-form by
+name-source matrix, raw and Huffman strings, empty and non-visible values,
+in-block reuse, capacity eviction, list boundaries, decode-after-encode
+behavior, every reachable failure, and input preservation. The focused
 [`hpack-header-block-encoding`](../../examples/specification/run/hpack-header-block-encoding/)
 case records public encoded bytes, ordered decoded values, next-state
 projections, and representative typed failures.
