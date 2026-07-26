@@ -1,0 +1,332 @@
+use prelude
+use http2::hpack::dynamic_table
+use http2::hpack::integer
+use http2::hpack::static_table
+use http2::hpack::string_encoder
+
+pub type HeaderEncodeCodecFailure
+	HeaderEncodeInvalidRepresentation
+	HeaderEncodeInvalidName
+	HeaderEncodeZeroIndex
+	HeaderEncodeUnavailableStaticIndex(index: Int)
+	HeaderEncodeUnavailableDynamicIndex(index: Int, dynamic_index: Int, entry_count: Int)
+	HeaderEncodeIndexedFieldMismatch(index: Int)
+	HeaderEncodeIntegerFailure
+	HeaderEncodeStringFailure
+	HeaderEncodeTableFailure
+end
+
+pub type HeaderEncodeCodecTransition
+	HeaderEncodeCodecTransition(bytes: ByteChunk, table: DynamicTable)
+end
+
+fn octets_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index >= count
+		Ok(true)
+	else
+		octets_equal_next(left, right, index, count)
+	end
+end
+
+fn octets_equal_next(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	let left_value: Int = byte_read_u8_be(byte_view(left, byte_offset(index)?, byte_count(1)?)?)?
+	let right_value: Int = byte_read_u8_be(byte_view(right, byte_offset(index)?, byte_count(1)?)?)?
+	if left_value == right_value
+		octets_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn octets_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
+	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	if left_count == right_count
+		octets_equal_at(left, right, 0, left_count)
+	else
+		Ok(false)
+	end
+end
+
+fn static_value_bytes(value: String) -> Result<ByteChunk, String>
+	if value == ""
+		Ok(byte_chunk([]))
+	else if value == "gzip, deflate"
+		byte_chunk_from_hex("677a69702c206465666c617465")
+	else
+		byte_chunk_from_visible_ascii_string(value)
+	end
+end
+
+fn valid_name_byte(value: Int) -> Bool
+	value >= 33 and value <= 126 and not (value >= 65 and value <= 90)
+end
+
+fn valid_name_bytes(bytes: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index >= count
+		Ok(true)
+	else
+		valid_name_next(bytes, index, count)
+	end
+end
+
+fn valid_name_next(bytes: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	let value: Int = byte_read_u8_be(byte_view(bytes, byte_offset(index)?, byte_count(1)?)?)?
+	if valid_name_byte(value)
+		valid_name_bytes(bytes, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_name_bytes(name: String) -> Result<ByteChunk, HeaderEncodeCodecFailure>
+	match byte_chunk_from_visible_ascii_string(name)
+		Err(_) => Err(HeaderEncodeInvalidName)
+		Ok(bytes) => if byte_count_to_int(byte_chunk_count(bytes)) == 0
+			Err(HeaderEncodeInvalidName)
+		else
+			match valid_name_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+				Ok(true) => Ok(bytes)
+				_ => Err(HeaderEncodeInvalidName)
+			end
+		end
+	end
+end
+
+fn dynamic_exact_index(table: DynamicTable, name: String, value: ByteChunk, index: Int) -> Result<Option<Int>, String>
+	match http2::hpack::dynamic_table::lookup(table, index)
+		None => Ok(None)
+		Some(entry) => if http2::hpack::dynamic_table::entry_name(entry) == name and octets_equal(http2::hpack::dynamic_table::entry_value(entry), value)?
+			Ok(Some(index + 61))
+		else
+			dynamic_exact_index(table, name, value, index + 1)
+		end
+	end
+end
+
+fn dynamic_name_index(table: DynamicTable, name: String, index: Int) -> Option<Int>
+	match http2::hpack::dynamic_table::lookup(table, index)
+		None => None
+		Some(entry) => if http2::hpack::dynamic_table::entry_name(entry) == name
+			Some(index + 61)
+		else
+			dynamic_name_index(table, name, index + 1)
+		end
+	end
+end
+
+fn static_exact_index(name: String, value: ByteChunk, index: Int) -> Result<Option<Int>, String>
+	match http2::hpack::static_table::lookup(index)
+		None => Ok(None)
+		Some(entry) => if entry.name == name and octets_equal(static_value_bytes(entry.value)?, value)?
+			Ok(Some(index))
+		else
+			static_exact_index(name, value, index + 1)
+		end
+	end
+end
+
+fn indexed_name(index: Int, table: DynamicTable) -> Result<String, HeaderEncodeCodecFailure>
+	if index == 0
+		Err(HeaderEncodeZeroIndex)
+	else if index <= 61
+		match http2::hpack::static_table::lookup(index)
+			Some(entry) => Ok(entry.name)
+			None => Err(HeaderEncodeUnavailableStaticIndex(index))
+		end
+	else
+		indexed_dynamic_name(index, table, index - 61)
+	end
+end
+
+fn indexed_dynamic_name(index: Int, table: DynamicTable, dynamic_index: Int) -> Result<String, HeaderEncodeCodecFailure>
+	match http2::hpack::dynamic_table::lookup(table, dynamic_index)
+		Some(entry) => Ok(http2::hpack::dynamic_table::entry_name(entry))
+		None => Err(HeaderEncodeUnavailableDynamicIndex(index, dynamic_index, http2::hpack::dynamic_table::entry_count(table)))
+	end
+end
+
+fn indexed_field_matches(index: Int, name: String, value: ByteChunk, table: DynamicTable) -> Result<Bool, HeaderEncodeCodecFailure>
+	if indexed_name(index, table)? != name
+		Ok(false)
+	else if index <= 61
+		match http2::hpack::static_table::lookup(index)
+			None => Ok(false)
+			Some(entry) => match static_value_bytes(entry.value)
+				Err(_) => Err(HeaderEncodeIndexedFieldMismatch(index))
+				Ok(static_value) => match octets_equal(static_value, value)
+					Ok(equal) => Ok(equal)
+					Err(_) => Err(HeaderEncodeIndexedFieldMismatch(index))
+				end
+			end
+		end
+	else
+		match http2::hpack::dynamic_table::lookup(table, index - 61)
+			None => Ok(false)
+			Some(entry) => match octets_equal(http2::hpack::dynamic_table::entry_value(entry), value)
+				Ok(equal) => Ok(equal)
+				Err(_) => Err(HeaderEncodeIndexedFieldMismatch(index))
+			end
+		end
+	end
+end
+
+fn encode_integer(value: Int, prefix_bits: Int, representation_bits: Int) -> Result<ByteChunk, HeaderEncodeCodecFailure>
+	match http2::hpack::integer::encode_prefixed(value, prefix_bits, representation_bits)
+		Ok(encoded) => Ok(encoded)
+		Err(_) => Err(HeaderEncodeIntegerFailure)
+	end
+end
+
+fn encode_string(value: ByteChunk, huffman: Bool) -> Result<ByteChunk, HeaderEncodeCodecFailure>
+	let encoded: Result<ByteChunk, String> = if huffman
+		http2::hpack::string_encoder::huffman(value)
+	else
+		http2::hpack::string_encoder::raw(value)
+	end
+	match encoded
+		Ok(bytes) => Ok(bytes)
+		Err(_) => Err(HeaderEncodeStringFailure)
+	end
+end
+
+fn encode_automatic_string(value: ByteChunk) -> Result<ByteChunk, HeaderEncodeCodecFailure>
+	match http2::hpack::string_encoder::automatic(value)
+		Ok(bytes) => Ok(bytes)
+		Err(_) => Err(HeaderEncodeStringFailure)
+	end
+end
+
+fn representation_prefix(representation: Int) -> Result<{ bits : Int, base : Int }, HeaderEncodeCodecFailure>
+	match representation
+		0 => Ok({ bits: 6, base: 64 })
+		1 => Ok({ bits: 4, base: 0 })
+		2 => Ok({ bits: 4, base: 16 })
+		_ => Err(HeaderEncodeInvalidRepresentation)
+	end
+end
+
+fn next_literal_table(table: DynamicTable, representation: Int, name: String, value: ByteChunk) -> Result<DynamicTable, HeaderEncodeCodecFailure>
+	if representation == 0
+		match http2::hpack::dynamic_table::insert(table, name, value)
+			Ok(next) => Ok(next)
+			Err(_) => Err(HeaderEncodeTableFailure)
+		end
+	else
+		Ok(table)
+	end
+end
+
+pub fn encode_indexed(index: Int, name: String, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
+	let checked_name: ByteChunk = checked_name_bytes(name)?
+	if indexed_field_matches(index, name, value, table)?
+		Ok(HeaderEncodeCodecTransition(encode_integer(index, 7, 128)?, table))
+	else
+		Err(HeaderEncodeIndexedFieldMismatch(index))
+	end
+end
+
+pub fn encode_literal(name: String, value: ByteChunk, representation: Int, name_index: Int, huffman_name: Bool, huffman_value: Bool, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
+	let name_bytes: ByteChunk = checked_name_bytes(name)?
+	let prefix: { bits : Int, base : Int } = representation_prefix(representation)?
+	let encoded_prefix: ByteChunk = encode_literal_prefix(name, name_index, table, prefix)?
+	let encoded_name: ByteChunk = if name_index == 0
+		encode_string(name_bytes, huffman_name)?
+	else
+		byte_chunk([])
+	end
+	let encoded_value: ByteChunk = encode_string(value, huffman_value)?
+	let next_table: DynamicTable = next_literal_table(table, representation, name, value)?
+	Ok(HeaderEncodeCodecTransition(byte_append(byte_append(encoded_prefix, encoded_name), encoded_value), next_table))
+end
+
+fn encode_literal_prefix(name: String, name_index: Int, table: DynamicTable, prefix: { bits : Int, base : Int }) -> Result<ByteChunk, HeaderEncodeCodecFailure>
+	if name_index == 0
+		encode_integer(0, prefix.bits, prefix.base)
+	else if indexed_name(name_index, table)? == name
+		encode_integer(name_index, prefix.bits, prefix.base)
+	else
+		Err(HeaderEncodeIndexedFieldMismatch(name_index))
+	end
+end
+
+fn automatic_literal(name: String, name_bytes: ByteChunk, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
+	let name_index: Int = match http2::hpack::static_table::name_index(name)
+		Some(index) => index
+		None => match dynamic_name_index(table, name, 1)
+			Some(index) => index
+			None => 0
+		end
+	end
+	let prefix: ByteChunk = encode_integer(name_index, 6, 64)?
+	let encoded_name: ByteChunk = if name_index == 0
+		encode_automatic_string(name_bytes)?
+	else
+		byte_chunk([])
+	end
+	let encoded_value: ByteChunk = encode_automatic_string(value)?
+	let next_table: DynamicTable = next_literal_table(table, 0, name, value)?
+	Ok(HeaderEncodeCodecTransition(byte_append(byte_append(prefix, encoded_name), encoded_value), next_table))
+end
+
+pub fn encode_automatic(name: String, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
+	let name_bytes: ByteChunk = checked_name_bytes(name)?
+	match static_exact_index(name, value, 1)
+		Err(_) => Err(HeaderEncodeStringFailure)
+		Ok(Some(index)) => encode_indexed(index, name, value, table)
+		Ok(None) => match dynamic_exact_index(table, name, value, 1)
+			Err(_) => Err(HeaderEncodeStringFailure)
+			Ok(Some(index)) => encode_indexed(index, name, value, table)
+			Ok(None) => automatic_literal(name, name_bytes, value, table)
+		end
+	end
+end
+
+pub fn transition_bytes(transition: HeaderEncodeCodecTransition) -> ByteChunk
+	match transition
+		HeaderEncodeCodecTransition(bytes, _) => bytes
+	end
+end
+
+pub fn transition_table(transition: HeaderEncodeCodecTransition) -> DynamicTable
+	match transition
+		HeaderEncodeCodecTransition(_, table) => table
+	end
+end
+
+pub fn failure_kind(failure: HeaderEncodeCodecFailure) -> Int
+	match failure
+		HeaderEncodeInvalidRepresentation => 0
+		HeaderEncodeInvalidName => 1
+		HeaderEncodeZeroIndex => 2
+		HeaderEncodeUnavailableStaticIndex(_) => 3
+		HeaderEncodeUnavailableDynamicIndex(_, _, _) => 4
+		HeaderEncodeIndexedFieldMismatch(_) => 5
+		HeaderEncodeIntegerFailure => 6
+		HeaderEncodeStringFailure => 7
+		HeaderEncodeTableFailure => 8
+	end
+end
+
+pub fn failure_index(failure: HeaderEncodeCodecFailure) -> Int
+	match failure
+		HeaderEncodeUnavailableStaticIndex(index) => index
+		HeaderEncodeUnavailableDynamicIndex(index, _, _) => index
+		HeaderEncodeIndexedFieldMismatch(index) => index
+		_ => 0
+	end
+end
+
+pub fn failure_dynamic_index(failure: HeaderEncodeCodecFailure) -> Int
+	match failure
+		HeaderEncodeUnavailableDynamicIndex(_, index, _) => index
+		_ => 0
+	end
+end
+
+pub fn failure_entry_count(failure: HeaderEncodeCodecFailure) -> Int
+	match failure
+		HeaderEncodeUnavailableDynamicIndex(_, _, count) => count
+		_ => 0
+	end
+end

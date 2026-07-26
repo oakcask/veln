@@ -1,0 +1,124 @@
+use http2::hpack from "std"
+use stdio
+
+fn require_encode(headers: HeaderList, table: DynamicTable, active_capacity: Int) -> Result<HeaderBlockEncodeTransition, String>
+	match http2::hpack::encode_header_block(headers, table, active_capacity)
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::header_block_encode_failure_kind(failure))
+	end
+end
+
+fn require_decode(bytes: ByteChunk, table: DynamicTable, active_capacity: Int) -> Result<HeaderBlockDecodeTransition, String>
+	match http2::hpack::decode_header_block(byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))?, table, active_capacity)
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::header_block_failure_kind(failure))
+	end
+end
+
+fn require_header(headers: HeaderList, index: Int) -> Result<HeaderField, String>
+	match http2::hpack::header_list_at(headers, index)
+		Some(header) => Ok(header)
+		None => Err("expected HPACK header")
+	end
+end
+
+fn octet_at(bytes: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(bytes, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn print_octets(bytes: ByteChunk, index: Int, count: Int) -> Result<(), String> effects [stdio]
+	if index == count
+		print_octets_done()
+	else
+		print_octet(bytes, index, count)
+	end
+end
+
+fn print_octets_done() -> Result<(), String> effects [stdio]
+	stdio::println("")
+	Ok(())
+end
+
+fn print_octet(bytes: ByteChunk, index: Int, count: Int) -> Result<(), String> effects [stdio]
+	print_separator(index)
+	stdio::print(int_to_string(octet_at(bytes, index)?))
+	print_octets(bytes, index + 1, count)
+end
+
+fn print_separator(index: Int) -> () effects [stdio]
+	if index > 0
+		stdio::print(" ")
+	else
+		()
+	end
+end
+
+fn print_chunk(label: String, bytes: ByteChunk) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	print_octets(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+end
+
+fn print_header(headers: HeaderList, index: Int) -> Result<(), String> effects [stdio]
+	let header: HeaderField = require_header(headers, index)?
+	stdio::print("header ")
+	stdio::print(http2::hpack::header_field_name(header))
+	stdio::print(" ")
+	print_octets(http2::hpack::header_field_value(header), 0, byte_count_to_int(byte_chunk_count(http2::hpack::header_field_value(header))))
+end
+
+fn require_dynamic_entry(table: DynamicTable, index: Int) -> Result<DynamicEntry, String>
+	match http2::hpack::dynamic_table_entry(table, index)
+		Some(entry) => Ok(entry)
+		None => Err("expected HPACK dynamic entry")
+	end
+end
+
+fn field_failure_kind(headers: HeaderList, table: DynamicTable) -> String
+	match http2::hpack::encode_header_block(headers, table, 256)
+		Ok(_) => "unexpected_success"
+		Err(failure) => match http2::hpack::header_block_encode_header_failure(failure)
+			Some(header_failure) => http2::hpack::header_encode_failure_kind(header_failure)
+			None => http2::hpack::header_block_encode_failure_kind(failure)
+		end
+	end
+end
+
+fn capacity_failure_kind(table: DynamicTable) -> String
+	match http2::hpack::encode_header_block(http2::hpack::empty_header_list(), table, -1)
+		Ok(_) => "unexpected_success"
+		Err(failure) => http2::hpack::header_block_encode_failure_kind(failure)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
+	let headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::empty_header_list())))
+	let encoded: HeaderBlockEncodeTransition = require_encode(headers, table, 256)?
+	let bytes: ByteChunk = http2::hpack::header_block_encode_bytes(encoded)
+	let _ = print_chunk("bytes", bytes)?
+	let decoded: HeaderBlockDecodeTransition = require_decode(bytes, table, 256)?
+	let decoded_headers: HeaderList = http2::hpack::header_block_headers(decoded)
+	stdio::print("decoded ")
+	stdio::println(int_to_string(http2::hpack::header_list_count(decoded_headers)))
+	let _ = print_header(decoded_headers, 0)?
+	let _ = print_header(decoded_headers, 1)?
+	let _ = print_header(decoded_headers, 2)?
+	let next_table: DynamicTable = http2::hpack::header_block_encode_table(encoded)
+	stdio::print("table ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_capacity(next_table)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_size(next_table)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(next_table)))
+	let newest: DynamicEntry = require_dynamic_entry(next_table, 1)?
+	stdio::print("newest ")
+	stdio::print(http2::hpack::dynamic_entry_name(newest))
+	stdio::print(" ")
+	let newest_value: ByteChunk = http2::hpack::dynamic_entry_value(newest)
+	let _ = print_octets(newest_value, 0, byte_count_to_int(byte_chunk_count(newest_value)))?
+	let invalid: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field("Bad", byte_chunk([])), http2::hpack::empty_header_list())
+	stdio::println(field_failure_kind(invalid, table))
+	stdio::println(capacity_failure_kind(table))
+	Ok(())
+end

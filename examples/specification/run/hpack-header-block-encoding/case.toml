@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "bytes 130 64 1 120 2 0 255 190\ndecoded 3\nheader :method 71 69 84\nheader x 0 255\nheader x 0 255\ntable 256 35 1\nnewest x 0 255\ninvalid_name\nactive_capacity\n"
+
+[[json_assert]]
+path = "error"
+equals = null

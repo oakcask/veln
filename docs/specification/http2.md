@@ -17,8 +17,8 @@ The public routes are:
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
-  immutable dynamic-table state, table-size updates, and indexed and literal
-  header-field and complete header-block decoding.
+  immutable dynamic-table state, table-size updates, indexed and literal
+  header-field encoding, and complete header-block encoding and decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -82,6 +82,50 @@ focused
 [`hpack-dynamic-table-state`](../../examples/specification/run/hpack-dynamic-table-state/)
 case checks the same facade from an external package and records its projected
 state and octet values through command output.
+
+`header_field(name, value)`, `empty_header_list()`, and
+`prepend_header_field(header, remaining)` construct an ordered encode input
+while preserving every value as an exact `ByteChunk`.
+`encode_indexed_header_field(header, index, table)` validates that the selected
+static or newest-first dynamic entry exactly matches the field before emitting
+the full seven-bit-prefixed indexed representation.
+`encode_literal_header_field(header, representation, name_index,
+huffman_name, huffman_value, table)` emits one explicitly selected literal.
+Representation `0` means incremental indexing, `1` means without indexing, and
+`2` means never indexed. Name index zero emits the direct name; other indices
+must resolve to the field's exact static or dynamic name. The two Boolean
+selectors independently choose raw or HPACK Huffman encoding for a direct name
+and the value.
+
+`encode_header_block(headers, table, active_capacity)` recursively encodes any
+finite `HeaderList` in order. Its deterministic policy uses an exact static
+entry first, then an exact dynamic entry; otherwise it emits an
+incrementally-indexed literal with a static name, dynamic name, or direct name
+in that order. Each string uses Huffman only when the complete Huffman literal
+is shorter than its raw literal, so ties remain raw. A successful insertion is
+available to later fields in the same block. When the supplied table capacity
+exceeds `active_capacity`, the block starts with the required table-size update
+and applies immutable oldest-first eviction before encoding fields.
+
+Header encode transitions expose only complete bytes and the next immutable
+table. Typed failures distinguish invalid representations or names, zero and
+unavailable indices, indexed-field mismatches, integer or string encoding, and
+table transitions. Block failures add the zero-based field position and active
+capacity selection. A failure exposes no partial bytes or next state and
+leaves the input list and table unchanged. Invalid representations and names,
+zero indices, unavailable static and dynamic indices, indexed-field
+mismatches, invalid active capacity, and nested field failures are reachable
+through public encoder calls. The integer, string, and table failure variants
+are defensive mappings for private codec failures that valid public values
+cannot produce. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks exact static and multi-octet dynamic bytes, the complete literal-form by
+name-source matrix, raw and Huffman strings, empty and non-visible values,
+in-block reuse, capacity eviction, list boundaries, decode-after-encode
+behavior, every reachable failure, and input preservation. The focused
+[`hpack-header-block-encoding`](../../examples/specification/run/hpack-header-block-encoding/)
+case records public encoded bytes, ordered decoded values, next-state
+projections, and representative typed failures.
 
 `http2::hpack::decode_table_size_update(input, table, peer_maximum)` decodes
 one `001xxxxx` dynamic table-size update with the five-bit-prefixed integer
