@@ -24,11 +24,13 @@ the public facade and cannot be imported from the `std` package.
 
 ## Prefixed-Integer Fixture Retirement
 
-The adjacent `http2/hpack_test.veln` coverage replaces the focused fixture's
-pure indexed-prefix, table-size-prefix, literal-length-prefix, unterminated
-continuation, and three encoding assertions. It retains the exact indexed,
-table-size, and literal-length vectors beside the public codec tests. Their
-shared invariant is that one public finite codec preserves representation bits
-and round-trips every supported prefix width while rejecting incomplete or
-out-of-range continuations. Header-codec helpers remain in the fixture until
-their stateful callers move.
+The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+coverage replaces the focused fixture's pure indexed-prefix,
+table-size-prefix, literal-length-prefix, unterminated continuation, and three
+encoding assertions. It retains the exact indexed, table-size, and
+literal-length vectors beside the public codec tests. Their shared invariant
+is that one public finite codec preserves representation bits and round-trips
+every supported prefix width while rejecting incomplete or out-of-range
+continuations. Header-codec helpers remain in the fixture until their stateful
+callers move.
