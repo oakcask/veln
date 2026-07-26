@@ -509,3 +509,88 @@ test pending_header_block_failures_preserve_diagnostic_input() -> Result<(), Str
 		Err("CONTINUATION failure did not preserve diagnostic input or pending state")
 	end
 end
+
+test settings_ack_state_starts_empty() -> Result<(), String>
+	let state: SettingsAckState = http2::core::empty_settings_ack_state()
+	if http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(state)) == "none" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(state)) == 0 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(state)) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(state)) == 0 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(state)) == "none"
+		Ok(())
+	else
+		Err("SETTINGS ACK state did not start empty")
+	end
+end
+
+test settings_ack_accepts_local_batches_fifo() -> Result<(), String>
+	let initial: SettingsAckState = http2::core::empty_settings_ack_state()
+	let first: SettingsAckState = http2::core::record_local_settings_batch(initial, 5, 1)
+	let second: SettingsAckState = http2::core::record_local_settings_batch(first, 4, 2)
+	let preview: ByteView = byte_view(byte_chunk_from_hex("000000040100000000")?, byte_offset(0)?, byte_count(9)?)?
+	let acknowledged_first: SettingsAckState = match http2::core::accept_settings_ack(second, 17, preview)
+		Ok(state) => state
+		Err(_) => Err("first SETTINGS ACK was rejected")?
+	end
+	let acknowledged_second: SettingsAckState = match http2::core::accept_settings_ack(acknowledged_first, 26, preview)
+		Ok(state) => state
+		Err(_) => Err("second SETTINGS ACK was rejected")?
+	end
+	if http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(second)) == 5 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(second)) == 1 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(second)) == 2 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(acknowledged_first)) == 4 and http2::core::outstanding_settings_count(http2::core::settings_ack_outstanding(acknowledged_first)) == 2 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(acknowledged_first)) == 1 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(acknowledged_second)) == "none"
+		Ok(())
+	else
+		Err("SETTINGS ACK did not remove outstanding local batches in FIFO order")
+	end
+end
+
+test settings_ack_unexpected_failure_preserves_context() -> Result<(), String>
+	let state: SettingsAckState = http2::core::empty_settings_ack_state()
+	let preview_chunk: ByteChunk = byte_chunk_from_hex("000000040100000000")?
+	let preview: ByteView = byte_view(preview_chunk, byte_offset(0)?, byte_count(9)?)?
+	match http2::core::accept_settings_ack(state, 41, preview)
+		Ok(_) => Err("unexpected SETTINGS ACK exposed a next state")
+		Err(failure) => if http2::core::settings_ack_failure_id(failure) == "http2.protocol.unexpected_settings_ack" and http2::core::settings_ack_failure_offset(failure) == 41 and http2::core::settings_ack_failure_active_state(failure) == "connection-control" and http2::core::settings_ack_failure_rule_provenance(failure) == "rfc9113_settings_ack_requires_outstanding_local_settings" and chunks_equal(byte_view_to_chunk(http2::core::settings_ack_failure_preview(failure)), preview_chunk)? and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(state)) == "none" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(state)) == "none" and chunks_equal(preview_chunk, byte_chunk_from_hex("000000040100000000")?)?
+			Ok(())
+		else
+			Err("unexpected SETTINGS ACK failure lost diagnostic context or changed input")
+		end
+	end
+end
+
+test settings_ack_keeps_local_and_peer_ack_state_independent() -> Result<(), String>
+	let with_local: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 5, 1)
+	let with_both: SettingsAckState = http2::core::settings_ack_after_peer_frame(with_local, 4, 0, 6)
+	let preview: ByteView = byte_view(byte_chunk_from_hex("000000040100000000")?, byte_offset(0)?, byte_count(9)?)?
+	let after_local_ack: SettingsAckState = match http2::core::accept_settings_ack(with_both, 17, preview)
+		Ok(state) => state
+		Err(_) => Err("SETTINGS ACK unexpectedly failed")?
+	end
+	let sent: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(after_local_ack)
+	let after_peer_ack: SettingsAckState = http2::core::pending_settings_ack_send_state(sent)
+	if http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(with_both)) == "active" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(with_both)) == "active" and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(after_local_ack)) == "none" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(after_local_ack)) == "active" and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(after_peer_ack)) == "none" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(after_peer_ack)) == "none"
+		Ok(())
+	else
+		Err("SETTINGS ACK state did not keep local and peer ACK directions independent")
+	end
+end
+
+test settings_ack_peer_ack_coalesces_and_no_pending_preserves_state() -> Result<(), String>
+	let initial: SettingsAckState = http2::core::empty_settings_ack_state()
+	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(initial)
+	let first: SettingsAckState = http2::core::settings_ack_after_peer_frame(initial, 4, 0, 6)
+	let second: SettingsAckState = http2::core::settings_ack_after_peer_frame(first, 4, 0, 12)
+	let ignored_ack_frame: SettingsAckState = http2::core::settings_ack_after_peer_frame(second, 4, 1, 0)
+	if http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(http2::core::pending_settings_ack_send_state(no_pending))) == "none" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(first)) == "active" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(second)) == "active" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(ignored_ack_frame)) == "active"
+		Ok(())
+	else
+		Err("peer SETTINGS ACK state did not coalesce or preserve no-pending input")
+	end
+end
+
+test settings_ack_peer_ack_send_emits_exact_bytes_and_clears_only_pending() -> Result<(), String>
+	let outstanding: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 3, 1)
+	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(outstanding, 4, 0, 6)
+	let decision: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(pending)
+	let next: SettingsAckState = http2::core::pending_settings_ack_send_state(decision)
+	if http2::core::pending_settings_ack_send_status(decision) == "accepted" and chunks_equal(http2::core::pending_settings_ack_send_bytes(decision), byte_chunk_from_hex("000000040100000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(next)) == 3 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(next)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(next)) == "none" and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(pending)) == "active"
+		Ok(())
+	else
+		Err("peer SETTINGS ACK send did not emit exact bytes or preserve local state")
+	end
+end

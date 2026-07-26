@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "empty outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none\nfifo-before outstanding active identifier 5 item_count 1 batch_count 2 peer_ack none\nfifo-after-one outstanding active identifier 4 item_count 2 batch_count 1 peer_ack none\nfifo-after-two outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none\nunexpected failure http2.protocol.unexpected_settings_ack offset 41 active_state connection-control rule rfc9113_settings_ack_requires_outstanding_local_settings\nindependent-before outstanding active identifier 5 item_count 1 batch_count 1 peer_ack active\nindependent-after-local outstanding none identifier 0 item_count 0 batch_count 0 peer_ack active\npeer-ack-send send accepted pending none\noutput_chunk_list peer-ack-send count 1\noutput_chunk peer-ack-send index 0 hex \"000000040100000000\" count 9\nindependent-after-send outstanding none identifier 0 item_count 0 batch_count 0 peer_ack none\npeer-ack-none send no_pending pending none\noutput_chunk_list peer-ack-none count 0\ncoalesced outstanding none identifier 0 item_count 0 batch_count 0 peer_ack active\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "peer-ack-send"
+chunks = ["000000040100000000"]

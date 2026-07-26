@@ -1,0 +1,238 @@
+use prelude
+use http2::frame
+
+pub type SettingsAckBatch
+	SettingsAckBatch(first_identifier: Int, item_count: Int)
+end
+
+pub type OutstandingLocalSettings
+	NoOutstandingLocalSettings
+	OutstandingLocalSettings(List<SettingsAckBatch>)
+end
+
+pub type PendingPeerSettingsAck
+	NoPendingPeerSettingsAck
+	PendingPeerSettingsAck
+end
+
+pub type SettingsAckState
+	SettingsAckState(OutstandingLocalSettings, PendingPeerSettingsAck)
+end
+
+pub type SettingsAckFailure
+	UnexpectedSettingsAck(offset: Int, active_state: String, rule_provenance: String, preview: ByteView)
+end
+
+pub type PeerSettingsAckSendDecision
+	PeerSettingsAckSent(SettingsAckState, ByteChunk)
+	PeerSettingsAckNoPending(SettingsAckState)
+	PeerSettingsAckEncodeFailed(SettingsAckState, String)
+end
+
+pub fn empty() -> SettingsAckState
+	SettingsAckState(NoOutstandingLocalSettings, NoPendingPeerSettingsAck)
+end
+
+pub fn with_parts(outstanding: OutstandingLocalSettings, pending_ack: PendingPeerSettingsAck) -> SettingsAckState
+	SettingsAckState(outstanding, pending_ack)
+end
+
+pub fn outstanding(state: SettingsAckState) -> OutstandingLocalSettings
+	match state
+		SettingsAckState(outstanding_settings, _) => outstanding_settings
+	end
+end
+
+pub fn pending_peer_ack(state: SettingsAckState) -> PendingPeerSettingsAck
+	match state
+		SettingsAckState(_, pending_ack) => pending_ack
+	end
+end
+
+pub fn record_local_batch(state: SettingsAckState, first_identifier: Int, item_count: Int) -> SettingsAckState
+	match state
+		SettingsAckState(outstanding_settings, pending_ack) => SettingsAckState(add_outstanding(outstanding_settings, first_identifier, item_count), pending_ack)
+	end
+end
+
+pub fn accept_peer_ack(state: SettingsAckState, offset: Int, preview: ByteView) -> Result<SettingsAckState, SettingsAckFailure>
+	match state
+		SettingsAckState(outstanding_settings, pending_ack) => match outstanding_settings
+			NoOutstandingLocalSettings => Err(unexpected_ack(offset, preview))
+			OutstandingLocalSettings(Nil) => Err(unexpected_ack(offset, preview))
+			OutstandingLocalSettings(_) => Ok(SettingsAckState(acknowledge_outstanding(outstanding_settings), pending_ack))
+		end
+	end
+end
+
+pub fn after_peer_frame(state: SettingsAckState, kind: Int, flags: Int, length: Int) -> SettingsAckState
+	if kind == 4 and not ack_set(flags) and length > 0
+		match state
+			SettingsAckState(outstanding_settings, _) => SettingsAckState(outstanding_settings, PendingPeerSettingsAck)
+		end
+	else
+		state
+	end
+end
+
+pub fn is_settings_ack_frame(kind: Int, flags: Int) -> Bool
+	match kind
+		4 => ack_set(flags)
+		_ => false
+	end
+end
+
+pub fn send_pending_peer_ack(state: SettingsAckState) -> PeerSettingsAckSendDecision
+	match state
+		SettingsAckState(_, NoPendingPeerSettingsAck) => PeerSettingsAckNoPending(state)
+		SettingsAckState(outstanding_settings, PendingPeerSettingsAck) => match http2::frame::encode_header(0, 4, 1, 0)
+			Ok(header) => PeerSettingsAckSent(SettingsAckState(outstanding_settings, NoPendingPeerSettingsAck), header)
+			Err(reason) => PeerSettingsAckEncodeFailed(state, reason)
+		end
+	end
+end
+
+pub fn outstanding_label(outstanding_settings: OutstandingLocalSettings) -> String
+	match outstanding_settings
+		NoOutstandingLocalSettings => "none"
+		OutstandingLocalSettings(Nil) => "none"
+		OutstandingLocalSettings(_) => "active"
+	end
+end
+
+pub fn outstanding_first_identifier(outstanding_settings: OutstandingLocalSettings) -> Int
+	match outstanding_settings
+		NoOutstandingLocalSettings => 0
+		OutstandingLocalSettings(batches) => match batches
+			Nil => 0
+			Cons(SettingsAckBatch(identifier, _), _) => identifier
+		end
+	end
+end
+
+pub fn outstanding_first_count(outstanding_settings: OutstandingLocalSettings) -> Int
+	match outstanding_settings
+		NoOutstandingLocalSettings => 0
+		OutstandingLocalSettings(batches) => match batches
+			Nil => 0
+			Cons(SettingsAckBatch(_, count), _) => count
+		end
+	end
+end
+
+pub fn outstanding_batch_count(outstanding_settings: OutstandingLocalSettings) -> Int
+	match outstanding_settings
+		NoOutstandingLocalSettings => 0
+		OutstandingLocalSettings(batches) => batch_count(batches)
+	end
+end
+
+pub fn pending_peer_ack_label(pending_ack: PendingPeerSettingsAck) -> String
+	match pending_ack
+		NoPendingPeerSettingsAck => "none"
+		PendingPeerSettingsAck => "active"
+	end
+end
+
+pub fn failure_id(failure: SettingsAckFailure) -> String
+	match failure
+		UnexpectedSettingsAck(_, _, _, _) => "http2.protocol.unexpected_settings_ack"
+	end
+end
+
+pub fn failure_offset(failure: SettingsAckFailure) -> Int
+	match failure
+		UnexpectedSettingsAck(offset, _, _, _) => offset
+	end
+end
+
+pub fn failure_active_state(failure: SettingsAckFailure) -> String
+	match failure
+		UnexpectedSettingsAck(_, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: SettingsAckFailure) -> String
+	match failure
+		UnexpectedSettingsAck(_, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: SettingsAckFailure) -> ByteView
+	match failure
+		UnexpectedSettingsAck(_, _, _, preview) => preview
+	end
+end
+
+pub fn send_status(decision: PeerSettingsAckSendDecision) -> String
+	match decision
+		PeerSettingsAckSent(_, _) => "accepted"
+		PeerSettingsAckNoPending(_) => "no_pending"
+		PeerSettingsAckEncodeFailed(_, _) => "encode_error"
+	end
+end
+
+pub fn send_state(decision: PeerSettingsAckSendDecision) -> SettingsAckState
+	match decision
+		PeerSettingsAckSent(state, _) => state
+		PeerSettingsAckNoPending(state) => state
+		PeerSettingsAckEncodeFailed(state, _) => state
+	end
+end
+
+pub fn send_bytes(decision: PeerSettingsAckSendDecision) -> ByteChunk
+	match decision
+		PeerSettingsAckSent(_, bytes) => bytes
+		PeerSettingsAckNoPending(_) => byte_chunk([])
+		PeerSettingsAckEncodeFailed(_, _) => byte_chunk([])
+	end
+end
+
+pub fn send_encode_reason(decision: PeerSettingsAckSendDecision) -> String
+	match decision
+		PeerSettingsAckSent(_, _) => "none"
+		PeerSettingsAckNoPending(_) => "none"
+		PeerSettingsAckEncodeFailed(_, reason) => reason
+	end
+end
+
+fn add_outstanding(outstanding_settings: OutstandingLocalSettings, first_identifier: Int, item_count: Int) -> OutstandingLocalSettings
+	let batch: SettingsAckBatch = SettingsAckBatch(first_identifier, item_count)
+	match outstanding_settings
+		NoOutstandingLocalSettings => OutstandingLocalSettings(Cons(batch, Nil))
+		OutstandingLocalSettings(batches) => OutstandingLocalSettings(append_batch(batches, batch))
+	end
+end
+
+fn append_batch(batches: List<SettingsAckBatch>, batch: SettingsAckBatch) -> List<SettingsAckBatch>
+	match batches
+		Nil => Cons(batch, Nil)
+		Cons(head, tail) => Cons(head, append_batch(tail, batch))
+	end
+end
+
+fn acknowledge_outstanding(outstanding_settings: OutstandingLocalSettings) -> OutstandingLocalSettings
+	match outstanding_settings
+		NoOutstandingLocalSettings => NoOutstandingLocalSettings
+		OutstandingLocalSettings(batches) => match batches
+			Nil => NoOutstandingLocalSettings
+			Cons(_, Nil) => NoOutstandingLocalSettings
+			Cons(_, tail) => OutstandingLocalSettings(tail)
+		end
+	end
+end
+
+fn batch_count(batches: List<SettingsAckBatch>) -> Int
+	match batches
+		Nil => 0
+		Cons(_, tail) => 1 + batch_count(tail)
+	end
+end
+
+fn unexpected_ack(offset: Int, preview: ByteView) -> SettingsAckFailure
+	UnexpectedSettingsAck(offset, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings", preview)
+end
+
+fn ack_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
