@@ -1,0 +1,115 @@
+use http2::core from "std"
+use stdio
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_request(label: String, decision: PingRequestDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" request ")
+	stdio::print(http2::core::ping_request_status(decision))
+	stdio::print(" reason ")
+	stdio::print(http2::core::ping_request_reason(decision))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::ping_request_payload_length(decision)))
+	stdio::print(" expected ")
+	stdio::println(int_to_string(http2::core::ping_request_expected_payload_length(decision)))
+	match http2::core::ping_request_status(decision)
+		"accepted" => print_chunk(label, http2::core::ping_request_bytes(decision), "0000080600000000000102030405060708")
+		_ => Ok(print_empty(label))
+	end
+end
+
+fn print_response(label: String, decision: PingResponseDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" response ")
+	stdio::print(http2::core::ping_response_status(decision))
+	stdio::print(" reason ")
+	stdio::println(http2::core::ping_response_reason(decision))
+	match http2::core::ping_response_status(decision)
+		"accepted" => print_chunk(label, http2::core::ping_response_bytes(decision), "0000080601000000000102030405060708")
+		_ => Ok(print_empty(label))
+	end
+end
+
+fn print_failure(label: String, decision: PingRequestDecision) -> Result<(), String> effects [stdio]
+	let failure: FramePayloadLengthFailure = http2::core::ping_request_failure(decision)?
+	stdio::print(label)
+	stdio::print(" failure kind ")
+	stdio::print(int_to_string(http2::core::frame_payload_length_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::frame_payload_length_failure_stream_id(failure)))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::frame_payload_length_failure_observed_length(failure)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::frame_payload_length_failure_expected_length(failure)))
+	stdio::print(" active_state ")
+	stdio::print(http2::core::frame_payload_length_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::println(http2::core::frame_payload_length_failure_rule_provenance(failure))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let payload: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	let request: PingRequestDecision = http2::core::send_ping(payload)
+	let _ = print_request("ping-request", request)?
+
+	let short: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("01020304050607")?)
+	let _ = print_request("ping-request-short", short)?
+	let _ = print_failure("ping-request-short", short)?
+
+	let response: PingResponseDecision = http2::core::respond_to_ping(0, payload)
+	let _ = print_response("ping-ack", response)?
+
+	let no_response: PingResponseDecision = http2::core::respond_to_ping(1, payload)
+	let _ = print_response("ping-ack-received", no_response)?
+	Ok(())
+end

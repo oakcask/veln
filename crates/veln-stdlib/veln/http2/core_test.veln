@@ -92,6 +92,10 @@ fn require_initial_settings_transition(result: Result<InitialPeerSettingsTransit
 	end
 end
 
+fn require_ping_request_failure(decision: PingRequestDecision) -> Result<FramePayloadLengthFailure, String>
+	http2::core::ping_request_failure(decision)
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -234,6 +238,60 @@ test frame_payload_length_failure_preserves_exact_preview_without_output() -> Re
 		else
 			Err("payload length failure lost data or changed caller input")
 		end
+	end
+end
+
+test ping_request_accepts_exact_payload_bytes() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	let decision: PingRequestDecision = http2::core::send_ping(payload)
+	if http2::core::ping_request_status(decision) == "accepted" and http2::core::ping_request_payload_length(decision) == 8 and http2::core::ping_request_expected_payload_length(decision) == 8 and chunks_equal(http2::core::ping_request_bytes(decision), byte_chunk_from_hex("0000080600000000000102030405060708")?)? and chunks_equal(payload, byte_chunk_from_hex("0102030405060708")?)?
+		Ok(())
+	else
+		Err("PING request did not emit exact frame bytes")
+	end
+end
+
+test ping_request_rejects_seven_and_nine_octets_without_output() -> Result<(), String>
+	let short_payload: ByteChunk = byte_chunk_from_hex("01020304050607")?
+	let long_payload: ByteChunk = byte_chunk_from_hex("010203040506070809")?
+	let short: PingRequestDecision = http2::core::send_ping(short_payload)
+	let long: PingRequestDecision = http2::core::send_ping(long_payload)
+	if http2::core::ping_request_status(short) == "rejected" and http2::core::ping_request_payload_length(short) == 7 and http2::core::ping_request_expected_payload_length(short) == 8 and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(short))) == 0 and http2::core::ping_request_status(long) == "rejected" and http2::core::ping_request_payload_length(long) == 9 and http2::core::ping_request_expected_payload_length(long) == 8 and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(long))) == 0
+		Ok(())
+	else
+		Err("PING request rejection did not preserve focused length failure and empty output")
+	end
+end
+
+test ping_request_failure_preserves_input_and_failure_preview() -> Result<(), String>
+	let short_payload: ByteChunk = byte_chunk_from_hex("01020304050607")?
+	let long_payload: ByteChunk = byte_chunk_from_hex("010203040506070809")?
+	let short_failure: FramePayloadLengthFailure = require_ping_request_failure(http2::core::send_ping(short_payload))?
+	let long_failure: FramePayloadLengthFailure = require_ping_request_failure(http2::core::send_ping(long_payload))?
+	if http2::core::frame_payload_length_failure_frame_kind(short_failure) == 6 and http2::core::frame_payload_length_failure_stream_id(short_failure) == 0 and http2::core::frame_payload_length_failure_observed_length(short_failure) == 7 and http2::core::frame_payload_length_failure_expected_length(short_failure) == 8 and http2::core::frame_payload_length_failure_active_state(short_failure) == "connection-control" and http2::core::frame_payload_length_failure_rule_provenance(short_failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::frame_payload_length_failure_preview(short_failure), short_payload)? and chunks_equal(short_payload, byte_chunk_from_hex("01020304050607")?)? and http2::core::frame_payload_length_failure_frame_kind(long_failure) == 6 and http2::core::frame_payload_length_failure_stream_id(long_failure) == 0 and http2::core::frame_payload_length_failure_observed_length(long_failure) == 9 and http2::core::frame_payload_length_failure_expected_length(long_failure) == 8 and http2::core::frame_payload_length_failure_active_state(long_failure) == "connection-control" and http2::core::frame_payload_length_failure_rule_provenance(long_failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::frame_payload_length_failure_preview(long_failure), long_payload)? and chunks_equal(long_payload, byte_chunk_from_hex("010203040506070809")?)?
+		Ok(())
+	else
+		Err("PING request failure changed input or failure context")
+	end
+end
+
+test ping_response_ack_preserves_payload_and_emits_exact_bytes() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	let decision: PingResponseDecision = http2::core::respond_to_ping(0, payload)
+	if http2::core::ping_response_status(decision) == "accepted" and http2::core::ping_response_reason(decision) == "none" and chunks_equal(http2::core::ping_response_bytes(decision), byte_chunk_from_hex("0000080601000000000102030405060708")?)? and chunks_equal(payload, byte_chunk_from_hex("0102030405060708")?)?
+		Ok(())
+	else
+		Err("PING response did not emit exact ACK bytes")
+	end
+end
+
+test ping_response_ack_received_has_no_response() -> Result<(), String>
+	let payload: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	let decision: PingResponseDecision = http2::core::respond_to_ping(1, payload)
+	if http2::core::ping_response_status(decision) == "no_response" and http2::core::ping_response_reason(decision) == "ack_received" and byte_count_to_int(byte_chunk_count(http2::core::ping_response_bytes(decision))) == 0 and chunks_equal(payload, byte_chunk_from_hex("0102030405060708")?)?
+		Ok(())
+	else
+		Err("received PING ACK did not suppress the response")
 	end
 end
 

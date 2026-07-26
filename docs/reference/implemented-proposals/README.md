@@ -641,7 +641,7 @@ under `../../specification/` and its executable example routes.
   [http2-outbound-local-stream-id-ordering.md](http2-outbound-local-stream-id-ordering.md).
 - HTTP/2 outbound PRIORITY GOAWAY boundary:
   [http2-outbound-priority-goaway-boundary.md](http2-outbound-priority-goaway-boundary.md).
-- HTTP/2 outbound PING request:
+- HTTP/2 core PING transitions:
   [http2-outbound-ping-request.md](http2-outbound-ping-request.md).
 - HTTP/2 initial peer SETTINGS gate:
   [http2-initial-peer-settings-gate.md](http2-initial-peer-settings-gate.md).
