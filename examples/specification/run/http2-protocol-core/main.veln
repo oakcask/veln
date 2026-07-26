@@ -1,5 +1,6 @@
 use http2::diagnostic from "std"
 use http2::hpack::diagnostic from "std"
+use http2::core from "std"
 # A pure HTTP/2 core consumes frame headers from explicit input events and emits encoded headers.
 use hpack_fixture
 use hpack_static
@@ -73,6 +74,31 @@ end
 
 type ContinuationDecision
 	Decision(PendingContinuation, ByteChunk, Bool, Bool, Int)
+end
+
+fn empty_continuation() -> PendingContinuation
+	NoContinuation
+end
+
+fn pending_continuation(stream_id: Int, kind: Int, offset: Int, flags: Int, trailer: Bool, promised_stream_id: Int, fragment: ByteChunk) -> PendingContinuation
+	Continuation(stream_id, kind, offset, flags, trailer, promised_stream_id, fragment)
+end
+
+fn core_continuation(continuation: PendingContinuation) -> PendingHeaderBlock
+	match continuation
+		NoContinuation => http2::core::empty_pending_header_block()
+		Continuation(stream_id, kind, offset, flags, trailer, promised_stream_id, fragment) => http2::core::header_block_state(http2::core::start_header_block(stream_id, kind, offset, flags, trailer, promised_stream_id, fragment, false))
+	end
+end
+
+fn continuation_decision(transition: HeaderBlockTransition) -> ContinuationDecision
+	let state: PendingHeaderBlock = http2::core::header_block_state(transition)
+	let continuation: PendingContinuation = if http2::core::pending_header_block_is_active(state)
+		Continuation(http2::core::pending_header_block_expected_stream(state), http2::core::pending_header_block_started_kind(state), http2::core::pending_header_block_started_offset(state), http2::core::pending_header_block_started_flags(state), http2::core::pending_header_block_is_trailer(state), http2::core::pending_header_block_promised_stream_id(state), http2::core::pending_header_block_bytes(state))
+	else
+		NoContinuation
+	end
+	Decision(continuation, http2::core::completed_header_block(transition), http2::core::completed_header_block_end_stream(transition), http2::core::completed_header_block_is_trailer(transition), http2::core::completed_header_block_promised_stream_id(transition))
 end
 
 type ReceiveLimitProvenance
@@ -513,15 +539,15 @@ type Http2ConnectionStep
 end
 
 fn empty_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, ExpectPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, ExpectPreface, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn frame_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn initial_peer_settings_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, ExpectInitialPeerSettings, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, ExpectInitialPeerSettings, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn receive_state_for_outbound_request(state: OutboundHeadersConnectionState) -> Http2DecodeState
@@ -538,27 +564,27 @@ fn receive_state_for_outbound_request(state: OutboundHeadersConnectionState) -> 
 end
 
 fn outbound_request_receive_state(connection_window: Int, stream_id: Int, stream_window: Int, priority: StreamPriorityState) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, priority, OpenInboundStream), Nil)), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, priority, OpenInboundStream), Nil)), NoPeerStreamAdmitted)
 end
 
 fn local_config_state(max_frame_size: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn local_settings_state(max_frame_size: Int, item_offset: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control(), NoPeerStreamAdmitted)
 end
 
 fn receive_window_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, NoStreamPriority, OpenInboundStream), Nil)), HighestPeerStreamId(stream_id))
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, NoStreamPriority, OpenInboundStream), Nil)), HighestPeerStreamId(stream_id))
 end
 
 fn client_push_receive_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, AfterPreface, NoContinuation, hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, NoStreamPriority, ClientPushAssociatedInboundStream), Nil)), NoPeerStreamAdmitted)
+	State(byte_chunk([]), 0, AfterPreface, empty_continuation(), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, NoStreamPriority, ClientPushAssociatedInboundStream), Nil)), NoPeerStreamAdmitted)
 end
 
 fn client_push_padding_precedence_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Result<Http2DecodeState, String>
-	Ok(State(byte_chunk([]), 0, AfterPreface, Continuation(stream_id, 1, 17, 0, false, 0, byte_chunk([byte(48)?, byte(49)?])), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), with_local_enable_push(empty_peer_settings(), 0, 23), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, StreamPriority(3, true, 16), ClientPushAssociatedInboundStream), Cons(InboundStreamEntry(2, 32768, ExpectedContentLength(5, 2, NoStreamPriority), ReservedByPeerInboundStream), Nil))), NoPeerStreamAdmitted))
+	Ok(State(byte_chunk([]), 0, AfterPreface, pending_continuation(stream_id, 1, 17, 0, false, 0, byte_chunk([byte(48)?, byte(49)?])), hpack_fixture::initial_state(), protocol_default_frame_size_limit(), with_local_enable_push(empty_peer_settings(), 0, 23), OpenConnection, ReceiveFlowControl(connection_window, Cons(InboundStreamEntry(stream_id, stream_window, StreamPriority(3, true, 16), ClientPushAssociatedInboundStream), Cons(InboundStreamEntry(2, 32768, ExpectedContentLength(5, 2, NoStreamPriority), ReservedByPeerInboundStream), Nil))), NoPeerStreamAdmitted))
 end
 
 fn encode_frame_header(header: { length : Int, kind : Int, flags : Int, stream_id : Int }) -> Result<ByteChunk, EncodeError>
@@ -619,9 +645,9 @@ end
 fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, hpack_state: HpackFixtureState, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, peer_stream_admission: PeerStreamAdmissionState) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available
-		0 => match continuation
-			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
-			Continuation(_, _, _, _, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
+		0 => match http2::core::close_pending_header_block(core_continuation(continuation), next_offset, available, pending)
+			Ok(_) => Ok(Waiting(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission)))
+			Err(_) => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPending(next_offset, available, pending)))
 		end
 		_ => match preface_state
 			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, hpack_state, receive_limit, peer_settings, shutdown_state, receive_flow_control, peer_stream_admission), ClosedWithPartialPreface(next_offset, available)))
@@ -5042,17 +5068,16 @@ end
 fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match continuation
 		NoContinuation => validate_without_continuation(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
-		Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, pending_promised_stream_id, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, pending_promised_stream_id, accumulated, offset, payload, kind, flags, stream_id, header_preview)
+		Continuation(_, _, _, _, _, _, _) => match http2::core::continue_header_block(core_continuation(continuation), offset, kind, flags, stream_id, payload, header_preview)
+			Ok(transition) => Ok(continuation_decision(transition))
+			Err(failure) => Err(ContinuationExpected(http2::core::header_block_failure_offset(failure), http2::core::header_block_failure_actual_kind(failure), http2::core::header_block_failure_actual_stream(failure), http2::core::header_block_failure_expected_stream(failure), http2::core::header_block_failure_started_kind(failure), http2::core::header_block_failure_started_offset(failure), http2::core::header_block_failure_preview(failure)))
+		end
 	end
 end
 
 fn validate_without_continuation(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, promised_stream_id: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind
-		1 => if end_headers_set(flags)
-			Ok(Decision(NoContinuation, payload, data_end_stream_set(flags), completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0))
-		else
-			Ok(Decision(Continuation(stream_id, kind, offset, flags, completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0, payload), empty_header_block(), false, false, 0))
-		end
+		1 => Ok(continuation_decision(http2::core::start_header_block(stream_id, kind, offset, flags, completed_headers_are_trailers(flags, stream_id, receive_flow_control), 0, payload, end_headers_set(flags))))
 		5 => validate_push_promise_header_block(offset, payload, kind, flags, stream_id, promised_stream_id, peer_settings, receive_flow_control)
 		_ => validate_connection_frame_kind(offset, kind, stream_id, receive_flow_control)
 	end
@@ -5064,11 +5089,7 @@ fn validate_push_promise_header_block(offset: Int, payload: ByteChunk, kind: Int
 			Err(InvalidFrameKind(offset, kind, stream_id, 1, "local-settings", "local_settings_enable_push_disabled"))
 		else
 			match validate_received_push_promise_stream(offset, kind, stream_id, promised_stream_id, receive_flow_control)
-				ProtocolStreamIdOk => if end_headers_set(flags)
-					Ok(Decision(NoContinuation, payload, false, false, promised_stream_id))
-				else
-					Ok(Decision(Continuation(stream_id, kind, offset, flags, false, promised_stream_id, payload), empty_header_block(), false, false, 0))
-				end
+				ProtocolStreamIdOk => Ok(continuation_decision(http2::core::start_header_block(stream_id, kind, offset, flags, false, promised_stream_id, payload, end_headers_set(flags))))
 				ProtocolStreamIdFailed(error) => Err(error)
 			end
 		end
@@ -5220,12 +5241,12 @@ end
 fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match stream_id
 		0 => match kind
-			4 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-			6 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-			7 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-			8 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			4 => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+			6 => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+			7 => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+			8 => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 			_ => if is_unknown_frame_kind(kind)
-				Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+				Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 			else
 				Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
 			end
@@ -5236,7 +5257,7 @@ end
 
 fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind
-		1 => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+		1 => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 		0 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 		3 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 		8 => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
@@ -5253,7 +5274,7 @@ end
 fn validate_push_promise_stream_state(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match receive_flow_control
 		ReceiveFlowControl(_, streams) => if inbound_stream_is_client_push_associated(stream_id, streams)
-			Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+			Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 		else
 			Err(InvalidFrameKind(offset, kind, stream_id, 1, "server-receive", "server_receives_no_push_promise"))
 		end
@@ -5297,7 +5318,7 @@ end
 
 fn validate_priority_inbound_stream(offset: Int, kind: Int, stream_id: Int, streams: List<InboundStreamEntry>) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match streams
-		Nil => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+		Nil => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 		Cons(InboundStreamEntry(entry_stream_id, _, _, lifecycle), tail) => if stream_id == entry_stream_id
 			validate_priority_inbound_lifecycle(offset, kind, stream_id, lifecycle)
 		else
@@ -5308,9 +5329,9 @@ end
 
 fn validate_priority_inbound_lifecycle(offset: Int, kind: Int, stream_id: Int, lifecycle: InboundStreamLifecycle) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match lifecycle
-		OpenInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-		ClientPushAssociatedInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-		HalfClosedLocalInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+		OpenInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+		ClientPushAssociatedInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+		HalfClosedLocalInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 		ReservedByPeerInboundStream => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 		ClosedByPeerInboundStream => Err(InvalidFrameKind(offset, kind, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames"))
 		ResetInboundStream(_) => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames"))
@@ -5330,31 +5351,12 @@ end
 
 fn validate_existing_inbound_lifecycle(offset: Int, kind: Int, stream_id: Int, lifecycle: InboundStreamLifecycle) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match lifecycle
-		OpenInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-		ClientPushAssociatedInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
-		HalfClosedLocalInboundStream => Ok(Decision(NoContinuation, empty_header_block(), false, false, 0))
+		OpenInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+		ClientPushAssociatedInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
+		HalfClosedLocalInboundStream => Ok(Decision(empty_continuation(), empty_header_block(), false, false, 0))
 		ReservedByPeerInboundStream => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reserved-by-peer-stream", "reserved_by_peer_requires_response_headers"))
 		ClosedByPeerInboundStream => Err(InvalidFrameKind(offset, kind, stream_id, 1, "closed-by-peer-stream", "closed_by_peer_rejects_later_frames"))
 		ResetInboundStream(_) => Err(InvalidFrameKind(offset, kind, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames"))
-	end
-end
-
-fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, promised_stream_id: Int, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	match kind
-		9 => validate_continuation_stream(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, promised_stream_id, accumulated, offset, payload, kind, flags, stream_id, header_preview)
-		_ => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
-	end
-end
-
-fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, started_is_trailer: Bool, promised_stream_id: Int, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, header_preview: ByteChunk) -> Result<ContinuationDecision, Http2ProtocolFailure>
-	if stream_id == expected_stream
-		if end_headers_set(flags)
-			Ok(Decision(NoContinuation, byte_append(accumulated, payload), data_end_stream_set(started_flags), started_is_trailer, promised_stream_id))
-		else
-			Ok(Decision(Continuation(expected_stream, started_kind, started_offset, started_flags, started_is_trailer, promised_stream_id, byte_append(accumulated, payload)), empty_header_block(), false, false, 0))
-		end
-	else
-		Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset, header_preview))
 	end
 end
 

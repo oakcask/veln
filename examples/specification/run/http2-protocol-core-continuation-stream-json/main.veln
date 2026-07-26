@@ -1,5 +1,7 @@
+use http2::core from "std"
 use http2::diagnostic from "std"
 # HTTP/2 continuation stream mismatch projects pending header-block context.
+
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.continuation_expected",
@@ -8,20 +10,34 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
-	match byte_chunk_from_hex("000000090000000003")
-		Ok(bytes) => match byte_offset(0)
-			Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
-				Ok(view) => Ok(view)
-				Err(error) => Err(fallback_payload(error))
-			end
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
 			Err(error) => Err(fallback_payload(error))
 		end
 		Err(error) => Err(fallback_payload(error))
 	end
 end
 
+fn pending_headers() -> Result<PendingHeaderBlock, RuntimeDiagnostic>
+	match byte_chunk_from_hex("aabbcc")
+		Ok(fragment) => Ok(http2::core::header_block_state(http2::core::start_header_block(1, 1, 0, 0, false, 0, fragment, false)))
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
+fn preview_bytes() -> Result<ByteChunk, RuntimeDiagnostic>
+	match byte_chunk_from_hex("000000090000000003")
+		Ok(bytes) => Ok(bytes)
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let preview: ByteView = preview_view()?
-	http2::diagnostic::protocol_continuation_expected(12, 9, 3, 1, 1, 0, "headers", 3, "rfc9113_continuation_sequence", preview)
+	let preview: ByteChunk = preview_bytes()?
+	match http2::core::continue_header_block(pending_headers()?, 12, 9, 0, 3, byte_chunk([]), preview)
+		Ok(_) => Err(fallback_payload("expected CONTINUATION stream failure"))
+		Err(failure) => http2::diagnostic::protocol_continuation_expected(http2::core::header_block_failure_offset(failure), http2::core::header_block_failure_actual_kind(failure), http2::core::header_block_failure_actual_stream(failure), http2::core::header_block_failure_expected_stream(failure), http2::core::header_block_failure_started_kind(failure), http2::core::header_block_failure_started_offset(failure), "headers", http2::core::header_block_failure_accumulated_count(failure), http2::core::header_block_failure_rule_provenance(failure), preview_view(http2::core::header_block_failure_preview(failure))?)
+	end
 end

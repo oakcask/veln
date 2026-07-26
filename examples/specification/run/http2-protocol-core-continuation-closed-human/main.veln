@@ -1,5 +1,7 @@
+use http2::core from "std"
 use http2::diagnostic from "std"
 # HTTP/2 closed input while a header block is pending renders related context.
+
 fn fallback_payload(error: String) -> RuntimeDiagnostic
 	RuntimeDiagnostic(
 		"http2.protocol.closed_with_pending",
@@ -8,20 +10,26 @@ fn fallback_payload(error: String) -> RuntimeDiagnostic
 	)
 end
 
-fn preview_view() -> Result<ByteView, RuntimeDiagnostic>
-	match byte_chunk_from_hex("")
-		Ok(bytes) => match byte_offset(0)
-			Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
-				Ok(view) => Ok(view)
-				Err(error) => Err(fallback_payload(error))
-			end
+fn preview_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
+	match byte_offset(0)
+		Ok(offset) => match byte_view(bytes, offset, byte_chunk_count(bytes))
+			Ok(view) => Ok(view)
 			Err(error) => Err(fallback_payload(error))
 		end
 		Err(error) => Err(fallback_payload(error))
 	end
 end
 
+fn pending_headers() -> Result<PendingHeaderBlock, RuntimeDiagnostic>
+	match byte_chunk_from_hex("aabbcc")
+		Ok(fragment) => Ok(http2::core::header_block_state(http2::core::start_header_block(1, 1, 0, 0, false, 0, fragment, false)))
+		Err(error) => Err(fallback_payload(error))
+	end
+end
+
 pub fn main() -> Result<(), RuntimeDiagnostic>
-	let preview: ByteView = preview_view()?
-	http2::diagnostic::protocol_closed_with_pending(12, 0, "headers", 1, 1, 0, 3, "rfc9113_continuation_sequence", preview)
+	match http2::core::close_pending_header_block(pending_headers()?, 12, 0, byte_chunk([]))
+		Ok(_) => Err(fallback_payload("expected closed pending header-block failure"))
+		Err(failure) => http2::diagnostic::protocol_closed_with_pending(http2::core::header_block_failure_offset(failure), http2::core::header_block_failure_pending_count(failure), "headers", http2::core::header_block_failure_expected_stream(failure), http2::core::header_block_failure_started_kind(failure), http2::core::header_block_failure_started_offset(failure), http2::core::header_block_failure_accumulated_count(failure), http2::core::header_block_failure_rule_provenance(failure), preview_view(http2::core::header_block_failure_preview(failure))?)
+	end
 end

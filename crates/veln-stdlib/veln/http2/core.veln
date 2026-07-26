@@ -1,4 +1,11 @@
 use prelude
+use http2::core::pending_header_block
+
+pub type PendingHeaderBlock = http2::core::pending_header_block::PendingHeaderBlock
+
+pub type HeaderBlockTransition = http2::core::pending_header_block::HeaderBlockTransition
+
+pub type HeaderBlockFailure = http2::core::pending_header_block::HeaderBlockFailure
 
 pub type StreamId
 	ValidatedStreamId(Int)
@@ -65,4 +72,120 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn empty_pending_header_block() -> PendingHeaderBlock
+	http2::core::pending_header_block::idle()
+end
+
+pub fn start_header_block(stream_id: Int, kind: Int, offset: Int, flags: Int, trailer: Bool, promised_stream_id: Int, fragment: ByteChunk, end_headers: Bool) -> HeaderBlockTransition
+	http2::core::pending_header_block::start(stream_id, kind, offset, flags, trailer, promised_stream_id, fragment, end_headers)
+end
+
+pub fn continue_header_block(state: PendingHeaderBlock, offset: Int, kind: Int, flags: Int, stream_id: Int, fragment: ByteChunk, preview: ByteChunk) -> Result<HeaderBlockTransition, HeaderBlockFailure>
+	http2::core::pending_header_block::advance(state, offset, kind, flags, stream_id, fragment, preview)
+end
+
+pub fn close_pending_header_block(state: PendingHeaderBlock, offset: Int, pending_count: Int, preview: ByteChunk) -> Result<PendingHeaderBlock, HeaderBlockFailure>
+	http2::core::pending_header_block::close(state, offset, pending_count, preview)
+end
+
+pub fn header_block_state(transition: HeaderBlockTransition) -> PendingHeaderBlock
+	http2::core::pending_header_block::transition_state(transition)
+end
+
+pub fn header_block_is_complete(transition: HeaderBlockTransition) -> Bool
+	http2::core::pending_header_block::transition_completed(transition)
+end
+
+pub fn completed_header_block(transition: HeaderBlockTransition) -> ByteChunk
+	http2::core::pending_header_block::transition_header_block(transition)
+end
+
+pub fn completed_header_block_end_stream(transition: HeaderBlockTransition) -> Bool
+	http2::core::pending_header_block::transition_end_stream(transition)
+end
+
+pub fn completed_header_block_is_trailer(transition: HeaderBlockTransition) -> Bool
+	http2::core::pending_header_block::transition_is_trailer(transition)
+end
+
+pub fn completed_header_block_promised_stream_id(transition: HeaderBlockTransition) -> Int
+	http2::core::pending_header_block::transition_promised_stream_id(transition)
+end
+
+pub fn pending_header_block_is_active(state: PendingHeaderBlock) -> Bool
+	http2::core::pending_header_block::state_is_active(state)
+end
+
+pub fn pending_header_block_expected_stream(state: PendingHeaderBlock) -> Int
+	http2::core::pending_header_block::state_expected_stream(state)
+end
+
+pub fn pending_header_block_started_kind(state: PendingHeaderBlock) -> Int
+	http2::core::pending_header_block::state_started_kind(state)
+end
+
+pub fn pending_header_block_started_offset(state: PendingHeaderBlock) -> Int
+	http2::core::pending_header_block::state_started_offset(state)
+end
+
+pub fn pending_header_block_started_flags(state: PendingHeaderBlock) -> Int
+	http2::core::pending_header_block::state_started_flags(state)
+end
+
+pub fn pending_header_block_is_trailer(state: PendingHeaderBlock) -> Bool
+	http2::core::pending_header_block::state_is_trailer(state)
+end
+
+pub fn pending_header_block_promised_stream_id(state: PendingHeaderBlock) -> Int
+	http2::core::pending_header_block::state_promised_stream_id(state)
+end
+
+pub fn pending_header_block_bytes(state: PendingHeaderBlock) -> ByteChunk
+	http2::core::pending_header_block::state_accumulated(state)
+end
+
+pub fn header_block_failure_kind(failure: HeaderBlockFailure) -> String
+	http2::core::pending_header_block::failure_kind(failure)
+end
+
+pub fn header_block_failure_offset(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_offset(failure)
+end
+
+pub fn header_block_failure_actual_kind(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_actual_kind(failure)
+end
+
+pub fn header_block_failure_actual_stream(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_actual_stream(failure)
+end
+
+pub fn header_block_failure_expected_stream(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_expected_stream(failure)
+end
+
+pub fn header_block_failure_started_kind(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_started_kind(failure)
+end
+
+pub fn header_block_failure_started_offset(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_started_offset(failure)
+end
+
+pub fn header_block_failure_pending_count(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_pending_count(failure)
+end
+
+pub fn header_block_failure_accumulated_count(failure: HeaderBlockFailure) -> Int
+	http2::core::pending_header_block::failure_accumulated_count(failure)
+end
+
+pub fn header_block_failure_preview(failure: HeaderBlockFailure) -> ByteChunk
+	http2::core::pending_header_block::failure_preview(failure)
+end
+
+pub fn header_block_failure_rule_provenance(failure: HeaderBlockFailure) -> String
+	http2::core::pending_header_block::failure_rule_provenance(failure)
 end

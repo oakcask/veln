@@ -1,4 +1,39 @@
+use prelude
 use http2::core
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn require_transition(result: Result<HeaderBlockTransition, HeaderBlockFailure>) -> Result<HeaderBlockTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::core::header_block_failure_kind(failure))
+	end
+end
+
+fn active_headers(fragment: ByteChunk) -> PendingHeaderBlock
+	http2::core::header_block_state(http2::core::start_header_block(1, 1, 17, 1, true, 0, fragment, false))
+end
 
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
@@ -16,5 +51,107 @@ test stream_domains_reject_zero_and_wrong_parity() -> Result<(), String>
 			Ok(_) => Err("odd stream id entered the server stream domain")
 			Err(_) => Ok(())
 		end
+	end
+end
+
+test pending_header_block_completes_immediate_headers() -> Result<(), String>
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 17, 5, true, 0, byte_chunk_from_hex("aabbcc")?, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and http2::core::completed_header_block_end_stream(transition) and http2::core::completed_header_block_is_trailer(transition) and http2::core::completed_header_block_promised_stream_id(transition) == 0 and chunks_equal(http2::core::completed_header_block(transition), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("immediate HEADERS completion lost its initiating metadata or octets")
+	end
+end
+
+test pending_header_block_completes_multi_frame_headers_in_wire_order() -> Result<(), String>
+	let started: HeaderBlockTransition = http2::core::start_header_block(1, 1, 17, 1, true, 0, byte_chunk_from_hex("aabbcc")?, false)
+	let more: HeaderBlockTransition = require_transition(http2::core::continue_header_block(http2::core::header_block_state(started), 29, 9, 0, 1, byte_chunk_from_hex("ddee")?, byte_chunk_from_hex("000002090000000001")?))?
+	let done: HeaderBlockTransition = require_transition(http2::core::continue_header_block(http2::core::header_block_state(more), 40, 9, 4, 1, byte_chunk_from_hex("ff010203")?, byte_chunk_from_hex("000004090400000001")?))?
+	if not http2::core::header_block_is_complete(more) and http2::core::pending_header_block_is_active(http2::core::header_block_state(more)) and http2::core::header_block_is_complete(done) and http2::core::completed_header_block_end_stream(done) and http2::core::completed_header_block_is_trailer(done) and chunks_equal(http2::core::completed_header_block(done), byte_chunk_from_hex("aabbccddeeff010203")?)?
+		Ok(())
+	else
+		Err("multi-frame HEADERS completion did not preserve wire order and initiating flags")
+	end
+end
+
+test pending_header_block_completes_multi_frame_push_promise() -> Result<(), String>
+	let started: HeaderBlockTransition = http2::core::start_header_block(1, 5, 23, 0, false, 2, byte_chunk_from_hex("8287")?, false)
+	let done: HeaderBlockTransition = require_transition(http2::core::continue_header_block(http2::core::header_block_state(started), 34, 9, 4, 1, byte_chunk_from_hex("84")?, byte_chunk_from_hex("000001090400000001")?))?
+	if http2::core::header_block_is_complete(done) and not http2::core::completed_header_block_end_stream(done) and not http2::core::completed_header_block_is_trailer(done) and http2::core::completed_header_block_promised_stream_id(done) == 2 and chunks_equal(http2::core::completed_header_block(done), byte_chunk_from_hex("828784")?)?
+		Ok(())
+	else
+		Err("PUSH_PROMISE continuation lost its promised stream or header octets")
+	end
+end
+
+test pending_header_block_preserves_non_final_accumulation_and_metadata() -> Result<(), String>
+	let initial: PendingHeaderBlock = active_headers(byte_chunk_from_hex("aabb")?)
+	let more: HeaderBlockTransition = require_transition(http2::core::continue_header_block(initial, 29, 9, 0, 1, byte_chunk_from_hex("ccdd")?, byte_chunk_from_hex("000002090000000001")?))?
+	let state: PendingHeaderBlock = http2::core::header_block_state(more)
+	if not http2::core::header_block_is_complete(more) and http2::core::pending_header_block_is_active(state) and http2::core::pending_header_block_expected_stream(state) == 1 and http2::core::pending_header_block_started_kind(state) == 1 and http2::core::pending_header_block_started_offset(state) == 17 and http2::core::pending_header_block_started_flags(state) == 1 and http2::core::pending_header_block_is_trailer(state) and http2::core::pending_header_block_promised_stream_id(state) == 0 and chunks_equal(http2::core::pending_header_block_bytes(state), byte_chunk_from_hex("aabbccdd")?)? and byte_count_to_int(byte_chunk_count(http2::core::completed_header_block(more))) == 0
+		Ok(())
+	else
+		Err("non-final CONTINUATION did not preserve pending state and hide completion")
+	end
+end
+
+test pending_header_block_rejects_wrong_kind_and_stream_without_next_output() -> Result<(), String>
+	let state: PendingHeaderBlock = active_headers(byte_chunk_from_hex("aabbcc")?)
+	let wrong_kind: Bool = match http2::core::continue_header_block(state, 29, 0, 0, 1, byte_chunk([]), byte_chunk_from_hex("000000000000000001")?)
+		Ok(_) => false
+		Err(failure) => http2::core::header_block_failure_kind(failure) == "continuation_kind" and http2::core::header_block_failure_offset(failure) == 29 and http2::core::header_block_failure_actual_kind(failure) == 0 and http2::core::header_block_failure_actual_stream(failure) == 1 and http2::core::header_block_failure_expected_stream(failure) == 1 and http2::core::header_block_failure_started_kind(failure) == 1 and http2::core::header_block_failure_started_offset(failure) == 17 and http2::core::header_block_failure_accumulated_count(failure) == 3 and http2::core::header_block_failure_rule_provenance(failure) == "rfc9113_continuation_sequence"
+	end
+	let wrong_stream: Bool = match http2::core::continue_header_block(state, 29, 9, 4, 3, byte_chunk_from_hex("dd")?, byte_chunk_from_hex("000001090400000003")?)
+		Ok(_) => false
+		Err(failure) => http2::core::header_block_failure_kind(failure) == "continuation_stream" and http2::core::header_block_failure_actual_stream(failure) == 3 and http2::core::header_block_failure_expected_stream(failure) == 1 and http2::core::header_block_failure_accumulated_count(failure) == 3
+	end
+	if wrong_kind and wrong_stream and chunks_equal(http2::core::pending_header_block_bytes(state), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("CONTINUATION failure exposed output or changed the input state")
+	end
+end
+
+test pending_header_block_rejects_closed_input_without_changing_state() -> Result<(), String>
+	let state: PendingHeaderBlock = active_headers(byte_chunk_from_hex("aabbcc")?)
+	let rejected: Bool = match http2::core::close_pending_header_block(state, 29, 0, byte_chunk([]))
+		Ok(_) => false
+		Err(failure) => http2::core::header_block_failure_kind(failure) == "closed_pending" and http2::core::header_block_failure_offset(failure) == 29 and http2::core::header_block_failure_pending_count(failure) == 0 and http2::core::header_block_failure_expected_stream(failure) == 1 and http2::core::header_block_failure_started_kind(failure) == 1 and http2::core::header_block_failure_started_offset(failure) == 17 and http2::core::header_block_failure_accumulated_count(failure) == 3
+	end
+	if rejected and http2::core::pending_header_block_is_active(state) and chunks_equal(http2::core::pending_header_block_bytes(state), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("closed-input failure changed or discarded the pending header block")
+	end
+end
+
+test pending_header_block_accepts_closed_input_while_idle() -> Result<(), String>
+	let state: PendingHeaderBlock = http2::core::empty_pending_header_block()
+	match http2::core::close_pending_header_block(state, 29, 0, byte_chunk([]))
+		Ok(closed) => if not http2::core::pending_header_block_is_active(closed) and byte_count_to_int(byte_chunk_count(http2::core::pending_header_block_bytes(closed))) == 0
+			Ok(())
+		else
+			Err("closing idle input created pending header-block state")
+		end
+		Err(_) => Err("closing idle input unexpectedly failed")
+	end
+end
+
+test pending_header_block_failures_preserve_diagnostic_input() -> Result<(), String>
+	let state: PendingHeaderBlock = active_headers(byte_chunk_from_hex("aabbcc")?)
+	let frame_preview: ByteChunk = byte_chunk_from_hex("000001090400000003dd")?
+	let wrong_stream: Bool = match http2::core::continue_header_block(state, 29, 9, 4, 3, byte_chunk_from_hex("dd")?, frame_preview)
+		Ok(_) => false
+		Err(failure) => chunks_equal(http2::core::header_block_failure_preview(failure), frame_preview)?
+	end
+	let pending_preview: ByteChunk = byte_chunk_from_hex("010203")?
+	let closed: Bool = match http2::core::close_pending_header_block(state, 40, 7, pending_preview)
+		Ok(_) => false
+		Err(failure) => http2::core::header_block_failure_pending_count(failure) == 7 and chunks_equal(http2::core::header_block_failure_preview(failure), pending_preview)?
+	end
+	if wrong_stream and closed and chunks_equal(http2::core::pending_header_block_bytes(state), byte_chunk_from_hex("aabbcc")?)?
+		Ok(())
+	else
+		Err("CONTINUATION failure did not preserve diagnostic input or pending state")
 	end
 end

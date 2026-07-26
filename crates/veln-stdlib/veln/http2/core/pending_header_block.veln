@@ -1,0 +1,242 @@
+use prelude
+
+pub type PendingHeaderBlock
+	IdleHeaderBlock
+	ActiveHeaderBlock(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, trailer: Bool, promised_stream_id: Int, accumulated: ByteChunk)
+end
+
+pub type HeaderBlockTransition
+	HeaderBlockTransition(state: PendingHeaderBlock, completed: Bool, header_block: ByteChunk, end_stream: Bool, trailer: Bool, promised_stream_id: Int)
+end
+
+pub type HeaderBlockFailure
+	ContinuationKindFailure(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_count: Int, preview: ByteChunk)
+	ContinuationStreamFailure(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_count: Int, preview: ByteChunk)
+	ClosedPendingHeaderBlock(offset: Int, pending_count: Int, expected_stream: Int, started_kind: Int, started_offset: Int, accumulated_count: Int, preview: ByteChunk)
+end
+
+pub fn idle() -> PendingHeaderBlock
+	IdleHeaderBlock
+end
+
+pub fn start(stream_id: Int, kind: Int, offset: Int, flags: Int, trailer: Bool, promised_stream_id: Int, fragment: ByteChunk, end_headers: Bool) -> HeaderBlockTransition
+	if end_headers
+		HeaderBlockTransition(IdleHeaderBlock, true, fragment, end_stream_set(flags), trailer, promised_stream_id)
+	else
+		HeaderBlockTransition(ActiveHeaderBlock(stream_id, kind, offset, flags, trailer, promised_stream_id, fragment), false, byte_chunk([]), false, false, 0)
+	end
+end
+
+pub fn advance(state: PendingHeaderBlock, offset: Int, kind: Int, flags: Int, stream_id: Int, fragment: ByteChunk, preview: ByteChunk) -> Result<HeaderBlockTransition, HeaderBlockFailure>
+	match state
+		IdleHeaderBlock => Ok(HeaderBlockTransition(IdleHeaderBlock, false, byte_chunk([]), false, false, 0))
+		ActiveHeaderBlock(expected_stream, started_kind, started_offset, started_flags, trailer, promised_stream_id, accumulated) => if kind == 9
+			advance_stream(expected_stream, started_kind, started_offset, started_flags, trailer, promised_stream_id, accumulated, offset, kind, flags, stream_id, fragment, preview)
+		else
+			Err(ContinuationKindFailure(offset, kind, stream_id, expected_stream, started_kind, started_offset, byte_count_to_int(byte_chunk_count(accumulated)), preview))
+		end
+	end
+end
+
+fn advance_stream(expected_stream: Int, started_kind: Int, started_offset: Int, started_flags: Int, trailer: Bool, promised_stream_id: Int, accumulated: ByteChunk, offset: Int, kind: Int, flags: Int, stream_id: Int, fragment: ByteChunk, preview: ByteChunk) -> Result<HeaderBlockTransition, HeaderBlockFailure>
+	if stream_id == expected_stream
+		if end_headers_set(flags)
+			Ok(HeaderBlockTransition(IdleHeaderBlock, true, byte_append(accumulated, fragment), end_stream_set(started_flags), trailer, promised_stream_id))
+		else
+			Ok(HeaderBlockTransition(ActiveHeaderBlock(expected_stream, started_kind, started_offset, started_flags, trailer, promised_stream_id, byte_append(accumulated, fragment)), false, byte_chunk([]), false, false, 0))
+		end
+	else
+		Err(ContinuationStreamFailure(offset, kind, stream_id, expected_stream, started_kind, started_offset, byte_count_to_int(byte_chunk_count(accumulated)), preview))
+	end
+end
+
+pub fn close(state: PendingHeaderBlock, offset: Int, pending_count: Int, preview: ByteChunk) -> Result<PendingHeaderBlock, HeaderBlockFailure>
+	match state
+		IdleHeaderBlock => Ok(state)
+		ActiveHeaderBlock(expected_stream, started_kind, started_offset, _, _, _, accumulated) => Err(ClosedPendingHeaderBlock(offset, pending_count, expected_stream, started_kind, started_offset, byte_count_to_int(byte_chunk_count(accumulated)), preview))
+	end
+end
+
+fn end_headers_set(flags: Int) -> Bool
+	flags - flags / 8 * 8 >= 4
+end
+
+fn end_stream_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
+
+pub fn transition_state(transition: HeaderBlockTransition) -> PendingHeaderBlock
+	match transition
+		HeaderBlockTransition(state, _, _, _, _, _) => state
+	end
+end
+
+pub fn transition_completed(transition: HeaderBlockTransition) -> Bool
+	match transition
+		HeaderBlockTransition(_, completed, _, _, _, _) => completed
+	end
+end
+
+pub fn transition_header_block(transition: HeaderBlockTransition) -> ByteChunk
+	match transition
+		HeaderBlockTransition(_, _, header_block, _, _, _) => header_block
+	end
+end
+
+pub fn transition_end_stream(transition: HeaderBlockTransition) -> Bool
+	match transition
+		HeaderBlockTransition(_, _, _, end_stream, _, _) => end_stream
+	end
+end
+
+pub fn transition_is_trailer(transition: HeaderBlockTransition) -> Bool
+	match transition
+		HeaderBlockTransition(_, _, _, _, trailer, _) => trailer
+	end
+end
+
+pub fn transition_promised_stream_id(transition: HeaderBlockTransition) -> Int
+	match transition
+		HeaderBlockTransition(_, _, _, _, _, promised_stream_id) => promised_stream_id
+	end
+end
+
+pub fn state_is_active(state: PendingHeaderBlock) -> Bool
+	match state
+		IdleHeaderBlock => false
+		ActiveHeaderBlock(_, _, _, _, _, _, _) => true
+	end
+end
+
+pub fn state_expected_stream(state: PendingHeaderBlock) -> Int
+	match state
+		IdleHeaderBlock => 0
+		ActiveHeaderBlock(expected_stream, _, _, _, _, _, _) => expected_stream
+	end
+end
+
+pub fn state_started_kind(state: PendingHeaderBlock) -> Int
+	match state
+		IdleHeaderBlock => 0
+		ActiveHeaderBlock(_, started_kind, _, _, _, _, _) => started_kind
+	end
+end
+
+pub fn state_started_offset(state: PendingHeaderBlock) -> Int
+	match state
+		IdleHeaderBlock => 0
+		ActiveHeaderBlock(_, _, started_offset, _, _, _, _) => started_offset
+	end
+end
+
+pub fn state_started_flags(state: PendingHeaderBlock) -> Int
+	match state
+		IdleHeaderBlock => 0
+		ActiveHeaderBlock(_, _, _, started_flags, _, _, _) => started_flags
+	end
+end
+
+pub fn state_is_trailer(state: PendingHeaderBlock) -> Bool
+	match state
+		IdleHeaderBlock => false
+		ActiveHeaderBlock(_, _, _, _, trailer, _, _) => trailer
+	end
+end
+
+pub fn state_promised_stream_id(state: PendingHeaderBlock) -> Int
+	match state
+		IdleHeaderBlock => 0
+		ActiveHeaderBlock(_, _, _, _, _, promised_stream_id, _) => promised_stream_id
+	end
+end
+
+pub fn state_accumulated(state: PendingHeaderBlock) -> ByteChunk
+	match state
+		IdleHeaderBlock => byte_chunk([])
+		ActiveHeaderBlock(_, _, _, _, _, _, accumulated) => accumulated
+	end
+end
+
+pub fn failure_kind(failure: HeaderBlockFailure) -> String
+	match failure
+		ContinuationKindFailure(_, _, _, _, _, _, _, _) => "continuation_kind"
+		ContinuationStreamFailure(_, _, _, _, _, _, _, _) => "continuation_stream"
+		ClosedPendingHeaderBlock(_, _, _, _, _, _, _) => "closed_pending"
+	end
+end
+
+pub fn failure_offset(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(offset, _, _, _, _, _, _, _) => offset
+		ContinuationStreamFailure(offset, _, _, _, _, _, _, _) => offset
+		ClosedPendingHeaderBlock(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_actual_kind(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, kind, _, _, _, _, _, _) => kind
+		ContinuationStreamFailure(_, kind, _, _, _, _, _, _) => kind
+		ClosedPendingHeaderBlock(_, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_actual_stream(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, stream, _, _, _, _, _) => stream
+		ContinuationStreamFailure(_, _, stream, _, _, _, _, _) => stream
+		ClosedPendingHeaderBlock(_, _, _, _, _, _, _) => 0
+	end
+end
+
+pub fn failure_expected_stream(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, _, expected, _, _, _, _) => expected
+		ContinuationStreamFailure(_, _, _, expected, _, _, _, _) => expected
+		ClosedPendingHeaderBlock(_, _, expected, _, _, _, _) => expected
+	end
+end
+
+pub fn failure_started_kind(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, _, _, kind, _, _, _) => kind
+		ContinuationStreamFailure(_, _, _, _, kind, _, _, _) => kind
+		ClosedPendingHeaderBlock(_, _, _, kind, _, _, _) => kind
+	end
+end
+
+pub fn failure_started_offset(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, _, _, _, offset, _, _) => offset
+		ContinuationStreamFailure(_, _, _, _, _, offset, _, _) => offset
+		ClosedPendingHeaderBlock(_, _, _, _, offset, _, _) => offset
+	end
+end
+
+pub fn failure_pending_count(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, _, _, _, _, _, _) => 0
+		ContinuationStreamFailure(_, _, _, _, _, _, _, _) => 0
+		ClosedPendingHeaderBlock(_, pending_count, _, _, _, _, _) => pending_count
+	end
+end
+
+pub fn failure_accumulated_count(failure: HeaderBlockFailure) -> Int
+	match failure
+		ContinuationKindFailure(_, _, _, _, _, _, count, _) => count
+		ContinuationStreamFailure(_, _, _, _, _, _, count, _) => count
+		ClosedPendingHeaderBlock(_, _, _, _, _, count, _) => count
+	end
+end
+
+pub fn failure_preview(failure: HeaderBlockFailure) -> ByteChunk
+	match failure
+		ContinuationKindFailure(_, _, _, _, _, _, _, preview) => preview
+		ContinuationStreamFailure(_, _, _, _, _, _, _, preview) => preview
+		ClosedPendingHeaderBlock(_, _, _, _, _, _, preview) => preview
+	end
+end
+
+pub fn failure_rule_provenance(failure: HeaderBlockFailure) -> String
+	"rfc9113_continuation_sequence"
+end

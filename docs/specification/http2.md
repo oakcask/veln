@@ -20,12 +20,43 @@ The public routes are:
   immutable dynamic-table state, table-size updates, indexed and literal
   header-field encoding, and complete header-block encoding and decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
-- `http2::core`: connection and role-specific stream-id domains.
+- `http2::core`: connection and role-specific stream-id domains plus immutable
+  pending header-block sequencing.
 
-Nested implementation modules below `http2::hpack` are not package exports.
+Nested implementation modules below `http2::hpack` and `http2::core` are not
+package exports.
 The JVM adapter keeps its intrinsic link names private; source code calls only
 the module-qualified API. Diagnostic ids, human rendering, and
 `details.protocol_diagnostic` projections remain stable.
+
+`http2::core::empty_pending_header_block()` constructs idle continuation
+state. `start_header_block(...)` accepts an already validated HEADERS or
+PUSH_PROMISE fragment. END_HEADERS completes the block immediately; otherwise
+the returned immutable state retains the initiating stream, frame kind,
+offset, flags, trailer classification, promised stream id, and accumulated
+octets.
+
+`continue_header_block(...)` accepts only CONTINUATION on the initiating
+stream, appends fragments in wire order, and exposes a completed block only
+after END_HEADERS. Completion preserves END_STREAM and trailer status from
+HEADERS or the promised stream id from PUSH_PROMISE. Non-final transitions
+expose no completed block. `close_pending_header_block(...)` accepts idle
+input and rejects closure while a block remains active.
+
+Typed failures distinguish a different frame kind, a different stream, and
+closed input. They expose the current offset and frame coordinates, initiating
+coordinates, expected stream, accumulated byte count, rule provenance, and
+preview octets without exposing a next state or completed block. The input
+state remains unchanged. Adjacent
+[`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) coverage
+checks immediate, multi-frame HEADERS, multi-frame PUSH_PROMISE, non-final,
+wrong-kind, wrong-stream, active and idle closed-input paths, and exact
+diagnostic-input preservation. The focused
+`http2-protocol-core-continuation-*` cases project the public failures through
+the stable human and JSON diagnostics, while the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case retains frame decoding, HPACK decoding, stream-lifecycle, and output
+integration coverage.
 
 `http2::hpack::encode_integer(value, prefix_bits, representation_bits)` accepts
 a non-negative `Int` and a prefix width from one through eight. It preserves
