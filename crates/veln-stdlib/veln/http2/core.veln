@@ -12,6 +12,7 @@ use http2::core::local_settings
 use http2::core::peer_settings
 use http2::core::peer_settings_state
 use http2::core::peer_stream_admission
+use http2::core::receive_flow_control
 use http2::core::flow_control
 use http2::core::stream_state
 use http2::core::stream_frame_admission
@@ -87,6 +88,10 @@ pub type CoreStreamLifecycle = http2::core::stream_state::CoreStreamLifecycle
 pub type CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::CoreStreamFrameAdmissionDecision
 
 pub type CoreStreamFrameAdmissionFailure = http2::core::stream_frame_admission::CoreStreamFrameAdmissionFailure
+
+pub type CoreDataReceiveFlowControlDecision = http2::core::receive_flow_control::CoreDataReceiveFlowControlDecision
+
+pub type CoreDataReceiveFlowControlFailure = http2::core::receive_flow_control::CoreDataReceiveFlowControlFailure
 
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
@@ -559,6 +564,58 @@ end
 
 pub fn stream_frame_admission_failure_preview(failure: CoreStreamFrameAdmissionFailure) -> ByteChunk
 	http2::core::stream_frame_admission::failure_preview(failure)
+end
+
+pub fn apply_data_receive_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	http2::core::receive_flow_control::apply_data(state, offset, stream_id, data_length, preview)
+end
+
+pub fn data_receive_flow_control_status(decision: CoreDataReceiveFlowControlDecision) -> String
+	http2::core::receive_flow_control::decision_status(decision)
+end
+
+pub fn data_receive_flow_control_state(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_flow_control::decision_state(decision)
+end
+
+pub fn data_receive_flow_control_failure(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreDataReceiveFlowControlFailure, String>
+	http2::core::receive_flow_control::decision_failure(decision)
+end
+
+pub fn data_receive_flow_control_failure_id(failure: CoreDataReceiveFlowControlFailure) -> String
+	http2::core::receive_flow_control::failure_id(failure)
+end
+
+pub fn data_receive_flow_control_failure_offset(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_offset(failure)
+end
+
+pub fn data_receive_flow_control_failure_stream_id(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_stream_id(failure)
+end
+
+pub fn data_receive_flow_control_failure_data_length(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_data_length(failure)
+end
+
+pub fn data_receive_flow_control_failure_domain(failure: CoreDataReceiveFlowControlFailure) -> String
+	http2::core::receive_flow_control::failure_domain(failure)
+end
+
+pub fn data_receive_flow_control_failure_observed_value(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_observed_value(failure)
+end
+
+pub fn data_receive_flow_control_failure_connection_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_connection_credit(failure)
+end
+
+pub fn data_receive_flow_control_failure_stream_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_stream_credit(failure)
+end
+
+pub fn data_receive_flow_control_failure_preview(failure: CoreDataReceiveFlowControlFailure) -> ByteChunk
+	http2::core::receive_flow_control::failure_preview(failure)
 end
 
 pub fn max_flow_control_value() -> Int

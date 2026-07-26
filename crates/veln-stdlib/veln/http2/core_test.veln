@@ -286,6 +286,14 @@ fn require_stream_frame_failure(decision: CoreStreamFrameAdmissionDecision) -> R
 	http2::core::stream_frame_admission_failure(decision)
 end
 
+fn require_data_receive_state(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::data_receive_flow_control_state(decision)
+end
+
+fn require_data_receive_failure(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreDataReceiveFlowControlFailure, String>
+	http2::core::data_receive_flow_control_failure(decision)
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -498,6 +506,39 @@ test stream_frame_admission_preserves_collection_and_preview_on_failure() -> Res
 		Ok(())
 	else
 		Err("HTTP/2 stream frame admission failure changed input streams or preview")
+	end
+end
+
+test data_receive_flow_control_debits_connection_and_stream_immutably() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(100)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream))
+	let decision: CoreDataReceiveFlowControlDecision = http2::core::apply_data_receive_flow_control(with_stream, 31, 5, 12, byte_chunk_from_hex("00000c000000000005")?)
+	let updated: CoreConnectionState = require_data_receive_state(decision)?
+	let original_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_stream), 5))?
+	let updated_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(updated), 5))?
+	if http2::core::data_receive_flow_control_status(decision) == "accepted" and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(with_stream)) == 100 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(original_stream)) == 80 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(updated)) == 88 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(updated_stream)) == 68 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(updated_stream)) == 60 and http2::core::connection_state_next_offset(updated) == 0
+		Ok(())
+	else
+		Err("HTTP/2 DATA receive flow-control did not immutably debit connection and stream windows")
+	end
+end
+
+test data_receive_flow_control_failures_preserve_state_and_preview() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("000006000000000005")?
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(4)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 3, 60, 0, 0))?
+	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream))
+	let connection_failure: CoreDataReceiveFlowControlFailure = require_data_receive_failure(http2::core::apply_data_receive_flow_control(with_stream, 41, 5, 6, preview))?
+	let low_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 0 - 2147483645, 60, 0, 0))?
+	let low_stream_state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::connection_state_with_receive_credit(with_stream, require_connection_credit(10)?), http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(with_stream), low_stream))
+	let stream_failure: CoreDataReceiveFlowControlFailure = require_data_receive_failure(http2::core::apply_data_receive_flow_control(low_stream_state, 43, 5, 3, preview))?
+	let missing_failure: CoreDataReceiveFlowControlFailure = require_data_receive_failure(http2::core::apply_data_receive_flow_control(with_stream, 47, 7, 1, preview))?
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_stream), 5))?
+	if http2::core::data_receive_flow_control_failure_id(connection_failure) == "http2.flow_control.window_exceeded" and http2::core::data_receive_flow_control_failure_offset(connection_failure) == 41 and http2::core::data_receive_flow_control_failure_stream_id(connection_failure) == 5 and http2::core::data_receive_flow_control_failure_data_length(connection_failure) == 6 and http2::core::data_receive_flow_control_failure_domain(connection_failure) == "connection_window_credit" and http2::core::data_receive_flow_control_failure_observed_value(connection_failure) == 0 - 2 and http2::core::data_receive_flow_control_failure_connection_credit(connection_failure) == 4 and http2::core::data_receive_flow_control_failure_stream_credit(connection_failure) == 3 and http2::core::data_receive_flow_control_failure_domain(stream_failure) == "stream_window_credit" and http2::core::data_receive_flow_control_failure_observed_value(stream_failure) == 0 - 2147483648 and http2::core::data_receive_flow_control_failure_connection_credit(stream_failure) == 10 and http2::core::data_receive_flow_control_failure_stream_credit(stream_failure) == 0 - 2147483645 and http2::core::data_receive_flow_control_failure_id(missing_failure) == "http2.protocol.invalid_stream_reference" and http2::core::data_receive_flow_control_failure_domain(missing_failure) == "stream_reference" and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(with_stream)) == 4 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 3 and chunks_equal(http2::core::data_receive_flow_control_failure_preview(connection_failure), preview)? and chunks_equal(http2::core::data_receive_flow_control_failure_preview(stream_failure), preview)? and chunks_equal(http2::core::data_receive_flow_control_failure_preview(missing_failure), preview)?
+		Ok(())
+	else
+		Err("HTTP/2 DATA receive flow-control failure did not preserve state, context, or preview")
 	end
 end
 

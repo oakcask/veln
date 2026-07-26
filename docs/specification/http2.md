@@ -309,9 +309,27 @@ PRIORITY, and PUSH_PROMISE admission, exact failure context, immutable stream
 collection preservation, and preview preservation. The focused
 [`http2-core-stream-frame-admission`](../../examples/specification/run/http2-core-stream-frame-admission/)
 case imports `http2::core` from `std` and records public decision and failure
-projections. Payload-specific frame application, header validation,
-flow-control debit or refill, HPACK-carrying transitions, complete stdout, and
-output-chunk integration remain in the aggregate
+projections.
+
+`http2::core::apply_data_receive_flow_control(state, offset, stream_id,
+data_length, preview)` is the standard-owned immutable DATA receive
+flow-control transition over `CoreConnectionState`. It looks up the target
+stream collection entry and, on success, returns a new aggregate state with
+both connection receive credit and that stream's receive credit debited by the
+DATA length. Connection-window failure, stream-window failure, and missing
+stream failure expose stable public ids, offset, stream id, DATA length,
+domain, observed credit, original credit values, and supplied frame-header
+preview. Rejections expose no next state and leave the input aggregate,
+stream collection, and preview unchanged.
+
+The adjacent test checks immutable success, connection-window failure,
+stream-window failure, missing-stream failure, exact failure context, original
+credit preservation, and preview preservation. The focused
+[`http2-core-data-receive-flow-control`](../../examples/specification/run/http2-core-data-receive-flow-control/)
+case imports `http2::core` from `std` and records the public result-state and
+failure projections. Other payload-specific frame application, header
+validation, WINDOW_UPDATE refill, HPACK-carrying transitions, complete stdout,
+and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

@@ -1,0 +1,144 @@
+use prelude
+use http2::core::connection_state
+use http2::core::flow_control
+use http2::core::stream_state
+
+pub type CoreDataReceiveFlowControlDecision
+	CoreDataReceiveFlowControlAccepted(CoreConnectionState)
+	CoreDataReceiveFlowControlRejected(CoreDataReceiveFlowControlFailure)
+end
+
+pub type CoreDataReceiveFlowControlFailure
+	CoreDataReceiveFlowControlMissingStream(offset: Int, stream_id: Int, data_length: Int, connection_credit: Int, preview: ByteChunk)
+	CoreDataReceiveFlowControlWindowExceeded(offset: Int, stream_id: Int, data_length: Int, domain: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, connection_credit: Int, stream_credit: Int, preview: ByteChunk)
+end
+
+pub fn apply_data(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+		Some(entry) => apply_existing_stream(state, offset, stream_id, data_length, entry, preview)
+		None => CoreDataReceiveFlowControlRejected(CoreDataReceiveFlowControlMissingStream(offset, stream_id, data_length, http2::core::flow_control::connection_window_credit_value(http2::core::connection_state::connection_receive_credit(state)), preview))
+	end
+end
+
+fn apply_existing_stream(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, entry: CoreStreamEntry, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	let connection_credit: CoreConnectionWindowCredit = http2::core::connection_state::connection_receive_credit(state)
+	let stream_credit: CoreStreamWindowCredit = http2::core::stream_state::entry_receive_credit(entry)
+	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_connection_window(connection_credit, data_length)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => match http2::core::flow_control::connection_window_credit(http2::core::flow_control::credit_decision_value(decision))
+			Ok(next_connection_credit) => apply_stream_window(state, offset, stream_id, data_length, stream_credit, next_connection_credit, preview)
+			Err(failure) => rejected_window(offset, stream_id, data_length, failure, connection_credit, stream_credit, preview)
+		end
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => rejected_window(offset, stream_id, data_length, failure, connection_credit, stream_credit, preview)
+			Err(_) => CoreDataReceiveFlowControlRejected(CoreDataReceiveFlowControlMissingStream(offset, stream_id, data_length, http2::core::flow_control::connection_window_credit_value(connection_credit), preview))
+		end
+	end
+end
+
+fn apply_stream_window(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, stream_credit: CoreStreamWindowCredit, next_connection_credit: CoreConnectionWindowCredit, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_stream_window(stream_credit, data_length)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => match http2::core::flow_control::stream_window_credit(http2::core::flow_control::credit_decision_value(decision))
+			Ok(next_stream_credit) => accept_state(state, stream_id, next_connection_credit, next_stream_credit)
+			Err(failure) => rejected_window(offset, stream_id, data_length, failure, http2::core::connection_state::connection_receive_credit(state), stream_credit, preview)
+		end
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => rejected_window(offset, stream_id, data_length, failure, http2::core::connection_state::connection_receive_credit(state), stream_credit, preview)
+			Err(_) => CoreDataReceiveFlowControlRejected(CoreDataReceiveFlowControlMissingStream(offset, stream_id, data_length, http2::core::flow_control::connection_window_credit_value(http2::core::connection_state::connection_receive_credit(state)), preview))
+		end
+	end
+end
+
+fn accept_state(state: CoreConnectionState, stream_id: Int, next_connection_credit: CoreConnectionWindowCredit, next_stream_credit: CoreStreamWindowCredit) -> CoreDataReceiveFlowControlDecision
+	let next_streams: CoreStreamCollection = http2::core::stream_state::with_receive_credit(http2::core::connection_state::streams(state), stream_id, next_stream_credit)
+	CoreDataReceiveFlowControlAccepted(http2::core::connection_state::with_streams(http2::core::connection_state::with_connection_receive_credit(state, next_connection_credit), next_streams))
+end
+
+fn rejected_window(offset: Int, stream_id: Int, data_length: Int, failure: FlowControlDomainFailure, connection_credit: CoreConnectionWindowCredit, stream_credit: CoreStreamWindowCredit, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	CoreDataReceiveFlowControlRejected(CoreDataReceiveFlowControlWindowExceeded(offset, stream_id, data_length, http2::core::flow_control::failure_domain(failure), http2::core::flow_control::failure_observed_value(failure), http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), http2::core::flow_control::connection_window_credit_value(connection_credit), http2::core::flow_control::stream_window_credit_value(stream_credit), preview))
+end
+
+pub fn decision_status(decision: CoreDataReceiveFlowControlDecision) -> String
+	match decision
+		CoreDataReceiveFlowControlAccepted(_) => "accepted"
+		CoreDataReceiveFlowControlRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_state(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreDataReceiveFlowControlAccepted(state) => Ok(state)
+		CoreDataReceiveFlowControlRejected(_) => Err("rejected DATA receive flow-control decision has no state")
+	end
+end
+
+pub fn decision_failure(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreDataReceiveFlowControlFailure, String>
+	match decision
+		CoreDataReceiveFlowControlAccepted(_) => Err("accepted DATA receive flow-control decision has no failure")
+		CoreDataReceiveFlowControlRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_id(failure: CoreDataReceiveFlowControlFailure) -> String
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, _, _) => "http2.protocol.invalid_stream_reference"
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, _, _, _, _, _, _, _) => "http2.flow_control.window_exceeded"
+	end
+end
+
+pub fn failure_offset(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(offset, _, _, _, _) => offset
+		CoreDataReceiveFlowControlWindowExceeded(offset, _, _, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_stream_id(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, stream_id, _, _, _) => stream_id
+		CoreDataReceiveFlowControlWindowExceeded(_, stream_id, _, _, _, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_data_length(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, data_length, _, _) => data_length
+		CoreDataReceiveFlowControlWindowExceeded(_, _, data_length, _, _, _, _, _, _, _) => data_length
+	end
+end
+
+pub fn failure_domain(failure: CoreDataReceiveFlowControlFailure) -> String
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, _, _) => "stream_reference"
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, domain, _, _, _, _, _, _) => domain
+	end
+end
+
+pub fn failure_observed_value(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, _, _) => 0
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, _, observed_value, _, _, _, _, _) => observed_value
+	end
+end
+
+pub fn failure_connection_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, connection_credit, _) => connection_credit
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, _, _, _, _, connection_credit, _, _) => connection_credit
+	end
+end
+
+pub fn failure_stream_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, _, _) => 0
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, _, _, _, _, _, stream_credit, _) => stream_credit
+	end
+end
+
+pub fn failure_preview(failure: CoreDataReceiveFlowControlFailure) -> ByteChunk
+	match failure
+		CoreDataReceiveFlowControlMissingStream(_, _, _, _, preview) => preview
+		CoreDataReceiveFlowControlWindowExceeded(_, _, _, _, _, _, _, _, _, preview) => preview
+	end
+end
