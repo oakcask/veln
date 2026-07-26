@@ -302,6 +302,19 @@ test connection_state_updates_are_immutable() -> Result<(), String>
 	end
 end
 
+test connection_state_replaces_protocol_gates_and_closed_lifecycle_immutably() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(5)?
+	let advanced_preface: ConnectionPrefaceState = http2::core::connection_preface_state(require_preface_transition(http2::core::accept_connection_preface(http2::core::connection_state_preface(state), byte_chunk_from_hex("50524920")?))?)
+	let client_gate: InitialPeerSettingsGateState = http2::core::client_initial_peer_settings_gate()
+	let pending: PendingHeaderBlock = http2::core::header_block_state(http2::core::start_header_block(13, 1, 41, 5, true, 31, byte_chunk_from_hex("8203")?, false))
+	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_pending_header_block(http2::core::connection_state_with_initial_peer_settings(http2::core::connection_state_with_preface(state, advanced_preface), client_gate), pending), http2::core::connection_lifecycle_closed(13, 0))
+	if http2::core::connection_preface_matched_count(http2::core::connection_state_preface(state)) == 0 and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open" and http2::core::connection_preface_matched_count(http2::core::connection_state_preface(updated)) == 4 and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(updated)) == "client" and http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(updated)) and http2::core::pending_header_block_expected_stream(http2::core::connection_state_pending_header_block(updated)) == 13 and http2::core::pending_header_block_started_kind(http2::core::connection_state_pending_header_block(updated)) == 1 and http2::core::pending_header_block_started_offset(http2::core::connection_state_pending_header_block(updated)) == 41 and http2::core::pending_header_block_started_flags(http2::core::connection_state_pending_header_block(updated)) == 5 and http2::core::pending_header_block_is_trailer(http2::core::connection_state_pending_header_block(updated)) and http2::core::pending_header_block_promised_stream_id(http2::core::connection_state_pending_header_block(updated)) == 31 and chunks_equal(http2::core::pending_header_block_bytes(http2::core::connection_state_pending_header_block(updated)), byte_chunk_from_hex("8203")?)? and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(updated)) == "closed" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(updated)) == 13 and http2::core::connection_lifecycle_error_code(http2::core::connection_state_lifecycle(updated)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 connection state did not immutably replace protocol gates or closed lifecycle")
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?

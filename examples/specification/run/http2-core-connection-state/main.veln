@@ -8,6 +8,13 @@ fn bool_label(value: Bool) -> String
 	end
 end
 
+fn require_preface_transition(result: Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>) -> Result<ConnectionPrefaceTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::core::connection_preface_failure_kind(failure))
+	end
+end
+
 fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" role ")
@@ -20,6 +27,12 @@ fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
 	stdio::print(http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)))
 	stdio::print(" pending ")
 	stdio::print(bool_label(http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state))))
+	stdio::print(" pending_stream ")
+	stdio::print(int_to_string(http2::core::pending_header_block_expected_stream(http2::core::connection_state_pending_header_block(state))))
+	stdio::print(" pending_kind ")
+	stdio::print(int_to_string(http2::core::pending_header_block_started_kind(http2::core::connection_state_pending_header_block(state))))
+	stdio::print(" pending_offset ")
+	stdio::print(int_to_string(http2::core::pending_header_block_started_offset(http2::core::connection_state_pending_header_block(state))))
 	stdio::print(" hpack_capacity ")
 	stdio::print(int_to_string(http2::core::connection_state_hpack_table_capacity(state)))
 	stdio::print(" hpack_entries ")
@@ -35,16 +48,22 @@ fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
 	stdio::print(" lifecycle ")
 	stdio::print(http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)))
 	stdio::print(" last ")
-	stdio::println(int_to_string(http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(state))))
+	stdio::print(int_to_string(http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(state))))
+	stdio::print(" error ")
+	stdio::println(int_to_string(http2::core::connection_lifecycle_error_code(http2::core::connection_state_lifecycle(state))))
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
 	let server: CoreConnectionState = http2::core::server_connection_state(24)?
 	let client: CoreConnectionState = http2::core::client_connection_state(7)?
 	let updated: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_peer_stream_admission(http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_peer_settings(http2::core::connection_state_with_next_offset(server, 31), http2::core::peer_settings_with_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(server), 9)), http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(server), 5, 1)), http2::core::record_peer_stream_id(9, http2::core::connection_state_peer_stream_admission(server))), http2::core::connection_lifecycle_draining(9, 0))
+	let advanced_preface: ConnectionPrefaceState = http2::core::connection_preface_state(require_preface_transition(http2::core::accept_connection_preface(http2::core::connection_state_preface(server), byte_chunk_from_hex("50524920")?))?)
+	let pending: PendingHeaderBlock = http2::core::header_block_state(http2::core::start_header_block(13, 1, 41, 5, true, 31, byte_chunk_from_hex("8203")?, false))
+	let replaced: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::connection_state_with_pending_header_block(http2::core::connection_state_with_initial_peer_settings(http2::core::connection_state_with_preface(server, advanced_preface), http2::core::client_initial_peer_settings_gate()), pending), http2::core::connection_lifecycle_closed(13, 0))
 	print_state("server", server)
 	print_state("client", client)
 	print_state("updated", updated)
+	print_state("replaced", replaced)
 	print_state("server-after-update", server)
 	Ok(())
 end
