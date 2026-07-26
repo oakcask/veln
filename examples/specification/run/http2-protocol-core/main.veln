@@ -3157,21 +3157,16 @@ fn outbound_headers_preflight(stream_id: Int, payload_length: Int, end_stream: B
 	if outbound_local_stream_is_open(stream_id, outbound_headers_connection_lifecycle(state))
 		OutboundHeadersExistingStream
 	else
-		outbound_new_headers_stream_domain_preflight(stream_id, payload_length, end_stream, state)
+		outbound_new_headers_stream_id_preflight(stream_id, payload_length, end_stream, state)
 	end
 end
 
-fn outbound_new_headers_stream_domain_preflight(stream_id: Int, payload_length: Int, end_stream: Bool, state: OutboundHeadersConnectionState) -> OutboundHeadersPreflight
+fn outbound_new_headers_stream_id_preflight(stream_id: Int, payload_length: Int, end_stream: Bool, state: OutboundHeadersConnectionState) -> OutboundHeadersPreflight
 	match stream_id
 		0 => OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
-		_ => if stream_id_is_representable(stream_id)
-			if stream_id_is_client_initiated(stream_id)
-				outbound_new_headers_stream_role_preflight(stream_id, payload_length, end_stream, state)
-			else
-				OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
-			end
-		else
-			OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
+		_ => match http2::core::client_stream_id(stream_id)
+			Ok(_) => outbound_new_headers_stream_role_preflight(stream_id, payload_length, end_stream, state)
+			Err(_) => OutboundHeadersPreflightRejected(OutboundHeadersRejected(stream_id, payload_length, end_stream, InvalidStreamId(0, 1, stream_id, "nonzero client-initiated stream id", outbound_headers_endpoint_role_label(outbound_headers_connection_role(state)), "stream-id-domain", "outbound_headers_new_stream_requires_client_stream")))
 		end
 	end
 end

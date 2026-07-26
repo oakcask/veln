@@ -96,6 +96,20 @@ fn require_ping_request_failure(decision: PingRequestDecision) -> Result<FramePa
 	http2::core::ping_request_failure(decision)
 end
 
+fn stream_id_accepts(result: Result<StreamId, String>, expected: Int) -> Bool
+	match result
+		Ok(stream_id) => http2::core::stream_id_value(stream_id) == expected
+		Err(_) => false
+	end
+end
+
+fn stream_id_rejects(result: Result<StreamId, String>) -> Bool
+	match result
+		Ok(_) => false
+		Err(_) => true
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
@@ -119,18 +133,10 @@ test stream_domains_project_connection_and_real_references() -> Result<(), Strin
 end
 
 test stream_domains_accept_lower_bounds_and_reject_invalid_boundaries() -> Result<(), String>
-	match http2::core::client_stream_id(0)
-		Ok(_) => Err("zero entered the HTTP/2 stream id domain")
-		Err(_) => match http2::core::server_stream_id(2147483648)
-			Ok(_) => Err("one above the HTTP/2 stream id upper bound entered the domain")
-			Err(_) => match http2::core::client_stream_id(2)
-				Ok(_) => Err("even stream id entered the client stream domain")
-				Err(_) => match http2::core::server_stream_id(3)
-					Ok(_) => Err("odd stream id entered the server stream domain")
-					Err(_) => Ok(())
-				end
-			end
-		end
+	if stream_id_accepts(http2::core::client_stream_id(1), 1) and stream_id_accepts(http2::core::server_stream_id(2), 2) and stream_id_rejects(http2::core::client_stream_id(0)) and stream_id_rejects(http2::core::server_stream_id(0)) and stream_id_rejects(http2::core::client_stream_id(2147483648)) and stream_id_rejects(http2::core::server_stream_id(2147483648)) and stream_id_rejects(http2::core::client_stream_id(2)) and stream_id_rejects(http2::core::server_stream_id(3))
+		Ok(())
+	else
+		Err("HTTP/2 stream id domains did not preserve lower-bound, upper-bound, zero, and parity invariants")
 	end
 end
 
