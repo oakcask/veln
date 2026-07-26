@@ -1,0 +1,65 @@
+use http2::hpack from "std"
+use stdio
+
+fn require_transition(input: ByteChunk, table: DynamicTable) -> Result<IndexedDecodeTransition, String>
+	match http2::hpack::decode_indexed_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table)
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::indexed_decode_failure_kind(failure))
+	end
+end
+
+fn first_octet(chunk: ByteChunk) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(0)?, byte_count(1)?)?)
+end
+
+fn print_transition(label: String, transition: IndexedDecodeTransition) -> Result<(), String> effects [stdio]
+	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(transition)
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::hpack::indexed_header_name(header))
+	stdio::print(" ")
+	stdio::print(int_to_string(first_octet(http2::hpack::indexed_header_value(header))?))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::indexed_decode_consumed(transition)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(http2::hpack::indexed_decode_table(transition))))
+	Ok(())
+end
+
+fn print_failure_details(label: String, failure: IndexedDecodeFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::hpack::indexed_decode_failure_kind(failure))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::indexed_decode_failure_index(failure)))
+	stdio::print(" ")
+	stdio::print(int_to_string(http2::hpack::indexed_decode_failure_dynamic_index(failure)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::indexed_decode_failure_dynamic_entry_count(failure)))
+	Ok(())
+end
+
+fn print_failure(label: String, input: ByteChunk, table: DynamicTable) -> Result<(), String> effects [stdio]
+	match http2::hpack::decode_indexed_header_field(byte_view(input, byte_offset(0)?, byte_chunk_count(input))?, table)
+		Ok(_) => Err("expected indexed header decoding to fail")
+		Err(failure) => print_failure_details(label, failure)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: DynamicTable = http2::hpack::empty_dynamic_table(128)?
+	let static: IndexedDecodeTransition = require_transition(byte_chunk_from_hex("82")?, empty)?
+	let _ = print_transition("static", static)?
+	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "older", byte_chunk_from_hex("31")?)?
+	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
+	let dynamic: IndexedDecodeTransition = require_transition(byte_chunk_from_hex("be")?, table)?
+	let _ = print_transition("dynamic", dynamic)?
+	let _ = print_failure("zero", byte_chunk_from_hex("80")?, table)?
+	let _ = print_failure("incomplete", byte_chunk_from_hex("ff80")?, table)?
+	let _ = print_failure("unavailable", byte_chunk_from_hex("c0")?, table)?
+	stdio::print("original ")
+	stdio::print(int_to_string(http2::hpack::dynamic_table_size(table)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::hpack::dynamic_table_entry_count(table)))
+	Ok(())
+end

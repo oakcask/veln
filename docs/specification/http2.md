@@ -17,7 +17,7 @@ The public routes are:
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
-  and immutable dynamic-table state.
+  immutable dynamic-table state, and indexed header-field decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -81,6 +81,25 @@ focused
 [`hpack-dynamic-table-state`](../../examples/specification/run/hpack-dynamic-table-state/)
 case checks the same facade from an external package and records its projected
 state and octet values through command output.
+
+`http2::hpack::decode_indexed_header_field(input, table)` decodes one HPACK
+indexed header-field representation with the full seven-bit-prefixed integer.
+Indices 1 through 61 resolve through the static table. Larger indices resolve
+through the supplied immutable dynamic table, where index 62 selects its
+newest entry. The transition reports the consumed octet count, decoded name
+and exact value `ByteChunk`, and the unchanged dynamic table.
+
+The typed `IndexedDecodeFailure` distinguishes malformed and incomplete
+integers, index zero, unavailable static entries, and unavailable dynamic
+entries. Failure projections expose a stable failure kind and the requested
+table coordinates where applicable; a failure contains neither a decoded
+header nor a next table. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks every static entry, single- and multi-octet dynamic indices, arbitrary
+value octets, all reachable failure classes, and state preservation. The
+focused
+[`hpack-indexed-header-field`](../../examples/specification/run/hpack-indexed-header-field/)
+case checks the public facade from an external package.
 
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under

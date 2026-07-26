@@ -3,26 +3,136 @@ use http2::hpack::dynamic_table
 use http2::hpack::integer
 use http2::hpack::static_table
 
-pub type HeaderField
-	HeaderField(name: String, value: String)
+pub type HeaderCodecField
+	HeaderCodecField(name: String, value: ByteChunk)
 end
 
-pub type State
-	State(DynamicTable)
+pub type HeaderCodecFailure
+	HeaderCodecMalformedInteger
+	HeaderCodecIncompleteInteger
+	HeaderCodecZeroIndex
+	HeaderCodecUnavailableStaticEntry(index: Int)
+	HeaderCodecUnavailableDynamicEntry(index: Int, dynamic_index: Int, entry_count: Int)
 end
 
-pub type DecodeTransition
-	DecodeTransition(header: HeaderField, consumed: Int, state: State)
+pub type HeaderCodecTransition
+	HeaderCodecTransition(header: HeaderCodecField, consumed: Int, table: DynamicTable)
 end
 
-pub fn initial_state() -> Result<State, String>
-	Ok(State(http2::hpack::dynamic_table::empty(4096)?))
+fn incomplete_integer(failure: String) -> Bool
+	failure == "HPACK integer input must not be empty" or failure == "incomplete HPACK integer continuation"
 end
 
-pub fn decode_indexed(input: ByteView, state: State) -> Result<DecodeTransition, String>
-	let decoded: { value : Int, consumed : Int } = http2::hpack::integer::decode(input, 7)?
-	match http2::hpack::static_table::lookup(http2::hpack::integer::value(decoded))
-		Some(entry) => Ok(DecodeTransition(HeaderField(entry.name, entry.value), http2::hpack::integer::consumed(decoded), state))
-		None => Err("HPACK indexed field is not available in the static table")
+fn decode_integer(input: ByteView) -> Result<{ value : Int, consumed : Int }, HeaderCodecFailure>
+	match http2::hpack::integer::decode(input, 7)
+		Ok(decoded) => Ok(decoded)
+		Err(failure) => if incomplete_integer(failure)
+			Err(HeaderCodecIncompleteInteger)
+		else
+			Err(HeaderCodecMalformedInteger)
+		end
+	end
+end
+
+fn static_value_bytes(value: String) -> Result<ByteChunk, String>
+	if value == ""
+		Ok(byte_chunk([]))
+	else if value == "gzip, deflate"
+		byte_chunk_from_hex("677a69702c206465666c617465")
+	else
+		byte_chunk_from_visible_ascii_string(value)
+	end
+end
+
+fn static_header(index: Int, consumed: Int, table: DynamicTable) -> Result<HeaderCodecTransition, HeaderCodecFailure>
+	match http2::hpack::static_table::lookup(index)
+		Some(entry) => match static_value_bytes(entry.value)
+			Ok(value) => Ok(HeaderCodecTransition(HeaderCodecField(entry.name, value), consumed, table))
+			Err(_) => Err(HeaderCodecUnavailableStaticEntry(index))
+		end
+		None => Err(HeaderCodecUnavailableStaticEntry(index))
+	end
+end
+
+fn dynamic_header(index: Int, consumed: Int, table: DynamicTable) -> Result<HeaderCodecTransition, HeaderCodecFailure>
+	let dynamic_index: Int = index - 61
+	match http2::hpack::dynamic_table::lookup(table, dynamic_index)
+		Some(entry) => Ok(HeaderCodecTransition(HeaderCodecField(http2::hpack::dynamic_table::entry_name(entry), http2::hpack::dynamic_table::entry_value(entry)), consumed, table))
+		None => Err(HeaderCodecUnavailableDynamicEntry(index, dynamic_index, http2::hpack::dynamic_table::entry_count(table)))
+	end
+end
+
+pub fn decode_indexed(input: ByteView, table: DynamicTable) -> Result<HeaderCodecTransition, HeaderCodecFailure>
+	let decoded: { value : Int, consumed : Int } = decode_integer(input)?
+	let index: Int = http2::hpack::integer::value(decoded)
+	let consumed: Int = http2::hpack::integer::consumed(decoded)
+	if index == 0
+		Err(HeaderCodecZeroIndex)
+	else if index <= 61
+		static_header(index, consumed, table)
+	else
+		dynamic_header(index, consumed, table)
+	end
+end
+
+pub fn transition_header(transition: HeaderCodecTransition) -> HeaderCodecField
+	match transition
+		HeaderCodecTransition(header, _, _) => header
+	end
+end
+
+pub fn transition_consumed(transition: HeaderCodecTransition) -> Int
+	match transition
+		HeaderCodecTransition(_, consumed, _) => consumed
+	end
+end
+
+pub fn transition_table(transition: HeaderCodecTransition) -> DynamicTable
+	match transition
+		HeaderCodecTransition(_, _, table) => table
+	end
+end
+
+pub fn header_name(header: HeaderCodecField) -> String
+	match header
+		HeaderCodecField(name, _) => name
+	end
+end
+
+pub fn header_value(header: HeaderCodecField) -> ByteChunk
+	match header
+		HeaderCodecField(_, value) => value
+	end
+end
+
+pub fn failure_kind(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecMalformedInteger => 0
+		HeaderCodecIncompleteInteger => 1
+		HeaderCodecZeroIndex => 2
+		HeaderCodecUnavailableStaticEntry(_) => 3
+		HeaderCodecUnavailableDynamicEntry(_, _, _) => 4
+	end
+end
+
+pub fn failure_index(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecUnavailableStaticEntry(index) => index
+		HeaderCodecUnavailableDynamicEntry(index, _, _) => index
+		_ => 0
+	end
+end
+
+pub fn failure_dynamic_index(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecUnavailableDynamicEntry(_, dynamic_index, _) => dynamic_index
+		_ => 0
+	end
+end
+
+pub fn failure_dynamic_entry_count(failure: HeaderCodecFailure) -> Int
+	match failure
+		HeaderCodecUnavailableDynamicEntry(_, _, entry_count) => entry_count
+		_ => 0
 	end
 end
