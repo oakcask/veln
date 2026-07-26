@@ -56,8 +56,7 @@ Promote reusable behavior from `hpack_fixture.veln`, `hpack_static.veln`, and
 
 - integration of the implemented immutable dynamic table with production
   header representation decode and encode transitions;
-- indexed, literal-with-indexing, literal-without-indexing, never-indexed, and
-  table-size-update representations;
+- table-size-update representation decoding and all representation encoding;
 - recursive header lists with octet-preserving values; and
 - immutable decode and encode transitions that expose no partial output or
   next state after failure.
@@ -74,14 +73,19 @@ fixture byte-label facade and its private adapter intrinsics are removed.
 Remaining HPACK work is representation and state integration; it must reuse
 this codec instead of adding a second label-based or fixture codec.
 
-The production codec must also replace the three remaining generic
-`hpack.fixture.unsupported_header_block` fallback families with focused typed
+Indexed and literal header-field decoding are implemented behind the public
+facade. Literal decoding covers incremental indexing, without indexing, and
+never indexed; direct and indexed names; raw and Huffman strings; and immutable
+success and failure transitions. Remaining representation work is table-size
+updates, recursive header lists, and encoding.
+
+The first two generic production fallback families are replaced by focused
+typed failures. Remaining production work must replace the final
+`hpack.fixture.unsupported_header_block` fallback family with focused typed
 failures:
 
-1. indexed-field integer, zero-index, and unavailable-entry failures;
-2. literal-field name, string-length, raw-octet, and Huffman failures; and
-3. ordered-list encode failures after validation, integer encoding, string
-   encoding, or active-capacity selection.
+- ordered-list encode failures after validation, integer encoding, string
+  encoding, or active-capacity selection.
 
 These families are bounded by the supported HPACK representations above. A new
 fixture label or another same-shaped header-list example does not extend the
@@ -148,6 +152,7 @@ observable output.
 | dynamic-table construction and capacity transition failures | negative capacities are rejected without changing the input | `dynamic_table_rejects_negative_capacities_without_changing_input` | failure-state preservation |
 | production octet-value accounting projections | values retain non-visible octets through lookup | `dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets` | success |
 | `dynamic_core_decode_indexed_at`, saturated indexed-integer paths, newest/older projections, and indexed failure assertions | static indices 1 through 61 and newest-first dynamic indices decode through the immutable table; multi-octet indices, zero, malformed or incomplete integers, unavailable entries, exact value octets, and unchanged state have focused outcomes | `indexed_header_decoder_resolves_every_static_entry`, `indexed_header_decoder_resolves_dynamic_entries_newest_first`, `indexed_header_decoder_accepts_multi_octet_dynamic_indices`, `indexed_header_decoder_returns_focused_integer_and_zero_failures`, `indexed_header_decoder_reports_unavailable_dynamic_entries_without_next_state`, `hpack-indexed-header-field` | success, failure, raw octets, and input-state or failure-output preservation |
+| literal-with-indexing, literal-without-indexing, never-indexed, direct-name, dynamic-name continuation, raw-string, Huffman-string, and literal failure assertion families | all three literal representations decode direct, static, and newest-first dynamic names with multi-octet indices and lengths; raw and Huffman values preserve exact octets; only incremental indexing inserts; focused name-index, unavailable-name, string-length, raw-truncation, invalid-name, and Huffman failures expose no field or next table and preserve input state | `literal_header_decoder_supports_all_representations_and_table_transitions`, `literal_header_decoder_preserves_raw_and_huffman_octets`, `literal_header_decoder_resolves_dynamic_names_and_multi_octet_prefixes`, `literal_header_decoder_returns_focused_name_failures_without_changing_state`, `literal_header_decoder_returns_focused_value_failures_without_changing_state`, `hpack-literal-header-field` | success, failure, raw result values, and input-state or failure-output preservation |
 | `hpack_static_huffman_symbol`, code table, and payload encode helpers | the complete static table encodes arbitrary octets and applies EOS-prefix padding | `huffman_codec_preserves_canonical_vectors`, `huffman_codec_round_trips_every_single_octet`, `huffman_encoder_uses_eos_prefix_padding_at_bit_boundaries` | success and emitted bytes |
 | checked Huffman decode loops and non-visible label projections | decoding preserves exact arbitrary octets without a label compatibility API | `huffman_codec_round_trips_every_single_octet`, `huffman_codec_round_trips_recursive_multi_octet_input`, `huffman_codec_preserves_non_visible_octets`, `hpack-huffman-codec` | success and raw octets |
 | malformed padding, EOS, and incomplete-code assertion families | failures expose no partial decoded value and distinguish representative invalid payloads | `huffman_decoder_rejects_eos_invalid_padding_and_truncated_codes`, `huffman_decode_failure_exposes_no_partial_output`, `hpack-huffman-codec` | failure and failure-output preservation |
@@ -258,7 +263,7 @@ fixture implementation or complete stdout assertion.
   reduced to a focused example.
 - `std::http2::hpack` and `std::http2::core` own all reusable behavior formerly
   implemented by the fixture.
-- The three generic production HPACK fallback families return focused typed
+- The remaining generic production HPACK fallback family returns focused typed
   failures.
 - Standard tests and focused specification cases preserve all classified
   semantics and observable output.

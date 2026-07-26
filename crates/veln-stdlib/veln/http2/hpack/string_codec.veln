@@ -1,0 +1,111 @@
+use prelude
+use http2::hpack::huffman
+use http2::hpack::integer
+
+pub type StringCodecFailure
+	StringCodecMalformedLength
+	StringCodecIncompleteLength
+	StringCodecTruncatedRawOctets(expected: Int, available: Int)
+	StringCodecHuffmanFailure
+end
+
+pub type StringCodecValue
+	StringCodecValue(ByteChunk, consumed: Int)
+end
+
+fn incomplete_integer(failure: String) -> Bool
+	failure == "HPACK integer input must not be empty" or failure == "incomplete HPACK integer continuation"
+end
+
+pub fn decode(input: ByteView) -> Result<StringCodecValue, StringCodecFailure>
+	match http2::hpack::integer::decode(input, 7)
+		Ok(decoded) => decode_value(input, decoded)
+		Err(failure) => if incomplete_integer(failure)
+			Err(StringCodecIncompleteLength)
+		else
+			Err(StringCodecMalformedLength)
+		end
+	end
+end
+
+fn decode_value(input: ByteView, decoded: { value : Int, consumed : Int }) -> Result<StringCodecValue, StringCodecFailure>
+	let length: Int = http2::hpack::integer::value(decoded)
+	let prefix_consumed: Int = http2::hpack::integer::consumed(decoded)
+	let available: Int = byte_count_to_int(byte_view_count(input)) - prefix_consumed
+	if length > available
+		Err(StringCodecTruncatedRawOctets(length, available))
+	else
+		match byte_count(prefix_consumed)
+			Err(_) => Err(StringCodecMalformedLength)
+			Ok(prefix_count) => match byte_view_drop(input, prefix_count)
+				Err(_) => Err(StringCodecMalformedLength)
+				Ok(payload_input) => decode_payload(input, payload_input, length, prefix_consumed)
+			end
+		end
+	end
+end
+
+fn decode_payload(input: ByteView, payload_input: ByteView, length: Int, prefix_consumed: Int) -> Result<StringCodecValue, StringCodecFailure>
+	match byte_count(length)
+		Err(_) => Err(StringCodecMalformedLength)
+		Ok(payload_count) => match byte_view_take(payload_input, payload_count)
+			Err(_) => Err(StringCodecTruncatedRawOctets(length, byte_count_to_int(byte_view_count(payload_input))))
+			Ok(payload) => decode_payload_encoding(input, byte_view_to_chunk(payload), prefix_consumed + length)
+		end
+	end
+end
+
+fn decode_payload_encoding(input: ByteView, payload: ByteChunk, consumed: Int) -> Result<StringCodecValue, StringCodecFailure>
+	match byte_read_u8_be(input)
+		Err(_) => Err(StringCodecIncompleteLength)
+		Ok(first) => if (first & 128) == 0
+			Ok(StringCodecValue(payload, consumed))
+		else
+			match byte_offset(0)
+				Err(_) => Err(StringCodecHuffmanFailure)
+				Ok(offset) => match byte_view(payload, offset, byte_chunk_count(payload))
+					Err(_) => Err(StringCodecHuffmanFailure)
+					Ok(payload_view) => match http2::hpack::huffman::decode_bytes(payload_view)
+						Ok(value) => Ok(StringCodecValue(value, consumed))
+						Err(_) => Err(StringCodecHuffmanFailure)
+					end
+				end
+			end
+		end
+	end
+end
+
+pub fn value(decoded: StringCodecValue) -> ByteChunk
+	match decoded
+		StringCodecValue(value, _) => value
+	end
+end
+
+pub fn consumed(decoded: StringCodecValue) -> Int
+	match decoded
+		StringCodecValue(_, consumed) => consumed
+	end
+end
+
+pub fn failure_kind(failure: StringCodecFailure) -> Int
+	match failure
+		StringCodecMalformedLength => 0
+		StringCodecIncompleteLength => 1
+		StringCodecTruncatedRawOctets(_, _) => 2
+		StringCodecHuffmanFailure => 3
+	end
+end
+
+pub fn failure_expected(failure: StringCodecFailure) -> Int
+	match failure
+		StringCodecTruncatedRawOctets(expected, _) => expected
+		_ => 0
+	end
+end
+
+pub fn failure_available(failure: StringCodecFailure) -> Int
+	match failure
+		StringCodecTruncatedRawOctets(_, available) => available
+		_ => 0
+	end
+end

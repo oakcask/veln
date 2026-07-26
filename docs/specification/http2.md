@@ -17,7 +17,7 @@ The public routes are:
 - `http2::frame`: frame decoding and validated frame-header encoding.
 - `http2::diagnostic`: protocol and peer-limit diagnostic constructors.
 - `http2::hpack`: prefixed-integer and HPACK Huffman codecs, static entries,
-  immutable dynamic-table state, and indexed header-field decoding.
+  immutable dynamic-table state, and indexed and literal header-field decoding.
 - `http2::hpack::diagnostic`: HPACK diagnostic constructors.
 - `http2::core`: connection and role-specific stream-id domains.
 
@@ -100,6 +100,30 @@ value octets, all reachable failure classes, and state preservation. The
 focused
 [`hpack-indexed-header-field`](../../examples/specification/run/hpack-indexed-header-field/)
 case checks the public facade from an external package.
+
+`http2::hpack::decode_literal_header_field(input, table)` decodes one literal
+header field with incremental indexing, without indexing, or marked never
+indexed. A zero name index reads a raw or Huffman string name; a nonzero name
+index resolves through the static or immutable dynamic table with the
+representation's full prefixed integer. The value is another raw or Huffman
+string and is returned as an exact `ByteChunk`, including non-visible octets.
+The transition identifies the representation and reports its decoded field,
+consumed octet count, and next table. Incremental indexing inserts the field
+into the next table; the other representations return the unchanged table.
+
+The typed `LiteralDecodeFailure` distinguishes malformed and incomplete name
+indices, unavailable indexed names, malformed and incomplete name or value
+lengths, truncated raw name or value octets, invalid name octets, and name or
+value Huffman failures. Truncation projections report the expected and
+available octet counts, while unavailable dynamic-name projections report the
+requested table coordinates. Every failure contains neither a decoded field
+nor a next table and leaves the input table unchanged. The adjacent
+[`hpack_test.veln`](../../crates/veln-stdlib/veln/http2/hpack_test.veln)
+checks all representations, direct and indexed names, raw and Huffman strings,
+multi-octet indices and lengths, exact value octets, insertion, and failure
+preservation. The focused
+[`hpack-literal-header-field`](../../examples/specification/run/hpack-literal-header-field/)
+case records public raw result values and representative typed failures.
 
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under
