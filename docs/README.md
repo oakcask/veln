@@ -29,6 +29,20 @@ first route is not obvious.
 - Check source support or documentation maintenance routes:
   [navigation.md](navigation.md).
 
+## Behavior Specification Rule
+
+When a document specifies behavior, use the most directly verifiable practical
+medium regardless of whether the document lives under `specification/`,
+`proposals/`, or `reference/`. Prefer executable tests, doctests, checked
+fixtures, executable specifications, measurable benchmarks, or structured
+decision and state-transition tables. Use diagrams as derived or supporting
+views when possible. Keep prose for routing, rationale, scope, and constraints
+that cannot reasonably be expressed mechanically.
+
+Planned behavior must identify its acceptance model and intended verification
+without presenting not-yet-running evidence as implemented. Current behavior
+must route to checked evidence when practical.
+
 ## Stop Rule
 
 - Stop at the first short page that answers the task.
