@@ -19,23 +19,22 @@ SETTINGS, DATA, HEADERS, CONTINUATION, PUSH_PROMISE, WINDOW_UPDATE,
 RST_STREAM, GOAWAY, outbound DATA, outbound WINDOW_UPDATE, outbound HEADERS,
 outbound PUSH_PROMISE, outbound RST_STREAM, outbound PRIORITY, local SETTINGS,
 PING helpers, shutdown helpers, output-buffer helpers, and focused executable
-evidence.
+evidence. It also specifies the immutable chunked receive boundary that
+composes server preface consumption, the initial peer SETTINGS gate, buffered
+single-frame extraction, `apply_receive_frame(...)`, inbound SETTINGS ACK
+output, inbound PING ACK output, and inbound PRIORITY offset application.
 
 Those completed slices must be reused. The remaining proposal work is not a
 new HPACK codec, another repeated frame slice, or another domain-only helper.
 
 ## Remaining Implementation Scope
 
-- Add a standard-owned immutable chunked receive boundary over aggregate
-  connection, input-buffer, and output state.
-- Compose connection-preface consumption, the initial peer SETTINGS gate,
-  complete-frame extraction, `apply_receive_frame(...)`, and output ordering
-  in protocol order.
-- Integrate inbound PRIORITY application and inbound PING ACK or no-response
-  handling through that aggregate receive boundary.
+- Extend the standard-owned chunked receive boundary from single-frame
+  extraction to the remaining ordered receive-loop behavior needed by the
+  retired aggregate matrix.
 - Preserve diagnostic precedence and failure atomicity across input,
   connection, stream, HPACK, continuation, flow-control, content-length,
-  shutdown, and output-byte state.
+  shutdown, and output-byte state for the remaining matrix rows.
 - Keep the public production `http2::hpack` typed codec as the only reachable
   HPACK boundary for protocol-core receive and send transitions.
 

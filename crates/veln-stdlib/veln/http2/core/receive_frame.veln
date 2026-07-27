@@ -39,6 +39,10 @@ pub type CoreReceiveFrameFailure
 	CoreReceiveFramePushPromiseFailure(offset: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 end
 
+pub fn decode_failure(reason: String, preview: ByteChunk) -> CoreReceiveFrameFailure
+	CoreReceiveFrameDecodeFailure(reason, preview)
+end
+
 pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let frame_count: Int = byte_count_to_int(byte_chunk_count(frame_bytes))
 	match byte_view(frame_bytes, byte_offset(0)?, byte_count(frame_count)?)
@@ -86,6 +90,7 @@ fn apply_admitted(state: CoreConnectionState, offset: Int, length: Int, kind: In
 	match kind
 		0 => apply_data_frame(state, offset, length, flags, stream_id, payload, header, frame_bytes)
 		1 => apply_headers_frame(state, offset, length, flags, stream_id, payload, header)
+		2 => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(state, offset + 9 + length), 2, stream_id, length, "priority"))
 		3 => apply_rst_stream_frame(state, offset, stream_id, payload, header)
 		4 => apply_settings_frame(state, offset, length, flags, payload, header)
 		5 => apply_push_promise_frame(state, offset, length, flags, stream_id, payload, header)

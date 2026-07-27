@@ -31,7 +31,9 @@ The public routes are:
   frame-admission predicates, pure PING request and ACK response transitions,
   immutable receive-frame dispatch for DATA, HEADERS, CONTINUATION,
   PUSH_PROMISE, WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload
-  application,
+  application, immutable chunked receive state for server preface, initial
+  peer SETTINGS, frame buffering, inbound SETTINGS ACK output, inbound PING
+  ACK output, and inbound PRIORITY offset application,
   immutable GOAWAY, RST_STREAM, PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and
   PUSH_PROMISE send transitions, an immutable output buffer for ordering
   accepted send bytes, and an immutable aggregate connection state that
@@ -167,13 +169,39 @@ decode, payload-read, HPACK, or header-list reason where applicable, and
 preserved preview without returning a next state or mutating the input
 aggregate. The dispatcher starts from one complete frame; connection-preface
 consumption, the initial peer SETTINGS gate, chunk buffering, inbound PING
-output integration, and inbound PRIORITY state application are separate from
-this boundary. Inbound DATA on a stream with an accepted `content-length` updates
+output integration, and inbound PRIORITY state application are handled by the
+chunked receive boundary. Inbound DATA on a stream with an accepted `content-length` updates
 only the DATA application-octet count. It rejects over-length DATA and
 END_STREAM shortfalls as `http2.protocol.content_length_mismatch` with the
 expected and observed lengths, active-state label, `rfc9113_content_length_body`
 provenance, and preserved DATA preview before changing flow-control credit,
 stream lifecycle, or the input aggregate.
+
+`http2::core::receive_connection_state(...)` creates an immutable chunked
+receive state from caller-owned aggregate connection, buffered input, and
+output-buffer state. `receive_connection_chunk(...)` appends the supplied input
+chunk, consumes the server connection preface when required, buffers partial
+frame bytes, enforces the initial peer SETTINGS gate before the first accepted
+frame, then applies one complete frame through `apply_receive_frame(...)`.
+Accepted non-ACK peer SETTINGS frames with a recorded pending ACK append an
+outbound SETTINGS ACK through the output buffer in receive order and clear
+only the pending peer-ACK state.
+Accepted non-ACK PING frames append the exact PING ACK bytes after any earlier
+output, while received PING ACKs append no bytes. Accepted PRIORITY frames
+advance the aggregate offset and preserve stream and output state. Rejections
+from the preface gate, initial SETTINGS gate, frame decode, or frame
+dispatcher expose a focused failure source and do not expose a next chunked
+receive state, preserving the caller-owned connection, buffered input, and
+output values.
+
+The adjacent
+[`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
+preface plus initial SETTINGS composition, partial PING buffering, SETTINGS
+ACK and PING ACK byte ordering, PRIORITY offset application, initial-gate
+rejection context, and input/output preservation on rejection. The focused
+[`http2-core-receive-connection-boundary`](../../examples/specification/run/http2-core-receive-connection-boundary/)
+case records the public decision, state, failure, and emitted-byte
+projections.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

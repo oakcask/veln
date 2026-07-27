@@ -420,6 +420,14 @@ fn require_receive_frame_failure(result: Result<CoreReceiveFrameDecision, String
 	http2::core::receive_frame_failure(result?)
 end
 
+fn require_receive_connection_state(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionState, String>
+	http2::core::receive_connection_state_from_decision(result?)
+end
+
+fn require_receive_connection_failure(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionFailure, String>
+	http2::core::receive_connection_failure(result?)
+end
+
 fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChunk, String>
 	match http2::core::output_buffer_chunk_at(output, index)
 		Some(chunk) => Ok(chunk)
@@ -2326,5 +2334,33 @@ test output_buffer_ignores_failed_or_empty_send_decisions() -> Result<(), String
 		Ok(())
 	else
 		Err("HTTP/2 output buffer appended bytes for failed or empty send decisions")
+	end
+end
+
+test receive_connection_boundary_consumes_preface_initial_settings_and_ping_chunks() -> Result<(), String>
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let first_chunk: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000")?
+	let after_settings: CoreReceiveConnectionState = require_receive_connection_state(http2::core::receive_connection_chunk(initial, first_chunk))?
+	let ping_prefix: CoreReceiveConnectionState = require_receive_connection_state(http2::core::receive_connection_chunk(after_settings, byte_chunk_from_hex("000008060000000000010203")?))?
+	let after_ping: CoreReceiveConnectionState = require_receive_connection_state(http2::core::receive_connection_chunk(ping_prefix, byte_chunk_from_hex("0405060708")?))?
+	let connection: CoreConnectionState = http2::core::receive_connection_connection(after_ping)
+	if http2::core::connection_state_next_offset(connection) == 56 and http2::core::receive_connection_initial_settings_accepted(after_ping) and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(after_ping))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(after_settings)) == 1 and http2::core::output_buffer_count(http2::core::receive_connection_output(ping_prefix)) == 1 and http2::core::output_buffer_count(http2::core::receive_connection_output(after_ping)) == 2 and chunks_equal(require_output_chunk(http2::core::receive_connection_output(after_ping), 0)?, byte_chunk_from_hex("000000040100000000")?)? and chunks_equal(require_output_chunk(http2::core::receive_connection_output(after_ping), 1)?, byte_chunk_from_hex("0000080601000000000102030405060708")?)?
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary did not preserve preface, SETTINGS, PING, or output ordering")
+	end
+end
+
+test receive_connection_boundary_applies_priority_and_rejects_initial_gate_atomically() -> Result<(), String>
+	let accepted_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let priority: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(accepted_start, byte_chunk_from_hex("000005020000000001000000000f")?)?
+	let priority_state: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(priority)?
+	let bad_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let gated_start: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let failure: CoreReceiveConnectionFailure = require_receive_connection_failure(http2::core::receive_connection_chunk(gated_start, byte_chunk_from_hex("0000080600000000000102030405060708")?))?
+	if http2::core::receive_connection_status(priority) == "accepted" and http2::core::receive_connection_applied_transition(priority) == "priority" and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(priority_state)) == 55 and http2::core::output_buffer_count(http2::core::receive_connection_output(priority_state)) == 0 and http2::core::receive_connection_failure_source(failure) == "initial-peer-settings" and http2::core::receive_connection_failure_id(failure) == "http2.protocol.initial_peer_settings_required" and http2::core::receive_connection_failure_frame_kind(failure) == 6 and http2::core::receive_connection_failure_stream_id(failure) == 0 and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(bad_start)) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(bad_start)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary did not apply PRIORITY or preserve initial-gate failure state")
 	end
 end
