@@ -144,18 +144,20 @@ the input aggregate. Accepted and rejected accessor helpers reject the wrong
 decision variant.
 
 `http2::core::apply_receive_frame(state, frame_bytes)` is the standard-owned
-immutable receive-frame dispatcher for the migrated DATA, WINDOW_UPDATE,
-RST_STREAM, and GOAWAY payload-application boundary. It decodes one complete
-HTTP/2 frame, validates the payload length, applies stream-frame admission,
-parses DATA padding length, WINDOW_UPDATE increments, RST_STREAM error codes,
-and GOAWAY last-stream-id plus error-code fields, and then composes the
-existing aggregate DATA flow-control, stream and connection WINDOW_UPDATE
-flow-control, RST_STREAM lifecycle, and GOAWAY shutdown transitions. Accepted
-decisions expose the next aggregate state, frame kind, stream id, payload
-length, and applied transition label. Rejected decisions expose a focused
-failure source, stable failure id, offset, frame kind, stream id, decode or
-payload-read reason where applicable, and preserved preview without returning
-a next state or mutating the input aggregate.
+immutable receive-frame dispatcher for the migrated SETTINGS, DATA,
+WINDOW_UPDATE, RST_STREAM, and GOAWAY payload-application boundary. It decodes
+one complete HTTP/2 frame, validates the payload length, applies stream-frame
+admission, parses SETTINGS payload items, SETTINGS ACKs, DATA padding length,
+WINDOW_UPDATE increments, RST_STREAM error codes, and GOAWAY last-stream-id
+plus error-code fields, and then composes the existing aggregate peer
+SETTINGS validation and state application, SETTINGS ACK bookkeeping, DATA
+flow-control, stream and connection WINDOW_UPDATE flow-control, RST_STREAM
+lifecycle, and GOAWAY shutdown transitions. Accepted decisions expose the next
+aggregate state, frame kind, stream id, payload length, and applied transition
+label. Rejected decisions expose a focused failure source, stable failure id,
+offset, frame kind, stream id, decode or payload-read reason where applicable,
+and preserved preview without returning a next state or mutating the input
+aggregate.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection
@@ -168,10 +170,9 @@ and preserved preview without returning a next state or mutating the input.
 `complete_connection_shutdown_drain(state)` closes a draining lifecycle when no
 active stream remains at or below the GOAWAY boundary.
 
-Other receive-frame applications, including SETTINGS state application,
-HEADERS and CONTINUATION HPACK decoding, header and content-length validation,
-PUSH_PROMISE, complete stdout, and output-chunk integration remain in the
-aggregate
+Other receive-frame applications, including HEADERS and CONTINUATION HPACK
+decoding, header and content-length validation, PUSH_PROMISE, complete stdout,
+and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

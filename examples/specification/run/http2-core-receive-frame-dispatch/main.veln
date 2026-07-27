@@ -71,6 +71,18 @@ fn print_connection_lifecycle(label: String, state: CoreConnectionState) -> () e
 	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
 end
 
+fn print_settings_state(label: String, state: CoreConnectionState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" max-frame ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state))))
+	stdio::print(" pending-ack ")
+	stdio::print(http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(http2::core::connection_state_settings_ack(state))))
+	stdio::print(" outstanding ")
+	stdio::print(http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+end
+
 fn print_failure(label: String, failure: CoreReceiveFrameFailure) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" failure ")
@@ -130,6 +142,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let connection_window_state: CoreConnectionState = require_state(connection_window)?
 	print_decision("connection-window", connection_window)
 	let _ = print_state("connection-window", connection_window_state, 5)?
+	let settings_input: CoreConnectionState = http2::core::connection_state_with_settings_ack(state, http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(state), 5, 1))
+	let settings: CoreReceiveFrameDecision = http2::core::apply_receive_frame(settings_input, byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?)?
+	let settings_state: CoreConnectionState = require_state(settings)?
+	print_decision("settings", settings)
+	print_settings_state("settings", settings_state)
+	let settings_ack: CoreReceiveFrameDecision = http2::core::apply_receive_frame(settings_state, byte_chunk_from_hex("000000040100000000")?)?
+	let settings_ack_state: CoreConnectionState = require_state(settings_ack)?
+	print_decision("settings-ack", settings_ack)
+	print_settings_state("settings-ack", settings_ack_state)
 	let goaway: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("000008070000000000000000050000000b")?)?
 	let goaway_state: CoreConnectionState = require_state(goaway)?
 	print_decision("goaway", goaway)
@@ -142,11 +163,15 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
 	let padded_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000000800000005")?)?)?
 	let flow_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
+	let settings_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006040000000000000500003fff")?)?)?
+	let settings_ack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000040100000000")?)?)?
 	let goaway_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
 	print_failure("flow", flow_failure)
+	print_failure("settings", settings_failure)
+	print_failure("settings-ack", settings_ack_failure)
 	print_failure("goaway", goaway_failure)
 	let _ = print_failure_accessor_error("accessor", data)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?

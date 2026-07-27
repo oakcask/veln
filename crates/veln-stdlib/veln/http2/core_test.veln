@@ -754,6 +754,31 @@ test receive_frame_dispatch_applies_data_window_update_and_rst_stream() -> Resul
 	end
 end
 
+test receive_frame_dispatch_applies_settings_and_ack_immutably() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(31)?
+	let with_outstanding: CoreConnectionState = http2::core::connection_state_with_settings_ack(base, http2::core::record_local_settings_batch(http2::core::connection_state_settings_ack(base), 5, 1))
+	let settings_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(with_outstanding, byte_chunk_from_hex("00000c040000000000aaaa12345678000500008000")?))?
+	let settings_state: CoreConnectionState = http2::core::receive_frame_state(settings_decision)?
+	let ack_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(settings_state, byte_chunk_from_hex("000000040100000000")?))?
+	let ack_state: CoreConnectionState = http2::core::receive_frame_state(ack_decision)?
+	if http2::core::receive_frame_status(settings_decision) == "accepted" and http2::core::receive_frame_applied_transition(settings_decision) == "settings" and http2::core::receive_frame_payload_length(settings_decision) == 12 and http2::core::connection_state_next_offset(settings_state) == 52 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(settings_state)) == 32768 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(http2::core::connection_state_settings_ack(settings_state))) == "active" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(settings_state))) == 5 and http2::core::receive_frame_applied_transition(ack_decision) == "settings-ack" and http2::core::connection_state_next_offset(ack_state) == 61 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(http2::core::connection_state_settings_ack(ack_state))) == "active" and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(ack_state))) == "none" and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(with_outstanding)) == 16384 and http2::core::connection_state_next_offset(with_outstanding) == 31
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatch did not immutably apply peer SETTINGS or local SETTINGS ACK")
+	end
+end
+
+test receive_frame_dispatch_preserves_state_on_settings_failures() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(41)?
+	let range_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006040000000000000500003fff")?))?
+	let ack_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000040100000000")?))?
+	if http2::core::receive_frame_failure_source(range_failure) == "peer-settings" and http2::core::receive_frame_failure_id(range_failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::receive_frame_failure_offset(range_failure) == 50 and http2::core::receive_frame_failure_frame_kind(range_failure) == 4 and http2::core::receive_frame_failure_stream_id(range_failure) == 0 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(range_failure))) == 6 and http2::core::receive_frame_failure_source(ack_failure) == "settings-ack" and http2::core::receive_frame_failure_id(ack_failure) == "http2.protocol.unexpected_settings_ack" and http2::core::receive_frame_failure_offset(ack_failure) == 41 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(ack_failure))) == 9 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::connection_state_next_offset(state) == 41
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame SETTINGS failures did not preserve state or expose expected context")
+	end
+end
+
 test connection_shutdown_applies_goaway_and_completes_drain() -> Result<(), String>
 	let base: CoreConnectionState = http2::core::server_connection_state(31)?
 	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?

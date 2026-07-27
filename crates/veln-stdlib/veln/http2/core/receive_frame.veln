@@ -3,6 +3,9 @@ use http2::frame
 use http2::core::connection_state
 use http2::core::frame_payload_length
 use http2::core::receive_flow_control
+use http2::core::peer_settings
+use http2::core::peer_settings_state
+use http2::core::settings_ack
 use http2::core::stream_frame_admission
 use http2::core::stream_state
 use http2::core::stream_transition
@@ -19,6 +22,8 @@ pub type CoreReceiveFrameFailure
 	CoreReceiveFramePayloadReadFailure(offset: Int, frame_kind: Int, stream_id: Int, reason: String, preview: ByteChunk)
 	CoreReceiveFramePayloadLengthFailure(FramePayloadLengthFailure)
 	CoreReceiveFrameAdmissionFailure(CoreStreamFrameAdmissionFailure)
+	CoreReceiveFramePeerSettingsFailure(PeerSettingsFailure)
+	CoreReceiveFrameSettingsAckFailure(SettingsAckFailure)
 	CoreReceiveFrameDataFlowControlFailure(CoreDataReceiveFlowControlFailure)
 	CoreReceiveFrameStreamWindowUpdateFailure(CoreStreamWindowUpdateFlowControlFailure)
 	CoreReceiveFrameConnectionWindowUpdateFailure(CoreConnectionWindowUpdateFlowControlFailure)
@@ -60,10 +65,43 @@ fn apply_admitted(state: CoreConnectionState, offset: Int, length: Int, kind: In
 	match kind
 		0 => apply_data_frame(state, offset, length, flags, stream_id, payload, header, frame_bytes)
 		3 => apply_rst_stream_frame(state, offset, stream_id, payload, header)
+		4 => apply_settings_frame(state, offset, length, flags, payload, header)
 		7 => apply_goaway_frame(state, offset, length, payload, header)
 		8 => apply_window_update_frame(state, offset, stream_id, payload, header)
 		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::complete_drain(state), offset + 9 + length), kind, stream_id, length, "none"))
 	end
+end
+
+fn apply_settings_frame(state: CoreConnectionState, offset: Int, length: Int, flags: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	if ack_set(flags)
+		apply_settings_ack_frame(state, offset, header)
+	else
+		apply_peer_settings_frame(state, offset, length, payload, header)
+	end
+end
+
+fn apply_settings_ack_frame(state: CoreConnectionState, offset: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match http2::core::settings_ack::accept_peer_ack(http2::core::connection_state::settings_ack(state), offset, chunk_view(header)?)
+		Ok(next_ack) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(state, next_ack), offset + 9), 4, 0, 0, "settings-ack"))
+		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameSettingsAckFailure(failure)))
+	end
+end
+
+fn apply_peer_settings_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match http2::core::peer_settings::validate_payload(offset + 9, http2::core::connection_state::endpoint_role(state), payload)
+		Ok(validation) => match http2::core::peer_settings::status(validation)
+			"accepted" => apply_valid_peer_settings_frame(state, offset, length, payload)
+			_ => Ok(CoreReceiveFrameRejected(CoreReceiveFramePeerSettingsFailure(http2::core::peer_settings::validation_failure(validation)?)))
+		end
+		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 4, 0, reason, header)))
+	end
+end
+
+fn apply_valid_peer_settings_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let next_peer_settings: PeerSettingsState = http2::core::peer_settings_state::apply_payload(http2::core::connection_state::peer_settings(state), offset + 9, payload)?
+	let next_ack: SettingsAckState = http2::core::settings_ack::after_peer_frame(http2::core::connection_state::settings_ack(state), 4, 0, length)
+	let next_state: CoreConnectionState = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(http2::core::connection_state::with_peer_settings(state, next_peer_settings), next_ack), offset + 9 + length)
+	Ok(CoreReceiveFrameAccepted(next_state, 4, 0, length, "settings"))
 end
 
 fn apply_goaway_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
@@ -183,12 +221,20 @@ fn end_stream_set(flags: Int) -> Bool
 	flags / 2 * 2 != flags
 end
 
+fn ack_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
+
 fn read_u32_payload(payload: ByteChunk) -> Result<Int, String>
 	byte_read_u32_be(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
 end
 
 fn read_u31_payload(payload: ByteChunk) -> Result<Int, String>
 	byte_read_u31_be(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
+end
+
+fn chunk_view(chunk: ByteChunk) -> Result<ByteView, String>
+	byte_view(chunk, byte_offset(0)?, byte_chunk_count(chunk))
 end
 
 pub fn decision_status(decision: CoreReceiveFrameDecision) -> String
@@ -246,6 +292,8 @@ pub fn failure_source(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFramePayloadReadFailure(_, _, _, _, _) => "payload-read"
 		CoreReceiveFramePayloadLengthFailure(_) => "payload-length"
 		CoreReceiveFrameAdmissionFailure(_) => "stream-frame-admission"
+		CoreReceiveFramePeerSettingsFailure(_) => "peer-settings"
+		CoreReceiveFrameSettingsAckFailure(_) => "settings-ack"
 		CoreReceiveFrameDataFlowControlFailure(_) => "data-flow-control"
 		CoreReceiveFrameStreamWindowUpdateFailure(_) => "stream-window-update-flow-control"
 		CoreReceiveFrameConnectionWindowUpdateFailure(_) => "connection-window-update-flow-control"
@@ -260,6 +308,8 @@ pub fn failure_id(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFramePayloadReadFailure(_, _, _, _, _) => "http2.frame.payload_read_failure"
 		CoreReceiveFramePayloadLengthFailure(_) => "http2.protocol.invalid_payload_length"
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_id(inner)
+		CoreReceiveFramePeerSettingsFailure(inner) => http2::core::peer_settings::failure_id(inner)
+		CoreReceiveFrameSettingsAckFailure(inner) => http2::core::settings_ack::failure_id(inner)
 		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_id(inner)
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_id(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_id(inner)
@@ -274,6 +324,8 @@ pub fn failure_offset(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePayloadReadFailure(offset, _, _, _, _) => offset
 		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_offset(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_offset(inner)
+		CoreReceiveFramePeerSettingsFailure(inner) => http2::core::peer_settings::failure_offset(inner)
+		CoreReceiveFrameSettingsAckFailure(inner) => http2::core::settings_ack::failure_offset(inner)
 		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_offset(inner)
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_offset(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_offset(inner)
@@ -287,6 +339,8 @@ pub fn failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePayloadReadFailure(_, kind, _, _, _) => kind
 		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_frame_kind(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_frame_kind(inner)
+		CoreReceiveFramePeerSettingsFailure(inner) => http2::core::peer_settings::failure_frame_kind(inner)
+		CoreReceiveFrameSettingsAckFailure(_) => 4
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_frame_kind(inner)
 		CoreReceiveFrameConnectionShutdownFailure(_) => 7
 		_ => 0
@@ -298,6 +352,8 @@ pub fn failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePayloadReadFailure(_, _, stream_id, _, _) => stream_id
 		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_stream_id(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_stream_id(inner)
+		CoreReceiveFramePeerSettingsFailure(_) => 0
+		CoreReceiveFrameSettingsAckFailure(_) => 0
 		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_stream_id(inner)
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_stream_id(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_stream_id(inner)
@@ -320,6 +376,8 @@ pub fn failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 		CoreReceiveFramePayloadReadFailure(_, _, _, _, preview) => preview
 		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_preview(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_preview(inner)
+		CoreReceiveFramePeerSettingsFailure(inner) => byte_view_to_chunk(http2::core::peer_settings::failure_preview(inner))
+		CoreReceiveFrameSettingsAckFailure(inner) => byte_view_to_chunk(http2::core::settings_ack::failure_preview(inner))
 		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_preview(inner)
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_preview(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_preview(inner)
