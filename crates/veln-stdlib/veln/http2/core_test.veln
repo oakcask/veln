@@ -2351,6 +2351,21 @@ test receive_connection_boundary_consumes_preface_initial_settings_and_ping_chun
 	end
 end
 
+test receive_connection_boundary_buffers_partial_frame_without_output_side_effects() -> Result<(), String>
+	let seed_ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0908070605040302")?)
+	let seed_output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), seed_ping)
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), seed_output)
+	let buffered_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, byte_chunk_from_hex("000008060000000000010203")?)?
+	let buffered: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(buffered_decision)?
+	let completed_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(buffered, byte_chunk_from_hex("0405060708")?)?
+	let completed: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(completed_decision)?
+	if http2::core::receive_connection_status(buffered_decision) == "accepted" and http2::core::receive_connection_applied_transition(buffered_decision) == "buffered" and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(buffered)) == 41 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(buffered))) == 12 and http2::core::output_buffer_count(http2::core::receive_connection_output(buffered)) == 1 and chunks_equal(require_output_chunk(http2::core::receive_connection_output(buffered), 0)?, byte_chunk_from_hex("0000080600000000000908070605040302")?)? and http2::core::receive_connection_status(completed_decision) == "accepted" and http2::core::receive_connection_applied_transition(completed_decision) == "none" and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(completed)) == 58 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(completed))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(completed)) == 2 and chunks_equal(require_output_chunk(http2::core::receive_connection_output(completed), 1)?, byte_chunk_from_hex("0000080601000000000102030405060708")?)? and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(initial)) == 41 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(initial))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(initial)) == 1
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary changed state or output while buffering a partial frame")
+	end
+end
+
 test receive_connection_boundary_consumes_ordered_frames_in_one_chunk() -> Result<(), String>
 	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let chunk: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000060400000000000005000080000000080600000000000102030405060708")?
