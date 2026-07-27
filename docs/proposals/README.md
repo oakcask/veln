@@ -14,6 +14,9 @@ current language behavior unless the matching page under
 
 ## Catalog
 
+- [Parallel Test Execution](parallel-test-execution.md): use bounded,
+  CPU-aware case scheduling while preserving deterministic reports, static
+  gates, and a serial compatibility route.
 - [HTTP/2 Standard Library Completion and Fixture Retirement](http2-sans-io-protocol-core.md):
   complete sans-I/O core ownership, migrate the remaining monolithic fixture
   assertions, and remove the broad protocol-core case only after its deletion
