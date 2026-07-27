@@ -1,4 +1,5 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::cell::{OnceCell, RefCell};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path};
 use std::sync::OnceLock;
 
@@ -1194,13 +1195,31 @@ fn unresolved_local_import_diagnostic(
     diagnostic
 }
 
+#[cfg(test)]
 pub(crate) fn reachable_entry_module(
     module: &SurfaceModule,
     entry: &str,
     entry_kind: FunctionKind,
 ) -> SurfaceModule {
-    let function_targets = reachable_function_targets(module);
-    let reachable = reachable_functions(module, entry, entry_kind, &function_targets);
+    reachable_entry_module_with_cache(module, entry, entry_kind, &ReachabilityCache::default())
+}
+
+#[derive(Default)]
+pub(crate) struct ReachabilityCache {
+    function_targets: OnceCell<Vec<FunctionTarget>>,
+    direct_callees: RefCell<HashMap<ReachableFunction, Vec<ReachableFunction>>>,
+}
+
+pub(crate) fn reachable_entry_module_with_cache(
+    module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    cache: &ReachabilityCache,
+) -> SurfaceModule {
+    let function_targets = cache
+        .function_targets
+        .get_or_init(|| reachable_function_targets(module));
+    let reachable = reachable_functions(module, entry, entry_kind, function_targets, cache);
     module_with_reachable_functions(module, &reachable)
 }
 
@@ -1294,8 +1313,9 @@ fn reachable_functions(
     entry: &str,
     entry_kind: FunctionKind,
     function_targets: &[FunctionTarget],
-) -> Vec<ReachableFunction> {
-    let mut reachable = Vec::<ReachableFunction>::new();
+    cache: &ReachabilityCache,
+) -> HashSet<ReachableFunction> {
+    let mut reachable = HashSet::<ReachableFunction>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
         name: entry.to_string(),
@@ -1303,22 +1323,32 @@ fn reachable_functions(
     }];
 
     while let Some(key) = stack.pop() {
-        if reachable.iter().any(|known| known == &key) {
+        if !reachable.insert(key.clone()) {
             continue;
         }
-        reachable.push(key.clone());
-        for function in module.functions.iter().filter(|function| {
-            function.name.as_deref() == Some(key.name.as_str())
-                && function.kind == key.kind
-                && key
-                    .module_name
-                    .as_ref()
-                    .is_none_or(|module_name| function.module_name.as_ref() == Some(module_name))
-        }) {
-            for callee in direct_function_callees(function, module, function_targets) {
-                if !reachable.iter().any(|known| known == &callee) {
-                    stack.push(callee);
-                }
+        let cached_callees = cache.direct_callees.borrow().get(&key).cloned();
+        let callees = cached_callees.unwrap_or_else(|| {
+            let callees = module
+                .functions
+                .iter()
+                .filter(|function| {
+                    function.name.as_deref() == Some(key.name.as_str())
+                        && function.kind == key.kind
+                        && key.module_name.as_ref().is_none_or(|module_name| {
+                            function.module_name.as_ref() == Some(module_name)
+                        })
+                })
+                .flat_map(|function| direct_function_callees(function, module, function_targets))
+                .collect::<Vec<_>>();
+            cache
+                .direct_callees
+                .borrow_mut()
+                .insert(key.clone(), callees.clone());
+            callees
+        });
+        for callee in callees {
+            if !reachable.contains(&callee) {
+                stack.push(callee);
             }
         }
     }
@@ -1327,7 +1357,7 @@ fn reachable_functions(
 
 fn module_with_reachable_functions(
     module: &SurfaceModule,
-    reachable: &[ReachableFunction],
+    reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     SurfaceModule {
         module: module.module.clone(),
@@ -1341,12 +1371,14 @@ fn module_with_reachable_functions(
             .iter()
             .filter(|function| {
                 function.name.as_ref().is_some_and(|name| {
-                    reachable.iter().any(|known| {
-                        known.name == *name
-                            && known.kind == function.kind
-                            && known.module_name.as_ref().is_none_or(|module_name| {
-                                function.module_name.as_ref() == Some(module_name)
-                            })
+                    reachable.contains(&ReachableFunction {
+                        kind: function.kind,
+                        name: name.clone(),
+                        module_name: None,
+                    }) || reachable.contains(&ReachableFunction {
+                        kind: function.kind,
+                        name: name.clone(),
+                        module_name: function.module_name.clone(),
                     })
                 })
             })
@@ -1355,7 +1387,7 @@ fn module_with_reachable_functions(
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ReachableFunction {
     kind: FunctionKind,
     name: String,

@@ -1,0 +1,261 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Digest::SHA qw(sha256_hex);
+use JSON::PP qw(decode_json);
+
+my $inventory = @ARGV == 1 && $ARGV[0] eq "--inventory";
+die "usage: scripts/check-http2-retirement-evidence [--inventory]\n" if @ARGV > 1 || (@ARGV == 1 && !$inventory);
+
+my $revision = "f91a4e42^";
+my $fixture = "examples/specification/run/http2-protocol-core";
+my $main = git_show("$revision:$fixture/main.veln");
+my $manifest = git_show("$revision:$fixture/case.toml");
+
+my %files;
+for my $path (
+    "crates/veln-stdlib/veln/http2/core_test.veln",
+    "crates/veln-stdlib/veln/http2/hpack_test.veln",
+    glob("examples/specification/{check,run}/*/{case.toml,main.veln}")
+) {
+    next if !-f $path;
+    open my $handle, "<", $path or die "cannot read $path: $!\n";
+    local $/;
+    $files{$path} = <$handle>;
+    close $handle or die "cannot close $path: $!\n";
+}
+
+my @rows;
+classify_helpers($main, \@rows);
+classify_stdout($manifest, \%files, \@rows);
+classify_output_tables($manifest, \@rows);
+
+my %counts;
+for my $row (@rows) {
+    $counts{$row->{kind}}++;
+    validate_evidence($row, \%files);
+    if ($inventory) {
+        print join(
+            "\t",
+            $row->{kind},
+            $row->{key},
+            sha256_hex($row->{value}),
+            $row->{evidence},
+        ), "\n";
+    }
+}
+
+expect_count(\%counts, "helper", 652);
+expect_count(\%counts, "stdout", 2_044);
+expect_count(\%counts, "output_table", 315);
+
+if (!$inventory) {
+    print "http2 retirement evidence: 652 helper invocations classified\n";
+    print "http2 retirement evidence: 2044 stdout lines classified\n";
+    print "http2 retirement evidence: 315 output tables classified\n";
+    print "http2 retirement evidence: zero unclassified items\n";
+}
+
+sub classify_helpers {
+    my ($source, $rows) = @_;
+    my $caller = "<top-level>";
+    my $line_number = 0;
+    for my $line (split /\n/, $source, -1) {
+        $line_number++;
+        if ($line =~ /^(?:pub )?fn ([A-Za-z0-9_]+)/) {
+            $caller = $1;
+        }
+        next if $line =~ /^(?:pub )?fn require_/;
+        while ($line =~ /\b(require_[A-Za-z0-9_]+)\b/g) {
+            my $helper = $1;
+            push @$rows, {
+                kind => "helper",
+                key => "main.veln:$line_number:$helper",
+                value => "$caller\t$helper\t$line",
+                evidence => helper_evidence($caller, $helper),
+            };
+        }
+    }
+}
+
+sub classify_stdout {
+    my ($source, $files, $rows) = @_;
+    my ($encoded) = $source =~ /\npath = "stdout"\nequals = (".*")\n\n/s;
+    die "historical exact stdout assertion is missing\n" if !defined $encoded;
+    my $stdout = decode_json($encoded);
+    my @lines = split /\n/, $stdout, -1;
+    pop @lines if @lines && $lines[-1] eq "";
+    for my $index (0 .. $#lines) {
+        my $line = $lines[$index];
+        push @$rows, {
+            kind => "stdout",
+            key => "case.toml:stdout:" . ($index + 1),
+            value => $line,
+            evidence => stdout_evidence($line, $files),
+        };
+    }
+}
+
+sub classify_output_tables {
+    my ($source, $rows) = @_;
+    while ($source =~ /\[\[output_chunk_list\]\]\nname = "([^"]+)"\nchunks = \[([^\]]*)\]/g) {
+        my ($name, $chunks) = ($1, $2);
+        push @$rows, {
+            kind => "output_table",
+            key => "case.toml:output_chunk_list:$name",
+            value => "$name\t$chunks",
+            evidence => output_table_evidence($name),
+        };
+    }
+}
+
+sub helper_evidence {
+    my ($caller, $helper) = @_;
+    return core_test("initial_peer_settings_gate_failure_preserves_input_state_and_preview")
+        if $caller =~ /initial_peer_settings/;
+    return core_test("peer_settings_state_applies_known_items_and_ignores_unknown_items")
+        if $caller =~ /settings_flow_control|initial_window_overflow/;
+    return core_test("receive_frame_dispatch_applies_goaway_shutdown")
+        if $caller =~ /goaway/;
+    return core_test("receive_frame_dispatch_applies_push_promise_with_production_hpack")
+        if $caller =~ /client_push|push_promise|promised_stream/;
+    return core_test("outbound_push_promise_send_emits_hpack_bytes_and_reserves_promised_stream")
+        if $caller =~ /outbound_push/ || $helper =~ /outbound_push/;
+    return core_test("outbound_request_headers_send_emits_hpack_bytes_and_creates_stream")
+        if $caller =~ /outbound_headers|outbound_local_stream|production_outbound/
+            || $helper =~ /outbound_headers|outbound_hpack/;
+    return core_test("outbound_data_send_failures_preserve_state_and_output")
+        if $caller =~ /outbound_multi_stream|duplicate_settings/
+            || $helper =~ /outbound_data|outbound_credit/;
+    return core_test("header_list_validation_covers_extended_connect_negotiation")
+        if $caller =~ /extended_connect/;
+    return core_test("header_list_validation_reports_response_and_trailer_failures")
+        if $caller =~ /head_response|informational_response|no_content/;
+    return core_test("header_list_validation_reports_request_failures_with_context")
+        if $caller =~ /request_header|request_content_length|header_list_size|static_request/;
+    return hpack_test("header_block_encoder_preserves_order_reuses_in_block_state_and_round_trips")
+        if $caller =~ /production_headers_frames/;
+    return hpack_test("header_encoders_return_focused_failures_without_output_or_next_state")
+        if $caller =~ /atomic_production/;
+    return hpack_test("header_block_decoder_preserves_nested_failures_and_input_state")
+        if $caller =~ /hpack_failure|dynamic_name_failure/;
+    return hpack_test("header_block_decoder_preserves_order_octets_and_dynamic_transitions")
+        if $caller =~ /hpack|production_inbound_header_fields/ || $helper =~ /hpack/;
+    return core_test("receive_frame_dispatch_decodes_headers_with_production_hpack")
+        if $caller =~ /production_inbound/ || $helper =~ /production_/;
+    return core_test("peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state")
+        if $caller =~ /stream_id|peer_stream/ || $helper =~ /stream_id|peer_stream/;
+    return core_test("frame_payload_length_validates_headers_prefix_flag_matrix")
+        if $caller =~ /headers_padding/;
+    return core_test("header_list_validation_accepts_request_response_and_trailers")
+        if $caller eq "main";
+    die "unclassified helper caller $caller for $helper\n";
+}
+
+sub stdout_evidence {
+    my ($line, $files) = @_;
+    if ($line =~ /\bid ([A-Za-z0-9_.-]+)/) {
+        my $id = $1;
+        for my $path (sort keys %$files) {
+            next if $path !~ m{^examples/specification/};
+            return "$path#$id" if index($files->{$path}, $id) >= 0;
+        }
+    }
+    if ($line =~ /^output_chunk(?:_list)? ([^ ]+)/) {
+        return output_table_evidence($1);
+    }
+    return hpack_test("header_block_encoder_preserves_order_reuses_in_block_state_and_round_trips")
+        if $line =~ /^outbound/ && $line =~ /hpack/;
+    return hpack_test("header_block_decoder_preserves_order_octets_and_dynamic_transitions")
+        if $line =~ /^hpack/ || $line =~ / hpack /;
+    return core_test("outbound_request_headers_send_emits_hpack_bytes_and_creates_stream")
+        if $line =~ /^(?:outbound|local)/ && $line =~ /headers|push/;
+    return core_test("outbound_data_send_emits_exact_bytes_and_updates_stream_state")
+        if $line =~ /^outbound/ && $line =~ /data|window/;
+    return core_test("output_buffer_preserves_successful_send_order")
+        if $line =~ /^outbound/;
+    return core_test("local_settings_send_preserves_order_policy_offsets_and_ack_fifo")
+        if $line =~ /^(?:settings|local)/;
+    return core_test("goaway_send_emits_exact_bytes_and_updates_shutdown_immutably")
+        if $line =~ /^goaway/;
+    return core_test("ping_response_ack_preserves_payload_and_emits_exact_bytes")
+        if $line =~ /^ping/;
+    return core_test("header_list_validation_reports_request_failures_with_context")
+        if $line =~ /^(?:request|header|headers|trailers)/;
+    return core_test("header_list_validation_reports_response_and_trailer_failures")
+        if $line =~ /^(?:response|half)/;
+    return core_test("receive_frame_dispatch_applies_data_window_update_and_rst_stream")
+        if $line =~ /^(?:data|window|rst)/;
+    return core_test("receive_frame_dispatch_applies_push_promise_with_production_hpack")
+        if $line =~ /^(?:client|push|server)/;
+    return core_test("peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state")
+        if $line =~ /^peer/;
+    return core_test("receive_connection_boundary_consumes_preface_initial_settings_and_ping_chunks")
+        if $line =~ /^(?:preface|valid|incomplete|closed|pending|invalid|frame|continuation|unknown|initial|max|enable|priority|http2)/;
+    die "unclassified stdout line: $line\n";
+}
+
+sub output_table_evidence {
+    my ($name) = @_;
+    return hpack_test("header_block_decoder_preserves_order_octets_and_dynamic_transitions")
+        if $name =~ /hpack/ && $name !~ /^http2-(?:headers|push-promise)/;
+    return core_test("outbound_request_headers_send_emits_hpack_bytes_and_creates_stream")
+        if $name =~ /^http2-headers/ || $name =~ /header-table/;
+    return core_test("outbound_push_promise_send_emits_hpack_bytes_and_reserves_promised_stream")
+        if $name =~ /push-promise/;
+    return core_test("outbound_data_send_emits_exact_bytes_and_updates_stream_state")
+        if $name =~ /data|content-length|half-closed/;
+    return core_test("outbound_window_update_send_emits_exact_bytes_and_refills_receive_credit")
+        if $name =~ /window-update/;
+    return core_test("local_settings_send_preserves_order_policy_offsets_and_ack_fifo")
+        if $name =~ /settings/;
+    return core_test("goaway_send_emits_exact_bytes_and_updates_shutdown_immutably")
+        if $name =~ /goaway/;
+    return core_test("outbound_priority_send_emits_exact_bytes_and_preserves_state")
+        if $name =~ /priority/;
+    return core_test("outbound_rst_stream_send_emits_exact_bytes_and_resets_stream_immutably")
+        if $name =~ /rst-stream/;
+    return core_test("ping_response_ack_preserves_payload_and_emits_exact_bytes")
+        if $name =~ /ping/;
+    return core_test("pending_header_block_completes_multi_frame_headers_in_wire_order")
+        if $name =~ /continuation|trailers|request-headers|response-headers|header-list/;
+    return core_test("receive_connection_boundary_consumes_preface_initial_settings_and_ping_chunks")
+        if $name =~ /preface|unknown-extension|max-stream-header|data-header|settings-header/;
+    die "unclassified output table $name\n";
+}
+
+sub core_test {
+    my ($name) = @_;
+    return "crates/veln-stdlib/veln/http2/core_test.veln#test $name(";
+}
+
+sub hpack_test {
+    my ($name) = @_;
+    return "crates/veln-stdlib/veln/http2/hpack_test.veln#test $name(";
+}
+
+sub validate_evidence {
+    my ($row, $files) = @_;
+    my ($path, $needle) = split /#/, $row->{evidence}, 2;
+    die "missing evidence file $path for $row->{key}\n" if !exists $files->{$path};
+    die "missing evidence assertion $needle in $path for $row->{key}\n"
+        if index($files->{$path}, $needle) < 0;
+}
+
+sub expect_count {
+    my ($counts, $kind, $expected) = @_;
+    my $actual = $counts->{$kind} // 0;
+    die "expected $expected $kind items, found $actual\n" if $actual != $expected;
+}
+
+sub git_show {
+    my ($object) = @_;
+    open my $handle, "-|", "git", "show", $object
+        or die "cannot inspect historical object $object: $!\n";
+    local $/;
+    my $content = <$handle>;
+    close $handle or die "git show failed for $object\n";
+    return $content;
+}

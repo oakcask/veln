@@ -151,21 +151,35 @@ fn absolute_path(root: &Path, path: &Path) -> PathBuf {
 }
 
 fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), String> {
-    let reachable = analysis.lower_reachable_entry(&case.name, FunctionKind::Test);
-    let lowered = reachable.lowered;
-    let Some(ir) = lowered.ir else {
-        case.status = TestCaseStatus::Blocked;
-        case.reason = Some("static_gate".to_string());
-        case.diagnostics = lowered.diagnostics;
-        return Ok(());
+    let reachable = analysis
+        .reusable_standard_ir()
+        .is_none()
+        .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test));
+    let (module, ir) = match &reachable {
+        Some(reachable) => {
+            let Some(ir) = &reachable.lowered.ir else {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = reachable.lowered.diagnostics.clone();
+                return Ok(());
+            };
+            (&reachable.module, ir)
+        }
+        None => (
+            &analysis.module,
+            analysis
+                .reusable_standard_ir()
+                .expect("fully lowered project IR was checked before test execution"),
+        ),
     };
 
+    let generated = generate_classfiles_with_entry(&ir, &case.name);
     let TestRunArtifacts {
         output,
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(&generate_classfiles_with_entry(&ir, &case.name))? {
+    } = match execute_test_program(&generated)? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
@@ -175,7 +189,7 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
         }
     };
 
-    collect_test_events(case, &reachable.module, &output, &event_trace);
+    collect_test_events(case, module, &output, &event_trace);
     apply_test_process_result(case, &output, &contract_error_trace, &result_error_trace);
     if case.status == TestCaseStatus::Passed {
         compare_expected_output(case);

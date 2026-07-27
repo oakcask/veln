@@ -1,10 +1,10 @@
 # HTTP/2 Aggregate Assertion Classification
 
-Status: proposed
+Status: implemented
 
 This artifact classifies the assertions removed with the retired
-`../../examples/specification/run/http2-protocol-core/` aggregate case. It is a
-completion-gate artifact for
+`../../../examples/specification/run/http2-protocol-core/` aggregate case. It
+is a completion-gate artifact for
 [http2-sans-io-protocol-core.md](http2-sans-io-protocol-core.md), not a current
 behavior specification.
 
@@ -166,8 +166,8 @@ preface unknown preservation, unknown extension preservation, connection and
 stream WINDOW_UPDATE, peer and local SETTINGS, RST_STREAM, PRIORITY,
 PUSH_PROMISE, PING, outbound PING, and max stream-header encoding. Each has a
 same-named or responsibility-named focused route under
-`../../examples/specification/run/` or adjacent standard coverage in
-`../../crates/veln-stdlib/veln/http2/core_test.veln`.
+`../../../examples/specification/run/` or adjacent standard coverage in
+`../../../crates/veln-stdlib/veln/http2/core_test.veln`.
 
 Output table total: 315. Unclassified output tables: 0.
 
@@ -177,5 +177,8 @@ The retired aggregate assertion matrix is classified to zero unclassified
 entries. The focused fixture-marker inventory remains classified by
 [http2-sans-io-fixture-marker-classification.md](http2-sans-io-fixture-marker-classification.md).
 
-The active proposal may be archived only after stale historical routes are
-reconciled and the guarded verification gates pass.
+The item inventory is checked by
+`../../../scripts/check-http2-retirement-evidence`. Its default mode verifies
+the historical counts, resolves every item to an existing exact test or
+focused assertion, and rejects missing evidence. Its `--inventory` mode emits
+all 3,011 item keys, content hashes, and evidence targets for review.

@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
+use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{LoweredSurfaceModule, check_project_surface_module, lower_checked_surface_module};
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
-use crate::surface::{load_surface_module, reachable_entry_module};
+use crate::surface::{ReachabilityCache, load_surface_module, reachable_entry_module_with_cache};
 
 pub enum DoctestMode {
     Include,
@@ -22,6 +23,7 @@ pub struct ProjectAnalysis {
     semantic_diagnostics: Vec<Diagnostic>,
     checked: LoweredSurfaceModule,
     expected_doctest_failures: BTreeMap<String, SourceSpan>,
+    reachability_cache: ReachabilityCache,
 }
 
 pub struct ReachableEntryAnalysis {
@@ -57,6 +59,7 @@ pub fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -> Proje
         semantic_diagnostics,
         checked,
         expected_doctest_failures,
+        reachability_cache: ReachabilityCache::default(),
     }
 }
 
@@ -65,6 +68,20 @@ pub fn checked_project_diagnostics(project: Project, doctest_mode: DoctestMode) 
 }
 
 impl ProjectAnalysis {
+    pub fn reusable_standard_ir(&self) -> Option<&TypedProgram> {
+        self.module
+            .functions
+            .iter()
+            .all(|function| {
+                function
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|module| module.starts_with("std::"))
+            })
+            .then(|| self.checked.ir.as_ref())
+            .flatten()
+    }
+
     pub fn source_diagnostics(&self) -> Vec<Diagnostic> {
         self.reconcile_doctest_failures(self.source_diagnostics.clone())
     }
@@ -86,7 +103,12 @@ impl ProjectAnalysis {
         entry: &str,
         entry_kind: FunctionKind,
     ) -> ReachableEntryAnalysis {
-        let module = reachable_entry_module(&self.module, entry, entry_kind);
+        let module = reachable_entry_module_with_cache(
+            &self.module,
+            entry,
+            entry_kind,
+            &self.reachability_cache,
+        );
         let lowered = lower_checked_surface_module(&module);
         ReachableEntryAnalysis { module, lowered }
     }
