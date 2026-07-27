@@ -845,6 +845,26 @@ test connection_shutdown_rejects_relaxed_goaway_boundary_without_state() -> Resu
 	end
 end
 
+test connection_shutdown_rejects_truncated_goaway_payload_without_state() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(31)?, http2::core::connection_lifecycle_draining(3, 11))
+	let decision: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(state, 53, byte_chunk_from_hex("00000005")?, byte_chunk_from_hex("000004070000000000")?)
+	let failure: CoreConnectionShutdownFailure = require_connection_shutdown_failure(decision)?
+	match http2::core::connection_shutdown_state(decision)
+		Ok(_) => Err("truncated GOAWAY shutdown decision exposed a state")
+		Err(accessor_error) => if http2::core::connection_shutdown_status(decision) != "rejected" or accessor_error != "rejected connection shutdown decision has no state"
+			Err("HTTP/2 GOAWAY shutdown payload read rejection exposed the wrong decision shape")
+		else if http2::core::connection_shutdown_failure_id(failure) != "http2.frame.payload_read_failure" or http2::core::connection_shutdown_failure_offset(failure) != 53 or http2::core::connection_shutdown_failure_stream_id(failure) != 0 or http2::core::connection_shutdown_failure_last_stream_id(failure) != 0
+			Err("HTTP/2 GOAWAY shutdown payload read rejection exposed the wrong failure coordinates")
+		else if http2::core::connection_shutdown_failure_shutdown_state(failure) != "none" or http2::core::connection_shutdown_failure_endpoint_role(failure) != "none" or http2::core::connection_shutdown_failure_rule_provenance(failure) != "payload_read" or http2::core::connection_shutdown_failure_reason(failure) != "byte view range exceeds chunk length"
+			Err("HTTP/2 GOAWAY shutdown payload read rejection exposed the wrong failure provenance")
+		else if byte_count_to_int(byte_chunk_count(http2::core::connection_shutdown_failure_preview(failure))) != 9 or http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(state)) != 3
+			Err("HTTP/2 GOAWAY shutdown payload read rejection did not preserve preview and input state")
+		else
+			Ok(())
+		end
+	end
+end
+
 test receive_frame_dispatch_applies_goaway_shutdown() -> Result<(), String>
 	let base: CoreConnectionState = http2::core::server_connection_state(31)?
 	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?

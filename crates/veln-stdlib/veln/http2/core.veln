@@ -752,6 +752,10 @@ pub fn connection_shutdown_failure_rule_provenance(failure: CoreConnectionShutdo
 	http2::core::receive_shutdown::failure_rule_provenance(failure)
 end
 
+pub fn connection_shutdown_failure_reason(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_reason(failure)
+end
+
 pub fn connection_shutdown_failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
 	http2::core::receive_shutdown::failure_preview(failure)
 end

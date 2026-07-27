@@ -168,8 +168,15 @@ may not raise the last-stream-id after shutdown has begun. Boundary-raising
 failures expose `http2.protocol.stream_after_goaway`, the proposed stream id,
 the existing last-stream-id, shutdown-state label, endpoint role, provenance,
 and preserved preview without returning a next state or mutating the input.
+Truncated payloads reject with `http2.frame.payload_read_failure`, payload-read
+provenance, the underlying read reason, and the supplied preview while keeping
+the input connection state unchanged.
 `complete_connection_shutdown_drain(state)` closes a draining lifecycle when no
 active stream remains at or below the GOAWAY boundary.
+The focused
+[`http2-core-connection-shutdown`](../../examples/specification/run/http2-core-connection-shutdown/)
+case projects accepted, tightened, drained, boundary-rejected, and
+payload-read-rejected shutdown decisions through the public facade.
 
 Other receive-frame applications, including HEADERS and CONTINUATION HPACK
 decoding, header and content-length validation, PUSH_PROMISE, complete stdout,

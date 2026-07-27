@@ -1,0 +1,98 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_state(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionState, String>
+	http2::core::connection_shutdown_state(decision)
+end
+
+fn require_failure(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionShutdownFailure, String>
+	http2::core::connection_shutdown_failure(decision)
+end
+
+fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state_lifecycle(state)
+	stdio::print(label)
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::connection_lifecycle_label(lifecycle))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_last_stream_id(lifecycle)))
+	stdio::print(" error ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_error_code(lifecycle)))
+	stdio::print(" active ")
+	stdio::println(int_to_string(http2::core::stream_collection_active_count(http2::core::connection_state_streams(state))))
+end
+
+fn print_failure(label: String, failure: CoreConnectionShutdownFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::connection_shutdown_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::connection_shutdown_failure_offset(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::connection_shutdown_failure_stream_id(failure)))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::connection_shutdown_failure_last_stream_id(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::connection_shutdown_failure_shutdown_state(failure))
+	stdio::print(" role ")
+	stdio::print(http2::core::connection_shutdown_failure_endpoint_role(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::connection_shutdown_failure_rule_provenance(failure))
+	stdio::print(" reason ")
+	stdio::print(http2::core::connection_shutdown_failure_reason(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::connection_shutdown_failure_preview(failure)))))
+end
+
+fn print_state_accessor_error(label: String, decision: CoreConnectionShutdownDecision) -> Result<(), String> effects [stdio]
+	match http2::core::connection_shutdown_state(decision)
+		Ok(_) => Err("expected rejected shutdown decision to hide state")
+		Err(error) => Ok(print_error(label, error))
+	end
+end
+
+fn print_failure_accessor_error(label: String, decision: CoreConnectionShutdownDecision) -> Result<(), String> effects [stdio]
+	match http2::core::connection_shutdown_failure(decision)
+		Ok(_) => Err("expected accepted shutdown decision to hide failure")
+		Err(error) => Ok(print_error(label, error))
+	end
+end
+
+fn print_error(label: String, error: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(error)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::server_connection_state(31)?
+	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let active_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), active_stream))
+	let first: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(active_state, 31, byte_chunk_from_hex("000000050000000b")?, byte_chunk_from_hex("000008070000000000")?)
+	let first_state: CoreConnectionState = require_state(first)?
+	stdio::print("first ")
+	stdio::println(http2::core::connection_shutdown_status(first))
+	print_state("first", first_state)
+	let closed_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_closed_lifecycle(), 14, 21, 0, 0))?
+	let ready_to_drain: CoreConnectionState = http2::core::connection_state_with_streams(first_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(first_state), closed_stream))
+	print_state("drained", http2::core::complete_connection_shutdown_drain(ready_to_drain))
+	let tightened: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 44, byte_chunk_from_hex("0000000300000016")?, byte_chunk_from_hex("000008070000000000")?)
+	stdio::print("tightened ")
+	stdio::println(http2::core::connection_shutdown_status(tightened))
+	print_state("tightened", require_state(tightened)?)
+	let relaxed: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 57, byte_chunk_from_hex("0000000700000021")?, byte_chunk_from_hex("000008070000000000")?)
+	print_failure("relaxed", require_failure(relaxed)?)
+	let truncated: CoreConnectionShutdownDecision = http2::core::apply_goaway_receive_shutdown(first_state, 66, byte_chunk_from_hex("00000005")?, byte_chunk_from_hex("000004070000000000")?)
+	print_failure("truncated", require_failure(truncated)?)
+	print_state("input", active_state)
+	let _ = print_failure_accessor_error("accepted-accessor", first)?
+	let _ = print_state_accessor_error("rejected-accessor", relaxed)?
+	Ok(())
+end

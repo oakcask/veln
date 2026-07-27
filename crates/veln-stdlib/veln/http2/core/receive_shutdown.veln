@@ -148,6 +148,13 @@ pub fn failure_rule_provenance(failure: CoreConnectionShutdownFailure) -> String
 	end
 end
 
+pub fn failure_reason(failure: CoreConnectionShutdownFailure) -> String
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, _, _, _) => "boundary_increased"
+		CoreConnectionShutdownPayloadReadFailure(_, reason, _) => reason
+	end
+end
+
 pub fn failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
 	match failure
 		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, _, _, preview) => preview
