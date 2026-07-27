@@ -5,10 +5,17 @@ use warnings;
 
 use Digest::SHA qw(sha256_hex);
 use JSON::PP qw(decode_json);
+use MIME::Base64 qw(decode_base64 encode_base64);
 
 my $inventory = @ARGV == 1 && $ARGV[0] eq "--inventory";
-die "usage: scripts/check-http2-retirement-evidence [--inventory]\n"
-    if @ARGV > 1 || (@ARGV == 1 && !$inventory);
+my $self_test = @ARGV == 1 && $ARGV[0] eq "--self-test";
+die "usage: scripts/check-http2-retirement-evidence [--inventory|--self-test]\n"
+    if @ARGV > 1 || (@ARGV == 1 && !$inventory && !$self_test);
+
+if ($self_test) {
+    run_self_test();
+    exit 0;
+}
 
 my $revision = "f91a4e42^";
 my $fixture = "examples/specification/run/http2-protocol-core";
@@ -30,18 +37,16 @@ for my $row (@rows) {
     die "missing item-level evidence for $row->{key}\n" if !defined $manifest_row;
     die "evidence kind mismatch for $row->{key}\n"
         if $manifest_row->{kind} ne $row->{kind};
-    my $value_hash = sha256_hex($row->{value});
-    die "historical value mismatch for $row->{key}\n"
-        if $manifest_row->{value_hash} ne $value_hash;
     my $assertion = evidence_assertion($manifest_row->{evidence});
-    die "retained assertion changed for $row->{key}\n"
-        if sha256_hex($assertion) ne $manifest_row->{assertion_hash};
+    validate_item_binding($row->{key}, $row->{value}, $manifest_row, $assertion);
     if ($inventory) {
         print join(
             "\t",
             $row->{kind},
             $row->{key},
-            $value_hash,
+            encode_base64($row->{value}, ""),
+            sha256_hex($assertion),
+            sha256_hex("$row->{value}\0$assertion"),
             $manifest_row->{evidence},
         ), "\n";
     }
@@ -115,18 +120,21 @@ sub read_evidence_manifest {
         $line_number++;
         chomp $line;
         next if $line eq "" || $line =~ /^#/;
-        my ($kind, $key, $value_hash, $assertion_hash, $evidence, @extra) =
-            split /\t/, $line, -1;
+        my @fields = split /\t/, $line, -1;
+        my ($kind, $key, $encoded_value, $assertion_hash, $binding_hash, $evidence, @extra) =
+            @fields;
         die "invalid evidence row at $path:$line_number\n"
             if @extra || !defined $evidence || $kind !~ /^(?:helper|stdout|output_table)$/
-                || $value_hash !~ /^[0-9a-f]{64}$/
+                || $encoded_value !~ /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/
                 || $assertion_hash !~ /^[0-9a-f]{64}$/
+                || $binding_hash !~ /^[0-9a-f]{64}$/
                 || $evidence !~ /^[^\t#]+#[^\t#]+$/;
         die "duplicate evidence key $key\n" if exists $items{$key};
         $items{$key} = {
             kind => $kind,
-            value_hash => $value_hash,
+            value => decode_base64($encoded_value),
             assertion_hash => $assertion_hash,
+            binding_hash => $binding_hash,
             evidence => $evidence,
         };
     }
@@ -146,28 +154,121 @@ sub evidence_assertion {
         my $name = $1;
         my ($body) = $source =~ /(^test \Q$name\E\(.*?)(?=^test |\z)/ms;
         die "missing executable evidence $needle in $path\n" if !defined $body;
-        die "evidence test $needle in $path has no checked assertion\n"
-            if $body !~ /\bOk\(\(\)\)/ || $body !~ /\bErr\(/;
+        validate_veln_test($path, $needle, $body, $source);
         return $body;
     }
 
-    die "missing checked case assertion $needle in $path\n"
-        if index($source, $needle) < 0;
+    my $case_source = $source;
     if ($path =~ m{/main\.veln$}) {
         my $case_path = $path;
         $case_path =~ s{/main\.veln$}{/case.toml};
         open my $case_handle, "<", $case_path
             or die "missing executable case for $path: $!\n";
         local $/;
-        my $case_source = <$case_handle>;
+        $case_source = <$case_handle>;
         close $case_handle or die "cannot close $case_path: $!\n";
-        die "case evidence $case_path does not contain an exact assertion\n"
-            if $case_source !~ /(?:equals|contains) = /;
-        return "$source\0$case_source";
     }
-    die "case evidence $path does not contain an exact assertion\n"
-        if $source !~ /(?:equals|contains) = /;
-    return $source;
+    my $assertion = checked_case_assertion($case_source, $needle);
+    die "missing checked case assertion $needle in $path\n"
+        if !defined $assertion;
+    return $path =~ m{/main\.veln$} ? "$source\0$assertion" : $assertion;
+}
+
+sub validate_veln_test {
+    my ($path, $needle, $body, $source) = @_;
+    die "evidence test $needle in $path does not call the public HTTP/2 boundary\n"
+        if !exercises_public_http2_boundary($body, $source);
+    die "evidence test $needle in $path has no checked success and failure branches\n"
+        if $body !~ /\b(?:if|match)\b/ || $body !~ /\bOk\(\(\)\)/ || $body !~ /\bErr\(/;
+}
+
+sub exercises_public_http2_boundary {
+    my ($body, $source) = @_;
+    my @pending = ($body);
+    my %visited;
+    while (@pending) {
+        my $current = shift @pending;
+        return 1 if $current =~ /\bhttp2::(?:core|hpack)::[A-Za-z0-9_]+\b/;
+        for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
+            next if $visited{$callee}++;
+            my ($helper) =
+                $source =~ /(^fn \Q$callee\E\(.*?)(?=^(?:pub )?fn |^test |\z)/ms;
+            push @pending, $helper if defined $helper;
+        }
+    }
+    return 0;
+}
+
+sub checked_case_assertion {
+    my ($source, $needle) = @_;
+    while (
+        $source =~
+        /(?:equals|contains) = ((?:"(?:\\.|[^"])*")|(?:\[[^\n]*\]))(?:\n|\z)/g
+    ) {
+        my $encoded = $1;
+        my $decoded = eval { decode_json($encoded) };
+        next if !defined $decoded || $@;
+        my @values = ref($decoded) eq "ARRAY" ? @$decoded : ($decoded);
+        return "$encoded\n"
+            if grep { !ref($_) && index($_, $needle) >= 0 } @values;
+    }
+    return;
+}
+
+sub validate_item_binding {
+    my ($key, $historical_value, $manifest_row, $assertion) = @_;
+    die "historical value mismatch for $key\n"
+        if $manifest_row->{value} ne $historical_value;
+    die "retained assertion changed for $key\n"
+        if sha256_hex($assertion) ne $manifest_row->{assertion_hash};
+    die "historical value and retained assertion binding changed for $key\n"
+        if sha256_hex("$historical_value\0$assertion") ne $manifest_row->{binding_hash};
+}
+
+sub run_self_test {
+    my $good =
+        "test evidence() -> Result<(), String>\n"
+        . "\tif http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0\n"
+        . "\t\tOk(())\n\telse\n\t\tErr(\"unexpected output\")\n\tend\nend\n";
+    validate_veln_test("<self-test>", "test evidence(", $good, $good);
+
+    my $unrelated = "test unrelated() -> Result<(), String>\n\tOk(())\nend\n";
+    my $accepted = eval {
+        validate_veln_test("<self-test>", "test unrelated(", $unrelated, $unrelated);
+        1;
+    };
+    die "self-test accepted an unrelated Veln test\n" if $accepted;
+
+    my $assertion = checked_case_assertion(
+        "[[json_assert]]\npath = \"stdout\"\nequals = \"projected value\\n\"\n",
+        "projected value",
+    );
+    die "self-test rejected an exact case assertion\n" if !defined $assertion;
+    die "self-test accepted a needle outside a case assertion\n"
+        if defined checked_case_assertion(
+            "# unrelated needle\n[[json_assert]]\npath = \"status\"\nequals = \"passed\"\n",
+            "unrelated needle",
+        );
+
+    my $historical_value = "output_chunk sample index 0 hex \"83\" count 1";
+    my $manifest_row = {
+        value => $historical_value,
+        assertion_hash => sha256_hex($good),
+        binding_hash => sha256_hex("$historical_value\0$good"),
+    };
+    validate_item_binding("<self-test>", $historical_value, $manifest_row, $good);
+    my $changed_value_accepted = eval {
+        validate_item_binding("<self-test>", "$historical_value changed", $manifest_row, $good);
+        1;
+    };
+    die "self-test accepted a changed historical value\n" if $changed_value_accepted;
+    my $changed_assertion_accepted = eval {
+        validate_item_binding("<self-test>", $historical_value, $manifest_row, "$good\n");
+        1;
+    };
+    die "self-test accepted an unrelated retained assertion\n"
+        if $changed_assertion_accepted;
+    print "http2 retirement evidence checker self-test: passed\n";
 }
 
 sub expect_count {

@@ -26,15 +26,22 @@ manifest contains one row for every historical assertion item:
 - 2,044 exact stdout lines;
 - 315 output tables, including each complete table name and chunk list.
 
-Each row fixes the complete historical value hash and the hash of the retained
-executable test body or checked case assertion. The
+Each row retains the complete historical value in base64, the hash of the
+retained executable test body or checked case assertion, and an item-specific
+hash binding those two values. The
 [`check-http2-retirement-evidence`](../../../scripts/check-http2-retirement-evidence)
 gate reconstructs the inventory from the parent of the fixture-retirement
-change, rejects missing, duplicate, unexpected, or changed rows, requires
-executable test bodies to contain checked success and failure paths, and
-requires focused example references to include exact output assertions.
-Consequently, caller names, helper names, diagnostic ids, and table-name
-prefixes alone cannot satisfy the gate.
+change, decodes and compares every complete retained value, and rejects
+missing, duplicate, unexpected, changed, or independently rebound rows. A
+standard-package reference must reach the public `http2::core` or
+`http2::hpack` boundary and check success and failure branches. A focused case
+reference must place its evidence needle inside an actual `equals` or
+`contains` value; source comments and unrelated case assertions do not count.
+
+The historical peer-stream failure helper's component checks are split across
+the retained connection composition, stream collection, flow-control,
+content-length, priority, HPACK, and shutdown tests. They are not all assigned
+to the narrower peer-stream-admission assertion.
 
 The focused standard-package tests and executable specification cases remain
 independently runnable without the historical fixture. They cover endpoint
