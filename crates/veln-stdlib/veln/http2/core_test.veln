@@ -318,6 +318,18 @@ fn require_connection_window_update_failure(decision: CoreConnectionWindowUpdate
 	http2::core::connection_window_update_flow_control_failure(decision)
 end
 
+fn require_receive_frame_decision(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreReceiveFrameDecision, String>
+	result
+end
+
+fn require_receive_frame_state(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreConnectionState, String>
+	http2::core::receive_frame_state(result?)
+end
+
+fn require_receive_frame_failure(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreReceiveFrameFailure, String>
+	http2::core::receive_frame_failure(result?)
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -709,6 +721,45 @@ test aggregate_flow_control_decision_accessors_reject_wrong_variant() -> Result<
 				end
 			end
 		end
+	end
+end
+
+test receive_frame_dispatch_applies_data_window_update_and_rst_stream() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection_credit(20)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let data_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000400010000000501020304")?))?
+	let data_state: CoreConnectionState = http2::core::receive_frame_state(data_decision)?
+	let data_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(data_state), 5))?
+	let stream_window_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(data_state, byte_chunk_from_hex("00000408000000000500000006")?))?
+	let stream_window_state: CoreConnectionState = http2::core::receive_frame_state(stream_window_decision)?
+	let stream_window_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(stream_window_state), 5))?
+	let connection_window_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(stream_window_state, byte_chunk_from_hex("00000408000000000000000007")?))?
+	let connection_window_state: CoreConnectionState = http2::core::receive_frame_state(connection_window_decision)?
+	let rst_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000403000000000500000008")?))?
+	let rst_state: CoreConnectionState = http2::core::receive_frame_state(rst_decision)?
+	let rst_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(rst_state), 5))?
+	if http2::core::receive_frame_status(data_decision) == "accepted" and http2::core::receive_frame_applied_transition(data_decision) == "data" and http2::core::connection_state_next_offset(data_state) == 44 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(data_state)) == 16 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(data_stream)) == 10 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(data_stream)) == "half-closed-remote" and http2::core::receive_frame_applied_transition(stream_window_decision) == "stream-window-update" and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream_window_stream)) == 27 and http2::core::connection_state_next_offset(stream_window_state) == 57 and http2::core::receive_frame_applied_transition(connection_window_decision) == "connection-window-update" and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(connection_window_state)) == 23 and http2::core::connection_state_next_offset(connection_window_state) == 70 and http2::core::receive_frame_applied_transition(rst_decision) == "rst-stream" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(rst_stream)) == "reset" and http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(rst_stream)) == 8 and http2::core::connection_state_next_offset(rst_state) == 44 and http2::core::connection_state_next_offset(state) == 31
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatch did not apply DATA, WINDOW_UPDATE, and RST_STREAM transitions immutably")
+	end
+end
+
+test receive_frame_dispatch_preserves_state_on_failures() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(41)?, require_connection_credit(5)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 4, 2147483640, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let admission_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?))?
+	let data_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006000000000005010203040506")?))?
+	let stream_window_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000408000000000500000009")?))?
+	let connection_window_state: CoreConnectionState = http2::core::connection_state_with_receive_credit(state, require_connection_credit(2147483640)?)
+	let connection_window_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(connection_window_state, byte_chunk_from_hex("00000408000000000000000009")?))?
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 5))?
+	if http2::core::receive_frame_failure_source(admission_failure) == "stream-frame-admission" and http2::core::receive_frame_failure_id(admission_failure) == "http2.protocol.invalid_frame_kind" and http2::core::receive_frame_failure_stream_id(admission_failure) == 0 and http2::core::receive_frame_failure_source(data_failure) == "data-flow-control" and http2::core::receive_frame_failure_id(data_failure) == "http2.flow_control.window_exceeded" and http2::core::receive_frame_failure_source(stream_window_failure) == "stream-window-update-flow-control" and http2::core::receive_frame_failure_id(stream_window_failure) == "http2.flow_control.window_exceeded" and http2::core::receive_frame_failure_source(connection_window_failure) == "connection-window-update-flow-control" and http2::core::receive_frame_failure_id(connection_window_failure) == "http2.flow_control.window_exceeded" and http2::core::connection_state_next_offset(state) == 41 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 5 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 4 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(found)) == 2147483640
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatch did not preserve state and classify failures")
 	end
 end
 

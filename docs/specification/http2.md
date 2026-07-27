@@ -28,6 +28,8 @@ The public routes are:
   acknowledgement state, peer-created stream admission high-water tracking,
   pure flow-control numeric domains, stream lifecycle projection and
   frame-admission predicates, pure PING request and ACK response transitions,
+  immutable receive-frame dispatch for DATA, WINDOW_UPDATE, and RST_STREAM
+  payload application,
   and an immutable aggregate connection state that composes those migrated
   components with the public HPACK dynamic table and an immutable stream
   collection.
@@ -140,6 +142,25 @@ idle-stream active-state label, `idle_streams_require_headers` provenance,
 and supplied frame-header preview, without returning a next state or mutating
 the input aggregate. Accepted and rejected accessor helpers reject the wrong
 decision variant.
+
+`http2::core::apply_receive_frame(state, frame_bytes)` is the standard-owned
+immutable receive-frame dispatcher for the migrated DATA, WINDOW_UPDATE, and
+RST_STREAM payload-application boundary. It decodes one complete HTTP/2 frame,
+validates the payload length, applies stream-frame admission, parses DATA
+padding length, WINDOW_UPDATE increments, and RST_STREAM error codes, and then
+composes the existing aggregate DATA flow-control, stream and connection
+WINDOW_UPDATE flow-control, and RST_STREAM lifecycle transitions. Accepted
+decisions expose the next aggregate state, frame kind, stream id, payload
+length, and applied transition label. Rejected decisions expose a focused
+failure source, stable failure id, offset, frame kind, stream id, and preserved
+preview without returning a next state or mutating the input aggregate.
+
+Other receive-frame applications, including SETTINGS state application,
+HEADERS and CONTINUATION HPACK decoding, header and content-length validation,
+PUSH_PROMISE, GOAWAY drain decisions, complete stdout, and output-chunk
+integration remain in the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case until those responsibilities are migrated.
 
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
@@ -393,9 +414,18 @@ preservation, stream collection preservation, and preview preservation. The
 focused
 [`http2-core-connection-window-update-flow-control`](../../examples/specification/run/http2-core-connection-window-update-flow-control/)
 case imports `http2::core` from `std` and records the public result-state and
-failure projections. Other payload-specific frame application, header
-validation, HPACK-carrying transitions, complete stdout, and output-chunk
-integration remain in the aggregate
+failure projections.
+
+The adjacent test also checks that `apply_receive_frame(...)` composes frame
+decode, payload-length validation, stream-frame admission, DATA END_STREAM
+lifecycle application, DATA receive-credit debit, stream and connection
+WINDOW_UPDATE credit refill, RST_STREAM reset-code application, wrong-variant
+accessors, and immutable failure-state preservation. The focused
+[`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/)
+case imports `http2::core` from `std` and records public success, state,
+failure-source, failure-id, and accessor projections. Other payload-specific
+frame application, header validation, HPACK-carrying transitions, complete
+stdout, and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

@@ -13,6 +13,7 @@ use http2::core::peer_settings
 use http2::core::peer_settings_state
 use http2::core::peer_stream_admission
 use http2::core::receive_flow_control
+use http2::core::receive_frame
 use http2::core::flow_control
 use http2::core::stream_state
 use http2::core::stream_frame_admission
@@ -98,6 +99,10 @@ pub type CoreStreamLifecycleTransitionFailure = http2::core::stream_transition::
 pub type CoreDataReceiveFlowControlDecision = http2::core::receive_flow_control::CoreDataReceiveFlowControlDecision
 
 pub type CoreDataReceiveFlowControlFailure = http2::core::receive_flow_control::CoreDataReceiveFlowControlFailure
+
+pub type CoreReceiveFrameDecision = http2::core::receive_frame::CoreReceiveFrameDecision
+
+pub type CoreReceiveFrameFailure = http2::core::receive_frame::CoreReceiveFrameFailure
 
 pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
 
@@ -681,6 +686,62 @@ end
 
 pub fn data_receive_flow_control_failure_preview(failure: CoreDataReceiveFlowControlFailure) -> ByteChunk
 	http2::core::receive_flow_control::failure_preview(failure)
+end
+
+pub fn apply_receive_frame(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	http2::core::receive_frame::apply(state, frame_bytes)
+end
+
+pub fn receive_frame_status(decision: CoreReceiveFrameDecision) -> String
+	http2::core::receive_frame::decision_status(decision)
+end
+
+pub fn receive_frame_state(decision: CoreReceiveFrameDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_frame::decision_state(decision)
+end
+
+pub fn receive_frame_failure(decision: CoreReceiveFrameDecision) -> Result<CoreReceiveFrameFailure, String>
+	http2::core::receive_frame::decision_failure(decision)
+end
+
+pub fn receive_frame_kind(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_frame_kind(decision)
+end
+
+pub fn receive_frame_stream_id(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_stream_id(decision)
+end
+
+pub fn receive_frame_payload_length(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_payload_length(decision)
+end
+
+pub fn receive_frame_applied_transition(decision: CoreReceiveFrameDecision) -> String
+	http2::core::receive_frame::decision_applied_transition(decision)
+end
+
+pub fn receive_frame_failure_source(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_source(failure)
+end
+
+pub fn receive_frame_failure_id(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_id(failure)
+end
+
+pub fn receive_frame_failure_offset(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_offset(failure)
+end
+
+pub fn receive_frame_failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_frame_kind(failure)
+end
+
+pub fn receive_frame_failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_stream_id(failure)
+end
+
+pub fn receive_frame_failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
+	http2::core::receive_frame::failure_preview(failure)
 end
 
 pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision

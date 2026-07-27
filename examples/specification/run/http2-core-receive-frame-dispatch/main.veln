@@ -1,0 +1,126 @@
+use http2::core from "std"
+use stdio
+
+fn require_connection(result: Result<CoreConnectionWindowCredit, FlowControlDomainFailure>) -> Result<CoreConnectionWindowCredit, String>
+	match result
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_state(decision: CoreReceiveFrameDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_frame_state(decision)
+end
+
+fn require_failure(decision: CoreReceiveFrameDecision) -> Result<CoreReceiveFrameFailure, String>
+	http2::core::receive_frame_failure(decision)
+end
+
+fn print_decision(label: String, decision: CoreReceiveFrameDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::core::receive_frame_status(decision))
+	stdio::print(" ")
+	stdio::print(http2::core::receive_frame_applied_transition(decision))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::receive_frame_kind(decision)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::receive_frame_stream_id(decision)))
+	stdio::print(" length ")
+	stdio::println(int_to_string(http2::core::receive_frame_payload_length(decision)))
+end
+
+fn print_state(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(found) => found
+		None => Err("missing expected stream")?
+	end
+	stdio::print(label)
+	stdio::print(" connection ")
+	stdio::print(int_to_string(http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state))))
+	stdio::print(" receive ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(stream))))
+	stdio::print(" send ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream))))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" error ")
+	stdio::print(int_to_string(http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(stream))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: CoreReceiveFrameFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::receive_frame_failure_source(failure))
+	stdio::print(" ")
+	stdio::print(http2::core::receive_frame_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::receive_frame_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::receive_frame_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::receive_frame_failure_stream_id(failure)))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure)))))
+end
+
+fn print_failure_accessor_error(label: String, decision: CoreReceiveFrameDecision) -> Result<(), String> effects [stdio]
+	match http2::core::receive_frame_failure(decision)
+		Ok(_) => Err("expected accepted receive frame decision to hide failure")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
+fn print_state_accessor_error(label: String, decision: CoreReceiveFrameDecision) -> Result<(), String> effects [stdio]
+	match http2::core::receive_frame_state(decision)
+		Ok(_) => Err("expected rejected receive frame decision to hide state")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
+fn print_error_line(label: String, error: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(error)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
+	let data: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000400010000000501020304")?)?
+	let data_state: CoreConnectionState = require_state(data)?
+	print_decision("data", data)
+	let _ = print_state("updated", data_state, 5)?
+	let _ = print_state("input", state, 5)?
+	let stream_window: CoreReceiveFrameDecision = http2::core::apply_receive_frame(data_state, byte_chunk_from_hex("00000408000000000500000006")?)?
+	let stream_window_state: CoreConnectionState = require_state(stream_window)?
+	print_decision("stream-window", stream_window)
+	let _ = print_state("stream-window", stream_window_state, 5)?
+	let connection_window: CoreReceiveFrameDecision = http2::core::apply_receive_frame(stream_window_state, byte_chunk_from_hex("00000408000000000000000007")?)?
+	let connection_window_state: CoreConnectionState = require_state(connection_window)?
+	print_decision("connection-window", connection_window)
+	let _ = print_state("connection-window", connection_window_state, 5)?
+	let rst: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000403000000000500000008")?)?
+	print_decision("rst", rst)
+	let _ = print_state("rst", require_state(rst)?, 5)?
+	let low_base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(5))?)
+	let low_state: CoreConnectionState = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
+	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
+	let flow_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
+	print_failure("admission", admission_failure)
+	print_failure("flow", flow_failure)
+	let _ = print_failure_accessor_error("accessor", data)?
+	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
+	Ok(())
+end

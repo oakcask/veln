@@ -1,0 +1,304 @@
+use prelude
+use http2::frame
+use http2::core::connection_state
+use http2::core::frame_payload_length
+use http2::core::receive_flow_control
+use http2::core::stream_frame_admission
+use http2::core::stream_state
+use http2::core::stream_transition
+use http2::core::window_update_flow_control
+
+pub type CoreReceiveFrameDecision
+	CoreReceiveFrameAccepted(CoreConnectionState, frame_kind: Int, stream_id: Int, payload_length: Int, applied_transition: String)
+	CoreReceiveFrameRejected(CoreReceiveFrameFailure)
+end
+
+pub type CoreReceiveFrameFailure
+	CoreReceiveFrameDecodeFailure(reason: String, preview: ByteChunk)
+	CoreReceiveFramePayloadReadFailure(offset: Int, frame_kind: Int, stream_id: Int, reason: String, preview: ByteChunk)
+	CoreReceiveFramePayloadLengthFailure(FramePayloadLengthFailure)
+	CoreReceiveFrameAdmissionFailure(CoreStreamFrameAdmissionFailure)
+	CoreReceiveFrameDataFlowControlFailure(CoreDataReceiveFlowControlFailure)
+	CoreReceiveFrameStreamWindowUpdateFailure(CoreStreamWindowUpdateFlowControlFailure)
+	CoreReceiveFrameConnectionWindowUpdateFailure(CoreConnectionWindowUpdateFlowControlFailure)
+	CoreReceiveFrameStreamLifecycleFailure(CoreStreamLifecycleTransitionFailure)
+end
+
+pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let frame_count: Int = byte_count_to_int(byte_chunk_count(frame_bytes))
+	match byte_view(frame_bytes, byte_offset(0)?, byte_count(frame_count)?)
+		Ok(frame_view) => match http2::frame::decode(frame_view)
+			Ok(decoded) => apply_decoded(state, decoded.length, decoded.kind, decoded.flags, decoded.stream_id, byte_view_to_chunk(decoded.payload), header_preview(frame_bytes)?, frame_bytes)
+			Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameDecodeFailure(reason, frame_bytes)))
+		end
+		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameDecodeFailure(reason, frame_bytes)))
+	end
+end
+
+fn apply_decoded(state: CoreConnectionState, length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let offset: Int = http2::core::connection_state::next_offset(state)
+	match http2::core::frame_payload_length::validate(offset, kind, flags, stream_id, length, active_state(state, kind, stream_id), header)
+		Ok(_) => apply_after_payload_length(state, offset, length, kind, flags, stream_id, payload, header, frame_bytes)
+		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadLengthFailure(failure)))
+	end
+end
+
+fn apply_after_payload_length(state: CoreConnectionState, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let admission: CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::validate_inbound(offset, kind, stream_id, http2::core::connection_state::streams(state), header)
+	match http2::core::stream_frame_admission::decision_status(admission)
+		"accepted" => apply_admitted(state, offset, length, kind, flags, stream_id, payload, header, frame_bytes)
+		_ => match http2::core::stream_frame_admission::decision_failure(admission)
+			Ok(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameAdmissionFailure(failure)))
+			Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameDecodeFailure(reason, frame_bytes)))
+		end
+	end
+end
+
+fn apply_admitted(state: CoreConnectionState, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match kind
+		0 => apply_data_frame(state, offset, length, flags, stream_id, payload, header, frame_bytes)
+		3 => apply_rst_stream_frame(state, offset, stream_id, payload, header)
+		8 => apply_window_update_frame(state, offset, stream_id, payload, header)
+		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(state, offset + 9 + length), kind, stream_id, length, "none"))
+	end
+end
+
+fn apply_data_frame(state: CoreConnectionState, offset: Int, length: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match data_content_length(length, flags, payload)
+		Ok(data_length) => apply_data_flow_control_decision(http2::core::receive_flow_control::apply_data(state, offset, stream_id, data_length, header), offset, length, flags, stream_id, header)
+		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 0, stream_id, reason, frame_bytes)))
+	end
+end
+
+fn apply_data_flow_control_decision(decision: CoreDataReceiveFlowControlDecision, offset: Int, length: Int, flags: Int, stream_id: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match http2::core::receive_flow_control::decision_status(decision)
+		"accepted" => apply_remote_end_stream_after_data(http2::core::receive_flow_control::decision_state(decision)?, offset, length, flags, stream_id, header)
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameDataFlowControlFailure(http2::core::receive_flow_control::decision_failure(decision)?)))
+	end
+end
+
+fn apply_remote_end_stream_after_data(state: CoreConnectionState, offset: Int, length: Int, flags: Int, stream_id: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let decision: CoreStreamLifecycleTransitionDecision = http2::core::stream_transition::apply_remote_end_stream(state, offset, 0, stream_id, end_stream_set(flags), header)
+	match http2::core::stream_transition::decision_status(decision)
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 9 + length), 0, stream_id, length, "data"))
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(decision)?)))
+	end
+end
+
+fn apply_rst_stream_frame(state: CoreConnectionState, offset: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match read_u32_payload(payload)
+		Ok(error_code) => apply_rst_stream_decision(http2::core::stream_transition::apply_rst_stream(state, offset, stream_id, error_code, header), offset, stream_id)
+		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 3, stream_id, reason, header)))
+	end
+end
+
+fn apply_rst_stream_decision(decision: CoreStreamLifecycleTransitionDecision, offset: Int, stream_id: Int) -> Result<CoreReceiveFrameDecision, String>
+	match http2::core::stream_transition::decision_status(decision)
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 13), 3, stream_id, 4, "rst-stream"))
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(decision)?)))
+	end
+end
+
+fn apply_window_update_frame(state: CoreConnectionState, offset: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	match read_u31_payload(payload)
+		Ok(increment) => match stream_id
+			0 => apply_connection_window_update(state, offset, increment, header)
+			_ => apply_stream_window_update(state, offset, stream_id, increment, header)
+		end
+		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 8, stream_id, reason, header)))
+	end
+end
+
+fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let decision: CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, header)
+	match http2::core::window_update_flow_control::decision_status(decision)
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::decision_state(decision)?, offset + 13), 8, stream_id, 4, "stream-window-update"))
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamWindowUpdateFailure(http2::core::window_update_flow_control::decision_failure(decision)?)))
+	end
+end
+
+fn apply_connection_window_update(state: CoreConnectionState, offset: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let decision: CoreConnectionWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, header)
+	match http2::core::window_update_flow_control::connection_decision_status(decision)
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::connection_decision_state(decision)?, offset + 13), 8, 0, 4, "connection-window-update"))
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionWindowUpdateFailure(http2::core::window_update_flow_control::connection_decision_failure(decision)?)))
+	end
+end
+
+fn active_state(state: CoreConnectionState, kind: Int, stream_id: Int) -> String
+	match stream_id
+		0 => "connection-control"
+		_ => match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry))
+			None => "idle-stream"
+		end
+	end
+end
+
+fn header_preview(frame_bytes: ByteChunk) -> Result<ByteChunk, String>
+	match byte_take(frame_bytes, byte_count(9)?)
+		Ok(header) => Ok(header)
+		Err(_) => Ok(frame_bytes)
+	end
+end
+
+fn data_content_length(length: Int, flags: Int, payload: ByteChunk) -> Result<Int, String>
+	if padded_set(flags)
+		if length == 0
+			Err("padded DATA frame has no pad-length octet")
+		else
+			padded_data_content_length(length, payload)
+		end
+	else
+		Ok(length)
+	end
+end
+
+fn padded_data_content_length(length: Int, payload: ByteChunk) -> Result<Int, String>
+	let pad_length: Int = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
+	if pad_length > length - 1
+		Err("padded DATA frame pad length exceeds payload")
+	else
+		Ok(length - 1 - pad_length)
+	end
+end
+
+fn padded_set(flags: Int) -> Bool
+	let quotient: Int = flags / 8
+	quotient / 2 * 2 != quotient
+end
+
+fn end_stream_set(flags: Int) -> Bool
+	flags / 2 * 2 != flags
+end
+
+fn read_u32_payload(payload: ByteChunk) -> Result<Int, String>
+	byte_read_u32_be(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
+end
+
+fn read_u31_payload(payload: ByteChunk) -> Result<Int, String>
+	byte_read_u31_be(byte_view(payload, byte_offset(0)?, byte_count(4)?)?)
+end
+
+pub fn decision_status(decision: CoreReceiveFrameDecision) -> String
+	match decision
+		CoreReceiveFrameAccepted(_, _, _, _, _) => "accepted"
+		CoreReceiveFrameRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_state(decision: CoreReceiveFrameDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreReceiveFrameAccepted(state, _, _, _, _) => Ok(state)
+		CoreReceiveFrameRejected(_) => Err("rejected receive frame decision has no state")
+	end
+end
+
+pub fn decision_failure(decision: CoreReceiveFrameDecision) -> Result<CoreReceiveFrameFailure, String>
+	match decision
+		CoreReceiveFrameAccepted(_, _, _, _, _) => Err("accepted receive frame decision has no failure")
+		CoreReceiveFrameRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn decision_frame_kind(decision: CoreReceiveFrameDecision) -> Int
+	match decision
+		CoreReceiveFrameAccepted(_, kind, _, _, _) => kind
+		CoreReceiveFrameRejected(_) => 0
+	end
+end
+
+pub fn decision_stream_id(decision: CoreReceiveFrameDecision) -> Int
+	match decision
+		CoreReceiveFrameAccepted(_, _, stream_id, _, _) => stream_id
+		CoreReceiveFrameRejected(_) => 0
+	end
+end
+
+pub fn decision_payload_length(decision: CoreReceiveFrameDecision) -> Int
+	match decision
+		CoreReceiveFrameAccepted(_, _, _, length, _) => length
+		CoreReceiveFrameRejected(_) => 0
+	end
+end
+
+pub fn decision_applied_transition(decision: CoreReceiveFrameDecision) -> String
+	match decision
+		CoreReceiveFrameAccepted(_, _, _, _, applied_transition) => applied_transition
+		CoreReceiveFrameRejected(_) => "rejected"
+	end
+end
+
+pub fn failure_source(failure: CoreReceiveFrameFailure) -> String
+	match failure
+		CoreReceiveFrameDecodeFailure(_, _) => "frame-decode"
+		CoreReceiveFramePayloadReadFailure(_, _, _, _, _) => "payload-read"
+		CoreReceiveFramePayloadLengthFailure(_) => "payload-length"
+		CoreReceiveFrameAdmissionFailure(_) => "stream-frame-admission"
+		CoreReceiveFrameDataFlowControlFailure(_) => "data-flow-control"
+		CoreReceiveFrameStreamWindowUpdateFailure(_) => "stream-window-update-flow-control"
+		CoreReceiveFrameConnectionWindowUpdateFailure(_) => "connection-window-update-flow-control"
+		CoreReceiveFrameStreamLifecycleFailure(_) => "stream-lifecycle"
+	end
+end
+
+pub fn failure_id(failure: CoreReceiveFrameFailure) -> String
+	match failure
+		CoreReceiveFrameDecodeFailure(_, _) => "http2.frame.decode_failure"
+		CoreReceiveFramePayloadReadFailure(_, _, _, _, _) => "http2.frame.payload_read_failure"
+		CoreReceiveFramePayloadLengthFailure(_) => "http2.protocol.invalid_payload_length"
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_id(inner)
+		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_id(inner)
+		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_id(inner)
+		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_id(inner)
+		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_id(inner)
+	end
+end
+
+pub fn failure_offset(failure: CoreReceiveFrameFailure) -> Int
+	match failure
+		CoreReceiveFrameDecodeFailure(_, _) => 0
+		CoreReceiveFramePayloadReadFailure(offset, _, _, _, _) => offset
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_offset(inner)
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_offset(inner)
+		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_offset(inner)
+		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_offset(inner)
+		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_offset(inner)
+		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_offset(inner)
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
+	match failure
+		CoreReceiveFramePayloadReadFailure(_, kind, _, _, _) => kind
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_frame_kind(inner)
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_frame_kind(inner)
+		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_frame_kind(inner)
+		_ => 0
+	end
+end
+
+pub fn failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
+	match failure
+		CoreReceiveFramePayloadReadFailure(_, _, stream_id, _, _) => stream_id
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_stream_id(inner)
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_stream_id(inner)
+		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_stream_id(inner)
+		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_stream_id(inner)
+		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_stream_id(inner)
+		_ => 0
+	end
+end
+
+pub fn failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
+	match failure
+		CoreReceiveFrameDecodeFailure(_, preview) => preview
+		CoreReceiveFramePayloadReadFailure(_, _, _, _, preview) => preview
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_preview(inner)
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_preview(inner)
+		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_preview(inner)
+		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_preview(inner)
+		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_preview(inner)
+		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_preview(inner)
+	end
+end
