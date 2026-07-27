@@ -294,6 +294,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let settings_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000006040000000000000500003fff")?)?)?
 	let settings_ack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000040100000000")?)?)?
 	let goaway_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
+	let push_base: CoreConnectionState = http2::core::client_connection_state(31)?
+	let push_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
+	let push_state: CoreConnectionState = http2::core::connection_state_with_streams(push_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(push_base), push_stream))
+	let push_payload_length_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("000003050400000001000000")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
@@ -301,6 +305,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("settings", settings_failure)
 	print_failure("settings-ack", settings_ack_failure)
 	print_failure("goaway", goaway_failure)
+	print_failure("push-promise-length", push_payload_length_failure)
 	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000001010400000001ff")?)?)?
 	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)

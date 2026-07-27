@@ -992,6 +992,19 @@ test receive_frame_dispatch_prioritizes_payload_length_before_settings_ack_state
 	end
 end
 
+test receive_frame_dispatch_prioritizes_push_promise_payload_length_before_admission() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::client_connection_state(97)?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003050400000001000000")?))?
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::receive_frame_failure_source(failure) == "payload-length" and http2::core::receive_frame_failure_id(failure) == "http2.protocol.invalid_payload_length" and http2::core::receive_frame_failure_offset(failure) == 97 and http2::core::receive_frame_failure_frame_kind(failure) == 5 and http2::core::receive_frame_failure_stream_id(failure) == 1 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure))) == 9 and http2::core::connection_state_next_offset(state) == 97 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(found)) == "client-push-associated" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 14 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(found)) == 21
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not keep PUSH_PROMISE payload-length precedence or input state")
+	end
+end
+
 test receive_frame_dispatch_decodes_headers_with_production_hpack() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(31)?
 	let decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003010400000001828784")?))?
