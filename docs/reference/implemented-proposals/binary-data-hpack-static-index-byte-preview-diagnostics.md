@@ -43,9 +43,8 @@ socket behavior, or production HTTP/2 behavior.
 - `../../../examples/specification/run/hpack-static-index-projection-human/`
   and `../../../examples/specification/run/hpack-static-index-projection-json/`
   check the protocol-core HPACK failure projection path.
-- `../../../examples/specification/run/http2-protocol-core/` keeps the
-  aggregate protocol-core route for the same `hpack.static.unsupported_index`
-  failure.
+- Historical aggregate evidence keeps the same `hpack.static.unsupported_index`
+  failure context.
 - `../../specification/run-json.md`, `../../specification/commands.md`, and
   `../../specification/execution.md` summarize the command-facing diagnostic
   projection and route readers to executable evidence.

@@ -28,50 +28,44 @@ the retirement change records:
   classified in
   [http2-sans-io-fixture-marker-classification.md](http2-sans-io-fixture-marker-classification.md).
 
-Completion requires a checked artifact that maps every removed helper
-invocation, exact stdout line, and output table to equivalent retained evidence
-or to an intentional historical diagnostic boundary. The focused fixture
-markers are already classified by the linked artifact. The remaining mapping
-may consolidate rows only when it names the shared invariant and preserves
-endpoint role, starting state, diagnostic precedence, result projection, and
-emitted bytes.
+The aggregate helper, stdout, and output-table assertions are classified in
+[http2-sans-io-aggregate-assertion-classification.md](http2-sans-io-aggregate-assertion-classification.md).
+The focused fixture markers are classified in
+[http2-sans-io-fixture-marker-classification.md](http2-sans-io-fixture-marker-classification.md).
+Both artifacts consolidate rows only where they name the shared invariant and
+preserve endpoint role, starting state, diagnostic precedence, result
+projection, and emitted bytes.
 
-## Missing Evidence
+## Evidence Status
 
 The current receive-loop evidence covers ordered same-chunk SETTINGS and PING,
 partial buffering, same-call complete frames followed by a partial suffix, DATA
 state updates, PRIORITY application, later invalid PING rejection, caller-owned
 output preservation, and later-frame rejection after HPACK, continuation,
 flow-control plus content-length, or shutdown state advanced locally. The
-remaining matrix work must still recover or replace any deleted exact stdout
-or output-chunk assertion that is not already protected by focused cases.
+aggregate assertion classification maps the retired helper invocations, exact
+stdout lines, and output tables to retained focused evidence with zero
+unclassified entries.
 
-Add adjacent standard tests and focused executable cases for any behavior that
-the classification cannot map to existing evidence.
+## Documentation Status
 
-## Documentation Cleanup
+Current-behavior claims that treated the retired aggregate directory or its
+deleted files as executable evidence have been replaced with focused routes or
+explicit historical context. In particular:
 
-Replace current-behavior claims that treat the retired aggregate directory or
-its deleted files as executable evidence with focused routes or explicit
-historical context. In particular:
-
-- implemented proposal records that cite
+- implemented proposal records that cited
   `../../examples/specification/run/http2-protocol-core/` as active evidence
-  must be narrowed or redirected;
-- direct links to deleted `main.veln` and `case.toml` files must be removed;
+  are narrowed to historical aggregate evidence;
+- direct links to deleted `main.veln` and `case.toml` files are removed;
 - focused `http2-protocol-core-*` diagnostic cases may remain current evidence
   when their directories still exist; and
-- the retired route README must not point to this proposal as completed until
-  the matrix reaches zero unclassified entries.
+- the retired route README points to this active proposal until the final
+  verification and archival pass.
 
 ## Completion Steps
 
-1. Build the checked aggregate assertion classification artifact from the
-   parent of the retirement change and keep it in the repository.
-2. Add missing standard tests and focused cases identified by that artifact.
-3. Reconcile stale implemented-record routes and the retired README route.
-4. Confirm `../specification/http2.md` routes only implemented behavior to
+1. Confirm `../specification/http2.md` routes only implemented behavior to
    existing focused evidence.
-5. Archive this proposal again only after the artifact has zero unclassified
-   entries and all guarded standard-package, protocol-semantics, loader,
-   performance, and workspace verification gates pass.
+2. Archive this proposal again only after all guarded standard-package,
+   protocol-semantics, loader, performance, and workspace verification gates
+   pass.

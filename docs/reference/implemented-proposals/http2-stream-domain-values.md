@@ -34,9 +34,13 @@ endpoint role, active state, and rule provenance.
   server-parity failures.
 - `../../../examples/specification/run/http2-core-stream-frame-admission/`
   checks public stream-reference admission through the current facade.
-- Focused `../../../examples/specification/run/http2-protocol-core-*-stream-*`
-  diagnostic cases retain historical human and JSON projection evidence for
-  invalid stream ids and ordering failures.
+- `../../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
+  `../../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
+  `../../../examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`,
+  and
+  `../../../examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`
+  retain historical human and JSON projection evidence for invalid stream ids
+  and ordering failures.
 
 ## Remaining Scope
 

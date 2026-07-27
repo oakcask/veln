@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed initial-window overflow slice from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -23,7 +23,7 @@ content-length accounting. Closed and reset streams remain unaffected.
 
 ## Evidence
 
-- The executable protocol-core case accepts an update that lands exactly at
+- Historical aggregate evidence accepts an update that lands exactly at
   the maximum and rejects a one-step overflow.
 - A multi-stream case places an adjustable content-length stream before a
   later overflowing stream and checks that neither stream is committed after

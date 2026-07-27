@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed outbound `PRIORITY` post-GOAWAY
 send-intent boundary from the HTTP/2 sans-I/O protocol-core proposal. Current
 behavior is specified by `../../specification/execution.md` and the checked
-executable case `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -33,7 +33,7 @@ of the GOAWAY boundary.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   outbound `PRIORITY` at received and locally sent GOAWAY boundaries.
 - The same checked case pins above-boundary outbound `PRIORITY` after
   received and locally sent GOAWAY as no-output

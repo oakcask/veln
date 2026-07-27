@@ -28,7 +28,7 @@ content-length, trailer, reset, and end-of-stream behavior remains in effect.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks one and
+- Historical aggregate evidence checks one and
   multiple informational responses, final response transition, final
   CONTINUATION completion, a peer-promised stream, rejected status `101`,
   rejected informational `END_STREAM`, rejected DATA before the final

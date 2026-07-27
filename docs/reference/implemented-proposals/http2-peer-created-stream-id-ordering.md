@@ -35,7 +35,7 @@ in related notes.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks first and
+- Historical aggregate evidence checks first and
   increasing admission, tracked reuse, lower idle rejection before and after
   close or reset, repeated rejection, completed header-list validation before
   ordering, retry after a rejected higher id, validation and admission

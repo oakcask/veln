@@ -6,7 +6,7 @@ This record preserves the completed unknown-frame slice from the HTTP/2
 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
 checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -26,7 +26,7 @@ failure shape.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` includes an
+- Historical aggregate evidence includes an
   accepted unknown frame after the client preface gate, a direct frame-state
   accepted unknown frame that preserves payload bytes `170`, `187`, and `204`,
   and an unknown frame rejected while continuation state is active.

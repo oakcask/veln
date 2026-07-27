@@ -32,8 +32,9 @@ stdout line, output table, and focused fixture marker is classified.
 
 ## Remaining Proposal Gate
 
-The checked replacement matrix for the removed aggregate case is still absent.
-Use `../../proposals/http2-sans-io-protocol-core.md` for the remaining work.
-Do not use the retired `http2-protocol-core` route as current behavior. Use
-`../../specification/http2.md` first, then the focused executable cases named
-from that page.
+The checked replacement matrix for the removed aggregate case now lives in the
+active cleanup proposal. Use
+`../../proposals/http2-sans-io-protocol-core.md` for the remaining stale-route
+cleanup and verification work. Do not use the retired `http2-protocol-core`
+route as current behavior. Use `../../specification/http2.md` first, then the
+focused executable cases named from that page.

@@ -31,7 +31,7 @@ advance the high-water value and remains eligible for a later valid retry.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks first and
+- Historical aggregate evidence checks first and
   increasing single-frame and continued promises, lower untracked and repeated
   tracked ids, open, closed, and reset lifecycle retention, validation
   precedence, retry, and rejection-state preservation.

@@ -24,7 +24,7 @@ a final response and do not select this state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks direct
+- Historical aggregate evidence checks direct
   `END_STREAM` for both statuses, empty and padded zero-content DATA
   termination, final CONTINUATION assembly, nonempty DATA rejection, and
   diagnostic projection.

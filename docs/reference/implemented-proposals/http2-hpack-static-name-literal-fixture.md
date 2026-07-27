@@ -6,7 +6,7 @@ This record preserves the completed HPACK static-name literal fixture slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md`, `../../specification/examples.md`, and
 the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -28,7 +28,7 @@ advance decode state without inserting a dynamic entry.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   literal-without-indexing `server: ok`, literal-with-indexing
   `content-type: text` followed by dynamic-indexed reuse from the inserted
   entry, and literal-never-indexed `user-agent: agent` through a final

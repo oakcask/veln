@@ -32,7 +32,7 @@ helpers while the remaining runtime diagnostic payload migration continues.
 - `../../../examples/specification/run/http2-protocol-core-priority-dependency-json/`
   checks the source-visible JSON projection, returned value shape, and existing
   protocol diagnostic fields.
-- `../../../examples/specification/run/http2-protocol-core/` uses the
+- Historical aggregate evidence uses the
   source-visible payload route for integrated PRIORITY self-dependency
   projection coverage.
 - `../../specification/run-json.md`, `../../specification/commands.md`,

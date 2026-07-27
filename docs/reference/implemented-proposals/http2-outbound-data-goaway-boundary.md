@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed outbound DATA post-GOAWAY send-intent
 boundary from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is
 specified by `../../specification/execution.md` and the checked executable
-case `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -30,7 +30,7 @@ failures before the GOAWAY boundary is considered.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   outbound DATA at the received GOAWAY boundary and at the locally sent GOAWAY
   boundary.
 - The same checked case pins above-boundary DATA after received and locally

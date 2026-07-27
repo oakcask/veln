@@ -39,7 +39,7 @@ before output bytes or send-credit changes through the same
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks that
+- Historical aggregate evidence checks that
   accepted request and response `content-length` values, including
   source-visible response static-name `content-length` values, are carried
   into stream body state and updated by later inbound DATA. The same

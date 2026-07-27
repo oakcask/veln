@@ -6,7 +6,7 @@ This record preserves the completed client-side inbound PADDED `PUSH_PROMISE`
 slice from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/run-json.md`, and the checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -31,7 +31,7 @@ receive-credit, or stream lifecycle state changes.
 
 ## Evidence
 
-- The aggregate protocol-core case accepts a padded single-frame block and
+- Historical aggregate evidence accepts a padded single-frame block and
   checks that only the unpadded bytes reach HPACK and promised-stream
   reservation.
 - The same case accepts a padded block completed by CONTINUATION and verifies

@@ -41,7 +41,7 @@ table behavior, inbound behavior, or transport behavior.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   representation precedence, exact bytes, carried state, reduced-capacity
   eviction, focused failures, and state reuse after failure.
-- `../../../examples/specification/run/http2-protocol-core/` routes the seed
+- Historical aggregate evidence routes the seed
   and carried-state blocks through outbound HEADERS and checks exact frames.
 - `../../specification/execution.md` and `../../specification/run-json.md`
   summarize current behavior and route readers to executable evidence.

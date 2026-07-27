@@ -25,7 +25,7 @@ limits.
 
 ## Executable Evidence
 
-`../../../examples/specification/run/http2-protocol-core/` covers non-visible
+historical aggregate evidence covers non-visible
 raw octets, Huffman-selected octets, static and dynamic representation
 selection, insertion and indexed reuse, HEADERS and `PUSH_PROMISE` framing,
 and input-state reuse after a late failure.

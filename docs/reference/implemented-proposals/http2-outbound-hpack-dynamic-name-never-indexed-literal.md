@@ -7,7 +7,7 @@ dynamic-name literal-never-indexed slice from the HTTP/2 sans-I/O
 protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -43,7 +43,7 @@ indexing, Huffman expansion, socket behavior, or production HTTP/2 behavior.
   the stateful insertion, `0x1f 0x2f 0x07 "/secret"` dynamic-name
   literal-never-indexed bytes, retained dynamic-indexed `0xbe` encoding, and
   the empty-state dynamic-name fixture failure.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   returned state through outbound HEADERS framing and retained dynamic-index
   reuse through a later outbound HEADERS send intent.
 - `../../specification/execution.md` summarizes the implemented fixture

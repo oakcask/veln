@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed octet-value follow-up from the HTTP/2
 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -24,7 +24,7 @@ state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks raw and
+- Historical aggregate evidence checks raw and
   Huffman-decoded `00ff` values, all literal indexing policies, static and
   dynamic name resolution, insertion followed by dynamic-indexed reuse,
   byte-preserving state access, complete HEADERS routing, final CONTINUATION

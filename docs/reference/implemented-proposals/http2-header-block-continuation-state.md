@@ -25,7 +25,7 @@ provenance.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` covers successful
+- Historical aggregate evidence covers successful
   HEADERS plus CONTINUATION assembly, multiple CONTINUATION frames before
   completion, wrong frame kind, wrong stream id, and input end while a header
   block remains pending.

@@ -43,7 +43,7 @@ boundary, unbounded dynamic-table behavior, or production header validation.
   and `../../../examples/specification/run/hpack-fixture-huffman-non-visible-json/`
   check the direct HPACK fixture human and JSON projections for non-visible
   decoded bytes.
-- `../../../examples/specification/run/http2-protocol-core/` keeps focused
+- Historical aggregate evidence keeps focused
   malformed Huffman and EOS diagnostics in the aggregate HTTP/2 protocol-core
   fixture output while multi-byte non-visible decoded values are checked as
   labels.

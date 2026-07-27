@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed GOAWAY receive lifecycle slice from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
-checked executable case `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -33,7 +33,7 @@ narrower diagnostic routes.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` opens a
+- Historical aggregate evidence opens a
   peer-created stream, receives GOAWAY, then accepts DATA and trailer HEADERS
   on that already-admitted stream.
 - The same checked case repeats that accepted path for an already-admitted

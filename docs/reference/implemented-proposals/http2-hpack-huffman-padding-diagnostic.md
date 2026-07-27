@@ -27,7 +27,7 @@ support.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks malformed
+- Historical aggregate evidence checks malformed
   padding through completed HEADERS and final CONTINUATION paths in the
   aggregate HTTP/2 protocol-core fixture output.
 - `../../../examples/specification/run/http2-protocol-core-hpack-huffman-padding-human/`

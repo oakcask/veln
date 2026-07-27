@@ -38,7 +38,7 @@ vocabulary remain outside this completed slice.
   exact bytes for all three forms, insertion and later indexed reuse, retained
   state for non-inserting forms, focused missing-name and unsupported-value
   failures, and retained reuse after failures.
-- `../../../examples/specification/run/http2-protocol-core/` routes all three
+- Historical aggregate evidence routes all three
   supported blocks through outbound HEADERS, checks the emitted frame bytes,
   and reuses the Huffman-valued indexed entry in a later HEADERS block.
 - `../../specification/execution.md` and `../../specification/run-json.md`

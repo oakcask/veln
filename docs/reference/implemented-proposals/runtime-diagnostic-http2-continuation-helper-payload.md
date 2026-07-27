@@ -23,7 +23,7 @@ chunk.
 Command recording projects the HTTP/2 `details.protocol_diagnostic` JSON
 object from the returned `RuntimeDiagnostic(...)` value. Human output uses the
 same focused continuation-ordering diagnostic and related notes as the
-existing protocol-core case. The helper no longer needs to register this
+historical aggregate evidence. The helper no longer needs to register this
 diagnostic through the message-keyed backend side-table bridge. The legacy
 bridge remains available for unrelated helpers that are outside this slice.
 

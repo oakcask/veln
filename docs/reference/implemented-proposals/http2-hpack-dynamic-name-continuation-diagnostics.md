@@ -43,7 +43,7 @@ final CONTINUATION block of an assembled header block.
   `../../../examples/specification/run/hpack-fixture-dynamic-name-continuation-out-of-range-human/`
   check the standalone human helper-boundary projection for missing,
   malformed, and out-of-range dynamic-name continuation diagnostics.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   completed HEADERS path for all three focused ids and checks the final
   CONTINUATION path through the same projection helper.
 - `../../../examples/specification/run/http2-protocol-core-hpack-dynamic-name-continuation-human/`

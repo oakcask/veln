@@ -73,7 +73,7 @@ block size, first byte, expected static header description, decoder module
   the static-name literal forms,
   unsupported static index classification, malformed literal length fallback,
   and saturated length prefix fallback.
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   request HEADERS, accepted final CONTINUATION completion, accepted response
   HEADERS, accepted source-visible literal-without-indexing response HEADERS,
   accepted request and response `content-length` literal-without-indexing,

@@ -38,7 +38,7 @@ source-visible receive slice.
   source-visible static-name literal-with-indexing decode for
   `content-type: text`, immutable dynamic-core insertion with accounting, and
   dynamic indexed reuse through `0xbe`.
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS and final CONTINUATION routing through the source-visible static
   decoder while preserving carried HPACK dynamic state and existing focused
   fixture diagnostics for unsupported forms.

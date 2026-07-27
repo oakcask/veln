@@ -36,7 +36,7 @@ HPACK fixture diagnostics.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   integrated protocol-core path, including one accepted request fixture, a
   request fixture with a lowercase ordinary `host` header, accepted
   `:scheme` values `http` and `https` through completed HEADERS and final

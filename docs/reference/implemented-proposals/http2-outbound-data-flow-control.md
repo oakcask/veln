@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed outbound DATA send-window accounting slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -45,7 +45,7 @@ fit in the selected frame payload is rejected before bytes or credit changes.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   DATA output and accepted split DATA output.
 - The same checked case pins exact-boundary accepted cases for connection and
   stream send windows, then verifies the remaining credit reported by ordinary

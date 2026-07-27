@@ -44,7 +44,7 @@ header validation remain outside this receive slice.
   retained dynamic-name reuse through `0xbe`, and a rejected malformed
   Huffman value with `hpack.fixture.malformed_huffman_padding` at the
   dynamic-core boundary.
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS and final CONTINUATION routing for a dynamic-name Huffman value, plus
   dynamic indexed reuse of the inserted entry after each route.
 - `../../specification/execution.md`, `../../specification/run-json.md`, and

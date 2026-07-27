@@ -23,7 +23,7 @@ is retained.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks padded
+- Historical aggregate evidence checks padded
   request headers, padded trailers, PADDED with PRIORITY, a padded fragment
   completed by CONTINUATION, absent prefix bytes, a truncated combined prefix,
   excessive padding, unpadded HPACK bytes, priority state, and rejection

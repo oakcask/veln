@@ -51,7 +51,7 @@ beyond ACKing the local batch, or public source syntax.
 - `../../../examples/specification/run/http2-core-local-settings-send/`
   imports `http2::core` from `std` and checks public result and output-chunk
   projections.
-- `../../../examples/specification/run/http2-protocol-core/` retains a
+- Historical aggregate evidence retains a
   three-item local SETTINGS batch, item-order preservation in the emitted
   bytes, ACK clearing of the multi-item batch while a later batch remains
   outstanding, the no-output range-diagnostic path for an invalid item inside

@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed half-closed-by-peer outbound DATA
 send-intent slice from the HTTP/2 sans-I/O protocol-core proposal. Current
 behavior is specified by `../../specification/execution.md` and the checked
-executable case `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -27,7 +27,7 @@ for that stream use the existing closed stream-state rejection boundary.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` receives DATA
+- Historical aggregate evidence receives DATA
   with `END_STREAM`, prints the closed-by-peer stream state, successfully
   sends outbound DATA on that stream, and checks the split DATA frame bytes.
 - The same checked case sends outbound DATA with local `END_STREAM` from that

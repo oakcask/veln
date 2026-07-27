@@ -33,7 +33,7 @@ static-name receive path.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   Huffman-marked `:path: test` through completed HEADERS and final
   CONTINUATION before fixture fallback, including the completed header-block
   bytes.

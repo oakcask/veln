@@ -7,7 +7,7 @@ HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -39,7 +39,7 @@ HTTP/2 receive-policy failures remain under `http2.peer_limit.*`.
   raw string literals, Huffman-marked checked fixture string literals, and the
   non-inserting literal dynamic-name forms directly at the HPACK fixture
   boundary.
-- `../../../examples/specification/run/http2-protocol-core/` checks the same
+- Historical aggregate evidence checks the same
   decoder paths through completed HEADERS and final CONTINUATION processing,
   including saturated dynamic-name indexes for inserting and non-inserting
   literal forms and saturated table-size updates carried through HTTP/2

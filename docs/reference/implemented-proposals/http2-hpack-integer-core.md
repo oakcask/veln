@@ -36,6 +36,6 @@ new protocol stream-state rules.
   representation bits, round trips, and the indexed-field, table-size, and
   literal-length shapes that motivated the historical slice.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-  `../../../examples/specification/run/http2-protocol-core/` retain coverage
+  historical aggregate evidence retain coverage
   for fixture-internal prefixed-integer decoding as part of header codec
   behavior, without exposing a second integer API.

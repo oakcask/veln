@@ -29,7 +29,7 @@ ordering state. A rejected higher id remains eligible for corrected retry.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks client and
+- Historical aggregate evidence checks client and
   server roles; first, increasing, repeated, and lower ids; retention after
   close and reset; existing-stream reuse; validation precedence; retry after
   rejection; HPACK rollback; split output; and connection-state preservation.

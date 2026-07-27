@@ -36,6 +36,6 @@ entry.
   `:method: PUT`, ordinary static-name `server: ok` beyond the earlier
   checked outbound subset, the existing `:path: /target` subset, and a
   non-static name that remains an HPACK fixture encode failure.
-- `../../../examples/specification/run/http2-protocol-core/` remains the
+- Historical aggregate evidence remains the
   aggregate HTTP/2 outbound HEADERS and `PUSH_PROMISE` regression route for
   fixture encoder changes.

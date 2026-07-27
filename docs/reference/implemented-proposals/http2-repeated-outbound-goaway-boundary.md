@@ -6,7 +6,7 @@ This record preserves the completed repeated outbound GOAWAY send-intent
 boundary from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is
 specified by `../../specification/execution.md`,
 `../../specification/run-json.md`, and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -31,7 +31,7 @@ or error-code payload remain encode errors before accepted bytes are produced.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks a first
+- Historical aggregate evidence checks a first
   outbound GOAWAY send-intent, then repeated same-boundary and narrowed
   outbound GOAWAY send-intents with emitted frame bytes.
 - The same checked case rejects a repeated outbound GOAWAY that would widen

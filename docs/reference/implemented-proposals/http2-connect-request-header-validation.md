@@ -24,7 +24,7 @@ request-header failure boundary.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   ordinary `CONNECT` requests after completed HEADERS and final CONTINUATION
   blocks, all four rejected pseudo-header shapes, and rejection-state
   preservation.

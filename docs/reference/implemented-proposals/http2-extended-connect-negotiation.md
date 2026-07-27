@@ -26,7 +26,7 @@ committed.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks setting
+- Historical aggregate evidence checks setting
   values and roles, ordered local send state, accepted and rejected extended
   CONNECT shapes, SETTINGS ACK capability retention, HEADERS and CONTINUATION
   parity, atomic rejection, and the ordinary CONNECT regression path.

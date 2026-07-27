@@ -7,7 +7,7 @@ the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -82,7 +82,7 @@ fixture diagnostics.
   non-visible raw string-literal encoding failures, dynamic-table behavior
   after literal-with-indexing insertions, and no dynamic-table insertion after
   literal-never-indexed decoding.
-- `../../../examples/specification/run/http2-protocol-core/` checks the same
+- Historical aggregate evidence checks the same
   string literal cases through completed HEADERS and final CONTINUATION paths.
   Long valid values reach the HPACK boundary and then the local header-list
   receive-limit check on the protocol-core path, including a 129-byte raw

@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed automatic literal-string selection slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md` and the checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -27,7 +27,7 @@ frame output, dynamic-table update, or protocol-state update.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   Huffman-smaller and raw-tie values, independent mixed name/value choices,
   Huffman selection for a carried dynamic name, exact dynamic reuse, HEADERS
   framing, and state reuse after a later unsupported string.

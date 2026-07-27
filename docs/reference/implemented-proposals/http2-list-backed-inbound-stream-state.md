@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed inbound stream-state remainder from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -25,7 +25,7 @@ of open list entries. It is not a bound imposed by the representation.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` admits five
+- Historical aggregate evidence admits five
   concurrent peer-created streams and prints every list entry.
 - The same case debits DATA on stream 3, refills stream 5, and records priority
   facts on stream 5 while preserving the other entries.

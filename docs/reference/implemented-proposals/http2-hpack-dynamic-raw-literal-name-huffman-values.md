@@ -42,7 +42,7 @@ this narrow receive slice.
   three indexing forms, dynamic-table mutation only for
   literal-with-indexing, dynamic indexed reuse through `0xbe`, and a rejected
   malformed Huffman value at the dynamic-core boundary.
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS and final CONTINUATION routing for a raw literal-name Huffman value,
   dynamic indexed reuse of the inserted entry, and focused malformed Huffman
   padding projection.

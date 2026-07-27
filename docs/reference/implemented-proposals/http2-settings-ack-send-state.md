@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed outbound SETTINGS ACK send-state slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -26,7 +26,7 @@ behavior.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   pending ACK state after receiving peer SETTINGS, the emitted empty SETTINGS
   ACK frame, the cleared state after consumption, unchanged peer-advertised
   settings after consumption, and coalescing across multiple peer SETTINGS

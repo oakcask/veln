@@ -8,7 +8,7 @@ HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/`,
 `../../../examples/specification/run/hpack-fixture-codec-json/`, and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -51,7 +51,7 @@ and final CONTINUATION paths as ordinary response header-list data.
   direct JSON-command decode of static indexed `0x85` as
   `:path: /index.html` while preserving the unsupported header-block
   diagnostic projection.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   completed HEADERS frame cases named `hpack-static-indexed-authority`,
   `hpack-static-indexed-method-path`, the full static table through
   `hpack-static-indexed-www-authenticate`, and a final CONTINUATION path for

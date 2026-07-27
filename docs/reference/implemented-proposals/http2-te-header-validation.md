@@ -23,7 +23,7 @@ the rule provenance is `rfc9113_te_trailers_only`.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   `te: trailers` request validation through completed HEADERS, accepted
   `te: trailers` response validation through final CONTINUATION, and invalid
   request and response `te` values through the integrated protocol-core

@@ -56,7 +56,7 @@ fixture diagnostic shape.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   single-frame `PUSH_PROMISE` receive, emits the stripped promised header
   block, decodes it through the HPACK fixture path, and prints the
   reserved-by-peer stream state.

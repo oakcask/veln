@@ -7,7 +7,7 @@ HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -134,7 +134,7 @@ covered by [http2-hpack-table-size-policy.md](http2-hpack-table-size-policy.md).
   returned state, and an out-of-range lookup after the bounded table no longer
   contains that entry projects the focused dynamic-index diagnostic without
   relying on full HPACK compression.
-- `../../../examples/specification/run/http2-protocol-core/` checks the same
+- Historical aggregate evidence checks the same
   carried immutable HPACK state across completed HEADERS and final
   CONTINUATION paths, including dynamic-name literal-with-indexing,
   continuation-byte dynamic-name literal-with-indexing for retained dynamic

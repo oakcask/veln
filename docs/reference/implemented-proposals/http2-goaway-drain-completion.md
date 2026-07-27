@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed GOAWAY drain completion slice from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -30,7 +30,7 @@ instead of reopening the graceful-shutdown state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks that
+- Historical aggregate evidence checks that
   received GOAWAY with an active in-boundary stream stays in
   `graceful_shutdown`, then reaches `drained_shutdown` after received
   HEADERS `END_STREAM`, DATA `END_STREAM`, trailer HEADERS, or `RST_STREAM`.
