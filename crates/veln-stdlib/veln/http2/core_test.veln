@@ -2264,8 +2264,12 @@ test output_buffer_preserves_successful_send_order() -> Result<(), String>
 	let data: CoreDataSendDecision = http2::core::send_data(state, 11, 1, byte_chunk_from_hex("aabb")?, false)
 	let after_data: CoreOutputBuffer = http2::core::output_buffer_append_data(after_ping, data)
 	let window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 17, 0, 3)
-	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
-	if http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0 and http2::core::output_buffer_count(output) == 3 and chunks_equal(require_output_chunk(output, 0)?, byte_chunk_from_hex("0000080600000000000102030405060708")?)? and chunks_equal(require_output_chunk(output, 1)?, byte_chunk_from_hex("000002000000000001aabb")?)? and chunks_equal(require_output_chunk(output, 2)?, byte_chunk_from_hex("00000408000000000000000003")?)? and chunks_equal(http2::core::output_buffer_bytes(output), byte_chunk_from_hex("0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003")?)?
+	let after_window: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
+	let headers: CoreHeadersSendDecision = http2::core::send_response_headers(state, 23, 1, response_headers_with_content_length("200", "5")?, false)
+	let after_headers: CoreOutputBuffer = http2::core::output_buffer_append_headers(after_window, headers)
+	let push_promise: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 29, 1, 2, request_headers()?)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_push_promise(after_headers, push_promise)
+	if http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0 and http2::core::output_buffer_count(output) == 5 and chunks_equal(require_output_chunk(output, 0)?, byte_chunk_from_hex("0000080600000000000102030405060708")?)? and chunks_equal(require_output_chunk(output, 1)?, byte_chunk_from_hex("000002000000000001aabb")?)? and chunks_equal(require_output_chunk(output, 2)?, byte_chunk_from_hex("00000408000000000000000003")?)? and chunks_equal(require_output_chunk(output, 3)?, byte_chunk_from_hex("000004010400000001885c0135")?)? and chunks_equal(require_output_chunk(output, 4)?, byte_chunk_from_hex("00000a050400000001000000028287845c0135")?)? and chunks_equal(http2::core::output_buffer_bytes(output), byte_chunk_from_hex("0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003000004010400000001885c013500000a050400000001000000028287845c0135")?)?
 		Ok(())
 	else
 		Err("HTTP/2 output buffer did not preserve successful send order")

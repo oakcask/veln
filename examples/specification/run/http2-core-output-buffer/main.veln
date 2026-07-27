@@ -1,4 +1,5 @@
 use http2::core from "std"
+use http2::hpack from "std"
 use stdio
 
 fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
@@ -46,6 +47,18 @@ fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
 	end
 end
 
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("content-length", "5")?, http2::hpack::empty_header_list())))))
+end
+
+fn response_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "200")?, http2::hpack::prepend_header_field(ascii_header("content-length", "5")?, http2::hpack::empty_header_list())))
+end
+
 fn print_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
 	let chunk: ByteChunk = require_output_chunk(output, index)?
 	stdio::print("output_chunk ")
@@ -67,14 +80,20 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let data: CoreDataSendDecision = http2::core::send_data(state, 11, 1, byte_chunk_from_hex("aabb")?, false)
 	let after_data: CoreOutputBuffer = http2::core::output_buffer_append_data(after_ping, data)
 	let window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 17, 0, 3)
-	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
+	let after_window: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
+	let headers: CoreHeadersSendDecision = http2::core::send_response_headers(state, 23, 1, response_headers()?, false)
+	let after_headers: CoreOutputBuffer = http2::core::output_buffer_append_headers(after_window, headers)
+	let push_promise: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 29, 1, 2, request_headers()?)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_push_promise(after_headers, push_promise)
 	stdio::print("ordered count ")
 	stdio::println(int_to_string(http2::core::output_buffer_count(output)))
 	let _ = print_chunk("ordered", output, 0, "0000080600000000000102030405060708")?
 	let _ = print_chunk("ordered", output, 1, "000002000000000001aabb")?
 	let _ = print_chunk("ordered", output, 2, "00000408000000000000000003")?
+	let _ = print_chunk("ordered", output, 3, "000004010400000001885c0135")?
+	let _ = print_chunk("ordered", output, 4, "00000a050400000001000000028287845c0135")?
 	stdio::print("ordered combined \"")
-	stdio::print(checked_hex(http2::core::output_buffer_bytes(output), "0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003")?)
+	stdio::print(checked_hex(http2::core::output_buffer_bytes(output), "0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003000004010400000001885c013500000a050400000001000000028287845c0135")?)
 	stdio::println("\"")
 	let rejected_data: CoreDataSendDecision = http2::core::send_data(state, 23, 1, byte_chunk_from_hex("00112233445566778899aa")?, false)
 	let after_rejected: CoreOutputBuffer = http2::core::output_buffer_append_data(output, rejected_data)
