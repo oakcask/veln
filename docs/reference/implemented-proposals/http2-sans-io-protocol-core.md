@@ -38,15 +38,17 @@ standard-package reference must reach the public `http2::core` or
 reference must place its evidence needle inside an actual `equals` or
 `contains` value; source comments and unrelated case assertions do not count.
 Historical output tables and their stdout projections additionally require
-the normalized table name and every exact chunk to occur in the checked test
-body. The focused
+the normalized table name and every exact chunk to occur in a checked test
+body. References to the focused
 [`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
-tests concatenate the historical singleton chunks by protocol responsibility,
-pass each ordered group through the public immutable header-block transition,
-and compare every completed octet. The static table labels preserve the empty
-and singleton boundaries. This grouping keeps exact evidence from creating a
-test-per-row analysis cost. HPACK vectors with production meanings are also
-bound directly to encoder and decoder assertions.
+must contain one exact call for each historical table rather than a grouped
+literal or comment marker. Every singleton call crosses the production DATA
+transition and public output-buffer boundary independently, then compares its
+complete octets in the emitted payload. Every empty call independently checks
+that a rejected send emits neither decision bytes nor output-buffer chunks.
+Repeated chunks therefore cannot satisfy multiple table rows through one
+occurrence. HPACK vectors with production meanings remain bound directly to
+encoder and decoder assertions.
 
 The checker derives further relevance requirements for the previously
 misbound domains. The three connection-stream helper sites must reference
@@ -54,8 +56,12 @@ SETTINGS, PING, and GOAWAY tests respectively. Production HTTP/2 diagnostic
 stdout rows must compare their retained diagnostic id. The historical
 `:fixture` continuation projection is bound to a production receive-frame
 test that checks a split CONTINUATION, a nine-octet HPACK block, one resulting
-stream, and immutable input state. The checker self-test rejects the former
-peer-stream, unrelated chunk, and generic HPACK substitutions.
+stream, and immutable input state. Generic stdout projections additionally
+require a matching SETTINGS, HPACK, receive-frame, send-transition,
+flow-control, content-length, or shutdown boundary according to the retained
+projection kind. The checker self-test rejects the former peer-stream,
+unrelated chunk, generic HPACK, grouped-output, and comment-only empty-output
+substitutions.
 
 The historical peer-stream failure helper's component checks are split across
 the retained connection composition, stream collection, flow-control,

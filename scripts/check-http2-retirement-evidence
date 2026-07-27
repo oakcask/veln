@@ -44,7 +44,7 @@ for my $row (@rows) {
     } else {
         validate_item_binding($row->{key}, $row->{value}, $manifest_row, $assertion);
     }
-    validate_evidence_relevance($row, $assertion);
+    validate_evidence_relevance($row, $assertion, $manifest_row);
     if ($inventory) {
         print join(
             "\t",
@@ -185,7 +185,7 @@ sub validate_veln_test {
     die "evidence test $needle in $path does not call the public HTTP/2 boundary\n"
         if !exercises_public_http2_boundary($body, $source);
     die "evidence test $needle in $path has no checked success and failure branches\n"
-        if $body !~ /\b(?:if|match)\b/ || $body !~ /\bOk\(\(\)\)/ || $body !~ /\bErr\(/;
+        if !has_checked_branches($body, $source);
 }
 
 sub exercises_public_http2_boundary {
@@ -195,6 +195,26 @@ sub exercises_public_http2_boundary {
     while (@pending) {
         my $current = shift @pending;
         return 1 if $current =~ /\bhttp2::(?:core|hpack)::[A-Za-z0-9_]+\b/;
+        for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
+            next if $visited{$callee}++;
+            my ($helper) =
+                $source =~ /(^fn \Q$callee\E\(.*?)(?=^(?:pub )?fn |^test |\z)/ms;
+            push @pending, $helper if defined $helper;
+        }
+    }
+    return 0;
+}
+
+sub has_checked_branches {
+    my ($body, $source) = @_;
+    my @pending = ($body);
+    my %visited;
+    while (@pending) {
+        my $current = shift @pending;
+        return 1
+            if $current =~ /\b(?:if|match)\b/
+                && $current =~ /\bOk\(\(\)\)/
+                && $current =~ /\bErr\(/;
         for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
             next if $visited{$callee}++;
             my ($helper) =
@@ -232,22 +252,37 @@ sub validate_item_binding {
 }
 
 sub validate_evidence_relevance {
-    my ($row, $assertion) = @_;
+    my ($row, $assertion, $manifest_row) = @_;
     if ($row->{kind} eq "output_table") {
         my ($name, $encoded_chunks) = split /\t/, $row->{value}, 2;
         my $chunks = eval { decode_json("[$encoded_chunks]") };
         die "invalid historical output table $row->{key}\n"
             if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
-        my $identifier = lc($name);
-        $identifier =~ s/[^a-z0-9_]+/_/g;
-        my $normalized_assertion = lc($assertion);
-        $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
-        die "evidence for $row->{key} does not identify output table $name\n"
-            if index($normalized_assertion, $identifier) < 0;
-        for my $chunk (@$chunks) {
-            next if $chunk eq "";
-            die "evidence for $row->{key} does not compare historical chunk $chunk\n"
-                if index(lc($assertion), lc($chunk)) < 0;
+        die "historical output table $row->{key} has an unsupported chunk count\n"
+            if @$chunks > 1;
+        if (
+            defined $manifest_row
+                && $manifest_row->{evidence} =~
+                    m{^crates/veln-stdlib/veln/http2/retirement_output_evidence_test\.veln#}
+        ) {
+            my $call = @$chunks == 0
+                ? qq{assert_retired_empty_output_table("$name")?}
+                : qq{assert_retired_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            my $call_count = () = $assertion =~ /\Q$call\E/g;
+            die "evidence for $row->{key} does not independently assert its exact output table\n"
+                if $call_count != 1;
+        } else {
+            my $identifier = lc($name);
+            $identifier =~ s/[^a-z0-9_]+/_/g;
+            my $normalized_assertion = lc($assertion);
+            $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
+            die "evidence for $row->{key} does not identify output table $name\n"
+                if index($normalized_assertion, $identifier) < 0;
+            for my $chunk (@$chunks) {
+                next if $chunk eq "";
+                die "evidence for $row->{key} does not compare historical chunk $chunk\n"
+                    if index(lc($assertion), lc($chunk)) < 0;
+            }
         }
         return;
     }
@@ -269,6 +304,11 @@ sub validate_evidence_relevance {
         return;
     }
 
+    if ($row->{kind} eq "stdout") {
+        validate_stdout_projection_relevance($row, $assertion);
+        return;
+    }
+
     if ($row->{key} =~ /^main\.veln:103([567]):require_connection_stream_id$/) {
         my %frame_evidence = (
             5 => qr/\bsettings\b/i,
@@ -281,10 +321,15 @@ sub validate_evidence_relevance {
         return;
     }
 
+}
+
+sub validate_stdout_projection_relevance {
+    my ($row, $assertion) = @_;
+    my $value = $row->{value};
+
     if (
-        $row->{kind} eq "stdout"
-            && $row->{value} =~
-                /hpack decoded :fixture continuation wire_size 9 next_decode_count 1$/
+        $value =~
+            /hpack decoded :fixture continuation wire_size 9 next_decode_count 1$/
     ) {
         die "evidence for $row->{key} does not exercise the retained continuation projection\n"
             if $assertion !~ /\bCONTINUATION\b/
@@ -292,14 +337,73 @@ sub validate_evidence_relevance {
                 || $assertion !~ /stream_collection_count\([^;\n]*\) == 1/;
     }
 
-    if (
-        $row->{kind} eq "stdout"
-            && $row->{value} =~ /\b(http2\.[a-z0-9_.]+)\b/
-            && $row->{value} !~ /^outbound-ping-/
-    ) {
+    if ($value =~ /\b(http2\.[a-z0-9_.]+)\b/ && $value !~ /^outbound-ping-/) {
         my $diagnostic_id = $1;
         die "evidence for $row->{key} does not compare diagnostic id $diagnostic_id\n"
             if index($assertion, $diagnostic_id) < 0;
+    }
+
+    my ($projection) = $value =~ /^[^ ]+ ([^ ]+)/;
+    return if !defined $projection;
+
+    my @domains;
+    if ($projection eq "result") {
+        if ($value =~ /\bkind 4\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|peer_settings|settings_ack)/);
+        } elsif ($value =~ /\bkind 6\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|ping)/);
+        } elsif ($value =~ /\bkind 7\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|goaway|shutdown)/);
+        } elsif ($value =~ /\bkind 8\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|window_update|flow_control)/);
+        } elsif ($value =~ /\bkind 5\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|push_promise)/);
+        } elsif ($value =~ /\bkind [013]\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|stream_collection|data|headers|rst_stream)/);
+        } elsif ($value =~ /\bkind 2\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|priority)/);
+        }
+    } elsif ($projection =~ /^outbound-hpack-encode(?:-state)?$/) {
+        @domains = (qr/\bhttp2::hpack::encode_header_block\b/);
+    } elsif ($projection eq "outbound-headers") {
+        @domains = (qr/\b(?:send_(?:request_headers|response_headers|trailers)|headers_send_)/);
+    } elsif ($projection eq "outbound-push-promise") {
+        @domains = (qr/\b(?:send_push_promise|push_promise_send_)/);
+    } elsif ($projection eq "outbound-data") {
+        @domains = (qr/\b(?:send_data|data_send_)/);
+    } elsif ($projection eq "outbound-window-update") {
+        @domains = (qr/\b(?:send_window_update|window_update_send_)/);
+    } elsif ($projection eq "outbound-settings") {
+        @domains = (qr/\b(?:send_local_setting|local_settings_send_)/);
+    } elsif ($projection eq "outbound-settings-ack") {
+        @domains = (qr/\b(?:send_pending_settings_ack|settings_ack)/);
+    } elsif ($projection =~ /^outbound-ping(?:-ack)?$/) {
+        @domains = (qr/\b(?:send_ping|respond_to_ping|ping)/);
+    } elsif ($projection eq "outbound-goaway") {
+        @domains = (qr/\b(?:send_goaway_shutdown|goaway_send_)/);
+    } elsif ($projection eq "outbound-rst-stream") {
+        @domains = (qr/\b(?:send_rst_stream|rst_stream_)/);
+    } elsif ($projection eq "outbound-priority") {
+        @domains = (qr/\b(?:send_priority|priority_)/);
+    } elsif ($projection =~ /^(?:hpack|hpack_state|hpack_static)$/) {
+        @domains = (qr/\b(?:http2::hpack::|receive_frame)/);
+    } elsif (
+        $projection =~
+            /^(?:peer_max_frame_size|local_settings|peer_settings_ack)$/
+    ) {
+        @domains = (qr/\b(?:peer_settings|local_settings|settings_ack)/);
+    } elsif (
+        $projection =~
+            /^(?:outbound-send-credit|content_length_expected)$/
+    ) {
+        @domains = (qr/\b(?:flow_control|send_credit|window_update|content_length)/);
+    } elsif ($projection eq "shutdown") {
+        @domains = (qr/\b(?:shutdown|connection_lifecycle|goaway)/);
+    }
+
+    for my $domain (@domains) {
+        die "evidence for $row->{key} does not exercise stdout projection $projection\n"
+            if $assertion !~ $domain;
     }
 }
 
@@ -352,16 +456,46 @@ sub run_self_test {
         key => "case.toml:output_chunk_list:sample",
         value => "sample\t\"83\"",
     };
+    my $retirement_output_manifest = {
+        evidence =>
+            "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln#test sample(",
+    };
     my $unrelated_output_accepted = eval {
-        validate_evidence_relevance($exact_output, $good);
+        validate_evidence_relevance(
+            $exact_output,
+            $good,
+            $retirement_output_manifest,
+        );
         1;
     };
     die "self-test accepted output evidence without the historical chunk\n"
         if $unrelated_output_accepted;
     validate_evidence_relevance(
         $exact_output,
-        $good . "\t# evidence sample\n"
-            . "\tchunks_equal(actual, byte_chunk_from_hex(\"83\")?)?\n",
+        $good
+            . "\tassert_retired_output_table(\"sample\", "
+            . "byte_chunk_from_hex(\"83\")?)?\n",
+        $retirement_output_manifest,
+    );
+    my $empty_output = {
+        kind => "output_table",
+        key => "case.toml:output_chunk_list:no-output",
+        value => "no-output\t",
+    };
+    my $named_only_empty_accepted = eval {
+        validate_evidence_relevance(
+            $empty_output,
+            "$good\n# no-output\nhttp2::core::empty_output_buffer()\n",
+            $retirement_output_manifest,
+        );
+        1;
+    };
+    die "self-test accepted an empty output table without an empty-output assertion\n"
+        if $named_only_empty_accepted;
+    validate_evidence_relevance(
+        $empty_output,
+        "$good\n\tassert_retired_empty_output_table(\"no-output\")?\n",
+        $retirement_output_manifest,
     );
 
     my $settings_helper = {
@@ -393,7 +527,42 @@ sub run_self_test {
     validate_evidence_relevance(
         $continuation_projection,
         "$good\n# CONTINUATION nine-octet projection\n"
-            . "if http2::core::stream_collection_count(streams) == 1\n",
+            . "if http2::core::stream_collection_count(streams) == 1\n"
+            . "http2::hpack::decode_header_block(input, state)\n",
+    );
+
+    my $peer_settings_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:230",
+        value => "peer-enable-push result frame offset 0 kind 4 stream 0 "
+            . "next 15 pending 0 continuation none accumulated 0 completed 0",
+    };
+    my $peer_stream_substitution_accepted = eval {
+        validate_evidence_relevance($peer_settings_projection, $good);
+        1;
+    };
+    die "self-test accepted peer-stream evidence for a SETTINGS projection\n"
+        if $peer_stream_substitution_accepted;
+    validate_evidence_relevance(
+        $peer_settings_projection,
+        "$good\nif http2::core::receive_frame_status(settings) == \"accepted\"\n",
+    );
+
+    my $hpack_encode_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:248",
+        value => "peer-header-table-size-lower-seed outbound-hpack-encode "
+            . "encoded_count 9 first_byte 68 next_encode_count 1 table_size 4096",
+    };
+    my $unrelated_hpack_projection_accepted = eval {
+        validate_evidence_relevance($hpack_encode_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an outbound HPACK projection\n"
+        if $unrelated_hpack_projection_accepted;
+    validate_evidence_relevance(
+        $hpack_encode_projection,
+        "$good\nhttp2::hpack::encode_header_block(headers, state)\n",
     );
     print "http2 retirement evidence checker self-test: passed\n";
 }

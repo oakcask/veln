@@ -2551,6 +2551,22 @@ mod tests {
             "table_size_update_decoder_accepts_boundary_and_multi_octet_capacities",
             "table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention",
             "table_size_update_decoder_returns_focused_failures_without_changing_state",
+            "retirement_output_connection_framing",
+            "retirement_output_flow_control",
+            "retirement_output_header_sequences",
+            "retirement_output_hpack_codec",
+            "retirement_output_hpack_dynamic_name",
+            "retirement_output_hpack_dynamic_table",
+            "retirement_output_hpack_huffman",
+            "retirement_output_hpack_indexed",
+            "retirement_output_hpack_literal",
+            "retirement_output_hpack_stateful",
+            "retirement_output_hpack_table_size",
+            "retirement_output_ping",
+            "retirement_output_push_promise",
+            "retirement_output_settings",
+            "retirement_output_shutdown",
+            "retirement_output_stream_control",
         ] {
             let lowered = analysis
                 .lower_reachable_entry(entry, FunctionKind::Test)

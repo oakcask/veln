@@ -11,11 +11,14 @@ helper invocation, exact stdout line, and output table to a retained
 executable assertion. Each row retains the complete historical value as
 base64, not only its digest. The retirement checker decodes and compares that
 value with the historical fixture, checks the focused assertion body, and
-checks their item-specific binding. It also requires output-table names and
-octets to occur in executable comparisons, binds connection-stream helpers to
-their SETTINGS, PING, or GOAWAY domain, checks retained production diagnostic
-ids, and rejects a continuation projection unless the referenced test checks
-its continuation, wire-size, and single-decode result. Veln references must
+checks their item-specific binding. The focused retirement-output test uses one
+exact executable call per retained singleton or empty table, so grouped
+literals, comment-only table labels, and one occurrence reused for duplicate
+chunks do not count. The checker also binds connection-stream helpers to their
+SETTINGS, PING, or GOAWAY domain, requires stdout projection kinds to reach the
+matching public protocol boundary, checks retained production diagnostic ids,
+and rejects a continuation projection unless the referenced test checks its
+continuation, wire-size, and single-decode result. Veln references must
 exercise the public HTTP/2 standard-library boundary through a checked branch.
 Case references must place their evidence needle inside an `equals` or
 `contains` assertion. This directory contains no reusable Veln implementation.
