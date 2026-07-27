@@ -2364,6 +2364,21 @@ test receive_connection_boundary_consumes_ordered_frames_in_one_chunk() -> Resul
 	end
 end
 
+test receive_connection_boundary_applies_data_frame_to_stream_state() -> Result<(), String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 3, 0))?
+	let connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, byte_chunk_from_hex("000003000100000005aabbcc")?)?
+	let after_data: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(decision)?
+	let updated: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(http2::core::receive_connection_connection(after_data)), 5))?
+	let original: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(connection), 5))?
+	if http2::core::receive_connection_status(decision) == "accepted" and http2::core::receive_connection_applied_transition(decision) == "data" and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(after_data)) == 69 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(after_data))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(after_data)) == 0 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(updated)) == "half-closed-remote" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(updated)) == 7 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(updated)) == 20 and http2::core::stream_entry_content_length_expected(updated) == 3 and http2::core::stream_entry_content_length_observed(updated) == 3 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(original)) == 10 and http2::core::stream_entry_content_length_observed(original) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary did not apply DATA through the aggregate stream state")
+	end
+end
+
 test receive_connection_boundary_rejects_later_frame_without_exposing_partial_state() -> Result<(), String>
 	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let chunk: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000706000000000001020304050607")?

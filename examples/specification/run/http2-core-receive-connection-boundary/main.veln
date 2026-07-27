@@ -16,6 +16,20 @@ fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChun
 	end
 end
 
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_found_stream(entry: Option<CoreStreamEntry>) -> Result<CoreStreamEntry, String>
+	match entry
+		Some(found) => Ok(found)
+		None => Err("expected HTTP/2 receive connection stream entry")
+	end
+end
+
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
 end
@@ -104,6 +118,24 @@ fn print_output(label: String, output: CoreOutputBuffer, expected_first: String,
 	Ok(())
 end
 
+fn print_stream(label: String, state: CoreReceiveConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(http2::core::receive_connection_connection(state)), stream_id))?
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" receive ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(stream))))
+	stdio::print(" send ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream))))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(stream)))
+	stdio::print(" observed ")
+	stdio::println(int_to_string(http2::core::stream_entry_content_length_observed(stream)))
+	Ok(())
+end
+
 fn print_optional_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
 	if http2::core::output_buffer_count(output) > index
 		print_chunk(label, output, index, expected_hex)
@@ -166,6 +198,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let priority_state: CoreReceiveConnectionState = require_state(priority_decision)?
 	print_decision("priority", priority_decision)
 	print_state("priority", priority_state)
+	let data_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 3, 0))?
+	let data_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), data_entry))
+	let data_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(data_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let data_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(data_start, byte_chunk_from_hex("000003000100000005aabbcc")?)?
+	let data_state: CoreReceiveConnectionState = require_state(data_decision)?
+	print_decision("data", data_decision)
+	print_state("data", data_state)
+	let _ = print_stream("data", data_state, 5)?
 	let failure: CoreReceiveConnectionFailure = require_failure(http2::core::receive_connection_chunk(http2::core::receive_connection_state(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("0000080600000000000102030405060708")?)?)?
 	print_failure("initial-gate", failure)
 	Ok(())
