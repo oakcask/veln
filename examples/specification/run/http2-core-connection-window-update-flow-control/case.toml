@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "accepted accepted\nupdated connection 19 stream-receive 13 stream-send 21\ninput connection 10 stream-receive 13 stream-send 21\ninvalid failure http2.flow_control.invalid_window_update_increment offset 79 increment 0 domain window_update_increment observed 0 connection-credit 10 preview 9\noverflow failure http2.flow_control.window_exceeded offset 83 increment 9 domain connection_window_credit observed 2147483649 connection-credit 2147483640 preview 9\naccepted-accessor accepted connection WINDOW_UPDATE flow-control decision has no failure\nrejected-accessor rejected connection WINDOW_UPDATE flow-control decision has no state\n"
+equals = "accepted accepted\nupdated connection 19 stream-receive 13 stream-send 21\ninput connection 10 stream-receive 13 stream-send 21\ninvalid failure http2.flow_control.invalid_window_update_increment offset 79 increment 0 domain window_update_increment observed 0 connection-credit 10 preview 9\ninvalid-input connection 10 stream-receive 13 stream-send 21\noverflow failure http2.flow_control.window_exceeded offset 83 increment 9 domain connection_window_credit observed 2147483649 connection-credit 2147483640 preview 9\noverflow-input connection 2147483640 stream-receive 13 stream-send 21\naccepted-accessor accepted connection WINDOW_UPDATE flow-control decision has no failure\nrejected-accessor rejected connection WINDOW_UPDATE flow-control decision has no state\n"
 
 [[json_assert]]
 path = "error"

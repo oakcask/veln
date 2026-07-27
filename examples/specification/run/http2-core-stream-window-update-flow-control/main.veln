@@ -84,8 +84,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let overflow: CoreStreamWindowUpdateFlowControlFailure = require_failure(http2::core::apply_stream_window_update_flow_control(high_state, 67, 5, 9, byte_chunk_from_hex("000004080000000005")?))?
 	let missing: CoreStreamWindowUpdateFlowControlFailure = require_failure(http2::core::apply_stream_window_update_flow_control(state, 71, 7, 1, byte_chunk_from_hex("000004080000000007")?))?
 	print_failure("invalid", invalid)
+	let _ = print_state("invalid-input", state, 5)?
 	print_failure("overflow", overflow)
+	let _ = print_state("overflow-input", high_state, 5)?
 	print_failure("missing", missing)
+	let _ = print_state("missing-input", state, 5)?
 	let _ = print_failure_accessor_error("accepted-accessor", accepted)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_stream_window_update_flow_control(state, 73, 5, 0, byte_chunk_from_hex("000004080000000005")?))?
 	Ok(())

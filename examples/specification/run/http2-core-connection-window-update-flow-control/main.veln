@@ -89,7 +89,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let high_state: CoreConnectionState = http2::core::connection_state_with_receive_credit(state, require_connection(http2::core::connection_window_credit(2147483640))?)
 	let overflow: CoreConnectionWindowUpdateFlowControlFailure = require_failure(http2::core::apply_connection_window_update_flow_control(high_state, 83, 9, byte_chunk_from_hex("000004080000000000")?))?
 	print_failure("invalid", invalid)
+	let _ = print_state("invalid-input", state, 5)?
 	print_failure("overflow", overflow)
+	let _ = print_state("overflow-input", high_state, 5)?
 	let _ = print_failure_accessor_error("accepted-accessor", accepted)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_connection_window_update_flow_control(state, 85, 0, byte_chunk_from_hex("000004080000000000")?))?
 	Ok(())

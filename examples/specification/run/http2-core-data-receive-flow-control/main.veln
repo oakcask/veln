@@ -95,8 +95,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let stream_failure: CoreDataReceiveFlowControlFailure = require_failure(http2::core::apply_data_receive_flow_control(low_stream_state, 43, 5, 3, byte_chunk_from_hex("000003000000000005")?))?
 	let missing_failure: CoreDataReceiveFlowControlFailure = require_failure(http2::core::apply_data_receive_flow_control(state, 47, 7, 1, byte_chunk_from_hex("000001000000000007")?))?
 	print_failure("connection", connection_failure)
+	let _ = print_state("connection-input", state, 5)?
 	print_failure("stream", stream_failure)
+	let _ = print_state("stream-input", low_stream_state, 5)?
 	print_failure("missing", missing_failure)
+	let _ = print_state("missing-input", state, 5)?
 	let _ = print_failure_accessor_error("accepted-accessor", accepted)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_data_receive_flow_control(state, 49, 5, 11, byte_chunk_from_hex("00000b000000000005")?))?
 	Ok(())
