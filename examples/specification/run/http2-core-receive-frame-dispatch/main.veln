@@ -156,6 +156,29 @@ fn print_pending_state(label: String, state: CoreConnectionState) -> () effects 
 	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
 end
 
+fn print_push_state(label: String, state: CoreConnectionState, promised_stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), promised_stream_id)
+		Some(found) => found
+		None => Err("missing expected promised stream")?
+	end
+	stdio::print(label)
+	stdio::print(" promised ")
+	stdio::print(int_to_string(promised_stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(stream)))
+	stdio::print(" high-water ")
+	stdio::print(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state))))
+	stdio::print(" admission ")
+	stdio::print(int_to_string(http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state))))
+	stdio::print(" streams ")
+	stdio::print(int_to_string(http2::core::stream_collection_count(http2::core::connection_state_streams(state))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+	Ok(())
+end
+
 fn bool_label(value: Bool) -> String
 	if value
 		"true"
@@ -307,6 +330,19 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let push_state: CoreConnectionState = http2::core::connection_state_with_streams(push_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(push_base), push_stream))
 	let push_payload_length_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("000003050400000001000000")?)?)?
 	let push_admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000405040000000100000002")?)?)?
+	let push_accepted: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?
+	let push_accepted_state: CoreConnectionState = require_state(push_accepted)?
+	print_decision("push-promise", push_accepted)
+	let _ = print_push_state("push-promise", push_accepted_state, 2)?
+	let push_continuation_start: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("0000050500000000010000000482")?)?
+	let push_pending_state: CoreConnectionState = require_state(push_continuation_start)?
+	print_decision("push-promise-continuation-start", push_continuation_start)
+	print_pending_state("push-promise-continuation-start", push_pending_state)
+	let push_continuation_done: CoreReceiveFrameDecision = http2::core::apply_receive_frame(push_pending_state, byte_chunk_from_hex("0000020904000000018784")?)?
+	let push_continuation_state: CoreConnectionState = require_state(push_continuation_done)?
+	print_decision("push-promise-continuation-done", push_continuation_done)
+	let _ = print_push_state("push-promise-continuation", push_continuation_state, 4)?
+	let push_repeated_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
@@ -317,6 +353,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("push-promise-length", push_payload_length_failure)
 	print_failure("push-promise-admission", push_admission_failure)
 	print_admission_context("push-promise-admission", push_admission_failure)
+	print_failure("push-promise-repeated", push_repeated_failure)
+	print_admission_context("push-promise-repeated", push_repeated_failure)
 	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000001010400000001ff")?)?)?
 	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)

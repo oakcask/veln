@@ -542,17 +542,18 @@ surface is available to external packages.
 The adjacent test also checks that `apply_receive_frame(...)` composes frame
 decode, payload-length validation, stream-frame admission, DATA END_STREAM
 lifecycle application, HEADERS and CONTINUATION header-block completion,
-production HPACK decode, header-list validation, DATA receive-credit debit,
-inbound DATA content-length body accounting,
+PUSH_PROMISE promised-stream reservation, production HPACK decode,
+header-list validation, DATA receive-credit debit, inbound DATA
+content-length body accounting,
 stream and connection WINDOW_UPDATE credit refill, RST_STREAM reset-code
 application, pending-header-block sequence rejection, wrong-variant accessors,
 and immutable failure-state preservation. The focused
 [`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/)
 case imports `http2::core` from `std` and records public success, state,
 failure-source, failure-id, HPACK failure, header-list failure,
-content-length mismatch, stream-admission active-state and rule provenance,
-and accessor projections. Other payload-specific frame application,
-PUSH_PROMISE, outbound content-length send accounting, other outbound
+content-length mismatch, PUSH_PROMISE reserved-stream and high-water
+projections, stream-admission active-state and rule provenance, and accessor
+projections. Outbound content-length send accounting, other outbound
 transitions, complete stdout, and output-chunk integration remain in the
 aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
