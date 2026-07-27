@@ -45,7 +45,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let _ = print_state("ignored-trailer", ignored_trailer)
 	let _ = print_state("ignored-known", ignored_known)
 	let _ = print_state("higher", higher)
-	let _ = print_decision("new-higher", http2::core::validate_new_peer_stream(10, 9, "server", higher, byte_chunk_from_hex("000000010400000009")?))?
-	let _ = print_decision("lower", http2::core::validate_new_peer_stream(20, 3, "server", higher, byte_chunk_from_hex("000000010400000003")?))?
+	let accepted: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(10, 9, "server", higher, byte_chunk_from_hex("000000010400000009")?)
+	let equal_rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(16, 7, "client", higher, byte_chunk_from_hex("000000010400000007")?)
+	let rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(20, 3, "server", higher, byte_chunk_from_hex("000000010400000003")?)
+	let _ = print_decision("new-higher", accepted)?
+	let _ = print_decision("equal", equal_rejected)?
+	let _ = print_decision("lower", rejected)?
 	Ok(())
 end

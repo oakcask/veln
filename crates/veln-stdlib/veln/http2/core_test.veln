@@ -821,22 +821,33 @@ test peer_stream_admission_acceptance_keeps_caller_owned_high_water() -> Result<
 	let recorded: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(5, empty)
 	let accepted_empty: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(9, 1, "server", empty, byte_chunk_from_hex("000000010400000001")?)
 	let accepted_higher: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(17, 9, "server", recorded, byte_chunk_from_hex("000000010400000009")?)
-	if http2::core::peer_stream_admission_decision_status(accepted_empty) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_empty)?) == 0 and http2::core::peer_stream_admission_decision_status(accepted_higher) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_higher)?) == 5 and http2::core::peer_stream_admission_highest_stream_id(recorded) == 5
-		Ok(())
-	else
-		Err("peer stream admission acceptance advanced caller-owned high-water state")
+	match http2::core::peer_stream_admission_decision_failure(accepted_higher)
+		Ok(_) => Err("accepted peer stream admission exposed a failure")
+		Err(failure_error) => if http2::core::peer_stream_admission_decision_status(accepted_empty) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_empty)?) == 0 and http2::core::peer_stream_admission_decision_status(accepted_higher) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted_higher)?) == 5 and failure_error == "accepted peer stream admission has no failure" and http2::core::peer_stream_admission_highest_stream_id(recorded) == 5
+			Ok(())
+		else
+			Err("peer stream admission acceptance advanced caller-owned high-water state")
+		end
 	end
 end
 
 test peer_stream_admission_rejects_non_increasing_stream_ids_without_next_state() -> Result<(), String>
 	let state: CorePeerStreamAdmissionState = http2::core::record_peer_stream_id(5, http2::core::empty_peer_stream_admission())
 	let accepted: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(17, 7, "server", state, byte_chunk_from_hex("000000010400000007")?)
+	let equal_rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(23, 5, "client", state, byte_chunk_from_hex("000000010400000005")?)
 	let rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(29, 3, "server", state, byte_chunk_from_hex("000000010400000003")?)
+	let equal_failure: CorePeerStreamAdmissionFailure = require_peer_stream_admission_failure(equal_rejected)?
 	let failure: CorePeerStreamAdmissionFailure = require_peer_stream_admission_failure(rejected)?
-	if http2::core::peer_stream_admission_decision_status(accepted) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted)?) == 5 and http2::core::peer_stream_admission_decision_status(rejected) == "rejected" and http2::core::peer_stream_admission_failure_offset(failure) == 29 and http2::core::peer_stream_admission_failure_stream_id(failure) == 3 and http2::core::peer_stream_admission_failure_previous_stream_id(failure) == 5 and http2::core::peer_stream_admission_failure_endpoint_role(failure) == "server" and http2::core::peer_stream_admission_failure_active_state(failure) == "idle-stream" and http2::core::peer_stream_admission_failure_rule_provenance(failure) == "peer_created_stream_ids_increase" and chunks_equal(http2::core::peer_stream_admission_failure_preview(failure), byte_chunk_from_hex("000000010400000003")?)? and http2::core::peer_stream_admission_highest_stream_id(state) == 5
-		Ok(())
-	else
-		Err("peer stream admission failure lost data or changed input state")
+	match http2::core::peer_stream_admission_decision_state(equal_rejected)
+		Ok(_) => Err("equal peer stream admission rejection exposed a next state")
+		Err(equal_state_error) => match http2::core::peer_stream_admission_decision_state(rejected)
+			Ok(_) => Err("rejected peer stream admission exposed a next state")
+			Err(state_error) => if http2::core::peer_stream_admission_decision_status(accepted) == "accepted" and http2::core::peer_stream_admission_highest_stream_id(http2::core::peer_stream_admission_decision_state(accepted)?) == 5 and http2::core::peer_stream_admission_decision_status(equal_rejected) == "rejected" and http2::core::peer_stream_admission_decision_status(rejected) == "rejected" and equal_state_error == "rejected peer stream admission has no next state" and state_error == "rejected peer stream admission has no next state" and http2::core::peer_stream_admission_failure_offset(equal_failure) == 23 and http2::core::peer_stream_admission_failure_stream_id(equal_failure) == 5 and http2::core::peer_stream_admission_failure_previous_stream_id(equal_failure) == 5 and http2::core::peer_stream_admission_failure_endpoint_role(equal_failure) == "client" and http2::core::peer_stream_admission_failure_active_state(equal_failure) == "idle-stream" and chunks_equal(http2::core::peer_stream_admission_failure_preview(equal_failure), byte_chunk_from_hex("000000010400000005")?)? and http2::core::peer_stream_admission_failure_offset(failure) == 29 and http2::core::peer_stream_admission_failure_stream_id(failure) == 3 and http2::core::peer_stream_admission_failure_previous_stream_id(failure) == 5 and http2::core::peer_stream_admission_failure_endpoint_role(failure) == "server" and http2::core::peer_stream_admission_failure_active_state(failure) == "idle-stream" and http2::core::peer_stream_admission_failure_rule_provenance(failure) == "peer_created_stream_ids_increase" and chunks_equal(http2::core::peer_stream_admission_failure_preview(failure), byte_chunk_from_hex("000000010400000003")?)? and http2::core::peer_stream_admission_highest_stream_id(state) == 5
+				Ok(())
+			else
+				Err("peer stream admission failure lost data or changed input state")
+			end
+		end
 	end
 end
 
