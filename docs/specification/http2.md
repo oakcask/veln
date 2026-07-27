@@ -167,7 +167,9 @@ payload length, and applied transition label. Rejected decisions expose a
 focused failure source, stable failure id, offset, frame kind, stream id,
 decode, payload-read, HPACK, or header-list reason where applicable, and
 preserved preview without returning a next state or mutating the input
-aggregate. The dispatcher starts from one complete frame; connection-preface
+aggregate. Payload-length rejections expose their rule provenance through the
+public failure reason and rule-provenance projections. The dispatcher starts
+from one complete frame; connection-preface
 consumption, the initial peer SETTINGS gate, chunk buffering, inbound PING
 output integration, and inbound PRIORITY state application are handled by the
 chunked receive boundary. Inbound DATA on a stream with an accepted `content-length` updates
@@ -195,7 +197,7 @@ from the preface gate, initial SETTINGS gate, frame decode, or frame
 dispatcher, including after an earlier complete frame in the same input
 chunk, expose a focused failure source and do not expose a next chunked
 receive state, preserving the caller-owned connection, buffered input, and
-output values.
+output values, including any output chunks supplied by the caller.
 
 The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks

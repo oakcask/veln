@@ -696,6 +696,7 @@ pub fn failure_reason(failure: CoreReceiveFrameFailure) -> String
 	match failure
 		CoreReceiveFrameDecodeFailure(reason, _) => reason
 		CoreReceiveFramePayloadReadFailure(_, _, _, reason, _) => reason
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_rule_provenance(inner)
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_kind(inner)
 		CoreReceiveFrameHpackFailure(_, _, _, inner, _) => http2::hpack::header_block_failure_kind(inner)
 		CoreReceiveFrameHeaderListValidationFailure(_, _, _, inner, _) => http2::core::header_list_validation::failure_fact(inner)
@@ -751,6 +752,7 @@ end
 
 pub fn failure_rule_provenance(failure: CoreReceiveFrameFailure) -> String
 	match failure
+		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_rule_provenance(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_rule_provenance(inner)
 		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, rule, _) => rule
 		CoreReceiveFramePushPromiseFailure(_, _, _, _, rule, _) => rule
