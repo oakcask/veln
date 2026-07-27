@@ -16,6 +16,7 @@ use http2::core::receive_flow_control
 use http2::core::flow_control
 use http2::core::stream_state
 use http2::core::stream_frame_admission
+use http2::core::stream_transition
 use http2::core::window_update_flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
@@ -89,6 +90,10 @@ pub type CoreStreamLifecycle = http2::core::stream_state::CoreStreamLifecycle
 pub type CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::CoreStreamFrameAdmissionDecision
 
 pub type CoreStreamFrameAdmissionFailure = http2::core::stream_frame_admission::CoreStreamFrameAdmissionFailure
+
+pub type CoreStreamLifecycleTransitionDecision = http2::core::stream_transition::CoreStreamLifecycleTransitionDecision
+
+pub type CoreStreamLifecycleTransitionFailure = http2::core::stream_transition::CoreStreamLifecycleTransitionFailure
 
 pub type CoreDataReceiveFlowControlDecision = http2::core::receive_flow_control::CoreDataReceiveFlowControlDecision
 
@@ -576,6 +581,54 @@ end
 
 pub fn stream_frame_admission_failure_preview(failure: CoreStreamFrameAdmissionFailure) -> ByteChunk
 	http2::core::stream_frame_admission::failure_preview(failure)
+end
+
+pub fn apply_remote_end_stream_lifecycle(state: CoreConnectionState, offset: Int, frame_kind: Int, stream_id: Int, end_stream: Bool, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	http2::core::stream_transition::apply_remote_end_stream(state, offset, frame_kind, stream_id, end_stream, preview)
+end
+
+pub fn apply_rst_stream_lifecycle(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	http2::core::stream_transition::apply_rst_stream(state, offset, stream_id, error_code, preview)
+end
+
+pub fn stream_lifecycle_transition_status(decision: CoreStreamLifecycleTransitionDecision) -> String
+	http2::core::stream_transition::decision_status(decision)
+end
+
+pub fn stream_lifecycle_transition_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
+	http2::core::stream_transition::decision_state(decision)
+end
+
+pub fn stream_lifecycle_transition_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
+	http2::core::stream_transition::decision_failure(decision)
+end
+
+pub fn stream_lifecycle_transition_failure_id(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_id(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_offset(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_offset(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_frame_kind(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_frame_kind(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_stream_id(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_stream_id(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_active_state(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_active_state(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_rule_provenance(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_rule_provenance(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_preview(failure: CoreStreamLifecycleTransitionFailure) -> ByteChunk
+	http2::core::stream_transition::failure_preview(failure)
 end
 
 pub fn apply_data_receive_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision

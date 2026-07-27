@@ -1,0 +1,118 @@
+use prelude
+use http2::core::connection_state
+use http2::core::stream_state
+
+pub type CoreStreamLifecycleTransitionDecision
+	CoreStreamLifecycleTransitionAccepted(CoreConnectionState)
+	CoreStreamLifecycleTransitionRejected(CoreStreamLifecycleTransitionFailure)
+end
+
+pub type CoreStreamLifecycleTransitionFailure
+	CoreStreamLifecycleTransitionMissingStream(offset: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn apply_remote_end_stream(state: CoreConnectionState, offset: Int, frame_kind: Int, stream_id: Int, end_stream: Bool, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+		Some(entry) => accept_remote_end_stream(state, stream_id, end_stream, http2::core::stream_state::entry_lifecycle(entry))
+		None => rejected_missing(offset, frame_kind, stream_id, preview)
+	end
+end
+
+pub fn apply_rst_stream(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+		Some(_) => accept_lifecycle(state, stream_id, http2::core::stream_state::reset_lifecycle(error_code))
+		None => rejected_missing(offset, 3, stream_id, preview)
+	end
+end
+
+fn accept_remote_end_stream(state: CoreConnectionState, stream_id: Int, end_stream: Bool, lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycleTransitionDecision
+	if end_stream
+		accept_lifecycle(state, stream_id, remote_end_lifecycle(lifecycle))
+	else
+		CoreStreamLifecycleTransitionAccepted(state)
+	end
+end
+
+fn remote_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	if label == "half-closed-local"
+		http2::core::stream_state::closed_lifecycle()
+	else if label == "closed"
+		http2::core::stream_state::closed_lifecycle()
+	else if label == "reset"
+		http2::core::stream_state::reset_lifecycle(http2::core::stream_state::lifecycle_error_code(lifecycle))
+	else
+		http2::core::stream_state::half_closed_remote_lifecycle()
+	end
+end
+
+fn accept_lifecycle(state: CoreConnectionState, stream_id: Int, lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycleTransitionDecision
+	CoreStreamLifecycleTransitionAccepted(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_lifecycle(http2::core::connection_state::streams(state), stream_id, lifecycle)))
+end
+
+fn rejected_missing(offset: Int, frame_kind: Int, stream_id: Int, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	CoreStreamLifecycleTransitionRejected(CoreStreamLifecycleTransitionMissingStream(offset, frame_kind, stream_id, "idle-stream", "idle_streams_require_headers", preview))
+end
+
+pub fn decision_status(decision: CoreStreamLifecycleTransitionDecision) -> String
+	match decision
+		CoreStreamLifecycleTransitionAccepted(_) => "accepted"
+		CoreStreamLifecycleTransitionRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreStreamLifecycleTransitionAccepted(state) => Ok(state)
+		CoreStreamLifecycleTransitionRejected(_) => Err("rejected stream lifecycle transition has no state")
+	end
+end
+
+pub fn decision_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
+	match decision
+		CoreStreamLifecycleTransitionAccepted(_) => Err("accepted stream lifecycle transition has no failure")
+		CoreStreamLifecycleTransitionRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_id(failure: CoreStreamLifecycleTransitionFailure) -> String
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, _, _, _, _, _) => "http2.protocol.invalid_stream_reference"
+	end
+end
+
+pub fn failure_offset(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(offset, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, frame_kind, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_stream_id(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, _, stream_id, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_active_state(failure: CoreStreamLifecycleTransitionFailure) -> String
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreStreamLifecycleTransitionFailure) -> String
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: CoreStreamLifecycleTransitionFailure) -> ByteChunk
+	match failure
+		CoreStreamLifecycleTransitionMissingStream(_, _, _, _, _, preview) => preview
+	end
+end

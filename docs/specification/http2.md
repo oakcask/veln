@@ -123,6 +123,24 @@ ownership for later receive and send transitions; it does not by itself
 perform frame dispatch, header validation, flow-control debits, or lifecycle
 admission.
 
+`http2::core::apply_remote_end_stream_lifecycle(state, offset, frame_kind,
+stream_id, end_stream, preview)` is the standard-owned immutable lifecycle
+update for a successfully admitted inbound DATA or completed header-block
+transition. When `end_stream` is false, the accepted decision returns the
+input aggregate state unchanged. When `end_stream` is true, open and
+client-push-associated streams become half-closed-remote, and a
+half-closed-local stream becomes closed. The transition preserves stream
+credits, content-length counters, and all unrelated aggregate components.
+
+`http2::core::apply_rst_stream_lifecycle(state, offset, stream_id, error_code,
+preview)` records an inbound RST_STREAM as a reset stream lifecycle with the
+supplied error code. Missing-stream failures expose the stable
+`http2.protocol.invalid_stream_reference` id, offset, frame kind, stream id,
+idle-stream active-state label, `idle_streams_require_headers` provenance,
+and supplied frame-header preview, without returning a next state or mutating
+the input aggregate. Accepted and rejected accessor helpers reject the wrong
+decision variant.
+
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
 `SETTINGS_HEADER_TABLE_SIZE`, `SETTINGS_ENABLE_PUSH`,
@@ -310,6 +328,14 @@ collection preservation, and preview preservation. The focused
 [`http2-core-stream-frame-admission`](../../examples/specification/run/http2-core-stream-frame-admission/)
 case imports `http2::core` from `std` and records public decision and failure
 projections.
+
+The adjacent test checks remote END_STREAM transitions from open and
+half-closed-local streams, non-END_STREAM preservation, RST_STREAM reset-code
+projection, immutable input-state preservation, and missing-stream failure
+context. The focused
+[`http2-core-stream-lifecycle-transitions`](../../examples/specification/run/http2-core-stream-lifecycle-transitions/)
+case imports `http2::core` from `std` and records public state, failure, and
+wrong-variant accessor projections.
 
 `http2::core::apply_data_receive_flow_control(state, offset, stream_id,
 data_length, preview)` is the standard-owned immutable DATA receive

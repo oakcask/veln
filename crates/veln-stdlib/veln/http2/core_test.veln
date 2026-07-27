@@ -286,6 +286,14 @@ fn require_stream_frame_failure(decision: CoreStreamFrameAdmissionDecision) -> R
 	http2::core::stream_frame_admission_failure(decision)
 end
 
+fn require_stream_lifecycle_transition_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
+	http2::core::stream_lifecycle_transition_state(decision)
+end
+
+fn require_stream_lifecycle_transition_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
+	http2::core::stream_lifecycle_transition_failure(decision)
+end
+
 fn require_data_receive_state(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreConnectionState, String>
 	http2::core::data_receive_flow_control_state(decision)
 end
@@ -534,6 +542,47 @@ test stream_frame_admission_preserves_collection_and_preview_on_failure() -> Res
 		Ok(())
 	else
 		Err("HTTP/2 stream frame admission failure changed input streams or preview")
+	end
+end
+
+test stream_lifecycle_transitions_apply_remote_end_stream_immutably() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let half_local: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_local_lifecycle(), 70, 50, 0, 0))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), open), half_local)
+	let with_streams: CoreConnectionState = http2::core::connection_state_with_streams(state, streams)
+	let open_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(with_streams, 91, 0, 5, true, byte_chunk_from_hex("000000000100000005")?)
+	let local_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(with_streams, 93, 1, 7, true, byte_chunk_from_hex("000000010500000007")?)
+	let no_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(with_streams, 95, 0, 5, false, byte_chunk_from_hex("000000000000000005")?)
+	let open_updated: CoreConnectionState = require_stream_lifecycle_transition_state(open_end)?
+	let local_updated: CoreConnectionState = require_stream_lifecycle_transition_state(local_end)?
+	let no_end_updated: CoreConnectionState = require_stream_lifecycle_transition_state(no_end)?
+	let original_open: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_streams), 5))?
+	let open_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(open_updated), 5))?
+	let local_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(local_updated), 7))?
+	let no_end_found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(no_end_updated), 5))?
+	if http2::core::stream_lifecycle_transition_status(open_end) == "accepted" and http2::core::stream_lifecycle_transition_status(local_end) == "accepted" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original_open)) == "open" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(open_found)) == "half-closed-remote" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(local_found)) == "closed" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(no_end_found)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(open_found)) == 80 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(open_found)) == 60 and http2::core::stream_collection_count(http2::core::connection_state_streams(open_updated)) == 2
+		Ok(())
+	else
+		Err("HTTP/2 stream lifecycle transition did not immutably apply remote END_STREAM")
+	end
+end
+
+test stream_lifecycle_transitions_apply_rst_stream_and_preserve_failures() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("000004030000000005")?
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let with_streams: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), entry))
+	let reset: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(with_streams, 101, 5, 8, preview)
+	let missing: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(with_streams, 103, 7, 8, preview)
+	let reset_state: CoreConnectionState = require_stream_lifecycle_transition_state(reset)?
+	let reset_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(reset_state), 5))?
+	let original_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_streams), 5))?
+	let failure: CoreStreamLifecycleTransitionFailure = require_stream_lifecycle_transition_failure(missing)?
+	if http2::core::stream_lifecycle_transition_status(reset) == "accepted" and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(reset_stream)) == "reset" and http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(reset_stream)) == 8 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original_stream)) == "open" and http2::core::stream_lifecycle_transition_status(missing) == "rejected" and http2::core::stream_lifecycle_transition_failure_id(failure) == "http2.protocol.invalid_stream_reference" and http2::core::stream_lifecycle_transition_failure_offset(failure) == 103 and http2::core::stream_lifecycle_transition_failure_frame_kind(failure) == 3 and http2::core::stream_lifecycle_transition_failure_stream_id(failure) == 7 and http2::core::stream_lifecycle_transition_failure_active_state(failure) == "idle-stream" and http2::core::stream_lifecycle_transition_failure_rule_provenance(failure) == "idle_streams_require_headers" and chunks_equal(http2::core::stream_lifecycle_transition_failure_preview(failure), preview)?
+		Ok(())
+	else
+		Err("HTTP/2 stream lifecycle transition did not apply RST_STREAM or preserve missing-stream failure context")
 	end
 end
 
