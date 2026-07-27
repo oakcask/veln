@@ -236,6 +236,10 @@ request stream is created with peer-advertised initial window credit, accepted
 `content-length`, and either open or half-closed-local lifecycle.
 `send_response_headers(...)` and `send_trailers(...)` apply the same immutable
 encoding boundary to existing streams using response or trailer validation.
+Accepted response HEADERS update the existing stream's `content-length`
+metadata without changing the observed body count, and accepted trailers
+preserve that content-length metadata while applying local END_STREAM
+lifecycle.
 Header-list failures, stream-id or lifecycle failures, GOAWAY boundary
 failures, and HPACK encode failures expose typed failures with no bytes and no
 next state.
@@ -251,8 +255,9 @@ HPACK failures expose no bytes and no next state.
 The focused
 [`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/)
 case records accepted HEADERS and PUSH_PROMISE bytes, created and reserved
-stream projections, header-list failure fields, endpoint rejection, empty
-failure output, and public failure accessors.
+stream projections, response-header content-length updates, trailer closure
+with preserved content-length state, header-list failure fields, endpoint
+rejection, empty failure output, and public failure accessors.
 
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and
@@ -273,8 +278,7 @@ case records accepted RST_STREAM and PRIORITY bytes, reset-state projection,
 dependency and GOAWAY failures, empty failure output, and public failure
 fields.
 
-Wider content-length integration with outbound header emission, complete
-stdout, and wider output-chunk ordering remain in the aggregate
+Complete stdout and wider output-chunk ordering remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

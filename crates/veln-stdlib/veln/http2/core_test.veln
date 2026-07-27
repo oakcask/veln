@@ -49,6 +49,14 @@ fn response_headers(status: String) -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(ascii_header(":status", status)?, http2::hpack::prepend_header_field(ascii_header("server", "veln")?, http2::hpack::empty_header_list())))
 end
 
+fn response_headers_with_content_length(status: String, length: String) -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", status)?, http2::hpack::prepend_header_field(ascii_header("content-length", length)?, http2::hpack::empty_header_list())))
+end
+
+fn trailer_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header("te", "trailers")?, http2::hpack::empty_header_list()))
+end
+
 fn request_validation_fact(headers: HeaderList) -> Result<String, String>
 	Ok(http2::core::header_list_validation_failure_fact(header_validation_failure(http2::core::validate_request_header_list(headers, 0))?))
 end
@@ -2109,6 +2117,24 @@ test outbound_request_headers_send_emits_hpack_bytes_and_creates_stream() -> Res
 		Ok(())
 	else
 		Err("outbound request HEADERS did not emit exact production HPACK bytes or create stream state immutably")
+	end
+end
+
+test outbound_response_headers_and_trailers_preserve_content_length_state() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_half_closed_remote_lifecycle(), 80, 90, -1, 3))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let headers: CoreHeadersSendDecision = http2::core::send_response_headers(state, 41, 1, response_headers_with_content_length("200", "5")?, false)
+	let headers_state: CoreConnectionState = require_headers_send_state(headers)?
+	let headers_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(headers_state), 1))?
+	let trailers: CoreHeadersSendDecision = http2::core::send_trailers(headers_state, 47, 1, trailer_headers()?)
+	let trailers_state: CoreConnectionState = require_headers_send_state(trailers)?
+	let trailers_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(trailers_state), 1))?
+	let input_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::headers_send_status(headers) == "accepted" and http2::core::stream_entry_content_length_expected(headers_entry) == 5 and http2::core::stream_entry_content_length_observed(headers_entry) == 3 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(headers_entry)) == "half-closed-remote" and http2::core::headers_send_status(trailers) == "accepted" and http2::core::stream_entry_content_length_expected(trailers_entry) == 5 and http2::core::stream_entry_content_length_observed(trailers_entry) == 3 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(trailers_entry)) == "closed" and http2::core::stream_entry_content_length_expected(input_entry) == -1 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(input_entry)) == "half-closed-remote"
+		Ok(())
+	else
+		Err("outbound response HEADERS or trailers lost content-length state or lifecycle immutability")
 	end
 end
 

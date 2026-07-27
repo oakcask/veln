@@ -37,6 +37,14 @@ fn bad_headers() -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("Bad", "value")?, http2::hpack::empty_header_list())))))
 end
 
+fn response_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "200")?, http2::hpack::prepend_header_field(ascii_header("content-length", "5")?, http2::hpack::empty_header_list())))
+end
+
+fn trailer_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header("te", "trailers")?, http2::hpack::empty_header_list()))
+end
+
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
 end
@@ -136,6 +144,21 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let bad: CoreHeadersSendDecision = http2::core::send_request_headers(client_state, 23, 1, bad_headers()?, false)
 	print_failure("request-headers-bad", require_headers_failure(bad)?)
 	print_empty("request-headers-bad")
+	let response_base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let response_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_half_closed_remote_lifecycle(), 80, 90, -1, 3))?
+	let response_state: CoreConnectionState = http2::core::connection_state_with_streams(response_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(response_base), response_stream))
+	let response: CoreHeadersSendDecision = http2::core::send_response_headers(response_state, 41, 1, response_headers()?, false)
+	stdio::print("response-headers ")
+	stdio::println(http2::core::headers_send_status(response))
+	let response_next: CoreConnectionState = require_headers_state(response)?
+	let _ = print_stream("response-headers", response_next, 1)?
+	let _ = print_chunk("response-headers", http2::core::headers_send_bytes(response), "000004010400000001885c0135")?
+	let trailers: CoreHeadersSendDecision = http2::core::send_trailers(response_next, 47, 1, trailer_headers()?)
+	stdio::print("trailers ")
+	stdio::println(http2::core::headers_send_status(trailers))
+	let trailers_next: CoreConnectionState = require_headers_state(trailers)?
+	let _ = print_stream("trailers", trailers_next, 1)?
+	let _ = print_chunk("trailers", http2::core::headers_send_bytes(trailers), "00000b01050000000140027465864d833505b11f")?
 	let server_base: CoreConnectionState = http2::core::server_connection_state(0)?
 	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
 	let server_state: CoreConnectionState = http2::core::connection_state_with_streams(server_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(server_base), associated))
