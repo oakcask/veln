@@ -843,6 +843,30 @@ test receive_frame_dispatch_preserves_state_on_failures() -> Result<(), String>
 	end
 end
 
+test receive_frame_dispatch_decode_failure_preserves_input_state_and_preview() -> Result<(), String>
+	let frame: ByteChunk = byte_chunk_from_hex("000004080000")?
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(73)?, require_connection_credit(12)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 7, 13, 0, 0))?
+	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream))
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(with_stream, frame))?
+	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_stream), 9))?
+	if http2::core::receive_frame_failure_source(failure) == "frame-decode" and http2::core::receive_frame_failure_id(failure) == "http2.frame.decode_failure" and http2::core::receive_frame_failure_offset(failure) == 0 and http2::core::receive_frame_failure_frame_kind(failure) == 0 and http2::core::receive_frame_failure_stream_id(failure) == 0 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure))) == 6 and chunks_equal(http2::core::receive_frame_failure_preview(failure), frame)? and http2::core::connection_state_next_offset(with_stream) == 73 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(with_stream)) == 12 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(found)) == 7 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(found)) == 13
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame decode failure changed input state or lost preview bytes")
+	end
+end
+
+test receive_frame_dispatch_prioritizes_payload_length_before_settings_ack_state() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_settings_ack(http2::core::server_connection_state(89)?, http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 11, 1))
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001040100000000ff")?))?
+	if http2::core::receive_frame_failure_source(failure) == "payload-length" and http2::core::receive_frame_failure_id(failure) == "http2.protocol.invalid_payload_length" and http2::core::receive_frame_failure_offset(failure) == 89 and http2::core::receive_frame_failure_frame_kind(failure) == 4 and http2::core::receive_frame_failure_stream_id(failure) == 0 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure))) == 9 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == 11 and http2::core::connection_state_next_offset(state) == 89
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not keep payload-length precedence over SETTINGS ACK state")
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
