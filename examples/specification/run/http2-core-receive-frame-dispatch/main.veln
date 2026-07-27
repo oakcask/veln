@@ -278,6 +278,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let early_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(body_state()?, byte_chunk_from_hex("000003000100000005aabbcc")?)?)?
 	print_content_length_failure("content-length-over", over_failure)
 	print_content_length_failure("content-length-early", early_failure)
+	let _ = print_body_state("content-length-over-input", body_first_state, 5)?
+	let _ = print_body_state("content-length-early-input", body_state()?, 5)?
 	let stream_window: CoreReceiveFrameDecision = http2::core::apply_receive_frame(data_state, byte_chunk_from_hex("00000408000000000500000006")?)?
 	let stream_window_state: CoreConnectionState = require_state(stream_window)?
 	print_decision("stream-window", stream_window)
@@ -349,6 +351,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure_reason("padded", padded_failure)
 	print_failure("flow", flow_failure)
 	print_failure("settings", settings_failure)
+	print_settings_state("settings-failure-input", state)
 	print_failure("settings-ack", settings_ack_failure)
 	print_failure("goaway", goaway_failure)
 	print_failure("push-promise-length", push_payload_length_failure)
@@ -358,10 +361,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_admission_context("push-promise-repeated", push_repeated_failure)
 	print_header_failure("push-promise-hpack", push_hpack_failure)
 	let _ = print_push_state("push-promise-failure-input", push_accepted_state, 2)?
-	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000001010400000001ff")?)?)?
-	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000401040000000182828784")?)?)?
+	let hpack_input: CoreConnectionState = http2::core::server_connection_state(31)?
+	let validation_input: CoreConnectionState = http2::core::server_connection_state(31)?
+	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(hpack_input, byte_chunk_from_hex("000001010400000001ff")?)?)?
+	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(validation_input, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)
+	print_pending_state("hpack-failure-input", hpack_input)
 	print_header_failure("validation", validation_failure)
+	print_pending_state("validation-failure-input", validation_input)
 	let _ = print_failure_accessor_error("accessor", data)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
 	Ok(())
