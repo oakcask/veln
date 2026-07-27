@@ -343,6 +343,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_decision("push-promise-continuation-done", push_continuation_done)
 	let _ = print_push_state("push-promise-continuation", push_continuation_state, 4)?
 	let push_repeated_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000705040000000100000002828784")?)?)?
+	let push_hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_accepted_state, byte_chunk_from_hex("00000505040000000100000004ff")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
@@ -355,6 +356,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_admission_context("push-promise-admission", push_admission_failure)
 	print_failure("push-promise-repeated", push_repeated_failure)
 	print_admission_context("push-promise-repeated", push_repeated_failure)
+	print_header_failure("push-promise-hpack", push_hpack_failure)
+	let _ = print_push_state("push-promise-failure-input", push_accepted_state, 2)?
 	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000001010400000001ff")?)?)?
 	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)
