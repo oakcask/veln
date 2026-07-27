@@ -360,6 +360,14 @@ fn require_connection_shutdown_failure(decision: CoreConnectionShutdownDecision)
 	http2::core::connection_shutdown_failure(decision)
 end
 
+fn require_goaway_send_state(decision: CoreGoawaySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::goaway_send_state(decision)
+end
+
+fn require_goaway_send_failure(decision: CoreGoawaySendDecision) -> Result<CoreGoawaySendFailure, String>
+	http2::core::goaway_send_failure(decision)
+end
+
 fn require_receive_frame_decision(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreReceiveFrameDecision, String>
 	result
 end
@@ -881,6 +889,49 @@ test connection_shutdown_rejects_truncated_goaway_payload_without_state() -> Res
 			Err("HTTP/2 GOAWAY shutdown payload read rejection did not preserve preview and input state")
 		else
 			Ok(())
+		end
+	end
+end
+
+test goaway_send_emits_exact_bytes_and_updates_shutdown_immutably() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(19)?
+	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), active_stream))
+	let decision: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(state, 19, 5, 11, byte_chunk_from_hex("aabb")?)
+	let next_state: CoreConnectionState = require_goaway_send_state(decision)?
+	if http2::core::goaway_send_status(decision) == "accepted" and http2::core::goaway_send_last_stream_id(decision) == 5 and http2::core::goaway_send_error_code(decision) == 11 and chunks_equal(http2::core::goaway_send_bytes(decision), byte_chunk_from_hex("00000a070000000000000000050000000baabb")?)? and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(next_state)) == "draining" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(next_state)) == 5 and http2::core::connection_lifecycle_error_code(http2::core::connection_state_lifecycle(next_state)) == 11 and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
+		Ok(())
+	else
+		Err("HTTP/2 GOAWAY send did not emit exact bytes or update shutdown immutably")
+	end
+end
+
+test goaway_send_completes_drain_and_rejects_boundary_increase() -> Result<(), String>
+	let closed_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_closed_lifecycle(), 14, 21, 0, 0))?
+	let base: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(19)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), closed_stream))
+	let closed: CoreConnectionState = require_goaway_send_state(http2::core::send_goaway_shutdown(base, 19, 5, 11, byte_chunk([])))?
+	let tightened: CoreConnectionState = require_goaway_send_state(http2::core::send_goaway_shutdown(closed, 28, 3, 22, byte_chunk([])))?
+	let rejected: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 37, 7, 33, byte_chunk([]))
+	let failure: CoreGoawaySendFailure = require_goaway_send_failure(rejected)?
+	match http2::core::goaway_send_state(rejected)
+		Ok(_) => Err("rejected GOAWAY send decision exposed a state")
+		Err(accessor_error) => if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(closed)) == "closed" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(closed)) == 5 and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(tightened)) == "closed" and http2::core::connection_lifecycle_last_stream_id(http2::core::connection_state_lifecycle(tightened)) == 3 and http2::core::goaway_send_status(rejected) == "rejected" and accessor_error == "rejected GOAWAY send decision has no state" and http2::core::goaway_send_failure_id(failure) == "http2.protocol.stream_after_goaway" and http2::core::goaway_send_failure_offset(failure) == 37 and http2::core::goaway_send_failure_stream_id(failure) == 7 and http2::core::goaway_send_failure_last_stream_id(failure) == 5 and http2::core::goaway_send_failure_shutdown_state(failure) == "closed" and http2::core::goaway_send_failure_endpoint_role(failure) == "server" and http2::core::goaway_send_failure_rule_provenance(failure) == "goaway_last_stream_id" and http2::core::goaway_send_failure_reason(failure) == "boundary_increased" and byte_count_to_int(byte_chunk_count(http2::core::goaway_send_failure_preview(failure))) == 0
+			Ok(())
+		else
+			Err("HTTP/2 GOAWAY send did not drain or preserve boundary failure state")
+		end
+	end
+end
+
+test goaway_send_encode_failures_preserve_state_and_output() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(19)?
+	let decision: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(state, 19, 2147483648, 11, byte_chunk([]))
+	match http2::core::goaway_send_state(decision)
+		Ok(_) => Err("encode-failed GOAWAY send decision exposed a state")
+		Err(accessor_error) => if http2::core::goaway_send_status(decision) == "encode_error" and accessor_error == "encode-failed GOAWAY send decision has no state" and http2::core::goaway_send_last_stream_id(decision) == 2147483648 and http2::core::goaway_send_error_code(decision) == 11 and byte_count_to_int(byte_chunk_count(http2::core::goaway_send_bytes(decision))) == 0 and http2::core::goaway_send_encode_reason(decision) != "none" and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
+			Ok(())
+		else
+			Err("HTTP/2 GOAWAY send encode failure did not preserve state and output")
 		end
 	end
 end

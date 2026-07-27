@@ -15,6 +15,7 @@ use http2::core::peer_stream_admission
 use http2::core::receive_flow_control
 use http2::core::receive_frame
 use http2::core::receive_shutdown
+use http2::core::send_shutdown
 use http2::core::flow_control
 use http2::core::header_list_validation
 use http2::core::stream_state
@@ -115,6 +116,10 @@ pub type CoreReceiveFrameFailure = http2::core::receive_frame::CoreReceiveFrameF
 pub type CoreConnectionShutdownDecision = http2::core::receive_shutdown::CoreConnectionShutdownDecision
 
 pub type CoreConnectionShutdownFailure = http2::core::receive_shutdown::CoreConnectionShutdownFailure
+
+pub type CoreGoawaySendDecision = http2::core::send_shutdown::CoreGoawaySendDecision
+
+pub type CoreGoawaySendFailure = http2::core::send_shutdown::CoreGoawaySendFailure
 
 pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
 
@@ -760,6 +765,74 @@ end
 
 pub fn connection_shutdown_failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
 	http2::core::receive_shutdown::failure_preview(failure)
+end
+
+pub fn send_goaway_shutdown(state: CoreConnectionState, offset: Int, last_stream_id: Int, error_code: Int, debug_data: ByteChunk) -> CoreGoawaySendDecision
+	http2::core::send_shutdown::send_goaway(state, offset, last_stream_id, error_code, debug_data)
+end
+
+pub fn goaway_send_status(decision: CoreGoawaySendDecision) -> String
+	http2::core::send_shutdown::decision_status(decision)
+end
+
+pub fn goaway_send_state(decision: CoreGoawaySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::send_shutdown::decision_state(decision)
+end
+
+pub fn goaway_send_failure(decision: CoreGoawaySendDecision) -> Result<CoreGoawaySendFailure, String>
+	http2::core::send_shutdown::decision_failure(decision)
+end
+
+pub fn goaway_send_bytes(decision: CoreGoawaySendDecision) -> ByteChunk
+	http2::core::send_shutdown::decision_bytes(decision)
+end
+
+pub fn goaway_send_last_stream_id(decision: CoreGoawaySendDecision) -> Int
+	http2::core::send_shutdown::decision_last_stream_id(decision)
+end
+
+pub fn goaway_send_error_code(decision: CoreGoawaySendDecision) -> Int
+	http2::core::send_shutdown::decision_error_code(decision)
+end
+
+pub fn goaway_send_encode_reason(decision: CoreGoawaySendDecision) -> String
+	http2::core::send_shutdown::decision_encode_reason(decision)
+end
+
+pub fn goaway_send_failure_id(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_id(failure)
+end
+
+pub fn goaway_send_failure_offset(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_offset(failure)
+end
+
+pub fn goaway_send_failure_stream_id(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_stream_id(failure)
+end
+
+pub fn goaway_send_failure_last_stream_id(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_last_stream_id(failure)
+end
+
+pub fn goaway_send_failure_shutdown_state(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_shutdown_state(failure)
+end
+
+pub fn goaway_send_failure_endpoint_role(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_endpoint_role(failure)
+end
+
+pub fn goaway_send_failure_rule_provenance(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_rule_provenance(failure)
+end
+
+pub fn goaway_send_failure_reason(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_reason(failure)
+end
+
+pub fn goaway_send_failure_preview(failure: CoreGoawaySendFailure) -> ByteChunk
+	http2::core::send_shutdown::failure_preview(failure)
 end
 
 pub fn receive_frame_status(decision: CoreReceiveFrameDecision) -> String

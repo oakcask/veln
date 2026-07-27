@@ -1,0 +1,165 @@
+use prelude
+use http2::core::connection_state
+use http2::core::stream_state
+use http2::frame
+
+pub type CoreGoawaySendDecision
+	CoreGoawaySendAccepted(CoreConnectionState, last_stream_id: Int, error_code: Int, bytes: ByteChunk)
+	CoreGoawaySendRejected(CoreGoawaySendFailure)
+	CoreGoawaySendEncodeFailed(last_stream_id: Int, error_code: Int, reason: String)
+end
+
+pub type CoreGoawaySendFailure
+	CoreGoawaySendBoundaryIncreased(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn send_goaway(state: CoreConnectionState, offset: Int, last_stream_id: Int, error_code: Int, debug_data: ByteChunk) -> CoreGoawaySendDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let current_last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if label != "open" and last_stream_id > current_last_stream_id
+		CoreGoawaySendRejected(CoreGoawaySendBoundaryIncreased(offset, last_stream_id, current_last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else
+		encode_goaway_payload(state, last_stream_id, error_code, debug_data)
+	end
+end
+
+fn encode_goaway_payload(state: CoreConnectionState, last_stream_id: Int, error_code: Int, debug_data: ByteChunk) -> CoreGoawaySendDecision
+	match byte_write_u31_be(last_stream_id)
+		Ok(last_stream_bytes) => match byte_write_u32_be(error_code)
+			Ok(error_code_bytes) => encode_goaway(state, last_stream_id, error_code, byte_append(last_stream_bytes, byte_append(error_code_bytes, debug_data)))
+			Err(reason) => CoreGoawaySendEncodeFailed(last_stream_id, error_code, reason)
+		end
+		Err(reason) => CoreGoawaySendEncodeFailed(last_stream_id, error_code, reason)
+	end
+end
+
+fn encode_goaway(state: CoreConnectionState, last_stream_id: Int, error_code: Int, payload: ByteChunk) -> CoreGoawaySendDecision
+	let payload_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	match http2::frame::encode_header(payload_length, 7, 0, 0)
+		Ok(header) => CoreGoawaySendAccepted(next_state(state, last_stream_id, error_code), last_stream_id, error_code, byte_append(header, payload))
+		Err(reason) => CoreGoawaySendEncodeFailed(last_stream_id, error_code, reason)
+	end
+end
+
+fn next_state(state: CoreConnectionState, last_stream_id: Int, error_code: Int) -> CoreConnectionState
+	http2::core::connection_state::with_lifecycle(state, drained_lifecycle(http2::core::connection_state::draining(last_stream_id, error_code), http2::core::connection_state::streams(state)))
+end
+
+fn drained_lifecycle(lifecycle: CoreConnectionLifecycle, streams: CoreStreamCollection) -> CoreConnectionLifecycle
+	if http2::core::stream_state::has_active_in_boundary(streams, http2::core::connection_state::lifecycle_last_stream_id(lifecycle))
+		lifecycle
+	else
+		http2::core::connection_state::closed(http2::core::connection_state::lifecycle_last_stream_id(lifecycle), http2::core::connection_state::lifecycle_error_code(lifecycle))
+	end
+end
+
+pub fn decision_status(decision: CoreGoawaySendDecision) -> String
+	match decision
+		CoreGoawaySendAccepted(_, _, _, _) => "accepted"
+		CoreGoawaySendRejected(_) => "rejected"
+		CoreGoawaySendEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+pub fn decision_state(decision: CoreGoawaySendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreGoawaySendAccepted(state, _, _, _) => Ok(state)
+		CoreGoawaySendRejected(_) => Err("rejected GOAWAY send decision has no state")
+		CoreGoawaySendEncodeFailed(_, _, _) => Err("encode-failed GOAWAY send decision has no state")
+	end
+end
+
+pub fn decision_failure(decision: CoreGoawaySendDecision) -> Result<CoreGoawaySendFailure, String>
+	match decision
+		CoreGoawaySendAccepted(_, _, _, _) => Err("accepted GOAWAY send decision has no failure")
+		CoreGoawaySendRejected(failure) => Ok(failure)
+		CoreGoawaySendEncodeFailed(_, _, _) => Err("encode-failed GOAWAY send decision has no protocol failure")
+	end
+end
+
+pub fn decision_bytes(decision: CoreGoawaySendDecision) -> ByteChunk
+	match decision
+		CoreGoawaySendAccepted(_, _, _, bytes) => bytes
+		CoreGoawaySendRejected(_) => byte_chunk([])
+		CoreGoawaySendEncodeFailed(_, _, _) => byte_chunk([])
+	end
+end
+
+pub fn decision_last_stream_id(decision: CoreGoawaySendDecision) -> Int
+	match decision
+		CoreGoawaySendAccepted(_, last_stream_id, _, _) => last_stream_id
+		CoreGoawaySendRejected(failure) => failure_stream_id(failure)
+		CoreGoawaySendEncodeFailed(last_stream_id, _, _) => last_stream_id
+	end
+end
+
+pub fn decision_error_code(decision: CoreGoawaySendDecision) -> Int
+	match decision
+		CoreGoawaySendAccepted(_, _, error_code, _) => error_code
+		CoreGoawaySendRejected(_) => 0
+		CoreGoawaySendEncodeFailed(_, error_code, _) => error_code
+	end
+end
+
+pub fn decision_encode_reason(decision: CoreGoawaySendDecision) -> String
+	match decision
+		CoreGoawaySendAccepted(_, _, _, _) => "none"
+		CoreGoawaySendRejected(_) => "none"
+		CoreGoawaySendEncodeFailed(_, _, reason) => reason
+	end
+end
+
+pub fn failure_id(failure: CoreGoawaySendFailure) -> String
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+	end
+end
+
+pub fn failure_offset(failure: CoreGoawaySendFailure) -> Int
+	match failure
+		CoreGoawaySendBoundaryIncreased(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_stream_id(failure: CoreGoawaySendFailure) -> Int
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_last_stream_id(failure: CoreGoawaySendFailure) -> Int
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, last_stream_id, _, _, _, _) => last_stream_id
+	end
+end
+
+pub fn failure_shutdown_state(failure: CoreGoawaySendFailure) -> String
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, shutdown_state, _, _, _) => shutdown_state
+	end
+end
+
+pub fn failure_endpoint_role(failure: CoreGoawaySendFailure) -> String
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, _, endpoint_role, _, _) => endpoint_role
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreGoawaySendFailure) -> String
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_reason(failure: CoreGoawaySendFailure) -> String
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, _, _, _, _) => "boundary_increased"
+	end
+end
+
+pub fn failure_preview(failure: CoreGoawaySendFailure) -> ByteChunk
+	match failure
+		CoreGoawaySendBoundaryIncreased(_, _, _, _, _, _, preview) => preview
+	end
+end

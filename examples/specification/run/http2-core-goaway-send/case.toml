@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "goaway-send accepted last 5 error 11\ngoaway-send lifecycle draining last 5 error 11 active 1\noutput_chunk_list goaway-send count 1\noutput_chunk goaway-send index 0 hex \"00000a070000000000000000050000000baabb\" count 19\ngoaway-drained lifecycle closed last 5 error 11 active 0\ngoaway-relaxed failure http2.protocol.stream_after_goaway offset 37 stream 7 last 5 state closed role server rule goaway_last_stream_id reason boundary_increased preview 0\noutput_chunk_list goaway-relaxed count 0\ngoaway-encode encode_error reason byte_write_u31_be value must be between 0 and 2147483647\noutput_chunk_list goaway-encode count 0\ninput lifecycle open last 0 error 0 active 1\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "goaway-send"
+chunks = ["00000a070000000000000000050000000baabb"]

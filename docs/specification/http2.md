@@ -187,6 +187,24 @@ The focused
 case projects accepted, tightened, drained, boundary-rejected, and
 payload-read-rejected shutdown decisions through the public facade.
 
+`http2::core::send_goaway_shutdown(state, offset, last_stream_id, error_code,
+debug_data)` emits one GOAWAY frame from explicit caller-owned aggregate state
+and returns the next lifecycle state, the accepted last-stream-id and error
+code, and exact bytes. The payload is the last-stream-id, error code, and
+caller-supplied debug data. An open connection becomes draining, or closed
+immediately when no active stream remains at or below the boundary. A later
+outbound GOAWAY may keep or tighten the existing boundary; it may not raise
+the last-stream-id after shutdown has begun. Boundary-raising failures expose
+`http2.protocol.stream_after_goaway`, the proposed stream id, the existing
+last-stream-id, shutdown-state label, endpoint role, provenance, and preserved
+empty output without returning a next state or mutating the input. Integer or
+frame encoding failures also expose no bytes and no next state.
+The focused
+[`http2-core-goaway-send`](../../examples/specification/run/http2-core-goaway-send/)
+case records accepted bytes, drain completion, boundary rejection, empty
+failure output, encode failure output, and input-state preservation through
+the public facade.
+
 Other receive-frame applications, including PUSH_PROMISE, outbound
 content-length send accounting, complete stdout, and output-chunk integration
 remain in the aggregate
@@ -488,7 +506,8 @@ case imports `http2::core` from `std` and records public success, state,
 failure-source, failure-id, HPACK failure, header-list failure,
 content-length mismatch, and accessor projections. Other payload-specific
 frame application, PUSH_PROMISE, outbound content-length send accounting,
-complete stdout, and output-chunk integration remain in the aggregate
+other outbound transitions, complete stdout, and output-chunk integration
+remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 
