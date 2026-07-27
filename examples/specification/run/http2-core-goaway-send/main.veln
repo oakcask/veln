@@ -119,6 +119,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ready: CoreConnectionState = http2::core::connection_state_with_streams(next_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(next_state), closed_stream))
 	let closed: CoreConnectionState = require_state(http2::core::send_goaway_shutdown(ready, 28, 5, 11, byte_chunk([])))?
 	print_state("goaway-drained", closed)
+	let outside_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let outside_base: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), outside_stream))
+	let outside_closed: CoreConnectionState = require_state(http2::core::send_goaway_shutdown(outside_base, 31, 5, 11, byte_chunk([])))?
+	print_state("goaway-outside-boundary", outside_closed)
 	let rejected: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 37, 7, 33, byte_chunk([]))
 	print_failure("goaway-relaxed", require_failure(rejected)?)
 	print_empty("goaway-relaxed")
