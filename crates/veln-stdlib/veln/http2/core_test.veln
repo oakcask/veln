@@ -2456,6 +2456,24 @@ test receive_connection_boundary_rejection_preserves_caller_output() -> Result<(
 	end
 end
 
+test receive_connection_boundary_rejects_buffered_frame_without_mutating_buffer_or_output() -> Result<(), String>
+	let seed_ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0908070605040302")?)
+	let seed_output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), seed_ping)
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), seed_output)
+	let buffered_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, byte_chunk_from_hex("000007060000000000010203")?)?
+	let buffered: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(buffered_decision)?
+	let rejected: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(buffered, byte_chunk_from_hex("04050607")?)?
+	let failure: CoreReceiveConnectionFailure = http2::core::receive_connection_failure(rejected)?
+	match http2::core::receive_connection_state_from_decision(rejected)
+		Ok(_) => Err("rejected buffered receive connection decision exposed a partially advanced state")
+		Err(accessor_error) => if accessor_error == "rejected receive connection decision has no state" and http2::core::receive_connection_status(buffered_decision) == "accepted" and http2::core::receive_connection_applied_transition(buffered_decision) == "buffered" and http2::core::receive_connection_failure_source(failure) == "payload-length" and http2::core::receive_connection_failure_id(failure) == "http2.protocol.invalid_payload_length" and http2::core::receive_connection_failure_offset(failure) == 41 and http2::core::receive_connection_failure_frame_kind(failure) == 6 and http2::core::receive_connection_failure_stream_id(failure) == 0 and http2::core::receive_connection_failure_reason(failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::receive_connection_failure_preview(failure), byte_chunk_from_hex("000007060000000000")?)? and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(buffered)) == 41 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(buffered))) == 12 and chunks_equal(http2::core::receive_connection_input(buffered), byte_chunk_from_hex("000007060000000000010203")?)? and http2::core::output_buffer_count(http2::core::receive_connection_output(buffered)) == 1 and chunks_equal(require_output_chunk(http2::core::receive_connection_output(buffered), 0)?, byte_chunk_from_hex("0000080600000000000908070605040302")?)?
+			Ok(())
+		else
+			Err("HTTP/2 receive connection rejection mutated buffered state or caller-owned output")
+		end
+	end
+end
+
 fn receive_connection_rejects_after_local_advance(decision: CoreReceiveConnectionDecision, expected_source: String, expected_id: String, expected_offset: Int, expected_kind: Int, expected_stream: Int) -> Result<Bool, String>
 	let failure: CoreReceiveConnectionFailure = http2::core::receive_connection_failure(decision)?
 	match http2::core::receive_connection_state_from_decision(decision)
