@@ -141,6 +141,21 @@ fn print_header_state(label: String, state: CoreConnectionState, stream_id: Int)
 	Ok(())
 end
 
+fn print_pending_state(label: String, state: CoreConnectionState) -> () effects [stdio]
+	let pending: PendingHeaderBlock = http2::core::connection_state_pending_header_block(state)
+	stdio::print(label)
+	stdio::print(" pending ")
+	stdio::print(bool_label(http2::core::pending_header_block_is_active(pending)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::pending_header_block_expected_stream(pending)))
+	stdio::print(" started ")
+	stdio::print(int_to_string(http2::core::pending_header_block_started_offset(pending)))
+	stdio::print(" bytes ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::pending_header_block_bytes(pending)))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+end
+
 fn bool_label(value: Bool) -> String
 	if value
 		"true"
@@ -267,6 +282,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let continuation_state: CoreConnectionState = require_state(continuation_done)?
 	print_decision("continuation-done", continuation_done)
 	let _ = print_header_state("continuation", continuation_state, 1)?
+	let continuation_sequence_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(continuation_pending, byte_chunk_from_hex("000000000000000001")?)?)?
+	print_failure("continuation-sequence", continuation_sequence_failure)
+	print_failure_reason("continuation-sequence", continuation_sequence_failure)
+	print_pending_state("continuation-input", continuation_pending)
 	let low_base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(5))?)
 	let low_state: CoreConnectionState = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
 	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?

@@ -481,8 +481,8 @@ lifecycle application, HEADERS and CONTINUATION header-block completion,
 production HPACK decode, header-list validation, DATA receive-credit debit,
 inbound DATA content-length body accounting,
 stream and connection WINDOW_UPDATE credit refill, RST_STREAM reset-code
-application, wrong-variant accessors, and immutable failure-state
-preservation. The focused
+application, pending-header-block sequence rejection, wrong-variant accessors,
+and immutable failure-state preservation. The focused
 [`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/)
 case imports `http2::core` from `std` and records public success, state,
 failure-source, failure-id, HPACK failure, header-list failure,

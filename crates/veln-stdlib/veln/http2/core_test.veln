@@ -967,6 +967,19 @@ test receive_frame_dispatch_completes_continuation_header_block() -> Result<(), 
 	end
 end
 
+test receive_frame_dispatch_preserves_pending_header_block_on_sequence_failure() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(31)?
+	let first: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000101000000000182")?))?
+	let pending_state: CoreConnectionState = http2::core::receive_frame_state(first)?
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(pending_state, byte_chunk_from_hex("000000000000000001")?))?
+	let pending: PendingHeaderBlock = http2::core::connection_state_pending_header_block(pending_state)
+	if http2::core::receive_frame_failure_source(failure) == "pending-header-block" and http2::core::receive_frame_failure_id(failure) == "http2.protocol.continuation_sequence" and http2::core::receive_frame_failure_reason(failure) == "continuation_kind" and http2::core::receive_frame_failure_offset(failure) == 41 and http2::core::receive_frame_failure_frame_kind(failure) == 0 and http2::core::receive_frame_failure_stream_id(failure) == 1 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure))) == 9 and http2::core::pending_header_block_is_active(pending) and http2::core::pending_header_block_expected_stream(pending) == 1 and http2::core::pending_header_block_started_kind(pending) == 1 and http2::core::pending_header_block_started_offset(pending) == 31 and byte_count_to_int(byte_chunk_count(http2::core::pending_header_block_bytes(pending))) == 1 and http2::core::connection_state_next_offset(pending_state) == 41 and http2::core::stream_collection_count(http2::core::connection_state_streams(pending_state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame continuation sequence failure mutated pending header-block state or exposed wrong context")
+	end
+end
+
 test receive_frame_dispatch_preserves_state_on_header_failures() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(31)?
 	let hpack_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001010400000001ff")?))?
