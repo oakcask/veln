@@ -166,6 +166,7 @@ output.
 | connection-level WINDOW_UPDATE receive flow-control application over aggregate connection state | standard-owned connection-level WINDOW_UPDATE receive flow-control refills aggregate connection receive credit immutably; invalid increment and connection-window overflow expose exact context and preview without returning a next state or mutating the input aggregate | `connection_window_update_flow_control_refills_receive_credit_immutably`, `connection_window_update_flow_control_failures_preserve_state_and_preview`, `http2-core-connection-window-update-flow-control`, and retained `http2-protocol-core` WINDOW_UPDATE integration | pure aggregate-state connection receive-credit refill, invalid increment, connection overflow, exact failure context, immutable input-state, stream-collection preservation, and preview-preservation coverage moved to `core_test.veln`; focused external-package state and failure projections moved to `http2-core-connection-window-update-flow-control`; the monolithic case still owns WINDOW_UPDATE payload parsing, frame dispatch ordering, diagnostic projection, complete stdout, and output-chunk integration |
 | migrated receive-frame dispatcher for SETTINGS, DATA, HEADERS, CONTINUATION, WINDOW_UPDATE, RST_STREAM, and GOAWAY | standard-owned receive-frame dispatch decodes one complete frame, validates payload length, applies stream-frame admission, parses SETTINGS items and ACKs, DATA padding length, HEADERS prefixes, CONTINUATION fragments, WINDOW_UPDATE increments, RST_STREAM error codes, and GOAWAY last-stream-id plus error-code fields, and composes peer SETTINGS validation and state application, SETTINGS ACK bookkeeping, DATA flow-control, inbound DATA content-length body accounting, production HPACK header-block decoding, request, response, and trailer header-list validation, pending header-block sequencing, stream and connection WINDOW_UPDATE flow-control, remote END_STREAM lifecycle, RST_STREAM lifecycle, and connection shutdown transitions without mutating the input aggregate on failure | `receive_frame_dispatch_applies_data_window_update_and_rst_stream`, `receive_frame_dispatch_applies_content_length_body_accounting`, `receive_frame_dispatch_applies_settings_and_ack_immutably`, `receive_frame_dispatch_preserves_state_on_settings_failures`, `connection_shutdown_applies_goaway_and_completes_drain`, `connection_shutdown_rejects_relaxed_goaway_boundary_without_state`, `receive_frame_dispatch_applies_goaway_shutdown`, `receive_frame_dispatch_preserves_state_on_failures`, `receive_frame_dispatch_decodes_headers_with_production_hpack`, `receive_frame_dispatch_completes_continuation_header_block`, `receive_frame_dispatch_preserves_pending_header_block_on_sequence_failure`, `receive_frame_dispatch_preserves_state_on_header_failures`, `http2-core-receive-frame-dispatch`, and retained `http2-protocol-core` receive-dispatch integration | pure success, applied-transition projection, next-offset update, peer SETTINGS state application, pending peer ACK scheduling, local SETTINGS ACK consumption, peer SETTINGS value-failure projection, unexpected SETTINGS ACK projection, DATA END_STREAM lifecycle, DATA debit, DATA application-octet body count, exact-length END_STREAM acceptance, over-length rejection, early END_STREAM shortfall rejection, HEADERS and CONTINUATION header-block completion, pending header-block sequence failure and immutable pending-state preservation, production HPACK decode success and failure, header-list validation failure projection, stream and connection WINDOW_UPDATE refill, RST_STREAM reset-code application, GOAWAY boundary tightening, GOAWAY drain completion, GOAWAY boundary-raising failure context, admission failure, DATA padding payload-read failure reason, flow-control failure, preview preservation, immutable input-state preservation, and wrong-variant accessor coverage moved to `core_test.veln`; focused external-package state, payload-read reason, SETTINGS failure, HPACK failure, header-list failure, content-length mismatch, pending-header-block failure, and failure-source projections moved to `http2-core-receive-frame-dispatch`; the monolithic case still owns PUSH_PROMISE, outbound content-length send accounting, diagnostic projection, complete stdout, output chunks, and wider ordering |
 | outbound GOAWAY send and graceful shutdown boundary | standard-owned GOAWAY send emits exact kind-`7`, flags-`0`, stream-`0` bytes with the caller-supplied last-stream-id, error code, and debug data; accepted sends update the aggregate lifecycle immutably, complete drain when no active stream remains in boundary, allow boundary tightening, reject boundary increases without a next state or output bytes, and return integer or frame encode failures without output or state mutation | `goaway_send_emits_exact_bytes_and_updates_shutdown_immutably`, `goaway_send_completes_drain_and_rejects_boundary_increase`, `goaway_send_encode_failures_preserve_state_and_output`, `http2-core-goaway-send`, and retained `http2-protocol-core` shutdown-output integration | pure exact-byte, accepted lifecycle, drain completion, boundary tightening, boundary-increase failure context, empty failure output, encode-failure output, and immutable input-state coverage moved to `core_test.veln`; focused external-package state, failure, encode-failure, and output-chunk projections moved to `http2-core-goaway-send`; the monolithic case still owns outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, RST_STREAM, PRIORITY, content-length send accounting, complete stdout, and wider output ordering |
+| outbound RST_STREAM and PRIORITY stream-control sends | standard-owned RST_STREAM send emits exact kind-`3`, flags-`0` bytes for existing open streams and immutably records reset lifecycle; standard-owned PRIORITY send emits exact kind-`2`, flags-`0` bytes for existing open streams and preserves aggregate state; both transitions reject zero, idle, closed, reset, self-dependent, or GOAWAY-forbidden inputs with no next state or output and preserve encode-failure empty output | `outbound_rst_stream_send_emits_exact_bytes_and_resets_stream_immutably`, `outbound_rst_stream_failures_preserve_state_and_output`, `outbound_priority_send_emits_exact_bytes_and_preserves_state`, `outbound_priority_failures_preserve_state_and_output`, `outbound_priority_respects_goaway_boundary_and_encode_failures`, `http2-core-outbound-stream-control`, and retained `http2-protocol-core` output-ordering integration | pure exact-byte, stream reset lifecycle, PRIORITY state preservation, invalid stream id, idle or closed/reset lifecycle failure, self-dependency failure, GOAWAY boundary failure, encode-failure output, and immutable input-state coverage moved to `core_test.veln`; focused external-package result, failure-field, and output-chunk projections moved to `http2-core-outbound-stream-control`; the monolithic case still owns outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, content-length send accounting, complete stdout, and wider output ordering |
 | flow-control numeric domain helper assertions | connection window credit, stream window credit, configured initial window size, and `WINDOW_UPDATE` increment domains expose their role-specific bounds through the public core facade; debit and refill helpers return immutable next-credit decisions or exact domain failures without changing input credit or increment values | `flow_control_domains_accept_boundaries`, `flow_control_domains_reject_out_of_range_values`, `flow_control_debit_and_refill_are_immutable`, `flow_control_failures_preserve_input_credit`, `http2-core-flow-control-domains` | pure domain construction, boundary rejection, negative stream credit, debit, refill, overflow failure data, and input preservation moved to `core_test.veln`; focused external-package result projections moved to `http2-core-flow-control-domains`; monolithic DATA, peer `SETTINGS_INITIAL_WINDOW_SIZE`, received and outbound `WINDOW_UPDATE`, complete stdout, and diagnostic integration remain while the wider state machine is migrated |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
@@ -270,7 +271,7 @@ deletable only when all of the following are true:
 
 ## Current Completion Review
 
-The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
+The completion criteria remain unsatisfied. Do not create the STOP prompt.
 
 ### Newly Promoted Stream-Collection Slice
 
@@ -341,9 +342,6 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
   preservation, and the focused
   `http2-core-receive-frame-dispatch` case records public state and failure
   projections.
-- These slices move frame-kind admission and part of payload application for
-  SETTINGS, DATA, HEADERS, CONTINUATION, WINDOW_UPDATE, RST_STREAM, and GOAWAY
-  receive shutdown, including inbound DATA body accounting, but they do not yet
 - `std::http2::core` now owns outbound GOAWAY send over
   `CoreConnectionState`: accepted sends emit exact GOAWAY bytes with optional
   debug data, update lifecycle immutably, complete drain when possible, permit
@@ -352,12 +350,22 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
   checks exact bytes, drain, boundary failure, encode failure, and input-state
   preservation; the focused `http2-core-goaway-send` case records public state,
   failure, encode-failure, and output-chunk projections.
+- `std::http2::core` now owns outbound RST_STREAM and PRIORITY stream-control
+  sends over `CoreConnectionState`: accepted RST_STREAM sends emit exact bytes
+  and reset the stream immutably, accepted PRIORITY sends emit exact bytes and
+  preserve the aggregate, and failures retain typed context with no output or
+  next state. The adjacent `core_test.veln` checks exact bytes, state
+  preservation, reset lifecycle, invalid stream, lifecycle, dependency,
+  GOAWAY, and encode-failure boundaries; the focused
+  `http2-core-outbound-stream-control` case records public result,
+  failure-field, and output-chunk projections.
 - These slices move frame-kind admission and part of payload application for
   SETTINGS, DATA, HEADERS, CONTINUATION, WINDOW_UPDATE, RST_STREAM, and GOAWAY
-  receive shutdown, plus outbound GOAWAY send, including inbound DATA body
-  accounting. They do not yet move PUSH_PROMISE, outbound content-length send
-  accounting, outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, RST_STREAM,
-  PRIORITY, or wider output ordering out of the monolithic case.
+  receive shutdown, plus outbound GOAWAY, RST_STREAM, and PRIORITY send,
+  including inbound DATA body accounting. They do not yet move PUSH_PROMISE,
+  outbound content-length send accounting, outbound DATA, HEADERS,
+  PUSH_PROMISE, WINDOW_UPDATE, or wider output ordering out of the monolithic
+  case.
 
 ### Remaining Deletion-Gate Blockers
 
@@ -365,10 +373,11 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
   `main.veln`, `hpack_fixture.veln`, `hpack_static.veln`,
   `hpack_dynamic_core.veln`, and `case.toml`. The monolithic source still owns
   PUSH_PROMISE, outbound content-length send accounting, send flow-control
-  integration, outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, RST_STREAM,
-  PRIORITY, complete stdout, output-chunk integration, and wider receive-dispatch ordering beyond
+  integration, outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, complete
+  stdout, output-chunk integration, and wider receive-dispatch ordering beyond
   the migrated SETTINGS, DATA, HEADERS, CONTINUATION, WINDOW_UPDATE,
-  RST_STREAM, GOAWAY receive-shutdown, and outbound GOAWAY-send boundary.
+  RST_STREAM, GOAWAY receive-shutdown, and outbound GOAWAY, RST_STREAM, and
+  PRIORITY send boundaries.
 - Fixture HPACK state and compatibility routes remain in the aggregate case
   and outbound HEADERS/PUSH_PROMISE paths; those residual routes still need to
   be converted to the public typed `std::http2::hpack` codec boundary before
@@ -381,11 +390,11 @@ The completion criteria remain unsatisfied. Do not create `prompts/STOP`.
 
 Continue from the new public stream collection, SETTINGS receive application,
 DATA credit debit and content-length body accounting, stream and connection
-WINDOW_UPDATE refill, RST_STREAM lifecycle, GOAWAY receive shutdown, and
-migrated HEADERS/CONTINUATION
-receive-frame application, plus outbound GOAWAY send, by moving PUSH_PROMISE,
-outbound content-length send accounting, outbound DATA, HEADERS, PUSH_PROMISE,
-WINDOW_UPDATE, RST_STREAM, PRIORITY, and wider output ordering behind
+WINDOW_UPDATE refill, RST_STREAM lifecycle, GOAWAY receive shutdown, migrated
+HEADERS/CONTINUATION receive-frame application, and outbound GOAWAY,
+RST_STREAM, and PRIORITY send by moving PUSH_PROMISE, outbound content-length
+send accounting, outbound DATA, HEADERS, PUSH_PROMISE, WINDOW_UPDATE, and
+wider output ordering behind
 `std::http2::core`. Keep each transition immutable and preserve
 failure-state atomicity across the connection, stream collection, HPACK table,
 pending continuation, flow-control credits, and output bytes.

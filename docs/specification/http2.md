@@ -205,9 +205,29 @@ case records accepted bytes, drain completion, boundary rejection, empty
 failure output, encode failure output, and input-state preservation through
 the public facade.
 
+`http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
+kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and
+records the target stream as reset in the returned aggregate state. Zero,
+idle, closed, and already-reset streams reject with typed protocol failures,
+no bytes, and no next state. Integer and frame encoding failures also expose
+no bytes and no next state.
+
+`http2::core::send_priority(state, offset, stream_id, dependency_stream_id,
+exclusive, weight)` emits a kind-`2`, flags-`0` PRIORITY frame from an existing
+open outbound stream while preserving the aggregate state. It rejects stream
+zero, idle, closed, reset, self-dependent, and GOAWAY-forbidden streams with
+typed protocol failures, no bytes, and no next state. Integer and frame
+encoding failures also expose no bytes and no next state.
+The focused
+[`http2-core-outbound-stream-control`](../../examples/specification/run/http2-core-outbound-stream-control/)
+case records accepted RST_STREAM and PRIORITY bytes, reset-state projection,
+dependency and GOAWAY failures, empty failure output, and public failure
+fields.
+
 Other receive-frame applications, including PUSH_PROMISE, outbound
-content-length send accounting, complete stdout, and output-chunk integration
-remain in the aggregate
+content-length send accounting, outbound DATA, HEADERS, PUSH_PROMISE,
+WINDOW_UPDATE, complete stdout, and output-chunk integration remain in the
+aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

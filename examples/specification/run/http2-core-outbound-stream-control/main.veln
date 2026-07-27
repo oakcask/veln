@@ -1,0 +1,138 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_rst_state(decision: CoreRstStreamSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::rst_stream_send_state(decision)
+end
+
+fn require_rst_failure(decision: CoreRstStreamSendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::rst_stream_send_failure(decision)
+end
+
+fn require_priority_failure(decision: CorePrioritySendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::priority_send_failure(decision)
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_stream(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(entry) => print_stream_entry(label, stream_id, entry)
+		None => Err("missing stream")
+	end
+end
+
+fn print_stream_entry(label: String, stream_id: Int, entry: CoreStreamEntry) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" lifecycle ")
+	stdio::println(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry)))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: CoreOutboundStreamControlFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::outbound_stream_control_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::outbound_stream_control_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::outbound_stream_control_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::outbound_stream_control_failure_stream_id(failure)))
+	stdio::print(" dependency ")
+	stdio::print(int_to_string(http2::core::outbound_stream_control_failure_dependency_stream_id(failure)))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::outbound_stream_control_failure_last_stream_id(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::outbound_stream_control_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::outbound_stream_control_failure_rule_provenance(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::outbound_stream_control_failure_preview(failure)))))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let open_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, 0, 0))?
+	let later_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 80, 90, 0, 0))?
+	let with_open: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), open_stream))
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(with_open, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(with_open), later_stream))
+	let rst: CoreRstStreamSendDecision = http2::core::send_rst_stream(state, 17, 1, 8)
+	stdio::print("rst-stream ")
+	stdio::println(http2::core::rst_stream_send_status(rst))
+	let reset_state: CoreConnectionState = require_rst_state(rst)?
+	let _ = print_stream("rst-stream", reset_state, 1)?
+	let _ = print_chunk("rst-stream", http2::core::rst_stream_send_bytes(rst), "00000403000000000100000008")?
+	let rst_rejected: CoreRstStreamSendDecision = http2::core::send_rst_stream(reset_state, 19, 1, 8)
+	print_failure("rst-stream-repeat", require_rst_failure(rst_rejected)?)
+	print_empty("rst-stream-repeat")
+	let priority: CorePrioritySendDecision = http2::core::send_priority(state, 23, 1, 3, true, 16)
+	stdio::print("priority ")
+	stdio::println(http2::core::priority_send_status(priority))
+	let _ = print_chunk("priority", http2::core::priority_send_bytes(priority), "000005020000000001800000030f")?
+	let dependency: CorePrioritySendDecision = http2::core::send_priority(state, 29, 1, 1, false, 16)
+	print_failure("priority-dependency", require_priority_failure(dependency)?)
+	print_empty("priority-dependency")
+	let after_goaway: CoreConnectionState = http2::core::connection_state_with_lifecycle(state, http2::core::connection_lifecycle_draining(5, 0))
+	let goaway_rejected: CorePrioritySendDecision = http2::core::send_priority(after_goaway, 31, 7, 1, false, 16)
+	print_failure("priority-goaway", require_priority_failure(goaway_rejected)?)
+	print_empty("priority-goaway")
+	Ok(())
+end

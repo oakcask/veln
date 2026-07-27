@@ -16,6 +16,7 @@ use http2::core::receive_flow_control
 use http2::core::receive_frame
 use http2::core::receive_shutdown
 use http2::core::send_shutdown
+use http2::core::outbound_stream_control
 use http2::core::flow_control
 use http2::core::header_list_validation
 use http2::core::stream_state
@@ -120,6 +121,12 @@ pub type CoreConnectionShutdownFailure = http2::core::receive_shutdown::CoreConn
 pub type CoreGoawaySendDecision = http2::core::send_shutdown::CoreGoawaySendDecision
 
 pub type CoreGoawaySendFailure = http2::core::send_shutdown::CoreGoawaySendFailure
+
+pub type CoreRstStreamSendDecision = http2::core::outbound_stream_control::CoreRstStreamSendDecision
+
+pub type CorePrioritySendDecision = http2::core::outbound_stream_control::CorePrioritySendDecision
+
+pub type CoreOutboundStreamControlFailure = http2::core::outbound_stream_control::CoreOutboundStreamControlFailure
 
 pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
 
@@ -833,6 +840,90 @@ end
 
 pub fn goaway_send_failure_preview(failure: CoreGoawaySendFailure) -> ByteChunk
 	http2::core::send_shutdown::failure_preview(failure)
+end
+
+pub fn send_rst_stream(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int) -> CoreRstStreamSendDecision
+	http2::core::outbound_stream_control::send_rst_stream(state, offset, stream_id, error_code)
+end
+
+pub fn rst_stream_send_status(decision: CoreRstStreamSendDecision) -> String
+	http2::core::outbound_stream_control::rst_stream_status(decision)
+end
+
+pub fn rst_stream_send_state(decision: CoreRstStreamSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_stream_control::rst_stream_state(decision)
+end
+
+pub fn rst_stream_send_failure(decision: CoreRstStreamSendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::outbound_stream_control::rst_stream_failure(decision)
+end
+
+pub fn rst_stream_send_bytes(decision: CoreRstStreamSendDecision) -> ByteChunk
+	http2::core::outbound_stream_control::rst_stream_bytes(decision)
+end
+
+pub fn rst_stream_send_encode_reason(decision: CoreRstStreamSendDecision) -> String
+	http2::core::outbound_stream_control::rst_stream_encode_reason(decision)
+end
+
+pub fn send_priority(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
+	http2::core::outbound_stream_control::send_priority(state, offset, stream_id, dependency_stream_id, exclusive, weight)
+end
+
+pub fn priority_send_status(decision: CorePrioritySendDecision) -> String
+	http2::core::outbound_stream_control::priority_status(decision)
+end
+
+pub fn priority_send_state(decision: CorePrioritySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_stream_control::priority_state(decision)
+end
+
+pub fn priority_send_failure(decision: CorePrioritySendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::outbound_stream_control::priority_failure(decision)
+end
+
+pub fn priority_send_bytes(decision: CorePrioritySendDecision) -> ByteChunk
+	http2::core::outbound_stream_control::priority_bytes(decision)
+end
+
+pub fn priority_send_encode_reason(decision: CorePrioritySendDecision) -> String
+	http2::core::outbound_stream_control::priority_encode_reason(decision)
+end
+
+pub fn outbound_stream_control_failure_id(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_id(failure)
+end
+
+pub fn outbound_stream_control_failure_offset(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_offset(failure)
+end
+
+pub fn outbound_stream_control_failure_frame_kind(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_frame_kind(failure)
+end
+
+pub fn outbound_stream_control_failure_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_dependency_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_dependency_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_last_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_last_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_active_state(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_active_state(failure)
+end
+
+pub fn outbound_stream_control_failure_rule_provenance(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_rule_provenance(failure)
+end
+
+pub fn outbound_stream_control_failure_preview(failure: CoreOutboundStreamControlFailure) -> ByteChunk
+	http2::core::outbound_stream_control::failure_preview(failure)
 end
 
 pub fn receive_frame_status(decision: CoreReceiveFrameDecision) -> String
