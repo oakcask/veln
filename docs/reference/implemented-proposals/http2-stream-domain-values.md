@@ -6,7 +6,7 @@ This record preserves the completed stream-identifier domain-value slice from
 the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/http2.md`, the adjacent standard-library tests, and the
 checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+`../../../examples/specification/run/http2-core-stream-frame-admission/`.
 
 ## Completed Behavior
 
@@ -32,12 +32,11 @@ endpoint role, active state, and rule provenance.
   client and server stream ids, retained values, connection and real-stream
   reference projections, and zero, out-of-range, client-parity, and
   server-parity failures.
-- `../../../examples/specification/run/http2-protocol-core/main.veln` routes
-  connection, client-initiated, and server-initiated validation through the
-  public facade before state admission.
-- `../../../examples/specification/run/http2-protocol-core/case.toml` checks
-  the retained observable stream-id diagnostics, complete stdout, and
-  transition ordering.
+- `../../../examples/specification/run/http2-core-stream-frame-admission/`
+  checks public stream-reference admission through the current facade.
+- Focused `../../../examples/specification/run/http2-protocol-core-*-stream-*`
+  diagnostic cases retain historical human and JSON projection evidence for
+  invalid stream ids and ordering failures.
 
 ## Remaining Scope
 

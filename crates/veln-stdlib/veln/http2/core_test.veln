@@ -2379,6 +2379,19 @@ test receive_connection_boundary_consumes_ordered_frames_in_one_chunk() -> Resul
 	end
 end
 
+test receive_connection_boundary_buffers_partial_suffix_after_complete_frame() -> Result<(), String>
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let chunk: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000008060000000000010203")?
+	let decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, chunk)?
+	let buffered: CoreReceiveConnectionState = http2::core::receive_connection_state_from_decision(decision)?
+	let output: CoreOutputBuffer = http2::core::receive_connection_output(buffered)
+	if http2::core::receive_connection_status(decision) == "accepted" and http2::core::receive_connection_applied_transition(decision) == "buffered" and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(buffered)) == 39 and http2::core::receive_connection_initial_settings_accepted(buffered) and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(buffered))) == 12 and http2::core::output_buffer_count(output) == 1 and chunks_equal(require_output_chunk(output, 0)?, byte_chunk_from_hex("000000040100000000")?)? and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(initial)) == 0 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(initial))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(initial)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary did not buffer a partial suffix after a complete frame")
+	end
+end
+
 test receive_connection_boundary_applies_data_frame_to_stream_state() -> Result<(), String>
 	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 3, 0))?
 	let connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))

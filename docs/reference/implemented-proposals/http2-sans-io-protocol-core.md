@@ -1,17 +1,18 @@
 # HTTP/2 Standard Library Completion and Fixture Retirement
 
-Status: implemented
+Status: superseded
 
-This record closes the umbrella HTTP/2 sans-I/O core migration. Current
+This premature umbrella completion record is superseded by the active proposal
+at `../../proposals/http2-sans-io-protocol-core.md`. Current implemented
 behavior lives in `../../specification/http2.md` and the focused executable
 cases under `../../../examples/specification/`.
 
 The broad `http2-protocol-core` fixture is retired. Its retained directory now
-contains only a route for old links, while standard-owned behavior is covered
-by responsibility-named `http2::core` and `http2::hpack` modules plus focused
-examples.
+contains only a route for old links. That deletion is not completion evidence
+for the original matrix gate until every removed helper invocation, exact
+stdout line, output table, and focused fixture marker is classified.
 
-## Completion Evidence
+## Implemented Evidence
 
 - `http2::core` owns immutable aggregate connection state, stream collection
   state, public HPACK table integration, receive-frame dispatch, ordered
@@ -29,6 +30,10 @@ examples.
   `../../../crates/veln-stdlib/veln/http2/core_test.veln` cover the pure and
   immutable standard-library helpers behind the focused cases.
 
+## Remaining Proposal Gate
+
+The checked replacement matrix for the removed aggregate case is still absent.
+Use `../../proposals/http2-sans-io-protocol-core.md` for the remaining work.
 Do not use the retired `http2-protocol-core` route as current behavior. Use
 `../../specification/http2.md` first, then the focused executable cases named
 from that page.

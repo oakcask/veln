@@ -206,6 +206,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_decision("ordered", ordered_decision)
 	print_state("ordered", ordered_state)
 	let _ = print_output("ordered", http2::core::receive_connection_output(ordered_state), "000000040100000000", "0000080601000000000102030405060708")?
+	let suffix_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let suffix_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(suffix_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000008060000000000010203")?)?
+	let suffix_state: CoreReceiveConnectionState = require_state(suffix_decision)?
+	print_decision("complete-partial", suffix_decision)
+	print_state("complete-partial", suffix_state)
+	let _ = print_output("complete-partial", http2::core::receive_connection_output(suffix_state), "000000040100000000", "")?
 	let reject_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let ordered_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(reject_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000706000000000001020304050607")?)?
 	print_decision("ordered-reject", ordered_reject)

@@ -203,10 +203,11 @@ output values, including any output chunks supplied by the caller.
 
 The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
-preface plus initial SETTINGS composition, partial PING buffering, SETTINGS
-ACK and PING ACK byte ordering across split and same-chunk receive, PRIORITY
-offset application, PUSH_PROMISE reservation without output side effects,
-initial-gate rejection context, and input/output preservation on rejection.
+preface plus initial SETTINGS composition, partial PING buffering, complete
+frames followed by a partial suffix, SETTINGS ACK and PING ACK byte ordering
+across split and same-chunk receive, PRIORITY offset application,
+PUSH_PROMISE reservation without output side effects, initial-gate rejection
+context, and input/output preservation on rejection.
 The focused
 [`http2-core-receive-connection-boundary`](../../examples/specification/run/http2-core-receive-connection-boundary/)
 case records the public decision, state, failure, and emitted-byte
