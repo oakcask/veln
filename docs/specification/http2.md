@@ -31,10 +31,10 @@ The public routes are:
   frame-admission predicates, pure PING request and ACK response transitions,
   immutable receive-frame dispatch for DATA, HEADERS, CONTINUATION,
   WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload application,
-  immutable GOAWAY, RST_STREAM, PRIORITY, DATA, and WINDOW_UPDATE send
-  transitions, and an immutable aggregate connection state that composes those
-  migrated components with the public HPACK dynamic table and an immutable
-  stream collection.
+  immutable GOAWAY, RST_STREAM, PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and
+  PUSH_PROMISE send transitions, and an immutable aggregate connection state
+  that composes those migrated components with the public HPACK dynamic table
+  and an immutable stream collection.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -228,6 +228,32 @@ case records accepted DATA, stream WINDOW_UPDATE, and connection
 WINDOW_UPDATE bytes, accepted state projections, content-length shortfall,
 invalid-increment failures, empty failure output, and public failure fields.
 
+`http2::core::send_request_headers(state, offset, stream_id, headers,
+end_stream)` validates a request header list, encodes it through the public
+production HPACK header-block encoder, and emits one kind-`1` HEADERS frame
+with END_HEADERS set and END_STREAM selected by the caller. A new outbound
+request stream is created with peer-advertised initial window credit, accepted
+`content-length`, and either open or half-closed-local lifecycle.
+`send_response_headers(...)` and `send_trailers(...)` apply the same immutable
+encoding boundary to existing streams using response or trailer validation.
+Header-list failures, stream-id or lifecycle failures, GOAWAY boundary
+failures, and HPACK encode failures expose typed failures with no bytes and no
+next state.
+
+`http2::core::send_push_promise(state, offset, stream_id,
+promised_stream_id, headers)` is the server outbound PUSH_PROMISE transition.
+It requires an associated open stream, a nonzero server-initiated promised
+stream id, validates the promised request headers, encodes the header block
+through the public production HPACK encoder, emits one kind-`5` frame with
+END_HEADERS set, and records the promised stream as reserved-local with
+peer-advertised initial window credit. Endpoint, stream, header-list, and
+HPACK failures expose no bytes and no next state.
+The focused
+[`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/)
+case records accepted HEADERS and PUSH_PROMISE bytes, created and reserved
+stream projections, header-list failure fields, endpoint rejection, empty
+failure output, and public failure accessors.
+
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and
 records the target stream as reset in the returned aggregate state. Zero,
@@ -247,9 +273,8 @@ case records accepted RST_STREAM and PRIORITY bytes, reset-state projection,
 dependency and GOAWAY failures, empty failure output, and public failure
 fields.
 
-Other receive-frame applications, including PUSH_PROMISE, outbound HEADERS,
-PUSH_PROMISE, wider content-length integration with outbound header emission,
-complete stdout, and wider output-chunk ordering remain in the aggregate
+Wider content-length integration with outbound header emission, complete
+stdout, and wider output-chunk ordering remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

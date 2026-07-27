@@ -17,6 +17,7 @@ use http2::core::receive_frame
 use http2::core::receive_shutdown
 use http2::core::send_shutdown
 use http2::core::outbound_data_flow
+use http2::core::outbound_headers
 use http2::core::outbound_stream_control
 use http2::core::flow_control
 use http2::core::header_list_validation
@@ -128,6 +129,12 @@ pub type CoreDataSendDecision = http2::core::outbound_data_flow::CoreDataSendDec
 pub type CoreWindowUpdateSendDecision = http2::core::outbound_data_flow::CoreWindowUpdateSendDecision
 
 pub type CoreOutboundDataFlowFailure = http2::core::outbound_data_flow::CoreOutboundDataFlowFailure
+
+pub type CoreHeadersSendDecision = http2::core::outbound_headers::CoreHeadersSendDecision
+
+pub type CorePushPromiseSendDecision = http2::core::outbound_headers::CorePushPromiseSendDecision
+
+pub type CoreOutboundHeadersFailure = http2::core::outbound_headers::CoreOutboundHeadersFailure
 
 pub type CoreRstStreamSendDecision = http2::core::outbound_stream_control::CoreRstStreamSendDecision
 
@@ -943,6 +950,82 @@ end
 
 pub fn outbound_data_flow_failure_preview(failure: CoreOutboundDataFlowFailure) -> ByteChunk
 	http2::core::outbound_data_flow::failure_preview(failure)
+end
+
+pub fn send_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_request_headers(state, offset, stream_id, headers, end_stream)
+end
+
+pub fn send_response_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_response_headers(state, offset, stream_id, headers, end_stream)
+end
+
+pub fn send_trailers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_trailers(state, offset, stream_id, headers)
+end
+
+pub fn headers_send_status(decision: CoreHeadersSendDecision) -> String
+	http2::core::outbound_headers::headers_send_status(decision)
+end
+
+pub fn headers_send_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_headers::headers_send_state(decision)
+end
+
+pub fn headers_send_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::outbound_headers::headers_send_failure(decision)
+end
+
+pub fn headers_send_bytes(decision: CoreHeadersSendDecision) -> ByteChunk
+	http2::core::outbound_headers::headers_send_bytes(decision)
+end
+
+pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
+	http2::core::outbound_headers::send_push_promise(state, offset, stream_id, promised_stream_id, headers)
+end
+
+pub fn push_promise_send_status(decision: CorePushPromiseSendDecision) -> String
+	http2::core::outbound_headers::push_promise_send_status(decision)
+end
+
+pub fn push_promise_send_state(decision: CorePushPromiseSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_headers::push_promise_send_state(decision)
+end
+
+pub fn push_promise_send_failure(decision: CorePushPromiseSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::outbound_headers::push_promise_send_failure(decision)
+end
+
+pub fn push_promise_send_bytes(decision: CorePushPromiseSendDecision) -> ByteChunk
+	http2::core::outbound_headers::push_promise_send_bytes(decision)
+end
+
+pub fn outbound_headers_failure_id(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_id(failure)
+end
+
+pub fn outbound_headers_failure_offset(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_offset(failure)
+end
+
+pub fn outbound_headers_failure_frame_kind(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_frame_kind(failure)
+end
+
+pub fn outbound_headers_failure_stream_id(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_stream_id(failure)
+end
+
+pub fn outbound_headers_failure_active_state(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_active_state(failure)
+end
+
+pub fn outbound_headers_failure_rule_provenance(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_rule_provenance(failure)
+end
+
+pub fn outbound_headers_failure_preview(failure: CoreOutboundHeadersFailure) -> ByteChunk
+	http2::core::outbound_headers::failure_preview(failure)
 end
 
 pub fn send_rst_stream(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int) -> CoreRstStreamSendDecision

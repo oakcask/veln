@@ -1,0 +1,152 @@
+use http2::core from "std"
+use http2::hpack from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_headers_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::headers_send_state(decision)
+end
+
+fn require_headers_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::headers_send_failure(decision)
+end
+
+fn require_push_state(decision: CorePushPromiseSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::push_promise_send_state(decision)
+end
+
+fn require_push_failure(decision: CorePushPromiseSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::push_promise_send_failure(decision)
+end
+
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("content-length", "5")?, http2::hpack::empty_header_list())))))
+end
+
+fn bad_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("Bad", "value")?, http2::hpack::empty_header_list())))))
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_stream(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(entry) => print_entry(label, stream_id, entry)
+		None => Err("missing stream")
+	end
+end
+
+fn print_entry(label: String, stream_id: Int, entry: CoreStreamEntry) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(entry)))
+	stdio::print(" observed ")
+	stdio::println(int_to_string(http2::core::stream_entry_content_length_observed(entry)))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: CoreOutboundHeadersFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::outbound_headers_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::outbound_headers_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::outbound_headers_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::outbound_headers_failure_stream_id(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::outbound_headers_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::outbound_headers_failure_rule_provenance(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::outbound_headers_failure_preview(failure)))))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let client_state: CoreConnectionState = http2::core::client_connection_state(0)?
+	let headers: CoreHeadersSendDecision = http2::core::send_request_headers(client_state, 17, 1, request_headers()?, true)
+	stdio::print("request-headers ")
+	stdio::println(http2::core::headers_send_status(headers))
+	let headers_state: CoreConnectionState = require_headers_state(headers)?
+	let _ = print_stream("request-headers", headers_state, 1)?
+	let _ = print_chunk("request-headers", http2::core::headers_send_bytes(headers), "0000060105000000018287845c0135")?
+	let bad: CoreHeadersSendDecision = http2::core::send_request_headers(client_state, 23, 1, bad_headers()?, false)
+	print_failure("request-headers-bad", require_headers_failure(bad)?)
+	print_empty("request-headers-bad")
+	let server_base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let server_state: CoreConnectionState = http2::core::connection_state_with_streams(server_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(server_base), associated))
+	let push: CorePushPromiseSendDecision = http2::core::send_push_promise(server_state, 31, 1, 2, request_headers()?)
+	stdio::print("push-promise ")
+	stdio::println(http2::core::push_promise_send_status(push))
+	let push_state: CoreConnectionState = require_push_state(push)?
+	let _ = print_stream("push-promise", push_state, 2)?
+	let _ = print_chunk("push-promise", http2::core::push_promise_send_bytes(push), "00000a050400000001000000028287845c0135")?
+	let push_client: CorePushPromiseSendDecision = http2::core::send_push_promise(client_state, 37, 1, 2, request_headers()?)
+	print_failure("push-promise-client", require_push_failure(push_client)?)
+	print_empty("push-promise-client")
+	Ok(())
+end

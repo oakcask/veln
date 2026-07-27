@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "request-headers accepted\nrequest-headers stream 1 lifecycle half-closed-local expected 5 observed 0\noutput_chunk_list request-headers count 1\noutput_chunk request-headers index 0 hex \"0000060105000000018287845c0135\" count 15\nrequest-headers-bad failure http2.protocol.header_list offset 23 kind 1 stream 1 state request-headers rule ordinary_header_name_not_lowercase preview 0\noutput_chunk_list request-headers-bad count 0\npush-promise accepted\npush-promise stream 2 lifecycle reserved-local expected 5 observed 0\noutput_chunk_list push-promise count 1\noutput_chunk push-promise index 0 hex \"00000a050400000001000000028287845c0135\" count 19\npush-promise-client failure http2.protocol.invalid_stream_id offset 37 kind 5 stream 2 state stream-id-domain rule client_receives_push_promise preview 0\noutput_chunk_list push-promise-client count 0\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "request-headers"
+chunks = ["0000060105000000018287845c0135"]
+
+[[output_chunk_list]]
+name = "push-promise"
+chunks = ["00000a050400000001000000028287845c0135"]

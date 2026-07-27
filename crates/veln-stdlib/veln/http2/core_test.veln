@@ -384,6 +384,22 @@ fn require_window_update_send_failure(decision: CoreWindowUpdateSendDecision) ->
 	http2::core::window_update_send_failure(decision)
 end
 
+fn require_headers_send_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::headers_send_state(decision)
+end
+
+fn require_headers_send_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::headers_send_failure(decision)
+end
+
+fn require_push_promise_send_state(decision: CorePushPromiseSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::push_promise_send_state(decision)
+end
+
+fn require_push_promise_send_failure(decision: CorePushPromiseSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::push_promise_send_failure(decision)
+end
+
 fn require_receive_frame_decision(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreReceiveFrameDecision, String>
 	result
 end
@@ -2073,6 +2089,49 @@ test outbound_window_update_send_failures_preserve_state_and_output() -> Result<
 		Ok(())
 	else
 		Err("outbound WINDOW_UPDATE failures did not preserve state, output, or failure context")
+	end
+end
+
+test outbound_request_headers_send_emits_hpack_bytes_and_creates_stream() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::client_connection_state(0)?
+	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 17, 1, request_headers()?, true)
+	let next_state: CoreConnectionState = require_headers_send_state(decision)?
+	let next_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 1))?
+	if http2::core::headers_send_status(decision) == "accepted" and chunks_equal(http2::core::headers_send_bytes(decision), byte_chunk_from_hex("0000060105000000018287845c0135")?)? and http2::core::stream_collection_count(http2::core::connection_state_streams(next_state)) == 1 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(next_entry)) == "half-closed-local" and http2::core::stream_entry_content_length_expected(next_entry) == 5 and http2::core::stream_entry_content_length_observed(next_entry) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("outbound request HEADERS did not emit exact production HPACK bytes or create stream state immutably")
+	end
+end
+
+test outbound_push_promise_send_emits_hpack_bytes_and_reserves_promised_stream() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), associated))
+	let decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 23, 1, 2, request_headers()?)
+	let next_state: CoreConnectionState = require_push_promise_send_state(decision)?
+	let promised: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 2))?
+	let original: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::push_promise_send_status(decision) == "accepted" and chunks_equal(http2::core::push_promise_send_bytes(decision), byte_chunk_from_hex("00000a050400000001000000028287845c0135")?)? and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(promised)) == "reserved-local" and http2::core::stream_entry_content_length_expected(promised) == 5 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original)) == "open" and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 1
+		Ok(())
+	else
+		Err("outbound PUSH_PROMISE did not emit exact production HPACK bytes or reserve promised stream state immutably")
+	end
+end
+
+test outbound_headers_failures_preserve_state_and_output() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::client_connection_state(0)?
+	let bad_headers: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("Bad", "value")?, http2::hpack::empty_header_list()))))
+	let bad_decision: CoreHeadersSendDecision = http2::core::send_request_headers(base, 29, 1, bad_headers, false)
+	let bad_failure: CoreOutboundHeadersFailure = require_headers_send_failure(bad_decision)?
+	let wrong_stream: CoreHeadersSendDecision = http2::core::send_request_headers(base, 31, 2, request_headers()?, false)
+	let wrong_failure: CoreOutboundHeadersFailure = require_headers_send_failure(wrong_stream)?
+	let push_client: CorePushPromiseSendDecision = http2::core::send_push_promise(base, 37, 1, 2, request_headers()?)
+	let push_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(push_client)?
+	if http2::core::outbound_headers_failure_id(bad_failure) == "http2.protocol.header_list" and http2::core::outbound_headers_failure_active_state(bad_failure) == "request-headers" and http2::core::outbound_headers_failure_rule_provenance(bad_failure) == "ordinary_header_name_not_lowercase" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(bad_decision))) == 0 and http2::core::outbound_headers_failure_id(wrong_failure) == "http2.protocol.invalid_frame_kind" and http2::core::outbound_headers_failure_rule_provenance(wrong_failure) == "client_request_headers_require_client_stream" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(wrong_stream))) == 0 and http2::core::outbound_headers_failure_id(push_failure) == "http2.protocol.invalid_stream_id" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(push_client))) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(base)) == 0
+		Ok(())
+	else
+		Err("outbound HEADERS and PUSH_PROMISE failures did not preserve state, output, or failure context")
 	end
 end
 

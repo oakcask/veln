@@ -1,0 +1,373 @@
+use prelude
+use http2::core::connection_state
+use http2::core::flow_control
+use http2::core::header_list_validation
+use http2::core::peer_settings_state
+use http2::core::stream_state
+use http2::frame
+use http2::hpack
+
+pub type CoreHeadersSendDecision
+	CoreHeadersSendAccepted(CoreConnectionState, stream_id: Int, header_block_length: Int, end_stream: Bool, bytes: ByteChunk)
+	CoreHeadersSendRejected(CoreOutboundHeadersFailure)
+	CoreHeadersSendEncodeFailed(stream_id: Int, reason: String)
+end
+
+pub type CorePushPromiseSendDecision
+	CorePushPromiseSendAccepted(CoreConnectionState, stream_id: Int, promised_stream_id: Int, header_block_length: Int, bytes: ByteChunk)
+	CorePushPromiseSendRejected(CoreOutboundHeadersFailure)
+	CorePushPromiseSendEncodeFailed(stream_id: Int, promised_stream_id: Int, reason: String)
+end
+
+pub type CoreOutboundHeadersFailure
+	CoreOutboundHeadersInvalidStream(offset: Int, frame_kind: Int, stream_id: Int, expected: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundHeadersHeaderList(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderListValidationFailure, preview: ByteChunk)
+	CoreOutboundHeadersHpack(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderBlockEncodeFailure, preview: ByteChunk)
+	CoreOutboundHeadersAfterGoaway(offset: Int, frame_kind: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn send_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	validate_headers_goaway(state, offset, 1, stream_id, "request", headers, end_stream)
+end
+
+pub fn send_response_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	validate_headers_goaway(state, offset, 1, stream_id, "response", headers, end_stream)
+end
+
+pub fn send_trailers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList) -> CoreHeadersSendDecision
+	validate_headers_goaway(state, offset, 1, stream_id, "trailer", headers, true)
+end
+
+pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
+	if http2::core::connection_state::endpoint_role(state) != "server"
+		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, promised_stream_id, "server endpoint push promise", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "client_receives_push_promise", byte_chunk([])))
+	else if stream_id == 0
+		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "push_promise_requires_associated_stream", byte_chunk([])))
+	else if promised_stream_id == 0 or promised_stream_id / 2 * 2 != promised_stream_id
+		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, promised_stream_id, "nonzero server-initiated promised stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "server_push_promise_requires_server_stream", byte_chunk([])))
+	else
+		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => send_push_promise_for_entry(state, offset, stream_id, promised_stream_id, headers, entry)
+			None => CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+		end
+	end
+end
+
+fn send_push_promise_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList, entry: CoreStreamEntry) -> CorePushPromiseSendDecision
+	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	if not http2::core::stream_state::lifecycle_projects_open_stream(lifecycle)
+		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), http2::core::stream_state::lifecycle_active_state(lifecycle), http2::core::stream_state::lifecycle_rejection_rule(lifecycle), byte_chunk([])))
+	else
+		match http2::core::header_list_validation::validate_request(headers, http2::core::peer_settings_state::enable_connect_protocol_value(http2::core::connection_state::peer_settings(state)))
+			Ok(content_length) => encode_push_promise_headers(state, offset, stream_id, promised_stream_id, headers, content_length)
+			Err(failure) => CorePushPromiseSendRejected(CoreOutboundHeadersHeaderList(offset, 5, stream_id, failure, byte_chunk([])))
+		end
+	end
+end
+
+fn validate_headers_goaway(state: CoreConnectionState, offset: Int, frame_kind: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if label != "open" and stream_id > last_stream_id
+		CoreHeadersSendRejected(CoreOutboundHeadersAfterGoaway(offset, frame_kind, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else
+		send_headers_after_goaway(state, offset, stream_id, header_role, headers, end_stream)
+	end
+end
+
+fn send_headers_after_goaway(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	if stream_id == 0
+		CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "nonzero stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "headers_require_stream", byte_chunk([])))
+	else
+		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => send_headers_for_entry(state, offset, stream_id, header_role, headers, end_stream, entry)
+			None => if header_role == "request"
+				send_new_request_headers(state, offset, stream_id, headers, end_stream)
+			else
+				CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "existing stream id", http2::core::connection_state::endpoint_role(state), "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+			end
+		end
+	end
+end
+
+fn send_new_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	if http2::core::connection_state::endpoint_role(state) == "client" and stream_id / 2 * 2 == stream_id
+		CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "client-initiated stream id", "client", "stream-id-domain", "client_request_headers_require_client_stream", byte_chunk([])))
+	else if http2::core::connection_state::endpoint_role(state) == "server" and stream_id / 2 * 2 != stream_id
+		CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "server-initiated stream id", "server", "stream-id-domain", "server_request_headers_require_server_stream", byte_chunk([])))
+	else
+		match http2::core::header_list_validation::validate_request(headers, http2::core::peer_settings_state::enable_connect_protocol_value(http2::core::connection_state::peer_settings(state)))
+			Ok(content_length) => encode_headers(state, offset, stream_id, "request", headers, content_length, 0, end_stream, true)
+			Err(failure) => CoreHeadersSendRejected(CoreOutboundHeadersHeaderList(offset, 1, stream_id, failure, byte_chunk([])))
+		end
+	end
+end
+
+fn send_headers_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool, entry: CoreStreamEntry) -> CoreHeadersSendDecision
+	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	if not lifecycle_accepts_outbound_headers(lifecycle)
+		CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "open outbound headers stream", http2::core::connection_state::endpoint_role(state), http2::core::stream_state::lifecycle_active_state(lifecycle), outbound_headers_rule(lifecycle), byte_chunk([])))
+	else
+		validate_header_list_for_send(state, offset, stream_id, header_role, headers, end_stream, entry)
+	end
+end
+
+fn validate_header_list_for_send(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool, entry: CoreStreamEntry) -> CoreHeadersSendDecision
+	let validation: Result<Int, HeaderListValidationFailure> = if header_role == "response"
+		http2::core::header_list_validation::validate_response(headers, end_stream)
+	else if header_role == "trailer"
+		http2::core::header_list_validation::validate_trailers(headers, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)))
+	else
+		http2::core::header_list_validation::validate_request(headers, http2::core::peer_settings_state::enable_connect_protocol_value(http2::core::connection_state::peer_settings(state)))
+	end
+	match validation
+		Ok(content_length) => encode_headers(state, offset, stream_id, header_role, headers, content_length, http2::core::stream_state::entry_content_length_observed(entry), end_stream, false)
+		Err(failure) => CoreHeadersSendRejected(CoreOutboundHeadersHeaderList(offset, 1, stream_id, failure, byte_chunk([])))
+	end
+end
+
+fn encode_headers(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
+	match http2::hpack::encode_header_block(headers, http2::core::connection_state::hpack_table(state), http2::core::peer_settings_state::active_header_table_size(http2::core::connection_state::peer_settings(state)))
+		Ok(encoded) => encode_headers_frame(state, stream_id, header_role, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length, observed, end_stream, create_stream)
+		Err(failure) => CoreHeadersSendRejected(CoreOutboundHeadersHpack(offset, 1, stream_id, failure, byte_chunk([])))
+	end
+end
+
+fn encode_headers_frame(state: CoreConnectionState, stream_id: Int, header_role: String, block: ByteChunk, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
+	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
+	match http2::frame::encode_header(block_length, 1, headers_flags(end_stream), stream_id)
+		Ok(header) => CoreHeadersSendAccepted(headers_next_state(state, stream_id, header_role, table, content_length, observed, end_stream, create_stream), stream_id, block_length, end_stream, byte_append(header, block))
+		Err(reason) => CoreHeadersSendEncodeFailed(stream_id, reason)
+	end
+end
+
+fn encode_push_promise_headers(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList, content_length: Int) -> CorePushPromiseSendDecision
+	match http2::hpack::encode_header_block(headers, http2::core::connection_state::hpack_table(state), http2::core::peer_settings_state::active_header_table_size(http2::core::connection_state::peer_settings(state)))
+		Ok(encoded) => encode_push_promise_frame(state, stream_id, promised_stream_id, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length)
+		Err(failure) => CorePushPromiseSendRejected(CoreOutboundHeadersHpack(offset, 5, stream_id, failure, byte_chunk([])))
+	end
+end
+
+fn encode_push_promise_frame(state: CoreConnectionState, stream_id: Int, promised_stream_id: Int, block: ByteChunk, table: DynamicTable, content_length: Int) -> CorePushPromiseSendDecision
+	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
+	match byte_write_u31_be(promised_stream_id)
+		Ok(prefix) => match http2::frame::encode_header(block_length + 4, 5, 4, stream_id)
+			Ok(header) => CorePushPromiseSendAccepted(push_promise_next_state(state, promised_stream_id, table, content_length), stream_id, promised_stream_id, block_length, byte_append(header, byte_append(prefix, block)))
+			Err(reason) => CorePushPromiseSendEncodeFailed(stream_id, promised_stream_id, reason)
+		end
+		Err(reason) => CorePushPromiseSendEncodeFailed(stream_id, promised_stream_id, reason)
+	end
+end
+
+fn headers_next_state(state: CoreConnectionState, stream_id: Int, header_role: String, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreConnectionState
+	let with_table: CoreConnectionState = http2::core::connection_state::with_hpack_table(state, table)
+	let next_lifecycle: CoreStreamLifecycle = if end_stream
+		http2::core::stream_state::half_closed_local_lifecycle()
+	else
+		http2::core::stream_state::open_lifecycle()
+	end
+	if create_stream
+		headers_next_created_stream_state(with_table, stream_id, next_lifecycle, content_length, observed)
+	else
+		headers_next_existing_stream_state(with_table, stream_id, header_role, content_length, observed, end_stream)
+	end
+end
+
+fn headers_next_created_stream_state(state: CoreConnectionState, stream_id: Int, lifecycle: CoreStreamLifecycle, content_length: Int, observed: Int) -> CoreConnectionState
+	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	match http2::core::stream_state::entry(stream_id, lifecycle, initial_credit, initial_credit, content_length, observed)
+		Ok(entry) => http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry))
+		Err(_) => state
+	end
+end
+
+fn headers_next_existing_stream_state(state: CoreConnectionState, stream_id: Int, header_role: String, content_length: Int, observed: Int, end_stream: Bool) -> CoreConnectionState
+	let updated_content: CoreStreamCollection = if header_role == "trailer"
+		http2::core::connection_state::streams(state)
+	else
+		http2::core::stream_state::with_content_length(http2::core::connection_state::streams(state), stream_id, content_length, observed)
+	end
+	let updated_lifecycle: CoreStreamCollection = if end_stream
+		http2::core::stream_state::with_lifecycle(updated_content, stream_id, next_local_end_lifecycle(existing_lifecycle(updated_content, stream_id)))
+	else
+		updated_content
+	end
+	http2::core::connection_state::with_streams(state, updated_lifecycle)
+end
+
+fn push_promise_next_state(state: CoreConnectionState, promised_stream_id: Int, table: DynamicTable, content_length: Int) -> CoreConnectionState
+	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	let with_table: CoreConnectionState = http2::core::connection_state::with_hpack_table(state, table)
+	match http2::core::stream_state::entry(promised_stream_id, http2::core::stream_state::reserved_local_lifecycle(), initial_credit, initial_credit, content_length, 0)
+		Ok(entry) => http2::core::connection_state::with_streams(with_table, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(with_table), entry))
+		Err(_) => with_table
+	end
+end
+
+fn existing_lifecycle(collection: CoreStreamCollection, stream_id: Int) -> CoreStreamLifecycle
+	match http2::core::stream_state::find_entry(collection, stream_id)
+		Some(entry) => http2::core::stream_state::entry_lifecycle(entry)
+		None => http2::core::stream_state::open_lifecycle()
+	end
+end
+
+fn lifecycle_accepts_outbound_headers(lifecycle: CoreStreamLifecycle) -> Bool
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	label == "open" or label == "reserved-by-peer" or label == "half-closed-remote"
+end
+
+fn outbound_headers_rule(lifecycle: CoreStreamLifecycle) -> String
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	if label == "half-closed-local"
+		"half_closed_local_rejects_local_headers"
+	else
+		http2::core::stream_state::lifecycle_rejection_rule(lifecycle)
+	end
+end
+
+fn next_local_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	if label == "half-closed-remote"
+		http2::core::stream_state::closed_lifecycle()
+	else
+		http2::core::stream_state::half_closed_local_lifecycle()
+	end
+end
+
+fn headers_flags(end_stream: Bool) -> Int
+	if end_stream
+		5
+	else
+		4
+	end
+end
+
+pub fn headers_send_status(decision: CoreHeadersSendDecision) -> String
+	match decision
+		CoreHeadersSendAccepted(_, _, _, _, _) => "accepted"
+		CoreHeadersSendRejected(_) => "rejected"
+		CoreHeadersSendEncodeFailed(_, _) => "encode_error"
+	end
+end
+
+pub fn headers_send_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreHeadersSendAccepted(state, _, _, _, _) => Ok(state)
+		CoreHeadersSendRejected(_) => Err("rejected HEADERS send decision has no state")
+		CoreHeadersSendEncodeFailed(_, _) => Err("encode-failed HEADERS send decision has no state")
+	end
+end
+
+pub fn headers_send_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	match decision
+		CoreHeadersSendAccepted(_, _, _, _, _) => Err("accepted HEADERS send decision has no failure")
+		CoreHeadersSendRejected(failure) => Ok(failure)
+		CoreHeadersSendEncodeFailed(_, _) => Err("encode-failed HEADERS send decision has no protocol failure")
+	end
+end
+
+pub fn headers_send_bytes(decision: CoreHeadersSendDecision) -> ByteChunk
+	match decision
+		CoreHeadersSendAccepted(_, _, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn push_promise_send_status(decision: CorePushPromiseSendDecision) -> String
+	match decision
+		CorePushPromiseSendAccepted(_, _, _, _, _) => "accepted"
+		CorePushPromiseSendRejected(_) => "rejected"
+		CorePushPromiseSendEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+pub fn push_promise_send_state(decision: CorePushPromiseSendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CorePushPromiseSendAccepted(state, _, _, _, _) => Ok(state)
+		CorePushPromiseSendRejected(_) => Err("rejected PUSH_PROMISE send decision has no state")
+		CorePushPromiseSendEncodeFailed(_, _, _) => Err("encode-failed PUSH_PROMISE send decision has no state")
+	end
+end
+
+pub fn push_promise_send_failure(decision: CorePushPromiseSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	match decision
+		CorePushPromiseSendAccepted(_, _, _, _, _) => Err("accepted PUSH_PROMISE send decision has no failure")
+		CorePushPromiseSendRejected(failure) => Ok(failure)
+		CorePushPromiseSendEncodeFailed(_, _, _) => Err("encode-failed PUSH_PROMISE send decision has no protocol failure")
+	end
+end
+
+pub fn push_promise_send_bytes(decision: CorePushPromiseSendDecision) -> ByteChunk
+	match decision
+		CorePushPromiseSendAccepted(_, _, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn failure_id(failure: CoreOutboundHeadersFailure) -> String
+	match failure
+		CoreOutboundHeadersInvalidStream(_, frame_kind, _, _, _, _, _, _) => if frame_kind == 5
+			"http2.protocol.invalid_stream_id"
+		else
+			"http2.protocol.invalid_frame_kind"
+		end
+		CoreOutboundHeadersHeaderList(_, _, _, _, _) => "http2.protocol.header_list"
+		CoreOutboundHeadersHpack(_, _, _, _, _) => "http2.hpack.encode_failure"
+		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+	end
+end
+
+pub fn failure_offset(failure: CoreOutboundHeadersFailure) -> Int
+	match failure
+		CoreOutboundHeadersInvalidStream(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundHeadersHeaderList(offset, _, _, _, _) => offset
+		CoreOutboundHeadersHpack(offset, _, _, _, _) => offset
+		CoreOutboundHeadersAfterGoaway(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreOutboundHeadersFailure) -> Int
+	match failure
+		CoreOutboundHeadersInvalidStream(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundHeadersHeaderList(_, frame_kind, _, _, _) => frame_kind
+		CoreOutboundHeadersHpack(_, frame_kind, _, _, _) => frame_kind
+		CoreOutboundHeadersAfterGoaway(_, frame_kind, _, _, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_stream_id(failure: CoreOutboundHeadersFailure) -> Int
+	match failure
+		CoreOutboundHeadersInvalidStream(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundHeadersHeaderList(_, _, stream_id, _, _) => stream_id
+		CoreOutboundHeadersHpack(_, _, stream_id, _, _) => stream_id
+		CoreOutboundHeadersAfterGoaway(_, _, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_active_state(failure: CoreOutboundHeadersFailure) -> String
+	match failure
+		CoreOutboundHeadersInvalidStream(_, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundHeadersHeaderList(_, _, _, header_failure, _) => http2::core::header_list_validation::failure_active_state(header_failure)
+		CoreOutboundHeadersHpack(_, _, _, _, _) => "hpack-encode"
+		CoreOutboundHeadersAfterGoaway(_, _, _, _, shutdown_state, _, _, _) => shutdown_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreOutboundHeadersFailure) -> String
+	match failure
+		CoreOutboundHeadersInvalidStream(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundHeadersHeaderList(_, _, _, header_failure, _) => http2::core::header_list_validation::failure_fact(header_failure)
+		CoreOutboundHeadersHpack(_, _, _, failure_value, _) => http2::hpack::header_block_encode_failure_kind(failure_value)
+		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: CoreOutboundHeadersFailure) -> ByteChunk
+	match failure
+		CoreOutboundHeadersInvalidStream(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundHeadersHeaderList(_, _, _, _, preview) => preview
+		CoreOutboundHeadersHpack(_, _, _, _, preview) => preview
+		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, preview) => preview
+	end
+end
