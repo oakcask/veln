@@ -31,9 +31,10 @@ The public routes are:
   frame-admission predicates, pure PING request and ACK response transitions,
   immutable receive-frame dispatch for DATA, HEADERS, CONTINUATION,
   WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload application,
-  and an immutable aggregate connection state that composes those migrated
-  components with the public HPACK dynamic table and an immutable stream
-  collection.
+  immutable GOAWAY, RST_STREAM, PRIORITY, DATA, and WINDOW_UPDATE send
+  transitions, and an immutable aggregate connection state that composes those
+  migrated components with the public HPACK dynamic table and an immutable
+  stream collection.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -205,6 +206,28 @@ case records accepted bytes, drain completion, boundary rejection, empty
 failure output, encode failure output, and input-state preservation through
 the public facade.
 
+`http2::core::send_data(state, offset, stream_id, data, end_stream)` emits a
+kind-`0` DATA frame from an existing outbound-data-capable stream. The
+accepted transition debits the stream send credit by the DATA payload length,
+updates the stream content-length observed counter when an expected
+content-length is present, and applies local END_STREAM by moving an open
+stream to half-closed-local or closing a half-closed-remote stream. DATA
+stream-zero, idle, closed, reset, exhausted send-window, over-length, and
+short END_STREAM content-length cases reject with typed failures, no bytes,
+and no next state.
+
+`http2::core::send_window_update(state, offset, stream_id, increment)` emits a
+kind-`8`, flags-`0` WINDOW_UPDATE frame. Stream-level sends refill the target
+stream receive credit when the stream has a receive window. Connection-level
+sends refill the aggregate connection receive credit. Invalid increments,
+window overflow, idle stream references, and streams without receive-window
+ownership reject with typed failures, no bytes, and no next state.
+The focused
+[`http2-core-outbound-data-flow`](../../examples/specification/run/http2-core-outbound-data-flow/)
+case records accepted DATA, stream WINDOW_UPDATE, and connection
+WINDOW_UPDATE bytes, accepted state projections, content-length shortfall,
+invalid-increment failures, empty failure output, and public failure fields.
+
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and
 records the target stream as reset in the returned aggregate state. Zero,
@@ -224,10 +247,9 @@ case records accepted RST_STREAM and PRIORITY bytes, reset-state projection,
 dependency and GOAWAY failures, empty failure output, and public failure
 fields.
 
-Other receive-frame applications, including PUSH_PROMISE, outbound
-content-length send accounting, outbound DATA, HEADERS, PUSH_PROMISE,
-WINDOW_UPDATE, complete stdout, and output-chunk integration remain in the
-aggregate
+Other receive-frame applications, including PUSH_PROMISE, outbound HEADERS,
+PUSH_PROMISE, wider content-length integration with outbound header emission,
+complete stdout, and wider output-chunk ordering remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

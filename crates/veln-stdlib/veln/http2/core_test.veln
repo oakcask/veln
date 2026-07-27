@@ -368,6 +368,22 @@ fn require_goaway_send_failure(decision: CoreGoawaySendDecision) -> Result<CoreG
 	http2::core::goaway_send_failure(decision)
 end
 
+fn require_data_send_state(decision: CoreDataSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::data_send_state(decision)
+end
+
+fn require_data_send_failure(decision: CoreDataSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::data_send_failure(decision)
+end
+
+fn require_window_update_send_state(decision: CoreWindowUpdateSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_send_state(decision)
+end
+
+fn require_window_update_send_failure(decision: CoreWindowUpdateSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::window_update_send_failure(decision)
+end
+
 fn require_receive_frame_decision(result: Result<CoreReceiveFrameDecision, String>) -> Result<CoreReceiveFrameDecision, String>
 	result
 end
@@ -1934,6 +1950,73 @@ test header_list_validation_reports_response_and_trailer_failures() -> Result<()
 		Ok(())
 	else
 		Err("response or trailer header validation lost failure context")
+	end
+end
+
+test outbound_data_send_emits_exact_bytes_and_updates_stream_state() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 10, 4, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let decision: CoreDataSendDecision = http2::core::send_data(state, 17, 1, byte_chunk_from_hex("aabbccdd")?, true)
+	let next_state: CoreConnectionState = require_data_send_state(decision)?
+	let next_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 1))?
+	let input_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::data_send_status(decision) == "accepted" and chunks_equal(http2::core::data_send_bytes(decision), byte_chunk_from_hex("000004000100000001aabbccdd")?)? and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(next_entry)) == 6 and http2::core::stream_entry_content_length_observed(next_entry) == 4 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(next_entry)) == "half-closed-local" and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(input_entry)) == 10 and http2::core::stream_entry_content_length_observed(input_entry) == 0 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(input_entry)) == "open"
+		Ok(())
+	else
+		Err("outbound DATA did not emit exact bytes or update send credit, content length, and lifecycle immutably")
+	end
+end
+
+test outbound_data_send_failures_preserve_state_and_output() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 2, 3, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let flow_decision: CoreDataSendDecision = http2::core::send_data(state, 19, 1, byte_chunk_from_hex("aabbcc")?, false)
+	let flow_failure: CoreOutboundDataFlowFailure = require_data_send_failure(flow_decision)?
+	let length_decision: CoreDataSendDecision = http2::core::send_data(state, 23, 1, byte_chunk_from_hex("aabb")?, true)
+	let length_failure: CoreOutboundDataFlowFailure = require_data_send_failure(length_decision)?
+	let missing_decision: CoreDataSendDecision = http2::core::send_data(state, 29, 3, byte_chunk_from_hex("aa")?, false)
+	let missing_failure: CoreOutboundDataFlowFailure = require_data_send_failure(missing_decision)?
+	let preserved: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::outbound_data_flow_failure_id(flow_failure) == "http2.flow_control.window_exceeded" and http2::core::outbound_data_flow_failure_observed_value(flow_failure) == -1 and http2::core::outbound_data_flow_failure_data_length(flow_failure) == 3 and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(flow_decision))) == 0 and http2::core::outbound_data_flow_failure_id(length_failure) == "http2.protocol.content_length_mismatch" and http2::core::outbound_data_flow_failure_content_length_expected(length_failure) == 3 and http2::core::outbound_data_flow_failure_content_length_observed(length_failure) == 2 and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(length_decision))) == 0 and http2::core::outbound_data_flow_failure_id(missing_failure) == "http2.protocol.invalid_frame_kind" and http2::core::outbound_data_flow_failure_active_state(missing_failure) == "idle-stream" and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(preserved)) == 2 and http2::core::stream_entry_content_length_observed(preserved) == 0
+		Ok(())
+	else
+		Err("outbound DATA failures did not preserve state, output, or failure context")
+	end
+end
+
+test outbound_window_update_send_emits_exact_bytes_and_refills_receive_credit() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(10)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 5, 80, -1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let stream_decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 31, 1, 7)
+	let stream_state: CoreConnectionState = require_window_update_send_state(stream_decision)?
+	let stream_entry: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(stream_state), 1))?
+	let connection_decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 37, 0, 9)
+	let connection_state: CoreConnectionState = require_window_update_send_state(connection_decision)?
+	if http2::core::window_update_send_status(stream_decision) == "accepted" and chunks_equal(http2::core::window_update_send_bytes(stream_decision), byte_chunk_from_hex("00000408000000000100000007")?)? and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(stream_entry)) == 12 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream_entry)) == 80 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(stream_state)) == 10 and http2::core::window_update_send_status(connection_decision) == "accepted" and chunks_equal(http2::core::window_update_send_bytes(connection_decision), byte_chunk_from_hex("00000408000000000000000009")?)? and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(connection_state)) == 19
+		Ok(())
+	else
+		Err("outbound WINDOW_UPDATE did not emit exact bytes or refill receive credit immutably")
+	end
+end
+
+test outbound_window_update_send_failures_preserve_state_and_output() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483640)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_closed_lifecycle(), 2147483640, 80, -1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let increment_decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 41, 1, 0)
+	let increment_failure: CoreOutboundDataFlowFailure = require_window_update_send_failure(increment_decision)?
+	let closed_decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 43, 1, 1)
+	let closed_failure: CoreOutboundDataFlowFailure = require_window_update_send_failure(closed_decision)?
+	let overflow_decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 47, 0, 9)
+	let overflow_failure: CoreOutboundDataFlowFailure = require_window_update_send_failure(overflow_decision)?
+	let preserved: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
+	if http2::core::outbound_data_flow_failure_id(increment_failure) == "http2.flow_control.window_increment_out_of_range" and http2::core::outbound_data_flow_failure_increment(increment_failure) == 0 and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(increment_decision))) == 0 and http2::core::outbound_data_flow_failure_id(closed_failure) == "http2.protocol.invalid_stream_reference" and http2::core::outbound_data_flow_failure_active_state(closed_failure) == "closed-by-peer-stream" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(closed_decision))) == 0 and http2::core::outbound_data_flow_failure_id(overflow_failure) == "http2.flow_control.window_exceeded" and http2::core::outbound_data_flow_failure_observed_value(overflow_failure) == 2147483649 and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(overflow_decision))) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 2147483640 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(preserved)) == 2147483640
+		Ok(())
+	else
+		Err("outbound WINDOW_UPDATE failures did not preserve state, output, or failure context")
 	end
 end
 

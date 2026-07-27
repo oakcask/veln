@@ -1,0 +1,164 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_connection(result: Result<CoreConnectionWindowCredit, FlowControlDomainFailure>) -> Result<CoreConnectionWindowCredit, String>
+	match result
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_data_state(decision: CoreDataSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::data_send_state(decision)
+end
+
+fn require_data_failure(decision: CoreDataSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::data_send_failure(decision)
+end
+
+fn require_window_state(decision: CoreWindowUpdateSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_send_state(decision)
+end
+
+fn require_window_failure(decision: CoreWindowUpdateSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::window_update_send_failure(decision)
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_stream(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(entry) => print_entry_result(label, entry)
+		None => Err("missing stream")
+	end
+end
+
+fn print_entry_result(label: String, entry: CoreStreamEntry) -> Result<(), String> effects [stdio]
+	print_entry(label, entry)
+	Ok(())
+end
+
+fn print_entry(label: String, entry: CoreStreamEntry) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry)))
+	stdio::print(" receive ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(entry))))
+	stdio::print(" send ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(entry))))
+	stdio::print(" observed ")
+	stdio::println(int_to_string(http2::core::stream_entry_content_length_observed(entry)))
+end
+
+fn print_failure(label: String, failure: CoreOutboundDataFlowFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::outbound_data_flow_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_stream_id(failure)))
+	stdio::print(" data ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_data_length(failure)))
+	stdio::print(" increment ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_increment(failure)))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_observed_value(failure)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_content_length_expected(failure)))
+	stdio::print(" actual ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_content_length_observed(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::outbound_data_flow_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::println(http2::core::outbound_data_flow_failure_rule_provenance(failure))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection(http2::core::connection_window_credit(10))?)
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 5, 10, 4, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
+	let data: CoreDataSendDecision = http2::core::send_data(state, 17, 1, byte_chunk_from_hex("aabbccdd")?, true)
+	stdio::print("data ")
+	stdio::println(http2::core::data_send_status(data))
+	let data_state: CoreConnectionState = require_data_state(data)?
+	let _ = print_stream("data", data_state, 1)?
+	let _ = print_chunk("data", http2::core::data_send_bytes(data), "000004000100000001aabbccdd")?
+	let short_data: CoreDataSendDecision = http2::core::send_data(state, 23, 1, byte_chunk_from_hex("aabb")?, true)
+	print_failure("data-short", require_data_failure(short_data)?)
+	print_empty("data-short")
+	let stream_window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 31, 1, 7)
+	stdio::print("stream-window ")
+	stdio::println(http2::core::window_update_send_status(stream_window))
+	let stream_window_state: CoreConnectionState = require_window_state(stream_window)?
+	let _ = print_stream("stream-window", stream_window_state, 1)?
+	let _ = print_chunk("stream-window", http2::core::window_update_send_bytes(stream_window), "00000408000000000100000007")?
+	let connection_window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 37, 0, 9)
+	stdio::print("connection-window ")
+	stdio::println(http2::core::window_update_send_status(connection_window))
+	let connection_window_state: CoreConnectionState = require_window_state(connection_window)?
+	stdio::print("connection-window receive ")
+	stdio::println(int_to_string(http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(connection_window_state))))
+	let _ = print_chunk("connection-window", http2::core::window_update_send_bytes(connection_window), "00000408000000000000000009")?
+	let bad_increment: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 41, 1, 0)
+	print_failure("window-increment", require_window_failure(bad_increment)?)
+	print_empty("window-increment")
+	Ok(())
+end
