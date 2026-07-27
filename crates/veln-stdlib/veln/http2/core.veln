@@ -14,6 +14,7 @@ use http2::core::peer_settings_state
 use http2::core::peer_stream_admission
 use http2::core::receive_flow_control
 use http2::core::receive_frame
+use http2::core::receive_shutdown
 use http2::core::flow_control
 use http2::core::stream_state
 use http2::core::stream_frame_admission
@@ -103,6 +104,10 @@ pub type CoreDataReceiveFlowControlFailure = http2::core::receive_flow_control::
 pub type CoreReceiveFrameDecision = http2::core::receive_frame::CoreReceiveFrameDecision
 
 pub type CoreReceiveFrameFailure = http2::core::receive_frame::CoreReceiveFrameFailure
+
+pub type CoreConnectionShutdownDecision = http2::core::receive_shutdown::CoreConnectionShutdownDecision
+
+pub type CoreConnectionShutdownFailure = http2::core::receive_shutdown::CoreConnectionShutdownFailure
 
 pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
 
@@ -690,6 +695,58 @@ end
 
 pub fn apply_receive_frame(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	http2::core::receive_frame::apply(state, frame_bytes)
+end
+
+pub fn apply_goaway_receive_shutdown(state: CoreConnectionState, offset: Int, payload: ByteChunk, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	http2::core::receive_shutdown::apply_goaway(state, offset, payload, preview)
+end
+
+pub fn complete_connection_shutdown_drain(state: CoreConnectionState) -> CoreConnectionState
+	http2::core::receive_shutdown::complete_drain(state)
+end
+
+pub fn connection_shutdown_status(decision: CoreConnectionShutdownDecision) -> String
+	http2::core::receive_shutdown::decision_status(decision)
+end
+
+pub fn connection_shutdown_state(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_shutdown::decision_state(decision)
+end
+
+pub fn connection_shutdown_failure(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionShutdownFailure, String>
+	http2::core::receive_shutdown::decision_failure(decision)
+end
+
+pub fn connection_shutdown_failure_id(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_id(failure)
+end
+
+pub fn connection_shutdown_failure_offset(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_offset(failure)
+end
+
+pub fn connection_shutdown_failure_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_stream_id(failure)
+end
+
+pub fn connection_shutdown_failure_last_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_last_stream_id(failure)
+end
+
+pub fn connection_shutdown_failure_shutdown_state(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_shutdown_state(failure)
+end
+
+pub fn connection_shutdown_failure_endpoint_role(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_endpoint_role(failure)
+end
+
+pub fn connection_shutdown_failure_rule_provenance(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_rule_provenance(failure)
+end
+
+pub fn connection_shutdown_failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
+	http2::core::receive_shutdown::failure_preview(failure)
 end
 
 pub fn receive_frame_status(decision: CoreReceiveFrameDecision) -> String

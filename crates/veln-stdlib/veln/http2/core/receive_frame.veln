@@ -6,6 +6,7 @@ use http2::core::receive_flow_control
 use http2::core::stream_frame_admission
 use http2::core::stream_state
 use http2::core::stream_transition
+use http2::core::receive_shutdown
 use http2::core::window_update_flow_control
 
 pub type CoreReceiveFrameDecision
@@ -22,6 +23,7 @@ pub type CoreReceiveFrameFailure
 	CoreReceiveFrameStreamWindowUpdateFailure(CoreStreamWindowUpdateFlowControlFailure)
 	CoreReceiveFrameConnectionWindowUpdateFailure(CoreConnectionWindowUpdateFlowControlFailure)
 	CoreReceiveFrameStreamLifecycleFailure(CoreStreamLifecycleTransitionFailure)
+	CoreReceiveFrameConnectionShutdownFailure(CoreConnectionShutdownFailure)
 end
 
 pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
@@ -58,8 +60,17 @@ fn apply_admitted(state: CoreConnectionState, offset: Int, length: Int, kind: In
 	match kind
 		0 => apply_data_frame(state, offset, length, flags, stream_id, payload, header, frame_bytes)
 		3 => apply_rst_stream_frame(state, offset, stream_id, payload, header)
+		7 => apply_goaway_frame(state, offset, length, payload, header)
 		8 => apply_window_update_frame(state, offset, stream_id, payload, header)
-		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(state, offset + 9 + length), kind, stream_id, length, "none"))
+		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::complete_drain(state), offset + 9 + length), kind, stream_id, length, "none"))
+	end
+end
+
+fn apply_goaway_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	let decision: CoreConnectionShutdownDecision = http2::core::receive_shutdown::apply_goaway(state, offset, payload, header)
+	match http2::core::receive_shutdown::decision_status(decision)
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::decision_state(decision)?, offset + 9 + length), 7, 0, length, "goaway"))
+		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionShutdownFailure(http2::core::receive_shutdown::decision_failure(decision)?)))
 	end
 end
 
@@ -239,6 +250,7 @@ pub fn failure_source(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFrameStreamWindowUpdateFailure(_) => "stream-window-update-flow-control"
 		CoreReceiveFrameConnectionWindowUpdateFailure(_) => "connection-window-update-flow-control"
 		CoreReceiveFrameStreamLifecycleFailure(_) => "stream-lifecycle"
+		CoreReceiveFrameConnectionShutdownFailure(_) => "connection-shutdown"
 	end
 end
 
@@ -252,6 +264,7 @@ pub fn failure_id(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_id(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_id(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_id(inner)
+		CoreReceiveFrameConnectionShutdownFailure(inner) => http2::core::receive_shutdown::failure_id(inner)
 	end
 end
 
@@ -265,6 +278,7 @@ pub fn failure_offset(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_offset(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_offset(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_offset(inner)
+		CoreReceiveFrameConnectionShutdownFailure(inner) => http2::core::receive_shutdown::failure_offset(inner)
 	end
 end
 
@@ -274,6 +288,7 @@ pub fn failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePayloadLengthFailure(inner) => http2::core::frame_payload_length::failure_frame_kind(inner)
 		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_frame_kind(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_frame_kind(inner)
+		CoreReceiveFrameConnectionShutdownFailure(_) => 7
 		_ => 0
 	end
 end
@@ -286,6 +301,7 @@ pub fn failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFrameDataFlowControlFailure(inner) => http2::core::receive_flow_control::failure_stream_id(inner)
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_stream_id(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_stream_id(inner)
+		CoreReceiveFrameConnectionShutdownFailure(inner) => http2::core::receive_shutdown::failure_stream_id(inner)
 		_ => 0
 	end
 end
@@ -300,5 +316,6 @@ pub fn failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 		CoreReceiveFrameStreamWindowUpdateFailure(inner) => http2::core::window_update_flow_control::failure_preview(inner)
 		CoreReceiveFrameConnectionWindowUpdateFailure(inner) => http2::core::window_update_flow_control::connection_failure_preview(inner)
 		CoreReceiveFrameStreamLifecycleFailure(inner) => http2::core::stream_transition::failure_preview(inner)
+		CoreReceiveFrameConnectionShutdownFailure(inner) => http2::core::receive_shutdown::failure_preview(inner)
 	end
 end

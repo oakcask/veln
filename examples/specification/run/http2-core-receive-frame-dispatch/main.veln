@@ -58,6 +58,19 @@ fn print_state(label: String, state: CoreConnectionState, stream_id: Int) -> Res
 	Ok(())
 end
 
+fn print_connection_lifecycle(label: String, state: CoreConnectionState) -> () effects [stdio]
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state_lifecycle(state)
+	stdio::print(label)
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::connection_lifecycle_label(lifecycle))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_last_stream_id(lifecycle)))
+	stdio::print(" error ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_error_code(lifecycle)))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+end
+
 fn print_failure(label: String, failure: CoreReceiveFrameFailure) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" failure ")
@@ -111,6 +124,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let connection_window_state: CoreConnectionState = require_state(connection_window)?
 	print_decision("connection-window", connection_window)
 	let _ = print_state("connection-window", connection_window_state, 5)?
+	let goaway: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("000008070000000000000000050000000b")?)?
+	let goaway_state: CoreConnectionState = require_state(goaway)?
+	print_decision("goaway", goaway)
+	print_connection_lifecycle("goaway", goaway_state)
 	let rst: CoreReceiveFrameDecision = http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000403000000000500000008")?)?
 	print_decision("rst", rst)
 	let _ = print_state("rst", require_state(rst)?, 5)?
@@ -118,8 +135,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let low_state: CoreConnectionState = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
 	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
 	let flow_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
+	let goaway_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("flow", flow_failure)
+	print_failure("goaway", goaway_failure)
 	let _ = print_failure_accessor_error("accessor", data)?
 	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
 	Ok(())

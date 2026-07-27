@@ -121,6 +121,12 @@ pub fn active_count(collection: CoreStreamCollection) -> Int
 	end
 end
 
+pub fn has_active_in_boundary(collection: CoreStreamCollection, last_stream_id: Int) -> Bool
+	match collection
+		CoreStreamCollection(streams) => entries_have_active_in_boundary(streams, last_stream_id)
+	end
+end
+
 pub fn entry_stream_id(entry_value: CoreStreamEntry) -> Int
 	match entry_value
 		CoreStreamEntry(stream_id, _, _, _, _, _) => stream_id
@@ -311,6 +317,13 @@ fn active_count_in(streams: List<CoreStreamEntry>, acc: Int) -> Int
 	match streams
 		Nil => acc
 		Cons(head, tail) => active_count_in(tail, acc + active_value(entry_lifecycle(head)))
+	end
+end
+
+fn entries_have_active_in_boundary(streams: List<CoreStreamEntry>, last_stream_id: Int) -> Bool
+	match streams
+		Nil => false
+		Cons(head, tail) => entry_stream_id(head) <= last_stream_id and lifecycle_is_active(entry_lifecycle(head)) or entries_have_active_in_boundary(tail, last_stream_id)
 	end
 end
 

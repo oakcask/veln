@@ -1,0 +1,156 @@
+use prelude
+use http2::core::connection_state
+use http2::core::stream_state
+
+type GoawayPayload
+	GoawayPayload(last_stream_id: Int, error_code: Int)
+end
+
+pub type CoreConnectionShutdownDecision
+	CoreConnectionShutdownAccepted(CoreConnectionState)
+	CoreConnectionShutdownRejected(CoreConnectionShutdownFailure)
+end
+
+pub type CoreConnectionShutdownFailure
+	CoreConnectionShutdownBoundaryIncreased(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+	CoreConnectionShutdownPayloadReadFailure(offset: Int, reason: String, preview: ByteChunk)
+end
+
+pub fn apply_goaway(state: CoreConnectionState, offset: Int, payload: ByteChunk, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	match decode_goaway_payload(payload)
+		Ok(decoded) => apply_goaway_payload(state, offset, decoded, preview)
+		Err(reason) => CoreConnectionShutdownRejected(CoreConnectionShutdownPayloadReadFailure(offset, reason, preview))
+	end
+end
+
+pub fn complete_drain(state: CoreConnectionState) -> CoreConnectionState
+	http2::core::connection_state::with_lifecycle(state, drained_lifecycle(http2::core::connection_state::lifecycle(state), http2::core::connection_state::streams(state)))
+end
+
+fn apply_goaway_payload(state: CoreConnectionState, offset: Int, decoded: GoawayPayload, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	match decoded
+		GoawayPayload(new_last_stream_id, new_error_code) => apply_goaway_boundary(state, offset, new_last_stream_id, new_error_code, preview)
+	end
+end
+
+fn apply_goaway_boundary(state: CoreConnectionState, offset: Int, new_last_stream_id: Int, new_error_code: Int, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let current_last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if label == "open"
+		accept_lifecycle(state, http2::core::connection_state::draining(new_last_stream_id, new_error_code))
+	else if new_last_stream_id > current_last_stream_id
+		reject_boundary_increase(state, offset, new_last_stream_id, current_last_stream_id, label, preview)
+	else if label == "closed"
+		CoreConnectionShutdownAccepted(http2::core::connection_state::with_lifecycle(state, http2::core::connection_state::closed(new_last_stream_id, new_error_code)))
+	else
+		accept_lifecycle(state, http2::core::connection_state::draining(new_last_stream_id, new_error_code))
+	end
+end
+
+fn accept_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifecycle) -> CoreConnectionShutdownDecision
+	CoreConnectionShutdownAccepted(http2::core::connection_state::with_lifecycle(state, drained_lifecycle(lifecycle, http2::core::connection_state::streams(state))))
+end
+
+fn reject_boundary_increase(state: CoreConnectionState, offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	CoreConnectionShutdownRejected(CoreConnectionShutdownBoundaryIncreased(offset, stream_id, last_stream_id, shutdown_state, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", preview))
+end
+
+fn decode_goaway_payload(payload: ByteChunk) -> Result<GoawayPayload, String>
+	let field_count: ByteCount = byte_count(4)?
+	let last_stream_id: Int = byte_read_u31_be(byte_view(payload, byte_offset(0)?, field_count)?)?
+	let error_code: Int = byte_read_u32_be(byte_view(payload, byte_offset(4)?, field_count)?)?
+	Ok(GoawayPayload(last_stream_id, error_code))
+end
+
+fn drained_lifecycle(lifecycle: CoreConnectionLifecycle, streams: CoreStreamCollection) -> CoreConnectionLifecycle
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let error_code: Int = http2::core::connection_state::lifecycle_error_code(lifecycle)
+	if label == "draining"
+		if http2::core::stream_state::has_active_in_boundary(streams, last_stream_id)
+			lifecycle
+		else
+			http2::core::connection_state::closed(last_stream_id, error_code)
+		end
+	else
+		lifecycle
+	end
+end
+
+pub fn decision_status(decision: CoreConnectionShutdownDecision) -> String
+	match decision
+		CoreConnectionShutdownAccepted(_) => "accepted"
+		CoreConnectionShutdownRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_state(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreConnectionShutdownAccepted(state) => Ok(state)
+		CoreConnectionShutdownRejected(_) => Err("rejected connection shutdown decision has no state")
+	end
+end
+
+pub fn decision_failure(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionShutdownFailure, String>
+	match decision
+		CoreConnectionShutdownAccepted(_) => Err("accepted connection shutdown decision has no failure")
+		CoreConnectionShutdownRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_id(failure: CoreConnectionShutdownFailure) -> String
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => "http2.frame.payload_read_failure"
+	end
+end
+
+pub fn failure_offset(failure: CoreConnectionShutdownFailure) -> Int
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(offset, _, _, _, _, _, _) => offset
+		CoreConnectionShutdownPayloadReadFailure(offset, _, _) => offset
+	end
+end
+
+pub fn failure_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, stream_id, _, _, _, _, _) => stream_id
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => 0
+	end
+end
+
+pub fn failure_last_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, last_stream_id, _, _, _, _) => last_stream_id
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => 0
+	end
+end
+
+pub fn failure_shutdown_state(failure: CoreConnectionShutdownFailure) -> String
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, shutdown_state, _, _, _) => shutdown_state
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => "none"
+	end
+end
+
+pub fn failure_endpoint_role(failure: CoreConnectionShutdownFailure) -> String
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, endpoint_role, _, _) => endpoint_role
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => "none"
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreConnectionShutdownFailure) -> String
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreConnectionShutdownPayloadReadFailure(_, _, _) => "payload_read"
+	end
+end
+
+pub fn failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
+	match failure
+		CoreConnectionShutdownBoundaryIncreased(_, _, _, _, _, _, preview) => preview
+		CoreConnectionShutdownPayloadReadFailure(_, _, preview) => preview
+	end
+end
