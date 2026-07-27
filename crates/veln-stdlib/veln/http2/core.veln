@@ -16,6 +16,7 @@ use http2::core::receive_flow_control
 use http2::core::receive_frame
 use http2::core::receive_shutdown
 use http2::core::flow_control
+use http2::core::header_list_validation
 use http2::core::stream_state
 use http2::core::stream_frame_admission
 use http2::core::stream_transition
@@ -28,6 +29,10 @@ pub type ConnectionPrefaceTransition = http2::core::connection_preface::Connecti
 pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionPrefaceFailure
 
 pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
+
+pub type HeaderList = http2::hpack::HeaderList
+
+pub type HeaderField = http2::hpack::HeaderField
 
 pub type CoreConnectionState = http2::core::connection_state::CoreConnectionState
 
@@ -128,6 +133,8 @@ pub type CoreWindowUpdateIncrement = http2::core::flow_control::CoreWindowUpdate
 pub type FlowControlDomainFailure = http2::core::flow_control::FlowControlDomainFailure
 
 pub type FlowControlCreditDecision = http2::core::flow_control::FlowControlCreditDecision
+
+pub type HeaderListValidationFailure = http2::core::header_list_validation::HeaderListValidationFailure
 
 pub fn server_connection_state(starting_offset: Int) -> Result<CoreConnectionState, String>
 	http2::core::connection_state::server(starting_offset)
@@ -979,6 +986,46 @@ end
 
 pub fn flow_control_failure_accepted_max_value(failure: FlowControlDomainFailure) -> Int
 	http2::core::flow_control::failure_accepted_max_value(failure)
+end
+
+pub fn validate_request_header_list(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_request(headers, enable_connect_protocol)
+end
+
+pub fn header_field(name: String, value: ByteChunk) -> HeaderField
+	http2::hpack::header_field(name, value)
+end
+
+pub fn empty_header_list() -> HeaderList
+	http2::hpack::empty_header_list()
+end
+
+pub fn prepend_header_field(header: HeaderField, remaining: HeaderList) -> HeaderList
+	http2::hpack::prepend_header_field(header, remaining)
+end
+
+pub fn validate_response_header_list(headers: HeaderList, completed_end_stream: Bool) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_response(headers, completed_end_stream)
+end
+
+pub fn validate_trailer_header_list(headers: HeaderList, active_state: String) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_trailers(headers, active_state)
+end
+
+pub fn header_list_accepted_content_length(headers: HeaderList) -> Int
+	http2::core::header_list_validation::accepted_content_length(headers, -1)
+end
+
+pub fn header_list_validation_failure_fact(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_fact(failure)
+end
+
+pub fn header_list_validation_failure_header_name(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_header_name(failure)
+end
+
+pub fn header_list_validation_failure_active_state(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_active_state(failure)
 end
 
 pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>

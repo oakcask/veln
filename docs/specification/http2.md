@@ -26,7 +26,8 @@ The public routes are:
   immutable local SETTINGS send transitions, pure peer SETTINGS item
   validation, immutable peer SETTINGS state application, immutable SETTINGS
   acknowledgement state, peer-created stream admission high-water tracking,
-  pure flow-control numeric domains, stream lifecycle projection and
+  pure public HPACK header-list validation for request, response, and trailer
+  rules, pure flow-control numeric domains, stream lifecycle projection and
   frame-admission predicates, pure PING request and ACK response transitions,
   immutable receive-frame dispatch for DATA, WINDOW_UPDATE, RST_STREAM, and
   GOAWAY payload application,
@@ -429,6 +430,34 @@ focused
 [`http2-core-connection-window-update-flow-control`](../../examples/specification/run/http2-core-connection-window-update-flow-control/)
 case imports `http2::core` from `std` and records the public result-state and
 failure projections.
+
+`http2::core::validate_request_header_list(headers, enable_connect_protocol)`,
+`validate_response_header_list(headers, completed_end_stream)`, and
+`validate_trailer_header_list(headers, active_state)` validate a completed
+public `http2::hpack::HeaderList` without changing HPACK table state, stream
+state, or frame input. Accepted request and response lists return the accepted
+`content-length` value, or `-1` when no accepted content length is present.
+The request validator receives the active `SETTINGS_ENABLE_CONNECT_PROTOCOL`
+value used for extended CONNECT negotiation. Failures expose a stable failed
+fact, the selected header name, and the request, response, or trailer
+active-state label.
+
+The pure boundary covers duplicate pseudo-headers, pseudo-headers after
+regular headers, request-only and response-only pseudo-headers, ordinary
+request required pseudo-headers, CONNECT and extended CONNECT request shape,
+status value and informational END_STREAM response rules, trailer
+pseudo-header rejection, ordinary header lowercase and token rules,
+connection-specific header rejection, `te` value validation, and
+`content-length` invalid or mismatched values. HPACK-carrying receive
+transitions, diagnostic rendering, content-length body accounting, complete
+stdout, and output-chunk integration remain in the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case until those responsibilities are migrated. The adjacent test checks pure
+success and failure facts for request, response, and trailer lists. The
+focused
+[`http2-core-header-list-validation`](../../examples/specification/check/http2-core-header-list-validation/)
+case imports `http2::core` from `std` and checks that the public validation
+surface is available to external packages.
 
 The adjacent test also checks that `apply_receive_frame(...)` composes frame
 decode, payload-length validation, stream-frame admission, DATA END_STREAM

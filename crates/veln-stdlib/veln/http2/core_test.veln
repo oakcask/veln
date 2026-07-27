@@ -26,6 +26,40 @@ fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
 	end
 end
 
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn headers4(first: HeaderField, second: HeaderField, third: HeaderField, fourth: HeaderField) -> HeaderList
+	http2::hpack::prepend_header_field(first, http2::hpack::prepend_header_field(second, http2::hpack::prepend_header_field(third, http2::hpack::prepend_header_field(fourth, http2::hpack::empty_header_list()))))
+end
+
+fn header_validation_failure(result: Result<Int, HeaderListValidationFailure>) -> Result<HeaderListValidationFailure, String>
+	match result
+		Ok(_) => Err("header validation unexpectedly accepted")
+		Err(failure) => Ok(failure)
+	end
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	Ok(headers4(ascii_header(":method", "GET")?, ascii_header(":scheme", "https")?, ascii_header(":path", "/")?, ascii_header("content-length", "5")?))
+end
+
+fn response_headers(status: String) -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", status)?, http2::hpack::prepend_header_field(ascii_header("server", "veln")?, http2::hpack::empty_header_list())))
+end
+
+fn request_validation_fact(headers: HeaderList) -> Result<String, String>
+	Ok(http2::core::header_list_validation_failure_fact(header_validation_failure(http2::core::validate_request_header_list(headers, 0))?))
+end
+
+fn header_validation_accepts(result: Result<Int, HeaderListValidationFailure>, expected_content_length: Int) -> Bool
+	match result
+		Ok(value) => value == expected_content_length
+		Err(_) => false
+	end
+end
+
 fn require_transition(result: Result<HeaderBlockTransition, HeaderBlockFailure>) -> Result<HeaderBlockTransition, String>
 	match result
 		Ok(transition) => Ok(transition)
@@ -1657,5 +1691,45 @@ test peer_settings_state_records_peer_created_stream_high_water() -> Result<(), 
 		Ok(())
 	else
 		Err("peer-created stream high-water update mutated the input SETTINGS state")
+	end
+end
+
+test header_list_validation_accepts_request_response_and_trailers() -> Result<(), String>
+	let request: HeaderList = request_headers()?
+	let response: HeaderList = response_headers("200")?
+	let trailers: HeaderList = http2::hpack::prepend_header_field(ascii_header("te", "trailers")?, http2::hpack::empty_header_list())
+	if header_validation_accepts(http2::core::validate_request_header_list(request, 0), 5) and header_validation_accepts(http2::core::validate_response_header_list(response, false), -1) and header_validation_accepts(http2::core::validate_trailer_header_list(trailers, "request-trailers"), -1)
+		Ok(())
+	else
+		Err("header list validation rejected valid public HPACK header lists")
+	end
+end
+
+test header_list_validation_reports_request_failures_with_context() -> Result<(), String>
+	let duplicate: HeaderList = headers4(ascii_header(":method", "GET")?, ascii_header(":method", "POST")?, ascii_header(":scheme", "https")?, ascii_header(":path", "/")?)
+	let misplaced: HeaderList = headers4(ascii_header("x", "1")?, ascii_header(":method", "GET")?, ascii_header(":scheme", "https")?, ascii_header(":path", "/")?)
+	let invalid_te: HeaderList = headers4(ascii_header(":method", "GET")?, ascii_header(":scheme", "https")?, ascii_header(":path", "/")?, ascii_header("te", "gzip")?)
+	let mismatched_length: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::prepend_header_field(ascii_header("content-length", "5")?, http2::hpack::prepend_header_field(ascii_header("content-length", "7")?, http2::hpack::empty_header_list())))))
+	let duplicate_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_request_header_list(duplicate, 0))?
+	if http2::core::header_list_validation_failure_fact(duplicate_failure) == "duplicate_pseudo_header" and http2::core::header_list_validation_failure_header_name(duplicate_failure) == ":method" and http2::core::header_list_validation_failure_active_state(duplicate_failure) == "request-headers" and request_validation_fact(misplaced)? == "pseudo_header_after_regular_header" and request_validation_fact(invalid_te)? == "te_header_value_not_trailers" and request_validation_fact(mismatched_length)? == "content_length_mismatch"
+		Ok(())
+	else
+		Err("request header validation did not preserve fact, header, or active state")
+	end
+end
+
+test header_list_validation_reports_response_and_trailer_failures() -> Result<(), String>
+	let missing_status: HeaderList = http2::hpack::prepend_header_field(ascii_header("server", "veln")?, http2::hpack::empty_header_list())
+	let informational_end_stream: HeaderList = response_headers("103")?
+	let response_trailer_pseudo: HeaderList = http2::hpack::prepend_header_field(ascii_header(":status", "200")?, http2::hpack::empty_header_list())
+	let request_trailer_connection: HeaderList = http2::hpack::prepend_header_field(ascii_header("connection", "close")?, http2::hpack::empty_header_list())
+	let missing_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_response_header_list(missing_status, false))?
+	let info_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_response_header_list(informational_end_stream, true))?
+	let response_trailer_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_trailer_header_list(response_trailer_pseudo, "response-trailers"))?
+	let request_trailer_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_trailer_header_list(request_trailer_connection, "request-trailers"))?
+	if http2::core::header_list_validation_failure_fact(missing_failure) == "missing_required_pseudo_header" and http2::core::header_list_validation_failure_header_name(missing_failure) == ":status" and http2::core::header_list_validation_failure_fact(info_failure) == "informational_response_end_stream" and http2::core::header_list_validation_failure_fact(response_trailer_failure) == "trailer_pseudo_header" and http2::core::header_list_validation_failure_active_state(response_trailer_failure) == "response-trailers" and http2::core::header_list_validation_failure_fact(request_trailer_failure) == "connection_specific_header" and http2::core::header_list_validation_failure_active_state(request_trailer_failure) == "request-trailers"
+		Ok(())
+	else
+		Err("response or trailer header validation lost failure context")
 	end
 end
