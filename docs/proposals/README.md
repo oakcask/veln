@@ -30,6 +30,16 @@ covered there or only extends a numbered, width-based, arity-based, route-count,
 or diagnostic-id sequence. Such work needs a concrete new capability and a
 bounded stopping condition.
 
+## Proposal Shape
+
+Express observable targets as structured acceptance cases, decision tables,
+state-transition tables, executable models, or another directly verifiable
+form when practical. Map those targets to the tests, fixtures, doctests,
+benchmarks, or executable specifications that will verify implementation.
+Keep prose for scope, rationale, non-goals, and constraints that cannot
+reasonably be expressed in the primary verification medium. Do not describe
+planned evidence as already passing.
+
 ## Update When
 
 Promote observable behavior to executable evidence under
