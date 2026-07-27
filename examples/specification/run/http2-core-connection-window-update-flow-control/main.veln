@@ -1,0 +1,74 @@
+use http2::core from "std"
+use stdio
+
+fn require_connection(result: Result<CoreConnectionWindowCredit, FlowControlDomainFailure>) -> Result<CoreConnectionWindowCredit, String>
+	match result
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_state(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::connection_window_update_flow_control_state(decision)
+end
+
+fn require_failure(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionWindowUpdateFlowControlFailure, String>
+	http2::core::connection_window_update_flow_control_failure(decision)
+end
+
+fn print_state(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(found) => found
+		None => Err("missing expected stream")?
+	end
+	stdio::print(label)
+	stdio::print(" connection ")
+	stdio::print(int_to_string(http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state))))
+	stdio::print(" stream-receive ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(stream))))
+	stdio::print(" stream-send ")
+	stdio::println(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream))))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: CoreConnectionWindowUpdateFlowControlFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::connection_window_update_flow_control_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::connection_window_update_flow_control_failure_offset(failure)))
+	stdio::print(" increment ")
+	stdio::print(int_to_string(http2::core::connection_window_update_flow_control_failure_increment(failure)))
+	stdio::print(" domain ")
+	stdio::print(http2::core::connection_window_update_flow_control_failure_domain(failure))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::connection_window_update_flow_control_failure_observed_value(failure)))
+	stdio::print(" connection-credit ")
+	stdio::print(int_to_string(http2::core::connection_window_update_flow_control_failure_connection_credit(failure)))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::connection_window_update_flow_control_failure_preview(failure)))))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection(http2::core::connection_window_credit(10))?)
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 13, 21, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
+	let accepted: CoreConnectionWindowUpdateFlowControlDecision = http2::core::apply_connection_window_update_flow_control(state, 73, 9, byte_chunk_from_hex("000004080000000000")?)
+	stdio::print("accepted ")
+	stdio::println(http2::core::connection_window_update_flow_control_status(accepted))
+	let _ = print_state("updated", require_state(accepted)?, 5)?
+	let _ = print_state("input", state, 5)?
+	let invalid: CoreConnectionWindowUpdateFlowControlFailure = require_failure(http2::core::apply_connection_window_update_flow_control(state, 79, 0, byte_chunk_from_hex("000004080000000000")?))?
+	let high_state: CoreConnectionState = http2::core::connection_state_with_receive_credit(state, require_connection(http2::core::connection_window_credit(2147483640))?)
+	let overflow: CoreConnectionWindowUpdateFlowControlFailure = require_failure(http2::core::apply_connection_window_update_flow_control(high_state, 83, 9, byte_chunk_from_hex("000004080000000000")?))?
+	print_failure("invalid", invalid)
+	print_failure("overflow", overflow)
+	Ok(())
+end

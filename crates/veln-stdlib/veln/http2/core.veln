@@ -98,6 +98,10 @@ pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_
 
 pub type CoreStreamWindowUpdateFlowControlFailure = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlFailure
 
+pub type CoreConnectionWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreConnectionWindowUpdateFlowControlDecision
+
+pub type CoreConnectionWindowUpdateFlowControlFailure = http2::core::window_update_flow_control::CoreConnectionWindowUpdateFlowControlFailure
+
 pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
 
 pub type CoreStreamWindowCredit = http2::core::flow_control::CoreStreamWindowCredit
@@ -672,6 +676,50 @@ end
 
 pub fn stream_window_update_flow_control_failure_preview(failure: CoreStreamWindowUpdateFlowControlFailure) -> ByteChunk
 	http2::core::window_update_flow_control::failure_preview(failure)
+end
+
+pub fn apply_connection_window_update_flow_control(state: CoreConnectionState, offset: Int, increment: Int, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
+	http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, preview)
+end
+
+pub fn connection_window_update_flow_control_status(decision: CoreConnectionWindowUpdateFlowControlDecision) -> String
+	http2::core::window_update_flow_control::connection_decision_status(decision)
+end
+
+pub fn connection_window_update_flow_control_state(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_flow_control::connection_decision_state(decision)
+end
+
+pub fn connection_window_update_flow_control_failure(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionWindowUpdateFlowControlFailure, String>
+	http2::core::window_update_flow_control::connection_decision_failure(decision)
+end
+
+pub fn connection_window_update_flow_control_failure_id(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::connection_failure_id(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_offset(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_offset(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_increment(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_increment(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_domain(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::connection_failure_domain(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_observed_value(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_observed_value(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_connection_credit(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_connection_credit(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_preview(failure: CoreConnectionWindowUpdateFlowControlFailure) -> ByteChunk
+	http2::core::window_update_flow_control::connection_failure_preview(failure)
 end
 
 pub fn max_flow_control_value() -> Int

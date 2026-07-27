@@ -14,10 +14,28 @@ pub type CoreStreamWindowUpdateFlowControlFailure
 	CoreStreamWindowUpdateFlowControlWindowExceeded(offset: Int, stream_id: Int, increment: Int, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, stream_credit: Int, preview: ByteChunk)
 end
 
+pub type CoreConnectionWindowUpdateFlowControlDecision
+	CoreConnectionWindowUpdateFlowControlAccepted(CoreConnectionState)
+	CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlFailure)
+end
+
+pub type CoreConnectionWindowUpdateFlowControlFailure
+	CoreConnectionWindowUpdateFlowControlInvalidIncrement(offset: Int, increment: Int, accepted_min_value: Int, accepted_max_value: Int, connection_credit: Int, preview: ByteChunk)
+	CoreConnectionWindowUpdateFlowControlWindowExceeded(offset: Int, increment: Int, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, connection_credit: Int, preview: ByteChunk)
+end
+
 pub fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
 	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
 		Some(entry) => apply_existing_stream(state, offset, stream_id, increment, entry, preview)
 		None => CoreStreamWindowUpdateFlowControlRejected(CoreStreamWindowUpdateFlowControlMissingStream(offset, stream_id, increment, preview))
+	end
+end
+
+pub fn apply_connection_window_update(state: CoreConnectionState, offset: Int, increment: Int, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
+	let connection_credit: CoreConnectionWindowCredit = http2::core::connection_state::connection_receive_credit(state)
+	match http2::core::flow_control::window_update_increment(increment)
+		Ok(checked_increment) => apply_connection_checked_increment(state, offset, checked_increment, connection_credit, preview)
+		Err(failure) => CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlInvalidIncrement(offset, increment, http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), http2::core::flow_control::connection_window_credit_value(connection_credit), preview))
 	end
 end
 
@@ -44,6 +62,24 @@ fn accept_state(state: CoreConnectionState, stream_id: Int, next_stream_credit: 
 	match http2::core::flow_control::stream_window_credit(next_stream_credit)
 		Ok(credit) => CoreStreamWindowUpdateFlowControlAccepted(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_send_credit(http2::core::connection_state::streams(state), stream_id, credit)))
 		Err(failure) => CoreStreamWindowUpdateFlowControlRejected(CoreStreamWindowUpdateFlowControlWindowExceeded(0, stream_id, 0, http2::core::flow_control::failure_observed_value(failure), http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), 0, byte_chunk([])))
+	end
+end
+
+fn apply_connection_checked_increment(state: CoreConnectionState, offset: Int, increment: CoreWindowUpdateIncrement, connection_credit: CoreConnectionWindowCredit, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
+	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_connection_window(connection_credit, increment)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => accept_connection_state(state, http2::core::flow_control::credit_decision_value(decision))
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlWindowExceeded(offset, http2::core::flow_control::window_update_increment_value(increment), http2::core::flow_control::failure_observed_value(failure), http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), http2::core::flow_control::connection_window_credit_value(connection_credit), preview))
+			Err(_) => CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlInvalidIncrement(offset, http2::core::flow_control::window_update_increment_value(increment), 1, http2::core::flow_control::max_value(), http2::core::flow_control::connection_window_credit_value(connection_credit), preview))
+		end
+	end
+end
+
+fn accept_connection_state(state: CoreConnectionState, next_connection_credit: Int) -> CoreConnectionWindowUpdateFlowControlDecision
+	match http2::core::flow_control::connection_window_credit(next_connection_credit)
+		Ok(credit) => CoreConnectionWindowUpdateFlowControlAccepted(http2::core::connection_state::with_connection_receive_credit(state, credit))
+		Err(failure) => CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlWindowExceeded(0, 0, http2::core::flow_control::failure_observed_value(failure), http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), 0, byte_chunk([])))
 	end
 end
 
@@ -129,5 +165,75 @@ pub fn failure_preview(failure: CoreStreamWindowUpdateFlowControlFailure) -> Byt
 		CoreStreamWindowUpdateFlowControlMissingStream(_, _, _, preview) => preview
 		CoreStreamWindowUpdateFlowControlInvalidIncrement(_, _, _, _, _, _, preview) => preview
 		CoreStreamWindowUpdateFlowControlWindowExceeded(_, _, _, _, _, _, _, preview) => preview
+	end
+end
+
+pub fn connection_decision_status(decision: CoreConnectionWindowUpdateFlowControlDecision) -> String
+	match decision
+		CoreConnectionWindowUpdateFlowControlAccepted(_) => "accepted"
+		CoreConnectionWindowUpdateFlowControlRejected(_) => "rejected"
+	end
+end
+
+pub fn connection_decision_state(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreConnectionWindowUpdateFlowControlAccepted(state) => Ok(state)
+		CoreConnectionWindowUpdateFlowControlRejected(_) => Err("rejected connection WINDOW_UPDATE flow-control decision has no state")
+	end
+end
+
+pub fn connection_decision_failure(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionWindowUpdateFlowControlFailure, String>
+	match decision
+		CoreConnectionWindowUpdateFlowControlAccepted(_) => Err("accepted connection WINDOW_UPDATE flow-control decision has no failure")
+		CoreConnectionWindowUpdateFlowControlRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn connection_failure_id(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, _, _, _, _, _) => "http2.flow_control.invalid_window_update_increment"
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.flow_control.window_exceeded"
+	end
+end
+
+pub fn connection_failure_offset(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(offset, _, _, _, _, _) => offset
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn connection_failure_increment(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, increment, _, _, _, _) => increment
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, increment, _, _, _, _, _) => increment
+	end
+end
+
+pub fn connection_failure_domain(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, _, _, _, _, _) => "window_update_increment"
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, _, _, _, _, _, _) => "connection_window_credit"
+	end
+end
+
+pub fn connection_failure_observed_value(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, increment, _, _, _, _) => increment
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, _, observed_value, _, _, _, _) => observed_value
+	end
+end
+
+pub fn connection_failure_connection_credit(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, _, _, _, connection_credit, _) => connection_credit
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, _, _, _, _, connection_credit, _) => connection_credit
+	end
+end
+
+pub fn connection_failure_preview(failure: CoreConnectionWindowUpdateFlowControlFailure) -> ByteChunk
+	match failure
+		CoreConnectionWindowUpdateFlowControlInvalidIncrement(_, _, _, _, _, preview) => preview
+		CoreConnectionWindowUpdateFlowControlWindowExceeded(_, _, _, _, _, _, preview) => preview
 	end
 end

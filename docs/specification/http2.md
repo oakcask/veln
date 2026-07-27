@@ -346,8 +346,30 @@ original send-credit preservation, and preview preservation. The focused
 [`http2-core-stream-window-update-flow-control`](../../examples/specification/run/http2-core-stream-window-update-flow-control/)
 case imports `http2::core` from `std` and records the public result-state and
 failure projections. Other payload-specific frame application, header
-validation, connection-level WINDOW_UPDATE refill, HPACK-carrying transitions,
-complete stdout, and output-chunk integration remain in the aggregate
+validation, HPACK-carrying transitions, complete stdout, and output-chunk
+integration remain in the aggregate
+[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
+case until those responsibilities are migrated.
+
+`http2::core::apply_connection_window_update_flow_control(state, offset,
+increment, preview)` is the standard-owned immutable connection-level
+WINDOW_UPDATE receive transition over `CoreConnectionState`. On success it
+returns a new aggregate state with the connection receive credit refilled by
+the checked WINDOW_UPDATE increment. Invalid zero or oversized increments and
+connection-window overflow expose stable public ids, offset, increment,
+domain, observed value, original connection credit, and supplied frame-header
+preview. Rejections expose no next state and leave the input aggregate,
+stream collection, connection credit, and preview unchanged.
+
+The adjacent test checks immutable success, invalid increment,
+connection-window overflow, exact failure context, original connection-credit
+preservation, stream collection preservation, and preview preservation. The
+focused
+[`http2-core-connection-window-update-flow-control`](../../examples/specification/run/http2-core-connection-window-update-flow-control/)
+case imports `http2::core` from `std` and records the public result-state and
+failure projections. Other payload-specific frame application, header
+validation, HPACK-carrying transitions, complete stdout, and output-chunk
+integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

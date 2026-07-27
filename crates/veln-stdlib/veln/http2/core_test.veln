@@ -302,6 +302,14 @@ fn require_stream_window_update_failure(decision: CoreStreamWindowUpdateFlowCont
 	http2::core::stream_window_update_flow_control_failure(decision)
 end
 
+fn require_connection_window_update_state(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::connection_window_update_flow_control_state(decision)
+end
+
+fn require_connection_window_update_failure(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionWindowUpdateFlowControlFailure, String>
+	http2::core::connection_window_update_flow_control_failure(decision)
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -590,6 +598,33 @@ test stream_window_update_flow_control_failures_preserve_state_and_preview() -> 
 		Ok(())
 	else
 		Err("HTTP/2 stream WINDOW_UPDATE flow-control failure did not preserve state, context, or preview")
+	end
+end
+
+test connection_window_update_flow_control_refills_receive_credit_immutably() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(100)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let decision: CoreConnectionWindowUpdateFlowControlDecision = http2::core::apply_connection_window_update_flow_control(state, 73, 12, byte_chunk_from_hex("000004080000000000")?)
+	let updated: CoreConnectionState = require_connection_window_update_state(decision)?
+	let original_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 5))?
+	let updated_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(updated), 5))?
+	if http2::core::connection_window_update_flow_control_status(decision) == "accepted" and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 100 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(updated)) == 112 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(updated_stream)) == 80 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(updated_stream)) == 60 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(original_stream)) == 80 and http2::core::stream_collection_count(http2::core::connection_state_streams(updated)) == 1
+		Ok(())
+	else
+		Err("HTTP/2 connection WINDOW_UPDATE flow-control did not immutably refill receive credit")
+	end
+end
+
+test connection_window_update_flow_control_failures_preserve_state_and_preview() -> Result<(), String>
+	let preview: ByteChunk = byte_chunk_from_hex("000004080000000000")?
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483640)?)
+	let invalid_failure: CoreConnectionWindowUpdateFlowControlFailure = require_connection_window_update_failure(http2::core::apply_connection_window_update_flow_control(state, 79, 0, preview))?
+	let overflow_failure: CoreConnectionWindowUpdateFlowControlFailure = require_connection_window_update_failure(http2::core::apply_connection_window_update_flow_control(state, 83, 9, preview))?
+	if http2::core::connection_window_update_flow_control_failure_id(invalid_failure) == "http2.flow_control.invalid_window_update_increment" and http2::core::connection_window_update_flow_control_failure_offset(invalid_failure) == 79 and http2::core::connection_window_update_flow_control_failure_increment(invalid_failure) == 0 and http2::core::connection_window_update_flow_control_failure_domain(invalid_failure) == "window_update_increment" and http2::core::connection_window_update_flow_control_failure_connection_credit(invalid_failure) == 2147483640 and http2::core::connection_window_update_flow_control_failure_id(overflow_failure) == "http2.flow_control.window_exceeded" and http2::core::connection_window_update_flow_control_failure_offset(overflow_failure) == 83 and http2::core::connection_window_update_flow_control_failure_increment(overflow_failure) == 9 and http2::core::connection_window_update_flow_control_failure_domain(overflow_failure) == "connection_window_credit" and http2::core::connection_window_update_flow_control_failure_observed_value(overflow_failure) == 2147483649 and http2::core::connection_window_update_flow_control_failure_connection_credit(overflow_failure) == 2147483640 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 2147483640 and chunks_equal(http2::core::connection_window_update_flow_control_failure_preview(invalid_failure), preview)? and chunks_equal(http2::core::connection_window_update_flow_control_failure_preview(overflow_failure), preview)?
+		Ok(())
+	else
+		Err("HTTP/2 connection WINDOW_UPDATE flow-control failure did not preserve state, context, or preview")
 	end
 end
 
