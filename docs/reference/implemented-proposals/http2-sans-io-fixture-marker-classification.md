@@ -57,4 +57,4 @@ HTTP/2 core receive and send paths use `std::http2::hpack`.
 This classification closes the focused fixture-marker inventory. The removed
 aggregate helper invocations, exact stdout lines, and output-chunk tables are
 covered separately by
-[http2-sans-io-aggregate-assertion-classification.md](http2-sans-io-aggregate-assertion-classification.md).
+[HTTP/2 retirement evidence audit](../../proposals/http2-sans-io-evidence-audit.md).

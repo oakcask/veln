@@ -24,8 +24,6 @@ behavior.
   [schema-and-protocol-diagnostics.md](schema-and-protocol-diagnostics.md).
 - HTTP/2 binary schema design driver:
   [http2-binary-schema-design-driver.md](http2-binary-schema-design-driver.md).
-- HTTP/2 standard library completion and fixture retirement:
-  [http2-sans-io-protocol-core.md](http2-sans-io-protocol-core.md).
 Read these only for completion boundaries and history. Current behavior starts
 under `../../specification/` and its executable example routes.
 

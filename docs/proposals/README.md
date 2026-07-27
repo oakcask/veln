@@ -17,6 +17,10 @@ current language behavior unless the matching page under
 - [Parallel Test Execution](parallel-test-execution.md): use bounded,
   CPU-aware case scheduling while preserving deterministic reports, static
   gates, and a serial compatibility route.
+- HTTP/2 standard library completion and fixture retirement:
+  [http2-sans-io-protocol-core.md](http2-sans-io-protocol-core.md).
+  Open the [retirement evidence audit](http2-sans-io-evidence-audit.md) only
+  when working on its item-level migration gate.
 
 ## Selection Rule
 
