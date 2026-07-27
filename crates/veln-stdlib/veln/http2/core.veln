@@ -797,6 +797,10 @@ pub fn receive_frame_failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
 	http2::core::receive_frame::failure_stream_id(failure)
 end
 
+pub fn receive_frame_failure_reason(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_reason(failure)
+end
+
 pub fn receive_frame_failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 	http2::core::receive_frame::failure_preview(failure)
 end

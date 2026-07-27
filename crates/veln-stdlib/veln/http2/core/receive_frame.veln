@@ -306,6 +306,14 @@ pub fn failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
 	end
 end
 
+pub fn failure_reason(failure: CoreReceiveFrameFailure) -> String
+	match failure
+		CoreReceiveFrameDecodeFailure(reason, _) => reason
+		CoreReceiveFramePayloadReadFailure(_, _, _, reason, _) => reason
+		_ => "none"
+	end
+end
+
 pub fn failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 	match failure
 		CoreReceiveFrameDecodeFailure(_, preview) => preview

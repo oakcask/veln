@@ -153,8 +153,9 @@ existing aggregate DATA flow-control, stream and connection WINDOW_UPDATE
 flow-control, RST_STREAM lifecycle, and GOAWAY shutdown transitions. Accepted
 decisions expose the next aggregate state, frame kind, stream id, payload
 length, and applied transition label. Rejected decisions expose a focused
-failure source, stable failure id, offset, frame kind, stream id, and preserved
-preview without returning a next state or mutating the input aggregate.
+failure source, stable failure id, offset, frame kind, stream id, decode or
+payload-read reason where applicable, and preserved preview without returning
+a next state or mutating the input aggregate.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

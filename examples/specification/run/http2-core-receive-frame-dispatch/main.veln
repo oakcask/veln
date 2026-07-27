@@ -87,6 +87,12 @@ fn print_failure(label: String, failure: CoreReceiveFrameFailure) -> () effects 
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure)))))
 end
 
+fn print_failure_reason(label: String, failure: CoreReceiveFrameFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" reason ")
+	stdio::println(http2::core::receive_frame_failure_reason(failure))
+end
+
 fn print_failure_accessor_error(label: String, decision: CoreReceiveFrameDecision) -> Result<(), String> effects [stdio]
 	match http2::core::receive_frame_failure(decision)
 		Ok(_) => Err("expected accepted receive frame decision to hide failure")
@@ -134,9 +140,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let low_base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(5))?)
 	let low_state: CoreConnectionState = http2::core::connection_state_with_streams(low_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(low_base), entry))
 	let admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?)?)?
+	let padded_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000000800000005")?)?)?
 	let flow_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(low_state, byte_chunk_from_hex("000006000000000005010203040506")?)?)?
 	let goaway_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(goaway_state, byte_chunk_from_hex("0000080700000000000000000700000016")?)?)?
 	print_failure("admission", admission_failure)
+	print_failure("padded", padded_failure)
+	print_failure_reason("padded", padded_failure)
 	print_failure("flow", flow_failure)
 	print_failure("goaway", goaway_failure)
 	let _ = print_failure_accessor_error("accessor", data)?
