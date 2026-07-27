@@ -1,0 +1,104 @@
+use http2::core from "std"
+use http2::hpack from "std"
+use stdio
+
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn prepend(header: HeaderField, remaining: HeaderList) -> HeaderList
+	http2::hpack::prepend_header_field(header, remaining)
+end
+
+fn empty_headers() -> HeaderList
+	http2::hpack::empty_header_list()
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	let content_length: HeaderList = prepend(ascii_header("content-length", "5")?, empty_headers())
+	let path: HeaderList = prepend(ascii_header(":path", "/")?, content_length)
+	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	Ok(prepend(ascii_header(":method", "GET")?, scheme))
+end
+
+fn extended_connect_headers() -> Result<HeaderList, String>
+	let authority: HeaderList = prepend(ascii_header(":authority", "example.test")?, empty_headers())
+	let path: HeaderList = prepend(ascii_header(":path", "/chat")?, authority)
+	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	let protocol: HeaderList = prepend(ascii_header(":protocol", "websocket")?, scheme)
+	Ok(prepend(ascii_header(":method", "CONNECT")?, protocol))
+end
+
+fn response_headers(status: String) -> Result<HeaderList, String>
+	let server: HeaderList = prepend(ascii_header("server", "veln")?, empty_headers())
+	Ok(prepend(ascii_header(":status", status)?, server))
+end
+
+fn duplicate_request_headers() -> Result<HeaderList, String>
+	let path: HeaderList = prepend(ascii_header(":path", "/")?, empty_headers())
+	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	let second: HeaderList = prepend(ascii_header(":method", "POST")?, scheme)
+	Ok(prepend(ascii_header(":method", "GET")?, second))
+end
+
+fn request_with_bad_te() -> Result<HeaderList, String>
+	let te: HeaderList = prepend(ascii_header("te", "gzip")?, empty_headers())
+	let path: HeaderList = prepend(ascii_header(":path", "/")?, te)
+	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	Ok(prepend(ascii_header(":method", "GET")?, scheme))
+end
+
+fn request_with_mismatched_content_length() -> Result<HeaderList, String>
+	let second: HeaderList = prepend(ascii_header("content-length", "7")?, empty_headers())
+	let first: HeaderList = prepend(ascii_header("content-length", "5")?, second)
+	let path: HeaderList = prepend(ascii_header(":path", "/")?, first)
+	let scheme: HeaderList = prepend(ascii_header(":scheme", "https")?, path)
+	Ok(prepend(ascii_header(":method", "GET")?, scheme))
+end
+
+fn response_trailer_with_pseudo() -> Result<HeaderList, String>
+	Ok(prepend(ascii_header(":status", "200")?, empty_headers()))
+end
+
+fn print_accept(label: String, result: Result<Int, HeaderListValidationFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(content_length) => Ok(print_accept_line(label, content_length))
+		Err(failure) => Err(http2::core::header_list_validation_failure_fact(failure))
+	end
+end
+
+fn print_accept_line(label: String, content_length: Int) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" accepted content-length ")
+	stdio::println(int_to_string(content_length))
+end
+
+fn print_failure(label: String, result: Result<Int, HeaderListValidationFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected header-list validation failure")
+		Err(failure) => Ok(print_failure_line(label, failure))
+	end
+end
+
+fn print_failure_line(label: String, failure: HeaderListValidationFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" rejected fact ")
+	stdio::print(http2::core::header_list_validation_failure_fact(failure))
+	stdio::print(" header ")
+	stdio::print(http2::core::header_list_validation_failure_header_name(failure))
+	stdio::print(" state ")
+	stdio::println(http2::core::header_list_validation_failure_active_state(failure))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let _ = print_accept("request", http2::core::validate_request_header_list(request_headers()?, 0))?
+	let _ = print_accept("extended-connect", http2::core::validate_request_header_list(extended_connect_headers()?, 1))?
+	let _ = print_accept("response", http2::core::validate_response_header_list(response_headers("200")?, false))?
+	let _ = print_accept("trailers", http2::core::validate_trailer_header_list(prepend(ascii_header("te", "trailers")?, empty_headers()), "request-trailers"))?
+	let _ = print_failure("duplicate", http2::core::validate_request_header_list(duplicate_request_headers()?, 0))?
+	let _ = print_failure("bad-te", http2::core::validate_request_header_list(request_with_bad_te()?, 0))?
+	let _ = print_failure("length-mismatch", http2::core::validate_request_header_list(request_with_mismatched_content_length()?, 0))?
+	let _ = print_failure("extended-not-negotiated", http2::core::validate_request_header_list(extended_connect_headers()?, 0))?
+	let _ = print_failure("informational-end-stream", http2::core::validate_response_header_list(response_headers("103")?, true))?
+	print_failure("response-trailer-pseudo", http2::core::validate_trailer_header_list(response_trailer_with_pseudo()?, "response-trailers"))
+end

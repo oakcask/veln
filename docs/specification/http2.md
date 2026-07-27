@@ -508,7 +508,11 @@ complete stdout, and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated. The adjacent test checks pure
 success and failure facts for request, response, and trailer lists. The
-focused
+focused executable
+[`http2-core-header-list-validation`](../../examples/specification/run/http2-core-header-list-validation/)
+case imports `http2::core` and `http2::hpack` from `std` and records accepted
+content-length values plus representative public failure facts, selected
+header names, and active-state labels. The focused
 [`http2-core-header-list-validation`](../../examples/specification/check/http2-core-header-list-validation/)
 case imports `http2::core` from `std` and checks that the public validation
 surface is available to external packages.
