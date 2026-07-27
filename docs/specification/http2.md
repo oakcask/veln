@@ -30,7 +30,8 @@ The public routes are:
   rules, pure flow-control numeric domains, stream lifecycle projection and
   frame-admission predicates, pure PING request and ACK response transitions,
   immutable receive-frame dispatch for DATA, HEADERS, CONTINUATION,
-  WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload application,
+  PUSH_PROMISE, WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload
+  application,
   immutable GOAWAY, RST_STREAM, PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and
   PUSH_PROMISE send transitions, an immutable output buffer for ordering
   accepted send bytes, and an immutable aggregate connection state that
@@ -147,8 +148,9 @@ decision variant.
 
 `http2::core::apply_receive_frame(state, frame_bytes)` is the standard-owned
 immutable receive-frame dispatcher for the migrated SETTINGS, DATA, HEADERS,
-CONTINUATION, WINDOW_UPDATE, RST_STREAM, and GOAWAY payload-application
-boundary. It decodes one complete HTTP/2 frame, validates the payload length,
+PUSH_PROMISE, CONTINUATION, WINDOW_UPDATE, RST_STREAM, and GOAWAY
+payload-application boundary. It decodes one complete HTTP/2 frame, validates
+the payload length,
 applies stream-frame admission, parses SETTINGS payload items, SETTINGS ACKs,
 DATA padding length, HEADERS padding and priority prefixes, CONTINUATION
 fragments, WINDOW_UPDATE increments, RST_STREAM error codes, and GOAWAY
@@ -163,7 +165,10 @@ payload length, and applied transition label. Rejected decisions expose a
 focused failure source, stable failure id, offset, frame kind, stream id,
 decode, payload-read, HPACK, or header-list reason where applicable, and
 preserved preview without returning a next state or mutating the input
-aggregate. Inbound DATA on a stream with an accepted `content-length` updates
+aggregate. The dispatcher starts from one complete frame; connection-preface
+consumption, the initial peer SETTINGS gate, chunk buffering, inbound PING
+output integration, and inbound PRIORITY state application are separate from
+this boundary. Inbound DATA on a stream with an accepted `content-length` updates
 only the DATA application-octet count. It rejects over-length DATA and
 END_STREAM shortfalls as `http2.protocol.content_length_mismatch` with the
 expected and observed lengths, active-state label, `rfc9113_content_length_body`
