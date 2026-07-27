@@ -40,17 +40,11 @@ emitted bytes.
 
 The current receive-loop evidence covers ordered same-chunk SETTINGS and PING,
 partial buffering, same-call complete frames followed by a partial suffix, DATA
-state updates, PRIORITY application, later invalid PING rejection, and
-caller-owned output preservation. The remaining matrix work must still recover
-or replace representative rows for:
-
-- later-frame rejection after HPACK state advanced locally;
-- later-frame rejection after continuation state advanced locally;
-- later-frame rejection after flow-control or content-length state advanced
-  locally;
-- later-frame rejection after shutdown state advanced locally; and
-- any deleted exact stdout or output-chunk assertion that is not already
-  protected by focused cases.
+state updates, PRIORITY application, later invalid PING rejection, caller-owned
+output preservation, and later-frame rejection after HPACK, continuation,
+flow-control plus content-length, or shutdown state advanced locally. The
+remaining matrix work must still recover or replace any deleted exact stdout
+or output-chunk assertion that is not already protected by focused cases.
 
 Add adjacent standard tests and focused executable cases for any behavior that
 the classification cannot map to existing evidence.

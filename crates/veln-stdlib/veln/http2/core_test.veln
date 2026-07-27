@@ -2456,6 +2456,36 @@ test receive_connection_boundary_rejection_preserves_caller_output() -> Result<(
 	end
 end
 
+fn receive_connection_rejects_after_local_advance(decision: CoreReceiveConnectionDecision, expected_source: String, expected_id: String, expected_offset: Int, expected_kind: Int, expected_stream: Int) -> Result<Bool, String>
+	let failure: CoreReceiveConnectionFailure = http2::core::receive_connection_failure(decision)?
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(_) => Ok(false)
+		Err(accessor_error) => Ok(accessor_error == "rejected receive connection decision has no state" and http2::core::receive_connection_failure_source(failure) == expected_source and http2::core::receive_connection_failure_id(failure) == expected_id and http2::core::receive_connection_failure_offset(failure) == expected_offset and http2::core::receive_connection_failure_frame_kind(failure) == expected_kind and http2::core::receive_connection_failure_stream_id(failure) == expected_stream)
+	end
+end
+
+test receive_connection_boundary_rejects_after_locally_advanced_state() -> Result<(), String>
+	let hpack_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let hpack_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(41)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), hpack_entry))
+	let hpack_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(hpack_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let hpack_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(hpack_start, byte_chunk_from_hex("00000601040000000188400178016100000706000000000001020304050607")?)?
+	let continuation_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let continuation_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(31)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), continuation_entry))
+	let continuation_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(continuation_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let continuation_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(continuation_start, byte_chunk_from_hex("00000101000000000188000000000000000001")?)?
+	let body_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 5, 0))?
+	let body_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), body_entry))
+	let body_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(body_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let body_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(body_start, byte_chunk_from_hex("000003000000000005aabbcc00000706000000000001020304050607")?)?
+	let goaway_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(91)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let goaway_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(goaway_start, byte_chunk_from_hex("000008070000000000000000050000000b00000706000000000001020304050607")?)?
+	if receive_connection_rejects_after_local_advance(hpack_decision, "payload-length", "http2.protocol.invalid_payload_length", 56, 6, 0)? and receive_connection_rejects_after_local_advance(continuation_decision, "pending-header-block", "http2.protocol.continuation_sequence", 41, 0, 1)? and receive_connection_rejects_after_local_advance(body_decision, "payload-length", "http2.protocol.invalid_payload_length", 69, 6, 0)? and receive_connection_rejects_after_local_advance(goaway_decision, "payload-length", "http2.protocol.invalid_payload_length", 108, 6, 0)?
+		Ok(())
+	else
+		Err("HTTP/2 receive connection boundary did not preserve later-frame rejection context after local state advanced")
+	end
+end
+
 test receive_connection_boundary_applies_priority_and_rejects_initial_gate_atomically() -> Result<(), String>
 	let accepted_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let priority: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(accepted_start, byte_chunk_from_hex("000005020000000001000000000f")?)?

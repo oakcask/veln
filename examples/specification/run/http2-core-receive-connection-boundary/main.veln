@@ -108,6 +108,13 @@ fn print_no_state(label: String, decision: CoreReceiveConnectionDecision) -> () 
 	end
 end
 
+fn print_later_failure(label: String, decision: CoreReceiveConnectionDecision) -> Result<(), String> effects [stdio]
+	print_decision(label, decision)
+	print_failure(label, require_failure(decision)?)
+	print_no_state(label, decision)
+	Ok(())
+end
+
 fn print_output(label: String, output: CoreOutputBuffer, expected_first: String, expected_second: String) -> Result<(), String> effects [stdio]
 	stdio::print("output_chunk_list ")
 	stdio::print(label)
@@ -241,6 +248,24 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_state("push-promise", push_state)
 	let _ = print_push_state("push-promise", push_state, 2)?
 	let _ = print_output("push-promise", http2::core::receive_connection_output(push_state), "0000080600000000000908070605040302", "")?
+	let hpack_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let hpack_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(41)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), hpack_later_entry))
+	let hpack_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(hpack_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let hpack_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(hpack_later_start, byte_chunk_from_hex("00000601040000000188400178016100000706000000000001020304050607")?)?
+	let _ = print_later_failure("hpack-later-reject", hpack_later_reject)?
+	let continuation_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let continuation_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(31)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), continuation_later_entry))
+	let continuation_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(continuation_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let continuation_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(continuation_later_start, byte_chunk_from_hex("00000101000000000188000000000000000001")?)?
+	let _ = print_later_failure("continuation-later-reject", continuation_later_reject)?
+	let body_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 5, 0))?
+	let body_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), body_later_entry))
+	let body_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(body_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let body_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(body_later_start, byte_chunk_from_hex("000003000000000005aabbcc00000706000000000001020304050607")?)?
+	let _ = print_later_failure("body-later-reject", body_later_reject)?
+	let goaway_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(91)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let goaway_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(goaway_later_start, byte_chunk_from_hex("000008070000000000000000050000000b00000706000000000001020304050607")?)?
+	let _ = print_later_failure("goaway-later-reject", goaway_later_reject)?
 	let failure: CoreReceiveConnectionFailure = require_failure(http2::core::receive_connection_chunk(http2::core::receive_connection_state(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("0000080600000000000102030405060708")?)?)?
 	print_failure("initial-gate", failure)
 	Ok(())
