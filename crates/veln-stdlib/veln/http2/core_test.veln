@@ -420,6 +420,13 @@ fn require_receive_frame_failure(result: Result<CoreReceiveFrameDecision, String
 	http2::core::receive_frame_failure(result?)
 end
 
+fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChunk, String>
+	match http2::core::output_buffer_chunk_at(output, index)
+		Some(chunk) => Ok(chunk)
+		None => Err("missing HTTP/2 core output chunk")
+	end
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -2246,5 +2253,37 @@ test outbound_priority_respects_goaway_boundary_and_encode_failures() -> Result<
 		Ok(())
 	else
 		Err("outbound PRIORITY did not preserve GOAWAY or encode-failure boundaries")
+	end
+end
+
+test output_buffer_preserves_successful_send_order() -> Result<(), String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, 0 - 1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	let ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0102030405060708")?)
+	let after_ping: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), ping)
+	let data: CoreDataSendDecision = http2::core::send_data(state, 11, 1, byte_chunk_from_hex("aabb")?, false)
+	let after_data: CoreOutputBuffer = http2::core::output_buffer_append_data(after_ping, data)
+	let window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 17, 0, 3)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
+	if http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0 and http2::core::output_buffer_count(output) == 3 and chunks_equal(require_output_chunk(output, 0)?, byte_chunk_from_hex("0000080600000000000102030405060708")?)? and chunks_equal(require_output_chunk(output, 1)?, byte_chunk_from_hex("000002000000000001aabb")?)? and chunks_equal(require_output_chunk(output, 2)?, byte_chunk_from_hex("00000408000000000000000003")?)? and chunks_equal(http2::core::output_buffer_bytes(output), byte_chunk_from_hex("0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003")?)?
+		Ok(())
+	else
+		Err("HTTP/2 output buffer did not preserve successful send order")
+	end
+end
+
+test output_buffer_ignores_failed_or_empty_send_decisions() -> Result<(), String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 1, 0 - 1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	let accepted: CoreDataSendDecision = http2::core::send_data(state, 11, 1, byte_chunk_from_hex("aa")?, false)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_data(http2::core::empty_output_buffer(), accepted)
+	let rejected_data: CoreDataSendDecision = http2::core::send_data(state, 17, 1, byte_chunk_from_hex("aabb")?, false)
+	let after_rejected_data: CoreOutputBuffer = http2::core::output_buffer_append_data(output, rejected_data)
+	let no_response: PingResponseDecision = http2::core::respond_to_ping(1, byte_chunk_from_hex("0102030405060708")?)
+	let after_no_response: CoreOutputBuffer = http2::core::output_buffer_append_ping_response(after_rejected_data, no_response)
+	if http2::core::output_buffer_count(output) == 1 and http2::core::output_buffer_count(after_rejected_data) == 1 and http2::core::output_buffer_count(after_no_response) == 1 and chunks_equal(http2::core::output_buffer_bytes(after_no_response), byte_chunk_from_hex("000001000000000001aa")?)?
+		Ok(())
+	else
+		Err("HTTP/2 output buffer appended bytes for failed or empty send decisions")
 	end
 end

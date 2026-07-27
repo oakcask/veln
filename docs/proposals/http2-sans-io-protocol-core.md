@@ -169,6 +169,7 @@ output.
 | outbound DATA send, content-length body accounting, and WINDOW_UPDATE sends | standard-owned DATA send emits exact kind-`0` DATA bytes from an outbound-data-capable stream, debits stream send credit, updates outbound body content-length observed counters, applies local END_STREAM lifecycle transitions, and rejects stream-zero, idle, lifecycle, flow-control, over-length, and short-END_STREAM failures without output or next state; standard-owned WINDOW_UPDATE send emits exact kind-`8`, flags-`0` bytes for stream and connection targets, refills stream or connection receive credit immutably, and rejects invalid increments, receive-window overflow, idle stream references, and streams without receive-window ownership without output or next state | `outbound_data_send_emits_exact_bytes_and_updates_stream_state`, `outbound_data_send_failures_preserve_state_and_output`, `outbound_window_update_send_emits_exact_bytes_and_refills_receive_credit`, `outbound_window_update_send_failures_preserve_state_and_output`, `http2-core-outbound-data-flow`, and retained `http2-protocol-core` output-ordering integration | pure exact-byte DATA, stream send-credit debit, DATA content-length observed accounting, local END_STREAM lifecycle, flow-control failure, short content-length failure, missing-stream failure, exact-byte stream and connection WINDOW_UPDATE, receive-credit refill, invalid increment failure, closed-stream failure, overflow failure, empty failure output, and immutable input-state coverage moved to `core_test.veln`; focused external-package state, failure-field, and output-chunk projections moved to `http2-core-outbound-data-flow`; the monolithic case still owns complete stdout and wider output ordering |
 | outbound RST_STREAM and PRIORITY stream-control sends | standard-owned RST_STREAM send emits exact kind-`3`, flags-`0` bytes for existing open streams and immutably records reset lifecycle; standard-owned PRIORITY send emits exact kind-`2`, flags-`0` bytes for existing open streams and preserves aggregate state; both transitions reject zero, idle, closed, reset, self-dependent, or GOAWAY-forbidden inputs with no next state or output and preserve encode-failure empty output | `outbound_rst_stream_send_emits_exact_bytes_and_resets_stream_immutably`, `outbound_rst_stream_failures_preserve_state_and_output`, `outbound_priority_send_emits_exact_bytes_and_preserves_state`, `outbound_priority_failures_preserve_state_and_output`, `outbound_priority_respects_goaway_boundary_and_encode_failures`, `http2-core-outbound-stream-control`, and retained `http2-protocol-core` output-ordering integration | pure exact-byte, stream reset lifecycle, PRIORITY state preservation, invalid stream id, idle or closed/reset lifecycle failure, self-dependency failure, GOAWAY boundary failure, encode-failure output, and immutable input-state coverage moved to `core_test.veln`; focused external-package result, failure-field, and output-chunk projections moved to `http2-core-outbound-stream-control`; the monolithic case still owns complete stdout and wider output ordering |
 | outbound HEADERS and PUSH_PROMISE sends | standard-owned request, response, and trailer HEADERS sends validate public HPACK header lists, encode with the production HPACK header-block encoder, emit exact kind-`1` bytes, create or update immutable stream state, update response content-length metadata without changing observed body counts, preserve content-length metadata through trailer closure, and preserve empty output and input state on stream, GOAWAY, header-list, HPACK, or frame-encode failures; standard-owned PUSH_PROMISE sends require a server endpoint, an associated open stream, and a server-initiated promised stream id, encode the promised request headers through production HPACK, emit exact kind-`5` bytes, and reserve the promised stream locally | `outbound_request_headers_send_emits_hpack_bytes_and_creates_stream`, `outbound_response_headers_and_trailers_preserve_content_length_state`, `outbound_push_promise_send_emits_hpack_bytes_and_reserves_promised_stream`, `outbound_headers_failures_preserve_state_and_output`, `http2-core-outbound-headers`, and retained `http2-protocol-core` output-ordering integration | pure exact-byte HEADERS and PUSH_PROMISE emission, production HPACK encoder use, outbound request stream creation, response-header content-length update, trailer content-length preservation and lifecycle closure, promised-stream reserved-local state, content-length metadata, header-list failure projection, endpoint and stream-id failure projection, empty failure output, and immutable input-state coverage moved to `core_test.veln`; focused external-package result, failure-field, content-length, lifecycle, and output-chunk projections moved to `http2-core-outbound-headers`; the monolithic case still owns complete stdout and wider output ordering |
+| standard output-buffer ordering over migrated send decisions | standard-owned output state appends accepted send-decision bytes for PING, SETTINGS ACK, local SETTINGS, GOAWAY, DATA, WINDOW_UPDATE, HEADERS, PUSH_PROMISE, RST_STREAM, and PRIORITY in caller order; rejected, encode-failed, no-pending, and no-response decisions preserve the input buffer without adding bytes; projections expose chunk count, zero-based chunk lookup, and concatenated bytes | `output_buffer_preserves_successful_send_order`, `output_buffer_ignores_failed_or_empty_send_decisions`, `http2-core-output-buffer`, and retained `http2-protocol-core` complete-stdout/output-chunk integration | pure ordering, chunk lookup, concatenated byte projection, accepted-byte append, rejection/no-response non-append, and immutable input-state coverage moved to `core_test.veln`; focused external-package output-chunk and combined-byte evidence moved to `http2-core-output-buffer`; the monolithic case still owns unclassified complete stdout and residual wider output integration |
 | flow-control numeric domain helper assertions | connection window credit, stream window credit, configured initial window size, and `WINDOW_UPDATE` increment domains expose their role-specific bounds through the public core facade; debit and refill helpers return immutable next-credit decisions or exact domain failures without changing input credit or increment values | `flow_control_domains_accept_boundaries`, `flow_control_domains_reject_out_of_range_values`, `flow_control_debit_and_refill_are_immutable`, `flow_control_failures_preserve_input_credit`, `http2-core-flow-control-domains` | pure domain construction, boundary rejection, negative stream credit, debit, refill, overflow failure data, and input preservation moved to `core_test.veln`; focused external-package result projections moved to `http2-core-flow-control-domains`; monolithic DATA, peer `SETTINGS_INITIAL_WINDOW_SIZE`, received and outbound `WINDOW_UPDATE`, complete stdout, and diagnostic integration remain while the wider state machine is migrated |
 | `initial_dynamic_core_state`, `empty_dynamic_core_state` | empty capacity, size, and count | `dynamic_table_starts_empty` | success |
 | `dynamic_core_header_entry_size`, `dynamic_core_insert_entry_state` | name octets plus value octets plus 32 and immutable insertion | `dynamic_table_inserts_newest_first_with_exact_octet_size` | success and input-state preservation |
@@ -387,21 +388,31 @@ The completion criteria remain unsatisfied. Do not create the STOP prompt.
   empty failure output, and immutable input preservation; the focused
   `http2-core-outbound-headers` case records public result, failure-field,
   content-length, lifecycle, and output-chunk projections.
+- `std::http2::core` now owns immutable output-buffer ordering for migrated
+  send decisions. Accepted PING, SETTINGS ACK, local SETTINGS, GOAWAY, DATA,
+  WINDOW_UPDATE, HEADERS, PUSH_PROMISE, RST_STREAM, and PRIORITY decisions
+  append exactly one byte chunk in caller order, while rejected,
+  encode-failed, no-pending, and no-response decisions preserve the input
+  buffer. The adjacent `core_test.veln` checks successful ordering,
+  concatenated bytes, and failed or empty decision non-append behavior; the
+  focused `http2-core-output-buffer` case records the public output-chunk
+  projections.
 - These slices move frame-kind admission and part of payload application for
   SETTINGS, DATA, HEADERS, PUSH_PROMISE, CONTINUATION, WINDOW_UPDATE,
   RST_STREAM, and GOAWAY receive shutdown, plus outbound GOAWAY, RST_STREAM,
   PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and PUSH_PROMISE send, including
   inbound DATA body accounting, PUSH_PROMISE receive application, outbound
   DATA body accounting, and focused outbound header emission with
-  response/trailer content-length state. They do not yet move wider output
-  ordering out of the monolithic case.
+  response/trailer content-length state. They also move a standard-owned
+  output byte ordering buffer. They do not yet classify every complete stdout
+  line or residual aggregate output-chunk table.
 
 ### Remaining Deletion-Gate Blockers
 
 - `examples/specification/run/http2-protocol-core/` still contains
   `main.veln`, `hpack_fixture.veln`, `hpack_static.veln`,
   `hpack_dynamic_core.veln`, and `case.toml`. The monolithic source still owns
-  complete stdout, output-chunk integration, and wider receive-dispatch ordering beyond
+  complete stdout, residual output-chunk integration, and wider receive-dispatch ordering beyond
   the migrated SETTINGS, DATA, HEADERS, PUSH_PROMISE, CONTINUATION, WINDOW_UPDATE,
   RST_STREAM, GOAWAY receive-shutdown, and outbound GOAWAY, RST_STREAM, and
   PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and PUSH_PROMISE send boundaries.
@@ -420,10 +431,10 @@ DATA credit debit and content-length body accounting, stream and connection
 WINDOW_UPDATE refill, RST_STREAM lifecycle, GOAWAY receive shutdown, migrated
 HEADERS/PUSH_PROMISE/CONTINUATION receive-frame application, and outbound
 GOAWAY, RST_STREAM, PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and PUSH_PROMISE
-send by moving wider output ordering behind `std::http2::core`. Keep each
-transition immutable and preserve
-failure-state atomicity across the connection, stream collection, HPACK table,
-pending continuation, flow-control credits, and output bytes.
+send plus the new output buffer by classifying the remaining complete stdout
+lines and residual output-chunk tables. Keep each transition immutable and
+preserve failure-state atomicity across the connection, stream collection,
+HPACK table, pending continuation, flow-control credits, and output bytes.
 
 When the gate is met, remove `main.veln`, `hpack_fixture.veln`,
 `hpack_static.veln`, `hpack_dynamic_core.veln`, and the monolithic

@@ -19,6 +19,7 @@ use http2::core::send_shutdown
 use http2::core::outbound_data_flow
 use http2::core::outbound_headers
 use http2::core::outbound_stream_control
+use http2::core::output_buffer
 use http2::core::flow_control
 use http2::core::header_list_validation
 use http2::core::stream_state
@@ -141,6 +142,8 @@ pub type CoreRstStreamSendDecision = http2::core::outbound_stream_control::CoreR
 pub type CorePrioritySendDecision = http2::core::outbound_stream_control::CorePrioritySendDecision
 
 pub type CoreOutboundStreamControlFailure = http2::core::outbound_stream_control::CoreOutboundStreamControlFailure
+
+pub type CoreOutputBuffer = http2::core::output_buffer::CoreOutputBuffer
 
 pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
 
@@ -302,6 +305,110 @@ end
 
 pub fn connection_state_with_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifecycle) -> CoreConnectionState
 	http2::core::connection_state::with_lifecycle(state, lifecycle)
+end
+
+pub fn empty_output_buffer() -> CoreOutputBuffer
+	http2::core::output_buffer::empty()
+end
+
+pub fn output_buffer_count(output: CoreOutputBuffer) -> Int
+	http2::core::output_buffer::count(output)
+end
+
+pub fn output_buffer_chunk_at(output: CoreOutputBuffer, index: Int) -> Option<ByteChunk>
+	http2::core::output_buffer::chunk_at(output, index)
+end
+
+pub fn output_buffer_bytes(output: CoreOutputBuffer) -> ByteChunk
+	http2::core::output_buffer::bytes(output)
+end
+
+pub fn output_buffer_append_ping_request(output: CoreOutputBuffer, decision: PingRequestDecision) -> CoreOutputBuffer
+	if http2::core::ping::request_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::ping::request_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_ping_response(output: CoreOutputBuffer, decision: PingResponseDecision) -> CoreOutputBuffer
+	if http2::core::ping::response_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::ping::response_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_pending_settings_ack(output: CoreOutputBuffer, decision: PeerSettingsAckSendDecision) -> CoreOutputBuffer
+	if http2::core::settings_ack::send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::settings_ack::send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_local_settings(output: CoreOutputBuffer, decision: LocalSettingsSendDecision) -> CoreOutputBuffer
+	if local_settings_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, local_settings_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_goaway(output: CoreOutputBuffer, decision: CoreGoawaySendDecision) -> CoreOutputBuffer
+	if http2::core::send_shutdown::decision_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::send_shutdown::decision_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_data(output: CoreOutputBuffer, decision: CoreDataSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_data_flow::data_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_data_flow::data_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_window_update(output: CoreOutputBuffer, decision: CoreWindowUpdateSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_data_flow::window_update_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_data_flow::window_update_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_headers(output: CoreOutputBuffer, decision: CoreHeadersSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_headers::headers_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_headers::headers_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_push_promise(output: CoreOutputBuffer, decision: CorePushPromiseSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_headers::push_promise_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_headers::push_promise_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_rst_stream(output: CoreOutputBuffer, decision: CoreRstStreamSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_stream_control::rst_stream_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_stream_control::rst_stream_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_priority(output: CoreOutputBuffer, decision: CorePrioritySendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_stream_control::priority_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_stream_control::priority_bytes(decision))
+	else
+		output
+	end
 end
 
 pub type LocalSettingsSendDecision

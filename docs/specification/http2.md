@@ -32,9 +32,10 @@ The public routes are:
   immutable receive-frame dispatch for DATA, HEADERS, CONTINUATION,
   WINDOW_UPDATE, RST_STREAM, SETTINGS, and GOAWAY payload application,
   immutable GOAWAY, RST_STREAM, PRIORITY, DATA, WINDOW_UPDATE, HEADERS, and
-  PUSH_PROMISE send transitions, and an immutable aggregate connection state
-  that composes those migrated components with the public HPACK dynamic table
-  and an immutable stream collection.
+  PUSH_PROMISE send transitions, an immutable output buffer for ordering
+  accepted send bytes, and an immutable aggregate connection state that
+  composes those migrated components with the public HPACK dynamic table and
+  an immutable stream collection.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -850,6 +851,17 @@ case records public result values and representative failure kinds.
 Additional executable evidence lives in the adjacent standard-library
 `*_test.veln` files and in the focused HTTP/2 cases under
 `../../examples/specification/`.
+`http2::core::empty_output_buffer()` creates immutable output state for
+sans-I/O write ordering. Public append helpers accept send decisions for PING,
+peer SETTINGS ACK, local SETTINGS, GOAWAY, DATA, WINDOW_UPDATE, HEADERS,
+PUSH_PROMISE, RST_STREAM, and PRIORITY. Accepted decisions append exactly one
+emitted byte chunk at the end of the buffer. Rejected, encode-failed,
+no-pending, and no-response decisions return the caller-owned buffer
+unchanged. Projection helpers expose chunk count, zero-based chunk lookup, and
+concatenated bytes. The focused
+[`http2-core-output-buffer`](../../examples/specification/run/http2-core-output-buffer/)
+case records ordered chunks, combined bytes, and failure/no-response
+non-append behavior through the public facade.
 The broad protocol-core case remains coverage for state transitions and output
 chunk projections while focused cases retain human and JSON diagnostic
 coverage.

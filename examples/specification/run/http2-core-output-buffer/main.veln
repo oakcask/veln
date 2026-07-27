@@ -1,0 +1,85 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChunk, String>
+	match http2::core::output_buffer_chunk_at(output, index)
+		Some(chunk) => Ok(chunk)
+		None => Err("missing HTTP/2 output chunk")
+	end
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
+	let chunk: ByteChunk = require_output_chunk(output, index)?
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, 0 - 1, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	let ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0102030405060708")?)
+	let after_ping: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), ping)
+	let data: CoreDataSendDecision = http2::core::send_data(state, 11, 1, byte_chunk_from_hex("aabb")?, false)
+	let after_data: CoreOutputBuffer = http2::core::output_buffer_append_data(after_ping, data)
+	let window: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 17, 0, 3)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(after_data, window)
+	stdio::print("ordered count ")
+	stdio::println(int_to_string(http2::core::output_buffer_count(output)))
+	let _ = print_chunk("ordered", output, 0, "0000080600000000000102030405060708")?
+	let _ = print_chunk("ordered", output, 1, "000002000000000001aabb")?
+	let _ = print_chunk("ordered", output, 2, "00000408000000000000000003")?
+	stdio::print("ordered combined \"")
+	stdio::print(checked_hex(http2::core::output_buffer_bytes(output), "0000080600000000000102030405060708000002000000000001aabb00000408000000000000000003")?)
+	stdio::println("\"")
+	let rejected_data: CoreDataSendDecision = http2::core::send_data(state, 23, 1, byte_chunk_from_hex("00112233445566778899aa")?, false)
+	let after_rejected: CoreOutputBuffer = http2::core::output_buffer_append_data(output, rejected_data)
+	let after_no_response: CoreOutputBuffer = http2::core::output_buffer_append_ping_response(after_rejected, http2::core::respond_to_ping(1, byte_chunk_from_hex("0102030405060708")?))
+	stdio::print("after-failures count ")
+	stdio::println(int_to_string(http2::core::output_buffer_count(after_no_response)))
+	Ok(())
+end
