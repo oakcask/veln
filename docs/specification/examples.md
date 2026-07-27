@@ -102,9 +102,8 @@ behavior.
   `../../examples/specification/check/binary-schema-dispatch-payload-helper-boundary-json/`.
 - Codec and schema byte failures: the focused `codec-*` and `binary-schema-*`
   cases under `../../examples/specification/run/`.
-- Typed protocol failures and projection:
-  `../../examples/specification/run/http2-protocol-core/` and the focused
-  `http2-*` cases under `../../examples/specification/run/`.
+- Typed protocol failures and projection: the focused `http2-*` cases under
+  `../../examples/specification/run/`.
 
 ## Read When
 

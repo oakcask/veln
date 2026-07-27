@@ -847,10 +847,10 @@ open outbound streams without changing connection credit, body accounting, or
 closed and reset lifecycle. Validation precedes the whole frame update, so an
 invalid later duplicate keeps the existing peer state and outbound credit
 unchanged while its focused human and JSON projections retain that duplicate
-item's byte offset and six-byte preview. The integrated output and focused
-projections are checked by `examples/specification/run/http2-protocol-core/`,
-`examples/specification/run/http2-protocol-core-settings-value-json/`, and
-`examples/specification/run/http2-protocol-core-settings-value-human/`.
+item's byte offset and six-byte preview. The focused projections are checked
+by `examples/specification/run/http2-protocol-core-settings-value-json/` and
+`examples/specification/run/http2-protocol-core-settings-value-human/`;
+broader HTTP/2 receive behavior is routed from `http2.md`.
 Received DATA frames that exceed available
 inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window

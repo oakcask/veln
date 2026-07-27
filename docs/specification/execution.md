@@ -381,8 +381,7 @@ enough.
   `examples/specification/run/hpack-static-codec-boundary/`. Stateful
   HTTP/2 request and response decoding also accept `content-length` through the
   static-name literal forms checked by
-  `examples/specification/run/http2-protocol-core/` when no later fixture
-  dynamic-table reuse is observed. The decoded values feed the same
+  the focused HTTP/2 cases routed from `http2.md`. The decoded values feed the same
   header-list validation and content-length body-accounting paths as fixture
   header lists. Stateful HTTP/2 request decoding also validates static-name
   `:scheme` literal values against the same request header-list rule as
@@ -419,9 +418,7 @@ enough.
   through the same focused response header-list diagnostic boundary. DATA is
   rejected while final response HEADERS are pending; after the final response,
   existing DATA, content-length, trailer, reset, and end-of-stream transitions
-  apply unchanged. The executable evidence is under
-  `examples/specification/run/http2-protocol-core/`; the focused human
-  diagnostic evidence is under
+  apply unchanged. The focused human diagnostic evidence is under
   `examples/specification/run/http2-protocol-core-informational-end-stream-human/`.
   A final `204` or `304` response selects a no-content receive state on both
   completed HEADERS and final CONTINUATION paths. Direct `END_STREAM` closes
@@ -431,9 +428,7 @@ enough.
   through `http2.protocol.content_length_mismatch` with expected length zero,
   the selected response status in `active_state`, and
   `rfc9110_no_content_response_body` provenance. Informational responses do
-  not select this final status state. The aggregate evidence is under
-  `examples/specification/run/http2-protocol-core/`, and focused human output
-  is checked under
+  not select this final status state. Focused human output is checked under
   `examples/specification/run/http2-protocol-core-no-content-data-human/`.
   Accepted client-created request HEADERS retain whether the request method is
   `HEAD`. The matching final response then uses the same zero-application-byte
@@ -443,15 +438,13 @@ enough.
   Direct response `END_STREAM`, empty DATA, and padding-only DATA may close the
   stream. Nonempty DATA fails before receive-window, stream, HPACK, or output
   state changes, with `head-response` active state and
-  `rfc9110_head_response_body` provenance. The aggregate evidence is under
-  `examples/specification/run/http2-protocol-core/`; focused human output is
-  checked under
+  `rfc9110_head_response_body` provenance. Focused human output is checked under
   `examples/specification/run/http2-protocol-core-head-response-data-human/`.
   Stateful HTTP/2 response decoding also accepts static-indexed
   `cache-control` and `content-type` entries after a static-indexed `:status`
   through completed HEADERS and final CONTINUATION paths in the same checked
-  protocol-core case. The HTTP/2 protocol-core fixture also exposes a
-  source-visible HPACK Huffman encode boundary for outbound checked values:
+  focused HTTP/2 cases. The HPACK coverage also exposes a source-visible
+  Huffman encode boundary for outbound checked values:
   `encode_hpack_huffman_payload` accepts supported source-visible strings,
   `encode_hpack_huffman_payload_bytes` accepts bounded byte chunks, and both
   return only the encoded Huffman payload bytes with EOS padding. Unsupported
@@ -502,8 +495,8 @@ enough.
   `http2.peer_limit.header_table_size_exceeded`, while a malformed update or
   an update after a header field keeps the existing focused HPACK diagnostic.
   Failed blocks leave the carried HPACK state unchanged. The executable cases
-  are `examples/specification/run/hpack-fixture-codec-boundary/` and
-  `examples/specification/run/http2-protocol-core/`.
+  are routed from `http2.md` and the focused HPACK cases under
+  `examples/specification/run/`.
   The same ordinary-source boundary exposes
   HPACK dynamic entry size as header-name byte count plus header-value byte
   count plus `32`, preserves immutable state while inserting newest-first
@@ -539,8 +532,8 @@ enough.
   malformed Huffman padding reports the focused
   `hpack.fixture.malformed_huffman_padding` shape at the dynamic-core boundary
   and through HTTP/2 fixture projection. The checked cases are
-  `examples/specification/run/hpack-fixture-codec-boundary/` and
-  `examples/specification/run/http2-protocol-core/`.
+  `examples/specification/run/hpack-fixture-codec-boundary/` and the focused
+  HTTP/2 cases routed from `http2.md`.
   The production inbound boundary replaces the fixed two-field decode result
   with a recursive ordinary header-field value. It decodes arbitrary finite
   sequences of the supported indexed and literal representations in wire
@@ -554,7 +547,7 @@ enough.
   inspected suffix. Any failure returns no header list or committed next
   state, leaving the input state reusable. Complete HEADERS and
   `PUSH_PROMISE` blocks plus final CONTINUATION assembly share this production
-  boundary. The executable protocol-core case checks zero, one, two, and
+  boundary. Focused HTTP/2 cases check zero, one, two, and
   more-than-two leading updates, late-sequence failures, input-state reuse,
   and the existing mixed-field, validation, and carried-state behavior.
   Production literal values are immutable octets rather than visible-ASCII or
@@ -601,7 +594,7 @@ enough.
   `examples/specification/run/hpack-fixture-codec-boundary/` and routes the
   returned encode state through outbound HEADERS and
   server-side `PUSH_PROMISE` framing for the literal-with-indexing form in
-  `examples/specification/run/http2-protocol-core/`. All three dynamic-name
+  the focused HTTP/2 outbound cases routed from `http2.md`. All three dynamic-name
   forms accept values from the checked source-visible Huffman encoder. The
   literal-with-indexing form inserts the decoded name and value for later
   `0xbe` reuse; the other forms leave the prior dynamic entry reusable.
@@ -682,8 +675,8 @@ enough.
   reference cannot satisfy the real-stream branch, while a real `StreamId`
   cannot satisfy the connection-only branch. Existing failures retain
   `http2.protocol.invalid_stream_id`, its focused required-domain fact,
-  endpoint role, active state, and rule provenance. The executable evidence is
-  under `examples/specification/run/http2-protocol-core/`.
+  endpoint role, active state, and rule provenance. Executable evidence is
+  routed from `http2.md`.
 - The same receive core retains the greatest accepted client-initiated stream
   id independently of the currently open stream set. A HEADERS frame that
   would create a new peer-created stream must use an id greater than that
@@ -695,13 +688,12 @@ enough.
   GOAWAY admission checks. Rejection uses
   `http2.protocol.peer_stream_id_not_increasing` and preserves stream,
   flow-control, HPACK, shutdown, and retained high-water state apart from
-  ordinary input-consumption state. The broad checked case is
-  `examples/specification/run/http2-protocol-core/`; focused human and JSON
-  projections are under
+  ordinary input-consumption state. Focused human and JSON projections are
+  under
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-human/`
   and
   `examples/specification/run/http2-protocol-core-peer-stream-id-monotonicity-json/`.
-- In the client receive fixture, the same connection-level high-water state
+- In the client receive core, the same connection-level high-water state
   retains the greatest accepted server-initiated promised stream id. A valid
   `PUSH_PROMISE` that would reserve an untracked promised stream must increase
   that value; tracked promised-stream reuse remains on its lifecycle failure
@@ -709,9 +701,8 @@ enough.
   stream state, HPACK decode, and promised request-header validation precede
   ordering. Rejection preserves promised-stream, flow-control, HPACK,
   settings, shutdown, and high-water state apart from ordinary consumed input,
-  and a rejected higher id remains eligible for a valid retry. The broad
-  checked case is `examples/specification/run/http2-protocol-core/`; focused
-  client human and JSON projections are under
+  and a rejected higher id remains eligible for a valid retry. Focused client
+  human and JSON projections are under
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-client-promised-stream-id-ordering-json/`.
@@ -722,9 +713,7 @@ enough.
   pad-length octet, a truncated PADDED-plus-PRIORITY prefix, or padding beyond
   the remaining payload fails with `http2.protocol.invalid_payload_length`
   before HPACK, continuation, priority, stream, flow-control, settings,
-  shutdown, or peer-stream high-water state changes. The checked request,
-  trailer, PRIORITY, continuation, and invalid-boundary cases are in
-  `examples/specification/run/http2-protocol-core/`; focused human and JSON
+  shutdown, or peer-stream high-water state changes. Focused human and JSON
   projections are under
   `examples/specification/run/http2-protocol-core-headers-padding-human/` and
   `examples/specification/run/http2-protocol-core-headers-padding-json/`.
@@ -736,10 +725,8 @@ enough.
   than the padded prefix or with padding beyond the remaining payload fails
   through `http2.protocol.invalid_payload_length` before HPACK, continuation,
   promised-stream reservation, settings, shutdown, flow-control, or lifecycle
-  state changes. The checked zero-padding, nonzero-padding, continuation,
-  truncated-prefix, and excessive-padding cases are in
-  `examples/specification/run/http2-protocol-core/`. Focused command-facing
-  count, frame, provenance, and byte-preview projections are under
+  state changes. Focused command-facing count, frame, provenance, and
+  byte-preview projections are under
   `examples/specification/run/http2-protocol-core-push-promise-padding-human/`
   and
   `examples/specification/run/http2-protocol-core-push-promise-padding-json/`.
@@ -754,9 +741,8 @@ enough.
   frame-size, and generated encoding failures keep their focused paths. A
   higher id rejected by one of those validations remains eligible for a
   corrected retry, and accepted split `PUSH_PROMISE`/CONTINUATION output
-  advances the retained id once. The broad executable evidence is
-  `examples/specification/run/http2-protocol-core/`; focused server human and
-  JSON projections are under
+  advances the retained id once. Focused server human and JSON projections are
+  under
   `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-outbound-promised-stream-id-ordering-json/`.
@@ -773,9 +759,8 @@ enough.
   keeps the existing lifecycle path without a new-stream ordering check.
   Server endpoints cannot use this path to start regular streams. Rejected
   higher ids remain eligible for corrected retry, and accepted split
-  HEADERS/CONTINUATION output advances the value once. The broad executable
-  evidence is `examples/specification/run/http2-protocol-core/`; focused human
-  and JSON projections are under
+  HEADERS/CONTINUATION output advances the value once. Focused human and JSON
+  projections are under
   `examples/specification/run/http2-protocol-core-outbound-local-stream-id-ordering-human/`
   and
   `examples/specification/run/http2-protocol-core-outbound-local-stream-id-ordering-json/`.
@@ -783,15 +768,14 @@ enough.
   send-intents on open associated streams, outbound `PRIORITY` send-intents
   on open streams, and stream-level outbound `WINDOW_UPDATE` receive-credit
   intents on open streams above a received or locally sent GOAWAY last-stream
-  boundary before HPACK fixture encoding, frame splitting, priority payload
+  boundary before HPACK encoding, frame splitting, priority payload
   encoding, receive-credit updates, or output chunk emission. Boundary
   streams remain accepted; connection-level outbound `WINDOW_UPDATE` remains
   accepted after GOAWAY subject to the existing increment and receive-window
   checks. Missing-stream, closed-stream, reset-stream, disabled-push,
   stream-id-domain, promised-stream id, priority self-dependency, increment
-  range, receive-window overflow, and HPACK fixture failures keep their
-  narrower facts. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  range, receive-window overflow, and HPACK failures keep their narrower
+  facts. Current evidence is routed from `http2.md`.
 - The same checked HTTP/2 protocol core accepts a repeated local outbound
   GOAWAY send-intent only when it preserves or narrows the locally recorded
   graceful-shutdown last-stream boundary. Accepted repeated GOAWAY
@@ -815,8 +799,7 @@ enough.
   recorded shutdown boundary. The checked receive case covers already-admitted
   streams both at and below the received boundary, and rejects a new
   above-boundary HEADERS frame while graceful shutdown still has an active
-  in-boundary stream. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  in-boundary stream. Current evidence is routed from `http2.md`.
 - The same checked HTTP/2 protocol core keeps one shared outbound connection
   window and a list of independently tracked outbound stream states. DATA
   consumes only the shared connection credit and the selected stream's send
@@ -835,9 +818,8 @@ enough.
   may make individual stream credit negative; a later update can restore that
   stream independently. Zero, overflow, unknown-stream, closed-stream, and
   reset-stream WINDOW_UPDATE frames remain rejected without changing credit.
-  The executable case checks three
-  simultaneous streams as a minimum evidence set rather than a representation
-  limit: `examples/specification/run/http2-protocol-core/`.
+  Focused executable cases check simultaneous streams as an evidence set
+  rather than a representation limit.
 - The same executable core represents connection window credit, stream window
   credit, configured initial window size, and received `WINDOW_UPDATE`
   increments as distinct ordinary values backed by `Int`. Their constructors
@@ -848,8 +830,8 @@ enough.
   refill pass through these domains while preserving the existing observable
   protocol failures. The checked case directly covers accepted and rejected
   constructors, negative stream credit and DATA blocking, successful refill,
-  and connection and stream overflow rejection under
-  `examples/specification/run/http2-protocol-core/`.
+  and connection and stream overflow rejection in focused `http2-core-*`
+  cases.
 - After the client connection preface, the checked HTTP/2 receive state waits
   for an initial peer SETTINGS frame instead of treating the connection as
   established. An empty or item-bearing non-ACK SETTINGS frame passes through
@@ -861,9 +843,8 @@ enough.
   rule provenance. Incomplete or rejected input retains the startup gate,
   pending bytes, peer settings, HPACK, flow-control, stream, and shutdown state.
   Existing frame-header and SETTINGS representation failures keep precedence.
-  The integrated and focused diagnostic evidence is under
-  `examples/specification/run/http2-protocol-core/`,
-  `examples/specification/run/http2-initial-peer-settings-gate-json/`, and
+  Focused diagnostic evidence is under
+  `examples/specification/run/http2-initial-peer-settings-gate-json/` and
   `examples/specification/run/http2-initial-peer-settings-gate-human/`.
 - The checked HTTP/2 protocol core records one pending empty SETTINGS ACK
   send intent after a valid non-ACK peer SETTINGS frame with payload items.
@@ -876,8 +857,7 @@ enough.
   updated; structured and human diagnostics keep the primary message on the
   payload-length fact and carry the SETTINGS item-width rule provenance as
   context. The checked cases are
-  `examples/specification/run/http2-protocol-core/`,
-  `examples/specification/run/http2-protocol-core-settings-item-length-json/`,
+  `examples/specification/run/http2-protocol-core-settings-item-length-json/`
   and
   `examples/specification/run/http2-protocol-core-settings-item-length-human/`.
 - A valid non-ACK peer SETTINGS frame processes items in wire order. Repeated
@@ -889,8 +869,7 @@ enough.
   lifecycle. The frame is atomic: all items are validated before peer state or
   derived stream credit is committed, and a later invalid repetition reports
   its own item offset without applying an earlier item from that frame. The
-  integrated evidence is `examples/specification/run/http2-protocol-core/`;
-  the focused range diagnostic projections are under
+  focused range diagnostic projections are under
   `examples/specification/run/http2-protocol-core-settings-value-json/` and
   `examples/specification/run/http2-protocol-core-settings-value-human/`.
 - The receive transition is role-aware for peer SETTINGS. A client endpoint
@@ -901,9 +880,8 @@ enough.
   active state, rule provenance, and a bounded item preview. A server endpoint
   continues to accept `SETTINGS_ENABLE_PUSH` values `0` and `1`; unknown
   identifiers, SETTINGS ACK behavior, and the existing value-range checks are
-  unchanged. The integrated, JSON, and human cases are
-  `examples/specification/run/http2-protocol-core/`,
-  `examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`,
+  unchanged. The JSON and human cases are
+  `examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`
   and
   `examples/specification/run/http2-protocol-core-settings-enable-push-role-human/`.
 - `http2::core` accepts a local outbound PING request send-intent only when
@@ -917,8 +895,7 @@ enough.
   explicit no-response action for a received PING ACK. Adjacent standard tests
   and `examples/specification/run/http2-core-ping-transitions/` own the public
   request, ACK, no-response, representative failure, and output-chunk
-  projections; `examples/specification/run/http2-protocol-core/` keeps wider
-  receive integration and complete-stdout coverage.
+  projections.
 - The same checked HTTP/2 protocol core accepts received `PRIORITY` frames on
   nonzero client-initiated streams when the frame has the fixed five-byte
   payload and does not depend on itself. The decoded frame exposes dependency
@@ -929,8 +906,7 @@ enough.
   stream `PRIORITY` frames are decoded without opening a peer-created request
   stream or increasing concurrent-stream receive count. A tracked
   half-closed-local stream remains half-closed-local and can still receive
-  DATA after the priority update. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  DATA after the priority update. Current evidence is routed from `http2.md`.
 - The same checked HTTP/2 protocol core stores each tracked inbound stream as
   one entry in a recursive list. The entry owns its stream id, receive window,
   priority and content-length facts, and lifecycle. Lookup, admission, flow
@@ -940,8 +916,7 @@ enough.
   resets one stream, admits a later stream without changing unrelated entries,
   and rejects a sixth open stream with
   `http2.peer_limit.concurrent_streams_exceeded` carrying the attempted and
-  allowed list-derived counts. The checked case is
-  `examples/specification/run/http2-protocol-core/`.
+  allowed list-derived counts. Current evidence is routed from `http2.md`.
 - The same checked HTTP/2 protocol core emits local SETTINGS send-intents as
   one frame-header-plus-payload chunk whose payload preserves caller item
   order. Supported local batch items are
