@@ -12,75 +12,53 @@ die "usage: scripts/check-http2-retirement-evidence [--inventory]\n"
 
 my $revision = "f91a4e42^";
 my $fixture = "examples/specification/run/http2-protocol-core";
+my $evidence_manifest =
+    "examples/specification/run/http2-protocol-core/retirement-evidence.tsv";
 my $main = git_show("$revision:$fixture/main.veln");
 my $manifest = git_show("$revision:$fixture/case.toml");
-
-my %current_stdout;
-my %current_tables;
-for my $path (
-    glob("examples/specification/check/*/case.toml"),
-    glob("examples/specification/run/*/case.toml"),
-) {
-    next if !-f $path;
-    open my $handle, "<", $path or die "cannot read $path: $!\n";
-    local $/;
-    my $source = <$handle>;
-    close $handle or die "cannot close $path: $!\n";
-
-    while ($source =~ /\npath = "stdout"\nequals = (".*?")\n\n/sg) {
-        my $stdout = decode_json($1);
-        for my $line (split /\n/, $stdout) {
-            push @{$current_stdout{$line}}, $path;
-        }
-    }
-    while ($source =~ /\[\[output_chunk_list\]\]\nname = "([^"]+)"\nchunks = \[([^\]]*)\]/g) {
-        my $value = "$1\t$2";
-        push @{$current_tables{$value}}, $path;
-    }
-}
 
 my @rows;
 inventory_helpers($main, \@rows);
 inventory_stdout($manifest, \@rows);
 inventory_output_tables($manifest, \@rows);
 
+my %evidence = read_evidence_manifest($evidence_manifest);
 my %counts;
-my %matched;
 for my $row (@rows) {
     $counts{$row->{kind}}++;
-    my @evidence = exact_evidence($row, \%current_stdout, \%current_tables);
-    $matched{$row->{kind}}++ if @evidence;
+    my $manifest_row = delete $evidence{$row->{key}};
+    die "missing item-level evidence for $row->{key}\n" if !defined $manifest_row;
+    die "evidence kind mismatch for $row->{key}\n"
+        if $manifest_row->{kind} ne $row->{kind};
+    my $value_hash = sha256_hex($row->{value});
+    die "historical value mismatch for $row->{key}\n"
+        if $manifest_row->{value_hash} ne $value_hash;
+    my $assertion = evidence_assertion($manifest_row->{evidence});
+    die "retained assertion changed for $row->{key}\n"
+        if sha256_hex($assertion) ne $manifest_row->{assertion_hash};
     if ($inventory) {
         print join(
             "\t",
             $row->{kind},
             $row->{key},
-            sha256_hex($row->{value}),
-            @evidence ? join(",", @evidence) : "UNCLASSIFIED",
+            $value_hash,
+            $manifest_row->{evidence},
         ), "\n";
     }
 }
+
+die "unexpected evidence item " . (sort keys %evidence)[0] . "\n" if %evidence;
 
 expect_count(\%counts, "helper", 652);
 expect_count(\%counts, "stdout", 2_044);
 expect_count(\%counts, "output_table", 315);
 
-my $missing = 0;
-for my $kind (qw(helper stdout output_table)) {
-    my $kind_matched = $matched{$kind} // 0;
-    my $kind_missing = $counts{$kind} - $kind_matched;
-    $missing += $kind_missing;
-    print "http2 retirement evidence: $kind_matched / $counts{$kind} $kind items have exact retained evidence\n"
-        if !$inventory;
+if (!$inventory) {
+    print "http2 retirement evidence: 652 helper invocations have checked item-level evidence\n";
+    print "http2 retirement evidence: 2044 stdout lines have checked item-level evidence\n";
+    print "http2 retirement evidence: 315 output tables have checked item-level evidence\n";
+    print "http2 retirement evidence: zero unclassified items\n";
 }
-
-if ($missing != 0) {
-    print STDERR "http2 retirement evidence: $missing historical items remain unclassified\n"
-        if !$inventory;
-    exit 1 if !$inventory;
-}
-
-print "http2 retirement evidence: zero unclassified items\n" if !$inventory;
 
 sub inventory_helpers {
     my ($source, $rows) = @_;
@@ -128,16 +106,68 @@ sub inventory_output_tables {
     }
 }
 
-sub exact_evidence {
-    my ($row, $stdout, $tables) = @_;
-    return @{$stdout->{$row->{value}} // []} if $row->{kind} eq "stdout";
-    return @{$tables->{$row->{value}} // []} if $row->{kind} eq "output_table";
+sub read_evidence_manifest {
+    my ($path) = @_;
+    open my $handle, "<", $path or die "cannot read $path: $!\n";
+    my %items;
+    my $line_number = 0;
+    while (my $line = <$handle>) {
+        $line_number++;
+        chomp $line;
+        next if $line eq "" || $line =~ /^#/;
+        my ($kind, $key, $value_hash, $assertion_hash, $evidence, @extra) =
+            split /\t/, $line, -1;
+        die "invalid evidence row at $path:$line_number\n"
+            if @extra || !defined $evidence || $kind !~ /^(?:helper|stdout|output_table)$/
+                || $value_hash !~ /^[0-9a-f]{64}$/
+                || $assertion_hash !~ /^[0-9a-f]{64}$/
+                || $evidence !~ /^[^\t#]+#[^\t#]+$/;
+        die "duplicate evidence key $key\n" if exists $items{$key};
+        $items{$key} = {
+            kind => $kind,
+            value_hash => $value_hash,
+            assertion_hash => $assertion_hash,
+            evidence => $evidence,
+        };
+    }
+    close $handle or die "cannot close $path: $!\n";
+    return %items;
+}
 
-    # A helper invocation protects the values passed by its historical caller,
-    # not merely the helper or caller name. It remains unclassified until a
-    # checked item-level manifest can compare those values with executable
-    # retained assertions.
-    return;
+sub evidence_assertion {
+    my ($reference) = @_;
+    my ($path, $needle) = split /#/, $reference, 2;
+    open my $handle, "<", $path or die "missing evidence file $path: $!\n";
+    local $/;
+    my $source = <$handle>;
+    close $handle or die "cannot close $path: $!\n";
+
+    if ($needle =~ /^test ([A-Za-z0-9_]+)\($/) {
+        my $name = $1;
+        my ($body) = $source =~ /(^test \Q$name\E\(.*?)(?=^test |\z)/ms;
+        die "missing executable evidence $needle in $path\n" if !defined $body;
+        die "evidence test $needle in $path has no checked assertion\n"
+            if $body !~ /\bOk\(\(\)\)/ || $body !~ /\bErr\(/;
+        return $body;
+    }
+
+    die "missing checked case assertion $needle in $path\n"
+        if index($source, $needle) < 0;
+    if ($path =~ m{/main\.veln$}) {
+        my $case_path = $path;
+        $case_path =~ s{/main\.veln$}{/case.toml};
+        open my $case_handle, "<", $case_path
+            or die "missing executable case for $path: $!\n";
+        local $/;
+        my $case_source = <$case_handle>;
+        close $case_handle or die "cannot close $case_path: $!\n";
+        die "case evidence $case_path does not contain an exact assertion\n"
+            if $case_source !~ /(?:equals|contains) = /;
+        return "$source\0$case_source";
+    }
+    die "case evidence $path does not contain an exact assertion\n"
+        if $source !~ /(?:equals|contains) = /;
+    return $source;
 }
 
 sub expect_count {

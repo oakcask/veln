@@ -40,6 +40,7 @@ implementation details.
 
 HPACK codec completion, sans-I/O core migration, and monolithic fixture
 retirement have moved to standard-owned HTTP/2 modules and focused executable
-cases. The remaining cleanup is tracked by
-`../../proposals/http2-sans-io-protocol-core.md`: stale historical routes must
-not present the retired aggregate fixture as current executable evidence.
+cases. The completed cleanup and item-level replacement evidence are recorded
+by
+[`http2-sans-io-protocol-core.md`](http2-sans-io-protocol-core.md); the retired
+aggregate fixture is not current executable evidence.
