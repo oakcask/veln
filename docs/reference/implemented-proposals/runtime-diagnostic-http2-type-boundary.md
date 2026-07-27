@@ -40,4 +40,4 @@ implementation details.
 
 HPACK codec completion, sans-I/O core migration, fixture assertion migration,
 and monolithic fixture retirement remain planned in
-`../../proposals/http2-sans-io-protocol-core.md`.
+`http2-sans-io-protocol-core.md`.

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the inbound response-trailer validation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md` and the checked HTTP/2 protocol-core
 example under `../../../examples/specification/run/http2-protocol-core/`.
 

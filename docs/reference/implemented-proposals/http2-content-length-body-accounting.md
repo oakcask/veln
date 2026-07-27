@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the fixture-marked `content-length` body accounting slices
-from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives
+from `http2-sans-io-protocol-core.md`. Current behavior lives
 in `../../specification/execution.md`, `../../specification/run-json.md`, and
 the checked examples under `../../../examples/specification/run/`.
 

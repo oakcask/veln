@@ -123,10 +123,9 @@ closed, and reset states. Public predicates expose whether a lifecycle is
 active, retains receive-window credit, projects as an open stream, and accepts
 DATA, RST_STREAM, WINDOW_UPDATE, or PRIORITY in the current receive
 transition. Public projection helpers also expose the active-state label and
-rejection-rule label used by later protocol failures. The collection is state
-ownership for later receive and send transitions; it does not by itself
-perform frame dispatch, header validation, flow-control debits, or lifecycle
-admission.
+rejection-rule label used by later protocol failures. Receive and send
+transitions consume the stream collection through the aggregate
+`CoreConnectionState` boundary.
 
 `http2::core::apply_remote_end_stream_lifecycle(state, offset, frame_kind,
 stream_id, end_stream, preview)` is the standard-owned immutable lifecycle
@@ -280,9 +279,13 @@ case records accepted RST_STREAM and PRIORITY bytes, reset-state projection,
 dependency and GOAWAY failures, empty failure output, and public failure
 fields.
 
-Complete stdout and wider output-chunk ordering remain in the aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case until those responsibilities are migrated.
+Wider outbound ordering is covered by the output-buffer and outbound
+transition cases, especially
+[`http2-core-output-buffer`](../../examples/specification/run/http2-core-output-buffer/),
+[`http2-core-outbound-data-flow`](../../examples/specification/run/http2-core-outbound-data-flow/),
+[`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/),
+and
+[`http2-core-outbound-stream-control`](../../examples/specification/run/http2-core-outbound-stream-control/).
 
 `http2::core::send_local_settings_batch(...)` accepts a caller-ordered batch
 of the supported local SETTINGS items:
@@ -381,8 +384,7 @@ HEADERS and PUSH_PROMISE flag matrix, unconstrained kinds, exact failure data,
 preview preservation, and absence of success output on rejection. Focused
 payload-length human and JSON cases project the active-state label and the
 failure's stored preview through
-`http2::diagnostic`; the aggregate protocol-core case retains wider decode
-ordering and complete-stdout integration.
+`http2::diagnostic`; focused receive-frame cases retain wider decode ordering.
 The same adjacent test checks flow-control domain boundaries, immutable debit
 and refill transitions, negative stream-credit preservation, overflow
 failures, and input preservation. The focused
@@ -514,11 +516,8 @@ stream-window overflow, missing-stream failure, exact failure context,
 original send-credit preservation, and preview preservation. The focused
 [`http2-core-stream-window-update-flow-control`](../../examples/specification/run/http2-core-stream-window-update-flow-control/)
 case imports `http2::core` from `std` and records the public result-state and
-failure projections. Other payload-specific frame application, header
-validation, HPACK-carrying transitions, complete stdout, and output-chunk
-integration remain in the aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case until those responsibilities are migrated.
+failure projections. Full receive-frame WINDOW_UPDATE integration is covered by
+[`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/).
 
 `http2::core::apply_connection_window_update_flow_control(state, offset,
 increment, preview)` is the standard-owned immutable connection-level
@@ -556,10 +555,10 @@ status value and informational END_STREAM response rules, trailer
 pseudo-header rejection, ordinary header lowercase and token rules,
 connection-specific header rejection, `te` value validation, and
 `content-length` invalid or mismatched values. HPACK-carrying receive
-transitions, diagnostic rendering, outbound content-length send accounting,
-complete stdout, and output-chunk integration remain in the aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case until those responsibilities are migrated. The adjacent test checks pure
+transitions are covered by `apply_receive_frame(...)`, outbound
+content-length send accounting is covered by the outbound send transitions,
+and diagnostic rendering remains in focused human and JSON cases. The adjacent
+test checks pure
 success and failure facts for request, response, and trailer lists. The
 focused executable
 [`http2-core-header-list-validation`](../../examples/specification/run/http2-core-header-list-validation/)
@@ -584,11 +583,8 @@ case imports `http2::core` from `std` and records public success, state,
 failure-source, failure-id, HPACK failure, header-list failure,
 content-length mismatch, PUSH_PROMISE reserved-stream and high-water
 projections, stream-admission active-state and rule provenance, and accessor
-projections. Outbound content-length send accounting, other outbound
-transitions, complete stdout, and output-chunk integration remain in the
-aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case until those responsibilities are migrated.
+projections. Outbound content-length send accounting and emitted-byte ordering
+are covered by the focused outbound and output-buffer cases named below.
 
 `http2::core::empty_connection_preface(starting_offset)` creates immutable
 state for the 24-octet client connection preface.
@@ -608,9 +604,10 @@ complete, byte-by-byte, unevenly chunked, trailing-input, first, middle, and
 final mismatch, partial-close, and immutable failure-state behavior. The
 focused `http2-protocol-core-preface-{invalid,partial}-{human,json}` cases
 obtain these public failures and project them through `http2::diagnostic`;
-the aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case retains initial-SETTINGS integration and its complete stdout assertion.
+initial-SETTINGS integration is covered by
+[`http2-initial-peer-settings-gate-human`](../../examples/specification/run/http2-initial-peer-settings-gate-human/)
+and
+[`http2-initial-peer-settings-gate-json`](../../examples/specification/run/http2-initial-peer-settings-gate-json/).
 
 `http2::core::server_initial_peer_settings_gate()` and
 `client_initial_peer_settings_gate()` create immutable role-specific state for
@@ -632,11 +629,9 @@ accepted server and client roles, acceptance without mutating the input state
 or preview, non-SETTINGS and ACK rejection, exact failure context, and
 immutable failure state and preview preservation. The focused
 `http2-initial-peer-settings-gate-{human,json}` cases obtain the typed public
-failure and project it through `http2::diagnostic`. The aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case calls the same public gate after complete-header, frame-size, and
-complete-frame checks, then retains wider stream-id, payload, SETTINGS-value,
-state, and complete-stdout integration coverage.
+failure and project it through `http2::diagnostic`. Frame-size, stream-id,
+payload, SETTINGS-value, and state integration are covered by focused
+`http2-core-*` and `http2-protocol-core-*` cases.
 
 `http2::core::empty_pending_header_block()` constructs idle continuation
 state. `start_header_block(...)` accepts an already validated HEADERS or
@@ -662,10 +657,9 @@ checks immediate, multi-frame HEADERS, multi-frame PUSH_PROMISE, non-final,
 wrong-kind, wrong-stream, active and idle closed-input paths, and exact
 diagnostic-input preservation. The focused
 `http2-protocol-core-continuation-*` cases project the public failures through
-the stable human and JSON diagnostics, while the aggregate
-[`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
-case retains frame decoding, HPACK decoding, stream-lifecycle, and output
-integration coverage.
+the stable human and JSON diagnostics. Frame decoding, HPACK decoding,
+stream-lifecycle, and output integration are covered by focused
+`http2-core-*` cases.
 
 `http2::hpack::encode_integer(value, prefix_bits, representation_bits)` accepts
 a non-negative `Int` and a prefix width from one through eight. It preserves
@@ -862,6 +856,7 @@ concatenated bytes. The focused
 [`http2-core-output-buffer`](../../examples/specification/run/http2-core-output-buffer/)
 case records ordered chunks, combined bytes, and failure/no-response
 non-append behavior through the public facade.
-The broad protocol-core case remains coverage for state transitions and output
-chunk projections while focused cases retain human and JSON diagnostic
+The retired `http2-protocol-core` route is no longer an executable case.
+Focused `http2-core-*` cases cover state transitions and emitted bytes, while
+focused `http2-protocol-core-*` cases retain human and JSON diagnostic
 coverage.

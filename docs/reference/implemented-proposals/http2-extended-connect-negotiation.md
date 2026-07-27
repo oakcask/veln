@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the extended CONNECT negotiation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md`, `../../specification/commands.md`,
 `../../specification/run-json.md`, and the checked HTTP/2 run examples.
 

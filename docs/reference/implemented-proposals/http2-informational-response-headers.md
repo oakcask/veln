@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the inbound client-side informational response HEADERS
-slice from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior
+slice from `http2-sans-io-protocol-core.md`. Current behavior
 lives in `../../specification/execution.md` and the checked protocol-core
 example under `../../../examples/specification/run/`.
 

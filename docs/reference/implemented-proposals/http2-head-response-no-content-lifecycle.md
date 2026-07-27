@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the client-side HEAD response body slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md` and the checked protocol-core examples
 under `../../../examples/specification/run/`.
 

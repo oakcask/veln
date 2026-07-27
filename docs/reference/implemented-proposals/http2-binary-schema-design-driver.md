@@ -16,7 +16,7 @@ binary-schema, codec, and transport cases under
 The broad driver is complete. Its continuing planned work is the bounded
 protocol-core route:
 
-- [HTTP/2 Sans-I/O Protocol Core](../../proposals/http2-sans-io-protocol-core.md)
+- [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md)
 
 Schema composition is complete. Current behavior is specified in
 [Source Surface](../../specification/source-surface.md) and
