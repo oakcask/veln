@@ -1021,6 +1021,16 @@ test receive_frame_dispatch_prioritizes_push_promise_payload_length_before_admis
 	end
 end
 
+test receive_frame_dispatch_rejects_push_promise_admission_with_context() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(101)?
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000405040000000100000002")?))?
+	if http2::core::receive_frame_failure_source(failure) == "stream-frame-admission" and http2::core::receive_frame_failure_id(failure) == "http2.protocol.invalid_frame_kind" and http2::core::receive_frame_failure_offset(failure) == 101 and http2::core::receive_frame_failure_frame_kind(failure) == 5 and http2::core::receive_frame_failure_stream_id(failure) == 1 and http2::core::receive_frame_failure_active_state(failure) == "server-receive" and http2::core::receive_frame_failure_rule_provenance(failure) == "server_receives_no_push_promise" and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure))) == 9 and http2::core::connection_state_next_offset(state) == 101 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not expose PUSH_PROMISE admission context immutably")
+	end
+end
+
 test receive_frame_dispatch_decodes_headers_with_production_hpack() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(31)?
 	let decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003010400000001828784")?))?

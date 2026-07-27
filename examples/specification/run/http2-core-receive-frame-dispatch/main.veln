@@ -200,6 +200,14 @@ fn print_content_length_failure(label: String, failure: CoreReceiveFrameFailure)
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(failure)))))
 end
 
+fn print_admission_context(label: String, failure: CoreReceiveFrameFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" context ")
+	stdio::print(http2::core::receive_frame_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::println(http2::core::receive_frame_failure_rule_provenance(failure))
+end
+
 fn body_state() -> Result<CoreConnectionState, String>
 	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection(http2::core::connection_window_credit(20))?)
 	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 5, 0))?
@@ -298,6 +306,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let push_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
 	let push_state: CoreConnectionState = http2::core::connection_state_with_streams(push_base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(push_base), push_stream))
 	let push_payload_length_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(push_state, byte_chunk_from_hex("000003050400000001000000")?)?)?
+	let push_admission_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000405040000000100000002")?)?)?
 	print_failure("admission", admission_failure)
 	print_failure("padded", padded_failure)
 	print_failure_reason("padded", padded_failure)
@@ -306,6 +315,8 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("settings-ack", settings_ack_failure)
 	print_failure("goaway", goaway_failure)
 	print_failure("push-promise-length", push_payload_length_failure)
+	print_failure("push-promise-admission", push_admission_failure)
+	print_admission_context("push-promise-admission", push_admission_failure)
 	let hpack_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("000001010400000001ff")?)?)?
 	let validation_failure: CoreReceiveFrameFailure = require_failure(http2::core::apply_receive_frame(http2::core::server_connection_state(31)?, byte_chunk_from_hex("00000401040000000182828784")?)?)?
 	print_header_failure("hpack", hpack_failure)

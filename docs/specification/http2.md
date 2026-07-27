@@ -550,10 +550,11 @@ and immutable failure-state preservation. The focused
 [`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/)
 case imports `http2::core` from `std` and records public success, state,
 failure-source, failure-id, HPACK failure, header-list failure,
-content-length mismatch, and accessor projections. Other payload-specific
-frame application, PUSH_PROMISE, outbound content-length send accounting,
-other outbound transitions, complete stdout, and output-chunk integration
-remain in the aggregate
+content-length mismatch, stream-admission active-state and rule provenance,
+and accessor projections. Other payload-specific frame application,
+PUSH_PROMISE, outbound content-length send accounting, other outbound
+transitions, complete stdout, and output-chunk integration remain in the
+aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 

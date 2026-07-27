@@ -642,6 +642,7 @@ end
 
 pub fn failure_active_state(failure: CoreReceiveFrameFailure) -> String
 	match failure
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_active_state(inner)
 		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, active_state, _, _) => active_state
 		_ => "none"
 	end
@@ -649,6 +650,7 @@ end
 
 pub fn failure_rule_provenance(failure: CoreReceiveFrameFailure) -> String
 	match failure
+		CoreReceiveFrameAdmissionFailure(inner) => http2::core::stream_frame_admission::failure_rule_provenance(inner)
 		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, rule, _) => rule
 		_ => "none"
 	end
