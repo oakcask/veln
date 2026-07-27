@@ -136,6 +136,25 @@ fn print_stream(label: String, state: CoreReceiveConnectionState, stream_id: Int
 	Ok(())
 end
 
+fn print_push_state(label: String, state: CoreReceiveConnectionState, promised_stream_id: Int) -> Result<(), String> effects [stdio]
+	let connection: CoreConnectionState = http2::core::receive_connection_connection(state)
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(connection), promised_stream_id))?
+	stdio::print(label)
+	stdio::print(" promised ")
+	stdio::print(int_to_string(promised_stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(stream)))
+	stdio::print(" high-water ")
+	stdio::print(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(connection))))
+	stdio::print(" output ")
+	stdio::print(int_to_string(http2::core::output_buffer_count(http2::core::receive_connection_output(state))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(connection)))
+	Ok(())
+end
+
 fn print_optional_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
 	if http2::core::output_buffer_count(output) > index
 		print_chunk(label, output, index, expected_hex)
@@ -206,6 +225,16 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_decision("data", data_decision)
 	print_state("data", data_state)
 	let _ = print_stream("data", data_state, 5)?
+	let push_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
+	let push_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(71)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), push_entry))
+	let push_output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), http2::core::send_ping(byte_chunk_from_hex("0908070605040302")?))
+	let push_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(push_connection, byte_chunk([]), push_output)
+	let push_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(push_start, byte_chunk_from_hex("00000705040000000100000002828784")?)?
+	let push_state: CoreReceiveConnectionState = require_state(push_decision)?
+	print_decision("push-promise", push_decision)
+	print_state("push-promise", push_state)
+	let _ = print_push_state("push-promise", push_state, 2)?
+	let _ = print_output("push-promise", http2::core::receive_connection_output(push_state), "0000080600000000000908070605040302", "")?
 	let failure: CoreReceiveConnectionFailure = require_failure(http2::core::receive_connection_chunk(http2::core::receive_connection_state(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("0000080600000000000102030405060708")?)?)?
 	print_failure("initial-gate", failure)
 	Ok(())

@@ -192,8 +192,10 @@ outbound SETTINGS ACK through the output buffer in receive order and clear
 only the pending peer-ACK state.
 Accepted non-ACK PING frames append the exact PING ACK bytes after any earlier
 output, while received PING ACKs append no bytes. Accepted PRIORITY frames
-advance the aggregate offset and preserve stream and output state. Rejections
-from the preface gate, initial SETTINGS gate, frame decode, or frame
+advance the aggregate offset and preserve stream and output state. Accepted
+PUSH_PROMISE frames reserve the promised stream through the aggregate receive
+dispatcher without appending output bytes or mutating caller-owned output.
+Rejections from the preface gate, initial SETTINGS gate, frame decode, or frame
 dispatcher, including after an earlier complete frame in the same input
 chunk, expose a focused failure source and do not expose a next chunked
 receive state, preserving the caller-owned connection, buffered input, and
@@ -203,8 +205,9 @@ The adjacent
 [`core_test.veln`](../../crates/veln-stdlib/veln/http2/core_test.veln) checks
 preface plus initial SETTINGS composition, partial PING buffering, SETTINGS
 ACK and PING ACK byte ordering across split and same-chunk receive, PRIORITY
-offset application, initial-gate rejection context, and input/output
-preservation on rejection. The focused
+offset application, PUSH_PROMISE reservation without output side effects,
+initial-gate rejection context, and input/output preservation on rejection.
+The focused
 [`http2-core-receive-connection-boundary`](../../examples/specification/run/http2-core-receive-connection-boundary/)
 case records the public decision, state, failure, and emitted-byte
 projections.
