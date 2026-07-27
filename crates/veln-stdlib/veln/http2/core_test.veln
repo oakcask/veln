@@ -1023,6 +1023,21 @@ test receive_frame_dispatch_preserves_state_on_failures() -> Result<(), String>
 	end
 end
 
+test receive_frame_dispatch_accepts_unknown_stream_frame_without_state_side_effects() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection_credit(20)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 7, 3))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000002630000000005aabb")?))?
+	let next_state: CoreConnectionState = http2::core::receive_frame_state(decision)?
+	let original_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 5))?
+	let next_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 5))?
+	if http2::core::receive_frame_status(decision) == "accepted" and http2::core::receive_frame_applied_transition(decision) == "none" and http2::core::receive_frame_kind(decision) == 99 and http2::core::receive_frame_stream_id(decision) == 5 and http2::core::receive_frame_payload_length(decision) == 2 and http2::core::connection_state_next_offset(next_state) == 42 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(next_state)) == 20 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(next_stream)) == "open" and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(next_stream)) == 14 and http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(next_stream)) == 21 and http2::core::stream_entry_content_length_expected(next_stream) == 7 and http2::core::stream_entry_content_length_observed(next_stream) == 3 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(original_stream)) == 14 and http2::core::connection_state_next_offset(state) == 31 and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(next_state)) and http2::core::connection_state_hpack_table_entry_count(next_state) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not preserve state around an unknown extension frame")
+	end
+end
+
 test receive_frame_dispatch_decode_failure_preserves_input_state_and_preview() -> Result<(), String>
 	let frame: ByteChunk = byte_chunk_from_hex("000004080000")?
 	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(73)?, require_connection_credit(12)?)
@@ -1163,6 +1178,18 @@ test receive_frame_dispatch_preserves_state_on_header_failures() -> Result<(), S
 		Ok(())
 	else
 		Err("HTTP/2 receive-frame header failures did not preserve source, context, or input state")
+	end
+end
+
+test receive_frame_dispatch_hpack_failure_preserves_dynamic_table_and_header_state() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(131)?
+	let hpack_table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::core::connection_state_hpack_table(base), "content-length", byte_chunk_from_hex("35")?)?
+	let state: CoreConnectionState = http2::core::connection_state_with_hpack_table(base, hpack_table)
+	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001010400000001ff")?))?
+	if http2::core::receive_frame_failure_source(failure) == "hpack" and http2::core::receive_frame_failure_id(failure) == "http2.hpack.decode_failure" and http2::core::receive_frame_failure_reason(failure) == "indexed_failure" and http2::core::receive_frame_failure_offset(failure) == 131 and http2::core::receive_frame_failure_frame_kind(failure) == 1 and http2::core::receive_frame_failure_stream_id(failure) == 1 and chunks_equal(http2::core::receive_frame_failure_preview(failure), byte_chunk_from_hex("ff")?)? and http2::core::connection_state_next_offset(state) == 131 and http2::core::connection_state_hpack_table_entry_count(state) == 1 and http2::core::connection_state_hpack_table_capacity(state) == 4096 and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame HPACK failure changed dynamic table, pending header state, or stream collection")
 	end
 end
 
