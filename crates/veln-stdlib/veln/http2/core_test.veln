@@ -628,6 +628,41 @@ test connection_window_update_flow_control_failures_preserve_state_and_preview()
 	end
 end
 
+test aggregate_flow_control_decision_accessors_reject_wrong_variant() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(10)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 7, 21, 0, 0))?
+	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream))
+	let accepted_data: CoreDataReceiveFlowControlDecision = http2::core::apply_data_receive_flow_control(with_stream, 31, 5, 4, byte_chunk_from_hex("000004000000000005")?)
+	let rejected_data: CoreDataReceiveFlowControlDecision = http2::core::apply_data_receive_flow_control(with_stream, 41, 5, 11, byte_chunk_from_hex("00000b000000000005")?)
+	let accepted_stream_window: CoreStreamWindowUpdateFlowControlDecision = http2::core::apply_stream_window_update_flow_control(with_stream, 59, 5, 9, byte_chunk_from_hex("000004080000000005")?)
+	let rejected_stream_window: CoreStreamWindowUpdateFlowControlDecision = http2::core::apply_stream_window_update_flow_control(with_stream, 61, 5, 0, byte_chunk_from_hex("000004080000000005")?)
+	let accepted_connection_window: CoreConnectionWindowUpdateFlowControlDecision = http2::core::apply_connection_window_update_flow_control(with_stream, 73, 9, byte_chunk_from_hex("000004080000000000")?)
+	let rejected_connection_window: CoreConnectionWindowUpdateFlowControlDecision = http2::core::apply_connection_window_update_flow_control(with_stream, 79, 0, byte_chunk_from_hex("000004080000000000")?)
+	match http2::core::data_receive_flow_control_failure(accepted_data)
+		Ok(_) => Err("accepted DATA receive flow-control decision exposed a failure")
+		Err(data_failure_error) => match http2::core::data_receive_flow_control_state(rejected_data)
+			Ok(_) => Err("rejected DATA receive flow-control decision exposed a state")
+			Err(data_state_error) => match http2::core::stream_window_update_flow_control_failure(accepted_stream_window)
+				Ok(_) => Err("accepted stream WINDOW_UPDATE decision exposed a failure")
+				Err(stream_failure_error) => match http2::core::stream_window_update_flow_control_state(rejected_stream_window)
+					Ok(_) => Err("rejected stream WINDOW_UPDATE decision exposed a state")
+					Err(stream_state_error) => match http2::core::connection_window_update_flow_control_failure(accepted_connection_window)
+						Ok(_) => Err("accepted connection WINDOW_UPDATE decision exposed a failure")
+						Err(connection_failure_error) => match http2::core::connection_window_update_flow_control_state(rejected_connection_window)
+							Ok(_) => Err("rejected connection WINDOW_UPDATE decision exposed a state")
+							Err(connection_state_error) => if data_failure_error == "accepted DATA receive flow-control decision has no failure" and data_state_error == "rejected DATA receive flow-control decision has no state" and stream_failure_error == "accepted stream WINDOW_UPDATE flow-control decision has no failure" and stream_state_error == "rejected stream WINDOW_UPDATE flow-control decision has no state" and connection_failure_error == "accepted connection WINDOW_UPDATE flow-control decision has no failure" and connection_state_error == "rejected connection WINDOW_UPDATE flow-control decision has no state"
+								Ok(())
+							else
+								Err("HTTP/2 aggregate flow-control decision accessors changed wrong-variant errors")
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?

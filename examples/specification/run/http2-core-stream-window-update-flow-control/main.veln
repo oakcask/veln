@@ -49,6 +49,26 @@ fn print_failure(label: String, failure: CoreStreamWindowUpdateFlowControlFailur
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::stream_window_update_flow_control_failure_preview(failure)))))
 end
 
+fn print_error_line(label: String, error: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(error)
+end
+
+fn print_failure_accessor_error(label: String, decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<(), String> effects [stdio]
+	match http2::core::stream_window_update_flow_control_failure(decision)
+		Ok(_) => Err("expected accepted stream WINDOW_UPDATE decision to hide failure")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
+fn print_state_accessor_error(label: String, decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<(), String> effects [stdio]
+	match http2::core::stream_window_update_flow_control_state(decision)
+		Ok(_) => Err("expected rejected stream WINDOW_UPDATE decision to hide state")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let base: CoreConnectionState = http2::core::server_connection_state(0)?
 	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 13, 21, 0, 0))?
@@ -66,5 +86,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("invalid", invalid)
 	print_failure("overflow", overflow)
 	print_failure("missing", missing)
+	let _ = print_failure_accessor_error("accepted-accessor", accepted)?
+	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_stream_window_update_flow_control(state, 73, 5, 0, byte_chunk_from_hex("000004080000000005")?))?
 	Ok(())
 end

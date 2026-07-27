@@ -60,6 +60,26 @@ fn print_failure(label: String, failure: CoreDataReceiveFlowControlFailure) -> (
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::data_receive_flow_control_failure_preview(failure)))))
 end
 
+fn print_error_line(label: String, error: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(error)
+end
+
+fn print_failure_accessor_error(label: String, decision: CoreDataReceiveFlowControlDecision) -> Result<(), String> effects [stdio]
+	match http2::core::data_receive_flow_control_failure(decision)
+		Ok(_) => Err("expected accepted DATA receive decision to hide failure")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
+fn print_state_accessor_error(label: String, decision: CoreDataReceiveFlowControlDecision) -> Result<(), String> effects [stdio]
+	match http2::core::data_receive_flow_control_state(decision)
+		Ok(_) => Err("expected rejected DATA receive decision to hide state")
+		Err(error) => Ok(print_error_line(label, error))
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection(10)?)
 	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 7, 99, 0, 0))?
@@ -77,5 +97,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("connection", connection_failure)
 	print_failure("stream", stream_failure)
 	print_failure("missing", missing_failure)
+	let _ = print_failure_accessor_error("accepted-accessor", accepted)?
+	let _ = print_state_accessor_error("rejected-accessor", http2::core::apply_data_receive_flow_control(state, 49, 5, 11, byte_chunk_from_hex("00000b000000000005")?))?
 	Ok(())
 end
