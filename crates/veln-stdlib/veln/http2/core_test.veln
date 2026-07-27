@@ -768,7 +768,7 @@ end
 
 test receive_frame_dispatch_applies_data_window_update_and_rst_stream() -> Result<(), String>
 	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection_credit(20)?)
-	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, -1, 0))?
 	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
 	let data_decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000400010000000501020304")?))?
 	let data_state: CoreConnectionState = http2::core::receive_frame_state(data_decision)?
@@ -785,6 +785,26 @@ test receive_frame_dispatch_applies_data_window_update_and_rst_stream() -> Resul
 		Ok(())
 	else
 		Err("HTTP/2 receive-frame dispatch did not apply DATA, WINDOW_UPDATE, and RST_STREAM transitions immutably")
+	end
+end
+
+test receive_frame_dispatch_applies_content_length_body_accounting() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(31)?, require_connection_credit(20)?)
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 5, 0))?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
+	let first: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003000000000005aabbcc")?))?
+	let first_state: CoreConnectionState = http2::core::receive_frame_state(first)?
+	let first_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(first_state), 5))?
+	let exact: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(first_state, byte_chunk_from_hex("000002000100000005ddee")?))?
+	let exact_state: CoreConnectionState = http2::core::receive_frame_state(exact)?
+	let exact_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(exact_state), 5))?
+	let over_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(first_state, byte_chunk_from_hex("000003000000000005010203")?))?
+	let early_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003000100000005aabbcc")?))?
+	let preserved_stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(first_state), 5))?
+	if http2::core::receive_frame_applied_transition(first) == "data" and http2::core::stream_entry_content_length_expected(first_stream) == 5 and http2::core::stream_entry_content_length_observed(first_stream) == 3 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(first_state)) == 17 and http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(first_stream)) == 11 and http2::core::receive_frame_applied_transition(exact) == "data" and http2::core::stream_entry_content_length_observed(exact_stream) == 5 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(exact_stream)) == "half-closed-remote" and http2::core::receive_frame_failure_source(over_failure) == "content-length-body" and http2::core::receive_frame_failure_id(over_failure) == "http2.protocol.content_length_mismatch" and http2::core::receive_frame_failure_content_length_expected(over_failure) == 5 and http2::core::receive_frame_failure_content_length_observed(over_failure) == 6 and http2::core::receive_frame_failure_active_state(over_failure) == "open-stream" and http2::core::receive_frame_failure_rule_provenance(over_failure) == "rfc9113_content_length_body" and http2::core::receive_frame_failure_source(early_failure) == "content-length-body" and http2::core::receive_frame_failure_content_length_observed(early_failure) == 3 and http2::core::connection_state_next_offset(first_state) == 43 and http2::core::stream_entry_content_length_observed(preserved_stream) == 3 and http2::core::connection_state_next_offset(state) == 31
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatch did not apply content-length body accounting immutably")
 	end
 end
 
@@ -881,7 +901,7 @@ end
 
 test receive_frame_dispatch_preserves_state_on_failures() -> Result<(), String>
 	let base: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(41)?, require_connection_credit(5)?)
-	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 4, 2147483640, 0, 0))?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 4, 2147483640, -1, 0))?
 	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), stream))
 	let admission_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001000000000000ff")?))?
 	let padded_data_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000000000800000005")?))?
@@ -900,7 +920,7 @@ end
 test receive_frame_dispatch_decode_failure_preserves_input_state_and_preview() -> Result<(), String>
 	let frame: ByteChunk = byte_chunk_from_hex("000004080000")?
 	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(73)?, require_connection_credit(12)?)
-	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 7, 13, 0, 0))?
+	let stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 7, 13, -1, 0))?
 	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(state), stream))
 	let failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(with_stream, frame))?
 	let found: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(with_stream), 9))?

@@ -35,6 +35,7 @@ pub type CoreReceiveFrameFailure
 	CoreReceiveFramePendingHeaderBlockFailure(HeaderBlockFailure)
 	CoreReceiveFrameHpackFailure(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderBlockDecodeFailure, preview: ByteChunk)
 	CoreReceiveFrameHeaderListValidationFailure(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderListValidationFailure, preview: ByteChunk)
+	CoreReceiveFrameContentLengthFailure(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 end
 
 pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
@@ -191,7 +192,10 @@ end
 
 fn apply_data_frame(state: CoreConnectionState, offset: Int, length: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	match data_content_length(length, flags, payload)
-		Ok(data_length) => apply_data_flow_control_decision(http2::core::receive_flow_control::apply_data(state, offset, stream_id, data_length, header), offset, length, flags, stream_id, header)
+		Ok(data_length) => match apply_data_content_length(state, offset, stream_id, data_length, end_stream_set(flags), payload)
+			Ok(content_state) => apply_data_flow_control_decision(http2::core::receive_flow_control::apply_data(content_state, offset, stream_id, data_length, header), offset, length, flags, stream_id, header)
+			Err(failure) => Ok(CoreReceiveFrameRejected(failure))
+		end
 		Err(reason) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 0, stream_id, reason, frame_bytes)))
 	end
 end
@@ -374,6 +378,31 @@ fn header_list_has_name_at(headers: HeaderList, expected: String, index: Int, co
 	end
 end
 
+fn apply_data_content_length(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, end_stream: Bool, preview: ByteChunk) -> Result<CoreConnectionState, CoreReceiveFrameFailure>
+	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+		Some(entry) => validate_data_content_length_entry(state, offset, stream_id, data_length, end_stream, preview, entry)
+		None => Ok(state)
+	end
+end
+
+fn validate_data_content_length_entry(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, end_stream: Bool, preview: ByteChunk, entry: CoreStreamEntry) -> Result<CoreConnectionState, CoreReceiveFrameFailure>
+	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
+	let observed: Int = http2::core::stream_state::entry_content_length_observed(entry) + data_length
+	if expected < 0
+		Ok(state)
+	else if observed > expected
+		Err(content_length_failure(offset, stream_id, expected, observed, preview, entry))
+	else if end_stream and observed < expected
+		Err(content_length_failure(offset, stream_id, expected, observed, preview, entry))
+	else
+		Ok(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_content_length(http2::core::connection_state::streams(state), stream_id, expected, observed)))
+	end
+end
+
+fn content_length_failure(offset: Int, stream_id: Int, expected: Int, observed: Int, preview: ByteChunk, entry: CoreStreamEntry) -> CoreReceiveFrameFailure
+	CoreReceiveFrameContentLengthFailure(offset, 0, stream_id, expected, observed, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)), "rfc9113_content_length_body", preview)
+end
+
 fn padded_data_content_length(length: Int, payload: ByteChunk) -> Result<Int, String>
 	let pad_length: Int = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
 	if pad_length > length - 1
@@ -481,6 +510,7 @@ pub fn failure_source(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFramePendingHeaderBlockFailure(_) => "pending-header-block"
 		CoreReceiveFrameHpackFailure(_, _, _, _, _) => "hpack"
 		CoreReceiveFrameHeaderListValidationFailure(_, _, _, _, _) => "header-list-validation"
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, _, _) => "content-length-body"
 	end
 end
 
@@ -504,6 +534,7 @@ pub fn failure_id(failure: CoreReceiveFrameFailure) -> String
 		else
 			"http2.protocol.invalid_request_header_list"
 		end
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, _, _) => "http2.protocol.content_length_mismatch"
 	end
 end
 
@@ -523,6 +554,7 @@ pub fn failure_offset(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_offset(inner)
 		CoreReceiveFrameHpackFailure(offset, _, _, _, _) => offset
 		CoreReceiveFrameHeaderListValidationFailure(offset, _, _, _, _) => offset
+		CoreReceiveFrameContentLengthFailure(offset, _, _, _, _, _, _, _) => offset
 	end
 end
 
@@ -538,6 +570,7 @@ pub fn failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_actual_kind(inner)
 		CoreReceiveFrameHpackFailure(_, kind, _, _, _) => kind
 		CoreReceiveFrameHeaderListValidationFailure(_, kind, _, _, _) => kind
+		CoreReceiveFrameContentLengthFailure(_, kind, _, _, _, _, _, _) => kind
 		_ => 0
 	end
 end
@@ -556,6 +589,7 @@ pub fn failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_actual_stream(inner)
 		CoreReceiveFrameHpackFailure(_, _, stream_id, _, _) => stream_id
 		CoreReceiveFrameHeaderListValidationFailure(_, _, stream_id, _, _) => stream_id
+		CoreReceiveFrameContentLengthFailure(_, _, stream_id, _, _, _, _, _) => stream_id
 		_ => 0
 	end
 end
@@ -567,6 +601,7 @@ pub fn failure_reason(failure: CoreReceiveFrameFailure) -> String
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_kind(inner)
 		CoreReceiveFrameHpackFailure(_, _, _, inner, _) => http2::hpack::header_block_failure_kind(inner)
 		CoreReceiveFrameHeaderListValidationFailure(_, _, _, inner, _) => http2::core::header_list_validation::failure_fact(inner)
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, rule, _) => rule
 		_ => "none"
 	end
 end
@@ -587,6 +622,35 @@ pub fn failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 		CoreReceiveFramePendingHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_preview(inner)
 		CoreReceiveFrameHpackFailure(_, _, _, _, preview) => preview
 		CoreReceiveFrameHeaderListValidationFailure(_, _, _, _, preview) => preview
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, _, preview) => preview
+	end
+end
+
+pub fn failure_content_length_expected(failure: CoreReceiveFrameFailure) -> Int
+	match failure
+		CoreReceiveFrameContentLengthFailure(_, _, _, expected, _, _, _, _) => expected
+		_ => -1
+	end
+end
+
+pub fn failure_content_length_observed(failure: CoreReceiveFrameFailure) -> Int
+	match failure
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, observed, _, _, _) => observed
+		_ => -1
+	end
+end
+
+pub fn failure_active_state(failure: CoreReceiveFrameFailure) -> String
+	match failure
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, active_state, _, _) => active_state
+		_ => "none"
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreReceiveFrameFailure) -> String
+	match failure
+		CoreReceiveFrameContentLengthFailure(_, _, _, _, _, _, rule, _) => rule
+		_ => "none"
 	end
 end
 

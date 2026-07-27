@@ -834,6 +834,22 @@ pub fn receive_frame_failure_header_list_active_state(failure: CoreReceiveFrameF
 	http2::core::receive_frame::failure_header_list_active_state(failure)
 end
 
+pub fn receive_frame_failure_content_length_expected(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_content_length_expected(failure)
+end
+
+pub fn receive_frame_failure_content_length_observed(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_content_length_observed(failure)
+end
+
+pub fn receive_frame_failure_active_state(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_active_state(failure)
+end
+
+pub fn receive_frame_failure_rule_provenance(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_rule_provenance(failure)
+end
+
 pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
 	http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, preview)
 end

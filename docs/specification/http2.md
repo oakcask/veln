@@ -162,7 +162,12 @@ payload length, and applied transition label. Rejected decisions expose a
 focused failure source, stable failure id, offset, frame kind, stream id,
 decode, payload-read, HPACK, or header-list reason where applicable, and
 preserved preview without returning a next state or mutating the input
-aggregate.
+aggregate. Inbound DATA on a stream with an accepted `content-length` updates
+only the DATA application-octet count. It rejects over-length DATA and
+END_STREAM shortfalls as `http2.protocol.content_length_mismatch` with the
+expected and observed lengths, active-state label, `rfc9113_content_length_body`
+provenance, and preserved DATA preview before changing flow-control credit,
+stream lifecycle, or the input aggregate.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection
@@ -182,8 +187,9 @@ The focused
 case projects accepted, tightened, drained, boundary-rejected, and
 payload-read-rejected shutdown decisions through the public facade.
 
-Other receive-frame applications, including PUSH_PROMISE, full content-length
-body accounting, complete stdout, and output-chunk integration remain in the aggregate
+Other receive-frame applications, including PUSH_PROMISE, outbound
+content-length send accounting, complete stdout, and output-chunk integration
+remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 
@@ -459,8 +465,8 @@ status value and informational END_STREAM response rules, trailer
 pseudo-header rejection, ordinary header lowercase and token rules,
 connection-specific header rejection, `te` value validation, and
 `content-length` invalid or mismatched values. HPACK-carrying receive
-transitions, diagnostic rendering, content-length body accounting, complete
-stdout, and output-chunk integration remain in the aggregate
+transitions, diagnostic rendering, outbound content-length send accounting,
+complete stdout, and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated. The adjacent test checks pure
 success and failure facts for request, response, and trailer lists. The
@@ -473,15 +479,16 @@ The adjacent test also checks that `apply_receive_frame(...)` composes frame
 decode, payload-length validation, stream-frame admission, DATA END_STREAM
 lifecycle application, HEADERS and CONTINUATION header-block completion,
 production HPACK decode, header-list validation, DATA receive-credit debit,
+inbound DATA content-length body accounting,
 stream and connection WINDOW_UPDATE credit refill, RST_STREAM reset-code
 application, wrong-variant accessors, and immutable failure-state
 preservation. The focused
 [`http2-core-receive-frame-dispatch`](../../examples/specification/run/http2-core-receive-frame-dispatch/)
 case imports `http2::core` from `std` and records public success, state,
-failure-source, failure-id, HPACK failure, header-list failure, and accessor
-projections. Other payload-specific frame application, PUSH_PROMISE, full
-content-length body accounting, complete stdout, and output-chunk integration
-remain in the aggregate
+failure-source, failure-id, HPACK failure, header-list failure,
+content-length mismatch, and accessor projections. Other payload-specific
+frame application, PUSH_PROMISE, outbound content-length send accounting,
+complete stdout, and output-chunk integration remain in the aggregate
 [`http2-protocol-core`](../../examples/specification/run/http2-protocol-core/)
 case until those responsibilities are migrated.
 
