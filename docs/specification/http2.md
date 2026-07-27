@@ -256,8 +256,9 @@ The focused
 [`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/)
 case records accepted HEADERS and PUSH_PROMISE bytes, created and reserved
 stream projections, response-header content-length updates, trailer closure
-with preserved content-length state, header-list failure fields, endpoint
-rejection, empty failure output, and public failure accessors.
+with preserved content-length state, header-list failure fields, GOAWAY
+boundary rejection, endpoint rejection, empty failure output, and public
+failure accessors.
 
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and
