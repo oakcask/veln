@@ -140,6 +140,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_decision("ping", ping_decision)
 	print_state("ping", after_ping)
 	let _ = print_output("ping", http2::core::receive_connection_output(after_ping), "000000040100000000", "0000080601000000000102030405060708")?
+	let ordered_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let ordered_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(ordered_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000060400000000000005000080000000080600000000000102030405060708")?)?
+	let ordered_state: CoreReceiveConnectionState = require_state(ordered_decision)?
+	print_decision("ordered", ordered_decision)
+	print_state("ordered", ordered_state)
+	let _ = print_output("ordered", http2::core::receive_connection_output(ordered_state), "000000040100000000", "0000080601000000000102030405060708")?
 	let priority_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let priority_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(priority_start, byte_chunk_from_hex("000005020000000001000000000f")?)?
 	let priority_state: CoreReceiveConnectionState = require_state(priority_decision)?

@@ -121,7 +121,12 @@ end
 fn accept_receive_frame(decision: CoreReceiveFrameDecision, output: CoreOutputBuffer, initial_settings_accepted: Bool, header: FrameHeader, suffix: ByteChunk) -> Result<CoreReceiveConnectionDecision, String>
 	let next_connection: CoreConnectionState = http2::core::receive_frame::decision_state(decision)?
 	let output_transition: ReceiveOutputTransition = output_after_frame(next_connection, output, header)?
-	Ok(CoreReceiveConnectionAccepted(CoreReceiveConnectionState(output_transition_connection(output_transition), suffix, output_transition_output(output_transition), initial_settings_accepted), http2::core::receive_frame::decision_applied_transition(decision)))
+	let after_frame: CoreReceiveConnectionState = CoreReceiveConnectionState(output_transition_connection(output_transition), suffix, output_transition_output(output_transition), initial_settings_accepted)
+	if byte_count_to_int(byte_chunk_count(suffix)) == 0
+		Ok(CoreReceiveConnectionAccepted(after_frame, http2::core::receive_frame::decision_applied_transition(decision)))
+	else
+		receive_frame_from_buffer(output_transition_connection(output_transition), suffix, output_transition_output(output_transition), initial_settings_accepted)
+	end
 end
 
 type ReceiveOutputTransition
