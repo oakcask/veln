@@ -1775,6 +1775,55 @@ test header_list_validation_reports_request_failures_with_context() -> Result<()
 	end
 end
 
+test header_list_validation_covers_connect_request_shapes() -> Result<(), String>
+	let connect: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test:443")?, http2::hpack::empty_header_list()))
+	let authority_empty: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":authority", "")?, http2::hpack::empty_header_list()))
+	let scheme_present: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test:443")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::empty_header_list())))
+	let path_present: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test:443")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::empty_header_list())))
+	let missing_authority: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::empty_header_list())
+	let authority_failure: HeaderListValidationFailure = header_validation_failure(http2::core::validate_request_header_list(authority_empty, 0))?
+	if not header_validation_accepts(http2::core::validate_request_header_list(connect, 0), -1)
+		Err("CONNECT request without scheme or path was rejected")
+	else if http2::core::header_list_validation_failure_fact(authority_failure) != "connect_authority_empty" or http2::core::header_list_validation_failure_header_name(authority_failure) != ":authority" or http2::core::header_list_validation_failure_active_state(authority_failure) != "request-headers"
+		Err("CONNECT authority failure lost context")
+	else if request_validation_fact(scheme_present)? != "connect_scheme_present"
+		Err("CONNECT request with scheme did not report the scheme-specific fact")
+	else if request_validation_fact(path_present)? != "connect_path_present"
+		Err("CONNECT request with path did not report the path-specific fact")
+	else if request_validation_fact(missing_authority)? != "connect_authority_missing"
+		Err("CONNECT request without authority did not report the missing-authority fact")
+	else
+		Ok(())
+	end
+end
+
+test header_list_validation_covers_extended_connect_negotiation() -> Result<(), String>
+	let extended: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "websocket")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/chat")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test")?, http2::hpack::empty_header_list())))))
+	let duplicate_protocol: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "websocket")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "other")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/chat")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test")?, http2::hpack::empty_header_list()))))))
+	let empty_protocol: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/chat")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test")?, http2::hpack::empty_header_list())))))
+	let missing_scheme: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "websocket")?, http2::hpack::prepend_header_field(ascii_header(":path", "/chat")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test")?, http2::hpack::empty_header_list()))))
+	let missing_path: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "websocket")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":authority", "example.test")?, http2::hpack::empty_header_list()))))
+	let missing_authority: HeaderList = http2::hpack::prepend_header_field(ascii_header(":method", "CONNECT")?, http2::hpack::prepend_header_field(ascii_header(":protocol", "websocket")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/chat")?, http2::hpack::empty_header_list()))))
+	let not_negotiated: HeaderListValidationFailure = header_validation_failure(http2::core::validate_request_header_list(extended, 0))?
+	if not header_validation_accepts(http2::core::validate_request_header_list(extended, 1), -1)
+		Err("extended CONNECT request was not accepted after negotiation")
+	else if http2::core::header_list_validation_failure_fact(not_negotiated) != "extended_connect_not_negotiated" or http2::core::header_list_validation_failure_header_name(not_negotiated) != ":protocol" or http2::core::header_list_validation_failure_active_state(not_negotiated) != "request-headers"
+		Err("extended CONNECT negotiation failure lost context")
+	else if request_validation_fact(duplicate_protocol)? != "duplicate_protocol_pseudo_header"
+		Err("extended CONNECT duplicate protocol did not report the duplicate fact")
+	else if request_validation_fact(empty_protocol)? != "protocol_value_empty"
+		Err("extended CONNECT empty protocol did not report the empty fact")
+	else if request_validation_fact(missing_scheme)? != "extended_connect_scheme_missing"
+		Err("extended CONNECT without scheme did not report the missing-scheme fact")
+	else if request_validation_fact(missing_path)? != "extended_connect_path_missing"
+		Err("extended CONNECT without path did not report the missing-path fact")
+	else if request_validation_fact(missing_authority)? != "extended_connect_authority_missing"
+		Err("extended CONNECT without authority did not report the missing-authority fact")
+	else
+		Ok(())
+	end
+end
+
 test header_list_validation_reports_response_and_trailer_failures() -> Result<(), String>
 	let missing_status: HeaderList = http2::hpack::prepend_header_field(ascii_header("server", "veln")?, http2::hpack::empty_header_list())
 	let informational_end_stream: HeaderList = response_headers("103")?

@@ -10,7 +10,9 @@ pub type HeaderListValidationFailure
 end
 
 pub fn validate_request(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
-	if has_duplicate_pseudo_header(headers)
+	if is_connect_request(headers) and name_count(headers, ":protocol") > 1
+		Err(HeaderListValidationFailure("duplicate_protocol_pseudo_header", ":protocol", decoded_names(headers), "request-headers"))
+	else if has_duplicate_pseudo_header(headers)
 		Err(HeaderListValidationFailure("duplicate_pseudo_header", first_duplicate_pseudo_header(headers), decoded_names(headers), "request-headers"))
 	else if has_pseudo_after_regular(headers, false)
 		Err(HeaderListValidationFailure("pseudo_header_after_regular_header", first_pseudo_after_regular(headers, false), decoded_names(headers), "request-headers"))
@@ -30,9 +32,9 @@ end
 fn validate_ordinary_request_after_method(headers: HeaderList) -> Result<Int, HeaderListValidationFailure>
 	if has_name(headers, ":scheme")
 		if has_name(headers, ":path")
-			if visible_value(headers, ":method") == Some("")
+			if visible_value_is(headers, ":method", "")
 				Err(HeaderListValidationFailure("method_value_empty", ":method", decoded_names(headers), "request-headers"))
-			else if visible_value(headers, ":path") == Some("")
+			else if visible_value_is(headers, ":path", "")
 				Err(HeaderListValidationFailure("path_value_empty", ":path", decoded_names(headers), "request-headers"))
 			else if not valid_scheme_value(visible_value(headers, ":scheme"))
 				Err(HeaderListValidationFailure("scheme_value_not_http_or_https", ":scheme", decoded_names(headers), "request-headers"))
@@ -71,7 +73,7 @@ fn validate_connect_request(headers: HeaderList, enable_connect_protocol: Int) -
 	if has_name(headers, ":protocol")
 		validate_extended_connect_request(headers, enable_connect_protocol)
 	else if has_name(headers, ":authority")
-		if visible_value(headers, ":authority") == Some("")
+		if visible_value_is(headers, ":authority", "")
 			Err(HeaderListValidationFailure("connect_authority_empty", ":authority", decoded_names(headers), "request-headers"))
 		else if has_name(headers, ":scheme")
 			Err(HeaderListValidationFailure("connect_scheme_present", ":scheme", decoded_names(headers), "request-headers"))
@@ -88,7 +90,7 @@ end
 fn validate_extended_connect_request(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
 	if name_count(headers, ":protocol") > 1
 		Err(HeaderListValidationFailure("duplicate_protocol_pseudo_header", ":protocol", decoded_names(headers), "request-headers"))
-	else if visible_value(headers, ":protocol") == Some("")
+	else if visible_value_is(headers, ":protocol", "")
 		Err(HeaderListValidationFailure("protocol_value_empty", ":protocol", decoded_names(headers), "request-headers"))
 	else if not has_name(headers, ":scheme")
 		Err(HeaderListValidationFailure("extended_connect_scheme_missing", ":scheme", decoded_names(headers), "request-headers"))
@@ -126,7 +128,7 @@ end
 fn validate_response_after_status(headers: HeaderList, completed_end_stream: Bool) -> Result<Int, HeaderListValidationFailure>
 	if not valid_status_value(visible_value(headers, ":status"))
 		Err(HeaderListValidationFailure("status_value_invalid", ":status", decoded_names(headers), "response-headers"))
-	else if visible_value(headers, ":status") == Some("101")
+	else if visible_value_is(headers, ":status", "101")
 		Err(HeaderListValidationFailure("switching_protocols_status_forbidden", ":status", decoded_names(headers), "response-headers"))
 	else if informational_status(visible_value(headers, ":status")) and completed_end_stream
 		Err(HeaderListValidationFailure("informational_response_end_stream", ":status", decoded_names(headers), "response-headers"))
@@ -252,6 +254,13 @@ fn visible_value_at(headers: HeaderList, expected: String, index: Int, count: In
 	end
 end
 
+fn visible_value_is(headers: HeaderList, name: String, expected: String) -> Bool
+	match visible_value(headers, name)
+		Some(value) => value == expected
+		None => false
+	end
+end
+
 fn visible_header_value(header: HeaderField) -> Result<String, String>
 	byte_chunk_to_visible_ascii_string(http2::hpack::header_field_value(header))
 end
@@ -357,7 +366,10 @@ fn is_pseudo_name(name: String) -> Bool
 end
 
 fn is_connect_request(headers: HeaderList) -> Bool
-	visible_value(headers, ":method") == Some("CONNECT")
+	match visible_value(headers, ":method")
+		Some("CONNECT") => true
+		_ => false
+	end
 end
 
 fn valid_scheme_value(value: Option<String>) -> Bool
