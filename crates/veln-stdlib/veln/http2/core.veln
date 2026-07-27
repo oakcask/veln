@@ -34,6 +34,8 @@ pub type HeaderList = http2::hpack::HeaderList
 
 pub type HeaderField = http2::hpack::HeaderField
 
+pub type HeaderBlockDecodeFailure = http2::hpack::HeaderBlockDecodeFailure
+
 pub type CoreConnectionState = http2::core::connection_state::CoreConnectionState
 
 pub type CoreConnectionLifecycle = http2::core::connection_state::CoreConnectionLifecycle
@@ -814,6 +816,22 @@ end
 
 pub fn receive_frame_failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
 	http2::core::receive_frame::failure_preview(failure)
+end
+
+pub fn receive_frame_failure_header_list_fact(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_fact(failure)
+end
+
+pub fn receive_frame_failure_header_list_name(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_name(failure)
+end
+
+pub fn receive_frame_failure_header_list_decoded_names(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_decoded_names(failure)
+end
+
+pub fn receive_frame_failure_header_list_active_state(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_active_state(failure)
 end
 
 pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision

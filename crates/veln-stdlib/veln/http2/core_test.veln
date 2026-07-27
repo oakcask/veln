@@ -921,6 +921,43 @@ test receive_frame_dispatch_prioritizes_payload_length_before_settings_ack_state
 	end
 end
 
+test receive_frame_dispatch_decodes_headers_with_production_hpack() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(31)?
+	let decision: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000003010400000001828784")?))?
+	let next_state: CoreConnectionState = http2::core::receive_frame_state(decision)?
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 1))?
+	if http2::core::receive_frame_status(decision) == "accepted" and http2::core::receive_frame_applied_transition(decision) == "header-block" and http2::core::receive_frame_kind(decision) == 1 and http2::core::connection_state_next_offset(next_state) == 43 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)) == "open" and http2::core::stream_entry_content_length_expected(stream) == -1 and http2::core::connection_state_hpack_table_entry_count(next_state) == 0 and http2::core::connection_state_next_offset(state) == 31 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not decode HEADERS through production HPACK immutably")
+	end
+end
+
+test receive_frame_dispatch_completes_continuation_header_block() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(31)?
+	let first: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000101000000000182")?))?
+	let pending_state: CoreConnectionState = http2::core::receive_frame_state(first)?
+	let done: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(pending_state, byte_chunk_from_hex("0000020904000000018784")?))?
+	let next_state: CoreConnectionState = http2::core::receive_frame_state(done)?
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 1))?
+	if http2::core::receive_frame_applied_transition(first) == "header-block-pending" and http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(pending_state)) and http2::core::connection_state_next_offset(pending_state) == 41 and http2::core::receive_frame_applied_transition(done) == "header-block" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(next_state)) and http2::core::connection_state_next_offset(next_state) == 52 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)) == "open" and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame dispatcher did not complete CONTINUATION header blocks immutably")
+	end
+end
+
+test receive_frame_dispatch_preserves_state_on_header_failures() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(31)?
+	let hpack_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("000001010400000001ff")?))?
+	let validation_failure: CoreReceiveFrameFailure = require_receive_frame_failure(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000401040000000182828784")?))?
+	if http2::core::receive_frame_failure_source(hpack_failure) == "hpack" and http2::core::receive_frame_failure_id(hpack_failure) == "http2.hpack.decode_failure" and http2::core::receive_frame_failure_reason(hpack_failure) == "indexed_failure" and http2::core::receive_frame_failure_offset(hpack_failure) == 31 and http2::core::receive_frame_failure_frame_kind(hpack_failure) == 1 and byte_count_to_int(byte_chunk_count(http2::core::receive_frame_failure_preview(hpack_failure))) == 1 and http2::core::receive_frame_failure_source(validation_failure) == "header-list-validation" and http2::core::receive_frame_failure_id(validation_failure) == "http2.protocol.invalid_request_header_list" and http2::core::receive_frame_failure_header_list_fact(validation_failure) == "duplicate_pseudo_header" and http2::core::receive_frame_failure_header_list_name(validation_failure) == ":method" and http2::core::receive_frame_failure_header_list_active_state(validation_failure) == "request-headers" and http2::core::connection_state_next_offset(state) == 31 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive-frame header failures did not preserve source, context, or input state")
+	end
+end
+
 test stream_domains_are_role_aware() -> Result<(), String>
 	let client: StreamId = http2::core::client_stream_id(1)?
 	let server: StreamId = http2::core::server_stream_id(2)?
