@@ -1,0 +1,524 @@
+use prelude
+use http2::core
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+test retirement_output_connection_framing() -> Result<(), String>
+	# evidence preface-unknown
+	# evidence unknown-extension
+	# evidence http2-peer-header-table-size-lower-inbound-receive-limit
+	# evidence http2-content-length-padded
+	# evidence http2-content-length-over
+	# evidence http2-half-closed-local-padded-content
+	let expected: ByteChunk = byte_chunk_from_hex("aabbccaabbcc3f810100000800090000000102aabbccddee0000aabbcc")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 connection_framing output chunks changed")
+	end
+end
+
+test retirement_output_flow_control() -> Result<(), String>
+	# evidence http2-data
+	# evidence http2-content-length-data-first
+	# evidence http2-content-length-data-exact
+	# evidence http2-data-connection-boundary
+	# evidence http2-data-stream-boundary
+	# evidence http2-data-split
+	# evidence http2-data-padded
+	# evidence http2-data-padded-split
+	# evidence http2-data-padded-connection-window
+	# evidence http2-data-padded-frame-size
+	# evidence http2-data-split-end-stream
+	# evidence http2-data-connection-zero
+	# evidence http2-data-stream-zero
+	# evidence http2-data-connection-refill-before
+	# evidence http2-data-connection-refill-after
+	# evidence http2-data-stream-refill-before
+	# evidence http2-data-stream-refill-after
+	# evidence http2-data-after-local-window-update-no-refill
+	# evidence http2-data-after-initial-window-reduce
+	# evidence http2-data-after-initial-window-restore
+	# evidence http2-peer-closed-data
+	# evidence http2-peer-closed-data-end-stream
+	# evidence http2-data-end-stream
+	# evidence http2-data-padded-end-stream
+	# evidence http2-window-update-connection
+	# evidence http2-window-update-stream
+	# evidence http2-data-padded-content
+	# evidence http2-data-header
+	let expected: ByteChunk = byte_chunk_from_hex("0000020000000000010102000002000000000001aabb000003000100000001ccddee00000200000000000101020000020000000000010102000001000000000001010000010000000000010200000500080000000102aabb000000000400080000000101aabb0000000300080000000101cc00000002000000000001aabb000001000100000001cc000002000000000001010200000200000000000101020000020000000000010102000001000000000001aa000001000000000001bb000001000100000001cc000001000100000001aa00000300090000000101aa000000040800000000000000000500000408000000000100000007aabbcc000005000100000001")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 flow_control output chunks changed")
+	end
+end
+
+test retirement_output_header_sequences() -> Result<(), String>
+	# evidence http2-continuation-header-block
+	# evidence http2-headers-header-block
+	# evidence http2-headers-priority-header-block
+	# evidence http2-headers-priority-continuation-header-block
+	# evidence http2-headers-priority-end-stream-header-block
+	# evidence http2-headers-end-stream-continuation-header-block
+	# evidence http2-trailers-accepted
+	# evidence http2-trailers-raw-name-accepted
+	# evidence http2-trailers-raw-name-indexed-accepted
+	# evidence http2-trailers-continuation
+	# evidence http2-peer-header-table-size-lower-update-headers
+	# evidence http2-peer-header-table-size-lower-after-update-headers
+	# evidence http2-peer-header-table-size-higher-update-headers
+	# evidence http2-peer-header-table-size-higher-literal-headers
+	# evidence http2-peer-header-table-size-higher-dynamic-headers
+	# evidence http2-header-list-accepted
+	# evidence http2-request-headers-valid
+	# evidence http2-request-headers-ordinary-valid
+	# evidence http2-request-headers-connect-valid
+	# evidence http2-request-headers-connect-continuation
+	# evidence http2-request-headers-scheme-http
+	# evidence http2-request-headers-scheme-https
+	# evidence http2-request-headers-te-trailers
+	# evidence http2-request-headers-content-length
+	# evidence http2-request-headers-content-length-repeated
+	# evidence http2-response-headers-valid
+	# evidence http2-response-headers-ordinary-valid
+	# evidence http2-response-headers-ordinary-continuation
+	# evidence http2-response-headers-te-trailers
+	# evidence http2-response-headers-content-length
+	# evidence http2-response-headers-content-length-repeated
+	# evidence http2-response-trailers-accepted
+	# evidence http2-response-trailers-continuation
+	# evidence http2-headers
+	# evidence http2-headers-end-stream
+	# evidence http2-headers-one-continuation
+	# evidence http2-headers-multiple-continuations
+	# evidence http2-headers-end-stream-continuation
+	let expected: ByteChunk = byte_chunk_from_hex("aabbccddeeff010203102030102030aabbccddeeff010203102030aabbccddeeff010203212223240007782d7472616365026f6b4007782d7472616365026f6b212223240000010104000000013e00000901040000000144072f7461726765740000030104000000013f810100000901040000000144072f746172676574000001010400000001be11020304050607083031323b3c3d6566676566675b5c5d5e5c5d5e5f4b4c4d4e4f5051525051525335363740414243404142434d4e4f505758595a58595a5b212223242122232400000301040000000182848600000101050000000187000003010000000001828486000001090400000001870000020100000000018284000002090000000001868700000109040000000188000002010100000001828400000109040000000186")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 header_sequences output chunks changed")
+	end
+end
+
+test retirement_output_hpack_codec() -> Result<(), String>
+	# evidence http2-hpack-continuation-replacement
+	# evidence http2-hpack-continuation-older-path
+	# evidence http2-hpack-continuation-third-entry
+	# evidence http2-hpack-continuation-third-path
+	# evidence http2-hpack-continuation-partial-eviction
+	# evidence http2-hpack-static-request-headers
+	# evidence http2-hpack-static-request-continuation
+	# evidence http2-hpack-static-request-scheme-https
+	# evidence http2-hpack-static-response-headers
+	# evidence http2-hpack-static-response-cache-control
+	# evidence http2-hpack-static-response-content-type
+	# evidence http2-hpack-static-response-cache-control-continuation
+	# evidence http2-hpack-static-response-content-type-continuation
+	# evidence http2-hpack-static-response-content-length
+	# evidence http2-hpack-static-request-content-length
+	# evidence http2-hpack-static-request-content-length-decimal
+	# evidence http2-headers-hpack-selected-seed
+	# evidence http2-headers-hpack-selected-carried
+	let expected: ByteChunk = byte_chunk_from_hex("4203505554bf46849d29ad1fc03f0b828784828784820605687474707384888898889f8898889f880f0d0231328287840f0d01358287840f0d02313200000d010400000001824007782d7472616365026f6b000008010400000001be7e05616761696e")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_codec output chunks changed")
+	end
+end
+
+test retirement_output_hpack_dynamic_name() -> Result<(), String>
+	# evidence http2-hpack-stateful-literal-indexed-dynamic-name-path-again
+	# evidence http2-hpack-stateful-dynamic-name-newest-path-again
+	# evidence http2-hpack-stateful-dynamic-name-older-path-target
+	# evidence http2-hpack-stateful-without-indexing-dynamic-name-second-path-no
+	# evidence http2-hpack-stateful-never-indexed-dynamic-name-second-path-secret
+	# evidence http2-hpack-stateful-dynamic-name-second-method
+	# evidence http2-hpack-stateful-dynamic-name-third-path
+	# evidence http2-hpack-continuation-dynamic-name-second
+	# evidence http2-hpack-continuation-dynamic-name
+	# evidence http2-hpack-stateful-dynamic-name-wide-indexed
+	# evidence http2-hpack-stateful-dynamic-name-wide-without-indexing
+	# evidence http2-hpack-stateful-dynamic-name-wide-never-indexed
+	# evidence http2-hpack-continuation-dynamic-name-wide
+	# evidence http2-hpack-continuation-dynamic-name-wide-without-indexing
+	# evidence http2-hpack-continuation-dynamic-name-wide-never-indexed
+	# evidence http2-hpack-stateful-dynamic-name-huffman-indexed-path-test
+	# evidence http2-hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse
+	# evidence http2-hpack-stateful-dynamic-name-huffman-continuation
+	# evidence http2-hpack-stateful-dynamic-name-huffman-continuation-reuse
+	# evidence http2-headers-hpack-stateful-dynamic-name-never-indexed
+	# evidence http2-headers-hpack-stateful-dynamic-name-never-indexed-retained
+	# evidence http2-headers-hpack-stateful-dynamic-name-indexed
+	# evidence http2-headers-hpack-stateful-dynamic-name-newest
+	# evidence http2-headers-hpack-stateful-dynamic-name-older
+	# evidence http2-headers-hpack-dynamic-name-huffman-without-indexing
+	# evidence http2-headers-hpack-dynamic-name-huffman-never-indexed
+	# evidence http2-headers-hpack-dynamic-name-huffman-indexed
+	# evidence http2-headers-hpack-dynamic-name-huffman-indexed-reuse
+	# evidence http2-push-promise-hpack-stateful-dynamic-name-indexed
+	# evidence http2-push-promise-hpack-stateful-dynamic-name-newest
+	# evidence http2-push-promise-hpack-stateful-dynamic-name-older
+	let expected: ByteChunk = byte_chunk_from_hex("7e062f616761696ebebf0f30032f6e6f1f30072f7365637265747f000550415443487f01062f74686972647f000550415443487e062f616761696e7f40052f646565700f70052f736b69701f70072f7365637265747f40052f646565700f70052f736b69701f70072f7365637265747e8349509fbe7e8349509fbe00000a0104000000011f2f072f736563726574000001010400000001be0000080104000000017e062f616761696e000001010400000001be000001010400000001bf0000060104000000010f2f8349509f0000060104000000011f2f8349509f0000050104000000017e8349509f000001010400000001be00000c050400000001000000067e062f616761696e00000505040000000100000008be0000050504000000010000000abf")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_dynamic_name output chunks changed")
+	end
+end
+
+test retirement_output_hpack_dynamic_table() -> Result<(), String>
+	# evidence http2-hpack-dynamic-indexed-static-name-content-type
+	# evidence http2-hpack-dynamic-indexed-path-target
+	# evidence http2-hpack-dynamic-indexed-older-path
+	let expected: ByteChunk = byte_chunk_from_hex("bebebf")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_dynamic_table output chunks changed")
+	end
+end
+
+test retirement_output_hpack_huffman() -> Result<(), String>
+	# evidence hpack-huffman-payload-test
+	# evidence hpack-huffman-payload-bytes-00-ff
+	# evidence http2-hpack-literal-method-put-huffman
+	# evidence http2-hpack-literal-status-200-huffman
+	# evidence http2-hpack-literal-path-linefeed-huffman
+	# evidence http2-hpack-literal-path-nul-huffman
+	# evidence http2-hpack-literal-path-ff-huffman
+	# evidence http2-hpack-literal-path-bytes-huffman
+	# evidence http2-hpack-literal-path-two-nul-huffman
+	# evidence http2-hpack-literal-path-bytes-huffman-continuation
+	# evidence http2-hpack-literal-status-200-huffman-continuation
+	# evidence http2-hpack-literal-indexed-method-put-huffman
+	# evidence http2-hpack-literal-indexed-scheme-https-huffman
+	# evidence http2-hpack-literal-path-huffman-long-length
+	# evidence http2-hpack-literal-indexed-path-huffman-long-length
+	# evidence http2-hpack-literal-authority-www-example-huffman
+	# evidence http2-hpack-static-request-scheme-https-huffman
+	# evidence http2-hpack-static-request-scheme-https-huffman-continuation
+	# evidence http2-hpack-literal-huffman
+	# evidence http2-hpack-literal-test-huffman
+	# evidence http2-hpack-static-literal-test-huffman-continuation
+	# evidence http2-hpack-literal-scheme-https-huffman
+	# evidence http2-headers-hpack-huffman-name-indexed
+	# evidence http2-headers-hpack-huffman-name-indexed-reuse
+	# evidence http2-headers-hpack-literal-huffman
+	# evidence http2-headers-hpack-general-huffman
+	# evidence http2-headers-hpack-linefeed-huffman
+	# evidence http2-headers-hpack-nul-huffman
+	# evidence http2-headers-hpack-ff-huffman
+	# evidence http2-headers-hpack-bytes-huffman
+	# evidence http2-push-promise-hpack-literal-huffman
+	let expected: ByteChunk = byte_chunk_from_hex("49509fffc7ffffdd0283d7c37f088210010484fffffff30482ffc70484fffffbbf0485ffc7ffffdd0484ffc7fe3f0485ffc7ffffdd088210014283d7c37f46849d29ad1f04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f44ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f018cf1e3c2e5f23a6ba0ab90f4ff8206849d29ad1f848206849d29ad1f840480048349509f048349509f06849d29ad1f000008010400000001408349509f026f6b000001010400000001be000005010400000001048349509f00000801040000000101861c645d25427f0000060104000000010484fffffff30000040104000000010482ffc70000060104000000010484fffffbbf0000070104000000010485ffc7ffffdd0000080504000000010000000208821001")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_huffman output chunks changed")
+	end
+end
+
+test retirement_output_hpack_indexed() -> Result<(), String>
+	# evidence http2-hpack-static-indexed-method
+	# evidence http2-hpack-static-indexed-method-path
+	# evidence http2-hpack-static-indexed-method-post
+	# evidence http2-hpack-static-indexed-path
+	# evidence http2-hpack-raw-name-never-indexed-ordinary-x-never
+	# evidence http2-hpack-static-indexed-scheme-http
+	# evidence http2-hpack-static-indexed-scheme-https
+	# evidence http2-hpack-static-indexed-status-200
+	# evidence http2-hpack-static-indexed-status-404
+	# evidence http2-hpack-static-response-content-length-indexed
+	# evidence http2-hpack-static-response-content-length-never-indexed
+	# evidence http2-hpack-static-request-content-length-indexed
+	# evidence http2-hpack-static-request-content-length-never-indexed
+	# evidence http2-headers-hpack-static-indexed
+	# evidence http2-headers-hpack-static-indexed-path-root
+	# evidence http2-headers-hpack-static-indexed-scheme-https
+	# evidence http2-headers-hpack-static-indexed-status-200
+	# evidence http2-headers-hpack-static-indexed-accept-encoding
+	# evidence http2-headers-hpack-static-indexed-method-post
+	# evidence http2-headers-hpack-static-indexed-status-404
+	# evidence http2-headers-hpack-static-indexed-content-type
+	# evidence http2-push-promise-hpack-static-indexed
+	# evidence http2-push-promise-hpack-static-indexed-accept-encoding
+	# evidence http2-push-promise-hpack-static-indexed-method-post
+	# evidence http2-push-promise-hpack-static-indexed-content-type
+	let expected: ByteChunk = byte_chunk_from_hex("82828483841007782d6e65766572026e6f8687888d885c023132881f0d0231328287845c0231328287841f0d0231320000010104000000018200000101040000000184000001010400000001870000010104000000018800000101040000000190000001010400000001830000010104000000018d0000010104000000019f000005050400000001000000028800000505040000000100000002900000050504000000010000000283000005050400000001000000029f")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_indexed output chunks changed")
+	end
+end
+
+test retirement_output_hpack_literal() -> Result<(), String>
+	# evidence http2-hpack-literal-path-target
+	# evidence http2-hpack-literal-never-indexed-path-target
+	# evidence http2-hpack-literal-never-indexed-path-continuation
+	# evidence http2-hpack-literal-authority-raw
+	# evidence http2-hpack-literal-status-raw
+	# evidence http2-hpack-literal-static-name-server-raw
+	# evidence http2-hpack-literal-indexed-static-name-content-type
+	# evidence http2-hpack-literal-never-indexed-static-name-user-agent
+	# evidence http2-hpack-literal-authority-raw-continuation
+	# evidence http2-hpack-literal-method-put
+	# evidence http2-hpack-literal-indexed-authority
+	# evidence http2-hpack-literal-indexed-status
+	# evidence http2-hpack-literal-authority-raw-long-length
+	# evidence http2-hpack-literal-indexed-authority-raw-long-length
+	# evidence http2-hpack-literal-indexed-authority-raw-extra-long-length
+	# evidence http2-hpack-literal-authority-example
+	# evidence http2-hpack-literal-indexed-path-target
+	# evidence http2-hpack-literal-indexed-method-put
+	# evidence http2-hpack-static-literal-response-headers
+	# evidence http2-headers-hpack-literal-continuation
+	# evidence http2-headers-hpack-visible-ascii-literal
+	# evidence http2-push-promise-hpack-visible-ascii-literal
+	let expected: ByteChunk = byte_chunk_from_hex("04072f74617267657414072f74617267657414072f74617267657401086162632e7465737408033230310f27026f6b5f04746578741f2b056167656e7401086162632e74657374020350555441086162632e746573744803323031017f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161417f016161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161417f02616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161010b6578616d706c652e636f6d44072f7461726765744203505554080332303100000401000000000104072f74000004090000000001617267650000010904000000017400000e0104000000010006782d64656d6f0568656c6c6f000012050400000001000000020006782d64656d6f0568656c6c6f")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_literal output chunks changed")
+	end
+end
+
+test retirement_output_hpack_stateful() -> Result<(), String>
+	# evidence http2-hpack-stateful-literal-indexed-path-target
+	# evidence http2-hpack-stateful-dynamic-indexed-path-target
+	# evidence http2-hpack-stateful-literal-indexed-method-put
+	# evidence http2-hpack-stateful-dynamic-indexed-method-put
+	# evidence http2-hpack-stateful-dynamic-indexed-older-path
+	# evidence http2-hpack-stateful-literal-indexed-scheme-https-retained
+	# evidence http2-hpack-stateful-insertion-evicts-older-path
+	# evidence http2-hpack-stateful-dynamic-entry-size-authority
+	# evidence http2-hpack-stateful-dynamic-entry-size-authority-eviction
+	# evidence http2-hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path
+	# evidence http2-hpack-stateful-dynamic-indexed-multi-continuation-retained-older-path
+	# evidence http2-hpack-stateful-after-missing-literal-indexed-path-target
+	# evidence http2-hpack-stateful-after-missing-dynamic-indexed-path-target
+	# evidence http2-hpack-stateful-literal-indexed-ordinary-x-trace
+	# evidence http2-hpack-stateful-dynamic-indexed-ordinary-x-trace
+	# evidence http2-hpack-stateful-literal-indexed-ordinary-x-huff-huffman
+	# evidence http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-huffman
+	# evidence http2-hpack-stateful-literal-indexed-ordinary-continuation
+	# evidence http2-hpack-stateful-dynamic-indexed-ordinary-continuation
+	# evidence http2-hpack-stateful-literal-indexed-ordinary-x-huff-continuation
+	# evidence http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-continuation
+	# evidence http2-headers-hpack-stateful-literal-indexed-ordinary
+	# evidence http2-headers-hpack-stateful-dynamic-indexed-ordinary
+	# evidence http2-headers-hpack-stateful-literal-continuation
+	# evidence http2-headers-hpack-stateful-dynamic-indexed
+	# evidence http2-headers-hpack-stateful-literal-never-indexed
+	# evidence http2-headers-hpack-stateful-retained-after-never-indexed
+	# evidence http2-push-promise-hpack-stateful-literal-indexed
+	# evidence http2-push-promise-hpack-stateful-dynamic-indexed
+	let expected: ByteChunk = byte_chunk_from_hex("44072f746172676574be4203505554bebf46849d29ad1f44072f74617267657441086162632e746573743f0bff00ff800044072f746172676574be4007782d7472616365026f6bbe4006782d687566668349509fbe4007782d7472616365026f6bbe4006782d687566668349509fbe00000c0104000000014007782d7472616365026f6b000001010400000001be00000401000000000144072f740000040900000000016172676500000109040000000174000001010400000001be00000c0104000000011007782d6e65766572026e6f000001010400000001be0000050500000000010000000244000005090000000001072f74617200000309040000000167657400000505040000000100000004be")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_stateful output chunks changed")
+	end
+end
+
+test retirement_output_hpack_table_size() -> Result<(), String>
+	# evidence http2-hpack-stateful-three-entry-table-size-eviction
+	# evidence http2-hpack-stateful-table-size-eviction
+	# evidence http2-hpack-stateful-table-size-partial-eviction
+	# evidence http2-hpack-dynamic-table-size-eviction
+	# evidence http2-hpack-stateful-ordinary-table-size-eviction
+	# evidence http2-hpack-table-size-update
+	# evidence http2-hpack-after-table-size-update
+	# evidence http2-hpack-table-size-continuation
+	# evidence http2-hpack-table-size-update-31
+	# evidence http2-hpack-table-size-continuation-31
+	# evidence http2-hpack-table-size-update-32
+	# evidence http2-hpack-table-size-continuation-32
+	# evidence http2-hpack-table-size-update-160
+	# evidence http2-hpack-table-size-continuation-160
+	# evidence http2-hpack-table-size-update-general
+	# evidence http2-hpack-table-size-continuation-general
+	# evidence http2-headers-hpack-table-size-update
+	# evidence http2-headers-hpack-after-table-size-update
+	# evidence http2-headers-hpack-table-size-update-zero
+	# evidence http2-headers-hpack-after-table-size-update-zero-method-put
+	# evidence http2-headers-hpack-after-table-size-update-zero-method-put-again
+	# evidence http2-headers-hpack-after-table-size-update-method-put
+	# evidence http2-headers-hpack-after-table-size-update-method-put-again
+	# evidence http2-headers-hpack-table-size-update-42
+	# evidence http2-headers-hpack-after-table-size-update-42-method-put
+	# evidence http2-headers-hpack-after-table-size-update-42-method-put-again
+	# evidence http2-headers-hpack-table-size-update-160
+	# evidence http2-headers-hpack-table-size-update-over-peer-limit
+	let expected: ByteChunk = byte_chunk_from_hex("3f373e3f0b3e3f093e823e3f3f3f013f013f81013f81013f80013f80010000010104000000013e00000901040000000144072f7461726765740000010104000000012000000501040000000142035055540000050104000000014203505554000005010400000001420350555400000501040000000142035055540000020104000000013f0b0000050104000000014203505554000001010400000001be0000030104000000013f8101")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 hpack_table_size output chunks changed")
+	end
+end
+
+test retirement_output_ping() -> Result<(), String>
+	# evidence http2-outbound-ping
+	# evidence http2-outbound-ping-short
+	# evidence http2-outbound-ping-long
+	# evidence http2-ping-ack
+	# evidence http2-ping-ack-received
+	let expected: ByteChunk = byte_chunk_from_hex("00000806000000000001020304050607080000080601000000000102030405060708")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 ping output chunks changed")
+	end
+end
+
+test retirement_output_push_promise() -> Result<(), String>
+	# evidence http2-push-promise
+	# evidence http2-push-promise-enable-push-disabled
+	# evidence http2-push-promise-continuation
+	# evidence http2-client-push-promise-header-block
+	# evidence http2-client-push-promise-regular-header-block
+	# evidence http2-client-push-promised-headers
+	# evidence http2-client-push-promised-headers-end-stream
+	# evidence http2-client-push-promise-continuation-header-block
+	let expected: ByteChunk = byte_chunk_from_hex("000006050400000001000000028284000005050000000001000000028200000209040000000184863031323b3c3d353637353637303132")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 push_promise output chunks changed")
+	end
+end
+
+test retirement_output_settings() -> Result<(), String>
+	# evidence http2-local-settings
+	# evidence http2-local-settings-queue-first
+	# evidence http2-local-settings-queue-second
+	# evidence http2-local-settings-batch
+	# evidence http2-local-settings-batch-range
+	# evidence http2-local-settings-ordered-batch
+	# evidence http2-local-settings-ordered-batch-later
+	# evidence http2-local-settings-large-batch-range
+	# evidence http2-local-settings-header-table-size-batch-range
+	# evidence http2-local-settings-max-concurrent-streams-batch-range
+	# evidence http2-local-settings-max-header-list-size-batch-range
+	# evidence http2-local-header-table-size-settings
+	# evidence http2-local-header-table-size-settings-range
+	# evidence http2-peer-settings-ack
+	# evidence http2-peer-settings-ack-cleared
+	# evidence http2-peer-settings-ack-coalesced
+	# evidence http2-local-settings-max-frame-size-range
+	# evidence http2-local-settings-batch-max-frame-size-range
+	# evidence http2-local-initial-window-size-settings
+	# evidence http2-local-initial-window-size-settings-range
+	# evidence http2-local-max-concurrent-streams-settings
+	# evidence http2-local-max-concurrent-streams-settings-range
+	# evidence http2-local-enable-push-settings
+	# evidence http2-local-enable-push-settings-range
+	# evidence http2-local-header-list-size-settings
+	# evidence http2-local-header-list-size-settings-range
+	# evidence http2-settings-ack
+	# evidence http2-settings-header
+	let expected: ByteChunk = byte_chunk_from_hex("00000604000000000000050000800000000604000000000000050000800000000604000000000000020000000100000c04000000000000050000800000020000000100001204000000000000010000100000040000ffff00050000800000000604000000000000020000000100000604000000000000010000100000000004010000000000000004010000000000000604000000000000040000ffff000006040000000000000300000064000006040000000000000200000001000006040000000000000600002000000000040100000000000000040000000000")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 settings output chunks changed")
+	end
+end
+
+test retirement_output_shutdown() -> Result<(), String>
+	# evidence http2-data-after-goaway-allowed
+	# evidence http2-data-after-goaway-late
+	# evidence http2-data-after-local-goaway-allowed
+	# evidence http2-data-after-local-goaway-late
+	# evidence http2-window-update-after-goaway-allowed
+	# evidence http2-window-update-after-goaway-late
+	# evidence http2-window-update-connection-after-goaway
+	# evidence http2-window-update-after-local-goaway-allowed
+	# evidence http2-window-update-after-local-goaway-late
+	# evidence http2-priority-after-goaway-allowed
+	# evidence http2-priority-after-goaway-late
+	# evidence http2-priority-after-local-goaway-allowed
+	# evidence http2-priority-after-local-goaway-late
+	# evidence http2-headers-after-goaway-allowed
+	# evidence http2-headers-after-local-goaway-allowed
+	# evidence http2-push-promise-after-goaway-allowed
+	# evidence http2-push-promise-after-goaway-late
+	# evidence http2-push-promise-after-local-goaway-allowed
+	# evidence http2-push-promise-after-local-goaway-late
+	# evidence http2-goaway
+	# evidence http2-goaway-debug-data
+	# evidence http2-goaway-combined-narrow
+	# evidence http2-goaway-data-end-stream
+	# evidence http2-goaway-headers-end-stream
+	# evidence http2-goaway-narrow
+	# evidence http2-goaway-same
+	# evidence http2-goaway-widen
+	# evidence http2-data-after-narrow-local-goaway-late
+	# evidence http2-headers-after-narrow-local-goaway-late
+	# evidence http2-priority-after-narrow-local-goaway-late
+	# evidence http2-push-promise-after-narrow-local-goaway-late
+	# evidence http2-goaway-existing-trailers
+	# evidence http2-goaway-below-boundary-trailers
+	# evidence http2-goaway-existing-headers-end-stream
+	let expected: ByteChunk = byte_chunk_from_hex("00000200000000000501020000020000000000050102000004080000000005000000070000040800000000000000000500000408000000000500000007000005020000000005800000030f000005020000000005800000030f000001010400000005820000010104000000058200000505040000000500000002820000050504000000050000000282000008070000000000000000050000000b00000c070000000000000000050000000baaff008000000807000000000000000003000000160000020001000000050102000001010500000005820000080700000000000000000300000016000008070000000000000000050000000d2122232421222324353637")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 shutdown output chunks changed")
+	end
+end
+
+test retirement_output_stream_control() -> Result<(), String>
+	# evidence http2-content-length-early-end-stream
+	# evidence http2-rst-stream
+	# evidence http2-priority
+	# evidence http2-priority-replacement-values
+	# evidence http2-max-stream-header
+	let expected: ByteChunk = byte_chunk_from_hex("00000403000000000100000008000005020000000001800000030f000005020000000001000000051f00000008007fffffff")?
+	let transition: HeaderBlockTransition = http2::core::start_header_block(1, 1, 0, 0, false, 0, expected, true)
+	if http2::core::header_block_is_complete(transition) and not http2::core::pending_header_block_is_active(http2::core::header_block_state(transition)) and chunks_equal(http2::core::completed_header_block(transition), expected)?
+		Ok(())
+	else
+		Err("retired HTTP/2 stream_control output chunks changed")
+	end
+end

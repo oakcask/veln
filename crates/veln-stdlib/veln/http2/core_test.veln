@@ -1165,6 +1165,20 @@ test receive_frame_dispatch_completes_continuation_header_block() -> Result<(), 
 	end
 end
 
+test receive_frame_dispatch_continuation_retains_nine_octet_hpack_projection() -> Result<(), String>
+	let state: CoreConnectionState = http2::core::server_connection_state(31)?
+	let first: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000401000000000182878400")?))?
+	let pending_state: CoreConnectionState = http2::core::receive_frame_state(first)?
+	let done: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(pending_state, byte_chunk_from_hex("0000050904000000010178017a90")?))?
+	let next_state: CoreConnectionState = http2::core::receive_frame_state(done)?
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 1))?
+	if http2::core::receive_frame_applied_transition(first) == "header-block-pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_header_block_bytes(http2::core::connection_state_pending_header_block(pending_state)))) == 4 and http2::core::receive_frame_applied_transition(done) == "header-block" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(next_state)) and http2::core::connection_state_next_offset(next_state) == 58 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)) == "open" and http2::core::stream_collection_count(http2::core::connection_state_streams(next_state)) == 1 and http2::core::connection_state_hpack_table_entry_count(next_state) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0
+		Ok(())
+	else
+		Err("HTTP/2 CONTINUATION did not retain the nine-octet HPACK projection immutably")
+	end
+end
+
 test receive_frame_dispatch_preserves_pending_header_block_on_sequence_failure() -> Result<(), String>
 	let state: CoreConnectionState = http2::core::server_connection_state(31)?
 	let first: CoreReceiveFrameDecision = require_receive_frame_decision(http2::core::apply_receive_frame(state, byte_chunk_from_hex("00000101000000000182")?))?

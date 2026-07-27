@@ -38,7 +38,13 @@ for my $row (@rows) {
     die "evidence kind mismatch for $row->{key}\n"
         if $manifest_row->{kind} ne $row->{kind};
     my $assertion = evidence_assertion($manifest_row->{evidence});
-    validate_item_binding($row->{key}, $row->{value}, $manifest_row, $assertion);
+    if ($inventory) {
+        die "historical value mismatch for $row->{key}\n"
+            if $manifest_row->{value} ne $row->{value};
+    } else {
+        validate_item_binding($row->{key}, $row->{value}, $manifest_row, $assertion);
+    }
+    validate_evidence_relevance($row, $assertion);
     if ($inventory) {
         print join(
             "\t",
@@ -225,6 +231,78 @@ sub validate_item_binding {
         if sha256_hex("$historical_value\0$assertion") ne $manifest_row->{binding_hash};
 }
 
+sub validate_evidence_relevance {
+    my ($row, $assertion) = @_;
+    if ($row->{kind} eq "output_table") {
+        my ($name, $encoded_chunks) = split /\t/, $row->{value}, 2;
+        my $chunks = eval { decode_json("[$encoded_chunks]") };
+        die "invalid historical output table $row->{key}\n"
+            if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
+        my $identifier = lc($name);
+        $identifier =~ s/[^a-z0-9_]+/_/g;
+        my $normalized_assertion = lc($assertion);
+        $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
+        die "evidence for $row->{key} does not identify output table $name\n"
+            if index($normalized_assertion, $identifier) < 0;
+        for my $chunk (@$chunks) {
+            next if $chunk eq "";
+            die "evidence for $row->{key} does not compare historical chunk $chunk\n"
+                if index(lc($assertion), lc($chunk)) < 0;
+        }
+        return;
+    }
+
+    if (
+        $row->{kind} eq "stdout"
+            && $row->{value} =~
+                /^output_chunk(?:_list)? ([^ ]+)(?: .* hex "([0-9a-f]*)")?/
+    ) {
+        my ($name, $chunk) = ($1, $2);
+        my $identifier = lc($name);
+        $identifier =~ s/[^a-z0-9_]+/_/g;
+        my $normalized_assertion = lc($assertion);
+        $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
+        die "evidence for $row->{key} does not identify output table $name\n"
+            if index($normalized_assertion, $identifier) < 0;
+        die "evidence for $row->{key} does not compare historical chunk $chunk\n"
+            if defined $chunk && $chunk ne "" && index(lc($assertion), $chunk) < 0;
+        return;
+    }
+
+    if ($row->{key} =~ /^main\.veln:103([567]):require_connection_stream_id$/) {
+        my %frame_evidence = (
+            5 => qr/\bsettings\b/i,
+            6 => qr/\bping\b/i,
+            7 => qr/\bgoaway\b/i,
+        );
+        my $kind = $1;
+        die "evidence for $row->{key} does not exercise its connection-frame domain\n"
+            if $assertion !~ $frame_evidence{$kind};
+        return;
+    }
+
+    if (
+        $row->{kind} eq "stdout"
+            && $row->{value} =~
+                /hpack decoded :fixture continuation wire_size 9 next_decode_count 1$/
+    ) {
+        die "evidence for $row->{key} does not exercise the retained continuation projection\n"
+            if $assertion !~ /\bCONTINUATION\b/
+                || $assertion !~ /\bnine-octet\b/
+                || $assertion !~ /stream_collection_count\([^;\n]*\) == 1/;
+    }
+
+    if (
+        $row->{kind} eq "stdout"
+            && $row->{value} =~ /\b(http2\.[a-z0-9_.]+)\b/
+            && $row->{value} !~ /^outbound-ping-/
+    ) {
+        my $diagnostic_id = $1;
+        die "evidence for $row->{key} does not compare diagnostic id $diagnostic_id\n"
+            if index($assertion, $diagnostic_id) < 0;
+    }
+}
+
 sub run_self_test {
     my $good =
         "test evidence() -> Result<(), String>\n"
@@ -268,6 +346,55 @@ sub run_self_test {
     };
     die "self-test accepted an unrelated retained assertion\n"
         if $changed_assertion_accepted;
+
+    my $exact_output = {
+        kind => "output_table",
+        key => "case.toml:output_chunk_list:sample",
+        value => "sample\t\"83\"",
+    };
+    my $unrelated_output_accepted = eval {
+        validate_evidence_relevance($exact_output, $good);
+        1;
+    };
+    die "self-test accepted output evidence without the historical chunk\n"
+        if $unrelated_output_accepted;
+    validate_evidence_relevance(
+        $exact_output,
+        $good . "\t# evidence sample\n"
+            . "\tchunks_equal(actual, byte_chunk_from_hex(\"83\")?)?\n",
+    );
+
+    my $settings_helper = {
+        kind => "helper",
+        key => "main.veln:1035:require_connection_stream_id",
+        value => "validate_stream_id_domain\trequire_connection_stream_id\t"
+            . "\t\t4 => require_connection_stream_id(offset, kind, stream_id)",
+    };
+    my $unrelated_domain_accepted = eval {
+        validate_evidence_relevance($settings_helper, $good);
+        1;
+    };
+    die "self-test accepted a peer-stream assertion for SETTINGS stream-domain evidence\n"
+        if $unrelated_domain_accepted;
+    validate_evidence_relevance($settings_helper, "$good\n# SETTINGS receive evidence\n");
+
+    my $continuation_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:17",
+        value => "continuation-done hpack decoded :fixture continuation "
+            . "wire_size 9 next_decode_count 1",
+    };
+    my $unrelated_projection_accepted = eval {
+        validate_evidence_relevance($continuation_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated HPACK evidence for the continuation projection\n"
+        if $unrelated_projection_accepted;
+    validate_evidence_relevance(
+        $continuation_projection,
+        "$good\n# CONTINUATION nine-octet projection\n"
+            . "if http2::core::stream_collection_count(streams) == 1\n",
+    );
     print "http2 retirement evidence checker self-test: passed\n";
 }
 
