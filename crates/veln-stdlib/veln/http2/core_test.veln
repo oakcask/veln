@@ -2364,6 +2364,21 @@ test receive_connection_boundary_consumes_ordered_frames_in_one_chunk() -> Resul
 	end
 end
 
+test receive_connection_boundary_rejects_later_frame_without_exposing_partial_state() -> Result<(), String>
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let chunk: ByteChunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000706000000000001020304050607")?
+	let decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, chunk)?
+	let failure: CoreReceiveConnectionFailure = http2::core::receive_connection_failure(decision)?
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(_) => Err("rejected receive connection decision exposed a partially advanced state")
+		Err(accessor_error) => if accessor_error == "rejected receive connection decision has no state" and http2::core::receive_connection_failure_source(failure) == "payload-length" and http2::core::receive_connection_failure_id(failure) == "http2.protocol.invalid_payload_length" and http2::core::receive_connection_failure_offset(failure) == 39 and http2::core::receive_connection_failure_frame_kind(failure) == 6 and http2::core::receive_connection_failure_stream_id(failure) == 0 and http2::core::receive_connection_failure_reason(failure) == "rfc9113_ping_payload_length" and chunks_equal(http2::core::receive_connection_failure_preview(failure), byte_chunk_from_hex("000007060000000000")?)? and http2::core::connection_state_next_offset(http2::core::receive_connection_connection(initial)) == 0 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(initial))) == 0 and http2::core::output_buffer_count(http2::core::receive_connection_output(initial)) == 0
+			Ok(())
+		else
+			Err("HTTP/2 receive connection boundary exposed partial state or lost later-frame failure context")
+		end
+	end
+end
+
 test receive_connection_boundary_applies_priority_and_rejects_initial_gate_atomically() -> Result<(), String>
 	let accepted_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let priority: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(accepted_start, byte_chunk_from_hex("000005020000000001000000000f")?)?

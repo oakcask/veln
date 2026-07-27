@@ -85,6 +85,15 @@ fn print_failure(label: String, failure: CoreReceiveConnectionFailure) -> () eff
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_connection_failure_preview(failure)))))
 end
 
+fn print_no_state(label: String, decision: CoreReceiveConnectionDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" state ")
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(_) => stdio::println("unexpected")
+		Err(reason) => stdio::println(reason)
+	end
+end
+
 fn print_output(label: String, output: CoreOutputBuffer, expected_first: String, expected_second: String) -> Result<(), String> effects [stdio]
 	stdio::print("output_chunk_list ")
 	stdio::print(label)
@@ -146,6 +155,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_decision("ordered", ordered_decision)
 	print_state("ordered", ordered_state)
 	let _ = print_output("ordered", http2::core::receive_connection_output(ordered_state), "000000040100000000", "0000080601000000000102030405060708")?
+	let reject_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let ordered_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(reject_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000706000000000001020304050607")?)?
+	print_decision("ordered-reject", ordered_reject)
+	print_failure("ordered-reject", require_failure(ordered_reject)?)
+	print_no_state("ordered-reject", ordered_reject)
+	print_state("ordered-reject-input", reject_initial)
 	let priority_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
 	let priority_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(priority_start, byte_chunk_from_hex("000005020000000001000000000f")?)?
 	let priority_state: CoreReceiveConnectionState = require_state(priority_decision)?
