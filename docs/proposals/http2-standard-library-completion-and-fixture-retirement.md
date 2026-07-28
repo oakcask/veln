@@ -218,7 +218,35 @@ The proposal is complete only when:
   unclassified rows;
 - current specification prose makes no claim stronger than executable evidence;
 - guarded standard-package, focused protocol, loader, performance, and
-  workspace verification pass without relaxed limits or material regression.
+  workspace verification pass without relaxed limits or material regression;
+- the migration-only retirement evidence is removed according to the lifecycle
+  below.
+
+## Retirement-Evidence Lifecycle
+
+The historical inventory, structured scenario manifest, generator, generated
+row-addressable tests, and `scripts/check-http2-retirement-evidence` exist only
+to decide whether the retired `http2-protocol-core` fixture was migrated
+completely. They are not permanent authorities for current HTTP/2 behavior.
+Current behavior remains owned by the public standard-package implementation,
+focused executable tests and cases, and [`../specification/http2.md`](../specification/http2.md).
+
+Retire the migration-only evidence in the same change that completes this
+proposal. Apply the following gates in order:
+
+| Gate | Required evidence | Result |
+| --- | --- | --- |
+| Migration coverage | The final checker, generated evidence, and mutation self-test satisfy the coverage, provenance, state-preservation, and mutation requirements above. | Record the final coverage summary and verification routes in the implemented-proposal record. |
+| Current-behavior ownership | No generated retirement test is the sole executable coverage of behavior claimed by the current specification. | Promote any such coverage to a focused standard-package test or specification case that does not depend on historical inventory keys. |
+| Independent verification | The guarded standard-package, focused protocol, loader, performance, and workspace gates pass without reading the historical fixture revision or any retirement manifest. | Current HTTP/2 verification no longer depends on migration-only evidence. |
+| Reference cleanup | Repository checks and documentation no longer invoke or route readers to the migration checker, inventory, scenarios, generator, or generated retirement tests. | Delete those artifacts and their CI or script entry points; preserve only the implemented-proposal record of the completed migration. |
+
+The final repository state must not require the pinned pre-retirement revision
+to test current HTTP/2 behavior. A later HTTP/2 implementation change is
+validated against the current specification and focused executable evidence,
+not rebound to historical fixture rows. The migration artifacts may remain only
+when one of the gates above fails; in that case this proposal remains
+incomplete and must state the unresolved gate.
 
 ## Non-goals
 
