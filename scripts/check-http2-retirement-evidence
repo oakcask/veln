@@ -392,6 +392,10 @@ sub helper_evidence_domain {
         label => "rejected outbound PUSH_PROMISE transition",
         pattern => qr/\boutbound_headers_failure_id\b/,
     } if $helper eq "require_outbound_push_promise_failure";
+    return {
+        label => "failure-atomic outbound PUSH_PROMISE state preservation",
+        pattern => qr/\btest outbound_push_promise_failures_preserve_ordering_state_and_output\(\).*?\bsend_push_promise\b.*?\bpush_promise_send_bytes\b.*?\bpeer_settings_highest_peer_created_stream_id\b/s,
+    } if $helper eq "require_outbound_push_promise_state_preserved";
 
     return {
         label => "PUSH_PROMISE with production HPACK",
@@ -792,6 +796,35 @@ sub run_self_test {
         $outbound_headers_failure,
         "$good\nif http2::core::outbound_headers_failure_id(failure) == "
             . "\"http2.protocol.invalid_frame_kind\"\n",
+    );
+
+    my $outbound_push_state = {
+        kind => "helper",
+        key => "main.veln:13755:require_outbound_push_promise_state_preserved",
+        value => "verify_outbound_push_promise_ordering_cases\t"
+            . "require_outbound_push_promise_state_preserved\t"
+            . "\tlet ignored_repeated_state: () = "
+            . "require_outbound_push_promise_state_preserved("
+            . "\"repeated outbound promised stream id changed connection state\", "
+            . "increasing_state, outbound_push_promise_connection_state(repeated))?",
+    };
+    my $inbound_push_substitution_accepted = eval {
+        validate_evidence_relevance(
+            $outbound_push_state,
+            "$good\nhttp2::core::receive_frame_state(push_promise)\n"
+                . "http2::core::receive_frame_applied_transition(push_promise)\n",
+        );
+        1;
+    };
+    die "self-test accepted inbound PUSH_PROMISE evidence for outbound state preservation\n"
+        if $inbound_push_substitution_accepted;
+    validate_evidence_relevance(
+        $outbound_push_state,
+        "$good\n"
+            . "test outbound_push_promise_failures_preserve_ordering_state_and_output() -> Result<(), String>\n"
+            . "\tlet decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 29, 1, 4, headers)\n"
+            . "\tif byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 4\n"
+            . "\t\tOk(())\n\telse\n\t\tErr(\"unexpected\")\n\tend\nend\n",
     );
 
     my $continuation_projection = {

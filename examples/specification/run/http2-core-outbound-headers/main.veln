@@ -173,9 +173,30 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(http2::core::push_promise_send_status(push))
 	let push_state: CoreConnectionState = require_push_state(push)?
 	let _ = print_stream("push-promise", push_state, 2)?
+	stdio::print("push-promise high-water ")
+	stdio::print(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(push_state))))
+	stdio::print(" input-high-water ")
+	stdio::println(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(server_state))))
 	let _ = print_chunk("push-promise", http2::core::push_promise_send_bytes(push), "00000a050400000001000000028287845c0135")?
+	let repeated_push: CorePushPromiseSendDecision = http2::core::send_push_promise(push_state, 33, 1, 2, request_headers()?)
+	print_failure("push-promise-repeated", require_push_failure(repeated_push)?)
+	print_empty("push-promise-repeated")
+	let disabled_peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(push_state), 11, byte_chunk_from_hex("000200000000")?)?
+	let disabled_state: CoreConnectionState = http2::core::connection_state_with_peer_settings(push_state, disabled_peer_settings)
+	let disabled_push: CorePushPromiseSendDecision = http2::core::send_push_promise(disabled_state, 35, 1, 2, request_headers()?)
+	print_failure("push-promise-disabled", require_push_failure(disabled_push)?)
+	print_empty("push-promise-disabled")
 	let push_client: CorePushPromiseSendDecision = http2::core::send_push_promise(client_state, 37, 1, 2, request_headers()?)
 	print_failure("push-promise-client", require_push_failure(push_client)?)
 	print_empty("push-promise-client")
+	let after_goaway_state: CoreConnectionState = http2::core::connection_state_with_lifecycle(push_state, http2::core::connection_lifecycle_draining(1, 0))
+	let after_goaway_push: CorePushPromiseSendDecision = http2::core::send_push_promise(after_goaway_state, 39, 3, 4, request_headers()?)
+	print_failure("push-promise-after-goaway", require_push_failure(after_goaway_push)?)
+	print_empty("push-promise-after-goaway")
+	let tiny_peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(server_state), 17, byte_chunk_from_hex("000500000005")?)?
+	let tiny_state: CoreConnectionState = http2::core::connection_state_with_peer_settings(server_state, tiny_peer_settings)
+	let too_large_push: CorePushPromiseSendDecision = http2::core::send_push_promise(tiny_state, 43, 1, 6, request_headers()?)
+	print_failure("push-promise-frame-size", require_push_failure(too_large_push)?)
+	print_empty("push-promise-frame-size")
 	Ok(())
 end

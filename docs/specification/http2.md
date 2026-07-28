@@ -292,18 +292,23 @@ next state.
 `http2::core::send_push_promise(state, offset, stream_id,
 promised_stream_id, headers)` is the server outbound PUSH_PROMISE transition.
 It requires an associated open stream, a nonzero server-initiated promised
-stream id, validates the promised request headers, encodes the header block
-through the public production HPACK encoder, emits one kind-`5` frame with
-END_HEADERS set, and records the promised stream as reserved-local with
-peer-advertised initial window credit. Endpoint, stream, header-list, and
-HPACK failures expose no bytes and no next state.
+stream id above the retained promised-stream high-water, peer push still
+enabled when advertised, and no active GOAWAY boundary for the associated
+stream. It validates the promised request headers, encodes the header block
+through the public production HPACK encoder, applies the peer maximum frame
+size to the PUSH_PROMISE payload, emits one kind-`5` frame with END_HEADERS
+set, records the promised stream as reserved-local with peer-advertised
+initial window credit, and advances the promised-stream high-water only in
+the returned state. Endpoint, stream, ordering, disabled-push, GOAWAY,
+frame-size, header-list, and HPACK failures expose no bytes and no next state.
 The focused
 [`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/)
 case records accepted HEADERS and PUSH_PROMISE bytes, created and reserved
 stream projections, response-header content-length updates, trailer closure
-with preserved content-length state, header-list failure fields, GOAWAY
-boundary rejection, endpoint rejection, empty failure output, and public
-failure accessors.
+with preserved content-length state, PUSH_PROMISE high-water projection,
+header-list failure fields, GOAWAY boundary rejection, promised-stream
+ordering rejection, disabled-push rejection, peer frame-size rejection,
+endpoint rejection, empty failure output, and public failure accessors.
 
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and

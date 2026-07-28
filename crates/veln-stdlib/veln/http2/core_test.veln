@@ -2203,10 +2203,38 @@ test outbound_push_promise_send_emits_hpack_bytes_and_reserves_promised_stream()
 	let next_state: CoreConnectionState = require_push_promise_send_state(decision)?
 	let promised: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(next_state), 2))?
 	let original: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(state), 1))?
-	if http2::core::push_promise_send_status(decision) == "accepted" and chunks_equal(http2::core::push_promise_send_bytes(decision), byte_chunk_from_hex("00000a050400000001000000028287845c0135")?)? and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(promised)) == "reserved-local" and http2::core::stream_entry_content_length_expected(promised) == 5 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original)) == "open" and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 1
+	if http2::core::push_promise_send_status(decision) == "accepted" and chunks_equal(http2::core::push_promise_send_bytes(decision), byte_chunk_from_hex("00000a050400000001000000028287845c0135")?)? and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(promised)) == "reserved-local" and http2::core::stream_entry_content_length_expected(promised) == 5 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(next_state)) == 2 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 0 and http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(original)) == "open" and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 1
 		Ok(())
 	else
 		Err("outbound PUSH_PROMISE did not emit exact production HPACK bytes or reserve promised stream state immutably")
+	end
+end
+
+test outbound_push_promise_failures_preserve_ordering_state_and_output() -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let open_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), associated))
+	let first: CorePushPromiseSendDecision = http2::core::send_push_promise(open_state, 23, 1, 4, request_headers()?)
+	let increasing: CoreConnectionState = require_push_promise_send_state(first)?
+	let repeated: CorePushPromiseSendDecision = http2::core::send_push_promise(increasing, 29, 1, 4, request_headers()?)
+	let repeated_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(repeated)?
+	let lower: CorePushPromiseSendDecision = http2::core::send_push_promise(increasing, 31, 1, 2, request_headers()?)
+	let lower_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(lower)?
+	let disabled_peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(increasing), 11, byte_chunk_from_hex("000200000000")?)?
+	let disabled_state: CoreConnectionState = http2::core::connection_state_with_peer_settings(increasing, disabled_peer_settings)
+	let disabled: CorePushPromiseSendDecision = http2::core::send_push_promise(disabled_state, 37, 1, 2, request_headers()?)
+	let disabled_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(disabled)?
+	let draining: CoreConnectionState = http2::core::connection_state_with_lifecycle(increasing, http2::core::connection_lifecycle_draining(1, 0))
+	let after_goaway: CorePushPromiseSendDecision = http2::core::send_push_promise(draining, 41, 3, 2, request_headers()?)
+	let goaway_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(after_goaway)?
+	let tiny_peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(open_state), 17, byte_chunk_from_hex("000500000005")?)?
+	let tiny_state: CoreConnectionState = http2::core::connection_state_with_peer_settings(open_state, tiny_peer_settings)
+	let too_large: CorePushPromiseSendDecision = http2::core::send_push_promise(tiny_state, 43, 1, 6, request_headers()?)
+	let size_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(too_large)?
+	if http2::core::push_promise_send_status(first) == "accepted" and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(increasing)) == 4 and http2::core::push_promise_send_status(repeated) == "rejected" and http2::core::outbound_headers_failure_id(repeated_failure) == "http2.protocol.peer_stream_id_not_increasing" and http2::core::outbound_headers_failure_stream_id(repeated_failure) == 4 and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(repeated))) == 0 and http2::core::push_promise_send_status(lower) == "rejected" and http2::core::outbound_headers_failure_id(lower_failure) == "http2.protocol.peer_stream_id_not_increasing" and http2::core::outbound_headers_failure_rule_provenance(lower_failure) == "rfc9113_outbound_promised_stream_ids_increase" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(lower))) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(increasing)) == 4 and http2::core::stream_collection_count(http2::core::connection_state_streams(increasing)) == 2 and http2::core::outbound_headers_failure_id(disabled_failure) == "http2.protocol.invalid_stream_id" and http2::core::outbound_headers_failure_active_state(disabled_failure) == "peer-settings" and http2::core::outbound_headers_failure_rule_provenance(disabled_failure) == "settings_enable_push" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(disabled))) == 0 and http2::core::outbound_headers_failure_id(goaway_failure) == "http2.protocol.stream_after_goaway" and http2::core::outbound_headers_failure_active_state(goaway_failure) == "draining" and http2::core::outbound_headers_failure_rule_provenance(goaway_failure) == "goaway_last_stream_id" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(after_goaway))) == 0 and http2::core::outbound_headers_failure_id(size_failure) == "http2.peer_limit.frame_size_exceeded" and http2::core::outbound_headers_failure_active_state(size_failure) == "push-promise" and http2::core::outbound_headers_failure_rule_provenance(size_failure) == "rfc9113_max_frame_size" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(too_large))) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(tiny_state)) == 0 and http2::core::connection_state_hpack_table_entry_count(tiny_state) == 0
+		Ok(())
+	else
+		Err("outbound PUSH_PROMISE failures did not preserve ordering state, output, or diagnostic precedence")
 	end
 end
 

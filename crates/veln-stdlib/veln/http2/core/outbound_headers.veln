@@ -24,6 +24,8 @@ pub type CoreOutboundHeadersFailure
 	CoreOutboundHeadersHeaderList(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderListValidationFailure, preview: ByteChunk)
 	CoreOutboundHeadersHpack(offset: Int, frame_kind: Int, stream_id: Int, failure: HeaderBlockEncodeFailure, preview: ByteChunk)
 	CoreOutboundHeadersAfterGoaway(offset: Int, frame_kind: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundHeadersPromisedStreamNotIncreasing(offset: Int, frame_kind: Int, stream_id: Int, previous_stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundHeadersFrameSizeExceeded(offset: Int, frame_kind: Int, stream_id: Int, observed: Int, maximum: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
 end
 
 pub fn send_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
@@ -39,18 +41,31 @@ pub fn send_trailers(state: CoreConnectionState, offset: Int, stream_id: Int, he
 end
 
 pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
-	if http2::core::connection_state::endpoint_role(state) != "server"
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if label != "open" and stream_id > last_stream_id
+		CorePushPromiseSendRejected(CoreOutboundHeadersAfterGoaway(offset, 5, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else if http2::core::connection_state::endpoint_role(state) != "server"
 		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, promised_stream_id, "server endpoint push promise", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "client_receives_push_promise", byte_chunk([])))
 	else if stream_id == 0
 		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "push_promise_requires_associated_stream", byte_chunk([])))
 	else if promised_stream_id == 0 or promised_stream_id / 2 * 2 != promised_stream_id
 		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, promised_stream_id, "nonzero server-initiated promised stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "server_push_promise_requires_server_stream", byte_chunk([])))
+	else if peer_disable_push_is_active(http2::core::connection_state::peer_settings(state))
+		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, promised_stream_id, "peer SETTINGS_ENABLE_PUSH enabled", http2::core::connection_state::endpoint_role(state), "peer-settings", "settings_enable_push", byte_chunk([])))
+	else if promised_stream_id <= http2::core::peer_settings_state::highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state))
+		CorePushPromiseSendRejected(CoreOutboundHeadersPromisedStreamNotIncreasing(offset, 5, promised_stream_id, http2::core::peer_settings_state::highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state)), http2::core::connection_state::endpoint_role(state), "idle-stream", "rfc9113_outbound_promised_stream_ids_increase", byte_chunk([])))
 	else
 		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
 			Some(entry) => send_push_promise_for_entry(state, offset, stream_id, promised_stream_id, headers, entry)
 			None => CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), "idle-stream", "idle_streams_require_headers", byte_chunk([])))
 		end
 	end
+end
+
+fn peer_disable_push_is_active(state: PeerSettingsState) -> Bool
+	http2::core::peer_settings_state::enable_push_offset(state) != 0 and http2::core::peer_settings_state::enable_push_value(state) == 0
 end
 
 fn send_push_promise_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList, entry: CoreStreamEntry) -> CorePushPromiseSendDecision
@@ -144,19 +159,25 @@ end
 
 fn encode_push_promise_headers(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList, content_length: Int) -> CorePushPromiseSendDecision
 	match http2::hpack::encode_header_block(headers, http2::core::connection_state::hpack_table(state), http2::core::peer_settings_state::active_header_table_size(http2::core::connection_state::peer_settings(state)))
-		Ok(encoded) => encode_push_promise_frame(state, stream_id, promised_stream_id, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length)
+		Ok(encoded) => encode_push_promise_frame(state, offset, stream_id, promised_stream_id, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length)
 		Err(failure) => CorePushPromiseSendRejected(CoreOutboundHeadersHpack(offset, 5, stream_id, failure, byte_chunk([])))
 	end
 end
 
-fn encode_push_promise_frame(state: CoreConnectionState, stream_id: Int, promised_stream_id: Int, block: ByteChunk, table: DynamicTable, content_length: Int) -> CorePushPromiseSendDecision
+fn encode_push_promise_frame(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, block: ByteChunk, table: DynamicTable, content_length: Int) -> CorePushPromiseSendDecision
 	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
-	match byte_write_u31_be(promised_stream_id)
-		Ok(prefix) => match http2::frame::encode_header(block_length + 4, 5, 4, stream_id)
-			Ok(header) => CorePushPromiseSendAccepted(push_promise_next_state(state, promised_stream_id, table, content_length), stream_id, promised_stream_id, block_length, byte_append(header, byte_append(prefix, block)))
+	let payload_length: Int = block_length + 4
+	let maximum: Int = http2::core::peer_settings_state::active_max_frame_size(http2::core::connection_state::peer_settings(state))
+	if payload_length > maximum
+		CorePushPromiseSendRejected(CoreOutboundHeadersFrameSizeExceeded(offset, 5, stream_id, payload_length, maximum, http2::core::connection_state::endpoint_role(state), "push-promise", "rfc9113_max_frame_size", byte_chunk([])))
+	else
+		match byte_write_u31_be(promised_stream_id)
+			Ok(prefix) => match http2::frame::encode_header(payload_length, 5, 4, stream_id)
+				Ok(header) => CorePushPromiseSendAccepted(push_promise_next_state(state, promised_stream_id, table, content_length), stream_id, promised_stream_id, block_length, byte_append(header, byte_append(prefix, block)))
+				Err(reason) => CorePushPromiseSendEncodeFailed(stream_id, promised_stream_id, reason)
+			end
 			Err(reason) => CorePushPromiseSendEncodeFailed(stream_id, promised_stream_id, reason)
 		end
-		Err(reason) => CorePushPromiseSendEncodeFailed(stream_id, promised_stream_id, reason)
 	end
 end
 
@@ -198,7 +219,7 @@ end
 
 fn push_promise_next_state(state: CoreConnectionState, promised_stream_id: Int, table: DynamicTable, content_length: Int) -> CoreConnectionState
 	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
-	let with_table: CoreConnectionState = http2::core::connection_state::with_hpack_table(state, table)
+	let with_table: CoreConnectionState = http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_hpack_table(state, table), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id))
 	match http2::core::stream_state::entry(promised_stream_id, http2::core::stream_state::reserved_local_lifecycle(), initial_credit, initial_credit, content_length, 0)
 		Ok(entry) => http2::core::connection_state::with_streams(with_table, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(with_table), entry))
 		Err(_) => with_table
@@ -315,6 +336,8 @@ pub fn failure_id(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersHeaderList(_, _, _, _, _) => "http2.protocol.header_list"
 		CoreOutboundHeadersHpack(_, _, _, _, _) => "http2.hpack.encode_failure"
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, _, _) => "http2.protocol.peer_stream_id_not_increasing"
+		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
 	end
 end
 
@@ -324,6 +347,8 @@ pub fn failure_offset(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersHeaderList(offset, _, _, _, _) => offset
 		CoreOutboundHeadersHpack(offset, _, _, _, _) => offset
 		CoreOutboundHeadersAfterGoaway(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundHeadersPromisedStreamNotIncreasing(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundHeadersFrameSizeExceeded(offset, _, _, _, _, _, _, _, _) => offset
 	end
 end
 
@@ -333,6 +358,8 @@ pub fn failure_frame_kind(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersHeaderList(_, frame_kind, _, _, _) => frame_kind
 		CoreOutboundHeadersHpack(_, frame_kind, _, _, _) => frame_kind
 		CoreOutboundHeadersAfterGoaway(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundHeadersFrameSizeExceeded(_, frame_kind, _, _, _, _, _, _, _) => frame_kind
 	end
 end
 
@@ -342,6 +369,8 @@ pub fn failure_stream_id(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersHeaderList(_, _, stream_id, _, _) => stream_id
 		CoreOutboundHeadersHpack(_, _, stream_id, _, _) => stream_id
 		CoreOutboundHeadersAfterGoaway(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundHeadersFrameSizeExceeded(_, _, stream_id, _, _, _, _, _, _) => stream_id
 	end
 end
 
@@ -351,6 +380,8 @@ pub fn failure_active_state(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersHeaderList(_, _, _, header_failure, _) => http2::core::header_list_validation::failure_active_state(header_failure)
 		CoreOutboundHeadersHpack(_, _, _, _, _) => "hpack-encode"
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, shutdown_state, _, _, _) => shutdown_state
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, active_state, _, _) => active_state
 	end
 end
 
@@ -360,6 +391,8 @@ pub fn failure_rule_provenance(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersHeaderList(_, _, _, header_failure, _) => http2::core::header_list_validation::failure_fact(header_failure)
 		CoreOutboundHeadersHpack(_, _, _, failure_value, _) => http2::hpack::header_block_encode_failure_kind(failure_value)
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, rule_provenance, _) => rule_provenance
 	end
 end
 
@@ -369,5 +402,7 @@ pub fn failure_preview(failure: CoreOutboundHeadersFailure) -> ByteChunk
 		CoreOutboundHeadersHeaderList(_, _, _, _, preview) => preview
 		CoreOutboundHeadersHpack(_, _, _, _, preview) => preview
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, _, preview) => preview
 	end
 end
