@@ -33,6 +33,8 @@ my $scenario_manifest =
     "examples/specification/run/http2-protocol-core/retirement-scenarios.jsonl";
 my $coverage_report =
     "examples/specification/run/http2-protocol-core/retirement-coverage.tsv";
+my $projection_evidence =
+    "crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln";
 my $main = git_show("$revision:$fixture/main.veln");
 my $manifest = git_show("$revision:$fixture/case.toml");
 
@@ -82,13 +84,16 @@ expect_count(\%counts, "output_table", 315);
 
 my $expected_scenarios = render_scenarios(\@scenarios);
 my $expected_coverage = render_coverage_report(\@scenarios);
+my $expected_projection_evidence = render_projection_evidence_source(\@scenarios);
 validate_structured_scenarios(\@scenarios);
 if ($regenerate_structured) {
     write_file($scenario_manifest, $expected_scenarios);
     write_file($coverage_report, $expected_coverage);
+    write_file($projection_evidence, $expected_projection_evidence);
 } elsif (!$inventory) {
     assert_file_equals($scenario_manifest, $expected_scenarios);
     assert_file_equals($coverage_report, $expected_coverage);
+    assert_file_equals($projection_evidence, $expected_projection_evidence);
 }
 
 if (!$inventory) {
@@ -97,6 +102,7 @@ if (!$inventory) {
     print "http2 retirement evidence: 315 output tables have checked item-level evidence\n";
     print "http2 retirement evidence: structured scenario manifest is current\n";
     print "http2 retirement evidence: dimensioned coverage report is current\n";
+    print "http2 retirement evidence: generated projection evidence test is current\n";
     print "http2 retirement evidence: zero unclassified items\n";
 }
 
@@ -570,6 +576,40 @@ sub render_coverage_report {
         }
     }
     return join("", @lines);
+}
+
+sub render_projection_evidence_source {
+    my ($scenarios) = @_;
+    my @lines = (
+        "use prelude\n",
+        "\n",
+        "fn retirement_projection_manifest_matches(count: Int, projection_sha256: String) -> Bool\n",
+        "\tcount == 3011 and projection_sha256 != \"\"\n",
+        "end\n",
+        "\n",
+        "fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_manifest_matches(count, projection_sha256)\n",
+        "\t\tOk(())\n",
+        "\telse\n",
+        "\t\tErr(id)\n",
+        "\tend\n",
+        "end\n",
+    );
+    my $digest = sha256_hex(join("\0", map { $_->{projection_sha256} } @$scenarios));
+    push @lines, "\n";
+    push @lines, "test retirement_projection_manifest_rows() -> Result<(), String>\n";
+    push @lines, "\tlet checked: () = require_retirement_projection_manifest(",
+        veln_string("http2-retirement-projection-manifest"),
+        ", ", scalar(@$scenarios),
+        ", ", veln_string($digest),
+        ")?\n";
+    push @lines, "\tOk(())\n", "end\n";
+    return join("", @lines);
+}
+
+sub veln_string {
+    my ($value) = @_;
+    return JSON::PP->new->ascii(1)->encode($value);
 }
 
 sub validate_structured_scenarios {

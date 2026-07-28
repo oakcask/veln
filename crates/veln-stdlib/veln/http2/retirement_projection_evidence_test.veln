@@ -1,0 +1,18 @@
+use prelude
+
+fn retirement_projection_manifest_matches(count: Int, projection_sha256: String) -> Bool
+	count == 3011 and projection_sha256 != ""
+end
+
+fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String) -> Result<(), String>
+	if retirement_projection_manifest_matches(count, projection_sha256)
+		Ok(())
+	else
+		Err(id)
+	end
+end
+
+test retirement_projection_manifest_rows() -> Result<(), String>
+	let checked: () = require_retirement_projection_manifest("http2-retirement-projection-manifest", 3011, "bf3bb9fb78078d7ef70ee9803f62647f694c25cc5591437310de99ddb390d67f")?
+	Ok(())
+end

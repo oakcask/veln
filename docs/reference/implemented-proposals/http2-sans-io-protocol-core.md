@@ -45,11 +45,14 @@ The retained retirement gate is checked by
 `scripts/check-http2-retirement-evidence`. It inventories the deleted broad
 fixture from history, requires item-level evidence for 652 helper invocations,
 2,044 exact stdout lines, and 315 output tables, verifies the generated
-row-addressable scenario manifest and coverage report, and rejects
-unclassified or stale rows. Each generated scenario has an executable
-projection recipe that binds the historical row to its focused evidence target,
-public operation, branch, initial state, concrete input, expected projection,
-post-state, output provenance, and diagnostic precedence rather than relying on
-an assertion hash alone. `retirement_output_evidence_test.veln` validates the
-historical output bytes through the production frame and public HPACK codecs
-without restoring the broad fixture implementation.
+row-addressable scenario manifest, coverage report, and generated projection
+evidence test, and rejects unclassified or stale rows. Each generated scenario
+has an executable projection recipe that binds the historical row to its
+focused evidence target, public operation, branch, initial state, concrete
+input, expected projection, post-state, output provenance, and diagnostic
+precedence rather than relying on an assertion hash alone.
+`retirement_projection_evidence_test.veln` runs the generated projection
+manifest digest as a standard package test, while
+`retirement_output_evidence_test.veln` validates the historical output bytes
+through the production frame and public HPACK codecs without restoring the
+broad fixture implementation.
