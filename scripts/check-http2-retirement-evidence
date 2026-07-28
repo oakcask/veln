@@ -205,6 +205,10 @@ sub validate_retirement_output_implementation {
             || $source !~ /\bhttp2::hpack::header_block_encode_bytes\b/;
     die "retirement output evidence does not compare production HPACK bytes with historical bytes\n"
         if $source !~ /\bchunks_equal\(encoded_input,\s*expected\)\?/;
+    die "retirement output evidence still allows canonical-equivalent HPACK encodings\n"
+        if $source =~ /\bretired_hpack_canonical_equivalent_encoding_allowed\b/;
+    die "retirement output evidence still uses a generic HPACK canonical mismatch fallback\n"
+        if $source =~ /\bretired_hpack_canonical_mismatch_allowed\b.*?\belse\s+Ok\(true\)/s;
     die "retirement output evidence accepts any production HPACK encoded byte count\n"
         if $source =~ /byte_count_to_int\(byte_chunk_count\(encoded_input\)\)\s*>=\s*0/;
     die "retirement output evidence retains the old HPACK exact-match allowlist\n"
@@ -819,6 +823,70 @@ sub run_self_test {
     };
     die "self-test accepted count-only production HPACK encode evidence\n"
         if $hpack_count_only_accepted;
+    my $canonical_equivalent_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "http2::hpack::header_block_encode_bytes(encoded)\n"
+        . "chunks_equal(encoded_input, expected)?\n"
+        . "retired_hpack_canonical_equivalent_encoding_allowed(name)?\n"
+        . "fn expected_retired_empty_data_family(name: String)\nend\n"
+        . "fn expected_retired_empty_headers_family(name: String)\nend\n"
+        . "fn expected_retired_empty_push_promise_family(name: String)\nend\n"
+        . "fn expected_retired_empty_window_update_family(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_family(name: String)\nend\n"
+        . "fn expected_retired_empty_goaway_family(name: String)\nend\n"
+        . "fn expected_retired_empty_ping_family(name: String)\nend\n"
+        . "fn retired_empty_settings_item(name: String)\nend\n"
+        . "fn expected_retired_empty_data_failure_id(family: String)\nend\n"
+        . "fn expected_retired_empty_window_update_failure_id(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_failure_id(name: String)\nend\n"
+        . "http2::core::data_send_failure(decision)\n"
+        . "http2::core::headers_send_failure(decision)\n"
+        . "http2::core::push_promise_send_failure(decision)\n"
+        . "http2::core::window_update_send_failure(decision)\n"
+        . "http2::core::priority_send_failure(decision)\n"
+        . "http2::core::goaway_send_failure(decision)\n"
+        . "http2::core::ping_request_failure(decision)\n"
+        . "http2::core::outbound_data_flow_failure_id(failure) == expected\n"
+        . "http2::core::outbound_stream_control_failure_id(failure) == expected\n"
+        . "http2::core::goaway_send_failure_id(failure)\n"
+        . "http2::core::frame_payload_length_failure_active_state(failure)\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\nend\n"
+        . "fn assert_retired_empty_data_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_headers_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_push_promise_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_window_update_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_priority_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_goaway_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_ping_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_settings_output_table(name: String)\nend\n"
+        . "fn assert_retired_zero_length_output_table(name: String)\n"
+        . "\thttp2::core::send_window_update(state, 0, 1, 1)\n"
+        . "\thttp2::core::send_request_headers(state, 0, 1, headers, false)\n"
+        . "\thttp2::core::output_buffer_append_window_update(output, decision)\n"
+        . "\thttp2::core::output_buffer_append_headers(output, decision)\n"
+        . "end\n";
+    my $canonical_equivalent_accepted = eval {
+        validate_retirement_output_implementation($canonical_equivalent_implementation);
+        1;
+    };
+    die "self-test accepted canonical-equivalent HPACK encode evidence\n"
+        if $canonical_equivalent_accepted;
+    my $generic_canonical_mismatch_implementation =
+        $canonical_equivalent_implementation;
+    $generic_canonical_mismatch_implementation =~
+        s/retired_hpack_canonical_equivalent_encoding_allowed\(name\)\?/
+            "fn retired_hpack_canonical_mismatch_allowed(name: String) -> Result<Bool, String>\\n"
+            . "\\tif name == \\\"one-row\\\"\\n\\t\\tOk(true)\\n"
+            . "\\telse\\n\\t\\tOk(true)\\n\\tend\\nend\\n"/e;
+    my $generic_canonical_mismatch_accepted = eval {
+        validate_retirement_output_implementation($generic_canonical_mismatch_implementation);
+        1;
+    };
+    die "self-test accepted generic HPACK canonical mismatch fallback\n"
+        if $generic_canonical_mismatch_accepted;
     my $empty_output = {
         kind => "output_table",
         key => "case.toml:output_chunk_list:data-no-output",

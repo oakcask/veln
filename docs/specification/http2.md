@@ -915,9 +915,11 @@ The retired `http2-protocol-core` route is no longer an executable case.
 Focused `http2-core-*` cases cover state transitions and emitted bytes, while
 focused `http2-protocol-core-*` cases retain human and JSON diagnostic
 coverage. The retained retirement-output evidence independently checks each
-retained HPACK dynamic-index output row against the production codec with the
-row's carried dynamic-table state, and exact production re-encoding is required
-for those retained dynamic bytes. It also checks each
-historical empty output table through the public send domains and requires the
-expected production failure id before proving that no decision bytes or output
-buffer chunks were emitted.
+retained successful HPACK output row against the production codec. Rows that
+depend on dynamic indexing carry their production dynamic-table state into the
+decode, and every successful retained HPACK row must consume the full vector
+and either re-encode to the exact retained bytes through the public production
+encoder or match an explicitly named historical-canonical mismatch row. It
+also checks each historical empty output table through the public send domains
+and requires the expected production failure id before proving that no
+decision bytes or output-buffer chunks were emitted.
