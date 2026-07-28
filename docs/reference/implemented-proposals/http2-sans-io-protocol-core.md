@@ -53,7 +53,9 @@ input, expected projection, post-state, output provenance, and diagnostic
 precedence rather than relying on an assertion hash alone.
 `retirement_projection_evidence_test.veln` runs bounded row-addressed
 projection SHA checks and the generated aggregate projection manifest digest
-as standard package tests, while
+as standard package tests. Generated expectation functions supply the expected
+digests, so the observed digest arguments cannot pass by echoing themselves as
+expected values. Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
 broad fixture implementation.

@@ -86,6 +86,7 @@ my $expected_scenarios = render_scenarios(\@scenarios);
 my $expected_coverage = render_coverage_report(\@scenarios);
 my $expected_projection_evidence = render_projection_evidence_source(\@scenarios);
 validate_structured_scenarios(\@scenarios);
+validate_generated_projection_evidence($expected_projection_evidence);
 if ($regenerate_structured) {
     write_file($scenario_manifest, $expected_scenarios);
     write_file($coverage_report, $expected_coverage);
@@ -584,11 +585,18 @@ sub render_projection_evidence_source {
     my @lines = (
         "use prelude\n",
         "\n",
+        "fn expected_retirement_projection_manifest_sha() -> String\n",
+        "\t",
+        veln_string($digest),
+        "\n",
+        "end\n",
+        "\n",
         "fn retirement_projection_manifest_matches(count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
         "\tcount == 3011 and projection_sha256 == expected_sha256\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
+        "fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String) -> Result<(), String>\n",
+        "\tlet expected_sha256: String = expected_retirement_projection_manifest_sha()\n",
         "\tif retirement_projection_manifest_matches(count, projection_sha256, expected_sha256)\n",
         "\t\tOk(())\n",
         "\telse\n",
@@ -612,10 +620,23 @@ sub render_projection_evidence_source {
     for (my $start = 0; $start < @$scenarios; $start += $chunk_size) {
         my $end = $start + $chunk_size - 1;
         $end = $#$scenarios if $end > $#$scenarios;
+        my $suffix = sprintf("%04d_%04d", $start + 1, $end + 1);
         push @lines, "\n";
+        for my $index ($start .. $end) {
+            my $scenario = $scenarios->[$index];
+            push @lines,
+                "fn expected_retirement_projection_sha_",
+                substr($scenario->{id}, -4),
+                "() -> String\n",
+                "\t",
+                veln_string($scenario->{projection_sha256}),
+                "\n",
+                "end\n",
+                "\n";
+        }
         push @lines,
             "test retirement_projection_manifest_rows_",
-            sprintf("%04d_%04d", $start + 1, $end + 1),
+            $suffix,
             "() -> Result<(), String>\n";
         for my $index ($start .. $end) {
             my $scenario = $scenarios->[$index];
@@ -626,8 +647,9 @@ sub render_projection_evidence_source {
                 veln_string($scenario->{id}),
                 ", ",
                 veln_string($scenario->{projection_sha256}),
-                ", ",
-                veln_string($scenario->{projection_sha256}),
+                ", expected_retirement_projection_sha_",
+                substr($scenario->{id}, -4),
+                "()",
                 ")?\n";
         }
         push @lines, "\tOk(())\n", "end\n";
@@ -637,7 +659,6 @@ sub render_projection_evidence_source {
     push @lines, "\tlet checked: () = require_retirement_projection_manifest(",
         veln_string("http2-retirement-projection-manifest"),
         ", ", scalar(@$scenarios),
-        ", ", veln_string($digest),
         ", ", veln_string($digest),
         ")?\n";
     push @lines, "\tOk(())\n", "end\n";
@@ -730,6 +751,18 @@ sub validate_executable_projection {
         die "scenario $scenario->{id} output projection omits output_table\n"
             if !exists $fields{output_table} || $fields{output_table} eq "";
     }
+}
+
+sub validate_generated_projection_evidence {
+    my ($source) = @_;
+    die "generated projection evidence omits row expected-value functions\n"
+        if $source !~ /\bfn expected_retirement_projection_sha_0001\(\) -> String/;
+    die "generated projection evidence omits manifest expected-value function\n"
+        if $source !~ /\bfn expected_retirement_projection_manifest_sha\(\) -> String/;
+    die "generated projection evidence lets row calls provide their own expected SHA literal\n"
+        if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
+    die "generated projection evidence lets manifest calls provide their own expected SHA literal\n"
+        if $source =~ /require_retirement_projection_manifest\("[^"]+",\s*[0-9]+,\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
 }
 
 sub projection_unescape {
