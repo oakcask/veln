@@ -55,15 +55,11 @@ CONTINUATION paths.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/case.toml` checks
-  accepted table-size updates through completed HEADERS and final CONTINUATION
-  paths, including two updates followed by a header field and the
-  boundary value `160`, retained and evicted dynamic-index lookups under the
-  resulting capacity, rejects a larger checked update at either consecutive
-  position and through both paths, including a repeated initial fixture table
-  size, and checks malformed table-size update integers, the bounded third
-  update rejection, state preservation, and trailing-byte table-size updates
-  through both paths.
+- `../../../crates/veln-stdlib/veln/http2/hpack_test.veln` checks accepted
+  table-size updates, capacity boundaries, retained and evicted dynamic-index
+  lookups under the resulting capacity, malformed integers, misplaced updates,
+  and immutable failure-state preservation through the production HPACK
+  decoder.
 - `../../../examples/specification/run/http2-protocol-core-header-table-human/case.toml`
   checks the human diagnostic projection for the local header-table receive
   limit.

@@ -708,21 +708,20 @@ failures.
 Accepted HTTP/2 send-intents, including outbound HEADERS output split across
 HEADERS and CONTINUATION frames and server-side outbound `PUSH_PROMISE`
 output split across `PUSH_PROMISE` and CONTINUATION frames, remain ordinary
-program stdout in the
-aggregate protocol-core run case; they do not populate `error` or
+program stdout in focused outbound HTTP/2 cases; they do not populate `error` or
 `details.protocol_diagnostic`. The HTTP/2 adapter/core write boundary likewise
 prints its adapter summary as ordinary stdout, records accepted HEADERS and
 split DATA chunks in the fixture transport log, and leaves rejected send
 actions out of `error` unless adapter code explicitly reports them. The same
 applies when those send-intents build
-their opaque header-block bytes from fixture header-list values through the
-HPACK fixture encoder, including exact static-indexed HPACK bytes for
+their opaque header-block bytes from header-list values through the
+production HPACK encoder, including exact static-indexed HPACK bytes for
 fixed-value HPACK static table entries such as request pseudo-headers,
 response pseudo-headers, and ordinary headers on outbound HEADERS, exact
 static-indexed bytes for supported fixed-value static entries on
 `PUSH_PROMISE`, checked Huffman-marked string literal fixtures for outbound
 HEADERS and `PUSH_PROMISE`, and the checked stateful `PUSH_PROMISE` path
-where the returned fixture encode state lets a later promised header list use
+where the returned encode state lets a later promised header list use
 the dynamic indexed byte `0xbe`. The focused HPACK fixture stdout also checks
 static-name literal-without-indexing encoding through finite static-table
 name metadata: non-exact `:method: PUT`, ordinary `server: ok`, and the
@@ -847,10 +846,10 @@ open outbound streams without changing connection credit, body accounting, or
 closed and reset lifecycle. Validation precedes the whole frame update, so an
 invalid later duplicate keeps the existing peer state and outbound credit
 unchanged while its focused human and JSON projections retain that duplicate
-item's byte offset and six-byte preview. The integrated output and focused
-projections are checked by `examples/specification/run/http2-protocol-core/`,
-`examples/specification/run/http2-protocol-core-settings-value-json/`, and
-`examples/specification/run/http2-protocol-core-settings-value-human/`.
+item's byte offset and six-byte preview. The focused projections are checked
+by `examples/specification/run/http2-protocol-core-settings-value-json/` and
+`examples/specification/run/http2-protocol-core-settings-value-human/`;
+broader HTTP/2 receive behavior is routed from `http2.md`.
 Received DATA frames that exceed available
 inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window
@@ -999,14 +998,14 @@ they omit `END_STREAM`. Empty DATA and PADDED DATA with zero application
 content may terminate that state, while nonempty DATA uses
 `http2.protocol.content_length_mismatch` with
 `expected_content_length: 0`, the observed application length, status-bearing
-`active_state`, and `rfc9110_no_content_response_body` provenance. The
-aggregate protocol-core case checks direct and CONTINUATION transitions plus
-diagnostic projection; the focused human case checks the status-specific
-primary message and related state and provenance notes.
-The larger protocol-core fixture also checks response trailer validation
-through the same response header-list diagnostic fields with active state
-`response-trailers`; a focused JSON case checks the same active state and
-the inspected header-block `byte_preview` in diagnostic projection.
+`active_state`, and `rfc9110_no_content_response_body` provenance. Focused
+content-length and no-content cases check direct and CONTINUATION transitions
+plus diagnostic projection; the focused human case checks the status-specific
+primary message and related state and provenance notes. Focused
+response-trailer cases check validation through the same response header-list
+diagnostic fields with active state `response-trailers`; a focused JSON case
+checks the same active state and the inspected header-block `byte_preview` in
+diagnostic projection.
 Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
@@ -1132,22 +1131,21 @@ recorded last stream id uses id
 `rule_provenance`. `shutdown_state` is the active shutdown label, including
 `drained_shutdown` after drain completion. The peer-created receive case
 carries a bounded inspected frame-header preview; the local outbound helper
-form can carry an empty preview when no peer bytes were inspected. The
-aggregate protocol-core example also checks that above-boundary outbound
-`PUSH_PROMISE` rejects before HPACK
-fixture encoding, that above-boundary outbound `PRIORITY` rejects before
-priority payload encoding or emitted bytes, and that above-boundary outbound
-`WINDOW_UPDATE` rejects before receive-credit changes and emitted bytes. The
-same aggregate example keeps connection-level outbound `WINDOW_UPDATE`
-accepted after GOAWAY and keeps priority self-dependency on its narrower
+form can carry an empty preview when no peer bytes were inspected. Focused
+outbound HTTP/2 cases check that above-boundary outbound `PUSH_PROMISE`
+rejects before HPACK encoding, that above-boundary outbound `PRIORITY` rejects
+before priority payload encoding or emitted bytes, and that above-boundary
+outbound `WINDOW_UPDATE` rejects before receive-credit changes and emitted
+bytes. Focused cases keep connection-level outbound `WINDOW_UPDATE` accepted
+after GOAWAY and keep priority self-dependency on its narrower
 diagnostic path.
-Repeated local outbound GOAWAY send-intents in the same aggregate example
+Repeated local outbound GOAWAY send-intents in focused GOAWAY output cases
 emit normal GOAWAY bytes when the new last-stream id preserves or narrows the
 recorded local shutdown boundary. A repeated local GOAWAY that would widen
 the recorded boundary uses `http2.protocol.stream_after_goaway` with local
 endpoint context and emits no output chunk. Later local outbound stream
 send-intents continue to use the narrowed local boundary.
-The same checked output preserves empty and non-empty inbound GOAWAY opaque
+Focused checked output preserves empty and non-empty inbound GOAWAY opaque
 debug data as exact hexadecimal bytes from the ordinary receive result. Its
 outbound chunk list checks that the same non-text byte sequence follows the
 fixed last-stream-id and error-code fields and that the frame header carries
@@ -1244,11 +1242,11 @@ literal-without-indexing, literal-with-indexing, and literal-never-indexed
 source-visible HPACK inputs for names resolved through the HPACK static table
 metadata when their values are raw single-byte-length visible ASCII or a
 bounded Huffman-marked literal value decoded through the HPACK static
-Huffman table. The aggregate HTTP/2 protocol-core case also routes the
-checked Huffman-marked `:scheme: https` request block through completed
-HEADERS and final CONTINUATION paths before fixture fallback, and routes the
-checked Huffman-marked `:path: test` static-name literal through the same
-completed HEADERS and final CONTINUATION paths. Malformed Huffman padding,
+Huffman table. Focused receive-dispatch and HPACK cases route the checked
+Huffman-marked `:scheme: https` request block through completed HEADERS and
+final CONTINUATION paths, and route the checked Huffman-marked `:path: test`
+static-name literal through the same completed HEADERS and final CONTINUATION
+paths. Malformed Huffman padding,
 EOS-as-symbol, and non-visible decoded outputs on the promoted static
 boundary keep their focused HPACK fixture ids while projecting
 `codec_module: "hpack_static"`. Malformed raw lengths and out-of-scope

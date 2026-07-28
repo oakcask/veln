@@ -28,7 +28,7 @@ capacity. After a table-size update to `42`, the same literal-with-indexing
 encode retains the entry, and the following matching encode emits `0xbe`.
 
 The HTTP/2 outbound HEADERS path consumes those returned fixture states before
-frame splitting. The aggregate protocol-core case therefore observes the
+frame splitting. Historical aggregate evidence therefore observes the
 zero-capacity literal-again behavior, the literal-again behavior at table size
 `30`, and the dynamic-index reuse at table size `42` as encoded HEADERS output
 chunks.
@@ -43,7 +43,7 @@ beyond the checked fixture boundary.
   direct fixture encoder transitions for table size zero, table size `30`,
   and table size `42`, including the second encode that proves whether
   `:method: PUT` was retained.
-- `../../../examples/specification/run/http2-protocol-core/` routes the same
+- Historical aggregate evidence routes the same
   state transitions through outbound HEADERS, including the zero table-size
   update path, and checks the emitted frame chunks for the literal and
   dynamic-indexed outcomes.

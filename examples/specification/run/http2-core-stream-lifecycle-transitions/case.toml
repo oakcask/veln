@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "data-end accepted\ndata-end stream 5 lifecycle half-closed-remote error 0\ninput stream 5 lifecycle open error 0\nheaders-end accepted\nheaders-end stream 7 lifecycle closed error 0\ndata-open stream 5 lifecycle open error 0\nrst stream 5 lifecycle reset error 8\nmissing failure http2.protocol.invalid_stream_reference offset 103 kind 3 stream 9 state idle-stream rule idle_streams_require_headers preview 9\nmissing-state-accessor rejected stream lifecycle transition has no state\n"
+
+[[json_assert]]
+path = "error"
+equals = null

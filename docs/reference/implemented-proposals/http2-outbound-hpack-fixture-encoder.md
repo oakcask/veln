@@ -6,7 +6,7 @@ This record preserves the completed outbound HPACK fixture encoder slice from
 the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
 checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -110,7 +110,7 @@ literal-with-indexing header list when the selected header name is already in
 the bounded dynamic table. The checked `:path: /again` encode emits
 `0x7e 0x06 "/again"`, inserts that fresh pair as the newest dynamic entry,
 reuses it as `0xbe`, and keeps the older `:path: /target` entry reachable as
-`0xbf`. The aggregate protocol-core example feeds the returned state through
+`0xbf`. Current outbound HTTP/2 header cases feed the returned state through
 both outbound HEADERS and server-side `PUSH_PROMISE` framing.
 
 The outbound boundary also accepts a fixture-owned dynamic-name
@@ -155,7 +155,7 @@ indexed `test: ok` block and its reuse also pass through outbound HEADERS.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   header-list encoding for static indexed `:method: GET`, `:method: POST`,
   `:path: /`, `:scheme: https`, `:status: 200`, `:status: 404`,
   `accept-encoding: gzip, deflate`, and `content-type:` into outbound HEADERS,

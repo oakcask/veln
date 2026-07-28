@@ -1053,12 +1053,26 @@ end
 test header_encoder_emits_exact_static_and_multi_octet_dynamic_indices() -> Result<(), String>
 	let empty: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
 	let static_transition: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), 2, empty))?
+	# evidence http2-hpack-static-indexed-method-post
+	let static_post: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("504f5354")?), 3, empty))?
 	let populated: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
 	let dynamic_transition: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_write_u8_be(65)?), 127, populated))?
-	if encoded_header_matches(static_transition, "82")? and encoded_header_matches(dynamic_transition, "ff00")? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_transition)) == 66 and http2::hpack::dynamic_table_entry_count(empty) == 0
+	if encoded_header_matches(static_transition, "82")? and encoded_header_matches(static_post, "83")? and encoded_header_matches(dynamic_transition, "ff00")? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_transition)) == 66 and http2::hpack::dynamic_table_entry_count(empty) == 0
 		Ok(())
 	else
 		Err("HPACK indexed encoding or immutable state changed")
+	end
+end
+
+test header_block_decoder_retains_exact_huffman_nul_octets() -> Result<(), String>
+	# evidence http2-hpack-literal-path-nul-huffman
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let transition: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("0482ffc7")?, table, 4096)?
+	let headers: HeaderList = http2::hpack::header_block_headers(transition)
+	if http2::hpack::header_block_consumed(transition) == 4 and http2::hpack::header_list_count(headers) == 1 and header_list_entry_matches(headers, 0, ":path", byte_chunk_from_hex("00")?)? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_table(transition)) == 0 and http2::hpack::dynamic_table_entry_count(table) == 0
+		Ok(())
+	else
+		Err("HPACK exact Huffman NUL header block or immutable decode state changed")
 	end
 end
 

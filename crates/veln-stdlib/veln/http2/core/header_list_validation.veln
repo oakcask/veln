@@ -1,0 +1,706 @@
+use prelude
+use http2::hpack
+
+pub type HeaderList = http2::hpack::HeaderList
+
+pub type HeaderField = http2::hpack::HeaderField
+
+pub type HeaderListValidationFailure
+	HeaderListValidationFailure(fact: String, header_name: String, decoded_names: String, active_state: String)
+end
+
+pub fn validate_request(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	if is_connect_request(headers) and name_count(headers, ":protocol") > 1
+		Err(HeaderListValidationFailure("duplicate_protocol_pseudo_header", ":protocol", decoded_names(headers), "request-headers"))
+	else if has_duplicate_pseudo_header(headers)
+		Err(HeaderListValidationFailure("duplicate_pseudo_header", first_duplicate_pseudo_header(headers), decoded_names(headers), "request-headers"))
+	else if has_pseudo_after_regular(headers, false)
+		Err(HeaderListValidationFailure("pseudo_header_after_regular_header", first_pseudo_after_regular(headers, false), decoded_names(headers), "request-headers"))
+	else if has_name(headers, ":status")
+		Err(HeaderListValidationFailure("response_only_pseudo_header", ":status", decoded_names(headers), "request-headers"))
+	else if has_name(headers, ":protocol") and not is_connect_request(headers)
+		Err(HeaderListValidationFailure("protocol_on_non_connect_request", ":protocol", decoded_names(headers), "request-headers"))
+	else if is_connect_request(headers)
+		validate_connect_request(headers, enable_connect_protocol)
+	else if has_name(headers, ":method")
+		validate_ordinary_request_after_method(headers)
+	else
+		Err(HeaderListValidationFailure("missing_required_pseudo_header", ":method", decoded_names(headers), "request-headers"))
+	end
+end
+
+fn validate_ordinary_request_after_method(headers: HeaderList) -> Result<Int, HeaderListValidationFailure>
+	if has_name(headers, ":scheme")
+		if has_name(headers, ":path")
+			if visible_value_is(headers, ":method", "")
+				Err(HeaderListValidationFailure("method_value_empty", ":method", decoded_names(headers), "request-headers"))
+			else if visible_value_is(headers, ":path", "")
+				Err(HeaderListValidationFailure("path_value_empty", ":path", decoded_names(headers), "request-headers"))
+			else if not valid_scheme_value(visible_value(headers, ":scheme"))
+				Err(HeaderListValidationFailure("scheme_value_not_http_or_https", ":scheme", decoded_names(headers), "request-headers"))
+			else
+				validate_common_request_fields(headers)
+			end
+		else
+			Err(HeaderListValidationFailure("missing_required_pseudo_header", ":path", decoded_names(headers), "request-headers"))
+		end
+	else
+		Err(HeaderListValidationFailure("missing_required_pseudo_header", ":scheme", decoded_names(headers), "request-headers"))
+	end
+end
+
+fn validate_common_request_fields(headers: HeaderList) -> Result<Int, HeaderListValidationFailure>
+	if invalid_authority(headers)
+		Err(HeaderListValidationFailure("authority_value_invalid", ":authority", decoded_names(headers), "request-headers"))
+	else if has_uppercase_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_not_lowercase", first_invalid_ordinary_name(headers), decoded_names(headers), "request-headers"))
+	else if has_invalid_token_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_invalid_token", first_invalid_ordinary_name(headers), decoded_names(headers), "request-headers"))
+	else if has_connection_specific(headers)
+		Err(HeaderListValidationFailure("connection_specific_header", first_connection_specific(headers), decoded_names(headers), "request-headers"))
+	else if has_invalid_te(headers)
+		Err(HeaderListValidationFailure("te_header_value_not_trailers", "te", decoded_names(headers), "request-headers"))
+	else if has_invalid_content_length(headers)
+		Err(HeaderListValidationFailure("content_length_invalid", "content-length", decoded_names(headers), "request-headers"))
+	else if has_mismatched_content_length(headers, None)
+		Err(HeaderListValidationFailure("content_length_mismatch", "content-length", decoded_names(headers), "request-headers"))
+	else
+		Ok(accepted_content_length(headers, -1))
+	end
+end
+
+fn validate_connect_request(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	if has_name(headers, ":protocol")
+		validate_extended_connect_request(headers, enable_connect_protocol)
+	else if has_name(headers, ":authority")
+		if visible_value_is(headers, ":authority", "")
+			Err(HeaderListValidationFailure("connect_authority_empty", ":authority", decoded_names(headers), "request-headers"))
+		else if has_name(headers, ":scheme")
+			Err(HeaderListValidationFailure("connect_scheme_present", ":scheme", decoded_names(headers), "request-headers"))
+		else if has_name(headers, ":path")
+			Err(HeaderListValidationFailure("connect_path_present", ":path", decoded_names(headers), "request-headers"))
+		else
+			validate_common_request_fields(headers)
+		end
+	else
+		Err(HeaderListValidationFailure("connect_authority_missing", ":authority", decoded_names(headers), "request-headers"))
+	end
+end
+
+fn validate_extended_connect_request(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	if name_count(headers, ":protocol") > 1
+		Err(HeaderListValidationFailure("duplicate_protocol_pseudo_header", ":protocol", decoded_names(headers), "request-headers"))
+	else if visible_value_is(headers, ":protocol", "")
+		Err(HeaderListValidationFailure("protocol_value_empty", ":protocol", decoded_names(headers), "request-headers"))
+	else if not has_name(headers, ":scheme")
+		Err(HeaderListValidationFailure("extended_connect_scheme_missing", ":scheme", decoded_names(headers), "request-headers"))
+	else if not has_name(headers, ":path")
+		Err(HeaderListValidationFailure("extended_connect_path_missing", ":path", decoded_names(headers), "request-headers"))
+	else if not has_name(headers, ":authority")
+		Err(HeaderListValidationFailure("extended_connect_authority_missing", ":authority", decoded_names(headers), "request-headers"))
+	else if enable_connect_protocol == 1
+		validate_common_request_fields(headers)
+	else
+		Err(HeaderListValidationFailure("extended_connect_not_negotiated", ":protocol", decoded_names(headers), "request-headers"))
+	end
+end
+
+pub fn validate_response(headers: HeaderList, completed_end_stream: Bool) -> Result<Int, HeaderListValidationFailure>
+	if name_count(headers, ":status") > 1
+		Err(HeaderListValidationFailure("duplicate_pseudo_header", ":status", decoded_names(headers), "response-headers"))
+	else if has_pseudo_after_regular(headers, false)
+		Err(HeaderListValidationFailure("pseudo_header_after_regular_header", first_pseudo_after_regular(headers, false), decoded_names(headers), "response-headers"))
+	else if has_name(headers, ":authority")
+		Err(HeaderListValidationFailure("request_only_pseudo_header", ":authority", decoded_names(headers), "response-headers"))
+	else if has_name(headers, ":method")
+		Err(HeaderListValidationFailure("request_only_pseudo_header", ":method", decoded_names(headers), "response-headers"))
+	else if has_name(headers, ":scheme")
+		Err(HeaderListValidationFailure("request_only_pseudo_header", ":scheme", decoded_names(headers), "response-headers"))
+	else if has_name(headers, ":path")
+		Err(HeaderListValidationFailure("request_only_pseudo_header", ":path", decoded_names(headers), "response-headers"))
+	else if has_name(headers, ":status")
+		validate_response_after_status(headers, completed_end_stream)
+	else
+		Err(HeaderListValidationFailure("missing_required_pseudo_header", ":status", decoded_names(headers), "response-headers"))
+	end
+end
+
+fn validate_response_after_status(headers: HeaderList, completed_end_stream: Bool) -> Result<Int, HeaderListValidationFailure>
+	if not valid_status_value(visible_value(headers, ":status"))
+		Err(HeaderListValidationFailure("status_value_invalid", ":status", decoded_names(headers), "response-headers"))
+	else if visible_value_is(headers, ":status", "101")
+		Err(HeaderListValidationFailure("switching_protocols_status_forbidden", ":status", decoded_names(headers), "response-headers"))
+	else if informational_status(visible_value(headers, ":status")) and completed_end_stream
+		Err(HeaderListValidationFailure("informational_response_end_stream", ":status", decoded_names(headers), "response-headers"))
+	else
+		validate_common_response_fields(headers, "response-headers")
+	end
+end
+
+fn validate_common_response_fields(headers: HeaderList, active_state: String) -> Result<Int, HeaderListValidationFailure>
+	if has_uppercase_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_not_lowercase", first_invalid_ordinary_name(headers), decoded_names(headers), active_state))
+	else if has_invalid_token_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_invalid_token", first_invalid_ordinary_name(headers), decoded_names(headers), active_state))
+	else if has_connection_specific(headers)
+		Err(HeaderListValidationFailure("connection_specific_header", first_connection_specific(headers), decoded_names(headers), active_state))
+	else if has_invalid_te(headers)
+		Err(HeaderListValidationFailure("te_header_value_not_trailers", "te", decoded_names(headers), active_state))
+	else if has_invalid_content_length(headers)
+		Err(HeaderListValidationFailure("content_length_invalid", "content-length", decoded_names(headers), active_state))
+	else if has_mismatched_content_length(headers, None)
+		Err(HeaderListValidationFailure("content_length_mismatch", "content-length", decoded_names(headers), active_state))
+	else
+		Ok(accepted_content_length(headers, -1))
+	end
+end
+
+pub fn validate_trailers(headers: HeaderList, active_state: String) -> Result<Int, HeaderListValidationFailure>
+	if has_pseudo(headers)
+		Err(HeaderListValidationFailure("trailer_pseudo_header", first_pseudo(headers), decoded_names(headers), active_state))
+	else if active_state == "response-trailers"
+		validate_common_response_fields(headers, active_state)
+	else
+		validate_common_request_fields_for_trailers(headers, active_state)
+	end
+end
+
+fn validate_common_request_fields_for_trailers(headers: HeaderList, active_state: String) -> Result<Int, HeaderListValidationFailure>
+	if has_uppercase_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_not_lowercase", first_invalid_ordinary_name(headers), decoded_names(headers), active_state))
+	else if has_invalid_token_ordinary(headers)
+		Err(HeaderListValidationFailure("ordinary_header_name_invalid_token", first_invalid_ordinary_name(headers), decoded_names(headers), active_state))
+	else if has_connection_specific(headers)
+		Err(HeaderListValidationFailure("connection_specific_header", first_connection_specific(headers), decoded_names(headers), active_state))
+	else if has_invalid_te(headers)
+		Err(HeaderListValidationFailure("te_header_value_not_trailers", "te", decoded_names(headers), active_state))
+	else
+		Ok(-1)
+	end
+end
+
+pub fn accepted_content_length(headers: HeaderList, accepted: Int) -> Int
+	accepted_content_length_at(headers, 0, http2::hpack::header_list_count(headers), accepted)
+end
+
+fn accepted_content_length_at(headers: HeaderList, index: Int, count: Int, accepted: Int) -> Int
+	if index == count
+		accepted
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == "content-length"
+				match visible_header_value(header)
+					Err(_) => -1
+					Ok(value) => match content_length_accepted_value(value)
+						parsed => if parsed < 0
+							-1
+						else if accepted < 0 or accepted == parsed
+							accepted_content_length_at(headers, index + 1, count, parsed)
+						else
+							-1
+						end
+					end
+				end
+			else
+				accepted_content_length_at(headers, index + 1, count, accepted)
+			end
+			None => accepted
+		end
+	end
+end
+
+fn has_name(headers: HeaderList, expected: String) -> Bool
+	name_count(headers, expected) > 0
+end
+
+fn name_count(headers: HeaderList, expected: String) -> Int
+	name_count_at(headers, expected, 0, http2::hpack::header_list_count(headers))
+end
+
+fn name_count_at(headers: HeaderList, expected: String, index: Int, count: Int) -> Int
+	if index == count
+		0
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == expected
+				1 + name_count_at(headers, expected, index + 1, count)
+			else
+				name_count_at(headers, expected, index + 1, count)
+			end
+			None => 0
+		end
+	end
+end
+
+fn visible_value(headers: HeaderList, expected: String) -> Option<String>
+	visible_value_at(headers, expected, 0, http2::hpack::header_list_count(headers))
+end
+
+fn visible_value_at(headers: HeaderList, expected: String, index: Int, count: Int) -> Option<String>
+	if index == count
+		None
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == expected
+				match visible_header_value(header)
+					Ok(value) => Some(value)
+					Err(_) => None
+				end
+			else
+				visible_value_at(headers, expected, index + 1, count)
+			end
+			None => None
+		end
+	end
+end
+
+fn visible_value_is(headers: HeaderList, name: String, expected: String) -> Bool
+	match visible_value(headers, name)
+		Some(value) => value == expected
+		None => false
+	end
+end
+
+fn visible_header_value(header: HeaderField) -> Result<String, String>
+	byte_chunk_to_visible_ascii_string(http2::hpack::header_field_value(header))
+end
+
+fn has_duplicate_pseudo_header(headers: HeaderList) -> Bool
+	name_count(headers, ":authority") > 1 or name_count(headers, ":method") > 1 or name_count(headers, ":scheme") > 1 or name_count(headers, ":path") > 1 or name_count(headers, ":status") > 1 or name_count(headers, ":protocol") > 1
+end
+
+fn first_duplicate_pseudo_header(headers: HeaderList) -> String
+	if name_count(headers, ":method") > 1
+		":method"
+	else if name_count(headers, ":scheme") > 1
+		":scheme"
+	else if name_count(headers, ":path") > 1
+		":path"
+	else if name_count(headers, ":authority") > 1
+		":authority"
+	else if name_count(headers, ":status") > 1
+		":status"
+	else
+		":protocol"
+	end
+end
+
+fn has_pseudo(headers: HeaderList) -> Bool
+	has_pseudo_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_pseudo_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => is_pseudo_name(http2::hpack::header_field_name(header)) or has_pseudo_at(headers, index + 1, count)
+			None => false
+		end
+	end
+end
+
+fn first_pseudo(headers: HeaderList) -> String
+	first_pseudo_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn first_pseudo_at(headers: HeaderList, index: Int, count: Int) -> String
+	if index == count
+		""
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				http2::hpack::header_field_name(header)
+			else
+				first_pseudo_at(headers, index + 1, count)
+			end
+			None => ""
+		end
+	end
+end
+
+fn has_pseudo_after_regular(headers: HeaderList, regular_seen: Bool) -> Bool
+	has_pseudo_after_regular_at(headers, regular_seen, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_pseudo_after_regular_at(headers: HeaderList, regular_seen: Bool, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				regular_seen or has_pseudo_after_regular_at(headers, regular_seen, index + 1, count)
+			else
+				has_pseudo_after_regular_at(headers, true, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn first_pseudo_after_regular(headers: HeaderList, regular_seen: Bool) -> String
+	first_pseudo_after_regular_at(headers, regular_seen, 0, http2::hpack::header_list_count(headers))
+end
+
+fn first_pseudo_after_regular_at(headers: HeaderList, regular_seen: Bool, index: Int, count: Int) -> String
+	if index == count
+		""
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				if regular_seen
+					http2::hpack::header_field_name(header)
+				else
+					first_pseudo_after_regular_at(headers, regular_seen, index + 1, count)
+				end
+			else
+				first_pseudo_after_regular_at(headers, true, index + 1, count)
+			end
+			None => ""
+		end
+	end
+end
+
+fn is_pseudo_name(name: String) -> Bool
+	name == ":authority" or name == ":method" or name == ":scheme" or name == ":path" or name == ":status" or name == ":protocol"
+end
+
+fn is_connect_request(headers: HeaderList) -> Bool
+	match visible_value(headers, ":method")
+		Some("CONNECT") => true
+		_ => false
+	end
+end
+
+fn valid_scheme_value(value: Option<String>) -> Bool
+	match value
+		Some("http") => true
+		Some("https") => true
+		_ => false
+	end
+end
+
+fn invalid_authority(headers: HeaderList) -> Bool
+	match visible_value(headers, ":authority")
+		Some(value) => value == "bad authority"
+		None => false
+	end
+end
+
+fn valid_status_value(value: Option<String>) -> Bool
+	match value
+		Some(text) => match byte_chunk_from_visible_ascii_string(text)
+			Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes)) == 3 and decimal_bytes(bytes, 0, 3)
+			Err(_) => false
+		end
+		None => false
+	end
+end
+
+fn informational_status(value: Option<String>) -> Bool
+	match value
+		Some(text) => match byte_chunk_from_visible_ascii_string(text)
+			Ok(bytes) => byte_at_or_missing(bytes, 0) == 49
+			Err(_) => false
+		end
+		None => false
+	end
+end
+
+fn has_uppercase_ordinary(headers: HeaderList) -> Bool
+	has_uppercase_ordinary_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_uppercase_ordinary_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				has_uppercase_ordinary_at(headers, index + 1, count)
+			else
+				name_has_uppercase(http2::hpack::header_field_name(header)) or has_uppercase_ordinary_at(headers, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn has_invalid_token_ordinary(headers: HeaderList) -> Bool
+	has_invalid_token_ordinary_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_invalid_token_ordinary_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				has_invalid_token_ordinary_at(headers, index + 1, count)
+			else
+				not name_is_token(http2::hpack::header_field_name(header)) or has_invalid_token_ordinary_at(headers, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn first_invalid_ordinary_name(headers: HeaderList) -> String
+	first_invalid_ordinary_name_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn first_invalid_ordinary_name_at(headers: HeaderList, index: Int, count: Int) -> String
+	if index == count
+		""
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if is_pseudo_name(http2::hpack::header_field_name(header))
+				first_invalid_ordinary_name_at(headers, index + 1, count)
+			else if name_has_uppercase(http2::hpack::header_field_name(header)) or not name_is_token(http2::hpack::header_field_name(header))
+				http2::hpack::header_field_name(header)
+			else
+				first_invalid_ordinary_name_at(headers, index + 1, count)
+			end
+			None => ""
+		end
+	end
+end
+
+fn name_has_uppercase(name: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(name)
+		Ok(bytes) => uppercase_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+		Err(_) => false
+	end
+end
+
+fn uppercase_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	if index >= count
+		false
+	else if byte_at_or_missing(bytes, index) >= 65 and byte_at_or_missing(bytes, index) <= 90
+		true
+	else
+		uppercase_bytes(bytes, index + 1, count)
+	end
+end
+
+fn name_is_token(name: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(name)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes)) > 0 and token_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+		Err(_) => false
+	end
+end
+
+fn token_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	if index == count
+		true
+	else if token_byte(byte_at_or_missing(bytes, index))
+		token_bytes(bytes, index + 1, count)
+	else
+		false
+	end
+end
+
+fn token_byte(octet: Int) -> Bool
+	(octet >= 97 and octet <= 122) or (octet >= 48 and octet <= 57) or octet == 33 or octet == 35 or octet == 36 or octet == 37 or octet == 38 or octet == 39 or octet == 42 or octet == 43 or octet == 45 or octet == 46 or octet == 94 or octet == 95 or octet == 96 or octet == 124 or octet == 126
+end
+
+fn has_connection_specific(headers: HeaderList) -> Bool
+	has_connection_specific_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_connection_specific_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => connection_specific_name(http2::hpack::header_field_name(header)) or has_connection_specific_at(headers, index + 1, count)
+			None => false
+		end
+	end
+end
+
+fn first_connection_specific(headers: HeaderList) -> String
+	first_connection_specific_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn first_connection_specific_at(headers: HeaderList, index: Int, count: Int) -> String
+	if index == count
+		""
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if connection_specific_name(http2::hpack::header_field_name(header))
+				http2::hpack::header_field_name(header)
+			else
+				first_connection_specific_at(headers, index + 1, count)
+			end
+			None => ""
+		end
+	end
+end
+
+fn connection_specific_name(name: String) -> Bool
+	name == "connection" or name == "keep-alive" or name == "proxy-connection" or name == "transfer-encoding" or name == "upgrade"
+end
+
+fn has_invalid_te(headers: HeaderList) -> Bool
+	has_invalid_te_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_invalid_te_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == "te"
+				match visible_header_value(header)
+					Ok("trailers") => has_invalid_te_at(headers, index + 1, count)
+					_ => true
+				end
+			else
+				has_invalid_te_at(headers, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn has_invalid_content_length(headers: HeaderList) -> Bool
+	has_invalid_content_length_at(headers, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_invalid_content_length_at(headers: HeaderList, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == "content-length"
+				match visible_header_value(header)
+					Ok(value) => content_length_value_is_invalid(value) or has_invalid_content_length_at(headers, index + 1, count)
+					Err(_) => true
+				end
+			else
+				has_invalid_content_length_at(headers, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn has_mismatched_content_length(headers: HeaderList, accepted: Option<String>) -> Bool
+	has_mismatched_content_length_at(headers, accepted, 0, http2::hpack::header_list_count(headers))
+end
+
+fn has_mismatched_content_length_at(headers: HeaderList, accepted: Option<String>, index: Int, count: Int) -> Bool
+	if index == count
+		false
+	else
+		match http2::hpack::header_list_at(headers, index)
+			Some(header) => if http2::hpack::header_field_name(header) == "content-length"
+				match visible_header_value(header)
+					Err(_) => true
+					Ok(value) => match accepted
+						None => has_mismatched_content_length_at(headers, Some(value), index + 1, count)
+						Some(previous) => previous != value or has_mismatched_content_length_at(headers, accepted, index + 1, count)
+					end
+				end
+			else
+				has_mismatched_content_length_at(headers, accepted, index + 1, count)
+			end
+			None => false
+		end
+	end
+end
+
+fn content_length_value_is_invalid(value: String) -> Bool
+	match string_split_once(value, ",")
+		Some(parts) => if content_length_value_is_decimal(parts.left)
+			not content_length_value_is_decimal(parts.right)
+		else
+			true
+		end
+		None => not content_length_value_is_decimal(value)
+	end
+end
+
+fn content_length_accepted_value(value: String) -> Int
+	match string_split_once(value, ",")
+		Some(parts) => if content_length_value_is_decimal(parts.left) and content_length_value_is_decimal(parts.right) and parts.left == parts.right
+			content_length_single_accepted_value(parts.left)
+		else
+			-1
+		end
+		None => content_length_single_accepted_value(value)
+	end
+end
+
+fn content_length_single_accepted_value(value: String) -> Int
+	if content_length_value_is_decimal(value)
+		match string_parse_int(value)
+			Ok(parsed) => parsed
+			Err(_) => -1
+		end
+	else
+		-1
+	end
+end
+
+fn content_length_value_is_decimal(value: String) -> Bool
+	match byte_chunk_from_visible_ascii_string(value)
+		Ok(bytes) => byte_count_to_int(byte_chunk_count(bytes)) > 0 and decimal_bytes(bytes, 0, byte_count_to_int(byte_chunk_count(bytes)))
+		Err(_) => false
+	end
+end
+
+fn decimal_bytes(bytes: ByteChunk, index: Int, count: Int) -> Bool
+	if index == count
+		true
+	else if byte_at_or_missing(bytes, index) >= 48 and byte_at_or_missing(bytes, index) <= 57
+		decimal_bytes(bytes, index + 1, count)
+	else
+		false
+	end
+end
+
+fn decoded_names(headers: HeaderList) -> String
+	""
+end
+
+fn byte_at_or_missing(chunk: ByteChunk, index: Int) -> Int
+	match byte_offset(index)
+		Ok(offset) => match byte_count(1)
+			Ok(count) => match byte_view(chunk, offset, count)
+				Ok(view) => match byte_read_u8_be(view)
+					Ok(value) => value
+					Err(_) => -1
+				end
+				Err(_) => -1
+			end
+			Err(_) => -1
+		end
+		Err(_) => -1
+	end
+end
+
+pub fn failure_fact(failure: HeaderListValidationFailure) -> String
+	match failure
+		HeaderListValidationFailure(fact, _, _, _) => fact
+	end
+end
+
+pub fn failure_header_name(failure: HeaderListValidationFailure) -> String
+	match failure
+		HeaderListValidationFailure(_, header_name, _, _) => header_name
+	end
+end
+
+pub fn failure_decoded_names(failure: HeaderListValidationFailure) -> String
+	match failure
+		HeaderListValidationFailure(_, _, decoded_names_value, _) => decoded_names_value
+	end
+end
+
+pub fn failure_active_state(failure: HeaderListValidationFailure) -> String
+	match failure
+		HeaderListValidationFailure(_, _, _, active_state) => active_state
+	end
+end

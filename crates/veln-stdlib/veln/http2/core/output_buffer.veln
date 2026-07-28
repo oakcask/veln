@@ -1,0 +1,65 @@
+use prelude
+
+pub type CoreOutputBuffer
+	CoreOutputBuffer(List<ByteChunk>)
+end
+
+pub fn empty() -> CoreOutputBuffer
+	CoreOutputBuffer(Nil)
+end
+
+pub fn append_chunk(output: CoreOutputBuffer, chunk: ByteChunk) -> CoreOutputBuffer
+	match output
+		CoreOutputBuffer(chunks) => CoreOutputBuffer(append_to_end(chunks, chunk))
+	end
+end
+
+pub fn count(output: CoreOutputBuffer) -> Int
+	match output
+		CoreOutputBuffer(chunks) => chunk_count(chunks)
+	end
+end
+
+pub fn chunk_at(output: CoreOutputBuffer, index: Int) -> Option<ByteChunk>
+	match output
+		CoreOutputBuffer(chunks) => chunk_at_index(chunks, index)
+	end
+end
+
+pub fn bytes(output: CoreOutputBuffer) -> ByteChunk
+	match output
+		CoreOutputBuffer(chunks) => concat_chunks(chunks)
+	end
+end
+
+fn append_to_end(chunks: List<ByteChunk>, chunk: ByteChunk) -> List<ByteChunk>
+	match chunks
+		Nil => Cons(chunk, Nil)
+		Cons(head, tail) => Cons(head, append_to_end(tail, chunk))
+	end
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_at_index(chunks: List<ByteChunk>, index: Int) -> Option<ByteChunk>
+	match chunks
+		Nil => None
+		Cons(head, tail) => if index == 0
+			Some(head)
+		else
+			chunk_at_index(tail, index - 1)
+		end
+	end
+end
+
+fn concat_chunks(chunks: List<ByteChunk>) -> ByteChunk
+	match chunks
+		Nil => byte_chunk([])
+		Cons(head, tail) => byte_append(head, concat_chunks(tail))
+	end
+end

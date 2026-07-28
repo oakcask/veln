@@ -6,7 +6,7 @@ This record preserves the completed no-Huffman raw literal fixture slice from
 the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -31,7 +31,7 @@ HPACK fixture diagnostics.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` includes the
+- Historical aggregate evidence includes the
   completed HEADERS frame case named `hpack-literal-authority-raw` and the
   final CONTINUATION case named
   `hpack-literal-authority-raw-continuation`, checks the emitted header-block

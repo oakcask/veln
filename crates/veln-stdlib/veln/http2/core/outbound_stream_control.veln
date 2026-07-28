@@ -1,0 +1,273 @@
+use prelude
+use http2::core::connection_state
+use http2::core::stream_state
+use http2::frame
+
+pub type CoreRstStreamSendDecision
+	CoreRstStreamSendAccepted(CoreConnectionState, stream_id: Int, error_code: Int, bytes: ByteChunk)
+	CoreRstStreamSendRejected(CoreOutboundStreamControlFailure)
+	CoreRstStreamSendEncodeFailed(stream_id: Int, error_code: Int, reason: String)
+end
+
+pub type CorePrioritySendDecision
+	CorePrioritySendAccepted(CoreConnectionState, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, bytes: ByteChunk)
+	CorePrioritySendRejected(CoreOutboundStreamControlFailure)
+	CorePrioritySendEncodeFailed(stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, reason: String)
+end
+
+pub type CoreOutboundStreamControlFailure
+	CoreOutboundStreamInvalidStreamId(offset: Int, frame_kind: Int, stream_id: Int, expected: String, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundStreamInvalidFrameKind(offset: Int, frame_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundPriorityDependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundStreamAfterGoaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn send_rst_stream(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int) -> CoreRstStreamSendDecision
+	if stream_id == 0
+		CoreRstStreamSendRejected(CoreOutboundStreamInvalidStreamId(offset, 3, stream_id, "nonzero open stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "outbound_rst_stream_requires_open_stream", byte_chunk([])))
+	else
+		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => send_rst_stream_for_entry(state, offset, stream_id, error_code, http2::core::stream_state::entry_lifecycle(entry))
+			None => CoreRstStreamSendRejected(CoreOutboundStreamInvalidFrameKind(offset, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+		end
+	end
+end
+
+fn send_rst_stream_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int, lifecycle: CoreStreamLifecycle) -> CoreRstStreamSendDecision
+	if http2::core::stream_state::lifecycle_accepts_reset(lifecycle)
+		encode_rst_stream(state, stream_id, error_code)
+	else
+		CoreRstStreamSendRejected(CoreOutboundStreamInvalidFrameKind(offset, 3, stream_id, 1, http2::core::stream_state::lifecycle_active_state(lifecycle), http2::core::stream_state::lifecycle_rejection_rule(lifecycle), byte_chunk([])))
+	end
+end
+
+fn encode_rst_stream(state: CoreConnectionState, stream_id: Int, error_code: Int) -> CoreRstStreamSendDecision
+	match http2::frame::encode_header(4, 3, 0, stream_id)
+		Ok(header) => match byte_write_u32_be(error_code)
+			Ok(payload) => CoreRstStreamSendAccepted(reset_stream_state(state, stream_id, error_code), stream_id, error_code, byte_append(header, payload))
+			Err(reason) => CoreRstStreamSendEncodeFailed(stream_id, error_code, reason)
+		end
+		Err(reason) => CoreRstStreamSendEncodeFailed(stream_id, error_code, reason)
+	end
+end
+
+fn reset_stream_state(state: CoreConnectionState, stream_id: Int, error_code: Int) -> CoreConnectionState
+	http2::core::connection_state::with_streams(state, http2::core::stream_state::with_lifecycle(http2::core::connection_state::streams(state), stream_id, http2::core::stream_state::reset_lifecycle(error_code)))
+end
+
+pub fn send_priority(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
+	if stream_id == 0
+		CorePrioritySendRejected(CoreOutboundStreamInvalidStreamId(offset, 2, stream_id, "nonzero open stream id", http2::core::connection_state::endpoint_role(state), "stream-id-domain", "outbound_priority_requires_open_stream", byte_chunk([])))
+	else
+		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => send_priority_for_entry(state, offset, stream_id, dependency_stream_id, exclusive, weight, http2::core::stream_state::entry_lifecycle(entry))
+			None => CorePrioritySendRejected(CoreOutboundStreamInvalidFrameKind(offset, 2, stream_id, 1, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+		end
+	end
+end
+
+fn send_priority_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int, lifecycle: CoreStreamLifecycle) -> CorePrioritySendDecision
+	if not http2::core::stream_state::lifecycle_accepts_priority(lifecycle)
+		CorePrioritySendRejected(CoreOutboundStreamInvalidFrameKind(offset, 2, stream_id, 1, http2::core::stream_state::lifecycle_active_state(lifecycle), http2::core::stream_state::lifecycle_rejection_rule(lifecycle), byte_chunk([])))
+	else if stream_id == dependency_stream_id
+		CorePrioritySendRejected(CoreOutboundPriorityDependency(offset, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency", byte_chunk([])))
+	else
+		validate_priority_goaway(state, offset, stream_id, dependency_stream_id, exclusive, weight)
+	end
+end
+
+fn validate_priority_goaway(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if label != "open" and stream_id > last_stream_id
+		CorePrioritySendRejected(CoreOutboundStreamAfterGoaway(offset, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else
+		encode_priority(state, stream_id, dependency_stream_id, exclusive, weight)
+	end
+end
+
+fn encode_priority(state: CoreConnectionState, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
+	match http2::frame::encode_header(5, 2, 0, stream_id)
+		Ok(header) => match byte_write_u31_be(dependency_stream_id)
+			Ok(dependency_payload) => match priority_dependency_payload_with_exclusive(dependency_payload, exclusive)
+				Ok(marked_dependency_payload) => match byte_write_u8_be(weight - 1)
+					Ok(weight_payload) => CorePrioritySendAccepted(state, stream_id, dependency_stream_id, exclusive, weight, byte_append(header, byte_append(marked_dependency_payload, weight_payload)))
+					Err(reason) => CorePrioritySendEncodeFailed(stream_id, dependency_stream_id, exclusive, weight, reason)
+				end
+				Err(reason) => CorePrioritySendEncodeFailed(stream_id, dependency_stream_id, exclusive, weight, reason)
+			end
+			Err(reason) => CorePrioritySendEncodeFailed(stream_id, dependency_stream_id, exclusive, weight, reason)
+		end
+		Err(reason) => CorePrioritySendEncodeFailed(stream_id, dependency_stream_id, exclusive, weight, reason)
+	end
+end
+
+fn priority_dependency_payload_with_exclusive(payload: ByteChunk, exclusive: Bool) -> Result<ByteChunk, String>
+	let first: Int = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
+	let second: Int = byte_read_u8_be(byte_view(payload, byte_offset(1)?, byte_count(1)?)?)?
+	let third: Int = byte_read_u8_be(byte_view(payload, byte_offset(2)?, byte_count(1)?)?)?
+	let fourth: Int = byte_read_u8_be(byte_view(payload, byte_offset(3)?, byte_count(1)?)?)?
+	Ok(byte_append(byte_append(byte_append(byte_write_u8_be(first + exclusive_bit_value(exclusive))?, byte_write_u8_be(second)?), byte_write_u8_be(third)?), byte_write_u8_be(fourth)?))
+end
+
+fn exclusive_bit_value(exclusive: Bool) -> Int
+	if exclusive
+		128
+	else
+		0
+	end
+end
+
+pub fn rst_stream_status(decision: CoreRstStreamSendDecision) -> String
+	match decision
+		CoreRstStreamSendAccepted(_, _, _, _) => "accepted"
+		CoreRstStreamSendRejected(_) => "rejected"
+		CoreRstStreamSendEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+pub fn rst_stream_state(decision: CoreRstStreamSendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreRstStreamSendAccepted(state, _, _, _) => Ok(state)
+		CoreRstStreamSendRejected(_) => Err("rejected RST_STREAM send decision has no state")
+		CoreRstStreamSendEncodeFailed(_, _, _) => Err("encode-failed RST_STREAM send decision has no state")
+	end
+end
+
+pub fn rst_stream_failure(decision: CoreRstStreamSendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	match decision
+		CoreRstStreamSendAccepted(_, _, _, _) => Err("accepted RST_STREAM send decision has no failure")
+		CoreRstStreamSendRejected(failure) => Ok(failure)
+		CoreRstStreamSendEncodeFailed(_, _, _) => Err("encode-failed RST_STREAM send decision has no protocol failure")
+	end
+end
+
+pub fn rst_stream_bytes(decision: CoreRstStreamSendDecision) -> ByteChunk
+	match decision
+		CoreRstStreamSendAccepted(_, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn rst_stream_encode_reason(decision: CoreRstStreamSendDecision) -> String
+	match decision
+		CoreRstStreamSendEncodeFailed(_, _, reason) => reason
+		_ => "none"
+	end
+end
+
+pub fn priority_status(decision: CorePrioritySendDecision) -> String
+	match decision
+		CorePrioritySendAccepted(_, _, _, _, _, _) => "accepted"
+		CorePrioritySendRejected(_) => "rejected"
+		CorePrioritySendEncodeFailed(_, _, _, _, _) => "encode_error"
+	end
+end
+
+pub fn priority_state(decision: CorePrioritySendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CorePrioritySendAccepted(state, _, _, _, _, _) => Ok(state)
+		CorePrioritySendRejected(_) => Err("rejected PRIORITY send decision has no state")
+		CorePrioritySendEncodeFailed(_, _, _, _, _) => Err("encode-failed PRIORITY send decision has no state")
+	end
+end
+
+pub fn priority_failure(decision: CorePrioritySendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	match decision
+		CorePrioritySendAccepted(_, _, _, _, _, _) => Err("accepted PRIORITY send decision has no failure")
+		CorePrioritySendRejected(failure) => Ok(failure)
+		CorePrioritySendEncodeFailed(_, _, _, _, _) => Err("encode-failed PRIORITY send decision has no protocol failure")
+	end
+end
+
+pub fn priority_bytes(decision: CorePrioritySendDecision) -> ByteChunk
+	match decision
+		CorePrioritySendAccepted(_, _, _, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn priority_encode_reason(decision: CorePrioritySendDecision) -> String
+	match decision
+		CorePrioritySendEncodeFailed(_, _, _, _, reason) => reason
+		_ => "none"
+	end
+end
+
+pub fn failure_id(failure: CoreOutboundStreamControlFailure) -> String
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, _, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
+		CoreOutboundStreamInvalidFrameKind(_, _, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
+		CoreOutboundPriorityDependency(_, _, _, _, _, _) => "http2.protocol.priority_dependency"
+		CoreOutboundStreamAfterGoaway(_, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+	end
+end
+
+pub fn failure_offset(failure: CoreOutboundStreamControlFailure) -> Int
+	match failure
+		CoreOutboundStreamInvalidStreamId(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundStreamInvalidFrameKind(offset, _, _, _, _, _, _) => offset
+		CoreOutboundPriorityDependency(offset, _, _, _, _, _) => offset
+		CoreOutboundStreamAfterGoaway(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreOutboundStreamControlFailure) -> Int
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundStreamInvalidFrameKind(_, frame_kind, _, _, _, _, _) => frame_kind
+		CoreOutboundPriorityDependency(_, _, _, _, _, _) => 2
+		CoreOutboundStreamAfterGoaway(_, _, _, _, _, _, _) => 2
+	end
+end
+
+pub fn failure_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundStreamInvalidFrameKind(_, _, stream_id, _, _, _, _) => stream_id
+		CoreOutboundPriorityDependency(_, stream_id, _, _, _, _) => stream_id
+		CoreOutboundStreamAfterGoaway(_, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_dependency_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	match failure
+		CoreOutboundPriorityDependency(_, _, dependency_stream_id, _, _, _) => dependency_stream_id
+		_ => 0
+	end
+end
+
+pub fn failure_last_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	match failure
+		CoreOutboundStreamAfterGoaway(_, _, last_stream_id, _, _, _, _) => last_stream_id
+		_ => 0
+	end
+end
+
+pub fn failure_active_state(failure: CoreOutboundStreamControlFailure) -> String
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundStreamInvalidFrameKind(_, _, _, _, active_state, _, _) => active_state
+		CoreOutboundPriorityDependency(_, _, _, active_state, _, _) => active_state
+		CoreOutboundStreamAfterGoaway(_, _, _, shutdown_state, _, _, _) => shutdown_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreOutboundStreamControlFailure) -> String
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundStreamInvalidFrameKind(_, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundPriorityDependency(_, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundStreamAfterGoaway(_, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: CoreOutboundStreamControlFailure) -> ByteChunk
+	match failure
+		CoreOutboundStreamInvalidStreamId(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundStreamInvalidFrameKind(_, _, _, _, _, _, preview) => preview
+		CoreOutboundPriorityDependency(_, _, _, _, _, preview) => preview
+		CoreOutboundStreamAfterGoaway(_, _, _, _, _, _, preview) => preview
+	end
+end

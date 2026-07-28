@@ -23,7 +23,7 @@ and local disable-push state are unchanged.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks rejection
+- Historical aggregate evidence checks rejection
   after an earlier valid item in the same frame without applying either item,
   and checks the same multi-item frame remains accepted by a server endpoint.
 - `../../../examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`

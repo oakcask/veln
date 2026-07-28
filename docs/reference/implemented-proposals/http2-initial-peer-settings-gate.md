@@ -19,7 +19,7 @@ retry without observing a partial SETTINGS update.
 ## Evidence
 
 - Integrated transition and state-preservation assertions:
-  `examples/specification/run/http2-protocol-core/`.
+  historical aggregate evidence.
 - Structured diagnostic projection:
   `examples/specification/run/http2-initial-peer-settings-gate-json/`.
 - Human diagnostic projection:

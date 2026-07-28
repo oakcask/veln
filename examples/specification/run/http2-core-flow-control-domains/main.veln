@@ -1,0 +1,102 @@
+use http2::core from "std"
+use stdio
+
+fn require_connection(value: Int) -> Result<CoreConnectionWindowCredit, String>
+	match http2::core::connection_window_credit(value)
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_stream(value: Int) -> Result<CoreStreamWindowCredit, String>
+	match http2::core::stream_window_credit(value)
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_increment(value: Int) -> Result<CoreWindowUpdateIncrement, String>
+	match http2::core::window_update_increment(value)
+		Ok(increment) => Ok(increment)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn print_failure(label: String, failure: FlowControlDomainFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::flow_control_failure_domain(failure))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::flow_control_failure_observed_value(failure)))
+	stdio::print(" min ")
+	stdio::print(int_to_string(http2::core::flow_control_failure_accepted_min_value(failure)))
+	stdio::print(" max ")
+	stdio::println(int_to_string(http2::core::flow_control_failure_accepted_max_value(failure)))
+end
+
+fn print_decision(label: String, decision: FlowControlCreditDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" decision ")
+	stdio::print(http2::core::flow_control_credit_decision_status(decision))
+	stdio::print(" value ")
+	stdio::println(int_to_string(http2::core::flow_control_credit_decision_value(decision)))
+	match http2::core::flow_control_credit_decision_status(decision)
+		"rejected" => Ok(print_failure(label, http2::core::flow_control_credit_decision_failure(decision)?))
+		_ => Ok(())
+	end
+end
+
+fn reject_connection(label: String, value: Int) -> Result<(), String> effects [stdio]
+	match http2::core::connection_window_credit(value)
+		Ok(_) => Err("expected connection credit rejection")
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+fn reject_stream(label: String, value: Int) -> Result<(), String> effects [stdio]
+	match http2::core::stream_window_credit(value)
+		Ok(_) => Err("expected stream credit rejection")
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+fn reject_initial(label: String, value: Int) -> Result<(), String> effects [stdio]
+	match http2::core::initial_window_size(value)
+		Ok(_) => Err("expected initial window size rejection")
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+fn reject_increment(label: String, value: Int) -> Result<(), String> effects [stdio]
+	match http2::core::window_update_increment(value)
+		Ok(_) => Err("expected window update increment rejection")
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let connection: CoreConnectionWindowCredit = require_connection(10)?
+	let stream: CoreStreamWindowCredit = require_stream(0 - 5)?
+	let increment: CoreWindowUpdateIncrement = require_increment(8)?
+	stdio::print("bounds max ")
+	stdio::print(int_to_string(http2::core::max_flow_control_value()))
+	stdio::print(" min_stream ")
+	stdio::println(int_to_string(http2::core::min_stream_window_credit()))
+	let _ = print_decision("connection-debit", http2::core::debit_connection_window(connection, 4))?
+	let _ = print_decision("stream-debit", http2::core::debit_stream_window(stream, 2))?
+	let _ = print_decision("stream-refill", http2::core::refill_stream_window(stream, increment))?
+	let _ = print_decision("connection-overdebit", http2::core::debit_connection_window(connection, 11))?
+	let _ = print_decision("connection-overrefill", http2::core::refill_connection_window(require_connection(2147483646)?, increment))?
+	let _ = print_decision("stream-overrefill", http2::core::refill_stream_window(require_stream(2147483646)?, increment))?
+	let _ = reject_connection("connection-negative", 0 - 1)?
+	let _ = reject_stream("stream-too-low", 0 - 2147483648)?
+	let _ = reject_initial("initial-too-high", 2147483648)?
+	let _ = reject_increment("increment-zero", 0)?
+	stdio::print("inputs connection ")
+	stdio::print(int_to_string(http2::core::connection_window_credit_value(connection)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(stream)))
+	stdio::print(" increment ")
+	stdio::println(int_to_string(http2::core::window_update_increment_value(increment)))
+	Ok(())
+end

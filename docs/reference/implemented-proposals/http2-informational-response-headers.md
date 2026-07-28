@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the inbound client-side informational response HEADERS
-slice from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior
+slice from `http2-sans-io-protocol-core.md`. Current behavior
 lives in `../../specification/execution.md` and the checked protocol-core
 example under `../../../examples/specification/run/`.
 
@@ -28,7 +28,7 @@ content-length, trailer, reset, and end-of-stream behavior remains in effect.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks one and
+- Historical aggregate evidence checks one and
   multiple informational responses, final response transition, final
   CONTINUATION completion, a peer-promised stream, rejected status `101`,
   rejected informational `END_STREAM`, rejected DATA before the final

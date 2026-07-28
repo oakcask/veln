@@ -35,7 +35,7 @@ standard decoder owns the codec and immutable-state invariants.
   input-state preservation.
 - `../../../examples/specification/run/hpack-header-block-decoding/` records
   public facade result values and representative typed failures.
-- `../../../examples/specification/run/http2-protocol-core/` continues to check a
+- Historical aggregate evidence continues to check a
   five-field mixed static, literal-with-indexing, and dynamic-indexed block;
   retained-entry reuse in a later block; byte-accounted eviction after a
   table-size reduction; complete request, response, and trailer routing; split

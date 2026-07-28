@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "ordered count 10\noutput_chunk ordered index 0 hex \"0000080600000000000102030405060708\" count 17\noutput_chunk ordered index 1 hex \"000006040000000000000500008000\" count 15\noutput_chunk ordered index 2 hex \"000000040100000000\" count 9\noutput_chunk ordered index 3 hex \"0000080700000000000000000100000000\" count 17\noutput_chunk ordered index 4 hex \"000002000000000001aabb\" count 11\noutput_chunk ordered index 5 hex \"00000408000000000000000003\" count 13\noutput_chunk ordered index 6 hex \"000004010400000001885c0135\" count 13\noutput_chunk ordered index 7 hex \"00000a050400000001000000028287845c0135\" count 19\noutput_chunk ordered index 8 hex \"00000403000000000100000008\" count 13\noutput_chunk ordered index 9 hex \"000005020000000001800000030f\" count 14\nordered combined \"00000806000000000001020304050607080000060400000000000005000080000000000401000000000000080700000000000000000100000000000002000000000001aabb00000408000000000000000003000004010400000001885c013500000a050400000001000000028287845c013500000403000000000100000008000005020000000001800000030f\"\nafter-failures count 10\n"
+
+[[json_assert]]
+path = "error"
+equals = null

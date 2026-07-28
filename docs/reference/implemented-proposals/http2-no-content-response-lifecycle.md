@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the inbound client-side final `204` and `304` response
-lifecycle slice from `../../proposals/http2-sans-io-protocol-core.md`.
+lifecycle slice from `http2-sans-io-protocol-core.md`.
 Current behavior lives in `../../specification/execution.md` and the checked
 protocol-core examples under `../../../examples/specification/run/`.
 
@@ -24,7 +24,7 @@ a final response and do not select this state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks direct
+- Historical aggregate evidence checks direct
   `END_STREAM` for both statuses, empty and padded zero-content DATA
   termination, final CONTINUATION assembly, nonempty DATA rejection, and
   diagnostic projection.

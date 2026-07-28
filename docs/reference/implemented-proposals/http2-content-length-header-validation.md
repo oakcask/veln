@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the checked `content-length` header-list validation slices
-from `../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives
+from `http2-sans-io-protocol-core.md`. Current behavior lives
 in `../../specification/execution.md`, `../../specification/run-json.md`, and
 the checked examples under `../../../examples/specification/run/`.
 
@@ -29,7 +29,7 @@ through `http2.protocol.invalid_response_header_list`.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   request and response `content-length` header lists with one value and with
   repeated matching values, plus rejected mismatch, empty, non-decimal, signed,
   whitespace-padded, and negative-looking values for both request and

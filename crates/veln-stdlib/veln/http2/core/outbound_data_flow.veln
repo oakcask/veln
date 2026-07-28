@@ -1,0 +1,421 @@
+use prelude
+use http2::core::connection_state
+use http2::core::flow_control
+use http2::core::stream_state
+use http2::frame
+
+pub type CoreDataSendDecision
+	CoreDataSendAccepted(CoreConnectionState, stream_id: Int, data_length: Int, end_stream: Bool, bytes: ByteChunk)
+	CoreDataSendRejected(CoreOutboundDataFlowFailure)
+	CoreDataSendEncodeFailed(stream_id: Int, data_length: Int, end_stream: Bool, reason: String)
+end
+
+pub type CoreWindowUpdateSendDecision
+	CoreWindowUpdateSendAccepted(CoreConnectionState, stream_id: Int, increment: Int, bytes: ByteChunk)
+	CoreWindowUpdateSendRejected(CoreOutboundDataFlowFailure)
+	CoreWindowUpdateSendEncodeFailed(stream_id: Int, increment: Int, reason: String)
+end
+
+pub type CoreOutboundDataFlowFailure
+	CoreOutboundDataInvalidStream(offset: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundDataAfterGoaway(offset: Int, frame_kind: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundDataFlowControl(offset: Int, frame_kind: Int, stream_id: Int, data_length: Int, observed_value: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundDataContentLength(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundWindowUpdateIncrement(offset: Int, frame_kind: Int, stream_id: Int, increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundWindowUpdateFlowControl(offset: Int, frame_kind: Int, stream_id: Int, increment: Int, observed_value: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn send_data(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, end_stream: Bool) -> CoreDataSendDecision
+	let data_length: Int = byte_count_to_int(byte_chunk_count(data))
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if lifecycle_label != "open" and stream_id > last_stream_id
+		CoreDataSendRejected(CoreOutboundDataAfterGoaway(offset, 0, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else if stream_id == 0
+		CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, "stream-id-domain", "outbound_data_requires_open_stream", byte_chunk([])))
+	else
+		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+			Some(entry) => send_data_for_entry(state, offset, stream_id, data, data_length, end_stream, entry)
+			None => CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+		end
+	end
+end
+
+fn send_data_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry) -> CoreDataSendDecision
+	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	if not lifecycle_accepts_outbound_data(lifecycle)
+		CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, http2::core::stream_state::lifecycle_active_state(lifecycle), outbound_lifecycle_rule(lifecycle), byte_chunk([])))
+	else
+		apply_data_flow_control(state, offset, stream_id, data, data_length, end_stream, entry)
+	end
+end
+
+fn apply_data_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry) -> CoreDataSendDecision
+	let send_credit: CoreStreamWindowCredit = http2::core::stream_state::entry_send_credit(entry)
+	let next_credit_value: Int = http2::core::flow_control::stream_window_credit_value(send_credit) - data_length
+	if next_credit_value < 0
+		CoreDataSendRejected(CoreOutboundDataFlowControl(offset, 0, stream_id, data_length, next_credit_value, "stream-send-window", "outbound_data_debits_stream_send_window", byte_chunk([])))
+	else
+		apply_checked_data_flow_control(state, offset, stream_id, data, data_length, end_stream, entry, send_credit)
+	end
+end
+
+fn apply_checked_data_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry, send_credit: CoreStreamWindowCredit) -> CoreDataSendDecision
+	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_stream_window(send_credit, data_length)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => apply_data_content_length(state, offset, stream_id, data, data_length, end_stream, entry, http2::core::flow_control::credit_decision_value(decision))
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => CoreDataSendRejected(CoreOutboundDataFlowControl(offset, 0, stream_id, data_length, http2::core::flow_control::failure_observed_value(failure), "stream-send-window", "outbound_data_debits_stream_send_window", byte_chunk([])))
+			Err(_) => CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, "stream-send-window", "outbound_data_debits_stream_send_window", byte_chunk([])))
+		end
+	end
+end
+
+fn apply_data_content_length(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry, next_credit_value: Int) -> CoreDataSendDecision
+	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
+	let observed: Int = http2::core::stream_state::entry_content_length_observed(entry) + data_length
+	if expected >= 0 and observed > expected
+		CoreDataSendRejected(CoreOutboundDataContentLength(offset, 0, stream_id, expected, observed, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)), "rfc9113_content_length_body", byte_chunk([])))
+	else if expected >= 0 and end_stream and observed != expected
+		CoreDataSendRejected(CoreOutboundDataContentLength(offset, 0, stream_id, expected, observed, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)), "rfc9113_content_length_body", byte_chunk([])))
+	else
+		encode_data(state, stream_id, data, data_length, end_stream, entry, next_credit_value, observed)
+	end
+end
+
+fn encode_data(state: CoreConnectionState, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry, next_credit_value: Int, observed: Int) -> CoreDataSendDecision
+	match http2::frame::encode_header(data_length, 0, end_stream_flag(end_stream), stream_id)
+		Ok(header) => match http2::core::flow_control::stream_window_credit(next_credit_value)
+			Ok(next_credit) => CoreDataSendAccepted(data_next_state(state, stream_id, end_stream, entry, next_credit, observed), stream_id, data_length, end_stream, byte_append(header, data))
+			Err(failure) => CoreDataSendRejected(CoreOutboundDataFlowControl(0, 0, stream_id, data_length, http2::core::flow_control::failure_observed_value(failure), "stream-send-window", "outbound_data_debits_stream_send_window", byte_chunk([])))
+		end
+		Err(reason) => CoreDataSendEncodeFailed(stream_id, data_length, end_stream, reason)
+	end
+end
+
+fn data_next_state(state: CoreConnectionState, stream_id: Int, end_stream: Bool, entry: CoreStreamEntry, next_credit: CoreStreamWindowCredit, observed: Int) -> CoreConnectionState
+	let with_credit: CoreStreamCollection = http2::core::stream_state::with_send_credit(http2::core::connection_state::streams(state), stream_id, next_credit)
+	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
+	let with_content_length: CoreStreamCollection = http2::core::stream_state::with_content_length(with_credit, stream_id, expected, observed)
+	let with_lifecycle: CoreStreamCollection = if end_stream
+		http2::core::stream_state::with_lifecycle(with_content_length, stream_id, local_end_lifecycle(http2::core::stream_state::entry_lifecycle(entry)))
+	else
+		with_content_length
+	end
+	http2::core::connection_state::with_streams(state, with_lifecycle)
+end
+
+pub fn send_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int) -> CoreWindowUpdateSendDecision
+	match http2::core::flow_control::window_update_increment(increment)
+		Ok(checked) => if stream_id == 0
+			send_connection_window_update(state, offset, stream_id, checked)
+		else
+			send_stream_window_update_after_goaway_check(state, offset, stream_id, checked)
+		end
+		Err(_) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateIncrement(offset, 8, stream_id, increment, "window-update-increment", "window_update_increment_range", byte_chunk([])))
+	end
+end
+
+fn send_stream_window_update_after_goaway_check(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if lifecycle_label != "open" and stream_id > last_stream_id
+		CoreWindowUpdateSendRejected(CoreOutboundDataAfterGoaway(offset, 8, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else
+		send_stream_window_update(state, offset, stream_id, increment)
+	end
+end
+
+fn send_connection_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
+	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_connection_window(http2::core::connection_state::connection_receive_credit(state), increment)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => match http2::core::flow_control::connection_window_credit(http2::core::flow_control::credit_decision_value(decision))
+			Ok(next_credit) => encode_window_update(http2::core::connection_state::with_connection_receive_credit(state, next_credit), stream_id, http2::core::flow_control::window_update_increment_value(increment))
+			Err(failure) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateFlowControl(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), http2::core::flow_control::failure_observed_value(failure), "connection-receive-window", "outbound_window_update_refills_connection_receive_window", byte_chunk([])))
+		end
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateFlowControl(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), http2::core::flow_control::failure_observed_value(failure), "connection-receive-window", "outbound_window_update_refills_connection_receive_window", byte_chunk([])))
+			Err(_) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateIncrement(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), "connection-receive-window", "outbound_window_update_refills_connection_receive_window", byte_chunk([])))
+		end
+	end
+end
+
+fn send_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
+	match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
+		Some(entry) => if http2::core::stream_state::lifecycle_has_receive_window(http2::core::stream_state::entry_lifecycle(entry))
+			apply_stream_window_update(state, offset, stream_id, increment, entry)
+		else
+			CoreWindowUpdateSendRejected(CoreOutboundDataInvalidStream(offset, 8, stream_id, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)), http2::core::stream_state::lifecycle_rejection_rule(http2::core::stream_state::entry_lifecycle(entry)), byte_chunk([])))
+		end
+		None => CoreWindowUpdateSendRejected(CoreOutboundDataInvalidStream(offset, 8, stream_id, "idle-stream", "idle_streams_require_headers", byte_chunk([])))
+	end
+end
+
+fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement, entry: CoreStreamEntry) -> CoreWindowUpdateSendDecision
+	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_stream_window(http2::core::stream_state::entry_receive_credit(entry), increment)
+	match http2::core::flow_control::credit_decision_status(decision)
+		"accepted" => match http2::core::flow_control::stream_window_credit(http2::core::flow_control::credit_decision_value(decision))
+			Ok(next_credit) => encode_window_update(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_receive_credit(http2::core::connection_state::streams(state), stream_id, next_credit)), stream_id, http2::core::flow_control::window_update_increment_value(increment))
+			Err(failure) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateFlowControl(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), http2::core::flow_control::failure_observed_value(failure), "stream-receive-window", "outbound_window_update_refills_stream_receive_window", byte_chunk([])))
+		end
+		_ => match http2::core::flow_control::credit_decision_failure(decision)
+			Ok(failure) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateFlowControl(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), http2::core::flow_control::failure_observed_value(failure), "stream-receive-window", "outbound_window_update_refills_stream_receive_window", byte_chunk([])))
+			Err(_) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateIncrement(offset, 8, stream_id, http2::core::flow_control::window_update_increment_value(increment), "stream-receive-window", "outbound_window_update_refills_stream_receive_window", byte_chunk([])))
+		end
+	end
+end
+
+fn encode_window_update(state: CoreConnectionState, stream_id: Int, increment: Int) -> CoreWindowUpdateSendDecision
+	match http2::frame::encode_header(4, 8, 0, stream_id)
+		Ok(header) => match byte_write_u31_be(increment)
+			Ok(payload) => CoreWindowUpdateSendAccepted(state, stream_id, increment, byte_append(header, payload))
+			Err(reason) => CoreWindowUpdateSendEncodeFailed(stream_id, increment, reason)
+		end
+		Err(reason) => CoreWindowUpdateSendEncodeFailed(stream_id, increment, reason)
+	end
+end
+
+fn lifecycle_accepts_outbound_data(lifecycle: CoreStreamLifecycle) -> Bool
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	label == "open" or label == "client-push-associated" or label == "half-closed-remote"
+end
+
+fn outbound_lifecycle_rule(lifecycle: CoreStreamLifecycle) -> String
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	if label == "half-closed-local"
+		"half_closed_local_rejects_local_data"
+	else
+		http2::core::stream_state::lifecycle_rejection_rule(lifecycle)
+	end
+end
+
+fn local_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
+	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	if label == "half-closed-remote"
+		http2::core::stream_state::closed_lifecycle()
+	else if label == "closed"
+		http2::core::stream_state::closed_lifecycle()
+	else if label == "reset"
+		http2::core::stream_state::reset_lifecycle(http2::core::stream_state::lifecycle_error_code(lifecycle))
+	else
+		http2::core::stream_state::half_closed_local_lifecycle()
+	end
+end
+
+fn end_stream_flag(end_stream: Bool) -> Int
+	if end_stream
+		1
+	else
+		0
+	end
+end
+
+pub fn data_send_status(decision: CoreDataSendDecision) -> String
+	match decision
+		CoreDataSendAccepted(_, _, _, _, _) => "accepted"
+		CoreDataSendRejected(_) => "rejected"
+		CoreDataSendEncodeFailed(_, _, _, _) => "encode_error"
+	end
+end
+
+pub fn data_send_state(decision: CoreDataSendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreDataSendAccepted(state, _, _, _, _) => Ok(state)
+		CoreDataSendRejected(_) => Err("rejected DATA send decision has no state")
+		CoreDataSendEncodeFailed(_, _, _, _) => Err("encode-failed DATA send decision has no state")
+	end
+end
+
+pub fn data_send_failure(decision: CoreDataSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	match decision
+		CoreDataSendAccepted(_, _, _, _, _) => Err("accepted DATA send decision has no failure")
+		CoreDataSendRejected(failure) => Ok(failure)
+		CoreDataSendEncodeFailed(_, _, _, _) => Err("encode-failed DATA send decision has no protocol failure")
+	end
+end
+
+pub fn data_send_bytes(decision: CoreDataSendDecision) -> ByteChunk
+	match decision
+		CoreDataSendAccepted(_, _, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn data_send_encode_reason(decision: CoreDataSendDecision) -> String
+	match decision
+		CoreDataSendEncodeFailed(_, _, _, reason) => reason
+		_ => "none"
+	end
+end
+
+pub fn window_update_send_status(decision: CoreWindowUpdateSendDecision) -> String
+	match decision
+		CoreWindowUpdateSendAccepted(_, _, _, _) => "accepted"
+		CoreWindowUpdateSendRejected(_) => "rejected"
+		CoreWindowUpdateSendEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+pub fn window_update_send_state(decision: CoreWindowUpdateSendDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreWindowUpdateSendAccepted(state, _, _, _) => Ok(state)
+		CoreWindowUpdateSendRejected(_) => Err("rejected WINDOW_UPDATE send decision has no state")
+		CoreWindowUpdateSendEncodeFailed(_, _, _) => Err("encode-failed WINDOW_UPDATE send decision has no state")
+	end
+end
+
+pub fn window_update_send_failure(decision: CoreWindowUpdateSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	match decision
+		CoreWindowUpdateSendAccepted(_, _, _, _) => Err("accepted WINDOW_UPDATE send decision has no failure")
+		CoreWindowUpdateSendRejected(failure) => Ok(failure)
+		CoreWindowUpdateSendEncodeFailed(_, _, _) => Err("encode-failed WINDOW_UPDATE send decision has no protocol failure")
+	end
+end
+
+pub fn window_update_send_bytes(decision: CoreWindowUpdateSendDecision) -> ByteChunk
+	match decision
+		CoreWindowUpdateSendAccepted(_, _, _, bytes) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+pub fn window_update_send_encode_reason(decision: CoreWindowUpdateSendDecision) -> String
+	match decision
+		CoreWindowUpdateSendEncodeFailed(_, _, reason) => reason
+		_ => "none"
+	end
+end
+
+pub fn failure_id(failure: CoreOutboundDataFlowFailure) -> String
+	match failure
+		CoreOutboundDataInvalidStream(_, frame_kind, _, _, _, _) => if frame_kind == 8
+			"http2.protocol.invalid_stream_reference"
+		else
+			"http2.protocol.invalid_frame_kind"
+		end
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
+		CoreOutboundDataFlowControl(_, _, _, _, _, _, _, _) => "http2.flow_control.window_exceeded"
+		CoreOutboundDataContentLength(_, _, _, _, _, _, _, _) => "http2.protocol.content_length_mismatch"
+		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, _, _) => "http2.flow_control.window_increment_out_of_range"
+		CoreOutboundWindowUpdateFlowControl(_, _, _, _, _, _, _, _) => "http2.flow_control.window_exceeded"
+	end
+end
+
+pub fn failure_offset(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataInvalidStream(offset, _, _, _, _, _) => offset
+		CoreOutboundDataAfterGoaway(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundDataFlowControl(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundDataContentLength(offset, _, _, _, _, _, _, _) => offset
+		CoreOutboundWindowUpdateIncrement(offset, _, _, _, _, _, _) => offset
+		CoreOutboundWindowUpdateFlowControl(offset, _, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataInvalidStream(_, frame_kind, _, _, _, _) => frame_kind
+		CoreOutboundDataAfterGoaway(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundDataFlowControl(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundDataContentLength(_, frame_kind, _, _, _, _, _, _) => frame_kind
+		CoreOutboundWindowUpdateIncrement(_, frame_kind, _, _, _, _, _) => frame_kind
+		CoreOutboundWindowUpdateFlowControl(_, frame_kind, _, _, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataInvalidStream(_, _, stream_id, _, _, _) => stream_id
+		CoreOutboundDataAfterGoaway(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundDataFlowControl(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundDataContentLength(_, _, stream_id, _, _, _, _, _) => stream_id
+		CoreOutboundWindowUpdateIncrement(_, _, stream_id, _, _, _, _) => stream_id
+		CoreOutboundWindowUpdateFlowControl(_, _, stream_id, _, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_data_length(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataFlowControl(_, _, _, data_length, _, _, _, _) => data_length
+		_ => 0
+	end
+end
+
+pub fn failure_increment(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundWindowUpdateIncrement(_, _, _, increment, _, _, _) => increment
+		CoreOutboundWindowUpdateFlowControl(_, _, _, increment, _, _, _, _) => increment
+		_ => 0
+	end
+end
+
+pub fn failure_last_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataAfterGoaway(_, _, _, last_stream_id, _, _, _, _) => last_stream_id
+		_ => 0
+	end
+end
+
+pub fn failure_endpoint_role(failure: CoreOutboundDataFlowFailure) -> String
+	match failure
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, endpoint_role, _, _) => endpoint_role
+		_ => "none"
+	end
+end
+
+pub fn failure_observed_value(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataFlowControl(_, _, _, _, observed_value, _, _, _) => observed_value
+		CoreOutboundWindowUpdateFlowControl(_, _, _, _, observed_value, _, _, _) => observed_value
+		_ => 0
+	end
+end
+
+pub fn failure_content_length_expected(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataContentLength(_, _, _, expected_length, _, _, _, _) => expected_length
+		_ => -1
+	end
+end
+
+pub fn failure_content_length_observed(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataContentLength(_, _, _, _, observed_length, _, _, _) => observed_length
+		_ => 0
+	end
+end
+
+pub fn failure_active_state(failure: CoreOutboundDataFlowFailure) -> String
+	match failure
+		CoreOutboundDataInvalidStream(_, _, _, active_state, _, _) => active_state
+		CoreOutboundDataAfterGoaway(_, _, _, _, shutdown_state, _, _, _) => shutdown_state
+		CoreOutboundDataFlowControl(_, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundDataContentLength(_, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundWindowUpdateIncrement(_, _, _, _, active_state, _, _) => active_state
+		CoreOutboundWindowUpdateFlowControl(_, _, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreOutboundDataFlowFailure) -> String
+	match failure
+		CoreOutboundDataInvalidStream(_, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundDataFlowControl(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundDataContentLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundWindowUpdateFlowControl(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: CoreOutboundDataFlowFailure) -> ByteChunk
+	match failure
+		CoreOutboundDataInvalidStream(_, _, _, _, _, preview) => preview
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundDataFlowControl(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundDataContentLength(_, _, _, _, _, _, _, preview) => preview
+		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, _, preview) => preview
+		CoreOutboundWindowUpdateFlowControl(_, _, _, _, _, _, _, preview) => preview
+	end
+end

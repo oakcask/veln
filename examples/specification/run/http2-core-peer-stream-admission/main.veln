@@ -1,0 +1,55 @@
+use http2::core from "std"
+use stdio
+
+fn print_state(label: String, state: CorePeerStreamAdmissionState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" highest ")
+	stdio::println(int_to_string(http2::core::peer_stream_admission_highest_stream_id(state)))
+end
+
+fn print_decision(label: String, decision: CorePeerStreamAdmissionDecision) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" decision ")
+	stdio::println(http2::core::peer_stream_admission_decision_status(decision))
+	match http2::core::peer_stream_admission_decision_status(decision)
+		"rejected" => print_failure(label, http2::core::peer_stream_admission_decision_failure(decision)?)
+		_ => Ok(())
+	end
+end
+
+fn print_failure(label: String, failure: CorePeerStreamAdmissionFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::peer_stream_admission_failure_stream_id(failure)))
+	stdio::print(" previous ")
+	stdio::print(int_to_string(http2::core::peer_stream_admission_failure_previous_stream_id(failure)))
+	stdio::print(" role ")
+	stdio::print(http2::core::peer_stream_admission_failure_endpoint_role(failure))
+	stdio::print(" state ")
+	stdio::print(http2::core::peer_stream_admission_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::peer_stream_admission_failure_rule_provenance(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::peer_stream_admission_failure_preview(failure)))))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: CorePeerStreamAdmissionState = http2::core::empty_peer_stream_admission()
+	let first: CorePeerStreamAdmissionState = http2::core::record_new_headers_peer_stream(1, 1, false, false, empty)
+	let ignored_trailer: CorePeerStreamAdmissionState = http2::core::record_new_headers_peer_stream(1, 3, true, false, first)
+	let ignored_known: CorePeerStreamAdmissionState = http2::core::record_new_headers_peer_stream(1, 5, false, true, ignored_trailer)
+	let higher: CorePeerStreamAdmissionState = http2::core::record_new_headers_peer_stream(1, 7, false, false, ignored_known)
+	let _ = print_state("empty", empty)
+	let _ = print_state("first", first)
+	let _ = print_state("ignored-trailer", ignored_trailer)
+	let _ = print_state("ignored-known", ignored_known)
+	let _ = print_state("higher", higher)
+	let accepted: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(10, 9, "server", higher, byte_chunk_from_hex("000000010400000009")?)
+	let equal_rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(16, 7, "client", higher, byte_chunk_from_hex("000000010400000007")?)
+	let rejected: CorePeerStreamAdmissionDecision = http2::core::validate_new_peer_stream(20, 3, "server", higher, byte_chunk_from_hex("000000010400000003")?)
+	let _ = print_decision("new-higher", accepted)?
+	let _ = print_decision("equal", equal_rejected)?
+	let _ = print_decision("lower", rejected)?
+	Ok(())
+end

@@ -6,7 +6,7 @@ This record preserves the completed outbound HPACK fixture slice from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and checked by
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -37,7 +37,7 @@ behavior, or production HTTP/2 behavior.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the literal-with-indexing bytes, returned encode-state reuse as `0xbe`, and
   the invalid ordinary-name failure.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   literal and dynamic indexed header blocks after outbound HEADERS framing and
   keeps the invalid ordinary-name encode failure before output bytes.
 - `../../specification/execution.md` summarizes the implemented fixture

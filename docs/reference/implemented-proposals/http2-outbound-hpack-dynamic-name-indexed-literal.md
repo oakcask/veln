@@ -7,7 +7,7 @@ HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -46,7 +46,7 @@ indexing, Huffman expansion, socket behavior, or production HTTP/2 behavior.
   the stateful insertion, `0x7e 0x06 "/again"` dynamic-name literal bytes,
   returned encode-state reuse as `0xbe`, retained older-entry reuse as `0xbf`,
   and the unsupported fresh value failure.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   returned state through outbound HEADERS and server-side `PUSH_PROMISE`
   framing paths.
 - `../../specification/execution.md` and `../../specification/run-json.md`

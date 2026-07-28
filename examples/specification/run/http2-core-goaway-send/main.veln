@@ -1,0 +1,137 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_state(decision: CoreGoawaySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::goaway_send_state(decision)
+end
+
+fn require_failure(decision: CoreGoawaySendDecision) -> Result<CoreGoawaySendFailure, String>
+	http2::core::goaway_send_failure(decision)
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_chunk(label: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 1")
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index 0 hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn print_empty(label: String) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::println(" count 0")
+end
+
+fn print_state(label: String, state: CoreConnectionState) -> () effects [stdio]
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state_lifecycle(state)
+	stdio::print(label)
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::connection_lifecycle_label(lifecycle))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_last_stream_id(lifecycle)))
+	stdio::print(" error ")
+	stdio::print(int_to_string(http2::core::connection_lifecycle_error_code(lifecycle)))
+	stdio::print(" active ")
+	stdio::println(int_to_string(http2::core::stream_collection_active_count(http2::core::connection_state_streams(state))))
+end
+
+fn print_failure(label: String, failure: CoreGoawaySendFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::goaway_send_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::goaway_send_failure_offset(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::goaway_send_failure_stream_id(failure)))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::goaway_send_failure_last_stream_id(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::goaway_send_failure_shutdown_state(failure))
+	stdio::print(" role ")
+	stdio::print(http2::core::goaway_send_failure_endpoint_role(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::goaway_send_failure_rule_provenance(failure))
+	stdio::print(" reason ")
+	stdio::print(http2::core::goaway_send_failure_reason(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::goaway_send_failure_preview(failure)))))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::server_connection_state(19)?
+	let active_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let active_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), active_stream))
+	let accepted: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(active_state, 19, 5, 11, byte_chunk_from_hex("aabb")?)
+	stdio::print("goaway-send ")
+	stdio::print(http2::core::goaway_send_status(accepted))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::goaway_send_last_stream_id(accepted)))
+	stdio::print(" error ")
+	stdio::println(int_to_string(http2::core::goaway_send_error_code(accepted)))
+	let next_state: CoreConnectionState = require_state(accepted)?
+	print_state("goaway-send", next_state)
+	let _ = print_chunk("goaway-send", http2::core::goaway_send_bytes(accepted), "00000a070000000000000000050000000baabb")?
+	let closed_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_closed_lifecycle(), 14, 21, 0, 0))?
+	let ready: CoreConnectionState = http2::core::connection_state_with_streams(next_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(next_state), closed_stream))
+	let closed: CoreConnectionState = require_state(http2::core::send_goaway_shutdown(ready, 28, 5, 11, byte_chunk([])))?
+	print_state("goaway-drained", closed)
+	let outside_stream: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 14, 21, 0, 0))?
+	let outside_base: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), outside_stream))
+	let outside_closed: CoreConnectionState = require_state(http2::core::send_goaway_shutdown(outside_base, 31, 5, 11, byte_chunk([])))?
+	print_state("goaway-outside-boundary", outside_closed)
+	let rejected: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 37, 7, 33, byte_chunk([]))
+	print_failure("goaway-relaxed", require_failure(rejected)?)
+	print_empty("goaway-relaxed")
+	let encode_failed: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(active_state, 46, 2147483648, 11, byte_chunk([]))
+	stdio::print("goaway-encode ")
+	stdio::print(http2::core::goaway_send_status(encode_failed))
+	stdio::print(" reason ")
+	stdio::println(http2::core::goaway_send_encode_reason(encode_failed))
+	print_empty("goaway-encode")
+	print_state("input", active_state)
+	Ok(())
+end

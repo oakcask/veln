@@ -1,0 +1,242 @@
+use prelude
+
+pub type PeerAdvertisedMaxFrameSize
+	NoPeerMaxFrameSize
+	PeerMaxFrameSize(value: Int, offset: Int)
+end
+
+pub type PeerAdvertisedInitialWindowSize
+	NoPeerInitialWindowSize
+	PeerInitialWindowSize(value: Int, offset: Int)
+end
+
+pub type PeerAdvertisedEnablePush
+	NoPeerEnablePush
+	PeerEnablePush(value: Int, offset: Int)
+	PeerEnableConnectProtocol(value: Int, offset: Int)
+	PeerEnablePushAndConnectProtocol(push_value: Int, push_offset: Int, connect_value: Int, connect_offset: Int)
+end
+
+pub type PeerAdvertisedMaxConcurrentStreams
+	NoPeerMaxConcurrentStreams
+	PeerMaxConcurrentStreams(value: Int, offset: Int)
+end
+
+pub type PeerAdvertisedHeaderTableSize
+	NoPeerHeaderTableSize
+	PeerHeaderTableSize(value: Int, offset: Int)
+end
+
+pub type PeerAdvertisedMaxHeaderListSize
+	NoPeerMaxHeaderListSize
+	PeerMaxHeaderListSize(value: Int, offset: Int)
+end
+
+pub type PeerSettingsState
+	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize, Int)
+end
+
+pub fn empty() -> PeerSettingsState
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams, NoPeerHeaderTableSize, NoPeerMaxHeaderListSize, 0)
+end
+
+pub fn apply_payload(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk) -> Result<PeerSettingsState, String>
+	let payload_count: Int = byte_count_to_int(byte_chunk_count(payload))
+	if payload_count / 6 * 6 == payload_count
+		apply_items(state, payload_offset, payload, 0, payload_count)
+	else
+		Ok(state)
+	end
+end
+
+pub fn with_highest_peer_created_stream_id(state: PeerSettingsState, stream_id: Int) -> PeerSettingsState
+	match state
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, _) => PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, stream_id)
+	end
+end
+
+pub fn max_frame_size_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _) => 0
+		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _) => value
+	end
+end
+
+pub fn max_frame_size_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _) => 0
+		PeerSettings(PeerMaxFrameSize(_, offset), _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn active_max_frame_size(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(NoPeerMaxFrameSize, _, _, _, _, _, _) => 16384
+		PeerSettings(PeerMaxFrameSize(value, _), _, _, _, _, _, _) => value
+	end
+end
+
+pub fn initial_window_size_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _) => 0
+		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _) => value
+	end
+end
+
+pub fn initial_window_size_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _) => 0
+		PeerSettings(_, PeerInitialWindowSize(_, offset), _, _, _, _, _) => offset
+	end
+end
+
+pub fn active_initial_window_size(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _, _) => 65535
+		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _, _) => value
+	end
+end
+
+pub fn enable_push_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePush(value, _), _, _, _, _) => value
+		PeerSettings(_, _, PeerEnableConnectProtocol(_, _), _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(value, _, _, _), _, _, _, _) => value
+	end
+end
+
+pub fn enable_push_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePush(_, offset), _, _, _, _) => offset
+		PeerSettings(_, _, PeerEnableConnectProtocol(_, _), _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, offset, _, _), _, _, _, _) => offset
+	end
+end
+
+pub fn enable_connect_protocol_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePush(_, _), _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnableConnectProtocol(value, _), _, _, _, _) => value
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, _, value, _), _, _, _, _) => value
+	end
+end
+
+pub fn enable_connect_protocol_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, NoPeerEnablePush, _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnablePush(_, _), _, _, _, _) => 0
+		PeerSettings(_, _, PeerEnableConnectProtocol(_, offset), _, _, _, _) => offset
+		PeerSettings(_, _, PeerEnablePushAndConnectProtocol(_, _, _, offset), _, _, _, _) => offset
+	end
+end
+
+pub fn max_concurrent_streams_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _) => 0
+		PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _, _) => value
+	end
+end
+
+pub fn max_concurrent_streams_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _) => 0
+		PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, offset), _, _, _) => offset
+	end
+end
+
+pub fn active_max_concurrent_streams(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, NoPeerMaxConcurrentStreams, _, _, _) => 2147483647
+		PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _), _, _, _) => value
+	end
+end
+
+pub fn header_table_size_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _) => 0
+		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _) => value
+	end
+end
+
+pub fn header_table_size_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _) => 0
+		PeerSettings(_, _, _, _, PeerHeaderTableSize(_, offset), _, _) => offset
+	end
+end
+
+pub fn active_header_table_size(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, NoPeerHeaderTableSize, _, _) => 4096
+		PeerSettings(_, _, _, _, PeerHeaderTableSize(value, _), _, _) => value
+	end
+end
+
+pub fn max_header_list_size_value(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _) => 0
+		PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(value, _), _) => value
+	end
+end
+
+pub fn max_header_list_size_offset(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, _, NoPeerMaxHeaderListSize, _) => 0
+		PeerSettings(_, _, _, _, _, PeerMaxHeaderListSize(_, offset), _) => offset
+	end
+end
+
+pub fn highest_peer_created_stream_id(state: PeerSettingsState) -> Int
+	match state
+		PeerSettings(_, _, _, _, _, _, stream_id) => stream_id
+	end
+end
+
+fn apply_items(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk, item_offset: Int, payload_count: Int) -> Result<PeerSettingsState, String>
+	if item_offset == payload_count
+		Ok(state)
+	else
+		apply_items(apply_item(state, payload_offset, payload, item_offset)?, payload_offset, payload, item_offset + 6, payload_count)
+	end
+end
+
+fn apply_item(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk, item_offset: Int) -> Result<PeerSettingsState, String>
+	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
+	let item_bytes: ByteChunk = byte_view_to_chunk(item)
+	let identifier: Int = byte_read_u16_be(byte_view(item_bytes, byte_offset(0)?, byte_count(2)?)?)?
+	let value: Int = byte_read_u32_be(byte_view(item_bytes, byte_offset(2)?, byte_count(4)?)?)?
+	let absolute_offset: Int = payload_offset + item_offset
+	match state
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id) => match identifier
+			5 => Ok(PeerSettings(PeerMaxFrameSize(value, absolute_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id))
+			4 => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, absolute_offset), enable_push, max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id))
+			2 => Ok(PeerSettings(max_frame_size, initial_window_size, with_enable_push(enable_push, value, absolute_offset), max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id))
+			3 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, absolute_offset), header_table_size, max_header_list_size, highest_peer_stream_id))
+			1 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, PeerHeaderTableSize(value, absolute_offset), max_header_list_size, highest_peer_stream_id))
+			6 => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, PeerMaxHeaderListSize(value, absolute_offset), highest_peer_stream_id))
+			8 => Ok(PeerSettings(max_frame_size, initial_window_size, with_enable_connect_protocol(enable_push, value, absolute_offset), max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id))
+			_ => Ok(state)
+		end
+	end
+end
+
+fn with_enable_push(state: PeerAdvertisedEnablePush, value: Int, item_offset: Int) -> PeerAdvertisedEnablePush
+	match state
+		NoPeerEnablePush => PeerEnablePush(value, item_offset)
+		PeerEnablePush(_, _) => PeerEnablePush(value, item_offset)
+		PeerEnableConnectProtocol(connect_value, connect_offset) => PeerEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+		PeerEnablePushAndConnectProtocol(_, _, connect_value, connect_offset) => PeerEnablePushAndConnectProtocol(value, item_offset, connect_value, connect_offset)
+	end
+end
+
+fn with_enable_connect_protocol(state: PeerAdvertisedEnablePush, value: Int, item_offset: Int) -> PeerAdvertisedEnablePush
+	match state
+		NoPeerEnablePush => PeerEnableConnectProtocol(value, item_offset)
+		PeerEnablePush(push_value, push_offset) => PeerEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
+		PeerEnableConnectProtocol(_, _) => PeerEnableConnectProtocol(value, item_offset)
+		PeerEnablePushAndConnectProtocol(push_value, push_offset, _, _) => PeerEnablePushAndConnectProtocol(push_value, push_offset, value, item_offset)
+	end
+end

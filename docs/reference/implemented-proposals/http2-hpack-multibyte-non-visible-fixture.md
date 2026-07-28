@@ -8,7 +8,7 @@ behavior is specified by `../../specification/execution.md`,
 `../../specification/examples.md`, `../../specification/run-json.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -37,7 +37,7 @@ and splitting boundary.
   direct HPACK fixture decode of `hpack-bytes-00-ff` as
   `literal-path-bytes-huffman` and direct decode of `hpack-bytes-00-00` as
   `literal-path-two-nul-huffman`.
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   `hpack-literal-path-bytes-huffman` through completed HEADERS,
   `hpack-literal-path-two-nul-huffman` through completed HEADERS,
   `hpack-literal-path-bytes-huffman-continuation` through final CONTINUATION,

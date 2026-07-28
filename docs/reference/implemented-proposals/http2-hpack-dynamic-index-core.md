@@ -45,7 +45,7 @@ recorded in
   `0xff 0x80 0x00` indexed representations, decode-count advancement after
   each accepted decode, and the focused out-of-range dynamic index failure
   facts without state advancement when the requested entry is not carried.
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS routing through the same source-visible dynamic indexed boundary for
   the accepted `0xff 0x80 0x00` retained older entry and rejected
   `0xff 0x80 0x01` out-of-range entry.

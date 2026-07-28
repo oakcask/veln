@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "empty max_frame_size 0 max_frame_size_offset 0 active_max_frame_size 16384 initial_window_size 0 initial_window_size_offset 0 active_initial_window_size 65535 enable_push 0 enable_push_offset 0 enable_connect_protocol 0 enable_connect_protocol_offset 0 max_concurrent_streams 0 max_concurrent_streams_offset 0 active_max_concurrent_streams 2147483647 header_table_size 0 header_table_size_offset 0 active_header_table_size 4096 max_header_list_size 0 max_header_list_size_offset 0 highest_peer_stream 0\napplied max_frame_size 32768 max_frame_size_offset 15 active_max_frame_size 32768 initial_window_size 3 initial_window_size_offset 21 active_initial_window_size 3 enable_push 0 enable_push_offset 27 enable_connect_protocol 1 enable_connect_protocol_offset 51 max_concurrent_streams 2 max_concurrent_streams_offset 33 active_max_concurrent_streams 2 header_table_size 4096 header_table_size_offset 39 active_header_table_size 4096 max_header_list_size 8192 max_header_list_size_offset 45 highest_peer_stream 0\nduplicate max_frame_size 65536 max_frame_size_offset 57 active_max_frame_size 65536 initial_window_size 3 initial_window_size_offset 21 active_initial_window_size 3 enable_push 0 enable_push_offset 27 enable_connect_protocol 1 enable_connect_protocol_offset 51 max_concurrent_streams 2 max_concurrent_streams_offset 33 active_max_concurrent_streams 2 header_table_size 4096 header_table_size_offset 39 active_header_table_size 4096 max_header_list_size 8192 max_header_list_size_offset 45 highest_peer_stream 0\ntoggled max_frame_size 65536 max_frame_size_offset 57 active_max_frame_size 65536 initial_window_size 3 initial_window_size_offset 21 active_initial_window_size 3 enable_push 0 enable_push_offset 81 enable_connect_protocol 0 enable_connect_protocol_offset 75 max_concurrent_streams 2 max_concurrent_streams_offset 33 active_max_concurrent_streams 2 header_table_size 4096 header_table_size_offset 39 active_header_table_size 4096 max_header_list_size 8192 max_header_list_size_offset 45 highest_peer_stream 0\npartial max_frame_size 65536 max_frame_size_offset 57 active_max_frame_size 65536 initial_window_size 3 initial_window_size_offset 21 active_initial_window_size 3 enable_push 0 enable_push_offset 81 enable_connect_protocol 0 enable_connect_protocol_offset 75 max_concurrent_streams 2 max_concurrent_streams_offset 33 active_max_concurrent_streams 2 header_table_size 4096 header_table_size_offset 39 active_header_table_size 4096 max_header_list_size 8192 max_header_list_size_offset 45 highest_peer_stream 0\nhigh-water max_frame_size 65536 max_frame_size_offset 57 active_max_frame_size 65536 initial_window_size 3 initial_window_size_offset 21 active_initial_window_size 3 enable_push 0 enable_push_offset 81 enable_connect_protocol 0 enable_connect_protocol_offset 75 max_concurrent_streams 2 max_concurrent_streams_offset 33 active_max_concurrent_streams 2 header_table_size 4096 header_table_size_offset 39 active_header_table_size 4096 max_header_list_size 8192 max_header_list_size_offset 45 highest_peer_stream 7\n"
+
+[[json_assert]]
+path = "error"
+equals = null

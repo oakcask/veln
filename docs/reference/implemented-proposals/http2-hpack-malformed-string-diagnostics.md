@@ -19,7 +19,7 @@ not broaden protocol-owned HTTP/2 diagnostics or accepted header validation.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS and final CONTINUATION paths for malformed string lengths and
   malformed raw string values.
 - `../../../examples/specification/run/http2-protocol-core-hpack-string-length-json/`

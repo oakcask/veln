@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed multi-stream outbound flow-control slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -31,7 +31,7 @@ updates and DATA intents do not return changed credit.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` constructs three
+- Historical aggregate evidence constructs three
   simultaneous outbound stream states through the list-backed API.
 - The same checked case sends DATA independently on two streams, including one
   with `content-length` accounting, and checks the shared debit plus unchanged

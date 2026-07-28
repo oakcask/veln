@@ -1,0 +1,43 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "settings accepted settings\nsettings offset 39 buffered 0 initial true output 1\noutput_chunk_list settings count 1\noutput_chunk settings index 0 hex \"000000040100000000\" count 9\nping-buffered accepted buffered\nping-buffered offset 39 buffered 12 initial true output 1\nping accepted none\nping offset 56 buffered 0 initial true output 2\noutput_chunk_list ping count 2\noutput_chunk ping index 0 hex \"000000040100000000\" count 9\noutput_chunk ping index 1 hex \"0000080601000000000102030405060708\" count 17\nordered accepted none\nordered offset 56 buffered 0 initial true output 2\noutput_chunk_list ordered count 2\noutput_chunk ordered index 0 hex \"000000040100000000\" count 9\noutput_chunk ordered index 1 hex \"0000080601000000000102030405060708\" count 17\ncomplete-partial accepted buffered\ncomplete-partial offset 39 buffered 12 initial true output 1\noutput_chunk_list complete-partial count 1\noutput_chunk complete-partial index 0 hex \"000000040100000000\" count 9\nordered-reject rejected rejected\nordered-reject failure payload-length http2.protocol.invalid_payload_length offset 39 kind 6 stream 0 preview 9\nordered-reject state rejected receive connection decision has no state\nordered-reject-input offset 0 buffered 0 initial false output 0\npriority accepted priority\npriority offset 55 buffered 0 initial true output 0\ndata accepted data\ndata offset 69 buffered 0 initial true output 0\ndata stream 5 lifecycle half-closed-remote receive 7 send 20 expected 3 observed 3\npush-promise accepted push-promise\npush-promise offset 87 buffered 0 initial true output 1\npush-promise promised 2 lifecycle reserved-by-peer expected -1 high-water 2 output 1 offset 87\noutput_chunk_list push-promise count 1\noutput_chunk push-promise index 0 hex \"0000080600000000000908070605040302\" count 17\nhpack-later-reject rejected rejected\nhpack-later-reject failure payload-length http2.protocol.invalid_payload_length offset 56 kind 6 stream 0 preview 9\nhpack-later-reject state rejected receive connection decision has no state\ncontinuation-later-reject rejected rejected\ncontinuation-later-reject failure pending-header-block http2.protocol.continuation_sequence offset 41 kind 0 stream 1 preview 9\ncontinuation-later-reject state rejected receive connection decision has no state\nbody-later-reject rejected rejected\nbody-later-reject failure payload-length http2.protocol.invalid_payload_length offset 69 kind 6 stream 0 preview 9\nbody-later-reject state rejected receive connection decision has no state\ngoaway-later-reject rejected rejected\ngoaway-later-reject failure payload-length http2.protocol.invalid_payload_length offset 108 kind 6 stream 0 preview 9\ngoaway-later-reject state rejected receive connection decision has no state\ninitial-gate failure initial-peer-settings http2.protocol.initial_peer_settings_required offset 0 kind 6 stream 0 preview 9\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "settings"
+chunks = ["000000040100000000"]
+
+[[output_chunk_list]]
+name = "ping"
+chunks = ["000000040100000000", "0000080601000000000102030405060708"]
+
+[[output_chunk_list]]
+name = "ordered"
+chunks = ["000000040100000000", "0000080601000000000102030405060708"]
+
+[[output_chunk_list]]
+name = "complete-partial"
+chunks = ["000000040100000000"]
+
+[[output_chunk_list]]
+name = "push-promise"
+chunks = ["0000080600000000000908070605040302"]

@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed half-closed-local PRIORITY receive slice
 from the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified
 by `../../specification/execution.md` and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -26,7 +26,7 @@ and unrelated idle streams.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` records local
+- Historical aggregate evidence records local
   `END_STREAM`, receives a valid PRIORITY frame on the resulting
   half-closed-local stream, and prints the decoded dependency stream id,
   exclusive flag, and weight.

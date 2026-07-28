@@ -1,0 +1,161 @@
+use http2::core from "std"
+use stdio
+
+fn bool_label(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn print_collection(label: String, collection: CoreStreamCollection) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" count ")
+	stdio::print(int_to_string(http2::core::stream_collection_count(collection)))
+	stdio::print(" active ")
+	stdio::print(int_to_string(http2::core::stream_collection_active_count(collection)))
+	stdio::print(" has1 ")
+	stdio::print(bool_label(http2::core::stream_collection_has_stream(collection, 1)))
+	stdio::print(" has3 ")
+	stdio::print(bool_label(http2::core::stream_collection_has_stream(collection, 3)))
+	stdio::print(" has5 ")
+	stdio::println(bool_label(http2::core::stream_collection_has_stream(collection, 5)))
+end
+
+fn print_entry(label: String, entry: CoreStreamEntry) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::stream_entry_stream_id(entry)))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry)))
+	stdio::print(" error ")
+	stdio::print(int_to_string(http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(entry))))
+	stdio::print(" recv ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(entry))))
+	stdio::print(" send ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(entry))))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(entry)))
+	stdio::print(" observed ")
+	stdio::println(int_to_string(http2::core::stream_entry_content_length_observed(entry)))
+end
+
+fn print_lookup(label: String, collection: CoreStreamCollection, stream_id: Int) -> () effects [stdio]
+	match http2::core::stream_collection_find(collection, stream_id)
+		Some(entry) => print_entry(label, entry)
+		None => print_missing(label)
+	end
+end
+
+fn print_missing(label: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::println(" missing")
+end
+
+fn print_entry_rejection(label: String, result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected stream entry rejection")
+		Err(failure) => Ok(print_failure(label, failure))
+	end
+end
+
+fn print_failure(label: String, failure: FlowControlDomainFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::flow_control_failure_domain(failure))
+	stdio::print(" observed ")
+	stdio::print(int_to_string(http2::core::flow_control_failure_observed_value(failure)))
+	stdio::print(" min ")
+	stdio::print(int_to_string(http2::core::flow_control_failure_accepted_min_value(failure)))
+	stdio::print(" max ")
+	stdio::println(int_to_string(http2::core::flow_control_failure_accepted_max_value(failure)))
+end
+
+fn print_lifecycle(label: String, lifecycle: CoreStreamLifecycle) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" label ")
+	stdio::print(http2::core::stream_lifecycle_label(lifecycle))
+	stdio::print(" active ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_is_active(lifecycle)))
+	stdio::print(" receive_window ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_has_receive_window(lifecycle)))
+	stdio::print(" open_projection ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_projects_open_stream(lifecycle)))
+	stdio::print(" data ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_data(lifecycle)))
+	stdio::print(" reset ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_reset(lifecycle)))
+	stdio::print(" window_update ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_window_update(lifecycle)))
+	stdio::print(" priority ")
+	stdio::print(bool_label(http2::core::stream_lifecycle_accepts_priority(lifecycle)))
+	stdio::print(" state ")
+	stdio::print(http2::core::stream_lifecycle_active_state(lifecycle))
+	stdio::print(" rule ")
+	stdio::print(http2::core::stream_lifecycle_rejection_rule(lifecycle))
+	stdio::print(" error ")
+	stdio::println(int_to_string(http2::core::stream_lifecycle_error_code(lifecycle)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: CoreStreamCollection = http2::core::empty_stream_collection()
+	let first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 65535, 65535, 10, 0))?
+	let second: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_half_closed_remote_lifecycle(), 42, 7, 0 - 1, 0))?
+	let replaced_first: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_closed_lifecycle(), 0, 65535, 10, 10))?
+	let with_first: CoreStreamCollection = http2::core::stream_collection_add_or_replace(empty, first)
+	let with_two: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_first, second)
+	let replaced: CoreStreamCollection = http2::core::stream_collection_add_or_replace(with_two, replaced_first)
+	let recv_credit: CoreStreamWindowCredit = match http2::core::stream_window_credit(33)
+		Ok(credit) => credit
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))?
+	end
+	let send_credit: CoreStreamWindowCredit = match http2::core::stream_window_credit(44)
+		Ok(credit) => credit
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))?
+	end
+	let base_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 100, 90, 12, 3))?
+	let base: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), base_entry)
+	let updated: CoreStreamCollection = http2::core::stream_collection_with_content_length(http2::core::stream_collection_with_send_credit(http2::core::stream_collection_with_receive_credit(http2::core::stream_collection_with_lifecycle(base, 5, http2::core::stream_reset_lifecycle(8)), 5, recv_credit), 5, send_credit), 5, 12, 12)
+	let missing_update: CoreStreamCollection = http2::core::stream_collection_with_lifecycle(base, 7, http2::core::stream_closed_lifecycle())
+	let missing_receive_update: CoreStreamCollection = http2::core::stream_collection_with_receive_credit(base, 7, recv_credit)
+	let missing_send_update: CoreStreamCollection = http2::core::stream_collection_with_send_credit(base, 7, send_credit)
+	let missing_content_update: CoreStreamCollection = http2::core::stream_collection_with_content_length(base, 7, 99, 44)
+	print_collection("empty", empty)
+	print_collection("with-first", with_first)
+	print_collection("with-two", with_two)
+	print_collection("replaced", replaced)
+	print_lookup("replaced-first", replaced, 1)
+	print_lookup("replaced-second", replaced, 3)
+	print_lookup("replaced-missing", replaced, 5)
+	print_lookup("with-two-first", with_two, 1)
+	print_collection("base", base)
+	print_collection("updated", updated)
+	print_collection("missing-update", missing_update)
+	print_collection("missing-receive-update", missing_receive_update)
+	print_collection("missing-send-update", missing_send_update)
+	print_collection("missing-content-update", missing_content_update)
+	print_lookup("base-five", base, 5)
+	print_lookup("updated-five", updated, 5)
+	print_lookup("missing-update-five", missing_update, 5)
+	print_lookup("missing-receive-five", missing_receive_update, 5)
+	print_lookup("missing-send-five", missing_send_update, 5)
+	print_lookup("missing-content-five", missing_content_update, 5)
+	let _ = print_entry_rejection("invalid-receive", http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 0 - 2147483648, 0, 0, 0))?
+	let _ = print_entry_rejection("invalid-send", http2::core::stream_entry(9, http2::core::stream_open_lifecycle(), 0, 2147483648, 0, 0))?
+	print_lifecycle("open", http2::core::stream_open_lifecycle())
+	print_lifecycle("push", http2::core::stream_client_push_associated_lifecycle())
+	print_lifecycle("reserved-peer", http2::core::stream_reserved_by_peer_lifecycle())
+	print_lifecycle("reserved-local", http2::core::stream_reserved_local_lifecycle())
+	print_lifecycle("half-local", http2::core::stream_half_closed_local_lifecycle())
+	print_lifecycle("half-remote", http2::core::stream_half_closed_remote_lifecycle())
+	print_lifecycle("closed", http2::core::stream_closed_lifecycle())
+	print_lifecycle("reset", http2::core::stream_reset_lifecycle(11))
+	Ok(())
+end

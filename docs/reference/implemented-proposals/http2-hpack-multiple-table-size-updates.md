@@ -37,7 +37,7 @@ target.
   two ordered updates, retained and evicted dynamic-index lookups under the
   installed capacities, the bounded third-update rejection, and
   malformed-sequence state preservation at the standalone fixture boundary.
-- `../../../examples/specification/run/http2-protocol-core/` checks the same
+- Historical aggregate evidence checks the same
   capacity-dependent behavior through completed HEADERS and final
   CONTINUATION, plus excessive updates at both checked positions, malformed
   and misplaced updates including a third leading update, and unchanged state

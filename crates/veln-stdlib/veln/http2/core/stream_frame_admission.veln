@@ -1,0 +1,158 @@
+use prelude
+use http2::core::stream_state
+
+pub type CoreStreamFrameAdmissionDecision
+	CoreStreamFrameAccepted
+	CoreStreamFrameRejected(CoreStreamFrameAdmissionFailure)
+end
+
+pub type CoreStreamFrameAdmissionFailure
+	CoreStreamFrameInvalidKind(offset: Int, frame_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+end
+
+pub fn validate_inbound(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	match stream_id
+		0 => validate_connection_frame(offset, frame_kind, stream_id, preview)
+		_ => validate_stream_frame(offset, frame_kind, stream_id, streams, preview)
+	end
+end
+
+fn validate_connection_frame(offset: Int, frame_kind: Int, stream_id: Int, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	match frame_kind
+		4 => CoreStreamFrameAccepted
+		6 => CoreStreamFrameAccepted
+		7 => CoreStreamFrameAccepted
+		8 => CoreStreamFrameAccepted
+		_ => if is_unknown_frame_kind(frame_kind)
+			CoreStreamFrameAccepted
+		else
+			rejected(offset, frame_kind, stream_id, 4, "connection-control", "connection_frames_require_settings", preview)
+		end
+	end
+end
+
+fn validate_stream_frame(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	match frame_kind
+		1 => CoreStreamFrameAccepted
+		0 => validate_existing_stream(offset, frame_kind, stream_id, streams, preview, "data")
+		3 => validate_existing_stream(offset, frame_kind, stream_id, streams, preview, "reset")
+		8 => validate_existing_stream(offset, frame_kind, stream_id, streams, preview, "window-update")
+		2 => validate_priority_stream(offset, frame_kind, stream_id, streams, preview)
+		5 => validate_push_promise_stream(offset, frame_kind, stream_id, streams, preview)
+		_ => if is_unknown_frame_kind(frame_kind)
+			validate_existing_stream(offset, frame_kind, stream_id, streams, preview, "unknown")
+		else
+			rejected(offset, frame_kind, stream_id, 1, "idle-stream", "idle_streams_require_headers", preview)
+		end
+	end
+end
+
+fn validate_existing_stream(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk, admission_kind: String) -> CoreStreamFrameAdmissionDecision
+	match http2::core::stream_state::find_entry(streams, stream_id)
+		Some(entry) => validate_existing_lifecycle(offset, frame_kind, stream_id, http2::core::stream_state::entry_lifecycle(entry), preview, admission_kind)
+		None => rejected(offset, frame_kind, stream_id, 1, "idle-stream", "idle_streams_require_headers", preview)
+	end
+end
+
+fn validate_priority_stream(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	match http2::core::stream_state::find_entry(streams, stream_id)
+		Some(entry) => validate_existing_lifecycle(offset, frame_kind, stream_id, http2::core::stream_state::entry_lifecycle(entry), preview, "priority")
+		None => CoreStreamFrameAccepted
+	end
+end
+
+fn validate_push_promise_stream(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	match http2::core::stream_state::find_entry(streams, stream_id)
+		Some(entry) => match http2::core::stream_state::entry_lifecycle(entry)
+			CoreStreamClientPushAssociated => CoreStreamFrameAccepted
+			_ => rejected(offset, frame_kind, stream_id, 1, "server-receive", "server_receives_no_push_promise", preview)
+		end
+		None => rejected(offset, frame_kind, stream_id, 1, "server-receive", "server_receives_no_push_promise", preview)
+	end
+end
+
+fn validate_existing_lifecycle(offset: Int, frame_kind: Int, stream_id: Int, lifecycle: CoreStreamLifecycle, preview: ByteChunk, admission_kind: String) -> CoreStreamFrameAdmissionDecision
+	if lifecycle_accepts_frame(lifecycle, admission_kind)
+		CoreStreamFrameAccepted
+	else
+		rejected(offset, frame_kind, stream_id, 1, http2::core::stream_state::lifecycle_active_state(lifecycle), http2::core::stream_state::lifecycle_rejection_rule(lifecycle), preview)
+	end
+end
+
+fn lifecycle_accepts_frame(lifecycle: CoreStreamLifecycle, admission_kind: String) -> Bool
+	match admission_kind
+		"window-update" => http2::core::stream_state::lifecycle_accepts_window_update(lifecycle)
+		"priority" => http2::core::stream_state::lifecycle_accepts_priority(lifecycle)
+		_ => http2::core::stream_state::lifecycle_accepts_data(lifecycle)
+	end
+end
+
+fn rejected(offset: Int, frame_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	CoreStreamFrameRejected(CoreStreamFrameInvalidKind(offset, frame_kind, stream_id, expected_kind, active_state, rule_provenance, preview))
+end
+
+fn is_unknown_frame_kind(frame_kind: Int) -> Bool
+	frame_kind < 0 or frame_kind > 9
+end
+
+pub fn decision_status(decision: CoreStreamFrameAdmissionDecision) -> String
+	match decision
+		CoreStreamFrameAccepted => "accepted"
+		CoreStreamFrameRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_failure(decision: CoreStreamFrameAdmissionDecision) -> Result<CoreStreamFrameAdmissionFailure, String>
+	match decision
+		CoreStreamFrameAccepted => Err("accepted stream frame admission has no failure")
+		CoreStreamFrameRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn failure_id(failure: CoreStreamFrameAdmissionFailure) -> String
+	match failure
+		CoreStreamFrameInvalidKind(_, _, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
+	end
+end
+
+pub fn failure_offset(failure: CoreStreamFrameAdmissionFailure) -> Int
+	match failure
+		CoreStreamFrameInvalidKind(offset, _, _, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_frame_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	match failure
+		CoreStreamFrameInvalidKind(_, frame_kind, _, _, _, _, _) => frame_kind
+	end
+end
+
+pub fn failure_stream_id(failure: CoreStreamFrameAdmissionFailure) -> Int
+	match failure
+		CoreStreamFrameInvalidKind(_, _, stream_id, _, _, _, _) => stream_id
+	end
+end
+
+pub fn failure_expected_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	match failure
+		CoreStreamFrameInvalidKind(_, _, _, expected_kind, _, _, _) => expected_kind
+	end
+end
+
+pub fn failure_active_state(failure: CoreStreamFrameAdmissionFailure) -> String
+	match failure
+		CoreStreamFrameInvalidKind(_, _, _, _, active_state, _, _) => active_state
+	end
+end
+
+pub fn failure_rule_provenance(failure: CoreStreamFrameAdmissionFailure) -> String
+	match failure
+		CoreStreamFrameInvalidKind(_, _, _, _, _, rule_provenance, _) => rule_provenance
+	end
+end
+
+pub fn failure_preview(failure: CoreStreamFrameAdmissionFailure) -> ByteChunk
+	match failure
+		CoreStreamFrameInvalidKind(_, _, _, _, _, _, preview) => preview
+	end
+end

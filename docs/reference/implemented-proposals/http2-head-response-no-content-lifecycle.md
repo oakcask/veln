@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the client-side HEAD response body slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md` and the checked protocol-core examples
 under `../../../examples/specification/run/`.
 
@@ -25,7 +25,7 @@ stream, receive-window, HPACK, and output state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks outbound
+- Historical aggregate evidence checks outbound
   method retention, direct and continued final responses, an informational
   response before the final response, response `content-length`, direct
   `END_STREAM`, empty and padding-only DATA termination, rejected nonempty

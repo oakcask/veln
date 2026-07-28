@@ -4,7 +4,7 @@ Status: implemented
 
 Current behavior is specified in `../../specification/execution.md` and
 checked by the executable cases under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 Structured outbound HEADERS and server-side `PUSH_PROMISE` intents apply an
 active peer-advertised `SETTINGS_MAX_HEADER_LIST_SIZE` after existing

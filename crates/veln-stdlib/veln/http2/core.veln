@@ -1,5 +1,8 @@
 use prelude
+use http2::hpack
+use http2::hpack::dynamic_table
 use http2::core::connection_preface
+use http2::core::connection_state
 use http2::core::frame_payload_length
 use http2::core::initial_peer_settings
 use http2::core::ping
@@ -7,12 +10,41 @@ use http2::core::pending_header_block
 use http2::core::settings_ack
 use http2::core::local_settings
 use http2::core::peer_settings
+use http2::core::peer_settings_state
+use http2::core::peer_stream_admission
+use http2::core::receive_flow_control
+use http2::core::receive_frame
+use http2::core::receive_connection
+use http2::core::receive_shutdown
+use http2::core::send_shutdown
+use http2::core::outbound_data_flow
+use http2::core::outbound_headers
+use http2::core::outbound_stream_control
+use http2::core::output_buffer
+use http2::core::flow_control
+use http2::core::header_list_validation
+use http2::core::stream_state
+use http2::core::stream_frame_admission
+use http2::core::stream_transition
+use http2::core::window_update_flow_control
 
 pub type ConnectionPrefaceState = http2::core::connection_preface::ConnectionPrefaceState
 
 pub type ConnectionPrefaceTransition = http2::core::connection_preface::ConnectionPrefaceTransition
 
 pub type ConnectionPrefaceFailure = http2::core::connection_preface::ConnectionPrefaceFailure
+
+pub type DynamicTable = http2::hpack::dynamic_table::DynamicTable
+
+pub type HeaderList = http2::hpack::HeaderList
+
+pub type HeaderField = http2::hpack::HeaderField
+
+pub type HeaderBlockDecodeFailure = http2::hpack::HeaderBlockDecodeFailure
+
+pub type CoreConnectionState = http2::core::connection_state::CoreConnectionState
+
+pub type CoreConnectionLifecycle = http2::core::connection_state::CoreConnectionLifecycle
 
 pub type FramePayloadLength = http2::core::frame_payload_length::FramePayloadLength
 
@@ -56,6 +88,336 @@ pub type PeerSettingsValidation = http2::core::peer_settings::PeerSettingsValida
 
 pub type PeerSettingsFailure = http2::core::peer_settings::PeerSettingsFailure
 
+pub type PeerSettingsState = http2::core::peer_settings_state::PeerSettingsState
+
+pub type CorePeerStreamAdmissionState = http2::core::peer_stream_admission::CorePeerStreamAdmissionState
+
+pub type CorePeerStreamAdmissionDecision = http2::core::peer_stream_admission::CorePeerStreamAdmissionDecision
+
+pub type CorePeerStreamAdmissionFailure = http2::core::peer_stream_admission::CorePeerStreamAdmissionFailure
+
+pub type CoreStreamCollection = http2::core::stream_state::CoreStreamCollection
+
+pub type CoreStreamEntry = http2::core::stream_state::CoreStreamEntry
+
+pub type CoreStreamLifecycle = http2::core::stream_state::CoreStreamLifecycle
+
+pub type CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::CoreStreamFrameAdmissionDecision
+
+pub type CoreStreamFrameAdmissionFailure = http2::core::stream_frame_admission::CoreStreamFrameAdmissionFailure
+
+pub type CoreStreamLifecycleTransitionDecision = http2::core::stream_transition::CoreStreamLifecycleTransitionDecision
+
+pub type CoreStreamLifecycleTransitionFailure = http2::core::stream_transition::CoreStreamLifecycleTransitionFailure
+
+pub type CoreDataReceiveFlowControlDecision = http2::core::receive_flow_control::CoreDataReceiveFlowControlDecision
+
+pub type CoreDataReceiveFlowControlFailure = http2::core::receive_flow_control::CoreDataReceiveFlowControlFailure
+
+pub type CoreReceiveFrameDecision = http2::core::receive_frame::CoreReceiveFrameDecision
+
+pub type CoreReceiveFrameFailure = http2::core::receive_frame::CoreReceiveFrameFailure
+
+pub type CoreReceiveConnectionState = http2::core::receive_connection::CoreReceiveConnectionState
+
+pub type CoreReceiveConnectionDecision = http2::core::receive_connection::CoreReceiveConnectionDecision
+
+pub type CoreReceiveConnectionFailure = http2::core::receive_connection::CoreReceiveConnectionFailure
+
+pub type CoreConnectionShutdownDecision = http2::core::receive_shutdown::CoreConnectionShutdownDecision
+
+pub type CoreConnectionShutdownFailure = http2::core::receive_shutdown::CoreConnectionShutdownFailure
+
+pub type CoreGoawaySendDecision = http2::core::send_shutdown::CoreGoawaySendDecision
+
+pub type CoreGoawaySendFailure = http2::core::send_shutdown::CoreGoawaySendFailure
+
+pub type CoreDataSendDecision = http2::core::outbound_data_flow::CoreDataSendDecision
+
+pub type CoreWindowUpdateSendDecision = http2::core::outbound_data_flow::CoreWindowUpdateSendDecision
+
+pub type CoreOutboundDataFlowFailure = http2::core::outbound_data_flow::CoreOutboundDataFlowFailure
+
+pub type CoreHeadersSendDecision = http2::core::outbound_headers::CoreHeadersSendDecision
+
+pub type CorePushPromiseSendDecision = http2::core::outbound_headers::CorePushPromiseSendDecision
+
+pub type CoreOutboundHeadersFailure = http2::core::outbound_headers::CoreOutboundHeadersFailure
+
+pub type CoreRstStreamSendDecision = http2::core::outbound_stream_control::CoreRstStreamSendDecision
+
+pub type CorePrioritySendDecision = http2::core::outbound_stream_control::CorePrioritySendDecision
+
+pub type CoreOutboundStreamControlFailure = http2::core::outbound_stream_control::CoreOutboundStreamControlFailure
+
+pub type CoreOutputBuffer = http2::core::output_buffer::CoreOutputBuffer
+
+pub type CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlDecision
+
+pub type CoreStreamWindowUpdateFlowControlFailure = http2::core::window_update_flow_control::CoreStreamWindowUpdateFlowControlFailure
+
+pub type CoreConnectionWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::CoreConnectionWindowUpdateFlowControlDecision
+
+pub type CoreConnectionWindowUpdateFlowControlFailure = http2::core::window_update_flow_control::CoreConnectionWindowUpdateFlowControlFailure
+
+pub type CoreConnectionWindowCredit = http2::core::flow_control::CoreConnectionWindowCredit
+
+pub type CoreStreamWindowCredit = http2::core::flow_control::CoreStreamWindowCredit
+
+pub type CoreInitialWindowSize = http2::core::flow_control::CoreInitialWindowSize
+
+pub type CoreWindowUpdateIncrement = http2::core::flow_control::CoreWindowUpdateIncrement
+
+pub type FlowControlDomainFailure = http2::core::flow_control::FlowControlDomainFailure
+
+pub type FlowControlCreditDecision = http2::core::flow_control::FlowControlCreditDecision
+
+pub type HeaderListValidationFailure = http2::core::header_list_validation::HeaderListValidationFailure
+
+pub fn server_connection_state(starting_offset: Int) -> Result<CoreConnectionState, String>
+	http2::core::connection_state::server(starting_offset)
+end
+
+pub fn client_connection_state(starting_offset: Int) -> Result<CoreConnectionState, String>
+	http2::core::connection_state::client(starting_offset)
+end
+
+pub fn connection_state_endpoint_role(state: CoreConnectionState) -> String
+	http2::core::connection_state::endpoint_role(state)
+end
+
+pub fn connection_state_next_offset(state: CoreConnectionState) -> Int
+	http2::core::connection_state::next_offset(state)
+end
+
+pub fn connection_state_preface(state: CoreConnectionState) -> ConnectionPrefaceState
+	http2::core::connection_state::preface(state)
+end
+
+pub fn connection_state_initial_peer_settings(state: CoreConnectionState) -> InitialPeerSettingsGateState
+	http2::core::connection_state::initial_peer_settings(state)
+end
+
+pub fn connection_state_pending_header_block(state: CoreConnectionState) -> PendingHeaderBlock
+	http2::core::connection_state::pending_header_block(state)
+end
+
+pub fn connection_state_hpack_table(state: CoreConnectionState) -> DynamicTable
+	http2::core::connection_state::hpack_table(state)
+end
+
+pub fn connection_state_hpack_table_capacity(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_capacity(state)
+end
+
+pub fn connection_state_hpack_table_size(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_size(state)
+end
+
+pub fn connection_state_hpack_table_entry_count(state: CoreConnectionState) -> Int
+	http2::core::connection_state::hpack_table_entry_count(state)
+end
+
+pub fn connection_state_peer_settings(state: CoreConnectionState) -> PeerSettingsState
+	http2::core::connection_state::peer_settings(state)
+end
+
+pub fn connection_state_settings_ack(state: CoreConnectionState) -> SettingsAckState
+	http2::core::connection_state::settings_ack(state)
+end
+
+pub fn connection_state_peer_stream_admission(state: CoreConnectionState) -> CorePeerStreamAdmissionState
+	http2::core::connection_state::peer_stream_admission(state)
+end
+
+pub fn connection_state_streams(state: CoreConnectionState) -> CoreStreamCollection
+	http2::core::connection_state::streams(state)
+end
+
+pub fn connection_state_receive_credit(state: CoreConnectionState) -> CoreConnectionWindowCredit
+	http2::core::connection_state::connection_receive_credit(state)
+end
+
+pub fn connection_state_local_settings_policy(state: CoreConnectionState) -> LocalSettingsPolicy
+	http2::core::connection_state::local_settings_policy(state)
+end
+
+pub fn connection_state_lifecycle(state: CoreConnectionState) -> CoreConnectionLifecycle
+	http2::core::connection_state::lifecycle(state)
+end
+
+pub fn connection_lifecycle_label(lifecycle: CoreConnectionLifecycle) -> String
+	http2::core::connection_state::lifecycle_label(lifecycle)
+end
+
+pub fn connection_lifecycle_last_stream_id(lifecycle: CoreConnectionLifecycle) -> Int
+	http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+end
+
+pub fn connection_lifecycle_error_code(lifecycle: CoreConnectionLifecycle) -> Int
+	http2::core::connection_state::lifecycle_error_code(lifecycle)
+end
+
+pub fn connection_lifecycle_draining(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	http2::core::connection_state::draining(last_stream_id, error_code)
+end
+
+pub fn connection_lifecycle_closed(last_stream_id: Int, error_code: Int) -> CoreConnectionLifecycle
+	http2::core::connection_state::closed(last_stream_id, error_code)
+end
+
+pub fn connection_state_with_next_offset(state: CoreConnectionState, next_offset: Int) -> CoreConnectionState
+	http2::core::connection_state::with_next_offset(state, next_offset)
+end
+
+pub fn connection_state_with_preface(state: CoreConnectionState, preface: ConnectionPrefaceState) -> CoreConnectionState
+	http2::core::connection_state::with_preface(state, preface)
+end
+
+pub fn connection_state_with_initial_peer_settings(state: CoreConnectionState, initial_peer_settings: InitialPeerSettingsGateState) -> CoreConnectionState
+	http2::core::connection_state::with_initial_peer_settings(state, initial_peer_settings)
+end
+
+pub fn connection_state_with_pending_header_block(state: CoreConnectionState, pending_header_block: PendingHeaderBlock) -> CoreConnectionState
+	http2::core::connection_state::with_pending_header_block(state, pending_header_block)
+end
+
+pub fn connection_state_with_hpack_table(state: CoreConnectionState, hpack_table: DynamicTable) -> CoreConnectionState
+	http2::core::connection_state::with_hpack_table(state, hpack_table)
+end
+
+pub fn connection_state_with_peer_settings(state: CoreConnectionState, peer_settings: PeerSettingsState) -> CoreConnectionState
+	http2::core::connection_state::with_peer_settings(state, peer_settings)
+end
+
+pub fn connection_state_with_settings_ack(state: CoreConnectionState, settings_ack: SettingsAckState) -> CoreConnectionState
+	http2::core::connection_state::with_settings_ack(state, settings_ack)
+end
+
+pub fn connection_state_with_peer_stream_admission(state: CoreConnectionState, peer_stream_admission: CorePeerStreamAdmissionState) -> CoreConnectionState
+	http2::core::connection_state::with_peer_stream_admission(state, peer_stream_admission)
+end
+
+pub fn connection_state_with_streams(state: CoreConnectionState, streams: CoreStreamCollection) -> CoreConnectionState
+	http2::core::connection_state::with_streams(state, streams)
+end
+
+pub fn connection_state_with_receive_credit(state: CoreConnectionState, credit: CoreConnectionWindowCredit) -> CoreConnectionState
+	http2::core::connection_state::with_connection_receive_credit(state, credit)
+end
+
+pub fn connection_state_with_local_settings_policy(state: CoreConnectionState, policy: LocalSettingsPolicy) -> CoreConnectionState
+	http2::core::connection_state::with_local_settings_policy(state, policy)
+end
+
+pub fn connection_state_with_lifecycle(state: CoreConnectionState, lifecycle: CoreConnectionLifecycle) -> CoreConnectionState
+	http2::core::connection_state::with_lifecycle(state, lifecycle)
+end
+
+pub fn empty_output_buffer() -> CoreOutputBuffer
+	http2::core::output_buffer::empty()
+end
+
+pub fn output_buffer_count(output: CoreOutputBuffer) -> Int
+	http2::core::output_buffer::count(output)
+end
+
+pub fn output_buffer_chunk_at(output: CoreOutputBuffer, index: Int) -> Option<ByteChunk>
+	http2::core::output_buffer::chunk_at(output, index)
+end
+
+pub fn output_buffer_bytes(output: CoreOutputBuffer) -> ByteChunk
+	http2::core::output_buffer::bytes(output)
+end
+
+pub fn output_buffer_append_ping_request(output: CoreOutputBuffer, decision: PingRequestDecision) -> CoreOutputBuffer
+	if http2::core::ping::request_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::ping::request_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_ping_response(output: CoreOutputBuffer, decision: PingResponseDecision) -> CoreOutputBuffer
+	if http2::core::ping::response_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::ping::response_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_pending_settings_ack(output: CoreOutputBuffer, decision: PeerSettingsAckSendDecision) -> CoreOutputBuffer
+	if http2::core::settings_ack::send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::settings_ack::send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_local_settings(output: CoreOutputBuffer, decision: LocalSettingsSendDecision) -> CoreOutputBuffer
+	if local_settings_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, local_settings_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_goaway(output: CoreOutputBuffer, decision: CoreGoawaySendDecision) -> CoreOutputBuffer
+	if http2::core::send_shutdown::decision_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::send_shutdown::decision_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_data(output: CoreOutputBuffer, decision: CoreDataSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_data_flow::data_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_data_flow::data_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_window_update(output: CoreOutputBuffer, decision: CoreWindowUpdateSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_data_flow::window_update_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_data_flow::window_update_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_headers(output: CoreOutputBuffer, decision: CoreHeadersSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_headers::headers_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_headers::headers_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_push_promise(output: CoreOutputBuffer, decision: CorePushPromiseSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_headers::push_promise_send_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_headers::push_promise_send_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_rst_stream(output: CoreOutputBuffer, decision: CoreRstStreamSendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_stream_control::rst_stream_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_stream_control::rst_stream_bytes(decision))
+	else
+		output
+	end
+end
+
+pub fn output_buffer_append_priority(output: CoreOutputBuffer, decision: CorePrioritySendDecision) -> CoreOutputBuffer
+	if http2::core::outbound_stream_control::priority_status(decision) == "accepted"
+		http2::core::output_buffer::append_chunk(output, http2::core::outbound_stream_control::priority_bytes(decision))
+	else
+		output
+	end
+end
+
 pub type LocalSettingsSendDecision
 	LocalSettingsSent(Int, Int, LocalSettingsPolicy, SettingsAckState, ByteChunk)
 	LocalSettingsRejected(LocalSettingsFailure)
@@ -72,25 +434,28 @@ pub type StreamRef
 end
 
 pub fn stream_id(value: Int) -> Result<StreamId, String>
-	match value > 0 and value <= 2147483647
-		true => Ok(ValidatedStreamId(value))
-		false => Err("stream id must be between 1 and 2147483647")
+	if value > 0 and value <= 2147483647
+		Ok(ValidatedStreamId(value))
+	else
+		Err("stream id must be between 1 and 2147483647")
 	end
 end
 
 pub fn client_stream_id(value: Int) -> Result<StreamId, String>
 	let validated: StreamId = stream_id(value)?
-	match (value / 2) * 2 != value
-		true => Ok(validated)
-		false => Err("client-initiated stream id must be odd")
+	if value / 2 * 2 != value
+		Ok(validated)
+	else
+		Err("client-initiated stream id must be odd")
 	end
 end
 
 pub fn server_stream_id(value: Int) -> Result<StreamId, String>
 	let validated: StreamId = stream_id(value)?
-	match (value / 2) * 2 == value
-		true => Ok(validated)
-		false => Err("server-initiated stream id must be even")
+	if value / 2 * 2 == value
+		Ok(validated)
+	else
+		Err("server-initiated stream id must be even")
 	end
 end
 
@@ -127,6 +492,1122 @@ pub fn stream_ref_is_real(stream_ref: StreamRef) -> Bool
 		ConnectionStream => false
 		RealStream(_) => true
 	end
+end
+
+pub fn empty_peer_stream_admission() -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::empty()
+end
+
+pub fn peer_stream_admission_highest_stream_id(state: CorePeerStreamAdmissionState) -> Int
+	http2::core::peer_stream_admission::highest_stream_id(state)
+end
+
+pub fn validate_new_peer_stream(offset: Int, stream_id: Int, endpoint_role: String, state: CorePeerStreamAdmissionState, preview: ByteChunk) -> CorePeerStreamAdmissionDecision
+	http2::core::peer_stream_admission::validate_new_peer_stream(offset, stream_id, endpoint_role, state, preview)
+end
+
+pub fn record_peer_stream_id(stream_id: Int, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::record_stream_id(stream_id, state)
+end
+
+pub fn record_new_headers_peer_stream(kind: Int, stream_id: Int, completed_is_trailer: Bool, peer_stream_is_known: Bool, state: CorePeerStreamAdmissionState) -> CorePeerStreamAdmissionState
+	http2::core::peer_stream_admission::record_new_headers_stream(kind, stream_id, completed_is_trailer, peer_stream_is_known, state)
+end
+
+pub fn peer_stream_admission_decision_status(decision: CorePeerStreamAdmissionDecision) -> String
+	http2::core::peer_stream_admission::admission_decision_status(decision)
+end
+
+pub fn peer_stream_admission_decision_state(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionState, String>
+	http2::core::peer_stream_admission::admission_decision_state(decision)
+end
+
+pub fn peer_stream_admission_decision_failure(decision: CorePeerStreamAdmissionDecision) -> Result<CorePeerStreamAdmissionFailure, String>
+	http2::core::peer_stream_admission::admission_decision_failure(decision)
+end
+
+pub fn peer_stream_admission_failure_offset(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_offset(failure)
+end
+
+pub fn peer_stream_admission_failure_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_stream_id(failure)
+end
+
+pub fn peer_stream_admission_failure_previous_stream_id(failure: CorePeerStreamAdmissionFailure) -> Int
+	http2::core::peer_stream_admission::admission_failure_previous_stream_id(failure)
+end
+
+pub fn peer_stream_admission_failure_endpoint_role(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_endpoint_role(failure)
+end
+
+pub fn peer_stream_admission_failure_active_state(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_active_state(failure)
+end
+
+pub fn peer_stream_admission_failure_rule_provenance(failure: CorePeerStreamAdmissionFailure) -> String
+	http2::core::peer_stream_admission::admission_failure_rule_provenance(failure)
+end
+
+pub fn peer_stream_admission_failure_preview(failure: CorePeerStreamAdmissionFailure) -> ByteChunk
+	http2::core::peer_stream_admission::admission_failure_preview(failure)
+end
+
+pub fn empty_stream_collection() -> CoreStreamCollection
+	http2::core::stream_state::empty()
+end
+
+pub fn stream_entry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit: Int, send_credit: Int, content_length_expected: Int, content_length_observed: Int) -> Result<CoreStreamEntry, FlowControlDomainFailure>
+	http2::core::stream_state::entry(stream_id, lifecycle, receive_credit, send_credit, content_length_expected, content_length_observed)
+end
+
+pub fn stream_open_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::open_lifecycle()
+end
+
+pub fn stream_client_push_associated_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::client_push_associated_lifecycle()
+end
+
+pub fn stream_reserved_by_peer_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::reserved_by_peer_lifecycle()
+end
+
+pub fn stream_reserved_local_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::reserved_local_lifecycle()
+end
+
+pub fn stream_half_closed_local_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::half_closed_local_lifecycle()
+end
+
+pub fn stream_half_closed_remote_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::half_closed_remote_lifecycle()
+end
+
+pub fn stream_closed_lifecycle() -> CoreStreamLifecycle
+	http2::core::stream_state::closed_lifecycle()
+end
+
+pub fn stream_reset_lifecycle(error_code: Int) -> CoreStreamLifecycle
+	http2::core::stream_state::reset_lifecycle(error_code)
+end
+
+pub fn stream_collection_add_or_replace(collection: CoreStreamCollection, entry: CoreStreamEntry) -> CoreStreamCollection
+	http2::core::stream_state::add_or_replace(collection, entry)
+end
+
+pub fn stream_collection_with_lifecycle(collection: CoreStreamCollection, stream_id: Int, lifecycle: CoreStreamLifecycle) -> CoreStreamCollection
+	http2::core::stream_state::with_lifecycle(collection, stream_id, lifecycle)
+end
+
+pub fn stream_collection_with_receive_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	http2::core::stream_state::with_receive_credit(collection, stream_id, credit)
+end
+
+pub fn stream_collection_with_send_credit(collection: CoreStreamCollection, stream_id: Int, credit: CoreStreamWindowCredit) -> CoreStreamCollection
+	http2::core::stream_state::with_send_credit(collection, stream_id, credit)
+end
+
+pub fn stream_collection_with_content_length(collection: CoreStreamCollection, stream_id: Int, expected: Int, observed: Int) -> CoreStreamCollection
+	http2::core::stream_state::with_content_length(collection, stream_id, expected, observed)
+end
+
+pub fn stream_collection_find(collection: CoreStreamCollection, stream_id: Int) -> Option<CoreStreamEntry>
+	http2::core::stream_state::find_entry(collection, stream_id)
+end
+
+pub fn stream_collection_has_stream(collection: CoreStreamCollection, stream_id: Int) -> Bool
+	http2::core::stream_state::has_stream(collection, stream_id)
+end
+
+pub fn stream_collection_count(collection: CoreStreamCollection) -> Int
+	http2::core::stream_state::count(collection)
+end
+
+pub fn stream_collection_active_count(collection: CoreStreamCollection) -> Int
+	http2::core::stream_state::active_count(collection)
+end
+
+pub fn stream_entry_stream_id(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_stream_id(entry)
+end
+
+pub fn stream_entry_lifecycle(entry: CoreStreamEntry) -> CoreStreamLifecycle
+	http2::core::stream_state::entry_lifecycle(entry)
+end
+
+pub fn stream_entry_receive_credit(entry: CoreStreamEntry) -> CoreStreamWindowCredit
+	http2::core::stream_state::entry_receive_credit(entry)
+end
+
+pub fn stream_entry_send_credit(entry: CoreStreamEntry) -> CoreStreamWindowCredit
+	http2::core::stream_state::entry_send_credit(entry)
+end
+
+pub fn stream_entry_content_length_expected(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_content_length_expected(entry)
+end
+
+pub fn stream_entry_content_length_observed(entry: CoreStreamEntry) -> Int
+	http2::core::stream_state::entry_content_length_observed(entry)
+end
+
+pub fn stream_lifecycle_label(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_label(lifecycle)
+end
+
+pub fn stream_lifecycle_has_receive_window(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_has_receive_window(lifecycle)
+end
+
+pub fn stream_lifecycle_is_active(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_is_active(lifecycle)
+end
+
+pub fn stream_lifecycle_projects_open_stream(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_projects_open_stream(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_data(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_data(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_reset(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_reset(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_window_update(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_window_update(lifecycle)
+end
+
+pub fn stream_lifecycle_accepts_priority(lifecycle: CoreStreamLifecycle) -> Bool
+	http2::core::stream_state::lifecycle_accepts_priority(lifecycle)
+end
+
+pub fn stream_lifecycle_active_state(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_active_state(lifecycle)
+end
+
+pub fn stream_lifecycle_rejection_rule(lifecycle: CoreStreamLifecycle) -> String
+	http2::core::stream_state::lifecycle_rejection_rule(lifecycle)
+end
+
+pub fn stream_lifecycle_error_code(lifecycle: CoreStreamLifecycle) -> Int
+	http2::core::stream_state::lifecycle_error_code(lifecycle)
+end
+
+pub fn validate_inbound_frame_kind(offset: Int, frame_kind: Int, stream_id: Int, streams: CoreStreamCollection, preview: ByteChunk) -> CoreStreamFrameAdmissionDecision
+	http2::core::stream_frame_admission::validate_inbound(offset, frame_kind, stream_id, streams, preview)
+end
+
+pub fn stream_frame_admission_status(decision: CoreStreamFrameAdmissionDecision) -> String
+	http2::core::stream_frame_admission::decision_status(decision)
+end
+
+pub fn stream_frame_admission_failure(decision: CoreStreamFrameAdmissionDecision) -> Result<CoreStreamFrameAdmissionFailure, String>
+	http2::core::stream_frame_admission::decision_failure(decision)
+end
+
+pub fn stream_frame_admission_failure_id(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_id(failure)
+end
+
+pub fn stream_frame_admission_failure_offset(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_offset(failure)
+end
+
+pub fn stream_frame_admission_failure_frame_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_frame_kind(failure)
+end
+
+pub fn stream_frame_admission_failure_stream_id(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_stream_id(failure)
+end
+
+pub fn stream_frame_admission_failure_expected_kind(failure: CoreStreamFrameAdmissionFailure) -> Int
+	http2::core::stream_frame_admission::failure_expected_kind(failure)
+end
+
+pub fn stream_frame_admission_failure_active_state(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_active_state(failure)
+end
+
+pub fn stream_frame_admission_failure_rule_provenance(failure: CoreStreamFrameAdmissionFailure) -> String
+	http2::core::stream_frame_admission::failure_rule_provenance(failure)
+end
+
+pub fn stream_frame_admission_failure_preview(failure: CoreStreamFrameAdmissionFailure) -> ByteChunk
+	http2::core::stream_frame_admission::failure_preview(failure)
+end
+
+pub fn apply_remote_end_stream_lifecycle(state: CoreConnectionState, offset: Int, frame_kind: Int, stream_id: Int, end_stream: Bool, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	http2::core::stream_transition::apply_remote_end_stream(state, offset, frame_kind, stream_id, end_stream, preview)
+end
+
+pub fn apply_rst_stream_lifecycle(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int, preview: ByteChunk) -> CoreStreamLifecycleTransitionDecision
+	http2::core::stream_transition::apply_rst_stream(state, offset, stream_id, error_code, preview)
+end
+
+pub fn stream_lifecycle_transition_status(decision: CoreStreamLifecycleTransitionDecision) -> String
+	http2::core::stream_transition::decision_status(decision)
+end
+
+pub fn stream_lifecycle_transition_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
+	http2::core::stream_transition::decision_state(decision)
+end
+
+pub fn stream_lifecycle_transition_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
+	http2::core::stream_transition::decision_failure(decision)
+end
+
+pub fn stream_lifecycle_transition_failure_id(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_id(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_offset(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_offset(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_frame_kind(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_frame_kind(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_stream_id(failure: CoreStreamLifecycleTransitionFailure) -> Int
+	http2::core::stream_transition::failure_stream_id(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_active_state(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_active_state(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_rule_provenance(failure: CoreStreamLifecycleTransitionFailure) -> String
+	http2::core::stream_transition::failure_rule_provenance(failure)
+end
+
+pub fn stream_lifecycle_transition_failure_preview(failure: CoreStreamLifecycleTransitionFailure) -> ByteChunk
+	http2::core::stream_transition::failure_preview(failure)
+end
+
+pub fn apply_data_receive_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
+	http2::core::receive_flow_control::apply_data(state, offset, stream_id, data_length, preview)
+end
+
+pub fn data_receive_flow_control_status(decision: CoreDataReceiveFlowControlDecision) -> String
+	http2::core::receive_flow_control::decision_status(decision)
+end
+
+pub fn data_receive_flow_control_state(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_flow_control::decision_state(decision)
+end
+
+pub fn data_receive_flow_control_failure(decision: CoreDataReceiveFlowControlDecision) -> Result<CoreDataReceiveFlowControlFailure, String>
+	http2::core::receive_flow_control::decision_failure(decision)
+end
+
+pub fn data_receive_flow_control_failure_id(failure: CoreDataReceiveFlowControlFailure) -> String
+	http2::core::receive_flow_control::failure_id(failure)
+end
+
+pub fn data_receive_flow_control_failure_offset(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_offset(failure)
+end
+
+pub fn data_receive_flow_control_failure_stream_id(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_stream_id(failure)
+end
+
+pub fn data_receive_flow_control_failure_data_length(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_data_length(failure)
+end
+
+pub fn data_receive_flow_control_failure_domain(failure: CoreDataReceiveFlowControlFailure) -> String
+	http2::core::receive_flow_control::failure_domain(failure)
+end
+
+pub fn data_receive_flow_control_failure_observed_value(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_observed_value(failure)
+end
+
+pub fn data_receive_flow_control_failure_connection_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_connection_credit(failure)
+end
+
+pub fn data_receive_flow_control_failure_stream_credit(failure: CoreDataReceiveFlowControlFailure) -> Int
+	http2::core::receive_flow_control::failure_stream_credit(failure)
+end
+
+pub fn data_receive_flow_control_failure_preview(failure: CoreDataReceiveFlowControlFailure) -> ByteChunk
+	http2::core::receive_flow_control::failure_preview(failure)
+end
+
+pub fn apply_receive_frame(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+	http2::core::receive_frame::apply(state, frame_bytes)
+end
+
+pub fn receive_connection_state(connection: CoreConnectionState, input: ByteChunk, output: CoreOutputBuffer) -> CoreReceiveConnectionState
+	http2::core::receive_connection::state(connection, input, output)
+end
+
+pub fn receive_connection_state_after_initial_settings(connection: CoreConnectionState, input: ByteChunk, output: CoreOutputBuffer) -> CoreReceiveConnectionState
+	http2::core::receive_connection::state_after_initial_settings(connection, input, output)
+end
+
+pub fn receive_connection_chunk(state: CoreReceiveConnectionState, chunk: ByteChunk) -> Result<CoreReceiveConnectionDecision, String>
+	http2::core::receive_connection::receive_chunk(state, chunk)
+end
+
+pub fn apply_goaway_receive_shutdown(state: CoreConnectionState, offset: Int, payload: ByteChunk, preview: ByteChunk) -> CoreConnectionShutdownDecision
+	http2::core::receive_shutdown::apply_goaway(state, offset, payload, preview)
+end
+
+pub fn complete_connection_shutdown_drain(state: CoreConnectionState) -> CoreConnectionState
+	http2::core::receive_shutdown::complete_drain(state)
+end
+
+pub fn connection_shutdown_status(decision: CoreConnectionShutdownDecision) -> String
+	http2::core::receive_shutdown::decision_status(decision)
+end
+
+pub fn connection_shutdown_state(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_shutdown::decision_state(decision)
+end
+
+pub fn connection_shutdown_failure(decision: CoreConnectionShutdownDecision) -> Result<CoreConnectionShutdownFailure, String>
+	http2::core::receive_shutdown::decision_failure(decision)
+end
+
+pub fn connection_shutdown_failure_id(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_id(failure)
+end
+
+pub fn connection_shutdown_failure_offset(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_offset(failure)
+end
+
+pub fn connection_shutdown_failure_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_stream_id(failure)
+end
+
+pub fn connection_shutdown_failure_last_stream_id(failure: CoreConnectionShutdownFailure) -> Int
+	http2::core::receive_shutdown::failure_last_stream_id(failure)
+end
+
+pub fn connection_shutdown_failure_shutdown_state(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_shutdown_state(failure)
+end
+
+pub fn connection_shutdown_failure_endpoint_role(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_endpoint_role(failure)
+end
+
+pub fn connection_shutdown_failure_rule_provenance(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_rule_provenance(failure)
+end
+
+pub fn connection_shutdown_failure_reason(failure: CoreConnectionShutdownFailure) -> String
+	http2::core::receive_shutdown::failure_reason(failure)
+end
+
+pub fn connection_shutdown_failure_preview(failure: CoreConnectionShutdownFailure) -> ByteChunk
+	http2::core::receive_shutdown::failure_preview(failure)
+end
+
+pub fn send_goaway_shutdown(state: CoreConnectionState, offset: Int, last_stream_id: Int, error_code: Int, debug_data: ByteChunk) -> CoreGoawaySendDecision
+	http2::core::send_shutdown::send_goaway(state, offset, last_stream_id, error_code, debug_data)
+end
+
+pub fn goaway_send_status(decision: CoreGoawaySendDecision) -> String
+	http2::core::send_shutdown::decision_status(decision)
+end
+
+pub fn goaway_send_state(decision: CoreGoawaySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::send_shutdown::decision_state(decision)
+end
+
+pub fn goaway_send_failure(decision: CoreGoawaySendDecision) -> Result<CoreGoawaySendFailure, String>
+	http2::core::send_shutdown::decision_failure(decision)
+end
+
+pub fn goaway_send_bytes(decision: CoreGoawaySendDecision) -> ByteChunk
+	http2::core::send_shutdown::decision_bytes(decision)
+end
+
+pub fn goaway_send_last_stream_id(decision: CoreGoawaySendDecision) -> Int
+	http2::core::send_shutdown::decision_last_stream_id(decision)
+end
+
+pub fn goaway_send_error_code(decision: CoreGoawaySendDecision) -> Int
+	http2::core::send_shutdown::decision_error_code(decision)
+end
+
+pub fn goaway_send_encode_reason(decision: CoreGoawaySendDecision) -> String
+	http2::core::send_shutdown::decision_encode_reason(decision)
+end
+
+pub fn goaway_send_failure_id(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_id(failure)
+end
+
+pub fn goaway_send_failure_offset(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_offset(failure)
+end
+
+pub fn goaway_send_failure_stream_id(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_stream_id(failure)
+end
+
+pub fn goaway_send_failure_last_stream_id(failure: CoreGoawaySendFailure) -> Int
+	http2::core::send_shutdown::failure_last_stream_id(failure)
+end
+
+pub fn goaway_send_failure_shutdown_state(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_shutdown_state(failure)
+end
+
+pub fn goaway_send_failure_endpoint_role(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_endpoint_role(failure)
+end
+
+pub fn goaway_send_failure_rule_provenance(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_rule_provenance(failure)
+end
+
+pub fn goaway_send_failure_reason(failure: CoreGoawaySendFailure) -> String
+	http2::core::send_shutdown::failure_reason(failure)
+end
+
+pub fn goaway_send_failure_preview(failure: CoreGoawaySendFailure) -> ByteChunk
+	http2::core::send_shutdown::failure_preview(failure)
+end
+
+pub fn send_data(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, end_stream: Bool) -> CoreDataSendDecision
+	http2::core::outbound_data_flow::send_data(state, offset, stream_id, data, end_stream)
+end
+
+pub fn data_send_status(decision: CoreDataSendDecision) -> String
+	http2::core::outbound_data_flow::data_send_status(decision)
+end
+
+pub fn data_send_state(decision: CoreDataSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_data_flow::data_send_state(decision)
+end
+
+pub fn data_send_failure(decision: CoreDataSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::outbound_data_flow::data_send_failure(decision)
+end
+
+pub fn data_send_bytes(decision: CoreDataSendDecision) -> ByteChunk
+	http2::core::outbound_data_flow::data_send_bytes(decision)
+end
+
+pub fn data_send_encode_reason(decision: CoreDataSendDecision) -> String
+	http2::core::outbound_data_flow::data_send_encode_reason(decision)
+end
+
+pub fn send_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int) -> CoreWindowUpdateSendDecision
+	http2::core::outbound_data_flow::send_window_update(state, offset, stream_id, increment)
+end
+
+pub fn window_update_send_status(decision: CoreWindowUpdateSendDecision) -> String
+	http2::core::outbound_data_flow::window_update_send_status(decision)
+end
+
+pub fn window_update_send_state(decision: CoreWindowUpdateSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_data_flow::window_update_send_state(decision)
+end
+
+pub fn window_update_send_failure(decision: CoreWindowUpdateSendDecision) -> Result<CoreOutboundDataFlowFailure, String>
+	http2::core::outbound_data_flow::window_update_send_failure(decision)
+end
+
+pub fn window_update_send_bytes(decision: CoreWindowUpdateSendDecision) -> ByteChunk
+	http2::core::outbound_data_flow::window_update_send_bytes(decision)
+end
+
+pub fn window_update_send_encode_reason(decision: CoreWindowUpdateSendDecision) -> String
+	http2::core::outbound_data_flow::window_update_send_encode_reason(decision)
+end
+
+pub fn outbound_data_flow_failure_id(failure: CoreOutboundDataFlowFailure) -> String
+	http2::core::outbound_data_flow::failure_id(failure)
+end
+
+pub fn outbound_data_flow_failure_offset(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_offset(failure)
+end
+
+pub fn outbound_data_flow_failure_frame_kind(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_frame_kind(failure)
+end
+
+pub fn outbound_data_flow_failure_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_stream_id(failure)
+end
+
+pub fn outbound_data_flow_failure_data_length(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_data_length(failure)
+end
+
+pub fn outbound_data_flow_failure_increment(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_increment(failure)
+end
+
+pub fn outbound_data_flow_failure_last_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_last_stream_id(failure)
+end
+
+pub fn outbound_data_flow_failure_endpoint_role(failure: CoreOutboundDataFlowFailure) -> String
+	http2::core::outbound_data_flow::failure_endpoint_role(failure)
+end
+
+pub fn outbound_data_flow_failure_observed_value(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_observed_value(failure)
+end
+
+pub fn outbound_data_flow_failure_content_length_expected(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_content_length_expected(failure)
+end
+
+pub fn outbound_data_flow_failure_content_length_observed(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_content_length_observed(failure)
+end
+
+pub fn outbound_data_flow_failure_active_state(failure: CoreOutboundDataFlowFailure) -> String
+	http2::core::outbound_data_flow::failure_active_state(failure)
+end
+
+pub fn outbound_data_flow_failure_rule_provenance(failure: CoreOutboundDataFlowFailure) -> String
+	http2::core::outbound_data_flow::failure_rule_provenance(failure)
+end
+
+pub fn outbound_data_flow_failure_preview(failure: CoreOutboundDataFlowFailure) -> ByteChunk
+	http2::core::outbound_data_flow::failure_preview(failure)
+end
+
+pub fn send_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_request_headers(state, offset, stream_id, headers, end_stream)
+end
+
+pub fn send_response_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_response_headers(state, offset, stream_id, headers, end_stream)
+end
+
+pub fn send_trailers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList) -> CoreHeadersSendDecision
+	http2::core::outbound_headers::send_trailers(state, offset, stream_id, headers)
+end
+
+pub fn headers_send_status(decision: CoreHeadersSendDecision) -> String
+	http2::core::outbound_headers::headers_send_status(decision)
+end
+
+pub fn headers_send_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_headers::headers_send_state(decision)
+end
+
+pub fn headers_send_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::outbound_headers::headers_send_failure(decision)
+end
+
+pub fn headers_send_bytes(decision: CoreHeadersSendDecision) -> ByteChunk
+	http2::core::outbound_headers::headers_send_bytes(decision)
+end
+
+pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
+	http2::core::outbound_headers::send_push_promise(state, offset, stream_id, promised_stream_id, headers)
+end
+
+pub fn push_promise_send_status(decision: CorePushPromiseSendDecision) -> String
+	http2::core::outbound_headers::push_promise_send_status(decision)
+end
+
+pub fn push_promise_send_state(decision: CorePushPromiseSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_headers::push_promise_send_state(decision)
+end
+
+pub fn push_promise_send_failure(decision: CorePushPromiseSendDecision) -> Result<CoreOutboundHeadersFailure, String>
+	http2::core::outbound_headers::push_promise_send_failure(decision)
+end
+
+pub fn push_promise_send_bytes(decision: CorePushPromiseSendDecision) -> ByteChunk
+	http2::core::outbound_headers::push_promise_send_bytes(decision)
+end
+
+pub fn outbound_headers_failure_id(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_id(failure)
+end
+
+pub fn outbound_headers_failure_offset(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_offset(failure)
+end
+
+pub fn outbound_headers_failure_frame_kind(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_frame_kind(failure)
+end
+
+pub fn outbound_headers_failure_stream_id(failure: CoreOutboundHeadersFailure) -> Int
+	http2::core::outbound_headers::failure_stream_id(failure)
+end
+
+pub fn outbound_headers_failure_active_state(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_active_state(failure)
+end
+
+pub fn outbound_headers_failure_rule_provenance(failure: CoreOutboundHeadersFailure) -> String
+	http2::core::outbound_headers::failure_rule_provenance(failure)
+end
+
+pub fn outbound_headers_failure_preview(failure: CoreOutboundHeadersFailure) -> ByteChunk
+	http2::core::outbound_headers::failure_preview(failure)
+end
+
+pub fn send_rst_stream(state: CoreConnectionState, offset: Int, stream_id: Int, error_code: Int) -> CoreRstStreamSendDecision
+	http2::core::outbound_stream_control::send_rst_stream(state, offset, stream_id, error_code)
+end
+
+pub fn rst_stream_send_status(decision: CoreRstStreamSendDecision) -> String
+	http2::core::outbound_stream_control::rst_stream_status(decision)
+end
+
+pub fn rst_stream_send_state(decision: CoreRstStreamSendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_stream_control::rst_stream_state(decision)
+end
+
+pub fn rst_stream_send_failure(decision: CoreRstStreamSendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::outbound_stream_control::rst_stream_failure(decision)
+end
+
+pub fn rst_stream_send_bytes(decision: CoreRstStreamSendDecision) -> ByteChunk
+	http2::core::outbound_stream_control::rst_stream_bytes(decision)
+end
+
+pub fn rst_stream_send_encode_reason(decision: CoreRstStreamSendDecision) -> String
+	http2::core::outbound_stream_control::rst_stream_encode_reason(decision)
+end
+
+pub fn send_priority(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
+	http2::core::outbound_stream_control::send_priority(state, offset, stream_id, dependency_stream_id, exclusive, weight)
+end
+
+pub fn priority_send_status(decision: CorePrioritySendDecision) -> String
+	http2::core::outbound_stream_control::priority_status(decision)
+end
+
+pub fn priority_send_state(decision: CorePrioritySendDecision) -> Result<CoreConnectionState, String>
+	http2::core::outbound_stream_control::priority_state(decision)
+end
+
+pub fn priority_send_failure(decision: CorePrioritySendDecision) -> Result<CoreOutboundStreamControlFailure, String>
+	http2::core::outbound_stream_control::priority_failure(decision)
+end
+
+pub fn priority_send_bytes(decision: CorePrioritySendDecision) -> ByteChunk
+	http2::core::outbound_stream_control::priority_bytes(decision)
+end
+
+pub fn priority_send_encode_reason(decision: CorePrioritySendDecision) -> String
+	http2::core::outbound_stream_control::priority_encode_reason(decision)
+end
+
+pub fn outbound_stream_control_failure_id(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_id(failure)
+end
+
+pub fn outbound_stream_control_failure_offset(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_offset(failure)
+end
+
+pub fn outbound_stream_control_failure_frame_kind(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_frame_kind(failure)
+end
+
+pub fn outbound_stream_control_failure_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_dependency_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_dependency_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_last_stream_id(failure: CoreOutboundStreamControlFailure) -> Int
+	http2::core::outbound_stream_control::failure_last_stream_id(failure)
+end
+
+pub fn outbound_stream_control_failure_active_state(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_active_state(failure)
+end
+
+pub fn outbound_stream_control_failure_rule_provenance(failure: CoreOutboundStreamControlFailure) -> String
+	http2::core::outbound_stream_control::failure_rule_provenance(failure)
+end
+
+pub fn outbound_stream_control_failure_preview(failure: CoreOutboundStreamControlFailure) -> ByteChunk
+	http2::core::outbound_stream_control::failure_preview(failure)
+end
+
+pub fn receive_frame_status(decision: CoreReceiveFrameDecision) -> String
+	http2::core::receive_frame::decision_status(decision)
+end
+
+pub fn receive_frame_state(decision: CoreReceiveFrameDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_frame::decision_state(decision)
+end
+
+pub fn receive_frame_failure(decision: CoreReceiveFrameDecision) -> Result<CoreReceiveFrameFailure, String>
+	http2::core::receive_frame::decision_failure(decision)
+end
+
+pub fn receive_frame_kind(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_frame_kind(decision)
+end
+
+pub fn receive_frame_stream_id(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_stream_id(decision)
+end
+
+pub fn receive_frame_payload_length(decision: CoreReceiveFrameDecision) -> Int
+	http2::core::receive_frame::decision_payload_length(decision)
+end
+
+pub fn receive_frame_applied_transition(decision: CoreReceiveFrameDecision) -> String
+	http2::core::receive_frame::decision_applied_transition(decision)
+end
+
+pub fn receive_frame_failure_source(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_source(failure)
+end
+
+pub fn receive_frame_failure_id(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_id(failure)
+end
+
+pub fn receive_frame_failure_offset(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_offset(failure)
+end
+
+pub fn receive_frame_failure_frame_kind(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_frame_kind(failure)
+end
+
+pub fn receive_frame_failure_stream_id(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_stream_id(failure)
+end
+
+pub fn receive_frame_failure_reason(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_reason(failure)
+end
+
+pub fn receive_frame_failure_preview(failure: CoreReceiveFrameFailure) -> ByteChunk
+	http2::core::receive_frame::failure_preview(failure)
+end
+
+pub fn receive_frame_failure_header_list_fact(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_fact(failure)
+end
+
+pub fn receive_frame_failure_header_list_name(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_name(failure)
+end
+
+pub fn receive_frame_failure_header_list_decoded_names(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_decoded_names(failure)
+end
+
+pub fn receive_frame_failure_header_list_active_state(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_header_list_active_state(failure)
+end
+
+pub fn receive_frame_failure_content_length_expected(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_content_length_expected(failure)
+end
+
+pub fn receive_frame_failure_content_length_observed(failure: CoreReceiveFrameFailure) -> Int
+	http2::core::receive_frame::failure_content_length_observed(failure)
+end
+
+pub fn receive_frame_failure_active_state(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_active_state(failure)
+end
+
+pub fn receive_frame_failure_rule_provenance(failure: CoreReceiveFrameFailure) -> String
+	http2::core::receive_frame::failure_rule_provenance(failure)
+end
+
+pub fn receive_connection_status(decision: CoreReceiveConnectionDecision) -> String
+	http2::core::receive_connection::decision_status(decision)
+end
+
+pub fn receive_connection_state_from_decision(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, String>
+	http2::core::receive_connection::decision_state(decision)
+end
+
+pub fn receive_connection_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, String>
+	http2::core::receive_connection::decision_failure(decision)
+end
+
+pub fn receive_connection_applied_transition(decision: CoreReceiveConnectionDecision) -> String
+	http2::core::receive_connection::decision_applied_transition(decision)
+end
+
+pub fn receive_connection_connection(state: CoreReceiveConnectionState) -> CoreConnectionState
+	http2::core::receive_connection::state_connection(state)
+end
+
+pub fn receive_connection_input(state: CoreReceiveConnectionState) -> ByteChunk
+	http2::core::receive_connection::state_input(state)
+end
+
+pub fn receive_connection_output(state: CoreReceiveConnectionState) -> CoreOutputBuffer
+	http2::core::receive_connection::state_output(state)
+end
+
+pub fn receive_connection_initial_settings_accepted(state: CoreReceiveConnectionState) -> Bool
+	http2::core::receive_connection::state_initial_settings_accepted(state)
+end
+
+pub fn receive_connection_failure_source(failure: CoreReceiveConnectionFailure) -> String
+	http2::core::receive_connection::failure_source(failure)
+end
+
+pub fn receive_connection_failure_id(failure: CoreReceiveConnectionFailure) -> String
+	http2::core::receive_connection::failure_id(failure)
+end
+
+pub fn receive_connection_failure_offset(failure: CoreReceiveConnectionFailure) -> Int
+	http2::core::receive_connection::failure_offset(failure)
+end
+
+pub fn receive_connection_failure_frame_kind(failure: CoreReceiveConnectionFailure) -> Int
+	http2::core::receive_connection::failure_frame_kind(failure)
+end
+
+pub fn receive_connection_failure_stream_id(failure: CoreReceiveConnectionFailure) -> Int
+	http2::core::receive_connection::failure_stream_id(failure)
+end
+
+pub fn receive_connection_failure_reason(failure: CoreReceiveConnectionFailure) -> String
+	http2::core::receive_connection::failure_reason(failure)
+end
+
+pub fn receive_connection_failure_preview(failure: CoreReceiveConnectionFailure) -> ByteChunk
+	http2::core::receive_connection::failure_preview(failure)
+end
+
+pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
+	http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, preview)
+end
+
+pub fn stream_window_update_flow_control_status(decision: CoreStreamWindowUpdateFlowControlDecision) -> String
+	http2::core::window_update_flow_control::decision_status(decision)
+end
+
+pub fn stream_window_update_flow_control_state(decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_flow_control::decision_state(decision)
+end
+
+pub fn stream_window_update_flow_control_failure(decision: CoreStreamWindowUpdateFlowControlDecision) -> Result<CoreStreamWindowUpdateFlowControlFailure, String>
+	http2::core::window_update_flow_control::decision_failure(decision)
+end
+
+pub fn stream_window_update_flow_control_failure_id(failure: CoreStreamWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::failure_id(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_offset(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_offset(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_stream_id(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_stream_id(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_increment(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_increment(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_domain(failure: CoreStreamWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::failure_domain(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_observed_value(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_observed_value(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_stream_credit(failure: CoreStreamWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::failure_stream_credit(failure)
+end
+
+pub fn stream_window_update_flow_control_failure_preview(failure: CoreStreamWindowUpdateFlowControlFailure) -> ByteChunk
+	http2::core::window_update_flow_control::failure_preview(failure)
+end
+
+pub fn apply_connection_window_update_flow_control(state: CoreConnectionState, offset: Int, increment: Int, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
+	http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, preview)
+end
+
+pub fn connection_window_update_flow_control_status(decision: CoreConnectionWindowUpdateFlowControlDecision) -> String
+	http2::core::window_update_flow_control::connection_decision_status(decision)
+end
+
+pub fn connection_window_update_flow_control_state(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionState, String>
+	http2::core::window_update_flow_control::connection_decision_state(decision)
+end
+
+pub fn connection_window_update_flow_control_failure(decision: CoreConnectionWindowUpdateFlowControlDecision) -> Result<CoreConnectionWindowUpdateFlowControlFailure, String>
+	http2::core::window_update_flow_control::connection_decision_failure(decision)
+end
+
+pub fn connection_window_update_flow_control_failure_id(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::connection_failure_id(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_offset(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_offset(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_increment(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_increment(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_domain(failure: CoreConnectionWindowUpdateFlowControlFailure) -> String
+	http2::core::window_update_flow_control::connection_failure_domain(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_observed_value(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_observed_value(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_connection_credit(failure: CoreConnectionWindowUpdateFlowControlFailure) -> Int
+	http2::core::window_update_flow_control::connection_failure_connection_credit(failure)
+end
+
+pub fn connection_window_update_flow_control_failure_preview(failure: CoreConnectionWindowUpdateFlowControlFailure) -> ByteChunk
+	http2::core::window_update_flow_control::connection_failure_preview(failure)
+end
+
+pub fn max_flow_control_value() -> Int
+	http2::core::flow_control::max_value()
+end
+
+pub fn min_stream_window_credit() -> Int
+	http2::core::flow_control::min_stream_window_credit()
+end
+
+pub fn connection_window_credit(value: Int) -> Result<CoreConnectionWindowCredit, FlowControlDomainFailure>
+	http2::core::flow_control::connection_window_credit(value)
+end
+
+pub fn stream_window_credit(value: Int) -> Result<CoreStreamWindowCredit, FlowControlDomainFailure>
+	http2::core::flow_control::stream_window_credit(value)
+end
+
+pub fn initial_window_size(value: Int) -> Result<CoreInitialWindowSize, FlowControlDomainFailure>
+	http2::core::flow_control::initial_window_size(value)
+end
+
+pub fn window_update_increment(value: Int) -> Result<CoreWindowUpdateIncrement, FlowControlDomainFailure>
+	http2::core::flow_control::window_update_increment(value)
+end
+
+pub fn connection_window_credit_value(credit: CoreConnectionWindowCredit) -> Int
+	http2::core::flow_control::connection_window_credit_value(credit)
+end
+
+pub fn stream_window_credit_value(credit: CoreStreamWindowCredit) -> Int
+	http2::core::flow_control::stream_window_credit_value(credit)
+end
+
+pub fn initial_window_size_value(size: CoreInitialWindowSize) -> Int
+	http2::core::flow_control::initial_window_size_value(size)
+end
+
+pub fn window_update_increment_value(increment: CoreWindowUpdateIncrement) -> Int
+	http2::core::flow_control::window_update_increment_value(increment)
+end
+
+pub fn debit_connection_window(credit: CoreConnectionWindowCredit, length: Int) -> FlowControlCreditDecision
+	http2::core::flow_control::debit_connection_window(credit, length)
+end
+
+pub fn debit_stream_window(credit: CoreStreamWindowCredit, length: Int) -> FlowControlCreditDecision
+	http2::core::flow_control::debit_stream_window(credit, length)
+end
+
+pub fn refill_connection_window(credit: CoreConnectionWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	http2::core::flow_control::refill_connection_window(credit, increment)
+end
+
+pub fn refill_stream_window(credit: CoreStreamWindowCredit, increment: CoreWindowUpdateIncrement) -> FlowControlCreditDecision
+	http2::core::flow_control::refill_stream_window(credit, increment)
+end
+
+pub fn flow_control_credit_decision_status(decision: FlowControlCreditDecision) -> String
+	http2::core::flow_control::credit_decision_status(decision)
+end
+
+pub fn flow_control_credit_decision_value(decision: FlowControlCreditDecision) -> Int
+	http2::core::flow_control::credit_decision_value(decision)
+end
+
+pub fn flow_control_credit_decision_failure(decision: FlowControlCreditDecision) -> Result<FlowControlDomainFailure, String>
+	http2::core::flow_control::credit_decision_failure(decision)
+end
+
+pub fn flow_control_failure_domain(failure: FlowControlDomainFailure) -> String
+	http2::core::flow_control::failure_domain(failure)
+end
+
+pub fn flow_control_failure_observed_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_observed_value(failure)
+end
+
+pub fn flow_control_failure_accepted_min_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_accepted_min_value(failure)
+end
+
+pub fn flow_control_failure_accepted_max_value(failure: FlowControlDomainFailure) -> Int
+	http2::core::flow_control::failure_accepted_max_value(failure)
+end
+
+pub fn validate_request_header_list(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_request(headers, enable_connect_protocol)
+end
+
+pub fn header_field(name: String, value: ByteChunk) -> HeaderField
+	http2::hpack::header_field(name, value)
+end
+
+pub fn empty_header_list() -> HeaderList
+	http2::hpack::empty_header_list()
+end
+
+pub fn prepend_header_field(header: HeaderField, remaining: HeaderList) -> HeaderList
+	http2::hpack::prepend_header_field(header, remaining)
+end
+
+pub fn validate_response_header_list(headers: HeaderList, completed_end_stream: Bool) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_response(headers, completed_end_stream)
+end
+
+pub fn validate_trailer_header_list(headers: HeaderList, active_state: String) -> Result<Int, HeaderListValidationFailure>
+	http2::core::header_list_validation::validate_trailers(headers, active_state)
+end
+
+pub fn header_list_accepted_content_length(headers: HeaderList) -> Int
+	http2::core::header_list_validation::accepted_content_length(headers, -1)
+end
+
+pub fn header_list_validation_failure_fact(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_fact(failure)
+end
+
+pub fn header_list_validation_failure_header_name(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_header_name(failure)
+end
+
+pub fn header_list_validation_failure_active_state(failure: HeaderListValidationFailure) -> String
+	http2::core::header_list_validation::failure_active_state(failure)
 end
 
 pub fn validate_frame_payload_length(offset: Int, frame_kind: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
@@ -827,4 +2308,92 @@ end
 
 pub fn peer_settings_failure_preview(failure: PeerSettingsFailure) -> ByteView
 	http2::core::peer_settings::failure_preview(failure)
+end
+
+pub fn empty_peer_settings_state() -> PeerSettingsState
+	http2::core::peer_settings_state::empty()
+end
+
+pub fn apply_peer_settings_payload(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk) -> Result<PeerSettingsState, String>
+	http2::core::peer_settings_state::apply_payload(state, payload_offset, payload)
+end
+
+pub fn peer_settings_with_highest_peer_created_stream_id(state: PeerSettingsState, stream_id: Int) -> PeerSettingsState
+	http2::core::peer_settings_state::with_highest_peer_created_stream_id(state, stream_id)
+end
+
+pub fn peer_settings_max_frame_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_frame_size_value(state)
+end
+
+pub fn peer_settings_max_frame_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_frame_size_offset(state)
+end
+
+pub fn peer_settings_active_max_frame_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_max_frame_size(state)
+end
+
+pub fn peer_settings_initial_window_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::initial_window_size_value(state)
+end
+
+pub fn peer_settings_initial_window_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::initial_window_size_offset(state)
+end
+
+pub fn peer_settings_active_initial_window_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_initial_window_size(state)
+end
+
+pub fn peer_settings_enable_push(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_push_value(state)
+end
+
+pub fn peer_settings_enable_push_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_push_offset(state)
+end
+
+pub fn peer_settings_enable_connect_protocol(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_connect_protocol_value(state)
+end
+
+pub fn peer_settings_enable_connect_protocol_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::enable_connect_protocol_offset(state)
+end
+
+pub fn peer_settings_max_concurrent_streams(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_concurrent_streams_value(state)
+end
+
+pub fn peer_settings_max_concurrent_streams_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_concurrent_streams_offset(state)
+end
+
+pub fn peer_settings_active_max_concurrent_streams(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_max_concurrent_streams(state)
+end
+
+pub fn peer_settings_header_table_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::header_table_size_value(state)
+end
+
+pub fn peer_settings_header_table_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::header_table_size_offset(state)
+end
+
+pub fn peer_settings_active_header_table_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::active_header_table_size(state)
+end
+
+pub fn peer_settings_max_header_list_size(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_header_list_size_value(state)
+end
+
+pub fn peer_settings_max_header_list_size_offset(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::max_header_list_size_offset(state)
+end
+
+pub fn peer_settings_highest_peer_created_stream_id(state: PeerSettingsState) -> Int
+	http2::core::peer_settings_state::highest_peer_created_stream_id(state)
 end

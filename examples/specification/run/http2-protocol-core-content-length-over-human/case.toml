@@ -1,4 +1,4 @@
-command = ["run", "main", "main.veln", "hpack_fixture.veln"]
+command = ["run", "main", "main.veln"]
 exit = 1
 
 [requires]

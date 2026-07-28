@@ -39,7 +39,7 @@ dynamic-table behavior.
   exact bytes for all three forms with raw and Huffman values, empty-table
   retention for non-indexing forms, indexed insertion and reuse, and failure
   preservation.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   accepted indexed header block and its dynamic-indexed reuse after outbound
   HEADERS framing, including observable returned state.
 - `../../specification/execution.md` and `../../specification/run-json.md`

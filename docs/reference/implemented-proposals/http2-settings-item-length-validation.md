@@ -28,7 +28,7 @@ behavior, or network adapter behavior.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks invalid
+- Historical aggregate evidence checks invalid
   partial SETTINGS items in the integrated protocol-core fixture while
   preserving accepted complete SETTINGS item behavior.
 - `../../../examples/specification/run/http2-protocol-core-settings-item-length-json/`

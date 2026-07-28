@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the response-side header-list validation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md`, `../../specification/run-json.md`, and
 the checked examples under `../../../examples/specification/run/`.
 
@@ -24,7 +24,7 @@ or HPACK fixture diagnostics.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   integrated protocol-core path, including accepted response fixtures with
   and without an ordinary `server` header, the accepted ordinary-header
   fixture through a final CONTINUATION path, a final CONTINUATION path missing

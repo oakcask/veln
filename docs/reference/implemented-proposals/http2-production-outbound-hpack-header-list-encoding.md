@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed production outbound header-list slice from
 the HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md` and the checked executable case under
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -30,7 +30,7 @@ commit intermediate HPACK, stream, flow-control, or shutdown state.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks a
+- Historical aggregate evidence checks a
   four-field block, all five representation choices across carried blocks,
   dynamic reuse, reduced-capacity eviction, automatic peer-capacity reduction,
   zero-capacity behavior, request and response HEADERS splitting, server-side

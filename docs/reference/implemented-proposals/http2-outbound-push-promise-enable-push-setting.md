@@ -6,7 +6,7 @@ This record preserves the completed server-side outbound `PUSH_PROMISE`
 peer-setting slice from the HTTP/2 sans-I/O protocol-core proposal. Current
 behavior is specified by `../../specification/execution.md` and the checked
 executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -30,7 +30,7 @@ dynamic-table behavior.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   `PUSH_PROMISE` output with no peer disable-push setting, rejected
   `PUSH_PROMISE` after peer `SETTINGS_ENABLE_PUSH = 0`, the empty output
   chunk list for that rejected case, and the structured rejection reason.

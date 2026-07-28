@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed GOAWAY opaque debug-data slice from the
 HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/run-json.md`, and the
-checked executable case `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -25,7 +25,7 @@ narrowing, and graceful-drain transitions remain unchanged.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks empty and
+- Historical aggregate evidence checks empty and
   non-empty inbound debug data and compares every preserved trailing byte.
 - The same case receives non-text debug bytes while an admitted stream remains
   active and verifies the ordinary graceful-shutdown transition.

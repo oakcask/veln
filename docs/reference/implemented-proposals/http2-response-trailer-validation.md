@@ -3,9 +3,9 @@
 Status: implemented
 
 This record closes the inbound response-trailer validation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md` and the checked HTTP/2 protocol-core
-example under `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Implemented Behavior
 
@@ -26,7 +26,7 @@ shape, connection-specific ordinary names, and invalid `te` values through
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   response trailers, a post-trailer DATA rejection, a missing peer
   `END_STREAM` rejection with response-trailer state, final CONTINUATION
   completion, and response header-list diagnostics for pseudo-header,

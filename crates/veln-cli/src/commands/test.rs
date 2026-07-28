@@ -5,7 +5,9 @@ use std::process::{ExitCode, Output};
 
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
-use veln_backend_jvm::{JvmProgram, generate_classfiles_with_entry};
+use veln_backend_jvm::{
+    JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
+};
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::{Project, discover_source_paths};
 use veln_test::{
@@ -49,8 +51,17 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
             case.reason = Some("static_gate".to_string());
         }
     } else if suite_errors.is_empty() {
+        let reusable_program = analysis.reusable_standard_ir().map(|ir| {
+            generate_classfiles_with_test_entries(
+                ir,
+                &cases
+                    .iter()
+                    .map(|case| case.name.clone())
+                    .collect::<Vec<_>>(),
+            )
+        });
         for case in &mut cases {
-            run_test_case(&analysis, case)?;
+            run_test_case(&analysis, reusable_program.as_ref(), case)?;
         }
     }
 
@@ -90,10 +101,12 @@ fn selection_plan(
         .iter()
         .any(|target| absolute_path(root, target).is_dir())
     {
-        return Ok(TestSelectionPlan::explicit(
+        let mut plan = TestSelectionPlan::explicit(
             explicit_roots,
             target_expansion.source_to_test_added_count,
-        ));
+        );
+        preserve_standard_package_analysis(root, &mut plan)?;
+        return Ok(plan);
     }
 
     let source_roots = discovered_source_set(root, targets)?
@@ -102,10 +115,12 @@ fn selection_plan(
         .collect::<std::collections::BTreeSet<_>>();
 
     if source_roots.is_empty() {
-        return Ok(TestSelectionPlan::explicit(
+        let mut plan = TestSelectionPlan::explicit(
             explicit_roots,
             target_expansion.source_to_test_added_count,
-        ));
+        );
+        preserve_standard_package_analysis(root, &mut plan)?;
+        return Ok(plan);
     }
 
     let graph_project = Project::discover(root, &[]).map_err(|error| error.to_string())?;
@@ -117,6 +132,24 @@ fn selection_plan(
         &source_roots,
         target_expansion.source_to_test_added_count,
     ))
+}
+
+fn preserve_standard_package_analysis(
+    root: &Path,
+    plan: &mut TestSelectionPlan,
+) -> Result<(), String> {
+    let manifest = veln_project::read_manifest(root).map_err(|error| error.to_string())?;
+    let is_standard = manifest.is_some_and(|manifest| {
+        manifest
+            .package
+            .fields
+            .iter()
+            .any(|field| field.key == "name" && field.value == veln_stdlib::PACKAGE_NAME)
+    });
+    if is_standard {
+        plan.analysis_targets.clear();
+    }
+    Ok(())
 }
 
 fn discovered_source_set(
@@ -150,22 +183,46 @@ fn absolute_path(root: &Path, path: &Path) -> PathBuf {
     }
 }
 
-fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), String> {
-    let reachable = analysis.lower_reachable_entry(&case.name, FunctionKind::Test);
-    let lowered = reachable.lowered;
-    let Some(ir) = lowered.ir else {
-        case.status = TestCaseStatus::Blocked;
-        case.reason = Some("static_gate".to_string());
-        case.diagnostics = lowered.diagnostics;
-        return Ok(());
+fn run_test_case(
+    analysis: &ProjectAnalysis,
+    reusable_program: Option<&JvmProgram>,
+    case: &mut TestCase,
+) -> Result<(), String> {
+    let reachable = analysis
+        .reusable_standard_ir()
+        .is_none()
+        .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test));
+    let (module, ir) = match &reachable {
+        Some(reachable) => {
+            let Some(ir) = &reachable.lowered.ir else {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = reachable.lowered.diagnostics.clone();
+                return Ok(());
+            };
+            (&reachable.module, ir)
+        }
+        None => (
+            &analysis.module,
+            analysis
+                .reusable_standard_ir()
+                .expect("fully lowered project IR was checked before test execution"),
+        ),
     };
 
+    let generated;
+    let (program, java_args) = if let Some(program) = reusable_program {
+        (program, vec![case.name.clone()])
+    } else {
+        generated = generate_classfiles_with_entry(ir, &case.name);
+        (&generated, Vec::new())
+    };
     let TestRunArtifacts {
         output,
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(&generate_classfiles_with_entry(&ir, &case.name))? {
+    } = match execute_test_program(program, &java_args)? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
@@ -175,7 +232,7 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
         }
     };
 
-    collect_test_events(case, &reachable.module, &output, &event_trace);
+    collect_test_events(case, module, &output, &event_trace);
     apply_test_process_result(case, &output, &contract_error_trace, &result_error_trace);
     if case.status == TestCaseStatus::Passed {
         compare_expected_output(case);
@@ -195,7 +252,7 @@ enum TestExecution {
     ToolError(String),
 }
 
-fn execute_test_program(jvm: &JvmProgram) -> Result<TestExecution, String> {
+fn execute_test_program(jvm: &JvmProgram, java_args: &[String]) -> Result<TestExecution, String> {
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
@@ -206,7 +263,7 @@ fn execute_test_program(jvm: &JvmProgram) -> Result<TestExecution, String> {
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
     let result =
-        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, &[]);
+        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, java_args);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();

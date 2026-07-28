@@ -5,7 +5,7 @@ Status: implemented
 This record preserves the completed general inbound dynamic-table size update
 sequence slice from the HTTP/2 sans-I/O protocol-core proposal. Current
 behavior is specified by `../../specification/execution.md` and the checked
-executable cases under `../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 

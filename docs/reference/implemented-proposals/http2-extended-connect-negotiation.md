@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the extended CONNECT negotiation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md`, `../../specification/commands.md`,
 `../../specification/run-json.md`, and the checked HTTP/2 run examples.
 
@@ -26,7 +26,7 @@ committed.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks setting
+- Historical aggregate evidence checks setting
   values and roles, ordered local send state, accepted and rejected extended
   CONNECT shapes, SETTINGS ACK capability retention, HEADERS and CONTINUATION
   parity, atomic rejection, and the ordinary CONNECT regression path.

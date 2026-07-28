@@ -30,14 +30,14 @@ or frame splitting.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks
+- Historical aggregate evidence checks
   payload-only encoding for `test` as `49 50 9f`.
-- `../../../examples/specification/run/http2-protocol-core/` checks bounded
+- Historical aggregate evidence checks bounded
   raw byte input `00 ff` as `ff c7 ff ff dd`.
-- `../../../examples/specification/run/http2-protocol-core/` checks an
+- Historical aggregate evidence checks an
   unsupported source-visible string returning a fixture encode failure.
 - `../../../examples/specification/run/hpack-fixture-codec-boundary/` checks
   the same payload-only boundary directly before the outbound header-list
   fixture encoder paths.
-- The same protocol-core case keeps the existing Huffman-marked fixture string
+- Historical aggregate evidence keeps the existing Huffman-marked fixture string
   literal examples that include the HPACK string length prefix.

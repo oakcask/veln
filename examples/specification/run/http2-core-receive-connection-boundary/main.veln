@@ -1,0 +1,272 @@
+use http2::core from "std"
+use stdio
+
+fn require_state(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, String>
+	http2::core::receive_connection_state_from_decision(decision)
+end
+
+fn require_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, String>
+	http2::core::receive_connection_failure(decision)
+end
+
+fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChunk, String>
+	match http2::core::output_buffer_chunk_at(output, index)
+		Some(chunk) => Ok(chunk)
+		None => Err("missing HTTP/2 receive connection output chunk")
+	end
+end
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_found_stream(entry: Option<CoreStreamEntry>) -> Result<CoreStreamEntry, String>
+	match entry
+		Some(found) => Ok(found)
+		None => Err("expected HTTP/2 receive connection stream entry")
+	end
+end
+
+fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let count: Int = byte_count_to_int(byte_chunk_count(left))
+	if count == byte_count_to_int(byte_chunk_count(right))
+		chunks_equal_at(left, right, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn checked_hex(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	if chunks_equal(chunk, byte_chunk_from_hex(expected_hex)?)?
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
+	end
+end
+
+fn print_state(label: String, state: CoreReceiveConnectionState) -> () effects [stdio]
+	let connection: CoreConnectionState = http2::core::receive_connection_connection(state)
+	let output: CoreOutputBuffer = http2::core::receive_connection_output(state)
+	stdio::print(label)
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::connection_state_next_offset(connection)))
+	stdio::print(" buffered ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(state)))))
+	stdio::print(" initial ")
+	stdio::print(bool_label(http2::core::receive_connection_initial_settings_accepted(state)))
+	stdio::print(" output ")
+	stdio::println(int_to_string(http2::core::output_buffer_count(output)))
+end
+
+fn print_decision(label: String, decision: CoreReceiveConnectionDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::core::receive_connection_status(decision))
+	stdio::print(" ")
+	stdio::println(http2::core::receive_connection_applied_transition(decision))
+end
+
+fn print_failure(label: String, failure: CoreReceiveConnectionFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::receive_connection_failure_source(failure))
+	stdio::print(" ")
+	stdio::print(http2::core::receive_connection_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::receive_connection_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::receive_connection_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::receive_connection_failure_stream_id(failure)))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::receive_connection_failure_preview(failure)))))
+end
+
+fn print_no_state(label: String, decision: CoreReceiveConnectionDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" state ")
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(_) => stdio::println("unexpected")
+		Err(reason) => stdio::println(reason)
+	end
+end
+
+fn print_later_failure(label: String, decision: CoreReceiveConnectionDecision) -> Result<(), String> effects [stdio]
+	print_decision(label, decision)
+	print_failure(label, require_failure(decision)?)
+	print_no_state(label, decision)
+	Ok(())
+end
+
+fn print_output(label: String, output: CoreOutputBuffer, expected_first: String, expected_second: String) -> Result<(), String> effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(label)
+	stdio::print(" count ")
+	stdio::println(int_to_string(http2::core::output_buffer_count(output)))
+	let _ = print_optional_chunk(label, output, 0, expected_first)?
+	let _ = print_optional_chunk(label, output, 1, expected_second)?
+	Ok(())
+end
+
+fn print_stream(label: String, state: CoreReceiveConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(http2::core::receive_connection_connection(state)), stream_id))?
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" receive ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_receive_credit(stream))))
+	stdio::print(" send ")
+	stdio::print(int_to_string(http2::core::stream_window_credit_value(http2::core::stream_entry_send_credit(stream))))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(stream)))
+	stdio::print(" observed ")
+	stdio::println(int_to_string(http2::core::stream_entry_content_length_observed(stream)))
+	Ok(())
+end
+
+fn print_push_state(label: String, state: CoreReceiveConnectionState, promised_stream_id: Int) -> Result<(), String> effects [stdio]
+	let connection: CoreConnectionState = http2::core::receive_connection_connection(state)
+	let stream: CoreStreamEntry = require_found_stream(http2::core::stream_collection_find(http2::core::connection_state_streams(connection), promised_stream_id))?
+	stdio::print(label)
+	stdio::print(" promised ")
+	stdio::print(int_to_string(promised_stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::core::stream_entry_content_length_expected(stream)))
+	stdio::print(" high-water ")
+	stdio::print(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(connection))))
+	stdio::print(" output ")
+	stdio::print(int_to_string(http2::core::output_buffer_count(http2::core::receive_connection_output(state))))
+	stdio::print(" offset ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(connection)))
+	Ok(())
+end
+
+fn print_optional_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
+	if http2::core::output_buffer_count(output) > index
+		print_chunk(label, output, index, expected_hex)
+	else
+		Ok(())
+	end
+end
+
+fn print_chunk(label: String, output: CoreOutputBuffer, index: Int, expected_hex: String) -> Result<(), String> effects [stdio]
+	let chunk: ByteChunk = require_output_chunk(output, index)?
+	stdio::print("output_chunk ")
+	stdio::print(label)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(checked_hex(chunk, expected_hex)?)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
+end
+
+fn bool_label(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let settings_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000")?)?
+	let after_settings: CoreReceiveConnectionState = require_state(settings_decision)?
+	print_decision("settings", settings_decision)
+	print_state("settings", after_settings)
+	let _ = print_output("settings", http2::core::receive_connection_output(after_settings), "000000040100000000", "")?
+	let ping_buffered_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(after_settings, byte_chunk_from_hex("000008060000000000010203")?)?
+	let ping_buffered: CoreReceiveConnectionState = require_state(ping_buffered_decision)?
+	print_decision("ping-buffered", ping_buffered_decision)
+	print_state("ping-buffered", ping_buffered)
+	let ping_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(ping_buffered, byte_chunk_from_hex("0405060708")?)?
+	let after_ping: CoreReceiveConnectionState = require_state(ping_decision)?
+	print_decision("ping", ping_decision)
+	print_state("ping", after_ping)
+	let _ = print_output("ping", http2::core::receive_connection_output(after_ping), "000000040100000000", "0000080601000000000102030405060708")?
+	let ordered_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let ordered_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(ordered_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000060400000000000005000080000000080600000000000102030405060708")?)?
+	let ordered_state: CoreReceiveConnectionState = require_state(ordered_decision)?
+	print_decision("ordered", ordered_decision)
+	print_state("ordered", ordered_state)
+	let _ = print_output("ordered", http2::core::receive_connection_output(ordered_state), "000000040100000000", "0000080601000000000102030405060708")?
+	let suffix_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let suffix_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(suffix_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000008060000000000010203")?)?
+	let suffix_state: CoreReceiveConnectionState = require_state(suffix_decision)?
+	print_decision("complete-partial", suffix_decision)
+	print_state("complete-partial", suffix_state)
+	let _ = print_output("complete-partial", http2::core::receive_connection_output(suffix_state), "000000040100000000", "")?
+	let reject_initial: CoreReceiveConnectionState = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let ordered_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(reject_initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000706000000000001020304050607")?)?
+	print_decision("ordered-reject", ordered_reject)
+	print_failure("ordered-reject", require_failure(ordered_reject)?)
+	print_no_state("ordered-reject", ordered_reject)
+	print_state("ordered-reject-input", reject_initial)
+	let priority_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(41)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let priority_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(priority_start, byte_chunk_from_hex("000005020000000001000000000f")?)?
+	let priority_state: CoreReceiveConnectionState = require_state(priority_decision)?
+	print_decision("priority", priority_decision)
+	print_state("priority", priority_state)
+	let data_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 3, 0))?
+	let data_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), data_entry))
+	let data_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(data_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let data_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(data_start, byte_chunk_from_hex("000003000100000005aabbcc")?)?
+	let data_state: CoreReceiveConnectionState = require_state(data_decision)?
+	print_decision("data", data_decision)
+	print_state("data", data_state)
+	let _ = print_stream("data", data_state, 5)?
+	let push_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_client_push_associated_lifecycle(), 14, 21, -1, 0))?
+	let push_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(71)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), push_entry))
+	let push_output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), http2::core::send_ping(byte_chunk_from_hex("0908070605040302")?))
+	let push_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(push_connection, byte_chunk([]), push_output)
+	let push_decision: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(push_start, byte_chunk_from_hex("00000705040000000100000002828784")?)?
+	let push_state: CoreReceiveConnectionState = require_state(push_decision)?
+	print_decision("push-promise", push_decision)
+	print_state("push-promise", push_state)
+	let _ = print_push_state("push-promise", push_state, 2)?
+	let _ = print_output("push-promise", http2::core::receive_connection_output(push_state), "0000080600000000000908070605040302", "")?
+	let hpack_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let hpack_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(41)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), hpack_later_entry))
+	let hpack_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(hpack_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let hpack_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(hpack_later_start, byte_chunk_from_hex("00000601040000000188400178016100000706000000000001020304050607")?)?
+	let _ = print_later_failure("hpack-later-reject", hpack_later_reject)?
+	let continuation_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let continuation_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(31)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), continuation_later_entry))
+	let continuation_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(continuation_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let continuation_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(continuation_later_start, byte_chunk_from_hex("00000101000000000188000000000000000001")?)?
+	let _ = print_later_failure("continuation-later-reject", continuation_later_reject)?
+	let body_later_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 10, 20, 5, 0))?
+	let body_later_connection: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(57)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), body_later_entry))
+	let body_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(body_later_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let body_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(body_later_start, byte_chunk_from_hex("000003000000000005aabbcc00000706000000000001020304050607")?)?
+	let _ = print_later_failure("body-later-reject", body_later_reject)?
+	let goaway_later_start: CoreReceiveConnectionState = http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(91)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let goaway_later_reject: CoreReceiveConnectionDecision = http2::core::receive_connection_chunk(goaway_later_start, byte_chunk_from_hex("000008070000000000000000050000000b00000706000000000001020304050607")?)?
+	let _ = print_later_failure("goaway-later-reject", goaway_later_reject)?
+	let failure: CoreReceiveConnectionFailure = require_failure(http2::core::receive_connection_chunk(http2::core::receive_connection_state(http2::core::client_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("0000080600000000000102030405060708")?)?)?
+	print_failure("initial-gate", failure)
+	Ok(())
+end

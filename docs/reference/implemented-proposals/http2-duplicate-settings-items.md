@@ -27,7 +27,7 @@ preview at that item's offset while leaving the pre-frame state unchanged.
 
 - Integrated state, ordered delta, unknown-item, lifecycle, accounting, and
   rollback coverage:
-  `../../../examples/specification/run/http2-protocol-core/`.
+  historical aggregate evidence.
 - Focused human range diagnostic:
   `../../../examples/specification/run/http2-protocol-core-settings-value-human/`.
 - Focused JSON range diagnostic:

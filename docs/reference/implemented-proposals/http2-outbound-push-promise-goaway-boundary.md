@@ -6,7 +6,7 @@ This record preserves the completed server-side outbound `PUSH_PROMISE`
 post-GOAWAY send-intent boundary from the HTTP/2 sans-I/O protocol-core
 proposal. Current behavior is specified by `../../specification/execution.md`
 and the checked executable case
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 ## Completed Behavior
 
@@ -36,7 +36,7 @@ considered.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   outbound `PUSH_PROMISE` at the received GOAWAY boundary and at the locally
   sent GOAWAY boundary.
 - The same checked case pins above-boundary `PUSH_PROMISE` after received and

@@ -3,7 +3,7 @@
 Status: implemented
 
 This record closes the ordinary `CONNECT` request-header validation slice from
-`../../proposals/http2-sans-io-protocol-core.md`. Current behavior lives in
+`http2-sans-io-protocol-core.md`. Current behavior lives in
 `../../specification/execution.md`, `../../specification/commands.md`,
 `../../specification/run-json.md`, and the checked examples under
 `../../../examples/specification/run/`.
@@ -24,7 +24,7 @@ request-header failure boundary.
 
 ## Evidence
 
-- `../../../examples/specification/run/http2-protocol-core/` checks accepted
+- Historical aggregate evidence checks accepted
   ordinary `CONNECT` requests after completed HEADERS and final CONTINUATION
   blocks, all four rejected pseudo-header shapes, and rejection-state
   preservation.

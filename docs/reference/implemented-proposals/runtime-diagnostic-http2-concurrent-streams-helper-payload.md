@@ -23,7 +23,7 @@ provenance, plus the inspected HEADERS frame-header bytes.
 Command recording projects the HTTP/2 `details.protocol_diagnostic` JSON
 object from the returned `RuntimeDiagnostic(...)` value. Human output uses the
 same focused concurrent-stream receive-limit diagnostic and related notes as
-the existing protocol-core case, including the nearby-byte preview note for
+historical aggregate evidence, including the nearby-byte preview note for
 the inspected frame header. The helper no longer needs to register this
 diagnostic through the message-keyed backend side-table bridge. The legacy
 bridge remains available for unrelated helpers that are outside this slice.

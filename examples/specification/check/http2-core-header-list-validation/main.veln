@@ -1,0 +1,13 @@
+use http2::core from "std"
+
+pub fn request_header_list_surface(headers: HeaderList, enable_connect_protocol: Int) -> Result<Int, HeaderListValidationFailure>
+	http2::core::validate_request_header_list(headers, enable_connect_protocol)
+end
+
+pub fn response_header_list_surface(headers: HeaderList) -> Result<Int, HeaderListValidationFailure>
+	http2::core::validate_response_header_list(headers, false)
+end
+
+pub fn trailer_header_list_surface(headers: HeaderList) -> Result<Int, HeaderListValidationFailure>
+	http2::core::validate_trailer_header_list(headers, "request-trailers")
+end

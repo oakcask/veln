@@ -7,7 +7,7 @@ HTTP/2 sans-I/O protocol-core proposal. Current behavior is specified by
 `../../specification/execution.md`, `../../specification/examples.md`, and the
 checked executable cases
 `../../../examples/specification/run/hpack-fixture-codec-boundary/` and
-`../../../examples/specification/run/http2-protocol-core/`.
+historical aggregate evidence.
 
 The later
 [HPACK string literal fixture](http2-hpack-string-literal-fixture.md) record
@@ -61,7 +61,7 @@ record preserves the accepted multi-byte label form.
   `literal-scheme-https-huffman` decode, the
   `literal-status-200-huffman` decode, plus malformed Huffman padding that
   was later split into a focused diagnostic path.
-- `../../../examples/specification/run/http2-protocol-core/` checks the
+- Historical aggregate evidence checks the
   completed HEADERS cases named `hpack-literal-huffman`,
   `hpack-literal-test-huffman`, `hpack-literal-scheme-https-huffman`, and
   `hpack-literal-status-200-huffman`, emits the header-block bytes `0480`,

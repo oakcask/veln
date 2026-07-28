@@ -1,0 +1,88 @@
+use http2::core from "std"
+use stdio
+
+fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure>) -> Result<CoreStreamEntry, String>
+	match result
+		Ok(entry) => Ok(entry)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn require_state(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreConnectionState, String>
+	http2::core::stream_lifecycle_transition_state(decision)
+end
+
+fn require_failure(decision: CoreStreamLifecycleTransitionDecision) -> Result<CoreStreamLifecycleTransitionFailure, String>
+	http2::core::stream_lifecycle_transition_failure(decision)
+end
+
+fn print_stream(label: String, state: CoreConnectionState, stream_id: Int) -> Result<(), String> effects [stdio]
+	let stream: CoreStreamEntry = match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(found) => found
+		None => Err("missing expected stream")?
+	end
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" lifecycle ")
+	stdio::print(http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(stream)))
+	stdio::print(" error ")
+	stdio::println(int_to_string(http2::core::stream_lifecycle_error_code(http2::core::stream_entry_lifecycle(stream))))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: CoreStreamLifecycleTransitionFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failure ")
+	stdio::print(http2::core::stream_lifecycle_transition_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::core::stream_lifecycle_transition_failure_offset(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::core::stream_lifecycle_transition_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::stream_lifecycle_transition_failure_stream_id(failure)))
+	stdio::print(" state ")
+	stdio::print(http2::core::stream_lifecycle_transition_failure_active_state(failure))
+	stdio::print(" rule ")
+	stdio::print(http2::core::stream_lifecycle_transition_failure_rule_provenance(failure))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::core::stream_lifecycle_transition_failure_preview(failure)))))
+end
+
+fn print_accessor_error(label: String, result: Result<CoreConnectionState, String>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => Err("expected transition accessor error")
+		Err(error) => Ok(print_error(label, error))
+	end
+end
+
+fn print_error(label: String, error: String) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(error)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let open: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 60, 0, 0))?
+	let half_local: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_half_closed_local_lifecycle(), 70, 50, 0, 0))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), open), half_local)
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, streams)
+	let data_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 91, 0, 5, true, byte_chunk_from_hex("000000000100000005")?)
+	let headers_end: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 93, 1, 7, true, byte_chunk_from_hex("000000010500000007")?)
+	let data_open: CoreStreamLifecycleTransitionDecision = http2::core::apply_remote_end_stream_lifecycle(state, 95, 0, 5, false, byte_chunk_from_hex("000000000000000005")?)
+	let rst: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(state, 101, 5, 8, byte_chunk_from_hex("000004030000000005")?)
+	let missing: CoreStreamLifecycleTransitionDecision = http2::core::apply_rst_stream_lifecycle(state, 103, 9, 8, byte_chunk_from_hex("000004030000000009")?)
+	stdio::print("data-end ")
+	stdio::println(http2::core::stream_lifecycle_transition_status(data_end))
+	let _ = print_stream("data-end", require_state(data_end)?, 5)?
+	let _ = print_stream("input", state, 5)?
+	stdio::print("headers-end ")
+	stdio::println(http2::core::stream_lifecycle_transition_status(headers_end))
+	let _ = print_stream("headers-end", require_state(headers_end)?, 7)?
+	let _ = print_stream("data-open", require_state(data_open)?, 5)?
+	let _ = print_stream("rst", require_state(rst)?, 5)?
+	print_failure("missing", require_failure(missing)?)
+	let _ = print_accessor_error("missing-state-accessor", http2::core::stream_lifecycle_transition_state(missing))?
+	Ok(())
+end

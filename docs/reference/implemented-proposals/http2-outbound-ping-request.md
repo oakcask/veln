@@ -41,5 +41,5 @@ transport adapter changes.
 - `../../../examples/specification/run/http2-core-ping-transitions/` imports
   `http2::core` from `std` and records the accepted request, representative
   failure, ACK response, no-response decision, and emitted bytes.
-- `../../../examples/specification/run/http2-protocol-core/` retains wider
+- Historical aggregate evidence retains wider
   integration and complete-stdout coverage while calling the public facade.

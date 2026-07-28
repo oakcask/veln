@@ -1,0 +1,60 @@
+use http2::core from "std"
+use stdio
+
+fn print_state(label: String, state: PeerSettingsState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" max_frame_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_frame_size(state)))
+	stdio::print(" max_frame_size_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_frame_size_offset(state)))
+	stdio::print(" active_max_frame_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_max_frame_size(state)))
+	stdio::print(" initial_window_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_initial_window_size(state)))
+	stdio::print(" initial_window_size_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_initial_window_size_offset(state)))
+	stdio::print(" active_initial_window_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_initial_window_size(state)))
+	stdio::print(" enable_push ")
+	stdio::print(int_to_string(http2::core::peer_settings_enable_push(state)))
+	stdio::print(" enable_push_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_enable_push_offset(state)))
+	stdio::print(" enable_connect_protocol ")
+	stdio::print(int_to_string(http2::core::peer_settings_enable_connect_protocol(state)))
+	stdio::print(" enable_connect_protocol_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_enable_connect_protocol_offset(state)))
+	stdio::print(" max_concurrent_streams ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_concurrent_streams(state)))
+	stdio::print(" max_concurrent_streams_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_concurrent_streams_offset(state)))
+	stdio::print(" active_max_concurrent_streams ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_max_concurrent_streams(state)))
+	stdio::print(" header_table_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_header_table_size(state)))
+	stdio::print(" header_table_size_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_header_table_size_offset(state)))
+	stdio::print(" active_header_table_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_active_header_table_size(state)))
+	stdio::print(" max_header_list_size ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_header_list_size(state)))
+	stdio::print(" max_header_list_size_offset ")
+	stdio::print(int_to_string(http2::core::peer_settings_max_header_list_size_offset(state)))
+	stdio::print(" highest_peer_stream ")
+	stdio::println(int_to_string(http2::core::peer_settings_highest_peer_created_stream_id(state)))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: PeerSettingsState = http2::core::empty_peer_settings_state()
+	print_state("empty", empty)
+	let applied: PeerSettingsState = http2::core::apply_peer_settings_payload(empty, 9, byte_chunk_from_hex("aaaa12345678000500008000000400000003000200000000000300000002000100001000000600002000000800000001")?)?
+	print_state("applied", applied)
+	let duplicate: PeerSettingsState = http2::core::apply_peer_settings_payload(applied, 57, byte_chunk_from_hex("000500010000")?)?
+	print_state("duplicate", duplicate)
+	let toggled: PeerSettingsState = http2::core::apply_peer_settings_payload(duplicate, 63, byte_chunk_from_hex("000800000001000200000001000800000000000200000000")?)?
+	print_state("toggled", toggled)
+	let partial: PeerSettingsState = http2::core::apply_peer_settings_payload(toggled, 87, byte_chunk_from_hex("0006000020")?)?
+	print_state("partial", partial)
+	let raised: PeerSettingsState = http2::core::peer_settings_with_highest_peer_created_stream_id(partial, 7)
+	print_state("high-water", raised)
+	Ok(())
+end

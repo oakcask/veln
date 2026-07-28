@@ -41,7 +41,7 @@ unbounded dynamic-table behavior remain outside this narrow receive slice.
   standalone `hpack_dynamic_core` raw literal-name receive for the three
   indexing forms, dynamic-table mutation only for literal-with-indexing, and
   dynamic indexed reuse through `0xbe`.
-- `../../../examples/specification/run/http2-protocol-core/` checks completed
+- Historical aggregate evidence checks completed
   HEADERS and final CONTINUATION routing through the source-visible raw
   literal-name boundary before fixture fallback, including reuse of the
   inserted literal-with-indexing entry.

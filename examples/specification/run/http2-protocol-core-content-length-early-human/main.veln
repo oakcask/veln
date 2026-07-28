@@ -1,5 +1,3 @@
-use hpack_fixture
-
 type OutboundStreamCredit
 	OutboundOpenStreamContentLength(Int, Int, Int, Int)
 end
@@ -36,8 +34,7 @@ fn byte_chunk_view(bytes: ByteChunk) -> Result<ByteView, RuntimeDiagnostic>
 end
 
 fn accepted_request_send_credit() -> OutboundSendCredit
-	let headers: HpackHeaderList = hpack_fixture::outbound_request_content_length_headers()
-	OutboundSendCredit(20, OutboundOpenStreamContentLength(1, 20, hpack_fixture::header_list_accepted_content_length(headers), 0))
+	OutboundSendCredit(20, OutboundOpenStreamContentLength(1, 20, 5, 0))
 end
 
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, RuntimeDiagnostic>
