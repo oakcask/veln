@@ -43,8 +43,13 @@ executable specification cases:
 The migration checker reports checked item-level evidence for 652 helper
 invocations, 2,044 stdout lines, and 315 output tables, with zero unclassified
 items. It also checks `retirement-scenarios.jsonl` and
-`retirement-coverage.tsv` against the regenerated model so endpoint role,
-ordered setup, concrete input, result projection, output provenance, failure
-atomicity, and diagnostic-precedence dimensions remain row-addressable. The
+`retirement-coverage.tsv` against the regenerated model. The manifest records
+one scenario row for each retired assertion source and declares the owning
+public operation, branch, initial-state model, ordered setup, concrete input
+facts, required post-state, executable projection, endpoint role, result
+projection, output provenance, failure atomicity, and diagnostic-precedence
+dimensions. The checker rejects duplicate result projections and stale
+historical setup or helper-line hash inputs, keeping every row addressable even
+when several rows share one executable evidence test. The
 retirement-output standard-package test keeps historical output tables tied to
 public `http2::frame`, `http2::hpack`, and `http2::core` transitions.

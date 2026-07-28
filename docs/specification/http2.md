@@ -926,8 +926,13 @@ The retained retirement evidence under
 `../../examples/specification/run/http2-protocol-core/` is migration-only
 evidence, not a reusable implementation. `retirement-scenarios.jsonl` assigns
 each historical helper invocation, exact stdout line, and output table to a
-row-addressable projection with endpoint role, ordered setup, concrete input,
-output provenance, failure atomicity, and diagnostic-precedence dimensions.
-`retirement-coverage.tsv` summarizes those dimensions, and
+row-addressable projection. Each row declares its owning public operation,
+branch, initial-state model, ordered public setup, concrete input facts,
+required post-state, executable projection, endpoint role, output provenance,
+failure atomicity, and diagnostic-precedence dimensions. The
+`result_projection` field is unique per row so shared executable tests cannot
+collapse multiple retired assertions into one projection.
+`retirement-coverage.tsv` summarizes those dimensions, including the owning
+operation, branch, initial-state, post-state, and unique projection axes, and
 `scripts/check-http2-retirement-evidence` regenerates and checks both files
 against the historical fixture inventory and current executable evidence.

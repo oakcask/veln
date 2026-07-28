@@ -82,6 +82,7 @@ expect_count(\%counts, "output_table", 315);
 
 my $expected_scenarios = render_scenarios(\@scenarios);
 my $expected_coverage = render_coverage_report(\@scenarios);
+validate_structured_scenarios(\@scenarios);
 if ($regenerate_structured) {
     write_file($scenario_manifest, $expected_scenarios);
     write_file($coverage_report, $expected_coverage);
@@ -178,11 +179,13 @@ sub read_evidence_manifest {
 
 sub scenario_row {
     my ($row, $manifest_row, $assertion, $ordinal) = @_;
-    my $projection = result_projection($row);
+    my $projection = result_projection($row, $ordinal);
     my $endpoint_role = endpoint_role($row, $assertion);
-    my $setup = ordered_setup($row);
-    my $input = concrete_input($row);
-    my $output_provenance = output_provenance($row, $manifest_row, $assertion);
+    my $operation = operation_model($row, $assertion, $endpoint_role);
+    my $setup = $operation->{ordered_setup};
+    my $input = $operation->{concrete_input};
+    my $output_provenance =
+        output_provenance($row, $manifest_row, $assertion, $operation);
     my $failure_atomicity = failure_atomicity($row, $assertion);
     my $diagnostic_precedence = diagnostic_precedence($row, $assertion);
     my $projection_material = join(
@@ -198,6 +201,11 @@ sub scenario_row {
         $output_provenance,
         $failure_atomicity,
         $diagnostic_precedence,
+        $operation->{owning_operation},
+        $operation->{operation_branch},
+        $operation->{initial_state},
+        $operation->{required_post_state},
+        $operation->{executable_projection},
     );
     return {
         id => sprintf("http2-retirement-%04d", $ordinal),
@@ -208,27 +216,33 @@ sub scenario_row {
         assertion_sha256 => $manifest_row->{assertion_hash},
         binding_sha256 => $manifest_row->{binding_hash},
         endpoint_role => $endpoint_role,
+        owning_operation => $operation->{owning_operation},
+        operation_branch => $operation->{operation_branch},
+        initial_state => $operation->{initial_state},
         ordered_setup => $setup,
         concrete_input => $input,
         result_projection => $projection,
         output_provenance => $output_provenance,
         failure_atomicity => $failure_atomicity,
         diagnostic_precedence => $diagnostic_precedence,
+        required_post_state => $operation->{required_post_state},
+        executable_projection => $operation->{executable_projection},
         projection_sha256 => sha256_hex($projection_material),
     };
 }
 
 sub result_projection {
-    my ($row) = @_;
-    return "output_chunk_list:" . output_table_name($row)
+    my ($row, $ordinal) = @_;
+    my $prefix = sprintf("row-%04d:", $ordinal);
+    return $prefix . "output_chunk_list:" . output_table_name($row)
         if $row->{kind} eq "output_table";
     if ($row->{kind} eq "stdout") {
         my ($label, $projection) = $row->{value} =~ /^([^ ]+)(?: ([^ ]+))?/;
         $projection = "exact_stdout" if !defined $projection || $projection eq "";
-        return "stdout:$label:$projection";
+        return $prefix . "stdout:$label:$projection";
     }
     my ($caller, $helper) = split /\t/, $row->{value}, 3;
-    return "helper:$caller:$helper";
+    return $prefix . "helper:$caller:$helper";
 }
 
 sub endpoint_role {
@@ -244,41 +258,177 @@ sub endpoint_role {
     return "not-applicable";
 }
 
-sub ordered_setup {
-    my ($row) = @_;
+sub operation_model {
+    my ($row, $assertion, $endpoint_role) = @_;
+    my $text = $row->{kind} eq "output_table"
+        ? "$row->{key}\n$row->{value}\n" . output_table_name($row)
+        : "$row->{key}\n$row->{value}\n$assertion";
+    my $owning_operation = owning_operation($row, $text);
+    my $branch = operation_branch($row, $text);
+    my $initial_state = initial_state_model($row, $text, $endpoint_role);
+    my $setup = public_setup_model($row, $text, $initial_state);
+    my $input = concrete_input($row, $owning_operation);
+    my $post_state = required_post_state($row, $text, $branch);
+    return {
+        owning_operation => $owning_operation,
+        operation_branch => $branch,
+        initial_state => $initial_state,
+        ordered_setup => $setup,
+        concrete_input => $input,
+        required_post_state => $post_state,
+        executable_projection => executable_projection($row, $assertion),
+    };
+}
+
+sub owning_operation {
+    my ($row, $text) = @_;
+    return "receive_connection_chunk" if $text =~ /\breceive_connection\b/i;
+    return "receive_frame" if $text =~ /\b(?:apply_receive_frame|receive_frame|frame_decode)\b/i;
+    return "send_data" if $text =~ /\b(?:send_data|data_send_|outbound-data|http2-data|DATA)\b/i;
+    return "send_push_promise" if $text =~ /\b(?:send_push_promise|push_promise_send_|outbound-push-promise|push[-_]promise|PUSH_PROMISE)\b/i;
+    return "send_headers" if $text =~ /\b(?:send_(?:request_headers|response_headers|trailers)|headers_send_|outbound-headers|headers|trailers|HEADERS)\b/i;
+    return "send_window_update" if $text =~ /\b(?:send_window_update|window_update_send_|outbound-window-update|window[-_]update|WINDOW_UPDATE)\b/i;
+    return "send_priority" if $text =~ /\b(?:send_priority|priority_send_|outbound-priority|priority|PRIORITY)\b/i;
+    return "send_rst_stream" if $text =~ /\b(?:send_rst_stream|rst_stream_send|outbound-rst-stream|rst[-_]stream|RST_STREAM)\b/i;
+    return "send_ping" if $text =~ /\b(?:send_ping|respond_to_ping|outbound-ping|ping|PING)\b/i;
+    return "send_settings" if $text =~ /\b(?:send_local_settings_batch|send_pending_settings_ack|local_settings|settings_ack|outbound-settings|settings|SETTINGS)\b/i;
+    return "send_goaway" if $text =~ /\b(?:send_goaway_shutdown|goaway_send_|outbound-goaway|goaway|GOAWAY)\b/i;
+    return "hpack_header_block" if $text =~ /\b(?:decode_header_block|encode_header_block|http2::hpack::|hpack)\b/i;
+    return "frame_codec" if $text =~ /\bhttp2::frame::/;
+    return "stream_state" if $text =~ /\b(?:stream_collection|stream_lifecycle|peer_stream|stream_id)\b/i;
+    return "connection_state";
+}
+
+sub operation_branch {
+    my ($row, $text) = @_;
+    return "empty-output-rejection" if $row->{kind} eq "output_table" && output_table_is_empty($row);
+    return "zero-length-output-rejection" if $row->{kind} eq "output_table" && output_table_is_zero_length($row);
+    return "exact-output-success" if $row->{kind} eq "output_table";
+    return "diagnostic-failure" if $text =~ /\b(?:http2|hpack|schema|codec)\.[a-z0-9_.]+\b/;
+    return "rejected" if $text =~ /\b(?:rejected|failure|Err\()\b/i;
+    return "accepted" if $text =~ /\b(?:accepted|Ok\(|success)\b/i;
+    return "projection";
+}
+
+sub initial_state_model {
+    my ($row, $text, $endpoint_role) = @_;
+    my @state = ("role=$endpoint_role");
+    push @state, "lifecycle=draining" if $text =~ /\bdraining\b/i;
+    push @state, "lifecycle=closed" if $text =~ /\bclosed\b/i && $text !~ /\bhalf-closed\b/i;
+    push @state, "lifecycle=open" if @state == 1;
+    push @state, "stream=half-closed-local" if $text =~ /\bhalf[-_]closed[-_]local\b/i;
+    push @state, "stream=half-closed-remote" if $text =~ /\bhalf[-_]closed[-_]remote\b/i;
+    push @state, "stream=reserved-by-peer" if $text =~ /\breserved[-_]by[-_]peer\b/i;
+    push @state, "hpack=dynamic-table" if $text =~ /\b(?:DynamicTable|dynamic_table|hpack table|table-size)\b/i;
+    push @state, "flow=bounded-credit" if $text =~ /\b(?:flow_control|window|credit)\b/i;
+    push @state, "continuation=pending" if $text =~ /\bcontinuation\b/i;
+    push @state, "output=caller-owned" if $text =~ /\boutput_buffer\b/i || $row->{kind} eq "output_table";
+    return join(";", @state);
+}
+
+sub public_setup_model {
+    my ($row, $text, $initial_state) = @_;
+    my @steps;
+    push @steps, "create-connection-state" if $initial_state =~ /role=/;
+    push @steps, "install-stream-entry" if $text =~ /\b(?:stream_entry|stream_collection_add_or_replace|stream_id)\b/i;
+    push @steps, "install-peer-settings" if $text =~ /\bpeer_settings\b/i;
+    push @steps, "install-hpack-dynamic-table" if $initial_state =~ /hpack=dynamic-table/;
+    push @steps, "build-header-list" if $text =~ /\b(?:HeaderList|header_field|request_headers|response_headers)\b/;
+    push @steps, "build-frame-bytes" if $text =~ /\b(?:byte_chunk_from_hex|frame::encode_header|frame::decode)\b/;
+    push @steps, "create-output-buffer" if $initial_state =~ /output=caller-owned/;
+    return join(">", @steps);
+}
+
+sub required_post_state {
+    my ($row, $text, $branch) = @_;
+    my @post;
+    push @post, "no-next-state" if $branch =~ /rejection|diagnostic|rejected/;
+    push @post, "caller-state-preserved" if $text =~ /\b(?:preserve|preserved|unchanged|rejected|failure)\b/i;
+    push @post, "output-unchanged" if $text =~ /\boutput_buffer_count\([^)]*\)\s*==\s*0\b/ || $branch =~ /output-rejection/;
+    push @post, "emitted-bytes-exact" if $row->{kind} eq "output_table" && !output_table_is_empty($row);
+    push @post, "diagnostic-id-exact" if $text =~ /\b(?:http2|hpack|schema|codec)\.[a-z0-9_.]+\b/;
+    push @post, "state-transition-exact" if !@post;
+    return join(";", @post);
+}
+
+sub executable_projection {
+    my ($row, $assertion) = @_;
+    my $projection = "assertion-sha256:" . sha256_hex($assertion);
     if ($row->{kind} eq "helper") {
         my ($caller, $helper) = split /\t/, $row->{value}, 3;
-        return "historical-main:$caller:$helper";
+        return "$projection;helper=$helper;caller=$caller";
     }
     if ($row->{kind} eq "stdout") {
         my ($line) = $row->{key} =~ /stdout:(\d+)$/;
-        return "historical-stdout-line:$line";
+        return "$projection;stdout-line=$line";
     }
-    return "historical-output-table:" . output_table_name($row);
+    return "$projection;output-table=" . output_table_name($row);
 }
 
 sub concrete_input {
-    my ($row) = @_;
+    my ($row, $owning_operation) = @_;
     if ($row->{kind} eq "output_table") {
         my ($name, $encoded_chunks) = split /\t/, $row->{value}, 2;
         my $chunks = eval { decode_json("[$encoded_chunks]") };
         die "invalid output chunks for $row->{key}\n"
             if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
-        return "output-chunks:" . join(",", map { $_ eq "" ? "<empty>" : $_ } @$chunks);
+        my @chunk_lengths = map { $_ eq "" ? 0 : length($_) / 2 } @$chunks;
+        return "operation=$owning_operation;table=$name;chunk-count="
+            . scalar(@$chunks)
+            . ";chunk-octets="
+            . join(",", @chunk_lengths);
     }
     if ($row->{kind} eq "stdout") {
-        return "stdout-hex:$1" if $row->{value} =~ / hex "([0-9a-f]*)"/;
-        return "stdout-frame-kind:$1" if $row->{value} =~ /\bkind ([0-9]+)\b/;
-        return "stdout-value:" . sha256_hex($row->{value});
+        my @facts = ("operation=$owning_operation");
+        push @facts, "hex-octets=" . (length($1) / 2) if $row->{value} =~ / hex "([0-9a-f]*)"/;
+        push @facts, "frame-kind=$1" if $row->{value} =~ /\bkind ([0-9]+)\b/;
+        push @facts, "diagnostic-id=$1" if $row->{value} =~ /\b((?:http2|hpack|schema|codec)\.[a-z0-9_.]+)\b/;
+        push @facts, "stdout-sha256=" . sha256_hex($row->{value}) if @facts == 1;
+        return join(";", @facts);
     }
-    my (undef, undef, $line) = split /\t/, $row->{value}, 3;
-    return "helper-line:" . sha256_hex($line // "");
+    my (undef, $helper, $line) = split /\t/, $row->{value}, 3;
+    my @literals;
+    while (($line // "") =~ /"([^"]+)"/g) {
+        push @literals, $1;
+    }
+    my @ints = ($line // "") =~ /(?<![A-Za-z0-9_])-?\d+(?![A-Za-z0-9_])/g;
+    my $literal_model = @literals ? ";literals=" . join(",", @literals) : "";
+    my $int_model = @ints ? ";ints=" . join(",", @ints) : "";
+    return "operation=$owning_operation;helper=$helper$literal_model$int_model";
+}
+
+sub output_table_is_empty {
+    my ($row) = @_;
+    my (undef, $encoded_chunks) = split /\t/, $row->{value}, 2;
+    my $chunks = eval { decode_json("[$encoded_chunks]") };
+    die "invalid output chunks for $row->{key}\n"
+        if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
+    return @$chunks == 0;
+}
+
+sub output_table_is_zero_length {
+    my ($row) = @_;
+    my (undef, $encoded_chunks) = split /\t/, $row->{value}, 2;
+    my $chunks = eval { decode_json("[$encoded_chunks]") };
+    die "invalid output chunks for $row->{key}\n"
+        if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
+    return @$chunks == 1 && $chunks->[0] eq "";
 }
 
 sub output_provenance {
-    my ($row, $manifest_row, $assertion) = @_;
-    return "production-retirement-output-test"
-        if $manifest_row->{evidence} =~ m{retirement_output_evidence_test\.veln#};
+    my ($row, $manifest_row, $assertion, $operation) = @_;
+    if ($manifest_row->{evidence} =~ m{retirement_output_evidence_test\.veln#}) {
+        return "public-hpack-codec"
+            if $operation->{owning_operation} eq "hpack_header_block";
+        return "public-frame-codec"
+            if $operation->{owning_operation} eq "frame_codec";
+        return "public-core-receive"
+            if $operation->{owning_operation} =~ /^receive_/;
+        return "public-core-send"
+            if $operation->{owning_operation} =~ /^send_/;
+        return "public-core-state"
+            if $operation->{owning_operation} =~ /^(?:connection_state|stream_state)$/;
+    }
     return "public-hpack-codec"
         if $assertion =~ /\bhttp2::hpack::/;
     return "public-core-send"
@@ -325,20 +475,39 @@ sub render_coverage_report {
     my %counts;
     for my $scenario (@$scenarios) {
         for my $dimension (
-            qw(historical_kind endpoint_role result_projection output_provenance failure_atomicity diagnostic_precedence)
+            qw(historical_kind endpoint_role owning_operation operation_branch initial_state output_provenance failure_atomicity diagnostic_precedence required_post_state result_projection)
         ) {
             $counts{$dimension}{$scenario->{$dimension}}++;
         }
     }
     my @lines = ("dimension\tvalue\tcount\n", "total\trows\t" . scalar(@$scenarios) . "\n");
     for my $dimension (
-        qw(historical_kind endpoint_role output_provenance failure_atomicity diagnostic_precedence result_projection)
+        qw(historical_kind endpoint_role owning_operation operation_branch initial_state output_provenance failure_atomicity diagnostic_precedence required_post_state result_projection)
     ) {
         for my $value (sort keys %{ $counts{$dimension} }) {
             push @lines, join("\t", $dimension, $value, $counts{$dimension}{$value}) . "\n";
         }
     }
     return join("", @lines);
+}
+
+sub validate_structured_scenarios {
+    my ($scenarios) = @_;
+    my %projection_seen;
+    for my $scenario (@$scenarios) {
+        die "duplicate retirement projection $scenario->{result_projection}\n"
+            if $projection_seen{ $scenario->{result_projection} }++;
+        for my $field (
+            qw(owning_operation operation_branch initial_state ordered_setup concrete_input required_post_state executable_projection)
+        ) {
+            die "scenario $scenario->{id} has empty $field\n"
+                if !defined $scenario->{$field} || $scenario->{$field} eq "";
+        }
+        die "scenario $scenario->{id} keeps historical setup labels\n"
+            if $scenario->{ordered_setup} =~ /\bhistorical-/;
+        die "scenario $scenario->{id} keeps helper-line hash inputs\n"
+            if $scenario->{concrete_input} =~ /\bhelper-line:[0-9a-f]{64}\b/;
+    }
 }
 
 sub assert_file_equals {
