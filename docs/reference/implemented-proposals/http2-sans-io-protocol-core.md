@@ -1,10 +1,12 @@
 # HTTP/2 Standard Library Completion and Fixture Retirement
 
-Status: implemented
+Status: superseded
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-This record preserves the completion and fixture-retirement evidence.
+This record preserves historical evidence for migrated slices. Remaining
+fixture-retirement work is tracked by
+[`http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -14,9 +16,15 @@ send paths use the public HPACK codec.
 
 The broad `http2-protocol-core` implementation and case were removed after
 their reusable responsibilities moved to standard-owned modules and focused
-cases. Its retained route contains no reusable implementation.
+cases. Its retained route contains no reusable implementation, but retirement
+evidence is not the authority for current behavior.
 
 ## Retirement Evidence
+
+This section describes the current retirement-evidence gate. It is not a claim
+that every historical row has a complete item-specific replacement for endpoint
+role, starting state, diagnostic precedence, emitted bytes, and failure
+atomicity.
 
 The checked
 [`retirement-evidence.tsv`](../../../examples/specification/run/http2-protocol-core/retirement-evidence.tsv)
@@ -87,10 +95,10 @@ content-length, priority, HPACK, and shutdown tests. They are not all assigned
 to the narrower peer-stream-admission assertion.
 
 The focused standard-package tests and executable specification cases remain
-independently runnable without the historical fixture. They cover endpoint
-roles, starting state, diagnostic precedence, result projections, exact
-emitted bytes, and failure atomicity through the public standard-library
-boundary. Explicitly selecting
+independently runnable without the historical fixture. They cover migrated
+state transitions and diagnostic projections through the public
+standard-library boundary, while the remaining item-specific retirement gaps
+stay tracked as planned work. Explicitly selecting
 `http2/retirement_output_evidence_test.veln` from the standard-package root
 keeps the complete standard-package analysis closure while selecting only that
 file's tests. Standard-package test execution generates the shared JVM program

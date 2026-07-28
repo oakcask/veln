@@ -40,7 +40,10 @@ unless the referenced test checks its continuation, wire-size, and
 single-decode result. Veln references must exercise the public HTTP/2
 standard-library boundary through a checked branch. Case references must place
 their evidence needle inside an `equals` or `contains` assertion. This
-directory contains no reusable Veln implementation.
+directory contains no reusable Veln implementation. The retained manifest is a
+compatibility and audit route, not the source of current HTTP/2 behavior and
+not a claim that every historical row has complete item-specific replacement
+coverage.
 
 From the standard-package root, the retained output gate is independently
 runnable with:
@@ -53,6 +56,8 @@ Use the focused executable cases whose names start with `http2-core-` for the
 current sans-I/O core evidence. Use focused `http2-protocol-core-*` cases for
 human and JSON diagnostic projections that still carry the historical case-name
 prefix. Current behavior starts at
-[http2.md](../../../../docs/specification/http2.md). Completion evidence is
-recorded by
+[http2.md](../../../../docs/specification/http2.md). Remaining planned
+fixture-retirement work is tracked by
+[http2-standard-library-completion-and-fixture-retirement.md](../../../../docs/proposals/http2-standard-library-completion-and-fixture-retirement.md),
+with migrated historical slices preserved by
 [http2-sans-io-protocol-core.md](../../../../docs/reference/implemented-proposals/http2-sans-io-protocol-core.md).
