@@ -927,10 +927,10 @@ diagnostic projections are current observable behavior. The retired route's
 `retirement-coverage.tsv` files are historical migration evidence checked by
 `scripts/check-http2-retirement-evidence`. The same generated model emits
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-so each deleted broad-fixture row executes a row-addressed projection recipe
-and projection SHA check in bounded standard-package test groups. The
-observed row recipe, row digest, and aggregate projection digest are compared
-against generated expectation functions, so callers cannot satisfy the test by
-passing the same literal as both observed and expected input.
+which verifies bounded chunk digests and the aggregate projection digest as
+standard-package tests. The checker owns the row-level executable-projection
+validation: it rejects stale row bindings, hash-only recipes, operation
+substitutions, missing output provenance, and unclassified diagnostic or
+state-preservation dimensions before regenerating the Veln digest evidence.
 These artifacts bind the historical rows to focused evidence and public
 operation dimensions without restoring a reusable fixture implementation.

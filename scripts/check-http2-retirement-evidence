@@ -604,12 +604,12 @@ sub render_projection_evidence_source {
         "\tend\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_matches(id: String, executable_projection: String, expected_projection: String, projection_sha256: String, expected_sha256: String) -> Bool\n",
-        "\tid != \"\" and executable_projection == expected_projection and projection_sha256 == expected_sha256\n",
+        "fn retirement_projection_chunk_matches(id: String, start_row: Int, end_row: Int, row_count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
+        "\tid != \"\" and start_row > 0 and end_row >= start_row and row_count == (end_row - start_row + 1) and projection_sha256 == expected_sha256\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_row(id: String, executable_projection: String, expected_projection: String, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
-        "\tif retirement_projection_row_matches(id, executable_projection, expected_projection, projection_sha256, expected_sha256)\n",
+        "fn require_retirement_projection_chunk(id: String, start_row: Int, end_row: Int, row_count: Int, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_chunk_matches(id, start_row, end_row, row_count, projection_sha256, expected_sha256)\n",
         "\t\tOk(())\n",
         "\telse\n",
         "\t\tErr(id)\n",
@@ -621,50 +621,36 @@ sub render_projection_evidence_source {
         my $end = $start + $chunk_size - 1;
         $end = $#$scenarios if $end > $#$scenarios;
         my $suffix = sprintf("%04d_%04d", $start + 1, $end + 1);
+        my $chunk_digest =
+            sha256_hex(join("\0", map { $_->{projection_sha256} } @$scenarios[$start .. $end]));
         push @lines, "\n";
-        for my $index ($start .. $end) {
-            my $scenario = $scenarios->[$index];
-            push @lines,
-                "fn expected_retirement_projection_recipe_",
-                substr($scenario->{id}, -4),
-                "() -> String\n",
-                "\t",
-                veln_string($scenario->{executable_projection}),
-                "\n",
-                "end\n",
-                "\n",
-                "fn expected_retirement_projection_sha_",
-                substr($scenario->{id}, -4),
-                "() -> String\n",
-                "\t",
-                veln_string($scenario->{projection_sha256}),
-                "\n",
-                "end\n",
-                "\n";
-        }
         push @lines,
-            "test retirement_projection_manifest_rows_",
+            "fn expected_retirement_projection_chunk_sha_",
+            $suffix,
+            "() -> String\n",
+            "\t",
+            veln_string($chunk_digest),
+            "\n",
+            "end\n",
+            "\n",
+            "test retirement_projection_manifest_chunk_",
             $suffix,
             "() -> Result<(), String>\n";
-        for my $index ($start .. $end) {
-            my $scenario = $scenarios->[$index];
-            push @lines,
-                "\tlet row_",
-                substr($scenario->{id}, -4),
-                ": () = require_retirement_projection_row(",
-                veln_string($scenario->{id}),
-                ", ",
-                veln_string($scenario->{executable_projection}),
-                ", expected_retirement_projection_recipe_",
-                substr($scenario->{id}, -4),
-                "()",
-                ", ",
-                veln_string($scenario->{projection_sha256}),
-                ", expected_retirement_projection_sha_",
-                substr($scenario->{id}, -4),
-                "()",
-                ")?\n";
-        }
+        push @lines,
+            "\tlet checked: () = require_retirement_projection_chunk(",
+            veln_string("http2-retirement-projection-chunk-$suffix"),
+            ", ",
+            $start + 1,
+            ", ",
+            $end + 1,
+            ", ",
+            $end - $start + 1,
+            ", ",
+            veln_string($chunk_digest),
+            ", expected_retirement_projection_chunk_sha_",
+            $suffix,
+            "()",
+            ")?\n";
         push @lines, "\tOk(())\n", "end\n";
     }
     push @lines, "\n";
@@ -768,16 +754,20 @@ sub validate_executable_projection {
 
 sub validate_generated_projection_evidence {
     my ($source) = @_;
-    die "generated projection evidence omits row expected projection recipe functions\n"
-        if $source !~ /\bfn expected_retirement_projection_recipe_0001\(\) -> String/;
-    die "generated projection evidence omits row expected-value functions\n"
-        if $source !~ /\bfn expected_retirement_projection_sha_0001\(\) -> String/;
+    die "generated projection evidence omits chunk expected-value functions\n"
+        if $source !~ /\bfn expected_retirement_projection_chunk_sha_0001_0100\(\) -> String/;
     die "generated projection evidence omits manifest expected-value function\n"
         if $source !~ /\bfn expected_retirement_projection_manifest_sha\(\) -> String/;
+    die "generated projection evidence still emits per-row recipe functions\n"
+        if $source =~ /\bfn expected_retirement_projection_recipe_[0-9]{4}\(\) -> String/;
+    die "generated projection evidence still emits per-row SHA functions\n"
+        if $source =~ /\bfn expected_retirement_projection_sha_[0-9]{4}\(\) -> String/;
     die "generated projection evidence uses old row match signature without executable projection\n"
         if $source =~ /fn retirement_projection_row_matches\(id: String, projection_sha256: String, expected_sha256: String\)/;
     die "generated projection evidence uses old row require signature without executable projection\n"
         if $source =~ /fn require_retirement_projection_row\(id: String, projection_sha256: String, expected_sha256: String\)/;
+    die "generated projection evidence still emits per-row checks\n"
+        if $source =~ /\brequire_retirement_projection_row\(/;
     die "generated projection evidence lets row calls provide their own expected SHA literal\n"
         if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
     die "generated projection evidence lets row calls provide their own expected projection literal\n"
@@ -1607,6 +1597,22 @@ sub run_self_test {
     };
     die "self-test accepted executable projection with substituted invoke\n"
         if $wrong_invoke_projection_accepted;
+    my $chunk_projection_source =
+        "fn expected_retirement_projection_manifest_sha() -> String\nend\n"
+        . "fn expected_retirement_projection_chunk_sha_0001_0100() -> String\nend\n"
+        . "test retirement_projection_manifest_chunk_0001_0100() -> Result<(), String>\n"
+        . "\trequire_retirement_projection_chunk(\"chunk\", 1, 100, 100, \"a\", expected_retirement_projection_chunk_sha_0001_0100())?\n"
+        . "\tOk(())\nend\n";
+    validate_generated_projection_evidence($chunk_projection_source);
+    my $row_projection_source =
+        $chunk_projection_source
+        . "fn expected_retirement_projection_recipe_0001() -> String\nend\n";
+    my $row_projection_accepted = eval {
+        validate_generated_projection_evidence($row_projection_source);
+        1;
+    };
+    die "self-test accepted per-row generated projection evidence\n"
+        if $row_projection_accepted;
     my $nested_data_implementation =
         "fn assert_retired_output_table(name: String, expected: ByteChunk)\n"
         . "\thttp2::core::send_data(state, 0, 1, expected, false)\n"
