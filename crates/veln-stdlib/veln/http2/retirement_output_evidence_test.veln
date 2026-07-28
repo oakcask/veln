@@ -73,7 +73,7 @@ end
 
 fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(), String>
 	let input: ByteView = byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let table: DynamicTable = retired_hpack_initial_table(name)?
 	match http2::hpack::decode_header_block(input, table, 4096)
 		Ok(transition) => validate_retired_hpack_production_encode(name, expected, table, transition)
 		Err(failure) => if http2::hpack::header_block_failure_kind(failure) == expected_retired_hpack_failure_kind(name, expected)? and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
@@ -87,18 +87,50 @@ end
 fn validate_retired_hpack_production_encode(name: String, expected: ByteChunk, table: DynamicTable, decoded: HeaderBlockDecodeTransition) -> Result<(), String>
 	let encoded: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::header_block_headers(decoded), table, 4096))?
 	let encoded_input: ByteChunk = http2::hpack::header_block_encode_bytes(encoded)
-	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and (chunks_equal(encoded_input, expected)? or not expected_retired_hpack_exact_encode_match(name)?) and http2::hpack::dynamic_table_entry_count(table) == 0
+	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and (chunks_equal(encoded_input, expected)? or retired_hpack_canonical_equivalent_encoding_allowed(name)?)
 		Ok(())
 	else
 		Err(name)
 	end
 end
 
-fn expected_retired_hpack_exact_encode_match(name: String) -> Result<Bool, String>
+fn retired_hpack_canonical_equivalent_encoding_allowed(name: String) -> Result<Bool, String>
 	if name == "http2-hpack-continuation-older-path" or name == "http2-hpack-stateful-dynamic-name-newest-path-again" or name == "http2-hpack-stateful-dynamic-name-older-path-target" or name == "http2-hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse" or name == "http2-hpack-stateful-dynamic-name-huffman-continuation-reuse" or name == "http2-hpack-dynamic-indexed-static-name-content-type" or name == "http2-hpack-dynamic-indexed-path-target" or name == "http2-hpack-dynamic-indexed-older-path"
-		Ok(true)
-	else
 		Ok(false)
+	else
+		Ok(true)
+	end
+end
+
+fn retired_hpack_path_table() -> Result<DynamicTable, String>
+	http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(4096)?, ":path", byte_chunk_from_hex("2f746172676574")?)
+end
+
+fn retired_hpack_path_again_table() -> Result<DynamicTable, String>
+	http2::hpack::insert_dynamic_table_entry(retired_hpack_path_table()?, ":path", byte_chunk_from_hex("2f616761696e")?)
+end
+
+fn retired_hpack_path_test_table() -> Result<DynamicTable, String>
+	http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(4096)?, ":path", byte_chunk_from_hex("2f74657374")?)
+end
+
+fn retired_hpack_content_type_table() -> Result<DynamicTable, String>
+	http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(4096)?, "content-type", byte_chunk_from_hex("746578742f706c61696e")?)
+end
+
+fn retired_hpack_initial_table(name: String) -> Result<DynamicTable, String>
+	if name == "http2-hpack-continuation-older-path" or name == "http2-hpack-stateful-dynamic-name-older-path-target" or name == "http2-hpack-dynamic-indexed-older-path"
+		retired_hpack_path_again_table()
+	else if name == "http2-hpack-stateful-dynamic-name-newest-path-again"
+		retired_hpack_path_again_table()
+	else if name == "http2-hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse" or name == "http2-hpack-stateful-dynamic-name-huffman-continuation-reuse"
+		retired_hpack_path_test_table()
+	else if name == "http2-hpack-dynamic-indexed-static-name-content-type"
+		retired_hpack_content_type_table()
+	else if name == "http2-hpack-dynamic-indexed-path-target"
+		retired_hpack_path_table()
+	else
+		http2::hpack::empty_dynamic_table(4096)
 	end
 end
 
