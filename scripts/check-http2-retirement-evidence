@@ -197,9 +197,16 @@ sub validate_retirement_output_implementation {
             || $source !~ /\bhttp2::frame::encode_header\b/;
     die "retirement output evidence does not cross the production HPACK decoder\n"
         if $source !~ /\bhttp2::hpack::decode_header_block\b/;
+    die "retirement output evidence accepts failed HPACK decoding by input identity\n"
+        if $source =~ /Err\([^)]*\)\s*=>\s*if chunks_equal/;
     die "retirement empty-output evidence does not preserve frame-specific failure domains\n"
         if $source !~ /assert_retired_empty_output_table\(name: String, kind: Int\)/
             || $source !~ /\bhttp2::core::validate_frame_payload_length\b/;
+    die "retirement zero-length evidence does not obtain failure output from its send domain\n"
+        if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
+            || $source !~ /\bhttp2::core::send_window_update\b/
+            || $source !~ /\bhttp2::core::send_request_headers\b/
+            || $source !~ /\bhttp2::core::output_buffer_append_(?:window_update|headers)\b/;
 }
 
 sub validate_veln_test {
@@ -343,9 +350,9 @@ sub validate_evidence_relevance {
 
     if ($row->{key} =~ /^main\.veln:103([567]):require_connection_stream_id$/) {
         my %frame_evidence = (
-            5 => qr/\bsettings\b/i,
-            6 => qr/\bping\b/i,
-            7 => qr/\bgoaway\b/i,
+            5 => qr/\bapply_receive_frame\b.*\bbyte_chunk_from_hex\("00000c040000000000/s,
+            6 => qr/\bsend_ping\b.*\bbyte_chunk_from_hex\("000008060000000000/s,
+            7 => qr/\bapply_receive_frame\b.*\bbyte_chunk_from_hex\("000008070000000000/s,
         );
         my $kind = $1;
         die "evidence for $row->{key} does not exercise its connection-frame domain\n"
@@ -656,6 +663,24 @@ sub run_self_test {
     };
     die "self-test accepted historical chunks nested inside DATA frames\n"
         if $nested_data_accepted;
+    my $identity_hpack_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "match decoded\n"
+        . "\tErr(_) => if chunks_equal(input, expected)\n"
+        . "\t\tOk(())\n"
+        . "\tend\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\n"
+        . "\thttp2::core::validate_frame_payload_length(0, kind, 0, 1, 0, name, byte_chunk([]))\n"
+        . "end\n";
+    my $identity_hpack_accepted = eval {
+        validate_retirement_output_implementation($identity_hpack_implementation);
+        1;
+    };
+    die "self-test accepted input-identity fallback for failed HPACK decoding\n"
+        if $identity_hpack_accepted;
     my $empty_output = {
         kind => "output_table",
         key => "case.toml:output_chunk_list:data-no-output",
@@ -684,12 +709,19 @@ sub run_self_test {
             . "\t\t4 => require_connection_stream_id(offset, kind, stream_id)",
     };
     my $unrelated_domain_accepted = eval {
-        validate_evidence_relevance($settings_helper, $good);
+        validate_evidence_relevance(
+            $settings_helper,
+            "$good\nhttp2::core::apply_receive_frame(state, settings)\n",
+        );
         1;
     };
-    die "self-test accepted a peer-stream assertion for SETTINGS stream-domain evidence\n"
+    die "self-test accepted same-domain SETTINGS evidence without the retained connection stream id\n"
         if $unrelated_domain_accepted;
-    validate_evidence_relevance($settings_helper, "$good\n# SETTINGS receive evidence\n");
+    validate_evidence_relevance(
+        $settings_helper,
+        "$good\nhttp2::core::apply_receive_frame(state, "
+            . "byte_chunk_from_hex(\"00000c040000000000aaaa12345678000500008000\")?)\n",
+    );
 
     my $continuation_projection = {
         kind => "stdout",

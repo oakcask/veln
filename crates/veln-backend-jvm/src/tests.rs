@@ -740,6 +740,35 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_dispatches_reusable_test_entries_when_java_is_available() {
+    let ir = lower_to_ir(
+        "test alpha() -> Result<(), String> effects [stdio]\n\
+           stdio::println(\"alpha\")\n\
+           Ok(())\n\
+         end\n\
+         test beta() -> Result<(), String> effects [stdio]\n\
+           stdio::println(\"beta\")\n\
+           Ok(())\n\
+         end\n",
+    );
+    let program =
+        generate_classfiles_with_test_entries(&ir, &["alpha".to_string(), "beta".to_string()]);
+
+    let Some(alpha) =
+        run_jvm_program_when_java_is_available("bytecode-test-alpha", &program, &["alpha"])
+    else {
+        return;
+    };
+    let beta = run_jvm_program_when_java_is_available("bytecode-test-beta", &program, &["beta"])
+        .expect("the same Java runtime should remain available");
+
+    assert!(alpha.status.success());
+    assert!(beta.status.success());
+    assert_eq!(String::from_utf8_lossy(&alpha.stdout), "alpha\n");
+    assert_eq!(String::from_utf8_lossy(&beta.stdout), "beta\n");
+}
+
+#[test]
 fn external_socket_client_uses_an_unregistered_host_listener_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err() {
         return;

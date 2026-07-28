@@ -16,10 +16,13 @@ exact executable call per retained singleton or empty table, so grouped
 literals, comment-only table labels, and one occurrence reused for duplicate
 chunks do not count. The shared retained implementation is included in the
 binding hash. It reconstructs complete frame sequences with the public frame
-codec, sends non-frame vectors through the production HPACK decoder,
-distinguishes singleton zero-length chunks from empty output, and classifies
-empty output by the historical frame domain. The checker rejects nested-DATA
-substitutions.
+codec and sends non-frame vectors through the production HPACK decoder.
+Successful HPACK receives must consume the full vector; failed receives must
+report a production failure kind while preserving the caller-owned table.
+Singleton zero-length chunks exercise the corresponding rejected
+WINDOW_UPDATE or HEADERS send, including unchanged output, while empty output
+is classified by historical frame domain. The checker rejects nested-DATA and
+failed-decode input-identity substitutions.
 
 The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,
@@ -30,6 +33,13 @@ wire-size, and single-decode result. Veln references must exercise the public
 HTTP/2 standard-library boundary through a checked branch. Case references
 must place their evidence needle inside an `equals` or `contains` assertion.
 This directory contains no reusable Veln implementation.
+
+From the standard-package root, the retained output gate is independently
+runnable with:
+
+```text
+veln test http2/retirement_output_evidence_test.veln
+```
 
 Use the focused executable cases whose names start with `http2-core-` for the
 current sans-I/O core evidence. Use focused `http2-protocol-core-*` cases for

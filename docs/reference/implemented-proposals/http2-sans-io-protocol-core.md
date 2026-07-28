@@ -45,13 +45,16 @@ must contain one exact call for each historical table rather than a grouped
 literal or comment marker. The retained test implementation is part of each
 binding hash. Complete frame sequences are decoded and reconstructed one frame
 at a time through the public frame codec; non-frame vectors cross the
-production HPACK decoder; and singleton zero-length vectors cross the
-production HPACK encoder. Empty tables are classified by their historical
-frame domain and exercise that domain's payload rejection, while DATA tables
-exercise a rejected DATA send and verify both decision bytes and the output
-buffer remain empty. Repeated chunks therefore cannot satisfy multiple table
-rows through one occurrence, and complete frames or HPACK vectors cannot be
-accepted as nested DATA payloads.
+production HPACK decoder. Successful decodes must consume the complete
+retained vector, while rejected decodes must expose a production failure kind
+without changing the caller-owned dynamic table. Singleton zero-length vectors
+exercise their historical WINDOW_UPDATE or HEADERS send rejection and verify
+both decision bytes and the output buffer remain empty. Empty tables are
+classified by their historical frame domain and exercise that domain's payload
+rejection, while DATA tables exercise a rejected DATA send with the same
+failure-atomicity checks. Repeated chunks therefore cannot satisfy multiple
+table rows through one occurrence, and complete frames or HPACK vectors cannot
+be accepted as nested DATA payloads or by failed-decode input identity.
 
 The checker derives a required public protocol domain for every helper
 invocation from its helper and caller, including component-specific
@@ -79,4 +82,9 @@ The focused standard-package tests and executable specification cases remain
 independently runnable without the historical fixture. They cover endpoint
 roles, starting state, diagnostic precedence, result projections, exact
 emitted bytes, and failure atomicity through the public standard-library
-boundary.
+boundary. Explicitly selecting
+`http2/retirement_output_evidence_test.veln` from the standard-package root
+keeps the complete standard-package analysis closure while selecting only that
+file's tests. Standard-package test execution generates the shared JVM program
+once and dispatches each selected test by name, so the full guarded suite does
+not regenerate the complete class set for every test.

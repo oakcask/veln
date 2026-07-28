@@ -55,13 +55,14 @@ end
 
 fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(), String>
 	let input: ByteView = byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?
-	match http2::hpack::decode_header_block(input, http2::hpack::empty_dynamic_table(4096)?, 4096)
-		Ok(transition) => if http2::hpack::header_block_consumed(transition) == byte_count_to_int(byte_chunk_count(expected)) and chunks_equal(byte_view_to_chunk(input), expected)?
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	match http2::hpack::decode_header_block(input, table, 4096)
+		Ok(transition) => if http2::hpack::header_block_consumed(transition) == byte_count_to_int(byte_chunk_count(expected))
 			Ok(())
 		else
 			Err(name)
 		end
-		Err(_) => if chunks_equal(byte_view_to_chunk(input), expected)?
+		Err(failure) => if http2::hpack::header_block_failure_kind(failure) != "" and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
 			Ok(())
 		else
 			Err(name)
@@ -87,14 +88,34 @@ fn assert_retired_output_table(name: String, expected: ByteChunk) -> Result<(), 
 	end
 end
 
+fn assert_retired_zero_length_headers_output(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(0, 0))
+	let headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list())))
+	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 0, 1, headers, false)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_headers(http2::core::empty_output_buffer(), decision)
+	if http2::core::headers_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_zero_length_window_update_output(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(0, 0))
+	let decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 0, 1, 1)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(http2::core::empty_output_buffer(), decision)
+	if http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
 fn assert_retired_zero_length_output_table(name: String) -> Result<(), String>
-	match http2::hpack::encode_header_block(http2::hpack::empty_header_list(), http2::hpack::empty_dynamic_table(4096)?, 4096)
-		Ok(transition) => if byte_count_to_int(byte_chunk_count(http2::hpack::header_block_encode_bytes(transition))) == 0
-			Ok(())
-		else
-			Err(name)
-		end
-		Err(_) => Err(name)
+	if name == "http2-headers-after-narrow-local-goaway-late"
+		assert_retired_zero_length_headers_output(name)
+	else
+		assert_retired_zero_length_window_update_output(name)
 	end
 end
 

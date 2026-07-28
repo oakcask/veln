@@ -8,6 +8,17 @@ pub fn generate_classfiles_with_entry(program: &TypedProgram, entry_function: &s
     generate_classfiles_with_entry_arg_types(program, entry_function, &[])
 }
 
+pub fn generate_classfiles_with_test_entries(
+    program: &TypedProgram,
+    entry_functions: &[String],
+) -> JvmProgram {
+    let options = SanitizedOptions {
+        program_class: java_type_identifier(&JvmBackendOptions::default().program_class),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    ClassfileEmitter::new(program, options).emit_test_entries(entry_functions)
+}
+
 pub fn generate_classfiles_with_entry_arg_types(
     program: &TypedProgram,
     entry_function: &str,

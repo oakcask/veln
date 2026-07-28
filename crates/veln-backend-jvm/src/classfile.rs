@@ -49,6 +49,14 @@ impl<'a> ClassfileEmitter<'a> {
         entry_function: &str,
         entry_arg_types: &[EntryArgType],
     ) -> JvmProgram {
+        self.emit_with_entry_class(self.emit_entry_class(entry_function, entry_arg_types))
+    }
+
+    pub(crate) fn emit_test_entries(&self, entry_functions: &[String]) -> JvmProgram {
+        self.emit_with_entry_class(self.emit_test_entry_class(entry_functions))
+    }
+
+    fn emit_with_entry_class(&self, entry_class: Vec<u8>) -> JvmProgram {
         let mut classes = runtime_classes();
         classes.push(JvmClassFile {
             path: format!("{}.class", self.options.program_class),
@@ -56,7 +64,7 @@ impl<'a> ClassfileEmitter<'a> {
         });
         classes.push(JvmClassFile {
             path: "VelnEntry.class".to_string(),
-            contents: self.emit_entry_class(entry_function, entry_arg_types),
+            contents: entry_class,
         });
         for function in &self.program.functions {
             classes.push(JvmClassFile {
@@ -142,6 +150,48 @@ impl<'a> ClassfileEmitter<'a> {
         );
         self.emit_entry_argument_conversions(&mut code, entry_arg_types);
         self.emit_entry_invocation_and_result(&mut code, entry_function, entry_arg_types);
+        let try_end = code.mark();
+        code.op(0xb1);
+
+        self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
+        self.emit_entry_runtime_failure_handler(&mut code, try_start, try_end);
+        self.add_entry_main_method(&mut class, code);
+        class.finish()
+    }
+
+    fn emit_test_entry_class(&self, entry_functions: &[String]) -> Vec<u8> {
+        let mut class = ClassBuilder::new(VELN_ENTRY);
+        class.access_flags = 0x0031;
+        class.add_default_constructor(0x0002);
+
+        let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
+        let try_start = code.mark();
+        let result = code.new_label();
+        for entry_function in entry_functions {
+            code.aload(0);
+            code.push_i32(0);
+            code.op(0x32);
+            code.ldc_string(entry_function);
+            code.invokevirtual("java/lang/String", "equals", "(Ljava/lang/Object;)Z");
+            let next = code.branch(0x99);
+            code.invokestatic(
+                &self.options.program_class,
+                &self.function_name(entry_function),
+                &object_method_descriptor(0),
+            );
+            code.astore(1);
+            code.branch_to(0xa7, result);
+            code.bind(next);
+        }
+        code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
+        code.ldc_string("unknown test entry");
+        code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        code.push_i32(1);
+        code.invokestatic("java/lang/System", "exit", "(I)V");
+        code.op(0xb1);
+
+        code.bind(result);
+        self.emit_entry_result(&mut code);
         let try_end = code.mark();
         code.op(0xb1);
 
@@ -251,6 +301,10 @@ impl<'a> ClassfileEmitter<'a> {
             &object_method_descriptor(entry_arg_types.len()),
         );
         code.astore(1);
+        self.emit_entry_result(code);
+    }
+
+    fn emit_entry_result(&self, code: &mut MethodCode) {
         code.aload(1);
         code.invokestatic(
             &self.options.runtime_class,
