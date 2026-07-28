@@ -1050,6 +1050,11 @@ sub checked_case_assertion {
 
 sub validate_item_binding {
     my ($key, $historical_value, $manifest_row, $assertion) = @_;
+    die "retirement evidence for $key still targets unsupported HPACK fixture compatibility\n"
+        if defined $manifest_row->{evidence}
+            && $manifest_row->{evidence} =~ /hpack\.fixture\.unsupported_header_block/;
+    die "retirement evidence for $key still uses unsupported HPACK fixture compatibility as current evidence\n"
+        if $assertion =~ /hpack\.fixture\.unsupported_header_block/;
     die "historical value mismatch for $key\n"
         if $manifest_row->{value} ne $historical_value;
     die "retained assertion changed for $key\n"

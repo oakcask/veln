@@ -932,5 +932,9 @@ standard-package tests. The checker owns the row-level executable-projection
 validation: it rejects stale row bindings, hash-only recipes, operation
 substitutions, missing output provenance, and unclassified diagnostic or
 state-preservation dimensions before regenerating the Veln digest evidence.
+Retirement evidence may retain historical stdout values for inventory
+integrity, but current evidence targets must not route unsupported HPACK
+header blocks through `hpack.fixture.unsupported_header_block`; replacement
+evidence for those rows uses public `std::http2::hpack` decode failures.
 These artifacts bind the historical rows to focused evidence and public
 operation dimensions without restoring a reusable fixture implementation.

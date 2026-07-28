@@ -1,7 +1,7 @@
 use prelude
 
 fn expected_retirement_projection_manifest_sha() -> String
-	"bf3bb9fb78078d7ef70ee9803f62647f694c25cc5591437310de99ddb390d67f"
+	"29dbec6c6bedbab6f42906a2bb2def5246111aa5e9c1ef4a91bc53a252603327"
 end
 
 fn retirement_projection_manifest_matches(count: Int, projection_sha256: String, expected_sha256: String) -> Bool
@@ -111,11 +111,11 @@ test retirement_projection_manifest_chunk_0801_0900() -> Result<(), String>
 end
 
 fn expected_retirement_projection_chunk_sha_0901_1000() -> String
-	"858399463a0ff55de6666c1f9691fcd7aa298c5335fff27420472e8688969a5a"
+	"3fce0fd4d7c65720c56b9ecdfcb1bb534f1082519076981adb36bd8d8b18ca8b"
 end
 
 test retirement_projection_manifest_chunk_0901_1000() -> Result<(), String>
-	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-0901_1000", 901, 1000, 100, "858399463a0ff55de6666c1f9691fcd7aa298c5335fff27420472e8688969a5a", expected_retirement_projection_chunk_sha_0901_1000())?
+	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-0901_1000", 901, 1000, 100, "3fce0fd4d7c65720c56b9ecdfcb1bb534f1082519076981adb36bd8d8b18ca8b", expected_retirement_projection_chunk_sha_0901_1000())?
 	Ok(())
 end
 
@@ -183,11 +183,11 @@ test retirement_projection_manifest_chunk_1601_1700() -> Result<(), String>
 end
 
 fn expected_retirement_projection_chunk_sha_1701_1800() -> String
-	"bcf276c3df7f45601a7e60d7974c62bda72eb005e9ceeb22596e8cfb14b05ff5"
+	"ef20125790780d4b2dabddcf6132c69e24b463a5ed75f230e256108de051ead6"
 end
 
 test retirement_projection_manifest_chunk_1701_1800() -> Result<(), String>
-	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-1701_1800", 1701, 1800, 100, "bcf276c3df7f45601a7e60d7974c62bda72eb005e9ceeb22596e8cfb14b05ff5", expected_retirement_projection_chunk_sha_1701_1800())?
+	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-1701_1800", 1701, 1800, 100, "ef20125790780d4b2dabddcf6132c69e24b463a5ed75f230e256108de051ead6", expected_retirement_projection_chunk_sha_1701_1800())?
 	Ok(())
 end
 
@@ -255,20 +255,20 @@ test retirement_projection_manifest_chunk_2401_2500() -> Result<(), String>
 end
 
 fn expected_retirement_projection_chunk_sha_2501_2600() -> String
-	"7cd170a31a0c332fa3d55a33ab7bd3a8a447c9c04435fb7365281b12f7542b9a"
+	"fe7a713e7a6d70ffeb2c669e07af3751b378d77aafe8ea6027e275daa2051ab5"
 end
 
 test retirement_projection_manifest_chunk_2501_2600() -> Result<(), String>
-	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-2501_2600", 2501, 2600, 100, "7cd170a31a0c332fa3d55a33ab7bd3a8a447c9c04435fb7365281b12f7542b9a", expected_retirement_projection_chunk_sha_2501_2600())?
+	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-2501_2600", 2501, 2600, 100, "fe7a713e7a6d70ffeb2c669e07af3751b378d77aafe8ea6027e275daa2051ab5", expected_retirement_projection_chunk_sha_2501_2600())?
 	Ok(())
 end
 
 fn expected_retirement_projection_chunk_sha_2601_2700() -> String
-	"395846939f550aa2e76464b4dbf2543840c4392174a5e2c061743745532c72f0"
+	"14ed88c50aeedbb5da0b0a624a5053923ad2bf3b2137d0d9580bfb7e6541af0b"
 end
 
 test retirement_projection_manifest_chunk_2601_2700() -> Result<(), String>
-	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-2601_2700", 2601, 2700, 100, "395846939f550aa2e76464b4dbf2543840c4392174a5e2c061743745532c72f0", expected_retirement_projection_chunk_sha_2601_2700())?
+	let checked: () = require_retirement_projection_chunk("http2-retirement-projection-chunk-2601_2700", 2601, 2700, 100, "14ed88c50aeedbb5da0b0a624a5053923ad2bf3b2137d0d9580bfb7e6541af0b", expected_retirement_projection_chunk_sha_2601_2700())?
 	Ok(())
 end
 
@@ -309,6 +309,6 @@ test retirement_projection_manifest_chunk_3001_3011() -> Result<(), String>
 end
 
 test retirement_projection_manifest_digest() -> Result<(), String>
-	let checked: () = require_retirement_projection_manifest("http2-retirement-projection-manifest", 3011, "bf3bb9fb78078d7ef70ee9803f62647f694c25cc5591437310de99ddb390d67f")?
+	let checked: () = require_retirement_projection_manifest("http2-retirement-projection-manifest", 3011, "29dbec6c6bedbab6f42906a2bb2def5246111aa5e9c1ef4a91bc53a252603327")?
 	Ok(())
 end

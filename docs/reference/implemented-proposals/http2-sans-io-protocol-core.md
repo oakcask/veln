@@ -46,8 +46,12 @@ The retained retirement gate is checked by
 fixture from history, requires item-level evidence for 652 helper invocations,
 2,044 exact stdout lines, and 315 output tables, verifies the generated
 row-addressable scenario manifest, coverage report, and generated projection
-evidence test, and rejects unclassified or stale rows. Each generated scenario
-has an executable projection recipe that binds the historical row to its
+evidence test, and rejects unclassified, stale, or unsupported HPACK fixture
+compatibility evidence targets. Historical values remain in the inventory, but
+current replacement evidence for unsupported HPACK header blocks must use the
+public `std::http2::hpack` failure surface rather than
+`hpack.fixture.unsupported_header_block`. Each generated scenario has an
+executable projection recipe that binds the historical row to its
 focused evidence target, public operation, branch, initial state, concrete
 input, expected projection, post-state, output provenance, and diagnostic
 precedence rather than relying on an assertion hash alone.
