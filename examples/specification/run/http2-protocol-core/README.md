@@ -17,12 +17,11 @@ literals, comment-only table labels, and one occurrence reused for duplicate
 chunks do not count. The shared retained implementation is included in the
 binding hash. It reconstructs complete frame sequences with the public frame
 codec and sends non-frame vectors through the production HPACK decoder.
-Successful HPACK receives must consume the full vector and send the decoded
-header list back through the public production HPACK encoder; failed receives
+Successful HPACK receives must consume the full vector and re-encode each
+indexed field, literal field, and table-size update through the public
+production HPACK element encoders to the exact retained bytes; failed receives
 must report the expected production failure kind for the retained vector while
-preserving the caller-owned table. Canonical-equivalent encodings satisfy
-retained successful HPACK rows only when the retained row is named in the
-historical-canonical mismatch list.
+preserving the caller-owned table.
 Singleton zero-length chunks exercise the corresponding rejected
 WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is
 classified by historical frame domain and retained table-name family. Rejected
@@ -34,7 +33,7 @@ the GOAWAY boundary wins with the retained diagnostic precedence. The retained
 PING-ACK-received row exercises the public PING response no-output transition,
 not an outbound PING length failure. The checker rejects nested-DATA,
 failed-decode input-identity
-substitutions, generic canonical-equivalent HPACK encoding fallbacks, generic
+substitutions, canonical-equivalent HPACK encoding fallbacks, generic
 non-empty HPACK failure checks, and generic data, window, or priority
 failure-id checks.
 

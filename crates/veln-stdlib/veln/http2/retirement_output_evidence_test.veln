@@ -44,13 +44,6 @@ fn request_headers() -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list()))))
 end
 
-fn require_header_block_encode(result: Result<HeaderBlockEncodeTransition, HeaderBlockEncodeFailure>) -> Result<HeaderBlockEncodeTransition, String>
-	match result
-		Ok(transition) => Ok(transition)
-		Err(failure) => Err(http2::hpack::header_block_encode_failure_kind(failure))
-	end
-end
-
 fn validate_retired_nonempty_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
 	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?)?
 	let frame_count: Int = 9 + decoded.length
@@ -72,700 +65,134 @@ fn validate_retired_frame_sequence(name: String, remaining: ByteChunk) -> Result
 end
 
 fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(), String>
-	let input: ByteView = byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?
 	let table: DynamicTable = retired_hpack_initial_table(name)?
-	match http2::hpack::decode_header_block(input, table, 4096)
-		Ok(transition) => validate_retired_hpack_production_encode(name, expected, table, transition)
-		Err(failure) => if http2::hpack::header_block_failure_kind(failure) == expected_retired_hpack_failure_kind(name, expected)? and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
-			Ok(())
-		else
-			Err(name)
+	match validate_retired_hpack_exact_reencode(name, expected, table, false)
+		Ok(()) => Ok(())
+		Err(_) => match http2::hpack::decode_header_block(byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?, table, 4096)
+			Ok(_) => Err(name)
+			Err(failure) => if http2::hpack::header_block_failure_kind(failure) == expected_retired_hpack_failure_kind(name, expected)? and http2::hpack::dynamic_table_entry_count(table) == http2::hpack::dynamic_table_entry_count(retired_hpack_initial_table(name)?) and http2::hpack::dynamic_table_capacity(table) == 4096
+				Ok(())
+			else
+				Err(name)
+			end
 		end
 	end
 end
 
-fn validate_retired_hpack_production_encode(name: String, expected: ByteChunk, table: DynamicTable, decoded: HeaderBlockDecodeTransition) -> Result<(), String>
-	let encoded: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::header_block_headers(decoded), table, 4096))?
-	let encoded_input: ByteChunk = http2::hpack::header_block_encode_bytes(encoded)
-	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and (chunks_equal(encoded_input, expected)? or retired_hpack_canonical_mismatch_allowed(name)?)
+fn validate_retired_hpack_exact_reencode(name: String, remaining: ByteChunk, table: DynamicTable, fields_started: Bool) -> Result<(), String>
+	if byte_count_to_int(byte_chunk_count(remaining)) == 0
 		Ok(())
+	else
+		validate_retired_hpack_next_reencode(name, remaining, table, fields_started)
+	end
+end
+
+fn validate_retired_hpack_next_reencode(name: String, remaining: ByteChunk, table: DynamicTable, fields_started: Bool) -> Result<(), String>
+	let input: ByteView = byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?
+	let first: Int = byte_at(remaining, 0)?
+	if (first & 128) == 128
+		validate_retired_hpack_indexed_reencode(name, remaining, input, table)
+	else if (first & 224) == 32
+		validate_retired_hpack_table_size_reencode(name, remaining, input, table, fields_started)
+	else
+		validate_retired_hpack_literal_reencode(name, remaining, input, table)
+	end
+end
+
+fn validate_retired_hpack_indexed_reencode(name: String, remaining: ByteChunk, input: ByteView, table: DynamicTable) -> Result<(), String>
+	let decoded_index: { value : Int, consumed : Int } = http2::hpack::decode_integer(input, 7)?
+	match http2::hpack::decode_indexed_header_field(input, table)
+		Ok(decoded) => validate_retired_hpack_indexed_encode(name, remaining, table, decoded_index, decoded)
+		Err(_) => Err(name)
+	end
+end
+
+fn validate_retired_hpack_indexed_encode(name: String, remaining: ByteChunk, table: DynamicTable, decoded_index: { value : Int, consumed : Int }, decoded: IndexedDecodeTransition) -> Result<(), String>
+	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(decoded)
+	match http2::hpack::encode_indexed_header_field(http2::hpack::header_field(http2::hpack::indexed_header_name(header), http2::hpack::indexed_header_value(header)), http2::hpack::decoded_integer_value(decoded_index), table)
+		Ok(encoded) => validate_retired_hpack_encoded_segment(name, remaining, http2::hpack::header_encode_bytes(encoded), http2::hpack::indexed_decode_consumed(decoded), http2::hpack::indexed_decode_table(decoded), true)
+		Err(_) => Err(name)
+	end
+end
+
+fn validate_retired_hpack_table_size_reencode(name: String, remaining: ByteChunk, input: ByteView, table: DynamicTable, fields_started: Bool) -> Result<(), String>
+	if fields_started
+		Err(name)
+	else
+		match http2::hpack::decode_table_size_update(input, table, 4096)
+			Ok(decoded) => match http2::hpack::encode_integer(http2::hpack::table_size_update_capacity(decoded), 5, 32)
+				Ok(encoded) => validate_retired_hpack_encoded_segment(name, remaining, encoded, http2::hpack::table_size_update_consumed(decoded), http2::hpack::table_size_update_table(decoded), false)
+				Err(_) => Err(name)
+			end
+			Err(_) => Err(name)
+		end
+	end
+end
+
+fn validate_retired_hpack_literal_reencode(name: String, remaining: ByteChunk, input: ByteView, table: DynamicTable) -> Result<(), String>
+	let first: Int = byte_at(remaining, 0)?
+	let prefix_bits: Int = retired_literal_prefix_bits(first)?
+	let decoded_index: { value : Int, consumed : Int } = http2::hpack::decode_integer(input, prefix_bits)?
+	let name_index: Int = http2::hpack::decoded_integer_value(decoded_index)
+	let index_consumed: Int = http2::hpack::decoded_integer_consumed(decoded_index)
+	let value_offset: Int = if name_index == 0
+		index_consumed + retired_hpack_string_consumed_at(remaining, index_consumed)?
+	else
+		index_consumed
+	end
+	match http2::hpack::decode_literal_header_field(input, table)
+		Ok(decoded) => validate_retired_hpack_literal_encode(name, remaining, table, first, name_index, index_consumed, value_offset, decoded)
+		Err(_) => Err(name)
+	end
+end
+
+fn validate_retired_hpack_literal_encode(name: String, remaining: ByteChunk, table: DynamicTable, first: Int, name_index: Int, index_consumed: Int, value_offset: Int, decoded: LiteralDecodeTransition) -> Result<(), String>
+	let header: LiteralHeaderField = http2::hpack::literal_decode_header(decoded)
+	match http2::hpack::encode_literal_header_field(http2::hpack::header_field(http2::hpack::literal_header_name(header), http2::hpack::literal_header_value(header)), retired_literal_representation(first)?, name_index, name_index == 0 and retired_hpack_string_huffman_at(remaining, index_consumed)?, retired_hpack_string_huffman_at(remaining, value_offset)?, table)
+		Ok(encoded) => validate_retired_hpack_encoded_segment(name, remaining, http2::hpack::header_encode_bytes(encoded), http2::hpack::literal_decode_consumed(decoded), http2::hpack::literal_decode_table(decoded), true)
+		Err(_) => Err(name)
+	end
+end
+
+fn validate_retired_hpack_encoded_segment(name: String, remaining: ByteChunk, encoded: ByteChunk, consumed: Int, table: DynamicTable, fields_started: Bool) -> Result<(), String>
+	let retained: ByteChunk = byte_take(remaining, byte_count(consumed)?)?
+	if chunks_equal(encoded, retained)?
+		validate_retired_hpack_exact_reencode(name, byte_drop(remaining, byte_count(consumed)?)?, table, fields_started)
 	else
 		Err(name)
 	end
 end
 
-fn retired_hpack_canonical_mismatch_allowed(name: String) -> Result<Bool, String>
-	if retired_hpack_canonical_mismatch_allowed_0(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_1(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_2(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_3(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_4(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_5(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_6(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_7(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_8(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_9(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_10(name)?
-		Ok(true)
-	else if retired_hpack_canonical_mismatch_allowed_11(name)?
-		Ok(true)
+fn retired_literal_prefix_bits(first: Int) -> Result<Int, String>
+	if (first & 192) == 64
+		Ok(6)
+	else if (first & 240) == 0 or (first & 240) == 16
+		Ok(4)
 	else
-		Ok(false)
+		Err("unsupported literal")
 	end
 end
 
-fn retired_hpack_canonical_mismatch_allowed_0(name: String) -> Result<Bool, String>
-	if name == "hpack-huffman-payload-bytes-00-ff"
-		Ok(true)
-	else if name == "hpack-huffman-payload-test"
-		Ok(true)
-	else if name == "http2-client-push-promise-continuation-header-block"
-		Ok(true)
-	else if name == "http2-client-push-promise-header-block"
-		Ok(true)
-	else if name == "http2-client-push-promise-regular-header-block"
-		Ok(true)
-	else if name == "http2-client-push-promised-headers"
-		Ok(true)
-	else if name == "http2-client-push-promised-headers-end-stream"
-		Ok(true)
-	else if name == "http2-content-length-data-exact"
-		Ok(true)
-	else if name == "http2-content-length-data-first"
-		Ok(true)
-	else if name == "http2-content-length-padded"
-		Ok(true)
-	else if name == "http2-continuation-header-block"
-		Ok(true)
-	else if name == "http2-data"
-		Ok(true)
-	else if name == "http2-data-after-goaway-allowed"
-		Ok(true)
-	else if name == "http2-data-after-initial-window-restore"
-		Ok(true)
-	else if name == "http2-data-after-local-goaway-allowed"
-		Ok(true)
-	else if name == "http2-data-connection-boundary"
-		Ok(true)
-	else if name == "http2-data-connection-refill-after"
-		Ok(true)
-	else if name == "http2-data-end-stream"
-		Ok(true)
-	else if name == "http2-data-header"
-		Ok(true)
-	else if name == "http2-data-padded"
-		Ok(true)
-	else if name == "http2-data-padded-content"
-		Ok(true)
-	else if name == "http2-data-padded-end-stream"
-		Ok(true)
-	else if name == "http2-data-padded-split"
-		Ok(true)
-	else if name == "http2-data-split"
-		Ok(true)
+fn retired_literal_representation(first: Int) -> Result<Int, String>
+	if (first & 192) == 64
+		Ok(0)
+	else if (first & 240) == 0
+		Ok(1)
+	else if (first & 240) == 16
+		Ok(2)
 	else
-		Ok(false)
+		Err("unsupported literal")
 	end
 end
 
-fn retired_hpack_canonical_mismatch_allowed_1(name: String) -> Result<Bool, String>
-	if name == "http2-data-split-end-stream"
-		Ok(true)
-	else if name == "http2-data-stream-boundary"
-		Ok(true)
-	else if name == "http2-data-stream-refill-after"
-		Ok(true)
-	else if name == "http2-goaway"
-		Ok(true)
-	else if name == "http2-goaway-below-boundary-trailers"
-		Ok(true)
-	else if name == "http2-goaway-combined-narrow"
-		Ok(true)
-	else if name == "http2-goaway-data-end-stream"
-		Ok(true)
-	else if name == "http2-goaway-debug-data"
-		Ok(true)
-	else if name == "http2-goaway-existing-headers-end-stream"
-		Ok(true)
-	else if name == "http2-goaway-existing-trailers"
-		Ok(true)
-	else if name == "http2-goaway-headers-end-stream"
-		Ok(true)
-	else if name == "http2-goaway-narrow"
-		Ok(true)
-	else if name == "http2-goaway-same"
-		Ok(true)
-	else if name == "http2-half-closed-local-padded-content"
-		Ok(true)
-	else if name == "http2-header-list-accepted"
-		Ok(true)
-	else if name == "http2-headers"
-		Ok(true)
-	else if name == "http2-headers-after-goaway-allowed"
-		Ok(true)
-	else if name == "http2-headers-after-local-goaway-allowed"
-		Ok(true)
-	else if name == "http2-headers-end-stream"
-		Ok(true)
-	else if name == "http2-headers-end-stream-continuation"
-		Ok(true)
-	else if name == "http2-headers-end-stream-continuation-header-block"
-		Ok(true)
-	else if name == "http2-headers-header-block"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update-42-method-put"
-		Ok(true)
-	else
-		Ok(false)
-	end
+fn retired_hpack_string_huffman_at(chunk: ByteChunk, offset: Int) -> Result<Bool, String>
+	Ok((byte_at(chunk, offset)? & 128) == 128)
 end
 
-fn retired_hpack_canonical_mismatch_allowed_2(name: String) -> Result<Bool, String>
-	if name == "http2-headers-hpack-after-table-size-update-42-method-put-again"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update-method-put"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update-method-put-again"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update-zero-method-put"
-		Ok(true)
-	else if name == "http2-headers-hpack-after-table-size-update-zero-method-put-again"
-		Ok(true)
-	else if name == "http2-headers-hpack-bytes-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-dynamic-name-huffman-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-dynamic-name-huffman-indexed-reuse"
-		Ok(true)
-	else if name == "http2-headers-hpack-dynamic-name-huffman-never-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-dynamic-name-huffman-without-indexing"
-		Ok(true)
-	else if name == "http2-headers-hpack-ff-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-general-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-huffman-name-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-huffman-name-indexed-reuse"
-		Ok(true)
-	else if name == "http2-headers-hpack-linefeed-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-literal-continuation"
-		Ok(true)
-	else if name == "http2-headers-hpack-literal-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-nul-huffman"
-		Ok(true)
-	else if name == "http2-headers-hpack-selected-carried"
-		Ok(true)
-	else if name == "http2-headers-hpack-selected-seed"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-indexed-ordinary"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-name-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-name-never-indexed"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_3(name: String) -> Result<Bool, String>
-	if name == "http2-headers-hpack-stateful-dynamic-name-never-indexed-retained"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-name-newest"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-dynamic-name-older"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-literal-continuation"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-literal-indexed-ordinary"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-literal-never-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-stateful-retained-after-never-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-accept-encoding"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-content-type"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-method-post"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-path-root"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-scheme-https"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-status-200"
-		Ok(true)
-	else if name == "http2-headers-hpack-static-indexed-status-404"
-		Ok(true)
-	else if name == "http2-headers-hpack-table-size-update"
-		Ok(true)
-	else if name == "http2-headers-hpack-table-size-update-160"
-		Ok(true)
-	else if name == "http2-headers-hpack-table-size-update-42"
-		Ok(true)
-	else if name == "http2-headers-hpack-table-size-update-zero"
-		Ok(true)
-	else if name == "http2-headers-hpack-visible-ascii-literal"
-		Ok(true)
-	else if name == "http2-headers-multiple-continuations"
-		Ok(true)
-	else if name == "http2-headers-one-continuation"
-		Ok(true)
-	else if name == "http2-headers-priority-continuation-header-block"
-		Ok(true)
-	else if name == "http2-headers-priority-end-stream-header-block"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_4(name: String) -> Result<Bool, String>
-	if name == "http2-headers-priority-header-block"
-		Ok(true)
-	else if name == "http2-hpack-after-table-size-update"
-		Ok(true)
-	else if name == "http2-hpack-continuation-dynamic-name"
-		Ok(true)
-	else if name == "http2-hpack-continuation-dynamic-name-second"
-		Ok(true)
-	else if name == "http2-hpack-continuation-dynamic-name-wide"
-		Ok(true)
-	else if name == "http2-hpack-continuation-dynamic-name-wide-never-indexed"
-		Ok(true)
-	else if name == "http2-hpack-continuation-dynamic-name-wide-without-indexing"
-		Ok(true)
-	else if name == "http2-hpack-continuation-partial-eviction"
-		Ok(true)
-	else if name == "http2-hpack-continuation-replacement"
-		Ok(true)
-	else if name == "http2-hpack-continuation-third-entry"
-		Ok(true)
-	else if name == "http2-hpack-continuation-third-path"
-		Ok(true)
-	else if name == "http2-hpack-dynamic-table-size-eviction"
-		Ok(true)
-	else if name == "http2-hpack-literal-authority-example"
-		Ok(true)
-	else if name == "http2-hpack-literal-authority-raw"
-		Ok(true)
-	else if name == "http2-hpack-literal-authority-raw-continuation"
-		Ok(true)
-	else if name == "http2-hpack-literal-authority-raw-long-length"
-		Ok(true)
-	else if name == "http2-hpack-literal-authority-www-example-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-authority"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-authority-raw-extra-long-length"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-authority-raw-long-length"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-method-put"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-method-put-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-path-target"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_5(name: String) -> Result<Bool, String>
-	if name == "http2-hpack-literal-indexed-scheme-https-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-static-name-content-type"
-		Ok(true)
-	else if name == "http2-hpack-literal-indexed-status"
-		Ok(true)
-	else if name == "http2-hpack-literal-method-put"
-		Ok(true)
-	else if name == "http2-hpack-literal-method-put-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-never-indexed-path-continuation"
-		Ok(true)
-	else if name == "http2-hpack-literal-never-indexed-path-target"
-		Ok(true)
-	else if name == "http2-hpack-literal-never-indexed-static-name-user-agent"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-bytes-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-bytes-huffman-continuation"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-ff-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-linefeed-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-target"
-		Ok(true)
-	else if name == "http2-hpack-literal-path-two-nul-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-scheme-https-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-static-name-server-raw"
-		Ok(true)
-	else if name == "http2-hpack-literal-status-200-huffman"
-		Ok(true)
-	else if name == "http2-hpack-literal-status-200-huffman-continuation"
-		Ok(true)
-	else if name == "http2-hpack-literal-status-raw"
-		Ok(true)
-	else if name == "http2-hpack-literal-test-huffman"
-		Ok(true)
-	else if name == "http2-hpack-raw-name-never-indexed-ordinary-x-never"
-		Ok(true)
-	else if name == "http2-hpack-stateful-after-missing-dynamic-indexed-path-target"
-		Ok(true)
-	else if name == "http2-hpack-stateful-after-missing-literal-indexed-path-target"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-entry-size-authority"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_6(name: String) -> Result<Bool, String>
-	if name == "http2-hpack-stateful-dynamic-entry-size-authority-eviction"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-method-put"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-multi-continuation-retained-older-path"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-older-path"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-ordinary-continuation"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-continuation"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-ordinary-x-huff-huffman"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-ordinary-x-trace"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-path-target"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-indexed-wide-continuation-retained-older-path"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-huffman-continuation"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-huffman-indexed-path-test"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-second-method"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-third-path"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-wide-indexed"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-wide-never-indexed"
-		Ok(true)
-	else if name == "http2-hpack-stateful-dynamic-name-wide-without-indexing"
-		Ok(true)
-	else if name == "http2-hpack-stateful-insertion-evicts-older-path"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-dynamic-name-path-again"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-method-put"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-ordinary-continuation"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-ordinary-x-huff-continuation"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-ordinary-x-huff-huffman"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-ordinary-x-trace"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_7(name: String) -> Result<Bool, String>
-	if name == "http2-hpack-stateful-literal-indexed-path-target"
-		Ok(true)
-	else if name == "http2-hpack-stateful-literal-indexed-scheme-https-retained"
-		Ok(true)
-	else if name == "http2-hpack-stateful-never-indexed-dynamic-name-second-path-secret"
-		Ok(true)
-	else if name == "http2-hpack-stateful-ordinary-table-size-eviction"
-		Ok(true)
-	else if name == "http2-hpack-stateful-table-size-eviction"
-		Ok(true)
-	else if name == "http2-hpack-stateful-table-size-partial-eviction"
-		Ok(true)
-	else if name == "http2-hpack-stateful-three-entry-table-size-eviction"
-		Ok(true)
-	else if name == "http2-hpack-stateful-without-indexing-dynamic-name-second-path-no"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-method"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-method-path"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-path"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-scheme-http"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-scheme-https"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-status-200"
-		Ok(true)
-	else if name == "http2-hpack-static-indexed-status-404"
-		Ok(true)
-	else if name == "http2-hpack-static-literal-response-headers"
-		Ok(true)
-	else if name == "http2-hpack-static-literal-test-huffman-continuation"
-		Ok(true)
-	else if name == "http2-hpack-static-request-content-length"
-		Ok(true)
-	else if name == "http2-hpack-static-request-content-length-decimal"
-		Ok(true)
-	else if name == "http2-hpack-static-request-content-length-indexed"
-		Ok(true)
-	else if name == "http2-hpack-static-request-content-length-never-indexed"
-		Ok(true)
-	else if name == "http2-hpack-static-request-continuation"
-		Ok(true)
-	else if name == "http2-hpack-static-request-headers"
-		Ok(true)
-	else if name == "http2-hpack-static-request-scheme-https"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_8(name: String) -> Result<Bool, String>
-	if name == "http2-hpack-static-request-scheme-https-huffman"
-		Ok(true)
-	else if name == "http2-hpack-static-request-scheme-https-huffman-continuation"
-		Ok(true)
-	else if name == "http2-hpack-static-response-cache-control"
-		Ok(true)
-	else if name == "http2-hpack-static-response-cache-control-continuation"
-		Ok(true)
-	else if name == "http2-hpack-static-response-content-length"
-		Ok(true)
-	else if name == "http2-hpack-static-response-content-length-indexed"
-		Ok(true)
-	else if name == "http2-hpack-static-response-content-length-never-indexed"
-		Ok(true)
-	else if name == "http2-hpack-static-response-content-type"
-		Ok(true)
-	else if name == "http2-hpack-static-response-content-type-continuation"
-		Ok(true)
-	else if name == "http2-hpack-static-response-headers"
-		Ok(true)
-	else if name == "http2-hpack-table-size-continuation"
-		Ok(true)
-	else if name == "http2-hpack-table-size-continuation-160"
-		Ok(true)
-	else if name == "http2-hpack-table-size-continuation-31"
-		Ok(true)
-	else if name == "http2-hpack-table-size-continuation-32"
-		Ok(true)
-	else if name == "http2-hpack-table-size-continuation-general"
-		Ok(true)
-	else if name == "http2-hpack-table-size-update"
-		Ok(true)
-	else if name == "http2-hpack-table-size-update-160"
-		Ok(true)
-	else if name == "http2-hpack-table-size-update-31"
-		Ok(true)
-	else if name == "http2-hpack-table-size-update-32"
-		Ok(true)
-	else if name == "http2-hpack-table-size-update-general"
-		Ok(true)
-	else if name == "http2-local-enable-push-settings"
-		Ok(true)
-	else if name == "http2-local-header-list-size-settings"
-		Ok(true)
-	else if name == "http2-local-header-table-size-settings"
-		Ok(true)
-	else if name == "http2-local-initial-window-size-settings"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_9(name: String) -> Result<Bool, String>
-	if name == "http2-local-max-concurrent-streams-settings"
-		Ok(true)
-	else if name == "http2-local-settings"
-		Ok(true)
-	else if name == "http2-local-settings-batch"
-		Ok(true)
-	else if name == "http2-local-settings-ordered-batch"
-		Ok(true)
-	else if name == "http2-local-settings-ordered-batch-later"
-		Ok(true)
-	else if name == "http2-local-settings-queue-first"
-		Ok(true)
-	else if name == "http2-local-settings-queue-second"
-		Ok(true)
-	else if name == "http2-max-stream-header"
-		Ok(true)
-	else if name == "http2-outbound-ping"
-		Ok(true)
-	else if name == "http2-peer-closed-data"
-		Ok(true)
-	else if name == "http2-peer-closed-data-end-stream"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-higher-dynamic-headers"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-higher-literal-headers"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-higher-update-headers"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-lower-after-update-headers"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-lower-inbound-receive-limit"
-		Ok(true)
-	else if name == "http2-peer-header-table-size-lower-update-headers"
-		Ok(true)
-	else if name == "http2-peer-settings-ack"
-		Ok(true)
-	else if name == "http2-peer-settings-ack-coalesced"
-		Ok(true)
-	else if name == "http2-ping-ack"
-		Ok(true)
-	else if name == "http2-priority"
-		Ok(true)
-	else if name == "http2-priority-after-goaway-allowed"
-		Ok(true)
-	else if name == "http2-priority-after-local-goaway-allowed"
-		Ok(true)
-	else if name == "http2-priority-replacement-values"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_10(name: String) -> Result<Bool, String>
-	if name == "http2-push-promise"
-		Ok(true)
-	else if name == "http2-push-promise-after-goaway-allowed"
-		Ok(true)
-	else if name == "http2-push-promise-after-local-goaway-allowed"
-		Ok(true)
-	else if name == "http2-push-promise-continuation"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-literal-huffman"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-stateful-dynamic-indexed"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-stateful-dynamic-name-indexed"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-stateful-dynamic-name-newest"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-stateful-dynamic-name-older"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-stateful-literal-indexed"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-static-indexed"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-static-indexed-accept-encoding"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-static-indexed-content-type"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-static-indexed-method-post"
-		Ok(true)
-	else if name == "http2-push-promise-hpack-visible-ascii-literal"
-		Ok(true)
-	else if name == "http2-request-headers-connect-continuation"
-		Ok(true)
-	else if name == "http2-request-headers-connect-valid"
-		Ok(true)
-	else if name == "http2-request-headers-content-length"
-		Ok(true)
-	else if name == "http2-request-headers-content-length-repeated"
-		Ok(true)
-	else if name == "http2-request-headers-ordinary-valid"
-		Ok(true)
-	else if name == "http2-request-headers-scheme-http"
-		Ok(true)
-	else if name == "http2-request-headers-scheme-https"
-		Ok(true)
-	else if name == "http2-request-headers-te-trailers"
-		Ok(true)
-	else if name == "http2-request-headers-valid"
-		Ok(true)
-	else
-		Ok(false)
-	end
-end
-
-fn retired_hpack_canonical_mismatch_allowed_11(name: String) -> Result<Bool, String>
-	if name == "http2-response-headers-content-length"
-		Ok(true)
-	else if name == "http2-response-headers-content-length-repeated"
-		Ok(true)
-	else if name == "http2-response-headers-ordinary-continuation"
-		Ok(true)
-	else if name == "http2-response-headers-ordinary-valid"
-		Ok(true)
-	else if name == "http2-response-headers-te-trailers"
-		Ok(true)
-	else if name == "http2-response-headers-valid"
-		Ok(true)
-	else if name == "http2-response-trailers-accepted"
-		Ok(true)
-	else if name == "http2-response-trailers-continuation"
-		Ok(true)
-	else if name == "http2-rst-stream"
-		Ok(true)
-	else if name == "http2-settings-ack"
-		Ok(true)
-	else if name == "http2-settings-header"
-		Ok(true)
-	else if name == "http2-trailers-accepted"
-		Ok(true)
-	else if name == "http2-trailers-continuation"
-		Ok(true)
-	else if name == "http2-trailers-raw-name-accepted"
-		Ok(true)
-	else if name == "http2-trailers-raw-name-indexed-accepted"
-		Ok(true)
-	else if name == "http2-window-update-after-goaway-allowed"
-		Ok(true)
-	else if name == "http2-window-update-after-local-goaway-allowed"
-		Ok(true)
-	else if name == "http2-window-update-connection"
-		Ok(true)
-	else if name == "http2-window-update-connection-after-goaway"
-		Ok(true)
-	else if name == "http2-window-update-stream"
-		Ok(true)
-	else if name == "preface-unknown"
-		Ok(true)
-	else if name == "unknown-extension"
-		Ok(true)
-	else
-		Ok(false)
-	end
+fn retired_hpack_string_consumed_at(chunk: ByteChunk, offset: Int) -> Result<Int, String>
+	let input: ByteView = byte_view(byte_drop(chunk, byte_count(offset)?)?, byte_offset(0)?, byte_chunk_count(byte_drop(chunk, byte_count(offset)?)?))?
+	let decoded: { value : Int, consumed : Int } = http2::hpack::decode_integer(input, 7)?
+	Ok(http2::hpack::decoded_integer_consumed(decoded) + http2::hpack::decoded_integer_value(decoded))
 end
 
 fn retired_hpack_path_table() -> Result<DynamicTable, String>

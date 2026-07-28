@@ -49,8 +49,8 @@ or sequence-extension slice is part of this work.
   the expected production failure id for DATA, WINDOW_UPDATE, and PRIORITY
   families, including content-length versus flow-control DATA precedence and
   GOAWAY-before-output PRIORITY precedence. Successful retained HPACK output
-  rows now cross the production decoder and encoder, and the old generic
-  canonical-equivalent fallback has been replaced by an explicit retained-row
+  rows now cross the production decoder and exact public element encoders, so
+  retained successful rows no longer depend on a historical-canonical mismatch
   list. Some empty output rows are still grouped by frame family instead of
   constructing every historical starting state and transition before proving
   the corresponding absence of bytes.

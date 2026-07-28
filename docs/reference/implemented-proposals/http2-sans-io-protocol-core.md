@@ -54,8 +54,9 @@ literal or comment marker. The retained test implementation is part of each
 binding hash. Complete frame sequences are decoded and reconstructed one frame
 at a time through the public frame codec; non-frame vectors cross the
 production HPACK decoder. Successful decodes must consume the complete
-retained vector and send the decoded header list back through the public
-production HPACK encoder, while rejected decodes must expose the expected
+retained vector and re-encode each indexed field, literal field, and
+table-size update through the public production HPACK element encoders to the
+exact retained bytes, while rejected decodes must expose the expected
 production failure kind for the retained vector without changing the
 caller-owned dynamic table. Singleton zero-length vectors exercise their
 historical WINDOW_UPDATE or HEADERS send rejection and verify both decision

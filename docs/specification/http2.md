@@ -918,8 +918,8 @@ coverage. The retained retirement-output evidence independently checks each
 retained successful HPACK output row against the production codec. Rows that
 depend on dynamic indexing carry their production dynamic-table state into the
 decode, and every successful retained HPACK row must consume the full vector
-and either re-encode to the exact retained bytes through the public production
-encoder or match an explicitly named historical-canonical mismatch row. It
+and re-encode each indexed field, literal field, and table-size update to the
+exact retained bytes through the public production HPACK element encoders. It
 also checks each historical empty output table through the public send or
 response domain that owns the retained row. Rejected send rows require the
 expected production failure id before proving that no decision bytes or

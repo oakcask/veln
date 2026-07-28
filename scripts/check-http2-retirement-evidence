@@ -199,12 +199,17 @@ sub validate_retirement_output_implementation {
         if $source !~ /\bhttp2::hpack::decode_header_block\b/;
     die "retirement output evidence decodes retained HPACK rows with only a fresh table\n"
         if $source !~ /\bretired_hpack_initial_table\(name\)\?/;
-    die "retirement output evidence does not obtain successful HPACK bytes from the production encoder\n"
-        if $source !~ /\bvalidate_retired_hpack_production_encode\b/
-            || $source !~ /\bhttp2::hpack::encode_header_block\b/
-            || $source !~ /\bhttp2::hpack::header_block_encode_bytes\b/;
-    die "retirement output evidence does not compare production HPACK bytes with historical bytes\n"
-        if $source !~ /\bchunks_equal\(encoded_input,\s*expected\)\?/;
+    die "retirement output evidence does not obtain exact HPACK bytes from public production encoders\n"
+        if $source !~ /\bvalidate_retired_hpack_exact_reencode\b/
+            || $source !~ /\bhttp2::hpack::decode_indexed_header_field\b/
+            || $source !~ /\bhttp2::hpack::encode_indexed_header_field\b/
+            || $source !~ /\bhttp2::hpack::decode_literal_header_field\b/
+            || $source !~ /\bhttp2::hpack::encode_literal_header_field\b/
+            || $source !~ /\bhttp2::hpack::decode_table_size_update\b/
+            || $source !~ /\bhttp2::hpack::encode_integer\b/;
+    die "retirement output evidence does not compare exact production HPACK bytes with historical bytes\n"
+        if $source !~ /\bvalidate_retired_hpack_encoded_segment\b/
+            || $source !~ /\bchunks_equal\(encoded,\s*retained\)\?/;
     die "retirement output evidence still allows canonical-equivalent HPACK encodings\n"
         if $source =~ /\bretired_hpack_canonical_equivalent_encoding_allowed\b/;
     die "retirement output evidence still uses a generic HPACK canonical mismatch fallback\n"
