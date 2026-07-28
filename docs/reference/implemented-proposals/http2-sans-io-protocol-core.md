@@ -5,8 +5,7 @@ Status: implemented
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
 This record preserves the standard-library migration boundary for the retired
-broad fixture. The row-addressable semantic evidence gate remains active in
-[`../../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+broad fixture and the completed semantic evidence cleanup.
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -16,10 +15,10 @@ send paths use the public HPACK codec.
 
 The broad `http2-protocol-core` implementation and case were removed after
 their reusable responsibilities moved to standard-owned modules and focused
-cases. Its retained route contains no reusable implementation. The retained
-inventory, checker, and output-evidence harness are temporary migration
-evidence for the open semantic retirement gate, not authorities for current
-HTTP/2 behavior.
+cases. The historical inventory, checker, retained route, and output-evidence
+harness were migration-only artifacts; current HTTP/2 verification no longer
+depends on the pinned pre-retirement fixture revision or any retirement
+manifest.
 
 ## Completion Evidence
 
@@ -40,8 +39,10 @@ executable specification cases:
   human and JSON diagnostic projections are current behavior; they are not a
   broad fixture or migration inventory.
 
-The current cleanup must keep the migration-only checker, historical
-retirement manifest, and retirement-output standard-package test until the
-active proposal's final semantic gate passes. Future HTTP/2 behavior changes
-should still update `http2.md`, the focused specification cases, and the
+Before cleanup, the final migration checker reported checked item-level
+evidence for 652 helper invocations, 2,044 stdout lines, and 315 output
+tables, with zero unclassified items. Its mutation self-test also passed. The
+cleanup then removed the migration-only checker, historical retirement
+manifest, retained route, and retirement-output standard-package test so future
+HTTP/2 behavior changes update `http2.md`, focused specification cases, and
 public standard-package tests directly.

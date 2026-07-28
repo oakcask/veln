@@ -14,9 +14,6 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-- [HTTP/2 Retirement Evidence Completion](http2-standard-library-completion-and-fixture-retirement.md):
-  complete the row-addressable semantic evidence gate for the retired
-  `http2-protocol-core` fixture.
 - [Parallel Test Execution](parallel-test-execution.md): use bounded,
   CPU-aware case scheduling while preserving deterministic reports, static
   gates, and a serial compatibility route.
