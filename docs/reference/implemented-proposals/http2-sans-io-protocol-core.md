@@ -5,7 +5,7 @@ Status: implemented
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
 This record preserves the standard-library migration boundary for the retired
-broad fixture and the completed semantic evidence cleanup.
+broad fixture.
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -13,13 +13,12 @@ content-length, shutdown, and output-buffer behavior is owned by
 decisions preserve caller-owned state and output, and production receive and
 send paths use the public HPACK codec.
 
-The broad `http2-protocol-core` implementation and case were removed after
-their reusable responsibilities moved to standard-owned modules and focused
-cases. The retained historical inventory, structured scenario manifest,
-dimensioned coverage report, checker, retained route, and output-evidence
-harness are migration-only artifacts; current HTTP/2 behavior is still owned
-by the public standard modules, focused standard-package tests, and executable
-specification cases.
+The broad `http2-protocol-core` implementation, retained route, historical
+inventory, structured scenario manifest, dimensioned coverage report,
+checker, and output-evidence harness were removed after their reusable
+responsibilities moved to standard-owned modules and focused cases. Current
+HTTP/2 behavior is owned by the public standard modules, focused
+standard-package tests, and executable specification cases.
 
 ## Completion Evidence
 
@@ -38,19 +37,9 @@ executable specification cases:
   sans-I/O surface.
 - Focused `http2-protocol-core-*` cases remain executable only where their
   human and JSON diagnostic projections are current behavior; they are not a
-  broad fixture or migration inventory.
+  broad fixture, migration inventory, or reusable implementation.
 
-The migration checker reports checked item-level evidence for 652 helper
-invocations, 2,044 stdout lines, and 315 output tables, with zero unclassified
-items. It also checks `retirement-scenarios.jsonl` and
-`retirement-coverage.tsv` against the regenerated model. The manifest records
-one scenario row for each retired assertion source and declares the owning
-public operation, branch, initial-state model, ordered setup, concrete input
-facts, required post-state, executable projection, endpoint role, result
-projection, output provenance, failure atomicity, and diagnostic-precedence
-dimensions. The checker rejects duplicate result projections and stale
-historical setup, helper-line hash inputs, hash-only stdout inputs, and
-duplicate lifecycle or stream-state axes, keeping every row addressable even
-when several rows share one executable evidence test. The
-retirement-output standard-package test keeps historical output tables tied to
-public `http2::frame`, `http2::hpack`, and `http2::core` transitions.
+The historical migration gate completed before the temporary retirement
+artifacts were removed. The remaining checked evidence is row-addressable
+through the focused executable cases and standard-package tests that own each
+public transition and diagnostic projection.

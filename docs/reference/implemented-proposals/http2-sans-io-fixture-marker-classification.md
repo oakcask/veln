@@ -5,8 +5,7 @@ Status: implemented
 This artifact classifies the focused Veln files that still contain
 `HpackFixtureState`, `hpack_fixture::`, or
 `hpack.fixture.unsupported_header_block` after the retired aggregate
-`../../../examples/specification/run/http2-protocol-core/` implementation was
-removed.
+`http2-protocol-core` implementation was removed.
 
 Validation command:
 
@@ -46,6 +45,6 @@ HTTP/2 core receive and send paths use `std::http2::hpack`.
 
 This classification closes the focused fixture-marker inventory. The removed
 aggregate helper invocations, exact stdout lines, output-chunk tables, and
-migration-only retirement evidence no longer route current HTTP/2 behavior.
+retirement inventory no longer route current HTTP/2 behavior.
 Completion history is preserved by
 [HTTP/2 standard library completion and fixture retirement](http2-sans-io-protocol-core.md).
