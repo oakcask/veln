@@ -18,6 +18,7 @@ end
 
 pub type CoreOutboundDataFlowFailure
 	CoreOutboundDataInvalidStream(offset: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundDataAfterGoaway(offset: Int, frame_kind: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
 	CoreOutboundDataFlowControl(offset: Int, frame_kind: Int, stream_id: Int, data_length: Int, observed_value: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	CoreOutboundDataContentLength(offset: Int, frame_kind: Int, stream_id: Int, expected_length: Int, observed_length: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
 	CoreOutboundWindowUpdateIncrement(offset: Int, frame_kind: Int, stream_id: Int, increment: Int, active_state: String, rule_provenance: String, preview: ByteChunk)
@@ -26,7 +27,12 @@ end
 
 pub fn send_data(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, end_stream: Bool) -> CoreDataSendDecision
 	let data_length: Int = byte_count_to_int(byte_chunk_count(data))
-	if stream_id == 0
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if lifecycle_label != "open" and stream_id > last_stream_id
+		CoreDataSendRejected(CoreOutboundDataAfterGoaway(offset, 0, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else if stream_id == 0
 		CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, "stream-id-domain", "outbound_data_requires_open_stream", byte_chunk([])))
 	else
 		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
@@ -105,9 +111,20 @@ pub fn send_window_update(state: CoreConnectionState, offset: Int, stream_id: In
 		Ok(checked) => if stream_id == 0
 			send_connection_window_update(state, offset, stream_id, checked)
 		else
-			send_stream_window_update(state, offset, stream_id, checked)
+			send_stream_window_update_after_goaway_check(state, offset, stream_id, checked)
 		end
 		Err(_) => CoreWindowUpdateSendRejected(CoreOutboundWindowUpdateIncrement(offset, 8, stream_id, increment, "window-update-increment", "window_update_increment_range", byte_chunk([])))
+	end
+end
+
+fn send_stream_window_update_after_goaway_check(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
+	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	if lifecycle_label != "open" and stream_id > last_stream_id
+		CoreWindowUpdateSendRejected(CoreOutboundDataAfterGoaway(offset, 8, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
+	else
+		send_stream_window_update(state, offset, stream_id, increment)
 	end
 end
 
@@ -278,6 +295,7 @@ pub fn failure_id(failure: CoreOutboundDataFlowFailure) -> String
 		else
 			"http2.protocol.invalid_frame_kind"
 		end
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		CoreOutboundDataFlowControl(_, _, _, _, _, _, _, _) => "http2.flow_control.window_exceeded"
 		CoreOutboundDataContentLength(_, _, _, _, _, _, _, _) => "http2.protocol.content_length_mismatch"
 		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, _, _) => "http2.flow_control.window_increment_out_of_range"
@@ -288,6 +306,7 @@ end
 pub fn failure_offset(failure: CoreOutboundDataFlowFailure) -> Int
 	match failure
 		CoreOutboundDataInvalidStream(offset, _, _, _, _, _) => offset
+		CoreOutboundDataAfterGoaway(offset, _, _, _, _, _, _, _) => offset
 		CoreOutboundDataFlowControl(offset, _, _, _, _, _, _, _) => offset
 		CoreOutboundDataContentLength(offset, _, _, _, _, _, _, _) => offset
 		CoreOutboundWindowUpdateIncrement(offset, _, _, _, _, _, _) => offset
@@ -298,6 +317,7 @@ end
 pub fn failure_frame_kind(failure: CoreOutboundDataFlowFailure) -> Int
 	match failure
 		CoreOutboundDataInvalidStream(_, frame_kind, _, _, _, _) => frame_kind
+		CoreOutboundDataAfterGoaway(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		CoreOutboundDataFlowControl(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		CoreOutboundDataContentLength(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		CoreOutboundWindowUpdateIncrement(_, frame_kind, _, _, _, _, _) => frame_kind
@@ -308,6 +328,7 @@ end
 pub fn failure_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
 	match failure
 		CoreOutboundDataInvalidStream(_, _, stream_id, _, _, _) => stream_id
+		CoreOutboundDataAfterGoaway(_, _, stream_id, _, _, _, _, _) => stream_id
 		CoreOutboundDataFlowControl(_, _, stream_id, _, _, _, _, _) => stream_id
 		CoreOutboundDataContentLength(_, _, stream_id, _, _, _, _, _) => stream_id
 		CoreOutboundWindowUpdateIncrement(_, _, stream_id, _, _, _, _) => stream_id
@@ -327,6 +348,20 @@ pub fn failure_increment(failure: CoreOutboundDataFlowFailure) -> Int
 		CoreOutboundWindowUpdateIncrement(_, _, _, increment, _, _, _) => increment
 		CoreOutboundWindowUpdateFlowControl(_, _, _, increment, _, _, _, _) => increment
 		_ => 0
+	end
+end
+
+pub fn failure_last_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	match failure
+		CoreOutboundDataAfterGoaway(_, _, _, last_stream_id, _, _, _, _) => last_stream_id
+		_ => 0
+	end
+end
+
+pub fn failure_endpoint_role(failure: CoreOutboundDataFlowFailure) -> String
+	match failure
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, endpoint_role, _, _) => endpoint_role
+		_ => "none"
 	end
 end
 
@@ -355,6 +390,7 @@ end
 pub fn failure_active_state(failure: CoreOutboundDataFlowFailure) -> String
 	match failure
 		CoreOutboundDataInvalidStream(_, _, _, active_state, _, _) => active_state
+		CoreOutboundDataAfterGoaway(_, _, _, _, shutdown_state, _, _, _) => shutdown_state
 		CoreOutboundDataFlowControl(_, _, _, _, _, active_state, _, _) => active_state
 		CoreOutboundDataContentLength(_, _, _, _, _, active_state, _, _) => active_state
 		CoreOutboundWindowUpdateIncrement(_, _, _, _, active_state, _, _) => active_state
@@ -365,6 +401,7 @@ end
 pub fn failure_rule_provenance(failure: CoreOutboundDataFlowFailure) -> String
 	match failure
 		CoreOutboundDataInvalidStream(_, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		CoreOutboundDataFlowControl(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		CoreOutboundDataContentLength(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, rule_provenance, _) => rule_provenance
@@ -375,6 +412,7 @@ end
 pub fn failure_preview(failure: CoreOutboundDataFlowFailure) -> ByteChunk
 	match failure
 		CoreOutboundDataInvalidStream(_, _, _, _, _, preview) => preview
+		CoreOutboundDataAfterGoaway(_, _, _, _, _, _, _, preview) => preview
 		CoreOutboundDataFlowControl(_, _, _, _, _, _, _, preview) => preview
 		CoreOutboundDataContentLength(_, _, _, _, _, _, _, preview) => preview
 		CoreOutboundWindowUpdateIncrement(_, _, _, _, _, _, preview) => preview

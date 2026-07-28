@@ -1054,6 +1054,14 @@ pub fn outbound_data_flow_failure_increment(failure: CoreOutboundDataFlowFailure
 	http2::core::outbound_data_flow::failure_increment(failure)
 end
 
+pub fn outbound_data_flow_failure_last_stream_id(failure: CoreOutboundDataFlowFailure) -> Int
+	http2::core::outbound_data_flow::failure_last_stream_id(failure)
+end
+
+pub fn outbound_data_flow_failure_endpoint_role(failure: CoreOutboundDataFlowFailure) -> String
+	http2::core::outbound_data_flow::failure_endpoint_role(failure)
+end
+
 pub fn outbound_data_flow_failure_observed_value(failure: CoreOutboundDataFlowFailure) -> Int
 	http2::core::outbound_data_flow::failure_observed_value(failure)
 end

@@ -119,6 +119,8 @@ fn print_failure(label: String, failure: CoreOutboundDataFlowFailure) -> () effe
 	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_data_length(failure)))
 	stdio::print(" increment ")
 	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_increment(failure)))
+	stdio::print(" last ")
+	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_last_stream_id(failure)))
 	stdio::print(" observed ")
 	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_observed_value(failure)))
 	stdio::print(" expected ")
@@ -127,6 +129,8 @@ fn print_failure(label: String, failure: CoreOutboundDataFlowFailure) -> () effe
 	stdio::print(int_to_string(http2::core::outbound_data_flow_failure_content_length_observed(failure)))
 	stdio::print(" state ")
 	stdio::print(http2::core::outbound_data_flow_failure_active_state(failure))
+	stdio::print(" role ")
+	stdio::print(http2::core::outbound_data_flow_failure_endpoint_role(failure))
 	stdio::print(" rule ")
 	stdio::println(http2::core::outbound_data_flow_failure_rule_provenance(failure))
 end
@@ -160,5 +164,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let bad_increment: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 41, 1, 0)
 	print_failure("window-increment", require_window_failure(bad_increment)?)
 	print_empty("window-increment")
+	let late_entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 5, 10, 0 - 1, 0))?
+	let late_open: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), late_entry))
+	let late_state: CoreConnectionState = http2::core::connection_state_with_lifecycle(late_open, http2::core::connection_lifecycle_draining(5, 11))
+	let data_late: CoreDataSendDecision = http2::core::send_data(late_state, 43, 7, byte_chunk_from_hex("0102")?, false)
+	print_failure("data-goaway", require_data_failure(data_late)?)
+	print_empty("data-goaway")
+	let window_late: CoreWindowUpdateSendDecision = http2::core::send_window_update(late_state, 47, 7, 7)
+	print_failure("window-goaway", require_window_failure(window_late)?)
+	print_empty("window-goaway")
 	Ok(())
 end

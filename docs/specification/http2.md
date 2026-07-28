@@ -257,21 +257,28 @@ accepted transition debits the stream send credit by the DATA payload length,
 updates the stream content-length observed counter when an expected
 content-length is present, and applies local END_STREAM by moving an open
 stream to half-closed-local or closing a half-closed-remote stream. DATA
-stream-zero, idle, closed, reset, exhausted send-window, over-length, and
-short END_STREAM content-length cases reject with typed failures, no bytes,
-and no next state.
+stream-zero, idle, closed, reset, exhausted send-window, over-length, short
+END_STREAM content-length, and active GOAWAY boundary cases reject with typed
+failures, no bytes, and no next state. GOAWAY boundary failures expose
+`http2.protocol.stream_after_goaway`, the attempted stream id, retained
+last-stream-id, shutdown-state label, endpoint role, and
+`goaway_last_stream_id` provenance.
 
 `http2::core::send_window_update(state, offset, stream_id, increment)` emits a
 kind-`8`, flags-`0` WINDOW_UPDATE frame. Stream-level sends refill the target
 stream receive credit when the stream has a receive window. Connection-level
-sends refill the aggregate connection receive credit. Invalid increments,
-window overflow, idle stream references, and streams without receive-window
-ownership reject with typed failures, no bytes, and no next state.
+sends refill the aggregate connection receive credit. Connection-level
+WINDOW_UPDATE remains valid after GOAWAY, while stream-level WINDOW_UPDATE
+honors the retained GOAWAY last-stream-id boundary. Invalid increments, window
+overflow, idle stream references, streams beyond the active GOAWAY boundary,
+and streams without receive-window ownership reject with typed failures, no
+bytes, and no next state.
 The focused
 [`http2-core-outbound-data-flow`](../../examples/specification/run/http2-core-outbound-data-flow/)
 case records accepted DATA, stream WINDOW_UPDATE, and connection
 WINDOW_UPDATE bytes, accepted state projections, content-length shortfall,
-invalid-increment failures, empty failure output, and public failure fields.
+invalid-increment failures, DATA and stream WINDOW_UPDATE GOAWAY boundary
+failures, empty failure output, and public failure fields.
 
 `http2::core::send_request_headers(state, offset, stream_id, headers,
 end_stream)` validates a request header list, encodes it through the public

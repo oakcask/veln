@@ -301,12 +301,11 @@ fn assert_retired_zero_length_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
-	let item: { entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String } = retired_empty_data_item(name)?
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), item.entry))
-	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, item.data, item.end_stream)
+	let item: { state : CoreConnectionState, offset : Int, stream_id : Int, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String } = retired_empty_data_item(name)?
+	let decision: CoreDataSendDecision = http2::core::send_data(item.state, item.offset, item.stream_id, item.data, item.end_stream)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_data(http2::core::empty_output_buffer(), decision)
 	match http2::core::data_send_failure(decision)
-		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == item.failure_id and http2::core::outbound_data_flow_failure_frame_kind(failure) == 0 and http2::core::outbound_data_flow_failure_stream_id(failure) == 1 and http2::core::outbound_data_flow_failure_data_length(failure) == item.data_length and http2::core::outbound_data_flow_failure_observed_value(failure) == item.observed_value and http2::core::outbound_data_flow_failure_content_length_expected(failure) == item.content_length_expected and http2::core::outbound_data_flow_failure_content_length_observed(failure) == item.content_length_observed and http2::core::outbound_data_flow_failure_active_state(failure) == item.active_state and http2::core::outbound_data_flow_failure_rule_provenance(failure) == item.rule_provenance and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == item.failure_id and http2::core::outbound_data_flow_failure_offset(failure) == item.offset and http2::core::outbound_data_flow_failure_frame_kind(failure) == 0 and http2::core::outbound_data_flow_failure_stream_id(failure) == item.stream_id and http2::core::outbound_data_flow_failure_data_length(failure) == item.data_length and http2::core::outbound_data_flow_failure_observed_value(failure) == item.observed_value and http2::core::outbound_data_flow_failure_content_length_expected(failure) == item.content_length_expected and http2::core::outbound_data_flow_failure_content_length_observed(failure) == item.content_length_observed and http2::core::outbound_data_flow_failure_last_stream_id(failure) == item.last_stream_id and http2::core::outbound_data_flow_failure_endpoint_role(failure) == item.endpoint_role and http2::core::outbound_data_flow_failure_active_state(failure) == item.active_state and http2::core::outbound_data_flow_failure_rule_provenance(failure) == item.rule_provenance and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -412,12 +411,11 @@ fn retired_empty_push_promise_disabled_item(open_state: CoreConnectionState) -> 
 end
 
 fn assert_retired_empty_window_update_output_table(name: String) -> Result<(), String>
-	let expected_id: String = expected_retired_empty_window_update_failure_id(name)?
-	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483647)?)
-	let decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 0, 0, 1)
+	let item: { state : CoreConnectionState, offset : Int, stream_id : Int, increment : Int, failure_id : String, observed_value : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String } = retired_empty_window_update_item(name)?
+	let decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(item.state, item.offset, item.stream_id, item.increment)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(http2::core::empty_output_buffer(), decision)
 	match http2::core::window_update_send_failure(decision)
-		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == expected_id and http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == item.failure_id and http2::core::outbound_data_flow_failure_offset(failure) == item.offset and http2::core::outbound_data_flow_failure_frame_kind(failure) == 8 and http2::core::outbound_data_flow_failure_stream_id(failure) == item.stream_id and http2::core::outbound_data_flow_failure_increment(failure) == item.increment and http2::core::outbound_data_flow_failure_observed_value(failure) == item.observed_value and http2::core::outbound_data_flow_failure_last_stream_id(failure) == item.last_stream_id and http2::core::outbound_data_flow_failure_endpoint_role(failure) == item.endpoint_role and http2::core::outbound_data_flow_failure_active_state(failure) == item.active_state and http2::core::outbound_data_flow_failure_rule_provenance(failure) == item.rule_provenance and http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -531,44 +529,61 @@ fn retired_empty_settings_failure_matches(name: String, failure: LocalSettingsFa
 	Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == expected.offset and http2::core::local_settings_failure_setting_identifier(failure) == expected.setting_identifier and http2::core::local_settings_failure_setting_name(failure) == expected.setting_name and http2::core::local_settings_failure_observed_value(failure) == expected.observed_value and http2::core::local_settings_failure_accepted_min_value(failure) == expected.accepted_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected.accepted_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings")
 end
 
-fn retired_empty_data_item(name: String) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
+fn retired_data_state(entry: CoreStreamEntry) -> Result<CoreConnectionState, String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	Ok(http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry)))
+end
+
+fn retired_data_goaway_state(entry: CoreStreamEntry, last_stream_id: Int, error_code: Int) -> Result<CoreConnectionState, String>
+	let base: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(0)?, http2::core::connection_lifecycle_draining(last_stream_id, error_code))
+	Ok(http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry)))
+end
+
+fn retired_empty_data_item(name: String) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
 	if name == "http2-content-length-over"
-		retired_empty_data_content_length_item(4, 4, byte_chunk_from_hex("00")?, false, 5)
+		retired_empty_data_content_length_item(4, 4, byte_chunk_from_hex("aa")?, false, 5)
 	else if name == "http2-content-length-early-end-stream"
-		retired_empty_data_content_length_item(4, 1, byte_chunk_from_hex("00")?, true, 2)
+		retired_empty_data_content_length_item(4, 1, byte_chunk_from_hex("bb")?, true, 2)
 	else if name == "http2-data-padded-connection-window"
-		retired_empty_data_flow_item(0, byte_chunk_from_hex("0000")?, false, -2)
+		retired_empty_data_flow_item(0, byte_chunk_from_hex("aabb")?, false, -2)
 	else if name == "http2-data-padded-frame-size"
-		retired_empty_data_flow_item(1, byte_chunk_from_hex("000000")?, false, -2)
+		retired_empty_data_flow_item(1, byte_chunk_from_hex("aabbcc")?, false, -2)
 	else if name == "http2-data-connection-zero"
-		retired_empty_data_flow_item(0, byte_chunk_from_hex("00")?, false, -1)
+		retired_empty_data_flow_item(0, byte_chunk_from_hex("01")?, false, -1)
 	else if name == "http2-data-stream-zero"
-		retired_empty_data_flow_item(1, byte_chunk_from_hex("0000")?, false, -1)
+		retired_empty_data_flow_item(1, byte_chunk_from_hex("0102")?, false, -1)
 	else if name == "http2-data-connection-refill-before"
-		retired_empty_data_flow_item(2, byte_chunk_from_hex("00000000")?, false, -2)
+		retired_empty_data_flow_item(2, byte_chunk_from_hex("01020304")?, false, -2)
 	else if name == "http2-data-stream-refill-before"
-		retired_empty_data_flow_item(3, byte_chunk_from_hex("0000000000")?, false, -2)
+		retired_empty_data_flow_item(3, byte_chunk_from_hex("0102030405")?, false, -2)
 	else if name == "http2-data-after-local-window-update-no-refill"
-		retired_empty_data_flow_item(4, byte_chunk_from_hex("000000000000")?, false, -2)
+		retired_empty_data_flow_item(4, byte_chunk_from_hex("010203040506")?, false, -2)
 	else if name == "http2-data-after-initial-window-reduce"
-		retired_empty_data_flow_item(5, byte_chunk_from_hex("00000000000000")?, false, -2)
+		retired_empty_data_flow_item(5, byte_chunk_from_hex("01020304050607")?, false, -2)
 	else if name == "http2-data-after-goaway-late"
-		retired_empty_data_flow_item(6, byte_chunk_from_hex("0000000000000000")?, false, -2)
+		retired_empty_data_goaway_item(7, 5, 11)
 	else if name == "http2-data-after-local-goaway-late"
-		retired_empty_data_flow_item(7, byte_chunk_from_hex("000000000000000000")?, false, -2)
+		retired_empty_data_goaway_item(7, 5, 11)
 	else if name == "http2-data-after-narrow-local-goaway-late"
-		retired_empty_data_flow_item(8, byte_chunk_from_hex("00000000000000000000")?, false, -2)
+		retired_empty_data_goaway_item(5, 3, 22)
 	else
 		Err(name)
 	end
 end
 
-fn retired_empty_data_content_length_item(expected: Int, observed: Int, data: ByteChunk, end_stream: Bool, next_observed: Int) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
-	Ok({ entry: require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, expected, observed))?, data: data, end_stream: end_stream, failure_id: "http2.protocol.content_length_mismatch", data_length: 0, observed_value: 0, content_length_expected: expected, content_length_observed: next_observed, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body" })
+fn retired_empty_data_content_length_item(expected: Int, observed: Int, data: ByteChunk, end_stream: Bool, next_observed: Int) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, expected, observed))?
+	Ok({ state: retired_data_state(entry)?, offset: 0, stream_id: 1, data: data, end_stream: end_stream, failure_id: "http2.protocol.content_length_mismatch", data_length: 0, observed_value: 0, content_length_expected: expected, content_length_observed: next_observed, last_stream_id: 0, endpoint_role: "none", active_state: "open-stream", rule_provenance: "rfc9113_content_length_body" })
 end
 
-fn retired_empty_data_flow_item(send_credit: Int, data: ByteChunk, end_stream: Bool, observed_value: Int) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
-	Ok({ entry: require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, send_credit, 0 - 1, 0))?, data: data, end_stream: end_stream, failure_id: "http2.flow_control.window_exceeded", data_length: byte_count_to_int(byte_chunk_count(data)), observed_value: observed_value, content_length_expected: 0 - 1, content_length_observed: 0, active_state: "stream-send-window", rule_provenance: "outbound_data_debits_stream_send_window" })
+fn retired_empty_data_flow_item(send_credit: Int, data: ByteChunk, end_stream: Bool, observed_value: Int) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, send_credit, 0 - 1, 0))?
+	Ok({ state: retired_data_state(entry)?, offset: 0, stream_id: 1, data: data, end_stream: end_stream, failure_id: "http2.flow_control.window_exceeded", data_length: byte_count_to_int(byte_chunk_count(data)), observed_value: observed_value, content_length_expected: 0 - 1, content_length_observed: 0, last_stream_id: 0, endpoint_role: "none", active_state: "stream-send-window", rule_provenance: "outbound_data_debits_stream_send_window" })
+end
+
+fn retired_empty_data_goaway_item(stream_id: Int, last_stream_id: Int, error_code: Int) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(stream_id, http2::core::stream_open_lifecycle(), 10, 10, 0 - 1, 0))?
+	Ok({ state: retired_data_goaway_state(entry, last_stream_id, error_code)?, offset: 0, stream_id: stream_id, data: byte_chunk_from_hex("0102")?, end_stream: false, failure_id: "http2.protocol.stream_after_goaway", data_length: 0, observed_value: 0, content_length_expected: 0 - 1, content_length_observed: 0, last_stream_id: last_stream_id, endpoint_role: "server", active_state: "draining", rule_provenance: "goaway_last_stream_id" })
 end
 
 fn expected_retired_empty_headers_family(name: String) -> Result<String, String>
@@ -604,7 +619,9 @@ fn expected_retired_empty_push_promise_failure_id(name: String) -> Result<String
 end
 
 fn expected_retired_empty_window_update_family(name: String) -> Result<String, String>
-	if name == "http2-peer-settings-ack-cleared"
+	if name == "http2-window-update-after-goaway-late" or name == "http2-window-update-after-local-goaway-late"
+		Ok("window-update-goaway")
+	else if name == "http2-peer-settings-ack-cleared"
 		Err(name)
 	else
 		Ok("window-update")
@@ -613,11 +630,34 @@ end
 
 fn expected_retired_empty_window_update_failure_id(name: String) -> Result<String, String>
 	let family: String = expected_retired_empty_window_update_family(name)?
-	if family == "window-update"
+	if family == "window-update-goaway"
+		Ok("http2.protocol.stream_after_goaway")
+	else if family == "window-update"
 		Ok("http2.flow_control.window_exceeded")
 	else
 		Err(name)
 	end
+end
+
+fn retired_empty_window_update_item(name: String) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, increment : Int, failure_id : String, observed_value : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let family: String = expected_retired_empty_window_update_family(name)?
+	if family == "window-update-goaway"
+		retired_empty_window_update_goaway_item(7, 5, 11)
+	else
+		retired_empty_window_update_overflow_item(name)
+	end
+end
+
+fn retired_empty_window_update_overflow_item(name: String) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, increment : Int, failure_id : String, observed_value : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483647)?)
+	Ok({ state: state, offset: 0, stream_id: 0, increment: 1, failure_id: expected_retired_empty_window_update_failure_id(name)?, observed_value: 2147483648, last_stream_id: 0, endpoint_role: "none", active_state: "connection-receive-window", rule_provenance: "outbound_window_update_refills_connection_receive_window" })
+end
+
+fn retired_empty_window_update_goaway_item(stream_id: Int, last_stream_id: Int, error_code: Int) -> Result<{ state : CoreConnectionState, offset : Int, stream_id : Int, increment : Int, failure_id : String, observed_value : Int, last_stream_id : Int, endpoint_role : String, active_state : String, rule_provenance : String }, String>
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(stream_id, http2::core::stream_open_lifecycle(), 10, 10, 0 - 1, 0))?
+	let base: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(0)?, http2::core::connection_lifecycle_draining(last_stream_id, error_code))
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	Ok({ state: state, offset: 0, stream_id: stream_id, increment: 7, failure_id: "http2.protocol.stream_after_goaway", observed_value: 0, last_stream_id: last_stream_id, endpoint_role: "server", active_state: "draining", rule_provenance: "goaway_last_stream_id" })
 end
 
 fn expected_retired_empty_priority_family(name: String) -> Result<String, String>
