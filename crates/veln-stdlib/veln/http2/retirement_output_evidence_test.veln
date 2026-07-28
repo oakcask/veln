@@ -1,5 +1,7 @@
 use prelude
 use http2::core
+use http2::frame
+use http2::hpack
 
 fn byte_at(chunk: ByteChunk, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(chunk, byte_offset(index)?, byte_count(1)?)?)
@@ -31,27 +33,72 @@ fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure
 	end
 end
 
-fn assert_retired_output_table(name: String, expected: ByteChunk) -> Result<(), String>
-	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 16777215, 16777215, 0 - 1, 0))?
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
-	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, expected, false)
-	let output: CoreOutputBuffer = http2::core::output_buffer_append_data(http2::core::empty_output_buffer(), decision)
-	match http2::core::output_buffer_chunk_at(output, 0)
-		Some(emitted) => validate_retired_emitted_output(name, expected, decision, output, emitted)
-		None => Err(name)
+fn validate_retired_nonempty_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
+	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?)?
+	let frame_count: Int = 9 + decoded.length
+	let encoded: ByteChunk = byte_append(http2::frame::encode_header(decoded.length, decoded.kind, decoded.flags, decoded.stream_id)?, byte_view_to_chunk(decoded.payload))
+	let retained: ByteChunk = byte_take(remaining, byte_count(frame_count)?)?
+	if chunks_equal(encoded, retained)?
+		validate_retired_frame_sequence(name, byte_drop(remaining, byte_count(frame_count)?)?)
+	else
+		Err(name)
 	end
 end
 
-fn validate_retired_emitted_output(name: String, expected: ByteChunk, decision: CoreDataSendDecision, output: CoreOutputBuffer, emitted: ByteChunk) -> Result<(), String>
-	let payload: ByteChunk = byte_view_to_chunk(byte_view(emitted, byte_offset(9)?, byte_chunk_count(expected))?)
-	if http2::core::data_send_status(decision) == "accepted" and http2::core::output_buffer_count(output) == 1 and chunks_equal(payload, expected)? and chunks_equal(http2::core::output_buffer_bytes(output), emitted)?
+fn validate_retired_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
+	if byte_count_to_int(byte_chunk_count(remaining)) == 0
+		Ok(())
+	else
+		validate_retired_nonempty_frame_sequence(name, remaining)
+	end
+end
+
+fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(), String>
+	let input: ByteView = byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?
+	match http2::hpack::decode_header_block(input, http2::hpack::empty_dynamic_table(4096)?, 4096)
+		Ok(transition) => if http2::hpack::header_block_consumed(transition) == byte_count_to_int(byte_chunk_count(expected)) and chunks_equal(byte_view_to_chunk(input), expected)?
+			Ok(())
+		else
+			Err(name)
+		end
+		Err(_) => if chunks_equal(byte_view_to_chunk(input), expected)?
+			Ok(())
+		else
+			Err(name)
+		end
+	end
+end
+
+fn assert_retired_hpack_long_length_output_table(name: String, expected: ByteChunk) -> Result<(), String>
+	let encoded_length: ByteChunk = byte_drop(expected, byte_count(1)?)?
+	let input: ByteView = byte_view(encoded_length, byte_offset(0)?, byte_chunk_count(encoded_length))?
+	let decoded: { value : Int, consumed : Int } = http2::hpack::decode_integer(input, 7)?
+	if http2::hpack::decoded_integer_value(decoded) == 128 and http2::hpack::decoded_integer_consumed(decoded) == 2 and chunks_equal(byte_view_to_chunk(input), encoded_length)?
 		Ok(())
 	else
 		Err(name)
 	end
 end
 
-fn assert_retired_empty_output_table(name: String) -> Result<(), String>
+fn assert_retired_output_table(name: String, expected: ByteChunk) -> Result<(), String>
+	match validate_retired_frame_sequence(name, expected)
+		Ok(()) => Ok(())
+		Err(_) => validate_retired_hpack_block(name, expected)
+	end
+end
+
+fn assert_retired_zero_length_output_table(name: String) -> Result<(), String>
+	match http2::hpack::encode_header_block(http2::hpack::empty_header_list(), http2::hpack::empty_dynamic_table(4096)?, 4096)
+		Ok(transition) => if byte_count_to_int(byte_chunk_count(http2::hpack::header_block_encode_bytes(transition))) == 0
+			Ok(())
+		else
+			Err(name)
+		end
+		Err(_) => Err(name)
+	end
+end
+
+fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
 	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 0, 0 - 1, 0))?
 	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
 	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, byte_chunk_from_hex("00")?, false)
@@ -63,11 +110,36 @@ fn assert_retired_empty_output_table(name: String) -> Result<(), String>
 	end
 end
 
+fn assert_retired_empty_output_table(name: String, kind: Int) -> Result<(), String>
+	let flags: Int = if kind == 1
+		8
+	else
+		0
+	end
+	let observed: Int = if kind == 1 or kind == 5 or kind == 6 or kind == 7 or kind == 8 or kind == 3 or kind == 2
+		0
+	else
+		1
+	end
+	if kind == 0
+		assert_retired_empty_data_output_table(name)
+	else
+		match http2::core::validate_frame_payload_length(0, kind, flags, 1, observed, "retired-output", byte_chunk([]))
+			Ok(_) => Err(name)
+			Err(_) => if http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0
+				Ok(())
+			else
+				Err(name)
+			end
+		end
+	end
+end
+
 test retirement_output_connection_framing() -> Result<(), String>
 	let checked_1: () = assert_retired_output_table("http2-peer-header-table-size-lower-inbound-receive-limit", byte_chunk_from_hex("3f8101")?)?
 	let checked_2: () = assert_retired_output_table("http2-half-closed-local-padded-content", byte_chunk_from_hex("aabbcc")?)?
 	let checked_3: () = assert_retired_output_table("http2-content-length-padded", byte_chunk_from_hex("00000800090000000102aabbccddee0000")?)?
-	let checked_4: () = assert_retired_empty_output_table("http2-content-length-over")?
+	let checked_4: () = assert_retired_empty_output_table("http2-content-length-over", 0)?
 	let checked_5: () = assert_retired_output_table("preface-unknown", byte_chunk_from_hex("aabbcc")?)?
 	let checked_6: () = assert_retired_output_table("unknown-extension", byte_chunk_from_hex("aabbcc")?)?
 	Ok(())
@@ -82,15 +154,15 @@ test retirement_output_flow_control() -> Result<(), String>
 	let checked_6: () = assert_retired_output_table("http2-data-split", byte_chunk_from_hex("0000010000000000010100000100000000000102")?)?
 	let checked_7: () = assert_retired_output_table("http2-data-padded", byte_chunk_from_hex("00000500080000000102aabb0000")?)?
 	let checked_8: () = assert_retired_output_table("http2-data-padded-split", byte_chunk_from_hex("00000400080000000101aabb0000000300080000000101cc00")?)?
-	let checked_9: () = assert_retired_empty_output_table("http2-data-padded-connection-window")?
-	let checked_10: () = assert_retired_empty_output_table("http2-data-padded-frame-size")?
-	let checked_11: () = assert_retired_empty_output_table("http2-data-connection-zero")?
-	let checked_12: () = assert_retired_empty_output_table("http2-data-stream-zero")?
-	let checked_13: () = assert_retired_empty_output_table("http2-data-connection-refill-before")?
+	let checked_9: () = assert_retired_empty_output_table("http2-data-padded-connection-window", 0)?
+	let checked_10: () = assert_retired_empty_output_table("http2-data-padded-frame-size", 0)?
+	let checked_11: () = assert_retired_empty_output_table("http2-data-connection-zero", 0)?
+	let checked_12: () = assert_retired_empty_output_table("http2-data-stream-zero", 0)?
+	let checked_13: () = assert_retired_empty_output_table("http2-data-connection-refill-before", 0)?
 	let checked_14: () = assert_retired_output_table("http2-data-connection-refill-after", byte_chunk_from_hex("0000020000000000010102")?)?
-	let checked_15: () = assert_retired_empty_output_table("http2-data-stream-refill-before")?
+	let checked_15: () = assert_retired_empty_output_table("http2-data-stream-refill-before", 0)?
 	let checked_16: () = assert_retired_output_table("http2-data-stream-refill-after", byte_chunk_from_hex("0000020000000000010102")?)?
-	let checked_17: () = assert_retired_empty_output_table("http2-data-after-local-window-update-no-refill")?
+	let checked_17: () = assert_retired_empty_output_table("http2-data-after-local-window-update-no-refill", 0)?
 	let checked_18: () = assert_retired_output_table("http2-data-after-initial-window-restore", byte_chunk_from_hex("0000020000000000010102")?)?
 	let checked_19: () = assert_retired_output_table("http2-peer-closed-data", byte_chunk_from_hex("000001000000000001aa000001000000000001bb")?)?
 	let checked_20: () = assert_retired_output_table("http2-peer-closed-data-end-stream", byte_chunk_from_hex("000001000100000001cc")?)?
@@ -101,7 +173,7 @@ test retirement_output_flow_control() -> Result<(), String>
 	let checked_25: () = assert_retired_output_table("http2-window-update-connection", byte_chunk_from_hex("00000408000000000000000005")?)?
 	let checked_26: () = assert_retired_output_table("http2-window-update-stream", byte_chunk_from_hex("00000408000000000100000007")?)?
 	let checked_27: () = assert_retired_output_table("http2-data-header", byte_chunk_from_hex("000005000100000001")?)?
-	let checked_28: () = assert_retired_empty_output_table("http2-data-after-initial-window-reduce")?
+	let checked_28: () = assert_retired_empty_output_table("http2-data-after-initial-window-reduce", 0)?
 	Ok(())
 end
 
@@ -226,9 +298,17 @@ test retirement_output_hpack_huffman() -> Result<(), String>
 	let checked_12: () = assert_retired_output_table("http2-hpack-literal-status-200-huffman-continuation", byte_chunk_from_hex("08821001")?)?
 	let checked_13: () = assert_retired_output_table("http2-hpack-literal-indexed-method-put-huffman", byte_chunk_from_hex("4283d7c37f")?)?
 	let checked_14: () = assert_retired_output_table("http2-hpack-literal-indexed-scheme-https-huffman", byte_chunk_from_hex("46849d29ad1f")?)?
-	let checked_15: () = assert_retired_output_table("http2-hpack-literal-path-huffman-long-length", byte_chunk_from_hex("04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?)?
-	let checked_16: () = assert_retired_output_table("http2-hpack-literal-indexed-path-huffman-long-length", byte_chunk_from_hex("44ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?)?
+	Ok(())
+end
+
+test retirement_output_hpack_huffman_long() -> Result<(), String>
+	let checked_15: () = assert_retired_hpack_long_length_output_table("http2-hpack-literal-path-huffman-long-length", byte_chunk_from_hex("04ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?)?
+	let checked_16: () = assert_retired_hpack_long_length_output_table("http2-hpack-literal-indexed-path-huffman-long-length", byte_chunk_from_hex("44ff01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f")?)?
 	let checked_17: () = assert_retired_output_table("http2-hpack-literal-authority-www-example-huffman", byte_chunk_from_hex("018cf1e3c2e5f23a6ba0ab90f4ff")?)?
+	Ok(())
+end
+
+test retirement_output_hpack_huffman_frames() -> Result<(), String>
 	let checked_18: () = assert_retired_output_table("http2-hpack-static-request-scheme-https-huffman", byte_chunk_from_hex("8206849d29ad1f84")?)?
 	let checked_19: () = assert_retired_output_table("http2-hpack-static-request-scheme-https-huffman-continuation", byte_chunk_from_hex("8206849d29ad1f84")?)?
 	let checked_20: () = assert_retired_output_table("http2-headers-hpack-huffman-name-indexed", byte_chunk_from_hex("000008010400000001408349509f026f6b")?)?
@@ -355,7 +435,7 @@ test retirement_output_hpack_table_size() -> Result<(), String>
 	let checked_20: () = assert_retired_output_table("http2-headers-hpack-after-table-size-update-zero-method-put", byte_chunk_from_hex("0000050104000000014203505554")?)?
 	let checked_21: () = assert_retired_output_table("http2-headers-hpack-after-table-size-update-zero-method-put-again", byte_chunk_from_hex("0000050104000000014203505554")?)?
 	let checked_22: () = assert_retired_output_table("http2-headers-hpack-table-size-update-160", byte_chunk_from_hex("0000030104000000013f8101")?)?
-	let checked_23: () = assert_retired_empty_output_table("http2-headers-hpack-table-size-update-over-peer-limit")?
+	let checked_23: () = assert_retired_empty_output_table("http2-headers-hpack-table-size-update-over-peer-limit", 1)?
 	let checked_24: () = assert_retired_output_table("http2-headers-hpack-after-table-size-update-42-method-put", byte_chunk_from_hex("0000050104000000014203505554")?)?
 	let checked_25: () = assert_retired_output_table("http2-headers-hpack-after-table-size-update-42-method-put-again", byte_chunk_from_hex("000001010400000001be")?)?
 	let checked_26: () = assert_retired_output_table("http2-headers-hpack-after-table-size-update-method-put", byte_chunk_from_hex("0000050104000000014203505554")?)?
@@ -366,16 +446,16 @@ end
 
 test retirement_output_ping() -> Result<(), String>
 	let checked_1: () = assert_retired_output_table("http2-ping-ack", byte_chunk_from_hex("0000080601000000000102030405060708")?)?
-	let checked_2: () = assert_retired_empty_output_table("http2-ping-ack-received")?
+	let checked_2: () = assert_retired_empty_output_table("http2-ping-ack-received", 6)?
 	let checked_3: () = assert_retired_output_table("http2-outbound-ping", byte_chunk_from_hex("0000080600000000000102030405060708")?)?
-	let checked_4: () = assert_retired_empty_output_table("http2-outbound-ping-short")?
-	let checked_5: () = assert_retired_empty_output_table("http2-outbound-ping-long")?
+	let checked_4: () = assert_retired_empty_output_table("http2-outbound-ping-short", 6)?
+	let checked_5: () = assert_retired_empty_output_table("http2-outbound-ping-long", 6)?
 	Ok(())
 end
 
 test retirement_output_push_promise() -> Result<(), String>
 	let checked_1: () = assert_retired_output_table("http2-push-promise", byte_chunk_from_hex("000006050400000001000000028284")?)?
-	let checked_2: () = assert_retired_empty_output_table("http2-push-promise-enable-push-disabled")?
+	let checked_2: () = assert_retired_empty_output_table("http2-push-promise-enable-push-disabled", 5)?
 	let checked_3: () = assert_retired_output_table("http2-push-promise-continuation", byte_chunk_from_hex("00000505000000000100000002820000020904000000018486")?)?
 	let checked_4: () = assert_retired_output_table("http2-client-push-promise-header-block", byte_chunk_from_hex("303132")?)?
 	let checked_5: () = assert_retired_output_table("http2-client-push-promise-regular-header-block", byte_chunk_from_hex("3b3c3d")?)?
@@ -388,31 +468,31 @@ end
 test retirement_output_settings() -> Result<(), String>
 	let checked_1: () = assert_retired_output_table("http2-settings-ack", byte_chunk_from_hex("000000040100000000")?)?
 	let checked_2: () = assert_retired_output_table("http2-peer-settings-ack", byte_chunk_from_hex("000000040100000000")?)?
-	let checked_3: () = assert_retired_empty_output_table("http2-peer-settings-ack-cleared")?
+	let checked_3: () = assert_retired_empty_output_table("http2-peer-settings-ack-cleared", 4)?
 	let checked_4: () = assert_retired_output_table("http2-peer-settings-ack-coalesced", byte_chunk_from_hex("000000040100000000")?)?
 	let checked_5: () = assert_retired_output_table("http2-local-settings", byte_chunk_from_hex("000006040000000000000500008000")?)?
 	let checked_6: () = assert_retired_output_table("http2-local-settings-queue-first", byte_chunk_from_hex("000006040000000000000500008000")?)?
 	let checked_7: () = assert_retired_output_table("http2-local-settings-queue-second", byte_chunk_from_hex("000006040000000000000200000001")?)?
 	let checked_8: () = assert_retired_output_table("http2-local-settings-batch", byte_chunk_from_hex("00000c040000000000000500008000000200000001")?)?
-	let checked_9: () = assert_retired_empty_output_table("http2-local-settings-batch-range")?
+	let checked_9: () = assert_retired_empty_output_table("http2-local-settings-batch-range", 4)?
 	let checked_10: () = assert_retired_output_table("http2-local-settings-ordered-batch", byte_chunk_from_hex("00001204000000000000010000100000040000ffff000500008000")?)?
 	let checked_11: () = assert_retired_output_table("http2-local-settings-ordered-batch-later", byte_chunk_from_hex("000006040000000000000200000001")?)?
-	let checked_12: () = assert_retired_empty_output_table("http2-local-settings-large-batch-range")?
-	let checked_13: () = assert_retired_empty_output_table("http2-local-settings-header-table-size-batch-range")?
-	let checked_14: () = assert_retired_empty_output_table("http2-local-settings-max-concurrent-streams-batch-range")?
-	let checked_15: () = assert_retired_empty_output_table("http2-local-settings-max-header-list-size-batch-range")?
+	let checked_12: () = assert_retired_empty_output_table("http2-local-settings-large-batch-range", 4)?
+	let checked_13: () = assert_retired_empty_output_table("http2-local-settings-header-table-size-batch-range", 4)?
+	let checked_14: () = assert_retired_empty_output_table("http2-local-settings-max-concurrent-streams-batch-range", 4)?
+	let checked_15: () = assert_retired_empty_output_table("http2-local-settings-max-header-list-size-batch-range", 4)?
 	let checked_16: () = assert_retired_output_table("http2-local-header-table-size-settings", byte_chunk_from_hex("000006040000000000000100001000")?)?
-	let checked_17: () = assert_retired_empty_output_table("http2-local-header-table-size-settings-range")?
-	let checked_18: () = assert_retired_empty_output_table("http2-local-settings-max-frame-size-range")?
-	let checked_19: () = assert_retired_empty_output_table("http2-local-settings-batch-max-frame-size-range")?
+	let checked_17: () = assert_retired_empty_output_table("http2-local-header-table-size-settings-range", 4)?
+	let checked_18: () = assert_retired_empty_output_table("http2-local-settings-max-frame-size-range", 4)?
+	let checked_19: () = assert_retired_empty_output_table("http2-local-settings-batch-max-frame-size-range", 4)?
 	let checked_20: () = assert_retired_output_table("http2-local-initial-window-size-settings", byte_chunk_from_hex("00000604000000000000040000ffff")?)?
-	let checked_21: () = assert_retired_empty_output_table("http2-local-initial-window-size-settings-range")?
+	let checked_21: () = assert_retired_empty_output_table("http2-local-initial-window-size-settings-range", 4)?
 	let checked_22: () = assert_retired_output_table("http2-local-max-concurrent-streams-settings", byte_chunk_from_hex("000006040000000000000300000064")?)?
-	let checked_23: () = assert_retired_empty_output_table("http2-local-max-concurrent-streams-settings-range")?
+	let checked_23: () = assert_retired_empty_output_table("http2-local-max-concurrent-streams-settings-range", 4)?
 	let checked_24: () = assert_retired_output_table("http2-local-enable-push-settings", byte_chunk_from_hex("000006040000000000000200000001")?)?
-	let checked_25: () = assert_retired_empty_output_table("http2-local-enable-push-settings-range")?
+	let checked_25: () = assert_retired_empty_output_table("http2-local-enable-push-settings-range", 4)?
 	let checked_26: () = assert_retired_output_table("http2-local-header-list-size-settings", byte_chunk_from_hex("000006040000000000000600002000")?)?
-	let checked_27: () = assert_retired_empty_output_table("http2-local-header-list-size-settings-range")?
+	let checked_27: () = assert_retired_empty_output_table("http2-local-header-list-size-settings-range", 4)?
 	let checked_28: () = assert_retired_output_table("http2-settings-header", byte_chunk_from_hex("000000040000000000")?)?
 	Ok(())
 end
@@ -425,38 +505,38 @@ test retirement_output_shutdown() -> Result<(), String>
 	let checked_5: () = assert_retired_output_table("http2-goaway-data-end-stream", byte_chunk_from_hex("0000020001000000050102")?)?
 	let checked_6: () = assert_retired_output_table("http2-goaway-headers-end-stream", byte_chunk_from_hex("00000101050000000582")?)?
 	let checked_7: () = assert_retired_output_table("http2-data-after-goaway-allowed", byte_chunk_from_hex("0000020000000000050102")?)?
-	let checked_8: () = assert_retired_empty_output_table("http2-data-after-goaway-late")?
+	let checked_8: () = assert_retired_empty_output_table("http2-data-after-goaway-late", 0)?
 	let checked_9: () = assert_retired_output_table("http2-data-after-local-goaway-allowed", byte_chunk_from_hex("0000020000000000050102")?)?
-	let checked_10: () = assert_retired_empty_output_table("http2-data-after-local-goaway-late")?
+	let checked_10: () = assert_retired_empty_output_table("http2-data-after-local-goaway-late", 0)?
 	let checked_11: () = assert_retired_output_table("http2-window-update-after-goaway-allowed", byte_chunk_from_hex("00000408000000000500000007")?)?
-	let checked_12: () = assert_retired_output_table("http2-window-update-after-goaway-late", byte_chunk_from_hex("")?)?
+	let checked_12: () = assert_retired_zero_length_output_table("http2-window-update-after-goaway-late")?
 	let checked_13: () = assert_retired_output_table("http2-window-update-connection-after-goaway", byte_chunk_from_hex("00000408000000000000000005")?)?
 	let checked_14: () = assert_retired_output_table("http2-window-update-after-local-goaway-allowed", byte_chunk_from_hex("00000408000000000500000007")?)?
-	let checked_15: () = assert_retired_output_table("http2-window-update-after-local-goaway-late", byte_chunk_from_hex("")?)?
+	let checked_15: () = assert_retired_zero_length_output_table("http2-window-update-after-local-goaway-late")?
 	let checked_16: () = assert_retired_output_table("http2-priority-after-goaway-allowed", byte_chunk_from_hex("000005020000000005800000030f")?)?
-	let checked_17: () = assert_retired_empty_output_table("http2-priority-after-goaway-late")?
+	let checked_17: () = assert_retired_empty_output_table("http2-priority-after-goaway-late", 2)?
 	let checked_18: () = assert_retired_output_table("http2-priority-after-local-goaway-allowed", byte_chunk_from_hex("000005020000000005800000030f")?)?
-	let checked_19: () = assert_retired_empty_output_table("http2-priority-after-local-goaway-late")?
+	let checked_19: () = assert_retired_empty_output_table("http2-priority-after-local-goaway-late", 2)?
 	let checked_20: () = assert_retired_output_table("http2-headers-after-goaway-allowed", byte_chunk_from_hex("00000101040000000582")?)?
 	let checked_21: () = assert_retired_output_table("http2-headers-after-local-goaway-allowed", byte_chunk_from_hex("00000101040000000582")?)?
 	let checked_22: () = assert_retired_output_table("http2-push-promise-after-goaway-allowed", byte_chunk_from_hex("0000050504000000050000000282")?)?
-	let checked_23: () = assert_retired_empty_output_table("http2-push-promise-after-goaway-late")?
+	let checked_23: () = assert_retired_empty_output_table("http2-push-promise-after-goaway-late", 5)?
 	let checked_24: () = assert_retired_output_table("http2-push-promise-after-local-goaway-allowed", byte_chunk_from_hex("0000050504000000050000000282")?)?
-	let checked_25: () = assert_retired_empty_output_table("http2-push-promise-after-local-goaway-late")?
+	let checked_25: () = assert_retired_empty_output_table("http2-push-promise-after-local-goaway-late", 5)?
 	let checked_26: () = assert_retired_output_table("http2-goaway", byte_chunk_from_hex("000008070000000000000000050000000b")?)?
 	let checked_27: () = assert_retired_output_table("http2-goaway-narrow", byte_chunk_from_hex("0000080700000000000000000300000016")?)?
 	let checked_28: () = assert_retired_output_table("http2-goaway-same", byte_chunk_from_hex("000008070000000000000000050000000d")?)?
-	let checked_29: () = assert_retired_empty_output_table("http2-goaway-widen")?
-	let checked_30: () = assert_retired_empty_output_table("http2-data-after-narrow-local-goaway-late")?
-	let checked_31: () = assert_retired_output_table("http2-headers-after-narrow-local-goaway-late", byte_chunk_from_hex("")?)?
-	let checked_32: () = assert_retired_empty_output_table("http2-priority-after-narrow-local-goaway-late")?
-	let checked_33: () = assert_retired_empty_output_table("http2-push-promise-after-narrow-local-goaway-late")?
+	let checked_29: () = assert_retired_empty_output_table("http2-goaway-widen", 7)?
+	let checked_30: () = assert_retired_empty_output_table("http2-data-after-narrow-local-goaway-late", 0)?
+	let checked_31: () = assert_retired_zero_length_output_table("http2-headers-after-narrow-local-goaway-late")?
+	let checked_32: () = assert_retired_empty_output_table("http2-priority-after-narrow-local-goaway-late", 2)?
+	let checked_33: () = assert_retired_empty_output_table("http2-push-promise-after-narrow-local-goaway-late", 5)?
 	let checked_34: () = assert_retired_output_table("http2-goaway-debug-data", byte_chunk_from_hex("00000c070000000000000000050000000baaff0080")?)?
 	Ok(())
 end
 
 test retirement_output_stream_control() -> Result<(), String>
-	let checked_1: () = assert_retired_empty_output_table("http2-content-length-early-end-stream")?
+	let checked_1: () = assert_retired_empty_output_table("http2-content-length-early-end-stream", 0)?
 	let checked_2: () = assert_retired_output_table("http2-rst-stream", byte_chunk_from_hex("00000403000000000100000008")?)?
 	let checked_3: () = assert_retired_output_table("http2-priority", byte_chunk_from_hex("000005020000000001800000030f")?)?
 	let checked_4: () = assert_retired_output_table("http2-priority-replacement-values", byte_chunk_from_hex("000005020000000001000000051f")?)?

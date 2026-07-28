@@ -161,6 +161,13 @@ sub evidence_assertion {
         my ($body) = $source =~ /(^test \Q$name\E\(.*?)(?=^test |\z)/ms;
         die "missing executable evidence $needle in $path\n" if !defined $body;
         validate_veln_test($path, $needle, $body, $source);
+        if (
+            $path eq
+                "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln"
+        ) {
+            validate_retirement_output_implementation($source);
+            return $source;
+        }
         return $body;
     }
 
@@ -180,6 +187,21 @@ sub evidence_assertion {
     return $path =~ m{/main\.veln$} ? "$source\0$assertion" : $assertion;
 }
 
+sub validate_retirement_output_implementation {
+    my ($source) = @_;
+    die "retirement output evidence nests historical chunks inside DATA frames\n"
+        if $source =~ /send_data\([^\n]*,\s*expected,\s*false\)/
+            || $source =~ /byte_view\(\s*emitted,\s*byte_offset\(9\)/;
+    die "retirement output evidence does not reconstruct complete frame sequences\n"
+        if $source !~ /\bhttp2::frame::decode\b/
+            || $source !~ /\bhttp2::frame::encode_header\b/;
+    die "retirement output evidence does not cross the production HPACK decoder\n"
+        if $source !~ /\bhttp2::hpack::decode_header_block\b/;
+    die "retirement empty-output evidence does not preserve frame-specific failure domains\n"
+        if $source !~ /assert_retired_empty_output_table\(name: String, kind: Int\)/
+            || $source !~ /\bhttp2::core::validate_frame_payload_length\b/;
+}
+
 sub validate_veln_test {
     my ($path, $needle, $body, $source) = @_;
     die "evidence test $needle in $path does not call the public HTTP/2 boundary\n"
@@ -194,7 +216,7 @@ sub exercises_public_http2_boundary {
     my %visited;
     while (@pending) {
         my $current = shift @pending;
-        return 1 if $current =~ /\bhttp2::(?:core|hpack)::[A-Za-z0-9_]+\b/;
+        return 1 if $current =~ /\bhttp2::(?:core|frame|hpack)::[A-Za-z0-9_]+\b/;
         for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
             next if $visited{$callee}++;
             my ($helper) =
@@ -265,9 +287,19 @@ sub validate_evidence_relevance {
                 && $manifest_row->{evidence} =~
                     m{^crates/veln-stdlib/veln/http2/retirement_output_evidence_test\.veln#}
         ) {
-            my $call = @$chunks == 0
-                ? qq{assert_retired_empty_output_table("$name")?}
-                : qq{assert_retired_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            my $call;
+            if (@$chunks == 0) {
+                my $kind = output_table_frame_kind($name);
+                $call = qq{assert_retired_empty_output_table("$name", $kind)?};
+            } elsif ($chunks->[0] eq "") {
+                $call = qq{assert_retired_zero_length_output_table("$name")?};
+            } elsif ($name =~ /hpack-.*huffman-long-length$/) {
+                $call =
+                    qq{assert_retired_hpack_long_length_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            } else {
+                $call =
+                    qq{assert_retired_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            }
             my $call_count = () = $assertion =~ /\Q$call\E/g;
             die "evidence for $row->{key} does not independently assert its exact output table\n"
                 if $call_count != 1;
@@ -321,6 +353,116 @@ sub validate_evidence_relevance {
         return;
     }
 
+    my ($caller, $helper) = split /\t/, $row->{value}, 3;
+    my $domain = helper_evidence_domain($caller, $helper);
+    die "evidence for $row->{key} does not exercise its $domain->{label} domain\n"
+        if $assertion !~ $domain->{pattern};
+}
+
+sub helper_evidence_domain {
+    my ($caller, $helper) = @_;
+    my $identity = "$caller $helper";
+
+    return {
+        label => "PUSH_PROMISE with production HPACK",
+        pattern => qr/\b(?:push_promise|send_push_promise)/i,
+    } if $helper =~ /outbound_push_promise/;
+    return {
+        label => "HEADERS with production HPACK",
+        pattern => qr/\b(?:headers|send_request_headers|send_response_headers|send_trailers)/i,
+    } if $helper =~ /outbound_headers/;
+    return {
+        label => "outbound production HPACK",
+        pattern => qr/\b(?:http2::hpack::|send_request_headers|send_response_headers|send_trailers|send_push_promise)/i,
+    } if $helper =~ /outbound_hpack/;
+    return {
+        label => "production outbound header octets",
+        pattern => qr/\b(?:http2::hpack::|send_request_headers|send_response_headers|send_trailers|send_push_promise)/i,
+    } if $caller =~ /production_outbound/;
+    return {
+        label => "HPACK codec",
+        pattern => qr/\bhttp2::hpack::/,
+    } if $identity =~ /hpack/i;
+    return {
+        label => "aggregate connection-state preservation",
+        pattern => qr/\b(?:connection_state|stream_collection|flow_control|content_length|priority|shutdown|http2::hpack::)/i,
+    } if $caller eq "require_peer_stream_failure_preserves_connection_state";
+    return {
+        label => "HEADERS padding",
+        pattern => qr/\b(?:headers|frame_payload)/i,
+    } if $caller eq "require_headers_padding_rejection_preserves_state";
+    return {
+        label => "initial peer SETTINGS",
+        pattern => qr/\b(?:initial_peer_settings|settings)/i,
+    } if $caller =~ /initial_peer_settings/i;
+    return {
+        label => "PUSH_PROMISE",
+        pattern => qr/\b(?:push_promise|reserved_by_peer|promised_stream)/i,
+    } if $identity =~ /push|promised/i;
+    return {
+        label => "SETTINGS",
+        pattern => qr/\b(?:settings|initial_peer_settings|peer_settings)/i,
+    } if $identity =~ /settings/i;
+    return {
+        label => "outbound DATA and flow-control",
+        pattern => qr/\b(?:send_data|data_send|flow_control|send_credit|window_update|initial_window|peer_settings)/i,
+    } if $identity =~ /(?:outbound_data|outbound_credit|initial_window|flow_control)/i;
+    return {
+        label => "header-list and HEADERS",
+        pattern => qr/\b(?:header_list|headers|receive_frame|send_request_headers|send_response_headers|send_trailers)/i,
+    } if $identity =~ /(?:header|response|request|informational|no_content|head_|extended_connect)/i;
+    return {
+        label => "stream-id and peer-stream",
+        pattern => qr/\b(?:stream_id|stream_collection|peer_stream|stream_admission|receive_frame)/i,
+    } if $identity =~ /(?:stream_id|peer_stream|client_stream|server_stream|closed_peer)/i;
+    return {
+        label => "production receive-frame",
+        pattern => qr/\b(?:receive_frame|receive_connection|frame_payload|frame_decode)/i,
+    } if $identity =~ /(?:frame_decoded|production_inbound|production_route|production_update)/i;
+    return {
+        label => "outbound stream lifecycle",
+        pattern => qr/\b(?:send_|stream_collection|stream_lifecycle|receive_frame)/i,
+    } if $caller =~ /outbound_local_stream/i;
+    return {
+        label => "GOAWAY and shutdown",
+        pattern => qr/\b(?:goaway|shutdown|connection_lifecycle|receive_frame)/i,
+    } if $identity =~ /(?:goaway|shutdown)/i;
+    return {
+        label => "PING",
+        pattern => qr/\b(?:ping|receive_frame)/i,
+    } if $identity =~ /ping/i;
+    return {
+        label => "PRIORITY",
+        pattern => qr/\b(?:priority|receive_frame)/i,
+    } if $identity =~ /priority/i;
+    return {
+        label => "WINDOW_UPDATE and flow-control",
+        pattern => qr/\b(?:window_update|flow_control|receive_frame)/i,
+    } if $identity =~ /(?:window_update|window)/i;
+    return {
+        label => "DATA and content-length",
+        pattern => qr/\b(?:data|content_length|flow_control|receive_frame)/i,
+    } if $identity =~ /(?:data|content_length)/i;
+    return {
+        label => "connection receive",
+        pattern => qr/\b(?:receive_frame|receive_connection|preface|pending_header_block|frame_payload)/i,
+    } if $identity =~ /(?:preface|continuation|closed|failure_with_id)/i;
+
+    die "unclassified helper relevance for $caller/$helper\n";
+}
+
+sub output_table_frame_kind {
+    my ($name) = @_;
+    return 0 if $name =~ /(?:data|content-length)/;
+    return 1 if $name =~ /(?:headers|trailers)/;
+    return 2 if $name =~ /priority/;
+    return 3 if $name =~ /rst-stream/;
+    return 5 if $name =~ /push-promise/;
+    return 6 if $name =~ /ping/;
+    return 7 if $name =~ /^http2-goaway-widen/;
+    return 8 if $name =~ /window-update/;
+    return 4 if $name =~ /(?:settings|local-)/;
+    die "unclassified empty output table $name\n";
 }
 
 sub validate_stdout_projection_relevance {
@@ -345,6 +487,7 @@ sub validate_stdout_projection_relevance {
 
     my ($projection) = $value =~ /^[^ ]+ ([^ ]+)/;
     return if !defined $projection;
+    return if $projection eq "id";
 
     my @domains;
     if ($projection eq "result") {
@@ -362,8 +505,12 @@ sub validate_stdout_projection_relevance {
             @domains = (qr/\b(?:receive_(?:frame|connection)|stream_collection|data|headers|rst_stream)/);
         } elsif ($value =~ /\bkind 2\b/) {
             @domains = (qr/\b(?:receive_(?:frame|connection)|priority)/);
+        } else {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|frame_decode|pending_header_block)/);
         }
     } elsif ($projection =~ /^outbound-hpack-encode(?:-state)?$/) {
+        @domains = (qr/\bhttp2::hpack::encode_header_block\b/);
+    } elsif ($projection eq "outbound-hpack-table-size-update") {
         @domains = (qr/\bhttp2::hpack::encode_header_block\b/);
     } elsif ($projection eq "outbound-headers") {
         @domains = (qr/\b(?:send_(?:request_headers|response_headers|trailers)|headers_send_)/);
@@ -399,8 +546,30 @@ sub validate_stdout_projection_relevance {
         @domains = (qr/\b(?:flow_control|send_credit|window_update|content_length)/);
     } elsif ($projection eq "shutdown") {
         @domains = (qr/\b(?:shutdown|connection_lifecycle|goaway)/);
+    } elsif (
+        $projection =~
+            /^(?:inbound_entry|open_stream|open_stream_count|closed_by_peer_stream|half_closed_local_stream)$/
+    ) {
+        @domains = (qr/(?:stream_collection|stream_lifecycle|receive_frame|send_)/);
+    } elsif (
+        $projection =~
+            /^(?:highest_peer_stream_id|highest_peer_created_stream_id|reserved_by_peer)$/
+    ) {
+        @domains = (qr/\b(?:peer_stream|stream_admission|push_promise|receive_frame)/);
+    } elsif (
+        $projection =~ /^(?:priority_state|first_priority|second_priority|third_priority)$/
+    ) {
+        @domains = (qr/\b(?:priority|receive_frame)/);
+    } elsif ($projection eq "connection_window") {
+        @domains = (qr/(?:flow_control|connection_credit|send_data|receive_frame|initial_window|peer_settings)/);
+    } elsif ($projection eq "debug_data") {
+        @domains = (qr/\b(?:goaway|shutdown|receive_frame)/);
+    } elsif ($projection eq "encode_error") {
+        @domains = (qr/(?:encode|send_)/);
     }
 
+    die "unclassified stdout projection $projection for $row->{key}\n"
+        if !@domains;
     for my $domain (@domains) {
         die "evidence for $row->{key} does not exercise stdout projection $projection\n"
             if $assertion !~ $domain;
@@ -477,15 +646,25 @@ sub run_self_test {
             . "byte_chunk_from_hex(\"83\")?)?\n",
         $retirement_output_manifest,
     );
+    my $nested_data_implementation =
+        "fn assert_retired_output_table(name: String, expected: ByteChunk)\n"
+        . "\thttp2::core::send_data(state, 0, 1, expected, false)\n"
+        . "end\n";
+    my $nested_data_accepted = eval {
+        validate_retirement_output_implementation($nested_data_implementation);
+        1;
+    };
+    die "self-test accepted historical chunks nested inside DATA frames\n"
+        if $nested_data_accepted;
     my $empty_output = {
         kind => "output_table",
-        key => "case.toml:output_chunk_list:no-output",
-        value => "no-output\t",
+        key => "case.toml:output_chunk_list:data-no-output",
+        value => "data-no-output\t",
     };
     my $named_only_empty_accepted = eval {
         validate_evidence_relevance(
             $empty_output,
-            "$good\n# no-output\nhttp2::core::empty_output_buffer()\n",
+            "$good\n# data-no-output\nhttp2::core::empty_output_buffer()\n",
             $retirement_output_manifest,
         );
         1;
@@ -494,7 +673,7 @@ sub run_self_test {
         if $named_only_empty_accepted;
     validate_evidence_relevance(
         $empty_output,
-        "$good\n\tassert_retired_empty_output_table(\"no-output\")?\n",
+        "$good\n\tassert_retired_empty_output_table(\"data-no-output\", 0)?\n",
         $retirement_output_manifest,
     );
 
@@ -563,6 +742,38 @@ sub run_self_test {
     validate_evidence_relevance(
         $hpack_encode_projection,
         "$good\nhttp2::hpack::encode_header_block(headers, state)\n",
+    );
+
+    my $inbound_entry_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:901",
+        value => "peer-stream inbound_entry 0 stream 1 lifecycle open-stream",
+    };
+    my $unrelated_inbound_entry_accepted = eval {
+        validate_evidence_relevance($inbound_entry_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an inbound-entry projection\n"
+        if $unrelated_inbound_entry_accepted;
+    validate_evidence_relevance(
+        $inbound_entry_projection,
+        "$good\nhttp2::core::stream_collection_find(streams, 1)\n",
+    );
+
+    my $encode_error_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:2044",
+        value => "http2-stream-id-range encode_error value out of range",
+    };
+    my $unrelated_encode_error_accepted = eval {
+        validate_evidence_relevance($encode_error_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an encode-error projection\n"
+        if $unrelated_encode_error_accepted;
+    validate_evidence_relevance(
+        $encode_error_projection,
+        "$good\nhttp2::frame::encode_header(0, 0, 0, 2147483648)\n",
     );
     print "http2 retirement evidence checker self-test: passed\n";
 }

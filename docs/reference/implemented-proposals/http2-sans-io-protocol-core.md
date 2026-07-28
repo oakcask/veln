@@ -42,25 +42,32 @@ the normalized table name and every exact chunk to occur in a checked test
 body. References to the focused
 [`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
 must contain one exact call for each historical table rather than a grouped
-literal or comment marker. Every singleton call crosses the production DATA
-transition and public output-buffer boundary independently, then compares its
-complete octets in the emitted payload. Every empty call independently checks
-that a rejected send emits neither decision bytes nor output-buffer chunks.
-Repeated chunks therefore cannot satisfy multiple table rows through one
-occurrence. HPACK vectors with production meanings remain bound directly to
-encoder and decoder assertions.
+literal or comment marker. The retained test implementation is part of each
+binding hash. Complete frame sequences are decoded and reconstructed one frame
+at a time through the public frame codec; non-frame vectors cross the
+production HPACK decoder; and singleton zero-length vectors cross the
+production HPACK encoder. Empty tables are classified by their historical
+frame domain and exercise that domain's payload rejection, while DATA tables
+exercise a rejected DATA send and verify both decision bytes and the output
+buffer remain empty. Repeated chunks therefore cannot satisfy multiple table
+rows through one occurrence, and complete frames or HPACK vectors cannot be
+accepted as nested DATA payloads.
 
-The checker derives further relevance requirements for the previously
-misbound domains. The three connection-stream helper sites must reference
-SETTINGS, PING, and GOAWAY tests respectively. Production HTTP/2 diagnostic
-stdout rows must compare their retained diagnostic id. The historical
+The checker derives a required public protocol domain for every helper
+invocation from its helper and caller, including component-specific
+connection-state preservation checks. The three connection-stream helper
+sites must reference SETTINGS, PING, and GOAWAY tests respectively.
+Production HTTP/2 diagnostic stdout rows must compare their retained
+diagnostic id. The historical
 `:fixture` continuation projection is bound to a production receive-frame
 test that checks a split CONTINUATION, a nine-octet HPACK block, one resulting
 stream, and immutable input state. Generic stdout projections additionally
 require a matching SETTINGS, HPACK, receive-frame, send-transition,
-flow-control, content-length, or shutdown boundary according to the retained
-projection kind. The checker self-test rejects the former peer-stream,
-unrelated chunk, generic HPACK, grouped-output, and comment-only empty-output
+flow-control, content-length, stream-collection, priority, output-encoding, or
+shutdown boundary according to the retained projection kind. Unclassified
+helper and stdout projection kinds fail the gate. The checker self-test
+rejects the former peer-stream, unrelated chunk, generic HPACK, nested-DATA,
+grouped-output, comment-only empty-output, inbound-entry, and encode-error
 substitutions.
 
 The historical peer-stream failure helper's component checks are split across
