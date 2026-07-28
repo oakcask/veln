@@ -197,6 +197,10 @@ sub validate_retirement_output_implementation {
             || $source !~ /\bhttp2::frame::encode_header\b/;
     die "retirement output evidence does not cross the production HPACK decoder\n"
         if $source !~ /\bhttp2::hpack::decode_header_block\b/;
+    die "retirement output evidence does not obtain successful HPACK bytes from the production encoder\n"
+        if $source !~ /\bvalidate_retired_hpack_production_encode\b/
+            || $source !~ /\bhttp2::hpack::encode_header_block\b/
+            || $source !~ /\bhttp2::hpack::header_block_encode_bytes\b/;
     die "retirement output evidence accepts failed HPACK decoding by input identity\n"
         if $source =~ /Err\([^)]*\)\s*=>\s*if chunks_equal/;
     die "retirement output evidence accepts any non-empty HPACK failure kind\n"

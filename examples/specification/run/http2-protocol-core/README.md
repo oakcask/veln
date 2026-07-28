@@ -17,8 +17,9 @@ literals, comment-only table labels, and one occurrence reused for duplicate
 chunks do not count. The shared retained implementation is included in the
 binding hash. It reconstructs complete frame sequences with the public frame
 codec and sends non-frame vectors through the production HPACK decoder.
-Successful HPACK receives must consume the full vector; failed receives must
-report the expected production failure kind for the retained vector while
+Successful HPACK receives must consume the full vector and send the decoded
+header list back through the public production HPACK encoder; failed receives
+must report the expected production failure kind for the retained vector while
 preserving the caller-owned table.
 Singleton zero-length chunks exercise the corresponding rejected
 WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is

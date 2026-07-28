@@ -44,6 +44,13 @@ fn request_headers() -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list()))))
 end
 
+fn require_header_block_encode(result: Result<HeaderBlockEncodeTransition, HeaderBlockEncodeFailure>) -> Result<HeaderBlockEncodeTransition, String>
+	match result
+		Ok(transition) => Ok(transition)
+		Err(failure) => Err(http2::hpack::header_block_encode_failure_kind(failure))
+	end
+end
+
 fn validate_retired_nonempty_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
 	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?)?
 	let frame_count: Int = 9 + decoded.length
@@ -68,16 +75,22 @@ fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(),
 	let input: ByteView = byte_view(expected, byte_offset(0)?, byte_chunk_count(expected))?
 	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
 	match http2::hpack::decode_header_block(input, table, 4096)
-		Ok(transition) => if http2::hpack::header_block_consumed(transition) == byte_count_to_int(byte_chunk_count(expected))
-			Ok(())
-		else
-			Err(name)
-		end
+		Ok(transition) => validate_retired_hpack_production_encode(name, expected, table, transition)
 		Err(failure) => if http2::hpack::header_block_failure_kind(failure) == expected_retired_hpack_failure_kind(name, expected)? and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
 			Ok(())
 		else
 			Err(name)
 		end
+	end
+end
+
+fn validate_retired_hpack_production_encode(name: String, expected: ByteChunk, table: DynamicTable, decoded: HeaderBlockDecodeTransition) -> Result<(), String>
+	let encoded: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::header_block_headers(decoded), table, 4096))?
+	let encoded_input: ByteChunk = http2::hpack::header_block_encode_bytes(encoded)
+	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and byte_count_to_int(byte_chunk_count(encoded_input)) >= 0 and http2::hpack::dynamic_table_entry_count(table) == 0
+		Ok(())
+	else
+		Err(name)
 	end
 end
 
