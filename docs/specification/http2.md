@@ -927,7 +927,8 @@ diagnostic projections are current observable behavior. The retired route's
 `retirement-coverage.tsv` files are historical migration evidence checked by
 `scripts/check-http2-retirement-evidence`. The same generated model emits
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-so each deleted broad-fixture row contributes to a row-addressed projection
-manifest digest that is executed through the guarded standard package tests.
+so each deleted broad-fixture row executes a row-addressed projection SHA
+check in bounded standard-package test groups before the aggregate projection
+manifest digest is checked.
 These artifacts bind the historical rows to focused evidence and public
 operation dimensions without restoring a reusable fixture implementation.

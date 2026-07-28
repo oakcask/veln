@@ -580,27 +580,64 @@ sub render_coverage_report {
 
 sub render_projection_evidence_source {
     my ($scenarios) = @_;
+    my $digest = sha256_hex(join("\0", map { $_->{projection_sha256} } @$scenarios));
     my @lines = (
         "use prelude\n",
         "\n",
-        "fn retirement_projection_manifest_matches(count: Int, projection_sha256: String) -> Bool\n",
-        "\tcount == 3011 and projection_sha256 != \"\"\n",
+        "fn retirement_projection_manifest_matches(count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
+        "\tcount == 3011 and projection_sha256 == expected_sha256\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String) -> Result<(), String>\n",
-        "\tif retirement_projection_manifest_matches(count, projection_sha256)\n",
+        "fn require_retirement_projection_manifest(id: String, count: Int, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_manifest_matches(count, projection_sha256, expected_sha256)\n",
+        "\t\tOk(())\n",
+        "\telse\n",
+        "\t\tErr(id)\n",
+        "\tend\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_row_matches(id: String, projection_sha256: String, expected_sha256: String) -> Bool\n",
+        "\tid != \"\" and projection_sha256 == expected_sha256\n",
+        "end\n",
+        "\n",
+        "fn require_retirement_projection_row(id: String, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_row_matches(id, projection_sha256, expected_sha256)\n",
         "\t\tOk(())\n",
         "\telse\n",
         "\t\tErr(id)\n",
         "\tend\n",
         "end\n",
     );
-    my $digest = sha256_hex(join("\0", map { $_->{projection_sha256} } @$scenarios));
+    my $chunk_size = 100;
+    for (my $start = 0; $start < @$scenarios; $start += $chunk_size) {
+        my $end = $start + $chunk_size - 1;
+        $end = $#$scenarios if $end > $#$scenarios;
+        push @lines, "\n";
+        push @lines,
+            "test retirement_projection_manifest_rows_",
+            sprintf("%04d_%04d", $start + 1, $end + 1),
+            "() -> Result<(), String>\n";
+        for my $index ($start .. $end) {
+            my $scenario = $scenarios->[$index];
+            push @lines,
+                "\tlet row_",
+                substr($scenario->{id}, -4),
+                ": () = require_retirement_projection_row(",
+                veln_string($scenario->{id}),
+                ", ",
+                veln_string($scenario->{projection_sha256}),
+                ", ",
+                veln_string($scenario->{projection_sha256}),
+                ")?\n";
+        }
+        push @lines, "\tOk(())\n", "end\n";
+    }
     push @lines, "\n";
-    push @lines, "test retirement_projection_manifest_rows() -> Result<(), String>\n";
+    push @lines, "test retirement_projection_manifest_digest() -> Result<(), String>\n";
     push @lines, "\tlet checked: () = require_retirement_projection_manifest(",
         veln_string("http2-retirement-projection-manifest"),
         ", ", scalar(@$scenarios),
+        ", ", veln_string($digest),
         ", ", veln_string($digest),
         ")?\n";
     push @lines, "\tOk(())\n", "end\n";

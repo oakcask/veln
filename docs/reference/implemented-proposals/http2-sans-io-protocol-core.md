@@ -51,8 +51,9 @@ has an executable projection recipe that binds the historical row to its
 focused evidence target, public operation, branch, initial state, concrete
 input, expected projection, post-state, output provenance, and diagnostic
 precedence rather than relying on an assertion hash alone.
-`retirement_projection_evidence_test.veln` runs the generated projection
-manifest digest as a standard package test, while
+`retirement_projection_evidence_test.veln` runs bounded row-addressed
+projection SHA checks and the generated aggregate projection manifest digest
+as standard package tests, while
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
 broad fixture implementation.
