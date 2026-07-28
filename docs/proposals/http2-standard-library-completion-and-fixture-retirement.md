@@ -53,18 +53,26 @@ or sequence-extension slice is part of this work.
   HEADERS, and PUSH_PROMISE families, including content-length versus
   flow-control DATA precedence, peer-limit HEADERS precedence,
   SETTINGS_ENABLE_PUSH versus GOAWAY PUSH_PROMISE precedence, and
-  GOAWAY-before-output PRIORITY precedence. Successful retained HPACK output
-  rows now cross the production decoder and exact public element encoders, so
-  retained successful rows no longer depend on a historical-canonical mismatch
-  list. Some empty output rows are still grouped by frame family instead of
-  constructing every historical starting state and transition before proving
-  the corresponding absence of bytes.
+  GOAWAY-before-output PRIORITY precedence. The HPACK table-size over-limit
+  row now checks the legal outbound table-size prefix through the public
+  response HEADERS sender and the retained rejected inbound table-size update
+  through the public receive and HPACK decoder projections. The
+  SETTINGS-ACK-cleared row now starts from an empty outstanding-local-settings
+  state before proving that the pending peer ACK is cleared and a second send
+  emits no bytes. Successful retained HPACK output rows now cross the
+  production decoder and exact public element encoders, so retained successful
+  rows no longer depend on a historical-canonical mismatch list. Some empty
+  output rows are still grouped by frame family instead of constructing every
+  historical starting state and transition before proving the corresponding
+  absence of bytes.
 - The retirement checker should reject same-domain substitutions that omit the
   historical endpoint role, starting state, diagnostic precedence, complete
   result projection, exact emitted bytes, or failure/no-output state. It now
   rejects same-domain substitutions for outbound PUSH_PROMISE
   state-preservation rows when the retained body omits the branch projection
-  selected by the historical invocation.
+  selected by the historical invocation. It also rejects reintroducing an
+  unrelated local SETTINGS batch into the ACK-cleared row or dropping the
+  paired legal-outbound and rejected-inbound table-size projections.
 
 ## Implementation Notes
 

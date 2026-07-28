@@ -259,8 +259,13 @@ sub validate_retirement_output_implementation {
             || $source !~ /\bhttp2::core::(?:outbound_data_flow_failure_id|outbound_headers_failure_id|outbound_stream_control_failure_id|goaway_send_failure_id|frame_payload_length_failure_active_state)\b/;
     die "retirement SETTINGS ACK cleared evidence starts from a fresh empty ACK state"
         if $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?settings_ack_after_peer_frame/s
+            || $source =~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?record_local_settings_batch/s
             || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?send_pending_settings_ack\(pending\).*?send_pending_settings_ack\(cleared\)/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_identifier\(http2::core::settings_ack_outstanding\(pending\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_batch_count\(http2::core::settings_ack_outstanding\(pending\)\) == 0/s
             || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_label\(http2::core::settings_ack_pending_peer_ack\(pending\)\) == "active"/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_identifier\(http2::core::settings_ack_outstanding\(cleared\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_batch_count\(http2::core::settings_ack_outstanding\(cleared\)\) == 0/s
             || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_label\(http2::core::settings_ack_pending_peer_ack\(cleared\)\) == "none"/s
             || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_send_status\(no_pending\) == "no_pending"/s;
     die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
@@ -272,7 +277,10 @@ sub validate_retirement_output_implementation {
         if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
             || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
     die "retirement HPACK table-size empty-output evidence still uses outbound header-list limits"
-        if $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?0000020104000000013f02.*?apply_receive_frame/s
+        if $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?send_response_headers/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?0000020104000000013f02.*?apply_receive_frame/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?chunks_equal\(outbound_prefix,\s*byte_chunk_from_hex\("3f01"\)\?\)\?/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?receive_frame_failure_preview\(failure\),\s*byte_chunk_from_hex\("3f02"\)\?/s
             || $source !~ /table_size_update_failure_capacity\(update_failure\)\s*==\s*33/
             || $source !~ /table_size_update_failure_peer_maximum\(update_failure\)\s*==\s*32/
             || $source =~ /http2-headers-hpack-table-size-update-over-peer-limit.*?retired_empty_headers_limited_state/s;
@@ -983,15 +991,15 @@ sub run_self_test {
     my $retirement_source = <$retirement_source_handle>;
     close $retirement_source_handle
         or die "cannot close retirement output evidence for self-test: $!\n";
-    my $fresh_ack_source = $retirement_source;
-    $fresh_ack_source =~
-        s/settings_ack_after_peer_frame\(http2::core::record_local_settings_batch\(http2::core::empty_settings_ack_state\(\), 17, 1\), 4, 0, 6\)/empty_settings_ack_state()/;
-    my $fresh_ack_accepted = eval {
-        validate_retirement_output_implementation($fresh_ack_source);
+    my $unrelated_ack_batch_source = $retirement_source;
+    $unrelated_ack_batch_source =~
+        s/settings_ack_after_peer_frame\(http2::core::empty_settings_ack_state\(\), 4, 0, 6\)/settings_ack_after_peer_frame(http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 17, 1), 4, 0, 6)/;
+    my $unrelated_ack_batch_accepted = eval {
+        validate_retirement_output_implementation($unrelated_ack_batch_source);
         1;
     };
-    die "self-test accepted fresh-empty SETTINGS ACK cleared evidence\n"
-        if $fresh_ack_accepted;
+    die "self-test accepted unrelated SETTINGS ACK cleared local batch\n"
+        if $unrelated_ack_batch_accepted;
     my $generic_canonical_mismatch_implementation =
         $canonical_equivalent_implementation;
     $generic_canonical_mismatch_implementation =~

@@ -44,6 +44,10 @@ fn request_headers() -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list()))))
 end
 
+fn response_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(":status", byte_chunk_from_hex("323030")?), http2::hpack::empty_header_list()))
+end
+
 fn validate_retired_nonempty_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
 	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?)?
 	let frame_count: Int = 9 + decoded.length
@@ -318,13 +322,17 @@ end
 fn assert_retired_empty_headers_hpack_table_size_update_over_peer_limit(name: String) -> Result<(), String>
 	let base: CoreConnectionState = http2::core::server_connection_state(0)?
 	let peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(base), 17, byte_chunk_from_hex("000100000020")?)?
-	let state: CoreConnectionState = http2::core::connection_state_with_peer_settings(base, peer_settings)
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_half_closed_remote_lifecycle(), 80, 90, -1, 0))?
+	let with_stream: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), entry))
+	let state: CoreConnectionState = http2::core::connection_state_with_peer_settings(with_stream, peer_settings)
 	let frame: ByteChunk = byte_chunk_from_hex("0000020104000000013f02")?
+	let outbound: CoreHeadersSendDecision = http2::core::send_response_headers(state, 0, 1, response_headers()?, false)
+	let outbound_prefix: ByteChunk = byte_take(byte_drop(http2::core::headers_send_bytes(outbound), byte_count(9)?)?, byte_count(2)?)?
 	match http2::core::apply_receive_frame(state, frame)
 		Ok(decision) => match http2::core::receive_frame_failure(decision)
 			Ok(failure) => match http2::hpack::decode_header_block(byte_view(byte_chunk_from_hex("3f02")?, byte_offset(0)?, byte_count(2)?)?, http2::core::connection_state_hpack_table(state), 32)
 				Err(hpack_failure) => match http2::hpack::header_block_table_size_update_failure(hpack_failure)
-					Some(update_failure) => if http2::core::receive_frame_failure_id(failure) == "http2.hpack.decode_failure" and http2::core::receive_frame_failure_reason(failure) == "table_size_update_failure" and http2::core::receive_frame_failure_frame_kind(failure) == 1 and http2::core::receive_frame_failure_stream_id(failure) == 1 and chunks_equal(http2::core::receive_frame_failure_preview(failure), byte_chunk_from_hex("3f02")?)? and http2::hpack::table_size_update_failure_kind(update_failure) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(update_failure) == 33 and http2::hpack::table_size_update_failure_peer_maximum(update_failure) == 32 and http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::peer_settings_active_header_table_size(http2::core::connection_state_peer_settings(state)) == 32
+					Some(update_failure) => if http2::core::headers_send_status(outbound) == "accepted" and http2::core::connection_state_hpack_table_capacity(http2::core::headers_send_state(outbound)?) == 32 and chunks_equal(outbound_prefix, byte_chunk_from_hex("3f01")?)? and http2::core::receive_frame_failure_id(failure) == "http2.hpack.decode_failure" and http2::core::receive_frame_failure_reason(failure) == "table_size_update_failure" and http2::core::receive_frame_failure_frame_kind(failure) == 1 and http2::core::receive_frame_failure_stream_id(failure) == 1 and chunks_equal(http2::core::receive_frame_failure_preview(failure), byte_chunk_from_hex("3f02")?)? and http2::hpack::table_size_update_failure_kind(update_failure) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(update_failure) == 33 and http2::hpack::table_size_update_failure_peer_maximum(update_failure) == 32 and http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::peer_settings_active_header_table_size(http2::core::connection_state_peer_settings(state)) == 32
 						Ok(())
 					else
 						Err(name)
@@ -481,12 +489,12 @@ fn assert_retired_empty_settings_output_table(name: String) -> Result<(), String
 end
 
 fn assert_retired_empty_settings_ack_cleared_output_table(name: String) -> Result<(), String>
-	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 17, 1), 4, 0, 6)
+	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(http2::core::empty_settings_ack_state(), 4, 0, 6)
 	let sent: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(pending)
 	let cleared: SettingsAckState = http2::core::pending_settings_ack_send_state(sent)
 	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(cleared)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_pending_settings_ack(http2::core::empty_output_buffer(), no_pending)
-	if name == "http2-peer-settings-ack-cleared" and http2::core::pending_settings_ack_send_status(sent) == "accepted" and chunks_equal(http2::core::pending_settings_ack_send_bytes(sent), byte_chunk_from_hex("000000040100000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(pending)) == 17 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(pending)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(pending)) == "active" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(cleared)) == 17 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(cleared)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(cleared)) == "none" and http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(output) == 0
+	if name == "http2-peer-settings-ack-cleared" and http2::core::pending_settings_ack_send_status(sent) == "accepted" and chunks_equal(http2::core::pending_settings_ack_send_bytes(sent), byte_chunk_from_hex("000000040100000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(pending)) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(pending)) == 0 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(pending)) == "active" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(cleared)) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(cleared)) == 0 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(cleared)) == "none" and http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(output) == 0
 		Ok(())
 	else
 		Err(name)
