@@ -308,11 +308,11 @@ fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_headers_output_table(name: String) -> Result<(), String>
-	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(0, 0))
+	let state: CoreConnectionState = retired_empty_headers_state(name)?
 	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 0, 1, request_headers()?, false)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_headers(http2::core::empty_output_buffer(), decision)
 	match http2::core::headers_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_headers_family(name)? != "" and http2::core::headers_send_status(decision) == "rejected" and http2::core::outbound_headers_failure_id(failure) == "http2.protocol.stream_after_goaway" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::headers_send_status(decision) == "rejected" and http2::core::outbound_headers_failure_id(failure) == expected_retired_empty_headers_failure_id(name)? and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -322,17 +322,55 @@ fn assert_retired_empty_headers_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_push_promise_output_table(name: String) -> Result<(), String>
-	let state: CoreConnectionState = http2::core::client_connection_state(0)?
-	let decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 0, 1, 2, request_headers()?)
+	let item: { state : CoreConnectionState, stream_id : Int, promised_stream_id : Int } = retired_empty_push_promise_item(name)?
+	let decision: CorePushPromiseSendDecision = http2::core::send_push_promise(item.state, 0, item.stream_id, item.promised_stream_id, request_headers()?)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_push_promise(http2::core::empty_output_buffer(), decision)
 	match http2::core::push_promise_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_push_promise_family(name)? != "" and http2::core::push_promise_send_status(decision) == "rejected" and http2::core::outbound_headers_failure_id(failure) == "http2.protocol.invalid_stream_id" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::push_promise_send_status(decision) == "rejected" and http2::core::outbound_headers_failure_id(failure) == expected_retired_empty_push_promise_failure_id(name)? and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
 		end
 		Err(_) => Err(name)
 	end
+end
+
+fn retired_empty_headers_state(name: String) -> Result<CoreConnectionState, String>
+	if expected_retired_empty_headers_family(name)? == "header-list-limit"
+		retired_empty_headers_limited_state()
+	else
+		Err(name)
+	end
+end
+
+fn retired_empty_headers_limited_state() -> Result<CoreConnectionState, String>
+	let base: CoreConnectionState = http2::core::client_connection_state(0)?
+	let limited_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(base), 17, byte_chunk_from_hex("000600000001")?)?
+	Ok(http2::core::connection_state_with_peer_settings(base, limited_settings))
+end
+
+fn retired_empty_push_promise_item(name: String) -> Result<{ state : CoreConnectionState, stream_id : Int, promised_stream_id : Int }, String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let open_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), associated))
+	if name == "http2-push-promise-enable-push-disabled"
+		retired_empty_push_promise_disabled_item(open_state)
+	else if name == "http2-push-promise-after-goaway-late"
+		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+	else if name == "http2-push-promise-after-local-goaway-late"
+		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+	else if name == "http2-push-promise-after-narrow-local-goaway-late"
+		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+	else
+		Err(name)
+	end
+end
+
+fn retired_empty_push_promise_disabled_item(open_state: CoreConnectionState) -> Result<{ state : CoreConnectionState, stream_id : Int, promised_stream_id : Int }, String>
+	let first: CorePushPromiseSendDecision = http2::core::send_push_promise(open_state, 0, 1, 4, request_headers()?)
+	let increasing: CoreConnectionState = http2::core::push_promise_send_state(first)?
+	let disabled_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(increasing), 11, byte_chunk_from_hex("000200000000")?)?
+	Ok({ state: http2::core::connection_state_with_peer_settings(increasing, disabled_settings), stream_id: 1, promised_stream_id: 2 })
 end
 
 fn assert_retired_empty_window_update_output_table(name: String) -> Result<(), String>
@@ -459,9 +497,29 @@ fn expected_retired_empty_headers_family(name: String) -> Result<String, String>
 	end
 end
 
+fn expected_retired_empty_headers_failure_id(name: String) -> Result<String, String>
+	let family: String = expected_retired_empty_headers_family(name)?
+	if family == "header-list-limit"
+		Ok("http2.peer_limit.header_list_size_exceeded")
+	else
+		Err(name)
+	end
+end
+
 fn expected_retired_empty_push_promise_family(name: String) -> Result<String, String>
 	if name == "http2-push-promise-enable-push-disabled" or name == "http2-push-promise-after-goaway-late" or name == "http2-push-promise-after-local-goaway-late" or name == "http2-push-promise-after-narrow-local-goaway-late"
 		Ok("push-promise")
+	else
+		Err(name)
+	end
+end
+
+fn expected_retired_empty_push_promise_failure_id(name: String) -> Result<String, String>
+	let family: String = expected_retired_empty_push_promise_family(name)?
+	if name == "http2-push-promise-enable-push-disabled"
+		Ok("http2.protocol.invalid_stream_id")
+	else if family == "push-promise"
+		Ok("http2.protocol.stream_after_goaway")
 	else
 		Err(name)
 	end

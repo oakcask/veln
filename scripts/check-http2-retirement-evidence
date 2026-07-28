@@ -236,7 +236,11 @@ sub validate_retirement_output_implementation {
     die "retirement empty-output evidence does not bind retained table names to failure families\n"
         if $source !~ /expected_retired_empty_data_family\(name: String\)/
             || $source !~ /expected_retired_empty_headers_family\(name: String\)/
+            || $source !~ /retired_empty_headers_state\(name: String\)/
+            || $source !~ /expected_retired_empty_headers_failure_id\(name: String\)/
             || $source !~ /expected_retired_empty_push_promise_family\(name: String\)/
+            || $source !~ /retired_empty_push_promise_item\(name: String\)/
+            || $source !~ /expected_retired_empty_push_promise_failure_id\(name: String\)/
             || $source !~ /expected_retired_empty_window_update_family\(name: String\)/
             || $source !~ /expected_retired_empty_priority_family\(name: String\)/
             || $source !~ /expected_retired_empty_goaway_family\(name: String\)/
@@ -252,6 +256,9 @@ sub validate_retirement_output_implementation {
     die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
         if $source =~ /outbound_data_flow_failure_id\(failure\)\s*!=\s*""/
             || $source =~ /outbound_stream_control_failure_id\(failure\)\s*!=\s*""/;
+    die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"
+        if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
+            || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
     die "retirement zero-length evidence does not obtain failure output from its send domain\n"
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/

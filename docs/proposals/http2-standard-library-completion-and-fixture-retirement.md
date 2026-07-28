@@ -46,8 +46,10 @@ or sequence-extension slice is part of this work.
   before and after connection value or every nested field check.
 - Output table evidence still reconstructs many historical byte sequences from
   the retained bytes supplied by the manifest. Empty output tables now require
-  the expected production failure id for DATA, WINDOW_UPDATE, and PRIORITY
-  families, including content-length versus flow-control DATA precedence and
+  the expected production failure id for DATA, WINDOW_UPDATE, PRIORITY,
+  HEADERS, and PUSH_PROMISE families, including content-length versus
+  flow-control DATA precedence, peer-limit HEADERS precedence,
+  SETTINGS_ENABLE_PUSH versus GOAWAY PUSH_PROMISE precedence, and
   GOAWAY-before-output PRIORITY precedence. Successful retained HPACK output
   rows now cross the production decoder and exact public element encoders, so
   retained successful rows no longer depend on a historical-canonical mismatch
