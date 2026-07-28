@@ -78,7 +78,7 @@ impl ProjectAnalysis {
                     .as_deref()
                     .is_some_and(|module| module.starts_with("std::"))
             })
-            .then(|| self.checked.ir.as_ref())
+            .then_some(self.checked.ir.as_ref())
             .flatten()
     }
 
