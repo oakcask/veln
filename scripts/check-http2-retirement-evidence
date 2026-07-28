@@ -238,6 +238,7 @@ sub validate_retirement_output_implementation {
             || $source !~ /expected_retired_empty_headers_family\(name: String\)/
             || $source !~ /retired_empty_headers_state\(name: String\)/
             || $source !~ /expected_retired_empty_headers_failure_id\(name: String\)/
+            || $source !~ /assert_retired_empty_headers_hpack_table_size_update_over_peer_limit\(name: String\)/
             || $source !~ /expected_retired_empty_push_promise_family\(name: String\)/
             || $source !~ /retired_empty_push_promise_item\(name: String\)/
             || $source !~ /expected_retired_empty_push_promise_failure_id\(name: String\)/
@@ -259,6 +260,11 @@ sub validate_retirement_output_implementation {
     die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"
         if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
             || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
+    die "retirement HPACK table-size empty-output evidence still uses outbound header-list limits"
+        if $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?0000020104000000013f02.*?apply_receive_frame/s
+            || $source !~ /table_size_update_failure_capacity\(update_failure\)\s*==\s*33/
+            || $source !~ /table_size_update_failure_peer_maximum\(update_failure\)\s*==\s*32/
+            || $source =~ /http2-headers-hpack-table-size-update-over-peer-limit.*?retired_empty_headers_limited_state/s;
     die "retirement zero-length evidence does not obtain failure output from its send domain\n"
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/

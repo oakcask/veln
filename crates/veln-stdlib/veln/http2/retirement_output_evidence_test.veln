@@ -308,6 +308,38 @@ fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_headers_output_table(name: String) -> Result<(), String>
+	if name == "http2-headers-hpack-table-size-update-over-peer-limit"
+		assert_retired_empty_headers_hpack_table_size_update_over_peer_limit(name)
+	else
+		assert_retired_empty_headers_send_output_table(name)
+	end
+end
+
+fn assert_retired_empty_headers_hpack_table_size_update_over_peer_limit(name: String) -> Result<(), String>
+	let base: CoreConnectionState = http2::core::server_connection_state(0)?
+	let peer_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(base), 17, byte_chunk_from_hex("000100000020")?)?
+	let state: CoreConnectionState = http2::core::connection_state_with_peer_settings(base, peer_settings)
+	let frame: ByteChunk = byte_chunk_from_hex("0000020104000000013f02")?
+	match http2::core::apply_receive_frame(state, frame)
+		Ok(decision) => match http2::core::receive_frame_failure(decision)
+			Ok(failure) => match http2::hpack::decode_header_block(byte_view(byte_chunk_from_hex("3f02")?, byte_offset(0)?, byte_count(2)?)?, http2::core::connection_state_hpack_table(state), 32)
+				Err(hpack_failure) => match http2::hpack::header_block_table_size_update_failure(hpack_failure)
+					Some(update_failure) => if http2::core::receive_frame_failure_id(failure) == "http2.hpack.decode_failure" and http2::core::receive_frame_failure_reason(failure) == "table_size_update_failure" and http2::core::receive_frame_failure_frame_kind(failure) == 1 and http2::core::receive_frame_failure_stream_id(failure) == 1 and chunks_equal(http2::core::receive_frame_failure_preview(failure), byte_chunk_from_hex("3f02")?)? and http2::hpack::table_size_update_failure_kind(update_failure) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(update_failure) == 33 and http2::hpack::table_size_update_failure_peer_maximum(update_failure) == 32 and http2::core::connection_state_next_offset(state) == 0 and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::peer_settings_active_header_table_size(http2::core::connection_state_peer_settings(state)) == 32
+						Ok(())
+					else
+						Err(name)
+					end
+					None => Err(name)
+				end
+				Ok(_) => Err(name)
+			end
+			Err(_) => Err(name)
+		end
+		Err(reason) => Err(reason)
+	end
+end
+
+fn assert_retired_empty_headers_send_output_table(name: String) -> Result<(), String>
 	let state: CoreConnectionState = retired_empty_headers_state(name)?
 	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 0, 1, request_headers()?, false)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_headers(http2::core::empty_output_buffer(), decision)
@@ -336,17 +368,7 @@ fn assert_retired_empty_push_promise_output_table(name: String) -> Result<(), St
 end
 
 fn retired_empty_headers_state(name: String) -> Result<CoreConnectionState, String>
-	if expected_retired_empty_headers_family(name)? == "header-list-limit"
-		retired_empty_headers_limited_state()
-	else
-		Err(name)
-	end
-end
-
-fn retired_empty_headers_limited_state() -> Result<CoreConnectionState, String>
-	let base: CoreConnectionState = http2::core::client_connection_state(0)?
-	let limited_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(base), 17, byte_chunk_from_hex("000600000001")?)?
-	Ok(http2::core::connection_state_with_peer_settings(base, limited_settings))
+	Err(name)
 end
 
 fn retired_empty_push_promise_item(name: String) -> Result<{ state : CoreConnectionState, stream_id : Int, promised_stream_id : Int }, String>
@@ -490,11 +512,7 @@ fn expected_retired_empty_data_failure_id(family: String) -> String
 end
 
 fn expected_retired_empty_headers_family(name: String) -> Result<String, String>
-	if name == "http2-headers-hpack-table-size-update-over-peer-limit"
-		Ok("header-list-limit")
-	else
-		Err(name)
-	end
+	Err(name)
 end
 
 fn expected_retired_empty_headers_failure_id(name: String) -> Result<String, String>
