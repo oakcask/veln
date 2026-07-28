@@ -921,10 +921,7 @@ non-append behavior through the public facade.
 The retired `http2-protocol-core` route is no longer an executable case.
 Focused `http2-core-*` cases cover state transitions and emitted bytes, while
 focused `http2-protocol-core-*` cases retain human and JSON diagnostic
-coverage. The retained retirement-output evidence checks frame and HPACK codec
-reconstruction, selected production send and response failures, and unchanged
-output for rejected decisions. Its manifest preserves the complete historical
-output inventory and binds each row to checked source. Complete item-specific
-equivalence, including production-derived bytes and historical setup state for
-every row, remains planned in
-[`http2-standard-library-completion-and-fixture-retirement.md`](../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+coverage. Migration-only retirement inventories, generated checks, and
+retirement-output tests are not part of the current HTTP/2 specification; the
+public standard modules, focused standard-package tests, and executable
+specification cases above own current behavior.
