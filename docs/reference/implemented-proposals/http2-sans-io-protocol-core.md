@@ -46,6 +46,10 @@ The retained retirement gate is checked by
 fixture from history, requires item-level evidence for 652 helper invocations,
 2,044 exact stdout lines, and 315 output tables, verifies the generated
 row-addressable scenario manifest and coverage report, and rejects
-unclassified or stale rows. `retirement_output_evidence_test.veln` validates
-the historical output bytes through the production frame and public HPACK
-codecs without restoring the broad fixture implementation.
+unclassified or stale rows. Each generated scenario has an executable
+projection recipe that binds the historical row to its focused evidence target,
+public operation, branch, initial state, concrete input, expected projection,
+post-state, output provenance, and diagnostic precedence rather than relying on
+an assertion hash alone. `retirement_output_evidence_test.veln` validates the
+historical output bytes through the production frame and public HPACK codecs
+without restoring the broad fixture implementation.

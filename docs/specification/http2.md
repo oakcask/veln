@@ -926,5 +926,5 @@ diagnostic projections are current observable behavior. The retired route's
 `retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
 `retirement-coverage.tsv` files are historical migration evidence checked by
 `scripts/check-http2-retirement-evidence`; they bind deleted broad-fixture
-rows to the focused evidence and standard-package tests without restoring a
-reusable fixture implementation.
+rows to row-addressed executable projection recipes, focused evidence, and
+standard-package tests without restoring a reusable fixture implementation.

@@ -188,6 +188,14 @@ sub scenario_row {
         output_provenance($row, $manifest_row, $assertion, $operation);
     my $failure_atomicity = failure_atomicity($row, $assertion);
     my $diagnostic_precedence = diagnostic_precedence($row, $assertion);
+    my $executable_projection = executable_projection(
+        $row,
+        $manifest_row,
+        $operation,
+        $projection,
+        $output_provenance,
+        $diagnostic_precedence,
+    );
     my $projection_material = join(
         "\0",
         $row->{key},
@@ -205,7 +213,7 @@ sub scenario_row {
         $operation->{operation_branch},
         $operation->{initial_state},
         $operation->{required_post_state},
-        $operation->{executable_projection},
+        $executable_projection,
     );
     return {
         id => sprintf("http2-retirement-%04d", $ordinal),
@@ -226,7 +234,7 @@ sub scenario_row {
         failure_atomicity => $failure_atomicity,
         diagnostic_precedence => $diagnostic_precedence,
         required_post_state => $operation->{required_post_state},
-        executable_projection => $operation->{executable_projection},
+        executable_projection => $executable_projection,
         projection_sha256 => sha256_hex($projection_material),
     };
 }
@@ -276,7 +284,6 @@ sub operation_model {
         ordered_setup => $setup,
         concrete_input => $input,
         required_post_state => $post_state,
-        executable_projection => executable_projection($row, $assertion),
     };
 }
 
@@ -386,17 +393,45 @@ sub required_post_state {
 }
 
 sub executable_projection {
-    my ($row, $assertion) = @_;
-    my $projection = "assertion-sha256:" . sha256_hex($assertion);
+    my (
+        $row,
+        $manifest_row,
+        $operation,
+        $result_projection,
+        $output_provenance,
+        $diagnostic_precedence,
+    ) = @_;
+    my @parts = (
+        "row=" . projection_escape($row->{key}),
+        "evidence=" . projection_escape($manifest_row->{evidence}),
+        "invoke=$operation->{owning_operation}",
+        "branch=$operation->{operation_branch}",
+        "initial=" . projection_escape($operation->{initial_state}),
+        "setup=" . projection_escape($operation->{ordered_setup}),
+        "input=" . projection_escape($operation->{concrete_input}),
+        "result=" . projection_escape($result_projection),
+        "post=" . projection_escape($operation->{required_post_state}),
+        "output=$output_provenance",
+        "diagnostic=$diagnostic_precedence",
+    );
     if ($row->{kind} eq "helper") {
         my ($caller, $helper) = split /\t/, $row->{value}, 3;
-        return "$projection;helper=$helper;caller=$caller";
-    }
-    if ($row->{kind} eq "stdout") {
+        push @parts, "caller=" . projection_escape($caller);
+        push @parts, "helper=" . projection_escape($helper);
+    } elsif ($row->{kind} eq "stdout") {
         my ($line) = $row->{key} =~ /stdout:(\d+)$/;
-        return "$projection;stdout-line=$line";
+        push @parts, "stdout_line=$line";
+    } else {
+        push @parts, "output_table=" . projection_escape(output_table_name($row));
     }
-    return "$projection;output-table=" . output_table_name($row);
+    return join("|", @parts);
+}
+
+sub projection_escape {
+    my ($value) = @_;
+    $value =~ s/%/%25/g;
+    $value =~ s/\|/%7c/g;
+    return $value;
 }
 
 sub concrete_input {
@@ -557,6 +592,7 @@ sub validate_structured_scenarios {
             if $scenario->{concrete_input} =~ /\bhelper-line:[0-9a-f]{64}\b/;
         die "scenario $scenario->{id} keeps stdout hash-only input facts\n"
             if $scenario->{concrete_input} =~ /\bstdout-sha256=[0-9a-f]{64}\b/;
+        validate_executable_projection($scenario);
         my @lifecycles = $scenario->{initial_state} =~ /\blifecycle=/g;
         die "scenario $scenario->{id} combines multiple lifecycle states\n"
             if @lifecycles > 1;
@@ -566,6 +602,64 @@ sub validate_structured_scenarios {
     }
     die "structured scenario setup model is too coarse\n"
         if keys(%ordered_setup_seen) < 100;
+}
+
+sub validate_executable_projection {
+    my ($scenario) = @_;
+    my %fields;
+    for my $part (split /\|/, $scenario->{executable_projection}, -1) {
+        my ($key, $value) = split /=/, $part, 2;
+        die "scenario $scenario->{id} has malformed executable projection part\n"
+            if !defined $value || $key eq "" || exists $fields{$key};
+        $fields{$key} = projection_unescape($value);
+    }
+    for my $key (
+        qw(row evidence invoke branch initial setup input result post output diagnostic)
+    ) {
+        die "scenario $scenario->{id} executable projection omits $key\n"
+            if !exists $fields{$key} || $fields{$key} eq "";
+    }
+    die "scenario $scenario->{id} keeps assertion-hash executable projection\n"
+        if $scenario->{executable_projection} =~ /\bassertion-sha256:/;
+    die "scenario $scenario->{id} executable projection is not row-addressed\n"
+        if $fields{row} ne $scenario->{historical_key}
+            || $fields{evidence} ne $scenario->{evidence};
+    die "scenario $scenario->{id} executable projection invokes wrong operation\n"
+        if $fields{invoke} ne $scenario->{owning_operation};
+    die "scenario $scenario->{id} executable projection has wrong branch\n"
+        if $fields{branch} ne $scenario->{operation_branch};
+    die "scenario $scenario->{id} executable projection has wrong initial state\n"
+        if $fields{initial} ne $scenario->{initial_state};
+    die "scenario $scenario->{id} executable projection has wrong setup\n"
+        if $fields{setup} ne $scenario->{ordered_setup};
+    die "scenario $scenario->{id} executable projection has wrong input\n"
+        if $fields{input} ne $scenario->{concrete_input};
+    die "scenario $scenario->{id} executable projection has wrong result\n"
+        if $fields{result} ne $scenario->{result_projection};
+    die "scenario $scenario->{id} executable projection has wrong post-state\n"
+        if $fields{post} ne $scenario->{required_post_state};
+    die "scenario $scenario->{id} executable projection has wrong output provenance\n"
+        if $fields{output} ne $scenario->{output_provenance};
+    die "scenario $scenario->{id} executable projection has wrong diagnostic precedence\n"
+        if $fields{diagnostic} ne $scenario->{diagnostic_precedence};
+    if ($scenario->{historical_kind} eq "helper") {
+        die "scenario $scenario->{id} helper projection omits caller or helper\n"
+            if !exists $fields{caller} || !exists $fields{helper};
+    } elsif ($scenario->{historical_kind} eq "stdout") {
+        die "scenario $scenario->{id} stdout projection omits stdout_line\n"
+            if !exists $fields{stdout_line}
+                || $fields{stdout_line} !~ /^[0-9]+$/;
+    } elsif ($scenario->{historical_kind} eq "output_table") {
+        die "scenario $scenario->{id} output projection omits output_table\n"
+            if !exists $fields{output_table} || $fields{output_table} eq "";
+    }
+}
+
+sub projection_unescape {
+    my ($value) = @_;
+    $value =~ s/%7c/|/g;
+    $value =~ s/%25/%/g;
+    return $value;
 }
 
 sub assert_file_equals {
@@ -1331,6 +1425,57 @@ sub run_self_test {
             . "byte_chunk_from_hex(\"83\")?)?\n",
         $retirement_output_manifest,
     );
+    my $projection_scenario = {
+        id => "http2-retirement-self-test",
+        historical_key => "case.toml:output_chunk_list:sample",
+        historical_kind => "output_table",
+        evidence =>
+            "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln#test sample(",
+        owning_operation => "send_headers",
+        operation_branch => "exact-output-success",
+        initial_state => "role=local;lifecycle=open;output=caller-owned",
+        ordered_setup => "create-connection-state>create-output-buffer",
+        concrete_input =>
+            "operation=send_headers;table=sample;chunk-count=1;chunk-octets=1",
+        result_projection => "row-0001:output_chunk_list:sample",
+        required_post_state => "emitted-bytes-exact",
+        output_provenance => "public-core-send",
+        diagnostic_precedence => "not-applicable",
+    };
+    $projection_scenario->{executable_projection} = executable_projection(
+        $exact_output,
+        $retirement_output_manifest,
+        {
+            owning_operation => $projection_scenario->{owning_operation},
+            operation_branch => $projection_scenario->{operation_branch},
+            initial_state => $projection_scenario->{initial_state},
+            ordered_setup => $projection_scenario->{ordered_setup},
+            concrete_input => $projection_scenario->{concrete_input},
+            required_post_state => $projection_scenario->{required_post_state},
+        },
+        $projection_scenario->{result_projection},
+        $projection_scenario->{output_provenance},
+        $projection_scenario->{diagnostic_precedence},
+    );
+    validate_executable_projection($projection_scenario);
+    my %hash_only_projection = %$projection_scenario;
+    $hash_only_projection{executable_projection} =
+        "assertion-sha256:" . sha256_hex($good) . ";output-table=sample";
+    my $hash_only_projection_accepted = eval {
+        validate_executable_projection(\%hash_only_projection);
+        1;
+    };
+    die "self-test accepted hash-only executable projection\n"
+        if $hash_only_projection_accepted;
+    my %wrong_invoke_projection = %$projection_scenario;
+    $wrong_invoke_projection{executable_projection} =~
+        s/invoke=send_headers/invoke=receive_frame/;
+    my $wrong_invoke_projection_accepted = eval {
+        validate_executable_projection(\%wrong_invoke_projection);
+        1;
+    };
+    die "self-test accepted executable projection with substituted invoke\n"
+        if $wrong_invoke_projection_accepted;
     my $nested_data_implementation =
         "fn assert_retired_output_table(name: String, expected: ByteChunk)\n"
         . "\thttp2::core::send_data(state, 0, 1, expected, false)\n"

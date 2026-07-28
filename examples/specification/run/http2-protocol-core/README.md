@@ -25,7 +25,12 @@ The checked migration artifacts are:
 The structured scenario model keeps stdout input facts as row labels,
 projections, frame facts, offsets, streams, sizes, byte counts, and diagnostic
 ids. It rejects hash-only stdout inputs and duplicate lifecycle or stream
-states so row evidence cannot collapse into shared assertion bodies.
+states. Each row also carries an `executable_projection` recipe that names the
+historical row, focused evidence target, public operation to invoke, branch,
+initial state, ordered setup, concrete input, result projection, post-state,
+output provenance, and diagnostic precedence. The checker rejects
+assertion-hash-only recipes and operation substitutions so row evidence cannot
+collapse into shared assertion bodies.
 
 Regenerate and verify the structured files with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run
