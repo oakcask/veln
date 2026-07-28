@@ -714,14 +714,16 @@ fn retained_valid_local_enable_push() -> LocalSettingsItem
 end
 
 fn retired_empty_settings_items(name: String) -> Result<List<LocalSettingsItem>, String>
-	if name == "http2-local-settings-batch-range" or name == "http2-local-settings-large-batch-range"
+	if name == "http2-local-settings-batch-range"
 		Ok(Cons(retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_enable_push(2), Nil)))
+	else if name == "http2-local-settings-large-batch-range"
+		Ok(Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_push(2), Cons(http2::core::local_settings_max_header_list_size(8192), Nil))))
 	else if name == "http2-local-settings-header-table-size-batch-range"
 		Ok(Cons(http2::core::local_settings_header_table_size(4294967296), Cons(retained_valid_local_enable_push(), Nil)))
 	else if name == "http2-local-settings-max-concurrent-streams-batch-range"
-		Ok(Cons(retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_max_concurrent_streams(4294967296), Nil)))
+		Ok(Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_max_concurrent_streams(4294967296), Cons(retained_valid_local_enable_push(), Nil))))
 	else if name == "http2-local-settings-max-header-list-size-batch-range"
-		Ok(Cons(retained_valid_local_max_frame_size(), Cons(retained_valid_local_enable_push(), Cons(http2::core::local_settings_max_header_list_size(4294967296), Nil))))
+		Ok(Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_max_concurrent_streams(100), Cons(http2::core::local_settings_max_header_list_size(4294967296), Nil))))
 	else
 		Ok(Cons(retired_empty_settings_item(name)?, Nil))
 	end

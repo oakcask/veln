@@ -286,6 +286,10 @@ sub validate_retirement_output_implementation {
             || $source !~ /retired_empty_data_content_length_item\(4,\s*1,\s*byte_chunk_from_hex\("bb"\)\?,\s*true,\s*2\)/s;
     die "retirement empty-output evidence keeps local SETTINGS failures generic"
         if $source =~ /assert_retired_empty_settings_output_table\(name: String\).*?\bsend_local_setting\(/s;
+    die "retirement empty-output evidence omits retained local SETTINGS batch items"
+        if $source !~ /http2-local-settings-large-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_enable_push\(2\).*?local_settings_max_header_list_size\(8192\)/s
+            || $source !~ /http2-local-settings-max-concurrent-streams-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_max_concurrent_streams\(4294967296\).*?retained_valid_local_enable_push\(\)/s
+            || $source !~ /http2-local-settings-max-header-list-size-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_max_concurrent_streams\(100\).*?local_settings_max_header_list_size\(4294967296\)/s;
     die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"
         if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
             || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
@@ -1113,6 +1117,15 @@ sub run_self_test {
     };
     die "self-test accepted substituted WINDOW_UPDATE GOAWAY boundary evidence\n"
         if $generic_window_goaway_accepted;
+    my $shortened_settings_batch_source = $retirement_source;
+    $shortened_settings_batch_source =~
+        s/local_settings_header_table_size\(4096\), Cons\(http2::core::local_settings_enable_push\(2\), Cons\(http2::core::local_settings_max_header_list_size\(8192\), Nil\)\)/retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_enable_push(2), Nil)/;
+    my $shortened_settings_batch_accepted = eval {
+        validate_retirement_output_implementation($shortened_settings_batch_source);
+        1;
+    };
+    die "self-test accepted shortened retained local SETTINGS batch evidence\n"
+        if $shortened_settings_batch_accepted;
     my $generic_canonical_mismatch_implementation =
         $canonical_equivalent_implementation;
     $generic_canonical_mismatch_implementation =~
