@@ -473,16 +473,40 @@ fn assert_retired_empty_ping_request_output_table(name: String) -> Result<(), St
 end
 
 fn assert_retired_empty_settings_output_table(name: String) -> Result<(), String>
+	if name == "http2-peer-settings-ack-cleared"
+		assert_retired_empty_settings_ack_cleared_output_table(name)
+	else
+		assert_retired_empty_local_settings_output_table(name)
+	end
+end
+
+fn assert_retired_empty_settings_ack_cleared_output_table(name: String) -> Result<(), String>
 	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(http2::core::empty_settings_ack_state())
-	let no_pending_output: CoreOutputBuffer = http2::core::output_buffer_append_pending_settings_ack(http2::core::empty_output_buffer(), no_pending)
-	match http2::core::send_local_setting(retired_empty_settings_item(name), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())
-		Ok(local_failure) => if http2::core::local_settings_send_status(local_failure) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(local_failure))) == 0 and http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(no_pending_output) == 0
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_pending_settings_ack(http2::core::empty_output_buffer(), no_pending)
+	if http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_local_settings_output_table(name: String) -> Result<(), String>
+	match http2::core::send_local_settings_batch(retired_empty_settings_items(name)?, "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())
+		Ok(local_failure) => match http2::core::local_settings_send_failure(local_failure)
+			Ok(failure) => if retired_empty_settings_failure_matches(name, failure)? and http2::core::local_settings_send_status(local_failure) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(local_failure))) == 0 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(local_failure))) == 0 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(http2::core::local_settings_send_ack_state(local_failure))) == 0 and http2::core::output_buffer_count(http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), local_failure)) == 0
 			Ok(())
 		else
 			Err(name)
 		end
+			Err(_) => Err(name)
+		end
 		Err(_) => Err(name)
 	end
+end
+
+fn retired_empty_settings_failure_matches(name: String, failure: LocalSettingsFailure) -> Result<Bool, String>
+	let expected: { offset : Int, setting_identifier : Int, setting_name : String, observed_value : Int, accepted_min : Int, accepted_max : Int } = expected_retired_empty_settings_failure(name)?
+	Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == expected.offset and http2::core::local_settings_failure_setting_identifier(failure) == expected.setting_identifier and http2::core::local_settings_failure_setting_name(failure) == expected.setting_name and http2::core::local_settings_failure_observed_value(failure) == expected.observed_value and http2::core::local_settings_failure_accepted_min_value(failure) == expected.accepted_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected.accepted_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings")
 end
 
 fn expected_retired_empty_data_family(name: String) -> Result<String, String>
@@ -605,19 +629,61 @@ fn retired_empty_ping_payload(name: String) -> Result<ByteChunk, String>
 	end
 end
 
-fn retired_empty_settings_item(name: String) -> LocalSettingsItem
-	if name == "http2-local-enable-push-settings-range"
-		http2::core::local_settings_enable_push(2)
-	else if name == "http2-local-initial-window-size-settings-range"
-		http2::core::local_settings_initial_window_size(2147483648)
-	else if name == "http2-local-settings-max-frame-size-range" or name == "http2-local-settings-batch-max-frame-size-range"
-		http2::core::local_settings_max_frame_size(1)
-	else if name == "http2-local-max-concurrent-streams-settings-range" or name == "http2-local-settings-max-concurrent-streams-batch-range"
-		http2::core::local_settings_max_concurrent_streams(4294967296)
-	else if name == "http2-local-header-list-size-settings-range" or name == "http2-local-settings-max-header-list-size-batch-range"
-		http2::core::local_settings_max_header_list_size(4294967296)
+fn retained_valid_local_max_frame_size() -> LocalSettingsItem
+	http2::core::local_settings_max_frame_size(32768)
+end
+
+fn retained_valid_local_enable_push() -> LocalSettingsItem
+	http2::core::local_settings_enable_push(1)
+end
+
+fn retired_empty_settings_items(name: String) -> Result<List<LocalSettingsItem>, String>
+	if name == "http2-local-settings-batch-range" or name == "http2-local-settings-large-batch-range"
+		Ok(Cons(retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_enable_push(2), Nil)))
+	else if name == "http2-local-settings-header-table-size-batch-range"
+		Ok(Cons(http2::core::local_settings_header_table_size(4294967296), Cons(retained_valid_local_enable_push(), Nil)))
+	else if name == "http2-local-settings-max-concurrent-streams-batch-range"
+		Ok(Cons(retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_max_concurrent_streams(4294967296), Nil)))
+	else if name == "http2-local-settings-max-header-list-size-batch-range"
+		Ok(Cons(retained_valid_local_max_frame_size(), Cons(retained_valid_local_enable_push(), Cons(http2::core::local_settings_max_header_list_size(4294967296), Nil))))
 	else
-		http2::core::local_settings_header_table_size(4294967296)
+		Ok(Cons(retired_empty_settings_item(name)?, Nil))
+	end
+end
+
+fn retired_empty_settings_item(name: String) -> Result<LocalSettingsItem, String>
+	if name == "http2-local-enable-push-settings-range"
+		Ok(http2::core::local_settings_enable_push(2))
+	else if name == "http2-local-initial-window-size-settings-range"
+		Ok(http2::core::local_settings_initial_window_size(2147483648))
+	else if name == "http2-local-settings-max-frame-size-range" or name == "http2-local-settings-batch-max-frame-size-range"
+		Ok(http2::core::local_settings_max_frame_size(if name == "http2-local-settings-batch-max-frame-size-range" 16777216 else 16383 end))
+	else if name == "http2-local-max-concurrent-streams-settings-range" or name == "http2-local-settings-max-concurrent-streams-batch-range"
+		Ok(http2::core::local_settings_max_concurrent_streams(4294967296))
+	else if name == "http2-local-header-list-size-settings-range" or name == "http2-local-settings-max-header-list-size-batch-range"
+		Ok(http2::core::local_settings_max_header_list_size(4294967296))
+	else
+		Ok(http2::core::local_settings_header_table_size(4294967296))
+	end
+end
+
+fn expected_retired_empty_settings_failure(name: String) -> Result<{ offset : Int, setting_identifier : Int, setting_name : String, observed_value : Int, accepted_min : Int, accepted_max : Int }, String>
+	if name == "http2-local-enable-push-settings-range" or name == "http2-local-settings-batch-range" or name == "http2-local-settings-large-batch-range"
+		Ok({ offset: if name == "http2-local-enable-push-settings-range" 0 else 6 end, setting_identifier: 2, setting_name: "SETTINGS_ENABLE_PUSH", observed_value: 2, accepted_min: 0, accepted_max: 1 })
+	else if name == "http2-local-initial-window-size-settings-range"
+		Ok({ offset: 0, setting_identifier: 4, setting_name: "SETTINGS_INITIAL_WINDOW_SIZE", observed_value: 2147483648, accepted_min: 0, accepted_max: 2147483647 })
+	else if name == "http2-local-settings-max-frame-size-range"
+		Ok({ offset: 0, setting_identifier: 5, setting_name: "SETTINGS_MAX_FRAME_SIZE", observed_value: 16383, accepted_min: 16384, accepted_max: 16777215 })
+	else if name == "http2-local-settings-batch-max-frame-size-range"
+		Ok({ offset: 0, setting_identifier: 5, setting_name: "SETTINGS_MAX_FRAME_SIZE", observed_value: 16777216, accepted_min: 16384, accepted_max: 16777215 })
+	else if name == "http2-local-max-concurrent-streams-settings-range" or name == "http2-local-settings-max-concurrent-streams-batch-range"
+		Ok({ offset: if name == "http2-local-settings-max-concurrent-streams-batch-range" 6 else 0 end, setting_identifier: 3, setting_name: "SETTINGS_MAX_CONCURRENT_STREAMS", observed_value: 4294967296, accepted_min: 0, accepted_max: 4294967295 })
+	else if name == "http2-local-header-list-size-settings-range" or name == "http2-local-settings-max-header-list-size-batch-range"
+		Ok({ offset: if name == "http2-local-settings-max-header-list-size-batch-range" 12 else 0 end, setting_identifier: 6, setting_name: "SETTINGS_MAX_HEADER_LIST_SIZE", observed_value: 4294967296, accepted_min: 0, accepted_max: 4294967295 })
+	else if name == "http2-local-header-table-size-settings-range" or name == "http2-local-settings-header-table-size-batch-range"
+		Ok({ offset: 0, setting_identifier: 1, setting_name: "SETTINGS_HEADER_TABLE_SIZE", observed_value: 4294967296, accepted_min: 0, accepted_max: 4294967295 })
+	else
+		Err(name)
 	end
 end
 

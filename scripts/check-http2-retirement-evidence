@@ -246,17 +246,22 @@ sub validate_retirement_output_implementation {
             || $source !~ /expected_retired_empty_priority_family\(name: String\)/
             || $source !~ /expected_retired_empty_goaway_family\(name: String\)/
             || $source !~ /expected_retired_empty_ping_family\(name: String\)/
-            || $source !~ /retired_empty_settings_item\(name: String\)/
+            || $source !~ /retired_empty_settings_items\(name: String\)/
+            || $source !~ /expected_retired_empty_settings_failure\(name: String\)/
+            || $source !~ /retired_empty_settings_failure_matches\(name: String, failure: LocalSettingsFailure\)/
             || $source !~ /expected_retired_empty_data_failure_id\(family: String\)/
             || $source !~ /expected_retired_empty_window_update_failure_id\(name: String\)/
             || $source !~ /expected_retired_empty_priority_failure_id\(name: String\)/
             || $source !~ /\bhttp2::core::(?:data_send_failure|headers_send_failure|push_promise_send_failure|window_update_send_failure|priority_send_failure|goaway_send_failure|ping_request_failure)\b/
+            || $source !~ /\bhttp2::core::(?:send_local_settings_batch|local_settings_send_failure|local_settings_failure_id|local_settings_failure_setting_identifier|local_settings_failure_observed_value|output_buffer_append_local_settings)\b/
             || $source !~ /\bhttp2::core::(?:respond_to_ping|ping_response_status|output_buffer_append_ping_response)\b/
             || $source !~ /http2-ping-ack-received.*?ping-ack-received/s
             || $source !~ /\bhttp2::core::(?:outbound_data_flow_failure_id|outbound_headers_failure_id|outbound_stream_control_failure_id|goaway_send_failure_id|frame_payload_length_failure_active_state)\b/;
     die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
         if $source =~ /outbound_data_flow_failure_id\(failure\)\s*!=\s*""/
             || $source =~ /outbound_stream_control_failure_id\(failure\)\s*!=\s*""/;
+    die "retirement empty-output evidence keeps local SETTINGS failures generic"
+        if $source =~ /assert_retired_empty_settings_output_table\(name: String\).*?\bsend_local_setting\(/s;
     die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"
         if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
             || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
