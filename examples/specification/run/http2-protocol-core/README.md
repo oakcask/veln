@@ -21,10 +21,12 @@ Successful HPACK receives must consume the full vector; failed receives must
 report the expected production failure kind for the retained vector while
 preserving the caller-owned table.
 Singleton zero-length chunks exercise the corresponding rejected
-WINDOW_UPDATE or HEADERS send, including unchanged output, while empty output
-is classified by historical frame domain. The checker rejects nested-DATA,
-failed-decode input-identity substitutions, and generic non-empty HPACK
-failure checks.
+WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is
+classified by historical frame domain and retained table-name family, and the
+focused test must observe a production send failure before checking that no
+decision bytes or output-buffer chunks were emitted. The checker rejects
+nested-DATA, failed-decode input-identity substitutions, and generic non-empty
+HPACK failure checks.
 
 The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,

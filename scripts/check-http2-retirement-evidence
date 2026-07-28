@@ -212,6 +212,17 @@ sub validate_retirement_output_implementation {
             || $source !~ /assert_retired_empty_ping_output_table\(name: String\)/
             || $source !~ /assert_retired_empty_settings_output_table\(name: String\)/
             || $source =~ /\bhttp2::core::validate_frame_payload_length\b/;
+    die "retirement empty-output evidence does not bind retained table names to failure families\n"
+        if $source !~ /expected_retired_empty_data_family\(name: String\)/
+            || $source !~ /expected_retired_empty_headers_family\(name: String\)/
+            || $source !~ /expected_retired_empty_push_promise_family\(name: String\)/
+            || $source !~ /expected_retired_empty_window_update_family\(name: String\)/
+            || $source !~ /expected_retired_empty_priority_family\(name: String\)/
+            || $source !~ /expected_retired_empty_goaway_family\(name: String\)/
+            || $source !~ /expected_retired_empty_ping_family\(name: String\)/
+            || $source !~ /retired_empty_settings_item\(name: String\)/
+            || $source !~ /\bhttp2::core::(?:data_send_failure|headers_send_failure|push_promise_send_failure|window_update_send_failure|priority_send_failure|goaway_send_failure|ping_request_failure)\b/
+            || $source !~ /\bhttp2::core::(?:outbound_data_flow_failure_id|outbound_headers_failure_id|outbound_stream_control_failure_id|goaway_send_failure_id|frame_payload_length_failure_active_state)\b/;
     die "retirement zero-length evidence does not obtain failure output from its send domain\n"
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/

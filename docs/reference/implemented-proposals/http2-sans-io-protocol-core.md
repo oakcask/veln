@@ -48,15 +48,15 @@ at a time through the public frame codec; non-frame vectors cross the
 production HPACK decoder. Successful decodes must consume the complete
 retained vector, while rejected decodes must expose the expected production
 failure kind for the retained vector without changing the caller-owned dynamic
-table. Singleton zero-length vectors
-exercise their historical WINDOW_UPDATE or HEADERS send rejection and verify
-both decision bytes and the output buffer remain empty. Empty tables are
-classified by their historical frame domain and exercise that domain's payload
-rejection, while DATA tables exercise a rejected DATA send with the same
-failure-atomicity checks. Repeated chunks therefore cannot satisfy multiple
-table rows through one occurrence, and complete frames or HPACK vectors cannot
-be accepted as nested DATA payloads, by failed-decode input identity, or by a
-generic non-empty HPACK failure check.
+table. Singleton zero-length vectors exercise their historical WINDOW_UPDATE
+or HEADERS send rejection and verify both decision bytes and the output buffer
+remain empty. Empty tables are classified by historical frame domain and
+retained table-name family, then exercise a production send failure before the
+same failure-atomicity checks. Repeated chunks therefore cannot satisfy
+multiple table rows through one occurrence, empty rows cannot be satisfied by
+an unclassified same-kind rejection, and complete frames or HPACK vectors
+cannot be accepted as nested DATA payloads, by failed-decode input identity, or
+by a generic non-empty HPACK failure check.
 
 The checker derives a required public protocol domain for every helper
 invocation from its helper and caller, including component-specific
