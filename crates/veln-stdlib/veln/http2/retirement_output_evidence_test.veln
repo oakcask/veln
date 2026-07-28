@@ -955,10 +955,28 @@ fn assert_retired_empty_goaway_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_ping_output_table(name: String) -> Result<(), String>
+	if name == "http2-ping-ack-received"
+		assert_retired_empty_ping_ack_received_output_table(name)
+	else
+		assert_retired_empty_ping_request_output_table(name)
+	end
+end
+
+fn assert_retired_empty_ping_ack_received_output_table(name: String) -> Result<(), String>
+	let decision: PingResponseDecision = http2::core::respond_to_ping(1, byte_chunk_from_hex("0102030405060708")?)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_ping_response(http2::core::empty_output_buffer(), decision)
+	if expected_retired_empty_ping_family(name)? == "ping-ack-received" and http2::core::ping_response_status(decision) == "no_response" and http2::core::ping_response_reason(decision) == "ack_received" and byte_count_to_int(byte_chunk_count(http2::core::ping_response_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_ping_request_output_table(name: String) -> Result<(), String>
 	let decision: PingRequestDecision = http2::core::send_ping(retired_empty_ping_payload(name)?)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), decision)
 	match http2::core::ping_request_failure(decision)
-		Ok(failure) => if expected_retired_empty_ping_family(name)? != "" and http2::core::frame_payload_length_failure_active_state(failure) != "" and http2::core::ping_request_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if expected_retired_empty_ping_family(name)? == "ping-request-length" and http2::core::frame_payload_length_failure_active_state(failure) != "" and http2::core::ping_request_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -1066,11 +1084,11 @@ end
 
 fn expected_retired_empty_ping_family(name: String) -> Result<String, String>
 	if name == "http2-outbound-ping-short"
-		Ok("ping")
+		Ok("ping-request-length")
 	else if name == "http2-outbound-ping-long"
-		Ok("ping")
+		Ok("ping-request-length")
 	else if name == "http2-ping-ack-received"
-		Ok("ping")
+		Ok("ping-ack-received")
 	else
 		Err(name)
 	end

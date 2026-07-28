@@ -25,13 +25,15 @@ retained successful HPACK rows only when the retained row is named in the
 historical-canonical mismatch list.
 Singleton zero-length chunks exercise the corresponding rejected
 WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is
-classified by historical frame domain and retained table-name family, and the
-focused test must observe the expected production send failure id before
-checking that no decision bytes or output-buffer chunks were emitted. DATA
-empty-output rows distinguish content-length failures from flow-control
-failures, and PRIORITY empty-output rows construct an open stream in a draining
-connection so the GOAWAY boundary wins with the retained diagnostic
-precedence. The checker rejects nested-DATA, failed-decode input-identity
+classified by historical frame domain and retained table-name family. Rejected
+send rows must observe the expected production send failure id before checking
+that no decision bytes or output-buffer chunks were emitted. DATA empty-output
+rows distinguish content-length failures from flow-control failures, and
+PRIORITY empty-output rows construct an open stream in a draining connection so
+the GOAWAY boundary wins with the retained diagnostic precedence. The retained
+PING-ACK-received row exercises the public PING response no-output transition,
+not an outbound PING length failure. The checker rejects nested-DATA,
+failed-decode input-identity
 substitutions, generic canonical-equivalent HPACK encoding fallbacks, generic
 non-empty HPACK failure checks, and generic data, window, or priority
 failure-id checks.

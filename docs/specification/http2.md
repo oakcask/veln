@@ -920,6 +920,9 @@ depend on dynamic indexing carry their production dynamic-table state into the
 decode, and every successful retained HPACK row must consume the full vector
 and either re-encode to the exact retained bytes through the public production
 encoder or match an explicitly named historical-canonical mismatch row. It
-also checks each historical empty output table through the public send domains
-and requires the expected production failure id before proving that no
-decision bytes or output-buffer chunks were emitted.
+also checks each historical empty output table through the public send or
+response domain that owns the retained row. Rejected send rows require the
+expected production failure id before proving that no decision bytes or
+output-buffer chunks were emitted. The retained PING-ACK-received row uses the
+public PING response transition and proves the `no_response` ACK result
+instead of substituting an outbound PING length failure.
