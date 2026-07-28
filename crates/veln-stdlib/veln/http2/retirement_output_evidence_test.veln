@@ -87,10 +87,18 @@ end
 fn validate_retired_hpack_production_encode(name: String, expected: ByteChunk, table: DynamicTable, decoded: HeaderBlockDecodeTransition) -> Result<(), String>
 	let encoded: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::header_block_headers(decoded), table, 4096))?
 	let encoded_input: ByteChunk = http2::hpack::header_block_encode_bytes(encoded)
-	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and byte_count_to_int(byte_chunk_count(encoded_input)) >= 0 and http2::hpack::dynamic_table_entry_count(table) == 0
+	if http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(expected)) and (chunks_equal(encoded_input, expected)? or not expected_retired_hpack_exact_encode_match(name)?) and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
 		Err(name)
+	end
+end
+
+fn expected_retired_hpack_exact_encode_match(name: String) -> Result<Bool, String>
+	if name == "http2-hpack-continuation-older-path" or name == "http2-hpack-stateful-dynamic-name-newest-path-again" or name == "http2-hpack-stateful-dynamic-name-older-path-target" or name == "http2-hpack-stateful-dynamic-name-huffman-indexed-path-test-reuse" or name == "http2-hpack-stateful-dynamic-name-huffman-continuation-reuse" or name == "http2-hpack-dynamic-indexed-static-name-content-type" or name == "http2-hpack-dynamic-indexed-path-target" or name == "http2-hpack-dynamic-indexed-older-path"
+		Ok(true)
+	else
+		Ok(false)
 	end
 end
 
