@@ -922,19 +922,9 @@ The broad `http2-protocol-core` implementation is retired and is not current
 HTTP/2 behavior. Focused `http2-core-*` cases cover state transitions,
 emitted bytes, and failure atomicity through the public core. Focused
 `http2-protocol-core-*` cases remain only where their human and JSON
-diagnostic projections are current observable behavior. The retired route's
-`retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
-`retirement-coverage.tsv` files are historical migration evidence checked by
-`scripts/check-http2-retirement-evidence`. The same generated model emits
-[`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-which verifies bounded chunk digests and the aggregate projection digest as
-standard-package tests. The checker owns the row-level executable-projection
-validation: it rejects stale row bindings, hash-only recipes, operation
-substitutions, missing output provenance, and unclassified diagnostic or
-state-preservation dimensions before regenerating the Veln digest evidence.
-Retirement evidence may retain historical stdout values for inventory
-integrity, but current evidence targets must not route unsupported HPACK
-header blocks through `hpack.fixture.unsupported_header_block`; replacement
-evidence for those rows uses public `std::http2::hpack` decode failures.
-These artifacts bind the historical rows to focused evidence and public
-operation dimensions without restoring a reusable fixture implementation.
+diagnostic projections are current observable behavior. The retired route
+retains only a README for old links; it contains no migration manifests,
+generated digest tests, checker-owned projections, or reusable implementation.
+Current replacement evidence lives in the focused executable routes and in
+standard-package tests that invoke the public `std::http2::core` and
+`std::http2::hpack` operations directly.

@@ -7,8 +7,9 @@ This path is kept only as a route for old documentation links. The broad
 reusable behavior moved to standard-owned modules and focused cases.
 
 This directory contains no reusable Veln implementation. It retains
-migration-only evidence for the completed semantic retirement gate; that
-evidence is not current HTTP/2 behavior.
+no migration-only manifests, generated digest tests, or checker-owned
+structured projections. Current HTTP/2 behavior is specified by public
+standard-library tests and focused executable examples.
 
 Use the focused executable cases whose names start with `http2-core-` for the
 current sans-I/O core evidence. Use focused `http2-protocol-core-*` cases for
@@ -16,28 +17,6 @@ human and JSON diagnostic projections that still carry the historical case-name
 prefix. Current behavior starts at
 [http2.md](../../../../docs/specification/http2.md).
 
-The checked migration artifacts are:
-
-- `retirement-evidence.tsv`: historical row binding to executable evidence.
-- `retirement-scenarios.jsonl`: row-addressable structured projection model.
-- `retirement-coverage.tsv`: generated dimension coverage report.
-- `retirement_projection_evidence_test.veln`: generated standard-package test
-  source that checks bounded projection chunk digests and the aggregate
-  projection manifest digest against generated expectation functions.
-
-The structured scenario model keeps stdout input facts as row labels,
-projections, frame facts, offsets, streams, sizes, byte counts, and diagnostic
-ids. It rejects hash-only stdout inputs and duplicate lifecycle or stream
-states. Each row also carries an `executable_projection` recipe that names the
-historical row, focused evidence target, public operation to invoke, branch,
-initial state, ordered setup, concrete input, result projection, post-state,
-output provenance, and diagnostic precedence. The checker rejects
-assertion-hash-only recipes and operation substitutions so row evidence cannot
-collapse into shared assertion bodies. The generated standard-package test
-keeps this row set executable in bounded groups by checking chunk digests and
-the aggregate digest for the same retained rows through generated expectation
-functions.
-
-Regenerate and verify the structured files and generated test source with
-`scripts/check-http2-retirement-evidence --regenerate-structured`, then run
-`scripts/check-http2-retirement-evidence`.
+The former migration inventory was retired with the broad fixture. Do not add
+new evidence under this route. Add current behavior evidence to focused
+`http2-core-*`, `http2-protocol-core-*`, or `hpack-*` cases instead.
