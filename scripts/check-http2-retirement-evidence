@@ -371,6 +371,27 @@ sub helper_evidence_domain {
     my $identity = "$caller $helper";
 
     return {
+        label => "accepted outbound HEADERS transition",
+        pattern => qr/\bheaders_send_status\([^;\n]*\)\s*==\s*"accepted"/,
+    } if $helper eq "require_outbound_headers_connection_accepted";
+    return {
+        label => "rejected outbound HEADERS transition",
+        pattern => qr/\boutbound_headers_failure_id\b/,
+    } if $helper eq "require_outbound_headers_connection_failure";
+    return {
+        label => "failure-atomic outbound HEADERS state preservation",
+        pattern => qr/\b(?:headers_send_bytes|stream_collection_count|connection_state_(?:streams|next_offset)|stream_entry_)/,
+    } if $helper eq "require_outbound_headers_connection_state_preserved";
+    return {
+        label => "accepted outbound PUSH_PROMISE transition",
+        pattern => qr/\bpush_promise_send_status\([^;\n]*\)\s*==\s*"accepted"/,
+    } if $helper eq "require_outbound_push_promise_accepted";
+    return {
+        label => "rejected outbound PUSH_PROMISE transition",
+        pattern => qr/\boutbound_headers_failure_id\b/,
+    } if $helper eq "require_outbound_push_promise_failure";
+
+    return {
         label => "PUSH_PROMISE with production HPACK",
         pattern => qr/\b(?:push_promise|send_push_promise)/i,
     } if $helper =~ /outbound_push_promise/;
@@ -721,6 +742,31 @@ sub run_self_test {
         $settings_helper,
         "$good\nhttp2::core::apply_receive_frame(state, "
             . "byte_chunk_from_hex(\"00000c040000000000aaaa12345678000500008000\")?)\n",
+    );
+
+    my $outbound_headers_failure = {
+        kind => "helper",
+        key => "main.veln:13417:require_outbound_headers_connection_failure",
+        value => "verify_outbound_local_stream_role_and_domain_cases\t"
+            . "require_outbound_headers_connection_failure\t"
+            . "\tlet ignored_server_new: () = "
+            . "require_outbound_headers_connection_failure("
+            . "\"server endpoint started a regular local stream\", server_new, "
+            . "\"http2.protocol.invalid_frame_kind\")?",
+    };
+    my $accepted_headers_substitution = eval {
+        validate_evidence_relevance(
+            $outbound_headers_failure,
+            "$good\nif http2::core::headers_send_status(decision) == \"accepted\"\n",
+        );
+        1;
+    };
+    die "self-test accepted outbound HEADERS success evidence for a failure helper\n"
+        if $accepted_headers_substitution;
+    validate_evidence_relevance(
+        $outbound_headers_failure,
+        "$good\nif http2::core::outbound_headers_failure_id(failure) == "
+            . "\"http2.protocol.invalid_frame_kind\"\n",
     );
 
     my $continuation_projection = {

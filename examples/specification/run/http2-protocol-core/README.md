@@ -26,13 +26,16 @@ failed-decode input-identity substitutions.
 
 The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,
-requires every stdout projection kind to reach the matching public protocol
-boundary, checks retained production diagnostic ids, and rejects a
-continuation projection unless the referenced test checks its continuation,
-wire-size, and single-decode result. Veln references must exercise the public
-HTTP/2 standard-library boundary through a checked branch. Case references
-must place their evidence needle inside an `equals` or `contains` assertion.
-This directory contains no reusable Veln implementation.
+and separates outbound HEADERS and PUSH_PROMISE accepted, rejected, and
+state-preservation evidence. A retained failure helper therefore cannot be
+satisfied by an accepted same-domain send test. The checker requires every
+stdout projection kind to reach the matching public protocol boundary, checks
+retained production diagnostic ids, and rejects a continuation projection
+unless the referenced test checks its continuation, wire-size, and
+single-decode result. Veln references must exercise the public HTTP/2
+standard-library boundary through a checked branch. Case references must place
+their evidence needle inside an `equals` or `contains` assertion. This
+directory contains no reusable Veln implementation.
 
 From the standard-package root, the retained output gate is independently
 runnable with:

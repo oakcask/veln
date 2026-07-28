@@ -58,8 +58,11 @@ be accepted as nested DATA payloads or by failed-decode input identity.
 
 The checker derives a required public protocol domain for every helper
 invocation from its helper and caller, including component-specific
-connection-state preservation checks. The three connection-stream helper
-sites must reference SETTINGS, PING, and GOAWAY tests respectively.
+connection-state preservation checks. Outbound HEADERS and PUSH_PROMISE helper
+evidence distinguishes accepted transitions, rejected transitions, and
+failure-atomic state preservation so a same-domain success test cannot satisfy
+a historical failure helper. The three connection-stream helper sites must
+reference SETTINGS, PING, and GOAWAY tests respectively.
 Production HTTP/2 diagnostic stdout rows must compare their retained
 diagnostic id. The historical
 `:fixture` continuation projection is bound to a production receive-frame
@@ -69,9 +72,9 @@ require a matching SETTINGS, HPACK, receive-frame, send-transition,
 flow-control, content-length, stream-collection, priority, output-encoding, or
 shutdown boundary according to the retained projection kind. Unclassified
 helper and stdout projection kinds fail the gate. The checker self-test
-rejects the former peer-stream, unrelated chunk, generic HPACK, nested-DATA,
-grouped-output, comment-only empty-output, inbound-entry, and encode-error
-substitutions.
+rejects the former peer-stream, outbound HEADERS success-for-failure,
+unrelated chunk, generic HPACK, nested-DATA, grouped-output,
+comment-only empty-output, inbound-entry, and encode-error substitutions.
 
 The historical peer-stream failure helper's component checks are split across
 the retained connection composition, stream collection, flow-control,
