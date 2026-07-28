@@ -921,18 +921,10 @@ non-append behavior through the public facade.
 The retired `http2-protocol-core` route is no longer an executable case.
 Focused `http2-core-*` cases cover state transitions and emitted bytes, while
 focused `http2-protocol-core-*` cases retain human and JSON diagnostic
-coverage. The retained retirement-output evidence independently checks each
-retained successful HPACK output row against the production codec. Rows that
-depend on dynamic indexing carry their production dynamic-table state into the
-decode, and every successful retained HPACK row must consume the full vector
-and re-encode each indexed field, literal field, and table-size update to the
-exact retained bytes through the public production HPACK element encoders. It
-also checks each historical empty output table through the public send or
-response domain that owns the retained row. Rejected send rows require the
-expected production failure id and row-specific projection before proving that
-no decision bytes or output-buffer chunks were emitted. DATA empty-output rows
-bind the retained name to a starting stream entry, payload, end-stream flag,
-and exact content-length or flow-control failure projection. The retained
-PING-ACK-received row uses the public PING response transition and proves the
-`no_response` ACK result instead of substituting an outbound PING length
-failure.
+coverage. The retained retirement-output evidence checks frame and HPACK codec
+reconstruction, selected production send and response failures, and unchanged
+output for rejected decisions. Its manifest preserves the complete historical
+output inventory and binds each row to checked source. Complete item-specific
+equivalence, including production-derived bytes and historical setup state for
+every row, remains planned in
+[`http2-standard-library-completion-and-fixture-retirement.md`](../proposals/http2-standard-library-completion-and-fixture-retirement.md).

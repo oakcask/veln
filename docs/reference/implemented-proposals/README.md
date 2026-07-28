@@ -14,8 +14,6 @@ behavior.
 
 ## Completed Umbrella Routes
 
-- HTTP/2 standard library completion and fixture retirement:
-  [http2-standard-library-completion-and-fixture-retirement.md](http2-standard-library-completion-and-fixture-retirement.md).
 - Local inference and annotation elision:
   [local-inference-and-annotation-elision.md](local-inference-and-annotation-elision.md).
 - Binary data standard library:

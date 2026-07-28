@@ -4,9 +4,10 @@ Status: superseded
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-This record preserves historical evidence for migrated slices. The completed
-fixture-retirement boundary is recorded by
-[`http2-standard-library-completion-and-fixture-retirement.md`](http2-standard-library-completion-and-fixture-retirement.md).
+This record preserves historical evidence for migrated slices. The broad
+fixture is physically retired, while the remaining item-specific evidence work
+is tracked by
+[`http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -21,8 +22,9 @@ evidence is not the authority for current behavior.
 
 ## Retirement Evidence
 
-This section describes the retirement-evidence gate that closed the broad
-fixture route.
+This section describes the inventory and binding checks that permit the broad
+fixture source to remain removed. They do not yet close the item-specific
+semantic evidence gate.
 
 The checked
 [`retirement-evidence.tsv`](../../../examples/specification/run/http2-protocol-core/retirement-evidence.tsv)
@@ -49,23 +51,15 @@ body. References to the focused
 [`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
 must contain one exact call for each historical table rather than a grouped
 literal or comment marker. The retained test implementation is part of each
-binding hash. Complete frame sequences are decoded and reconstructed one frame
-at a time through the public frame codec; non-frame vectors cross the
-production HPACK decoder. Successful decodes must consume the complete
-retained vector and re-encode each indexed field, literal field, and
-table-size update through the public production HPACK element encoders to the
-exact retained bytes, while rejected decodes must expose the expected
-production failure kind for the retained vector without changing the
-caller-owned dynamic table. Singleton zero-length vectors exercise their
-historical WINDOW_UPDATE or HEADERS send rejection and verify both decision
-bytes and the output buffer remain empty. Empty tables are classified by
-historical frame domain and retained table-name family, then exercise a
-production send failure before the same failure-atomicity checks. Repeated
-chunks therefore cannot satisfy multiple table rows through one occurrence,
-empty rows cannot be satisfied by
-an unclassified same-kind rejection, and complete frames or HPACK vectors
-cannot be accepted as nested DATA payloads, by failed-decode input identity, or
-by a generic non-empty HPACK failure check.
+binding hash. Complete frame sequences are decoded and reconstructed through
+the public frame codec, and non-frame vectors cross public HPACK codec
+boundaries. Selected empty tables exercise production send or response
+failures and unchanged output. These checks reject grouped literals,
+comment-only labels, nested DATA substitutions, and several generic failure
+substitutions. Most non-empty rows still derive their observed codec value from
+the retained bytes instead of the owning production transition, and several
+empty rows substitute historical setup state. The active retirement-evidence
+proposal defines the stronger production-derived and row-specific gate.
 
 The checker derives a required public protocol domain for every helper
 invocation from its helper and caller, including component-specific
@@ -93,7 +87,9 @@ rejects the former peer-stream, outbound HEADERS success-for-failure,
 outbound PUSH_PROMISE missing-failure-id, unrelated chunk, generic HPACK,
 generic non-empty HPACK failure, nested-DATA,
 grouped-output, comment-only empty-output, inbound-entry, and encode-error
-substitutions.
+substitutions. The remaining relevance rules are domain-oriented and do not
+generally prove that each row preserves its concrete endpoint role, starting
+state, arguments, complete result projection, or diagnostic precedence.
 
 The historical peer-stream failure helper's component checks are split across
 the retained connection composition, stream collection, flow-control,
@@ -103,7 +99,8 @@ to the narrower peer-stream-admission assertion.
 The focused standard-package tests and executable specification cases remain
 independently runnable without the historical fixture. They cover migrated
 state transitions and diagnostic projections through the public
-standard-library boundary. Explicitly selecting
+standard-library boundary, but do not yet provide complete item-specific
+retirement evidence. Explicitly selecting
 [`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
 keeps the complete standard-package analysis closure while selecting only that
 file's tests from the standard-package root. Standard-package test execution
