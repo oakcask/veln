@@ -4,7 +4,9 @@ Status: implemented
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-This record preserves the completion boundary for the retired broad fixture.
+This record preserves the standard-library migration boundary for the retired
+broad fixture. The row-addressable semantic evidence gate remains active in
+[`../../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -14,10 +16,10 @@ send paths use the public HPACK codec.
 
 The broad `http2-protocol-core` implementation and case were removed after
 their reusable responsibilities moved to standard-owned modules and focused
-cases. Its retained route contains no reusable implementation, manifest, or
-migration-only executable evidence. Current HTTP/2 verification no longer
-depends on the historical fixture revision, retirement inventory, retirement
-checker, generated retirement tests, or output-evidence harness.
+cases. Its retained route contains no reusable implementation. The retained
+inventory, checker, and output-evidence harness are temporary migration
+evidence for the open semantic retirement gate, not authorities for current
+HTTP/2 behavior.
 
 ## Completion Evidence
 
@@ -38,7 +40,8 @@ executable specification cases:
   human and JSON diagnostic projections are current behavior; they are not a
   broad fixture or migration inventory.
 
-The completed cleanup removed the migration-only checker, historical
-retirement manifest, and retirement-output standard-package test. Future
-HTTP/2 changes should update `http2.md`, the focused specification cases, and
-the public standard-package tests directly.
+The current cleanup must keep the migration-only checker, historical
+retirement manifest, and retirement-output standard-package test until the
+active proposal's final semantic gate passes. Future HTTP/2 behavior changes
+should still update `http2.md`, the focused specification cases, and the
+public standard-package tests directly.

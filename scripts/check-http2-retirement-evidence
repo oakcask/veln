@@ -1,0 +1,1370 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Digest::SHA qw(sha256_hex);
+use JSON::PP qw(decode_json);
+use MIME::Base64 qw(decode_base64 encode_base64);
+
+my $inventory = @ARGV == 1 && $ARGV[0] eq "--inventory";
+my $self_test = @ARGV == 1 && $ARGV[0] eq "--self-test";
+die "usage: scripts/check-http2-retirement-evidence [--inventory|--self-test]\n"
+    if @ARGV > 1 || (@ARGV == 1 && !$inventory && !$self_test);
+
+if ($self_test) {
+    run_self_test();
+    exit 0;
+}
+
+my $revision = "f91a4e42^";
+my $fixture = "examples/specification/run/http2-protocol-core";
+my $evidence_manifest =
+    "examples/specification/run/http2-protocol-core/retirement-evidence.tsv";
+my $main = git_show("$revision:$fixture/main.veln");
+my $manifest = git_show("$revision:$fixture/case.toml");
+
+my @rows;
+inventory_helpers($main, \@rows);
+inventory_stdout($manifest, \@rows);
+inventory_output_tables($manifest, \@rows);
+
+my %evidence = read_evidence_manifest($evidence_manifest);
+my %counts;
+for my $row (@rows) {
+    $counts{$row->{kind}}++;
+    my $manifest_row = delete $evidence{$row->{key}};
+    die "missing item-level evidence for $row->{key}\n" if !defined $manifest_row;
+    die "evidence kind mismatch for $row->{key}\n"
+        if $manifest_row->{kind} ne $row->{kind};
+    my $assertion = evidence_assertion($manifest_row->{evidence});
+    if ($inventory) {
+        die "historical value mismatch for $row->{key}\n"
+            if $manifest_row->{value} ne $row->{value};
+    } else {
+        validate_item_binding($row->{key}, $row->{value}, $manifest_row, $assertion);
+    }
+    validate_evidence_relevance($row, $assertion, $manifest_row);
+    if ($inventory) {
+        print join(
+            "\t",
+            $row->{kind},
+            $row->{key},
+            encode_base64($row->{value}, ""),
+            sha256_hex($assertion),
+            sha256_hex("$row->{value}\0$assertion"),
+            $manifest_row->{evidence},
+        ), "\n";
+    }
+}
+
+die "unexpected evidence item " . (sort keys %evidence)[0] . "\n" if %evidence;
+
+expect_count(\%counts, "helper", 652);
+expect_count(\%counts, "stdout", 2_044);
+expect_count(\%counts, "output_table", 315);
+
+if (!$inventory) {
+    print "http2 retirement evidence: 652 helper invocations have checked item-level evidence\n";
+    print "http2 retirement evidence: 2044 stdout lines have checked item-level evidence\n";
+    print "http2 retirement evidence: 315 output tables have checked item-level evidence\n";
+    print "http2 retirement evidence: zero unclassified items\n";
+}
+
+sub inventory_helpers {
+    my ($source, $rows) = @_;
+    my $caller = "<top-level>";
+    my $line_number = 0;
+    for my $line (split /\n/, $source, -1) {
+        $line_number++;
+        if ($line =~ /^(?:pub )?fn ([A-Za-z0-9_]+)/) {
+            $caller = $1;
+        }
+        next if $line =~ /^(?:pub )?fn require_/;
+        while ($line =~ /\b(require_[A-Za-z0-9_]+)\b/g) {
+            push @$rows, {
+                kind => "helper",
+                key => "main.veln:$line_number:$1",
+                value => "$caller\t$1\t$line",
+            };
+        }
+    }
+}
+
+sub inventory_stdout {
+    my ($source, $rows) = @_;
+    my ($encoded) = $source =~ /\npath = "stdout"\nequals = (".*")\n\n/s;
+    die "historical exact stdout assertion is missing\n" if !defined $encoded;
+    my @lines = split /\n/, decode_json($encoded), -1;
+    pop @lines if @lines && $lines[-1] eq "";
+    for my $index (0 .. $#lines) {
+        push @$rows, {
+            kind => "stdout",
+            key => "case.toml:stdout:" . ($index + 1),
+            value => $lines[$index],
+        };
+    }
+}
+
+sub inventory_output_tables {
+    my ($source, $rows) = @_;
+    while ($source =~ /\[\[output_chunk_list\]\]\nname = "([^"]+)"\nchunks = \[([^\]]*)\]/g) {
+        push @$rows, {
+            kind => "output_table",
+            key => "case.toml:output_chunk_list:$1",
+            value => "$1\t$2",
+        };
+    }
+}
+
+sub read_evidence_manifest {
+    my ($path) = @_;
+    open my $handle, "<", $path or die "cannot read $path: $!\n";
+    my %items;
+    my $line_number = 0;
+    while (my $line = <$handle>) {
+        $line_number++;
+        chomp $line;
+        next if $line eq "" || $line =~ /^#/;
+        my @fields = split /\t/, $line, -1;
+        my ($kind, $key, $encoded_value, $assertion_hash, $binding_hash, $evidence, @extra) =
+            @fields;
+        die "invalid evidence row at $path:$line_number\n"
+            if @extra || !defined $evidence || $kind !~ /^(?:helper|stdout|output_table)$/
+                || $encoded_value !~ /^(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?$/
+                || $assertion_hash !~ /^[0-9a-f]{64}$/
+                || $binding_hash !~ /^[0-9a-f]{64}$/
+                || $evidence !~ /^[^\t#]+#[^\t#]+$/;
+        die "duplicate evidence key $key\n" if exists $items{$key};
+        $items{$key} = {
+            kind => $kind,
+            value => decode_base64($encoded_value),
+            assertion_hash => $assertion_hash,
+            binding_hash => $binding_hash,
+            evidence => $evidence,
+        };
+    }
+    close $handle or die "cannot close $path: $!\n";
+    return %items;
+}
+
+sub evidence_assertion {
+    my ($reference) = @_;
+    my ($path, $needle) = split /#/, $reference, 2;
+    open my $handle, "<", $path or die "missing evidence file $path: $!\n";
+    local $/;
+    my $source = <$handle>;
+    close $handle or die "cannot close $path: $!\n";
+
+    if ($needle =~ /^test ([A-Za-z0-9_]+)\($/) {
+        my $name = $1;
+        my ($body) = $source =~ /(^test \Q$name\E\(.*?)(?=^test |\z)/ms;
+        die "missing executable evidence $needle in $path\n" if !defined $body;
+        validate_veln_test($path, $needle, $body, $source);
+        if (
+            $path eq
+                "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln"
+        ) {
+            validate_retirement_output_implementation($source);
+            return $source;
+        }
+        return $body;
+    }
+
+    my $case_source = $source;
+    if ($path =~ m{/main\.veln$}) {
+        my $case_path = $path;
+        $case_path =~ s{/main\.veln$}{/case.toml};
+        open my $case_handle, "<", $case_path
+            or die "missing executable case for $path: $!\n";
+        local $/;
+        $case_source = <$case_handle>;
+        close $case_handle or die "cannot close $case_path: $!\n";
+    }
+    my $assertion = checked_case_assertion($case_source, $needle);
+    die "missing checked case assertion $needle in $path\n"
+        if !defined $assertion;
+    return $path =~ m{/main\.veln$} ? "$source\0$assertion" : $assertion;
+}
+
+sub validate_retirement_output_implementation {
+    my ($source) = @_;
+    die "retirement output evidence nests historical chunks inside DATA frames\n"
+        if $source =~ /send_data\([^\n]*,\s*expected,\s*false\)/
+            || $source =~ /byte_view\(\s*emitted,\s*byte_offset\(9\)/;
+    die "retirement output evidence does not reconstruct complete frame sequences\n"
+        if $source !~ /\bhttp2::frame::decode\b/
+            || $source !~ /\bhttp2::frame::encode_header\b/;
+    die "retirement output evidence does not cross the production HPACK decoder\n"
+        if $source !~ /\bhttp2::hpack::decode_header_block\b/;
+    die "retirement output evidence decodes retained HPACK rows with only a fresh table\n"
+        if $source !~ /\bretired_hpack_initial_table\(name\)\?/;
+    die "retirement output evidence does not obtain exact HPACK bytes from public production encoders\n"
+        if $source !~ /\bvalidate_retired_hpack_exact_reencode\b/
+            || $source !~ /\bhttp2::hpack::decode_indexed_header_field\b/
+            || $source !~ /\bhttp2::hpack::encode_indexed_header_field\b/
+            || $source !~ /\bhttp2::hpack::decode_literal_header_field\b/
+            || $source !~ /\bhttp2::hpack::encode_literal_header_field\b/
+            || $source !~ /\bhttp2::hpack::decode_table_size_update\b/
+            || $source !~ /\bhttp2::hpack::encode_integer\b/;
+    die "retirement output evidence does not compare exact production HPACK bytes with historical bytes\n"
+        if $source !~ /\bvalidate_retired_hpack_encoded_segment\b/
+            || $source !~ /\bchunks_equal\(encoded,\s*retained\)\?/;
+    die "retirement output evidence still allows canonical-equivalent HPACK encodings\n"
+        if $source =~ /\bretired_hpack_canonical_equivalent_encoding_allowed\b/;
+    die "retirement output evidence still uses a generic HPACK canonical mismatch fallback\n"
+        if $source =~ /\bretired_hpack_canonical_mismatch_allowed\b.*?\belse\s+Ok\(true\)/s;
+    die "retirement output evidence accepts any production HPACK encoded byte count\n"
+        if $source =~ /byte_count_to_int\(byte_chunk_count\(encoded_input\)\)\s*>=\s*0/;
+    die "retirement output evidence retains the old HPACK exact-match allowlist\n"
+        if $source =~ /\bexpected_retired_hpack_exact_encode_match\b/;
+    die "retirement output evidence accepts failed HPACK decoding by input identity\n"
+        if $source =~ /Err\([^)]*\)\s*=>\s*if chunks_equal/;
+    die "retirement output evidence accepts any non-empty HPACK failure kind\n"
+        if $source =~ /header_block_failure_kind\([^)]*\)\s*!=\s*""/;
+    die "retirement empty-output evidence does not preserve send-domain failures\n"
+        if $source !~ /assert_retired_empty_output_table\(name: String, kind: Int\)/
+            || $source !~ /assert_retired_empty_data_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_headers_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_push_promise_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_window_update_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_priority_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_goaway_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_ping_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_settings_output_table\(name: String\)/
+            || $source =~ /\bhttp2::core::validate_frame_payload_length\b/;
+    die "retirement empty-output evidence does not bind retained table names to failure families\n"
+        if $source !~ /retired_empty_data_item\(name: String\)/
+            || $source !~ /retired_empty_data_content_length_item\(expected: Int, observed: Int, data: ByteChunk, end_stream: Bool, next_observed: Int\)/
+            || $source !~ /retired_empty_data_flow_item\(send_credit: Int, data: ByteChunk, end_stream: Bool, observed_value: Int\)/
+            || $source !~ /expected_retired_empty_headers_family\(name: String\)/
+            || $source !~ /retired_empty_headers_state\(name: String\)/
+            || $source !~ /expected_retired_empty_headers_failure_id\(name: String\)/
+            || $source !~ /assert_retired_empty_headers_hpack_table_size_update_over_peer_limit\(name: String\)/
+            || $source !~ /expected_retired_empty_push_promise_family\(name: String\)/
+            || $source !~ /retired_empty_push_promise_item\(name: String\)/
+            || $source !~ /expected_retired_empty_push_promise_failure_id\(name: String\)/
+            || $source !~ /expected_retired_empty_window_update_family\(name: String\)/
+            || $source !~ /expected_retired_empty_priority_family\(name: String\)/
+            || $source !~ /expected_retired_empty_goaway_family\(name: String\)/
+            || $source !~ /expected_retired_empty_ping_family\(name: String\)/
+            || $source !~ /retired_empty_settings_items\(name: String\)/
+            || $source !~ /expected_retired_empty_settings_failure\(name: String\)/
+            || $source !~ /retired_empty_settings_failure_matches\(name: String, failure: LocalSettingsFailure\)/
+            || $source !~ /expected_retired_empty_window_update_failure_id\(name: String\)/
+            || $source !~ /expected_retired_empty_priority_failure_id\(name: String\)/
+            || $source !~ /\bhttp2::core::(?:data_send_failure|headers_send_failure|push_promise_send_failure|window_update_send_failure|priority_send_failure|goaway_send_failure|ping_request_failure)\b/
+            || $source !~ /\bhttp2::core::(?:send_local_settings_batch|local_settings_send_failure|local_settings_failure_id|local_settings_failure_setting_identifier|local_settings_failure_observed_value|output_buffer_append_local_settings)\b/
+            || $source !~ /\bhttp2::core::(?:respond_to_ping|ping_response_status|output_buffer_append_ping_response)\b/
+            || $source !~ /http2-ping-ack-received.*?ping-ack-received/s
+            || $source !~ /\bhttp2::core::(?:outbound_data_flow_failure_id|outbound_headers_failure_id|outbound_stream_control_failure_id|goaway_send_failure_id|frame_payload_length_failure_active_state)\b/;
+    die "retirement SETTINGS ACK cleared evidence starts from a fresh empty ACK state"
+        if $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?settings_ack_after_peer_frame/s
+            || $source =~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?record_local_settings_batch/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?send_pending_settings_ack\(pending\).*?send_pending_settings_ack\(cleared\)/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_identifier\(http2::core::settings_ack_outstanding\(pending\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_batch_count\(http2::core::settings_ack_outstanding\(pending\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_label\(http2::core::settings_ack_pending_peer_ack\(pending\)\) == "active"/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_identifier\(http2::core::settings_ack_outstanding\(cleared\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?outstanding_settings_batch_count\(http2::core::settings_ack_outstanding\(cleared\)\) == 0/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_label\(http2::core::settings_ack_pending_peer_ack\(cleared\)\) == "none"/s
+            || $source !~ /fn assert_retired_empty_settings_ack_cleared_output_table\(name: String\).*?pending_settings_ack_send_status\(no_pending\) == "no_pending"/s;
+    die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
+        if $source =~ /outbound_data_flow_failure_id\(failure\)\s*!=\s*""/
+            || $source =~ /outbound_stream_control_failure_id\(failure\)\s*!=\s*""/;
+    die "retirement DATA empty-output evidence still groups rows by broad family"
+        if $source =~ /expected_retired_empty_data_family\(name: String\)/
+            || $source =~ /retired_empty_data_stream_entry\(family: String\)/
+            || $source =~ /expected_retired_empty_data_failure_id\(family: String\)/;
+    die "retirement DATA GOAWAY empty-output evidence does not preserve row boundaries"
+        if $source !~ /http2-data-after-goaway-late.*?retired_empty_data_goaway_item\(7,\s*5,\s*11\)/s
+            || $source !~ /http2-data-after-local-goaway-late.*?retired_empty_data_goaway_item\(7,\s*5,\s*11\)/s
+            || $source !~ /http2-data-after-narrow-local-goaway-late.*?retired_empty_data_goaway_item\(5,\s*3,\s*22\)/s
+            || $source !~ /outbound_data_flow_failure_last_stream_id\(failure\)\s*==\s*item\.last_stream_id/s
+            || $source !~ /outbound_data_flow_failure_endpoint_role\(failure\)\s*==\s*item\.endpoint_role/s
+            || $source !~ /retired_empty_data_content_length_item\(4,\s*4,\s*byte_chunk_from_hex\("aa"\)\?,\s*false,\s*5\)/s
+            || $source !~ /retired_empty_data_content_length_item\(4,\s*1,\s*byte_chunk_from_hex\("bb"\)\?,\s*true,\s*2\)/s;
+    die "retirement empty-output evidence keeps local SETTINGS failures generic"
+        if $source =~ /assert_retired_empty_settings_output_table\(name: String\).*?\bsend_local_setting\(/s;
+    die "retirement empty-output evidence omits retained local SETTINGS batch items"
+        if $source !~ /http2-local-settings-large-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_enable_push\(2\).*?local_settings_max_header_list_size\(8192\)/s
+            || $source !~ /http2-local-settings-max-concurrent-streams-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_max_concurrent_streams\(4294967296\).*?retained_valid_local_enable_push\(\)/s
+            || $source !~ /http2-local-settings-max-header-list-size-batch-range.*?local_settings_header_table_size\(4096\).*?local_settings_max_concurrent_streams\(100\).*?local_settings_max_header_list_size\(4294967296\)/s;
+    die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"
+        if $source =~ /assert_retired_empty_headers_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.stream_after_goaway"/s
+            || $source =~ /assert_retired_empty_push_promise_output_table\(name: String\).*?outbound_headers_failure_id\(failure\)\s*==\s*"http2\.protocol\.invalid_stream_id"/s;
+    die "retirement HPACK table-size empty-output evidence still uses outbound header-list limits"
+        if $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?send_response_headers/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?0000020104000000013f02.*?apply_receive_frame/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?chunks_equal\(outbound_prefix,\s*byte_chunk_from_hex\("3f01"\)\?\)\?/s
+            || $source !~ /http2-headers-hpack-table-size-update-over-peer-limit.*?receive_frame_failure_preview\(failure\),\s*byte_chunk_from_hex\("3f02"\)\?/s
+            || $source !~ /table_size_update_failure_capacity\(update_failure\)\s*==\s*33/
+            || $source !~ /table_size_update_failure_peer_maximum\(update_failure\)\s*==\s*32/
+            || $source =~ /http2-headers-hpack-table-size-update-over-peer-limit.*?retired_empty_headers_limited_state/s;
+    die "retirement zero-length evidence does not obtain failure output from its send domain\n"
+        if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
+            || $source !~ /\bhttp2::core::send_window_update\b/
+            || $source !~ /\bhttp2::core::send_request_headers\b/
+            || $source !~ /\bhttp2::core::output_buffer_append_(?:window_update|headers)\b/
+            || $source !~ /http2-headers-after-narrow-local-goaway-late/
+            || $source !~ /connection_lifecycle_draining\(3,\s*22\)/
+            || $source !~ /send_request_headers\(state,\s*34,\s*5/
+            || $source !~ /outbound_headers_failure_stream_id\(failure\)\s*==\s*5/s
+            || $source !~ /outbound_headers_failure_active_state\(failure\)\s*==\s*"draining"/s
+            || $source !~ /outbound_headers_failure_rule_provenance\(failure\)\s*==\s*"goaway_last_stream_id"/s;
+    die "retirement WINDOW_UPDATE GOAWAY empty-output evidence does not preserve row boundaries"
+        if $source !~ /http2-window-update-after-goaway-late.*?expected_retired_empty_window_update_family/s
+            || $source !~ /http2-window-update-after-local-goaway-late.*?expected_retired_empty_window_update_family/s
+            || $source !~ /retired_empty_window_update_goaway_item\(7,\s*5,\s*11\)/s
+            || $source !~ /outbound_data_flow_failure_last_stream_id\(failure\)\s*==\s*item\.last_stream_id/s
+            || $source !~ /outbound_data_flow_failure_endpoint_role\(failure\)\s*==\s*item\.endpoint_role/s;
+    die "retirement GOAWAY empty-output evidence does not preserve the widened boundary failure\n"
+        if $source !~ /assert_retired_empty_goaway_output_table\(name: String\).*?connection_lifecycle_closed\(5,\s*13\).*?send_goaway_shutdown\(closed,\s*17,\s*7,\s*22/s
+            || $source !~ /goaway_send_failure_stream_id\(failure\)\s*==\s*7/s
+            || $source !~ /goaway_send_failure_last_stream_id\(failure\)\s*==\s*5/s
+            || $source !~ /goaway_send_failure_shutdown_state\(failure\)\s*==\s*"closed"/s
+            || $source !~ /goaway_send_failure_endpoint_role\(failure\)\s*==\s*"server"/s
+            || $source !~ /goaway_send_failure_reason\(failure\)\s*==\s*"boundary_increased"/s;
+    die "retirement PUSH_PROMISE or PRIORITY GOAWAY evidence still shares one boundary state\n"
+        if $source !~ /http2-push-promise-after-goaway-late.*?connection_lifecycle_draining\(5,\s*11\).*?stream_id:\s*7/s
+            || $source !~ /http2-push-promise-after-local-goaway-late.*?connection_lifecycle_draining\(5,\s*11\).*?stream_id:\s*7/s
+            || $source !~ /http2-push-promise-after-narrow-local-goaway-late.*?connection_lifecycle_draining\(3,\s*22\).*?stream_id:\s*5/s
+            || $source !~ /let stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 5 else 7 end/
+            || $source !~ /let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end/
+            || $source !~ /outbound_stream_control_failure_stream_id\(failure\)\s*==\s*stream_id/s
+            || $source !~ /outbound_stream_control_failure_last_stream_id\(failure\)\s*==\s*last_stream_id/s;
+}
+
+sub validate_veln_test {
+    my ($path, $needle, $body, $source) = @_;
+    die "evidence test $needle in $path does not call the public HTTP/2 boundary\n"
+        if !exercises_public_http2_boundary($body, $source);
+    die "evidence test $needle in $path has no checked success and failure branches\n"
+        if !has_checked_branches($body, $source);
+}
+
+sub exercises_public_http2_boundary {
+    my ($body, $source) = @_;
+    my @pending = ($body);
+    my %visited;
+    while (@pending) {
+        my $current = shift @pending;
+        return 1 if $current =~ /\bhttp2::(?:core|frame|hpack)::[A-Za-z0-9_]+\b/;
+        for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
+            next if $visited{$callee}++;
+            my ($helper) =
+                $source =~ /(^fn \Q$callee\E\(.*?)(?=^(?:pub )?fn |^test |\z)/ms;
+            push @pending, $helper if defined $helper;
+        }
+    }
+    return 0;
+}
+
+sub has_checked_branches {
+    my ($body, $source) = @_;
+    my @pending = ($body);
+    my %visited;
+    while (@pending) {
+        my $current = shift @pending;
+        return 1
+            if $current =~ /\b(?:if|match)\b/
+                && $current =~ /\bOk\(\(\)\)/
+                && $current =~ /\bErr\(/;
+        for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
+            next if $visited{$callee}++;
+            my ($helper) =
+                $source =~ /(^fn \Q$callee\E\(.*?)(?=^(?:pub )?fn |^test |\z)/ms;
+            push @pending, $helper if defined $helper;
+        }
+    }
+    return 0;
+}
+
+sub checked_case_assertion {
+    my ($source, $needle) = @_;
+    while (
+        $source =~
+        /(?:equals|contains) = ((?:"(?:\\.|[^"])*")|(?:\[[^\n]*\]))(?:\n|\z)/g
+    ) {
+        my $encoded = $1;
+        my $decoded = eval { decode_json($encoded) };
+        next if !defined $decoded || $@;
+        my @values = ref($decoded) eq "ARRAY" ? @$decoded : ($decoded);
+        return "$encoded\n"
+            if grep { !ref($_) && index($_, $needle) >= 0 } @values;
+    }
+    return;
+}
+
+sub validate_item_binding {
+    my ($key, $historical_value, $manifest_row, $assertion) = @_;
+    die "historical value mismatch for $key\n"
+        if $manifest_row->{value} ne $historical_value;
+    die "retained assertion changed for $key\n"
+        if sha256_hex($assertion) ne $manifest_row->{assertion_hash};
+    die "historical value and retained assertion binding changed for $key\n"
+        if sha256_hex("$historical_value\0$assertion") ne $manifest_row->{binding_hash};
+}
+
+sub validate_evidence_relevance {
+    my ($row, $assertion, $manifest_row) = @_;
+    if ($row->{kind} eq "output_table") {
+        my ($name, $encoded_chunks) = split /\t/, $row->{value}, 2;
+        my $chunks = eval { decode_json("[$encoded_chunks]") };
+        die "invalid historical output table $row->{key}\n"
+            if !defined $chunks || $@ || ref($chunks) ne "ARRAY";
+        die "historical output table $row->{key} has an unsupported chunk count\n"
+            if @$chunks > 1;
+        if (
+            defined $manifest_row
+                && $manifest_row->{evidence} =~
+                    m{^crates/veln-stdlib/veln/http2/retirement_output_evidence_test\.veln#}
+        ) {
+            my $call;
+            if (@$chunks == 0) {
+                my $kind = output_table_frame_kind($name);
+                $call = qq{assert_retired_empty_output_table("$name", $kind)?};
+            } elsif ($chunks->[0] eq "") {
+                $call = qq{assert_retired_zero_length_output_table("$name")?};
+            } elsif ($name =~ /hpack-.*huffman-long-length$/) {
+                $call =
+                    qq{assert_retired_hpack_long_length_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            } else {
+                $call =
+                    qq{assert_retired_output_table("$name", byte_chunk_from_hex("$chunks->[0]")?)?};
+            }
+            my $call_count = () = $assertion =~ /\Q$call\E/g;
+            die "evidence for $row->{key} does not independently assert its exact output table\n"
+                if $call_count != 1;
+        } else {
+            my $identifier = lc($name);
+            $identifier =~ s/[^a-z0-9_]+/_/g;
+            my $normalized_assertion = lc($assertion);
+            $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
+            die "evidence for $row->{key} does not identify output table $name\n"
+                if index($normalized_assertion, $identifier) < 0;
+            for my $chunk (@$chunks) {
+                next if $chunk eq "";
+                die "evidence for $row->{key} does not compare historical chunk $chunk\n"
+                    if index(lc($assertion), lc($chunk)) < 0;
+            }
+        }
+        return;
+    }
+
+    if (
+        $row->{kind} eq "stdout"
+            && $row->{value} =~
+                /^output_chunk(?:_list)? ([^ ]+)(?: .* hex "([0-9a-f]*)")?/
+    ) {
+        my ($name, $chunk) = ($1, $2);
+        my $identifier = lc($name);
+        $identifier =~ s/[^a-z0-9_]+/_/g;
+        my $normalized_assertion = lc($assertion);
+        $normalized_assertion =~ s/[^a-z0-9_]+/_/g;
+        die "evidence for $row->{key} does not identify output table $name\n"
+            if index($normalized_assertion, $identifier) < 0;
+        die "evidence for $row->{key} does not compare historical chunk $chunk\n"
+            if defined $chunk && $chunk ne "" && index(lc($assertion), $chunk) < 0;
+        return;
+    }
+
+    if ($row->{kind} eq "stdout") {
+        validate_stdout_projection_relevance($row, $assertion);
+        return;
+    }
+
+    if ($row->{key} =~ /^main\.veln:103([567]):require_connection_stream_id$/) {
+        my %frame_evidence = (
+            5 => qr/\bapply_receive_frame\b.*\bbyte_chunk_from_hex\("00000c040000000000/s,
+            6 => qr/\bsend_ping\b.*\bbyte_chunk_from_hex\("000008060000000000/s,
+            7 => qr/\bapply_receive_frame\b.*\bbyte_chunk_from_hex\("000008070000000000/s,
+        );
+        my $kind = $1;
+        die "evidence for $row->{key} does not exercise its connection-frame domain\n"
+            if $assertion !~ $frame_evidence{$kind};
+        return;
+    }
+
+    my ($caller, $helper) = split /\t/, $row->{value}, 3;
+    if ($helper eq "require_outbound_push_promise_state_preserved") {
+        validate_outbound_push_promise_state_relevance($row, $assertion);
+        return;
+    }
+    validate_helper_literal_relevance($row, $assertion);
+    my $domain = helper_evidence_domain($caller, $helper);
+    die "evidence for $row->{key} does not exercise its $domain->{label} domain\n"
+        if $assertion !~ $domain->{pattern};
+}
+
+sub validate_helper_literal_relevance {
+    my ($row, $assertion) = @_;
+    my (undef, $helper, $line) = split /\t/, $row->{value}, 3;
+    return if $helper ne "require_outbound_push_promise_failure";
+    my %required;
+    while ($line =~ /"([^"]+)"/g) {
+        my $literal = $1;
+        next
+            if $literal !~
+                /^(?:http2\.protocol\.(?:peer_stream_id_not_increasing|invalid_stream_id|stream_after_goaway)|http2\.peer_limit\.(?:frame_size_exceeded|header_list_size_exceeded))$/;
+        $required{$literal} = 1;
+    }
+    for my $literal (sort keys %required) {
+        die "evidence for $row->{key} omits retained helper literal $literal\n"
+            if index($assertion, $literal) < 0;
+    }
+}
+
+sub validate_outbound_push_promise_state_relevance {
+    my ($row, $assertion) = @_;
+    die "evidence for $row->{key} does not exercise outbound PUSH_PROMISE send state\n"
+        if $assertion !~ /\bsend_push_promise\b/
+            || $assertion !~ /\bpush_promise_send_bytes\b/
+            || $assertion !~ /\bconnection_state_hpack_table_entry_count\b/;
+
+    my (undef, undef, $line) = split /\t/, $row->{value}, 3;
+    my @required;
+    if ($line =~ /\brepeated\)/) {
+        @required = (
+            qr/\brepeated_failure\b/,
+            qr/http2\.protocol\.peer_stream_id_not_increasing/,
+        );
+    } elsif ($line =~ /\blower\)/) {
+        @required = (
+            qr/\blower_failure\b/,
+            qr/rfc9113_outbound_promised_stream_ids_increase/,
+        );
+    } elsif ($line =~ /\blower_after_close\)/) {
+        @required = (
+            qr/\blower_after_close_failure\b/,
+            qr/\bstream_closed_lifecycle\b/,
+            qr/\"closed\"/,
+        );
+    } elsif ($line =~ /\blower_after_reset\)/) {
+        @required = (
+            qr/\blower_after_reset_failure\b/,
+            qr/\bstream_reset_lifecycle\b/,
+            qr/\"reset\"/,
+        );
+    } elsif ($line =~ /\bdisabled_failure\)/) {
+        @required = (
+            qr/\bdisabled_failure\b/,
+            qr/settings_enable_push/,
+        );
+    } elsif ($line =~ /\bgoaway_failure\)/) {
+        @required = (
+            qr/\bgoaway_failure\b/,
+            qr/goaway_last_stream_id/,
+        );
+    } elsif ($line =~ /\bframe_size_failure\)/) {
+        @required = (
+            qr/\bsize_failure\b/,
+            qr/rfc9113_max_frame_size/,
+        );
+    } elsif ($line =~ /\bhpack_repeated\)/) {
+        @required = (
+            qr/\brepeated_failure\b/,
+            qr/\bconnection_state_hpack_table_entry_count\b/,
+            qr/http2\.protocol\.peer_stream_id_not_increasing/,
+        );
+    } elsif ($line =~ /\babove_limit\)/) {
+        @required = (
+            qr/\bheader_list_failure\b/,
+            qr/http2\.peer_limit\.header_list_size_exceeded/,
+        );
+    } else {
+        die "unclassified outbound PUSH_PROMISE state evidence for $row->{key}\n";
+    }
+
+    for my $pattern (@required) {
+        die "evidence for $row->{key} omits its outbound PUSH_PROMISE branch projection\n"
+            if $assertion !~ $pattern;
+    }
+}
+
+sub helper_evidence_domain {
+    my ($caller, $helper) = @_;
+    my $identity = "$caller $helper";
+
+    return {
+        label => "accepted outbound HEADERS transition",
+        pattern => qr/\bheaders_send_status\([^;\n]*\)\s*==\s*"accepted"/,
+    } if $helper eq "require_outbound_headers_connection_accepted";
+    return {
+        label => "rejected outbound HEADERS transition",
+        pattern => qr/\boutbound_headers_failure_id\b/,
+    } if $helper eq "require_outbound_headers_connection_failure";
+    return {
+        label => "failure-atomic outbound HEADERS state preservation",
+        pattern => qr/\b(?:headers_send_bytes|stream_collection_count|connection_state_(?:streams|next_offset)|stream_entry_)/,
+    } if $helper eq "require_outbound_headers_connection_state_preserved";
+    return {
+        label => "accepted outbound PUSH_PROMISE transition",
+        pattern => qr/\bpush_promise_send_status\([^;\n]*\)\s*==\s*"accepted"/,
+    } if $helper eq "require_outbound_push_promise_accepted";
+    return {
+        label => "rejected outbound PUSH_PROMISE transition",
+        pattern => qr/\boutbound_headers_failure_id\b/,
+    } if $helper eq "require_outbound_push_promise_failure";
+    return {
+        label => "failure-atomic outbound PUSH_PROMISE state preservation",
+        pattern => qr/\btest outbound_push_promise_failures_preserve_ordering_state_and_output\(\)(?=.*?\bsend_push_promise\b)(?=.*?\bpush_promise_send_bytes\b)(?=.*?\bpeer_settings_highest_peer_created_stream_id\b)(?=.*?\bstream_closed_lifecycle\b)(?=.*?\blower_after_close\b)(?=.*?\bstream_reset_lifecycle\b)(?=.*?\blower_after_reset\b)(?=.*?\bconnection_state_hpack_table_entry_count\b)(?=.*?\bhttp2\.peer_limit\.header_list_size_exceeded\b)/s,
+    } if $helper eq "require_outbound_push_promise_state_preserved";
+
+    return {
+        label => "PUSH_PROMISE with production HPACK",
+        pattern => qr/\b(?:push_promise|send_push_promise)/i,
+    } if $helper =~ /outbound_push_promise/;
+    return {
+        label => "HEADERS with production HPACK",
+        pattern => qr/\b(?:headers|send_request_headers|send_response_headers|send_trailers)/i,
+    } if $helper =~ /outbound_headers/;
+    return {
+        label => "outbound production HPACK",
+        pattern => qr/\b(?:http2::hpack::|send_request_headers|send_response_headers|send_trailers|send_push_promise)/i,
+    } if $helper =~ /outbound_hpack/;
+    return {
+        label => "production outbound header octets",
+        pattern => qr/\b(?:http2::hpack::|send_request_headers|send_response_headers|send_trailers|send_push_promise)/i,
+    } if $caller =~ /production_outbound/;
+    return {
+        label => "HPACK codec",
+        pattern => qr/\bhttp2::hpack::/,
+    } if $identity =~ /hpack/i;
+    return {
+        label => "aggregate connection-state preservation",
+        pattern => qr/\b(?:connection_state|stream_collection|flow_control|content_length|priority|shutdown|http2::hpack::)/i,
+    } if $caller eq "require_peer_stream_failure_preserves_connection_state";
+    return {
+        label => "HEADERS padding",
+        pattern => qr/\b(?:headers|frame_payload)/i,
+    } if $caller eq "require_headers_padding_rejection_preserves_state";
+    return {
+        label => "initial peer SETTINGS",
+        pattern => qr/\b(?:initial_peer_settings|settings)/i,
+    } if $caller =~ /initial_peer_settings/i;
+    return {
+        label => "PUSH_PROMISE",
+        pattern => qr/\b(?:push_promise|reserved_by_peer|promised_stream)/i,
+    } if $identity =~ /push|promised/i;
+    return {
+        label => "SETTINGS",
+        pattern => qr/\b(?:settings|initial_peer_settings|peer_settings)/i,
+    } if $identity =~ /settings/i;
+    return {
+        label => "outbound DATA and flow-control",
+        pattern => qr/\b(?:send_data|data_send|flow_control|send_credit|window_update|initial_window|peer_settings)/i,
+    } if $identity =~ /(?:outbound_data|outbound_credit|initial_window|flow_control)/i;
+    return {
+        label => "header-list and HEADERS",
+        pattern => qr/\b(?:header_list|headers|receive_frame|send_request_headers|send_response_headers|send_trailers)/i,
+    } if $identity =~ /(?:header|response|request|informational|no_content|head_|extended_connect)/i;
+    return {
+        label => "stream-id and peer-stream",
+        pattern => qr/\b(?:stream_id|stream_collection|peer_stream|stream_admission|receive_frame)/i,
+    } if $identity =~ /(?:stream_id|peer_stream|client_stream|server_stream|closed_peer)/i;
+    return {
+        label => "production receive-frame",
+        pattern => qr/\b(?:receive_frame|receive_connection|frame_payload|frame_decode)/i,
+    } if $identity =~ /(?:frame_decoded|production_inbound|production_route|production_update)/i;
+    return {
+        label => "outbound stream lifecycle",
+        pattern => qr/\b(?:send_|stream_collection|stream_lifecycle|receive_frame)/i,
+    } if $caller =~ /outbound_local_stream/i;
+    return {
+        label => "GOAWAY and shutdown",
+        pattern => qr/\b(?:goaway|shutdown|connection_lifecycle|receive_frame)/i,
+    } if $identity =~ /(?:goaway|shutdown)/i;
+    return {
+        label => "PING",
+        pattern => qr/\b(?:ping|receive_frame)/i,
+    } if $identity =~ /ping/i;
+    return {
+        label => "PRIORITY",
+        pattern => qr/\b(?:priority|receive_frame)/i,
+    } if $identity =~ /priority/i;
+    return {
+        label => "WINDOW_UPDATE and flow-control",
+        pattern => qr/\b(?:window_update|flow_control|receive_frame)/i,
+    } if $identity =~ /(?:window_update|window)/i;
+    return {
+        label => "DATA and content-length",
+        pattern => qr/\b(?:data|content_length|flow_control|receive_frame)/i,
+    } if $identity =~ /(?:data|content_length)/i;
+    return {
+        label => "connection receive",
+        pattern => qr/\b(?:receive_frame|receive_connection|preface|pending_header_block|frame_payload)/i,
+    } if $identity =~ /(?:preface|continuation|closed|failure_with_id)/i;
+
+    die "unclassified helper relevance for $caller/$helper\n";
+}
+
+sub output_table_frame_kind {
+    my ($name) = @_;
+    return 0 if $name =~ /(?:data|content-length)/;
+    return 1 if $name =~ /(?:headers|trailers)/;
+    return 2 if $name =~ /priority/;
+    return 3 if $name =~ /rst-stream/;
+    return 5 if $name =~ /push-promise/;
+    return 6 if $name =~ /ping/;
+    return 7 if $name =~ /^http2-goaway-widen/;
+    return 8 if $name =~ /window-update/;
+    return 4 if $name =~ /(?:settings|local-)/;
+    die "unclassified empty output table $name\n";
+}
+
+sub validate_stdout_projection_relevance {
+    my ($row, $assertion) = @_;
+    my $value = $row->{value};
+
+    if (
+        $value =~
+            /hpack decoded :fixture continuation wire_size 9 next_decode_count 1$/
+    ) {
+        die "evidence for $row->{key} does not exercise the retained continuation projection\n"
+            if $assertion !~ /\bCONTINUATION\b/
+                || $assertion !~ /\bnine-octet\b/
+                || $assertion !~ /stream_collection_count\([^;\n]*\) == 1/;
+    }
+
+    if ($value =~ /\b(http2\.[a-z0-9_.]+)\b/ && $value !~ /^outbound-ping-/) {
+        my $diagnostic_id = $1;
+        die "evidence for $row->{key} does not compare diagnostic id $diagnostic_id\n"
+            if index($assertion, $diagnostic_id) < 0;
+    }
+
+    my ($projection) = $value =~ /^[^ ]+ ([^ ]+)/;
+    return if !defined $projection;
+    return if $projection eq "id";
+
+    my @domains;
+    if ($projection eq "result") {
+        if ($value =~ /\bkind 4\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|peer_settings|settings_ack)/);
+        } elsif ($value =~ /\bkind 6\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|ping)/);
+        } elsif ($value =~ /\bkind 7\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|goaway|shutdown)/);
+        } elsif ($value =~ /\bkind 8\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|window_update|flow_control)/);
+        } elsif ($value =~ /\bkind 5\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|push_promise)/);
+        } elsif ($value =~ /\bkind [013]\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|stream_collection|data|headers|rst_stream)/);
+        } elsif ($value =~ /\bkind 2\b/) {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|priority)/);
+        } else {
+            @domains = (qr/\b(?:receive_(?:frame|connection)|frame_decode|pending_header_block)/);
+        }
+    } elsif ($projection =~ /^outbound-hpack-encode(?:-state)?$/) {
+        @domains = (qr/\bhttp2::hpack::encode_header_block\b/);
+    } elsif ($projection eq "outbound-hpack-table-size-update") {
+        @domains = (qr/\bhttp2::hpack::encode_header_block\b/);
+    } elsif ($projection eq "outbound-headers") {
+        @domains = (qr/\b(?:send_(?:request_headers|response_headers|trailers)|headers_send_)/);
+    } elsif ($projection eq "outbound-push-promise") {
+        @domains = (qr/\b(?:send_push_promise|push_promise_send_)/);
+    } elsif ($projection eq "outbound-data") {
+        @domains = (qr/\b(?:send_data|data_send_)/);
+    } elsif ($projection eq "outbound-window-update") {
+        @domains = (qr/\b(?:send_window_update|window_update_send_)/);
+    } elsif ($projection eq "outbound-settings") {
+        @domains = (qr/\b(?:send_local_setting|local_settings_send_)/);
+    } elsif ($projection eq "outbound-settings-ack") {
+        @domains = (qr/\b(?:send_pending_settings_ack|settings_ack)/);
+    } elsif ($projection =~ /^outbound-ping(?:-ack)?$/) {
+        @domains = (qr/\b(?:send_ping|respond_to_ping|ping)/);
+    } elsif ($projection eq "outbound-goaway") {
+        @domains = (qr/\b(?:send_goaway_shutdown|goaway_send_)/);
+    } elsif ($projection eq "outbound-rst-stream") {
+        @domains = (qr/\b(?:send_rst_stream|rst_stream_)/);
+    } elsif ($projection eq "outbound-priority") {
+        @domains = (qr/\b(?:send_priority|priority_)/);
+    } elsif ($projection =~ /^(?:hpack|hpack_state|hpack_static)$/) {
+        @domains = (qr/\b(?:http2::hpack::|receive_frame)/);
+    } elsif (
+        $projection =~
+            /^(?:peer_max_frame_size|local_settings|peer_settings_ack)$/
+    ) {
+        @domains = (qr/\b(?:peer_settings|local_settings|settings_ack)/);
+    } elsif (
+        $projection =~
+            /^(?:outbound-send-credit|content_length_expected)$/
+    ) {
+        @domains = (qr/\b(?:flow_control|send_credit|window_update|content_length)/);
+    } elsif ($projection eq "shutdown") {
+        @domains = (qr/\b(?:shutdown|connection_lifecycle|goaway)/);
+    } elsif (
+        $projection =~
+            /^(?:inbound_entry|open_stream|open_stream_count|closed_by_peer_stream|half_closed_local_stream)$/
+    ) {
+        @domains = (qr/(?:stream_collection|stream_lifecycle|receive_frame|send_)/);
+    } elsif (
+        $projection =~
+            /^(?:highest_peer_stream_id|highest_peer_created_stream_id|reserved_by_peer)$/
+    ) {
+        @domains = (qr/\b(?:peer_stream|stream_admission|push_promise|receive_frame)/);
+    } elsif (
+        $projection =~ /^(?:priority_state|first_priority|second_priority|third_priority)$/
+    ) {
+        @domains = (qr/\b(?:priority|receive_frame)/);
+    } elsif ($projection eq "connection_window") {
+        @domains = (qr/(?:flow_control|connection_credit|send_data|receive_frame|initial_window|peer_settings)/);
+    } elsif ($projection eq "debug_data") {
+        @domains = (qr/\b(?:goaway|shutdown|receive_frame)/);
+    } elsif ($projection eq "encode_error") {
+        @domains = (qr/(?:encode|send_)/);
+    }
+
+    die "unclassified stdout projection $projection for $row->{key}\n"
+        if !@domains;
+    for my $domain (@domains) {
+        die "evidence for $row->{key} does not exercise stdout projection $projection\n"
+            if $assertion !~ $domain;
+    }
+}
+
+sub run_self_test {
+    my $good =
+        "test evidence() -> Result<(), String>\n"
+        . "\tif http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0\n"
+        . "\t\tOk(())\n\telse\n\t\tErr(\"unexpected output\")\n\tend\nend\n";
+    validate_veln_test("<self-test>", "test evidence(", $good, $good);
+
+    my $unrelated = "test unrelated() -> Result<(), String>\n\tOk(())\nend\n";
+    my $accepted = eval {
+        validate_veln_test("<self-test>", "test unrelated(", $unrelated, $unrelated);
+        1;
+    };
+    die "self-test accepted an unrelated Veln test\n" if $accepted;
+
+    my $assertion = checked_case_assertion(
+        "[[json_assert]]\npath = \"stdout\"\nequals = \"projected value\\n\"\n",
+        "projected value",
+    );
+    die "self-test rejected an exact case assertion\n" if !defined $assertion;
+    die "self-test accepted a needle outside a case assertion\n"
+        if defined checked_case_assertion(
+            "# unrelated needle\n[[json_assert]]\npath = \"status\"\nequals = \"passed\"\n",
+            "unrelated needle",
+        );
+
+    my $historical_value = "output_chunk sample index 0 hex \"83\" count 1";
+    my $manifest_row = {
+        value => $historical_value,
+        assertion_hash => sha256_hex($good),
+        binding_hash => sha256_hex("$historical_value\0$good"),
+    };
+    validate_item_binding("<self-test>", $historical_value, $manifest_row, $good);
+    my $changed_value_accepted = eval {
+        validate_item_binding("<self-test>", "$historical_value changed", $manifest_row, $good);
+        1;
+    };
+    die "self-test accepted a changed historical value\n" if $changed_value_accepted;
+    my $changed_assertion_accepted = eval {
+        validate_item_binding("<self-test>", $historical_value, $manifest_row, "$good\n");
+        1;
+    };
+    die "self-test accepted an unrelated retained assertion\n"
+        if $changed_assertion_accepted;
+
+    my $exact_output = {
+        kind => "output_table",
+        key => "case.toml:output_chunk_list:sample",
+        value => "sample\t\"83\"",
+    };
+    my $retirement_output_manifest = {
+        evidence =>
+            "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln#test sample(",
+    };
+    my $unrelated_output_accepted = eval {
+        validate_evidence_relevance(
+            $exact_output,
+            $good,
+            $retirement_output_manifest,
+        );
+        1;
+    };
+    die "self-test accepted output evidence without the historical chunk\n"
+        if $unrelated_output_accepted;
+    validate_evidence_relevance(
+        $exact_output,
+        $good
+            . "\tassert_retired_output_table(\"sample\", "
+            . "byte_chunk_from_hex(\"83\")?)?\n",
+        $retirement_output_manifest,
+    );
+    my $nested_data_implementation =
+        "fn assert_retired_output_table(name: String, expected: ByteChunk)\n"
+        . "\thttp2::core::send_data(state, 0, 1, expected, false)\n"
+        . "end\n";
+    my $nested_data_accepted = eval {
+        validate_retirement_output_implementation($nested_data_implementation);
+        1;
+    };
+    die "self-test accepted historical chunks nested inside DATA frames\n"
+        if $nested_data_accepted;
+    my $identity_hpack_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "chunks_equal(encoded_input, expected)?\n"
+        . "match decoded\n"
+        . "\tErr(_) => if chunks_equal(input, expected)\n"
+        . "\t\tOk(())\n"
+        . "\tend\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\n"
+        . "\thttp2::core::validate_frame_payload_length(0, kind, 0, 1, 0, name, byte_chunk([]))\n"
+        . "end\n";
+    my $identity_hpack_accepted = eval {
+        validate_retirement_output_implementation($identity_hpack_implementation);
+        1;
+    };
+    die "self-test accepted input-identity fallback for failed HPACK decoding\n"
+        if $identity_hpack_accepted;
+    my $non_empty_hpack_failure_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "match decoded\n"
+        . "\tErr(failure) => if http2::hpack::header_block_failure_kind(failure) != \"\"\n"
+        . "\t\tOk(())\n"
+        . "\tend\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\n"
+        . "\thttp2::core::validate_frame_payload_length(0, kind, 0, 1, 0, name, byte_chunk([]))\n"
+        . "end\n"
+        . "fn assert_retired_zero_length_output_table(name: String)\n"
+        . "\thttp2::core::send_window_update(state, 0, 1, 1)\n"
+        . "\thttp2::core::send_request_headers(state, 0, 1, headers, false)\n"
+        . "\thttp2::core::output_buffer_append_window_update(output, decision)\n"
+        . "end\n";
+    my $non_empty_hpack_failure_accepted = eval {
+        validate_retirement_output_implementation($non_empty_hpack_failure_implementation);
+        1;
+    };
+    die "self-test accepted generic non-empty HPACK failure evidence\n"
+        if $non_empty_hpack_failure_accepted;
+    my $hpack_count_only_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "http2::hpack::header_block_encode_bytes(encoded)\n"
+        . "byte_count_to_int(byte_chunk_count(encoded_input)) >= 0\n"
+        . "fn expected_retired_empty_data_family(name: String)\nend\n"
+        . "fn expected_retired_empty_headers_family(name: String)\nend\n"
+        . "fn expected_retired_empty_push_promise_family(name: String)\nend\n"
+        . "fn expected_retired_empty_window_update_family(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_family(name: String)\nend\n"
+        . "fn expected_retired_empty_goaway_family(name: String)\nend\n"
+        . "fn expected_retired_empty_ping_family(name: String)\nend\n"
+        . "fn retired_empty_settings_item(name: String)\nend\n"
+        . "fn expected_retired_empty_data_failure_id(family: String)\nend\n"
+        . "fn expected_retired_empty_window_update_failure_id(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_failure_id(name: String)\nend\n"
+        . "http2::core::data_send_failure(decision)\n"
+        . "http2::core::headers_send_failure(decision)\n"
+        . "http2::core::push_promise_send_failure(decision)\n"
+        . "http2::core::window_update_send_failure(decision)\n"
+        . "http2::core::priority_send_failure(decision)\n"
+        . "http2::core::goaway_send_failure(decision)\n"
+        . "http2::core::ping_request_failure(decision)\n"
+        . "http2::core::outbound_data_flow_failure_id(failure) == expected\n"
+        . "http2::core::outbound_stream_control_failure_id(failure) == expected\n"
+        . "http2::core::goaway_send_failure_id(failure)\n"
+        . "http2::core::frame_payload_length_failure_active_state(failure)\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\nend\n"
+        . "fn assert_retired_empty_data_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_headers_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_push_promise_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_window_update_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_priority_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_goaway_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_ping_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_settings_output_table(name: String)\nend\n"
+        . "fn assert_retired_zero_length_output_table(name: String)\n"
+        . "\thttp2::core::send_window_update(state, 0, 1, 1)\n"
+        . "\thttp2::core::send_request_headers(state, 0, 1, headers, false)\n"
+        . "\thttp2::core::output_buffer_append_window_update(output, decision)\n"
+        . "\thttp2::core::output_buffer_append_headers(output, decision)\n"
+        . "end\n";
+    my $hpack_count_only_accepted = eval {
+        validate_retirement_output_implementation($hpack_count_only_implementation);
+        1;
+    };
+    die "self-test accepted count-only production HPACK encode evidence\n"
+        if $hpack_count_only_accepted;
+    my $canonical_equivalent_implementation =
+        "http2::frame::decode(input)\n"
+        . "http2::frame::encode_header(length, kind, flags, stream_id)\n"
+        . "http2::hpack::decode_header_block(input, table, 4096)\n"
+        . "http2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "http2::hpack::header_block_encode_bytes(encoded)\n"
+        . "chunks_equal(encoded_input, expected)?\n"
+        . "retired_hpack_canonical_equivalent_encoding_allowed(name)?\n"
+        . "fn expected_retired_empty_data_family(name: String)\nend\n"
+        . "fn expected_retired_empty_headers_family(name: String)\nend\n"
+        . "fn expected_retired_empty_push_promise_family(name: String)\nend\n"
+        . "fn expected_retired_empty_window_update_family(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_family(name: String)\nend\n"
+        . "fn expected_retired_empty_goaway_family(name: String)\nend\n"
+        . "fn expected_retired_empty_ping_family(name: String)\nend\n"
+        . "fn retired_empty_settings_item(name: String)\nend\n"
+        . "fn expected_retired_empty_data_failure_id(family: String)\nend\n"
+        . "fn expected_retired_empty_window_update_failure_id(name: String)\nend\n"
+        . "fn expected_retired_empty_priority_failure_id(name: String)\nend\n"
+        . "http2::core::data_send_failure(decision)\n"
+        . "http2::core::headers_send_failure(decision)\n"
+        . "http2::core::push_promise_send_failure(decision)\n"
+        . "http2::core::window_update_send_failure(decision)\n"
+        . "http2::core::priority_send_failure(decision)\n"
+        . "http2::core::goaway_send_failure(decision)\n"
+        . "http2::core::ping_request_failure(decision)\n"
+        . "http2::core::outbound_data_flow_failure_id(failure) == expected\n"
+        . "http2::core::outbound_stream_control_failure_id(failure) == expected\n"
+        . "http2::core::goaway_send_failure_id(failure)\n"
+        . "http2::core::frame_payload_length_failure_active_state(failure)\n"
+        . "fn assert_retired_empty_output_table(name: String, kind: Int)\nend\n"
+        . "fn assert_retired_empty_data_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_headers_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_push_promise_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_window_update_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_priority_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_goaway_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_ping_output_table(name: String)\nend\n"
+        . "fn assert_retired_empty_settings_output_table(name: String)\nend\n"
+        . "fn assert_retired_zero_length_output_table(name: String)\n"
+        . "\thttp2::core::send_window_update(state, 0, 1, 1)\n"
+        . "\thttp2::core::send_request_headers(state, 0, 1, headers, false)\n"
+        . "\thttp2::core::output_buffer_append_window_update(output, decision)\n"
+        . "\thttp2::core::output_buffer_append_headers(output, decision)\n"
+        . "end\n";
+    my $canonical_equivalent_accepted = eval {
+        validate_retirement_output_implementation($canonical_equivalent_implementation);
+        1;
+    };
+    die "self-test accepted canonical-equivalent HPACK encode evidence\n"
+        if $canonical_equivalent_accepted;
+    open my $retirement_source_handle, "<",
+        "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln"
+        or die "cannot read retirement output evidence for self-test: $!\n";
+    local $/;
+    my $retirement_source = <$retirement_source_handle>;
+    close $retirement_source_handle
+        or die "cannot close retirement output evidence for self-test: $!\n";
+    my $unrelated_ack_batch_source = $retirement_source;
+    $unrelated_ack_batch_source =~
+        s/settings_ack_after_peer_frame\(http2::core::empty_settings_ack_state\(\), 4, 0, 6\)/settings_ack_after_peer_frame(http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 17, 1), 4, 0, 6)/;
+    my $unrelated_ack_batch_accepted = eval {
+        validate_retirement_output_implementation($unrelated_ack_batch_source);
+        1;
+    };
+    die "self-test accepted unrelated SETTINGS ACK cleared local batch\n"
+        if $unrelated_ack_batch_accepted;
+    my $generic_zero_length_headers_source = $retirement_source;
+    $generic_zero_length_headers_source =~
+        s/send_request_headers\(state, 34, 5, headers, false\)/send_request_headers(state, 0, 1, headers, false)/;
+    my $generic_zero_length_headers_accepted = eval {
+        validate_retirement_output_implementation($generic_zero_length_headers_source);
+        1;
+    };
+    die "self-test accepted generic zero-length HEADERS GOAWAY evidence\n"
+        if $generic_zero_length_headers_accepted;
+    my $generic_goaway_widen_source = $retirement_source;
+    $generic_goaway_widen_source =~
+        s/send_goaway_shutdown\(closed, 17, 7, 22/send_goaway_shutdown(closed, 0, 5, 0/;
+    my $generic_goaway_widen_accepted = eval {
+        validate_retirement_output_implementation($generic_goaway_widen_source);
+        1;
+    };
+    die "self-test accepted substituted GOAWAY widen output evidence\n"
+        if $generic_goaway_widen_accepted;
+    my $generic_push_promise_goaway_source = $retirement_source;
+    $generic_push_promise_goaway_source =~
+        s/connection_lifecycle_draining\(3, 22\)\), stream_id: 5/connection_lifecycle_draining(5, 11)), stream_id: 7/;
+    my $generic_push_promise_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_push_promise_goaway_source);
+        1;
+    };
+    die "self-test accepted shared PUSH_PROMISE GOAWAY boundary evidence\n"
+        if $generic_push_promise_goaway_accepted;
+    my $generic_priority_goaway_source = $retirement_source;
+    $generic_priority_goaway_source =~
+        s/let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end/let last_stream_id: Int = 5/;
+    my $generic_priority_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_priority_goaway_source);
+        1;
+    };
+    die "self-test accepted shared PRIORITY GOAWAY boundary evidence\n"
+        if $generic_priority_goaway_accepted;
+    my $generic_data_goaway_source = $retirement_source;
+    $generic_data_goaway_source =~
+        s/retired_empty_data_goaway_item\(5, 3, 22\)/retired_empty_data_goaway_item(7, 5, 11)/;
+    my $generic_data_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_data_goaway_source);
+        1;
+    };
+    die "self-test accepted shared DATA GOAWAY boundary evidence\n"
+        if $generic_data_goaway_accepted;
+    my $generic_window_goaway_source = $retirement_source;
+    $generic_window_goaway_source =~
+        s/retired_empty_window_update_goaway_item\(7, 5, 11\)/retired_empty_window_update_overflow_item(name)/;
+    my $generic_window_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_window_goaway_source);
+        1;
+    };
+    die "self-test accepted substituted WINDOW_UPDATE GOAWAY boundary evidence\n"
+        if $generic_window_goaway_accepted;
+    my $shortened_settings_batch_source = $retirement_source;
+    $shortened_settings_batch_source =~
+        s/local_settings_header_table_size\(4096\), Cons\(http2::core::local_settings_enable_push\(2\), Cons\(http2::core::local_settings_max_header_list_size\(8192\), Nil\)\)/retained_valid_local_max_frame_size(), Cons(http2::core::local_settings_enable_push(2), Nil)/;
+    my $shortened_settings_batch_accepted = eval {
+        validate_retirement_output_implementation($shortened_settings_batch_source);
+        1;
+    };
+    die "self-test accepted shortened retained local SETTINGS batch evidence\n"
+        if $shortened_settings_batch_accepted;
+    my $generic_canonical_mismatch_implementation =
+        $canonical_equivalent_implementation;
+    $generic_canonical_mismatch_implementation =~
+        s/retired_hpack_canonical_equivalent_encoding_allowed\(name\)\?/
+            "fn retired_hpack_canonical_mismatch_allowed(name: String) -> Result<Bool, String>\\n"
+            . "\\tif name == \\\"one-row\\\"\\n\\t\\tOk(true)\\n"
+            . "\\telse\\n\\t\\tOk(true)\\n\\tend\\nend\\n"/e;
+    my $generic_canonical_mismatch_accepted = eval {
+        validate_retirement_output_implementation($generic_canonical_mismatch_implementation);
+        1;
+    };
+    die "self-test accepted generic HPACK canonical mismatch fallback\n"
+        if $generic_canonical_mismatch_accepted;
+    my $empty_output = {
+        kind => "output_table",
+        key => "case.toml:output_chunk_list:data-no-output",
+        value => "data-no-output\t",
+    };
+    my $named_only_empty_accepted = eval {
+        validate_evidence_relevance(
+            $empty_output,
+            "$good\n# data-no-output\nhttp2::core::empty_output_buffer()\n",
+            $retirement_output_manifest,
+        );
+        1;
+    };
+    die "self-test accepted an empty output table without an empty-output assertion\n"
+        if $named_only_empty_accepted;
+    validate_evidence_relevance(
+        $empty_output,
+        "$good\n\tassert_retired_empty_output_table(\"data-no-output\", 0)?\n",
+        $retirement_output_manifest,
+    );
+
+    my $settings_helper = {
+        kind => "helper",
+        key => "main.veln:1035:require_connection_stream_id",
+        value => "validate_stream_id_domain\trequire_connection_stream_id\t"
+            . "\t\t4 => require_connection_stream_id(offset, kind, stream_id)",
+    };
+    my $unrelated_domain_accepted = eval {
+        validate_evidence_relevance(
+            $settings_helper,
+            "$good\nhttp2::core::apply_receive_frame(state, settings)\n",
+        );
+        1;
+    };
+    die "self-test accepted same-domain SETTINGS evidence without the retained connection stream id\n"
+        if $unrelated_domain_accepted;
+    validate_evidence_relevance(
+        $settings_helper,
+        "$good\nhttp2::core::apply_receive_frame(state, "
+            . "byte_chunk_from_hex(\"00000c040000000000aaaa12345678000500008000\")?)\n",
+    );
+
+    my $outbound_headers_failure = {
+        kind => "helper",
+        key => "main.veln:13417:require_outbound_headers_connection_failure",
+        value => "verify_outbound_local_stream_role_and_domain_cases\t"
+            . "require_outbound_headers_connection_failure\t"
+            . "\tlet ignored_server_new: () = "
+            . "require_outbound_headers_connection_failure("
+            . "\"server endpoint started a regular local stream\", server_new, "
+            . "\"http2.protocol.invalid_frame_kind\")?",
+    };
+    my $accepted_headers_substitution = eval {
+        validate_evidence_relevance(
+            $outbound_headers_failure,
+            "$good\nif http2::core::headers_send_status(decision) == \"accepted\"\n",
+        );
+        1;
+    };
+    die "self-test accepted outbound HEADERS success evidence for a failure helper\n"
+        if $accepted_headers_substitution;
+    validate_evidence_relevance(
+        $outbound_headers_failure,
+        "$good\nif http2::core::outbound_headers_failure_id(failure) == "
+            . "\"http2.protocol.invalid_frame_kind\"\n",
+    );
+
+    my $outbound_push_failure = {
+        kind => "helper",
+        key => "main.veln:13712:require_outbound_push_promise_failure",
+        value => "verify_outbound_push_promise_ordering_cases\t"
+            . "require_outbound_push_promise_failure\t"
+            . "\tlet ignored_repeated: () = "
+            . "require_outbound_push_promise_failure("
+            . "\"repeated outbound promised stream id was accepted\", "
+            . "repeated, \"http2.protocol.peer_stream_id_not_increasing\")?",
+    };
+    my $missing_push_literal = eval {
+        validate_evidence_relevance(
+            $outbound_push_failure,
+            "$good\nhttp2::core::outbound_headers_failure_id(failure)\n",
+        );
+        1;
+    };
+    die "self-test accepted helper evidence without the retained diagnostic id\n"
+        if $missing_push_literal;
+    validate_evidence_relevance(
+        $outbound_push_failure,
+        "$good\nhttp2::core::send_push_promise(state, 29, 1, 4, headers)\n"
+            . "if http2::core::outbound_headers_failure_id(failure) == "
+            . "\"http2.protocol.peer_stream_id_not_increasing\"\n",
+    );
+
+    my $outbound_push_state = {
+        kind => "helper",
+        key => "main.veln:13755:require_outbound_push_promise_state_preserved",
+        value => "verify_outbound_push_promise_ordering_cases\t"
+            . "require_outbound_push_promise_state_preserved\t"
+            . "\tlet ignored_repeated_state: () = "
+            . "require_outbound_push_promise_state_preserved("
+            . "\"repeated outbound promised stream id changed connection state\", "
+            . "increasing_state, outbound_push_promise_connection_state(repeated))?",
+    };
+    my $inbound_push_substitution_accepted = eval {
+        validate_evidence_relevance(
+            $outbound_push_state,
+            "$good\nhttp2::core::receive_frame_state(push_promise)\n"
+                . "http2::core::receive_frame_applied_transition(push_promise)\n",
+        );
+        1;
+    };
+    die "self-test accepted inbound PUSH_PROMISE evidence for outbound state preservation\n"
+        if $inbound_push_substitution_accepted;
+    validate_evidence_relevance(
+        $outbound_push_state,
+        "$good\n"
+            . "test outbound_push_promise_failures_preserve_ordering_state_and_output() -> Result<(), String>\n"
+            . "\tlet decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 29, 1, 4, headers)\n"
+            . "\tlet repeated_failure: CoreOutboundHeadersFailure = require_push_promise_send_failure(decision)?\n"
+            . "\tlet closed_state: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(streams, http2::core::stream_entry(4, http2::core::stream_closed_lifecycle(), 0, 0, 5, 0)))\n"
+            . "\tlet lower_after_close: CorePushPromiseSendDecision = http2::core::send_push_promise(closed_state, 47, 1, 2, headers)\n"
+            . "\tlet reset_state: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(streams, http2::core::stream_entry(4, http2::core::stream_reset_lifecycle(8), 0, 0, 5, 0)))\n"
+            . "\tlet lower_after_reset: CorePushPromiseSendDecision = http2::core::send_push_promise(reset_state, 53, 1, 2, headers)\n"
+            . "\tif byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::outbound_headers_failure_id(repeated_failure) == \"http2.protocol.peer_stream_id_not_increasing\" and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 4 and http2::core::connection_state_hpack_table_entry_count(state) == 1 and http2::core::outbound_headers_failure_id(header_list_failure) == \"http2.peer_limit.header_list_size_exceeded\"\n"
+            . "\t\tOk(())\n\telse\n\t\tErr(\"unexpected\")\n\tend\nend\n",
+    );
+
+    my $continuation_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:17",
+        value => "continuation-done hpack decoded :fixture continuation "
+            . "wire_size 9 next_decode_count 1",
+    };
+    my $unrelated_projection_accepted = eval {
+        validate_evidence_relevance($continuation_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated HPACK evidence for the continuation projection\n"
+        if $unrelated_projection_accepted;
+    validate_evidence_relevance(
+        $continuation_projection,
+        "$good\n# CONTINUATION nine-octet projection\n"
+            . "if http2::core::stream_collection_count(streams) == 1\n"
+            . "http2::hpack::decode_header_block(input, state)\n",
+    );
+
+    my $peer_settings_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:230",
+        value => "peer-enable-push result frame offset 0 kind 4 stream 0 "
+            . "next 15 pending 0 continuation none accumulated 0 completed 0",
+    };
+    my $peer_stream_substitution_accepted = eval {
+        validate_evidence_relevance($peer_settings_projection, $good);
+        1;
+    };
+    die "self-test accepted peer-stream evidence for a SETTINGS projection\n"
+        if $peer_stream_substitution_accepted;
+    validate_evidence_relevance(
+        $peer_settings_projection,
+        "$good\nif http2::core::receive_frame_status(settings) == \"accepted\"\n",
+    );
+
+    my $hpack_encode_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:248",
+        value => "peer-header-table-size-lower-seed outbound-hpack-encode "
+            . "encoded_count 9 first_byte 68 next_encode_count 1 table_size 4096",
+    };
+    my $unrelated_hpack_projection_accepted = eval {
+        validate_evidence_relevance($hpack_encode_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an outbound HPACK projection\n"
+        if $unrelated_hpack_projection_accepted;
+    validate_evidence_relevance(
+        $hpack_encode_projection,
+        "$good\nhttp2::hpack::encode_header_block(headers, state)\n",
+    );
+
+    my $inbound_entry_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:901",
+        value => "peer-stream inbound_entry 0 stream 1 lifecycle open-stream",
+    };
+    my $unrelated_inbound_entry_accepted = eval {
+        validate_evidence_relevance($inbound_entry_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an inbound-entry projection\n"
+        if $unrelated_inbound_entry_accepted;
+    validate_evidence_relevance(
+        $inbound_entry_projection,
+        "$good\nhttp2::core::stream_collection_find(streams, 1)\n",
+    );
+
+    my $encode_error_projection = {
+        kind => "stdout",
+        key => "case.toml:stdout:2044",
+        value => "http2-stream-id-range encode_error value out of range",
+    };
+    my $unrelated_encode_error_accepted = eval {
+        validate_evidence_relevance($encode_error_projection, $good);
+        1;
+    };
+    die "self-test accepted unrelated evidence for an encode-error projection\n"
+        if $unrelated_encode_error_accepted;
+    validate_evidence_relevance(
+        $encode_error_projection,
+        "$good\nhttp2::frame::encode_header(0, 0, 0, 2147483648)\n",
+    );
+    print "http2 retirement evidence checker self-test: passed\n";
+}
+
+sub expect_count {
+    my ($counts, $kind, $expected) = @_;
+    my $actual = $counts->{$kind} // 0;
+    die "expected $expected $kind items, found $actual\n" if $actual != $expected;
+}
+
+sub git_show {
+    my ($object) = @_;
+    open my $handle, "-|", "git", "show", $object
+        or die "cannot inspect historical object $object: $!\n";
+    local $/;
+    my $content = <$handle>;
+    close $handle or die "git show failed for $object\n";
+    return $content;
+}
