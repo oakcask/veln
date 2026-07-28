@@ -265,14 +265,19 @@ fn assert_retired_output_table(name: String, expected: ByteChunk) -> Result<(), 
 end
 
 fn assert_retired_zero_length_headers_output(name: String) -> Result<(), String>
-	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(0, 0))
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let open: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::client_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_draining(3, 22))
 	let headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list())))
-	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 0, 1, headers, false)
+	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 34, 5, headers, false)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_headers(http2::core::empty_output_buffer(), decision)
-	if http2::core::headers_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
-		Ok(())
-	else
-		Err(name)
+	match http2::core::headers_send_failure(decision)
+		Ok(failure) => if name == "http2-headers-after-narrow-local-goaway-late" and http2::core::outbound_headers_failure_id(failure) == "http2.protocol.stream_after_goaway" and http2::core::outbound_headers_failure_stream_id(failure) == 5 and http2::core::outbound_headers_failure_active_state(failure) == "draining" and http2::core::outbound_headers_failure_rule_provenance(failure) == "goaway_last_stream_id" and http2::core::headers_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+			Ok(())
+		else
+			Err(name)
+		end
+		Err(_) => Err(name)
 	end
 end
 
@@ -381,15 +386,19 @@ end
 fn retired_empty_push_promise_item(name: String) -> Result<{ state : CoreConnectionState, stream_id : Int, promised_stream_id : Int }, String>
 	let base: CoreConnectionState = http2::core::server_connection_state(0)?
 	let associated: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let late: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(7, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
+	let narrow: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(5, http2::core::stream_open_lifecycle(), 80, 90, -1, 0))?
 	let open_state: CoreConnectionState = http2::core::connection_state_with_streams(base, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(base), associated))
+	let late_state: CoreConnectionState = http2::core::connection_state_with_streams(open_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(open_state), late))
+	let narrow_state: CoreConnectionState = http2::core::connection_state_with_streams(open_state, http2::core::stream_collection_add_or_replace(http2::core::connection_state_streams(open_state), narrow))
 	if name == "http2-push-promise-enable-push-disabled"
 		retired_empty_push_promise_disabled_item(open_state)
 	else if name == "http2-push-promise-after-goaway-late"
-		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+		Ok({ state: http2::core::connection_state_with_lifecycle(late_state, http2::core::connection_lifecycle_draining(5, 11)), stream_id: 7, promised_stream_id: 2 })
 	else if name == "http2-push-promise-after-local-goaway-late"
-		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+		Ok({ state: http2::core::connection_state_with_lifecycle(late_state, http2::core::connection_lifecycle_draining(5, 11)), stream_id: 7, promised_stream_id: 2 })
 	else if name == "http2-push-promise-after-narrow-local-goaway-late"
-		Ok({ state: http2::core::connection_state_with_lifecycle(open_state, http2::core::connection_lifecycle_draining(1, 0)), stream_id: 3, promised_stream_id: 2 })
+		Ok({ state: http2::core::connection_state_with_lifecycle(narrow_state, http2::core::connection_lifecycle_draining(3, 22)), stream_id: 5, promised_stream_id: 2 })
 	else
 		Err(name)
 	end
@@ -419,13 +428,16 @@ end
 
 fn assert_retired_empty_priority_output_table(name: String) -> Result<(), String>
 	let expected_id: String = expected_retired_empty_priority_failure_id(name)?
-	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_open_lifecycle(), 1, 1, 0 - 1, 0))?
+	let stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 5 else 7 end
+	let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end
+	let error_code: Int = if name == "http2-priority-after-narrow-local-goaway-late" 22 else 11 end
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(stream_id, http2::core::stream_open_lifecycle(), 1, 1, 0 - 1, 0))?
 	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry)
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(1, 0)), streams)
-	let decision: CorePrioritySendDecision = http2::core::send_priority(state, 0, 3, 1, false, 16)
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(last_stream_id, error_code)), streams)
+	let decision: CorePrioritySendDecision = http2::core::send_priority(state, 0, stream_id, 1, false, 16)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_priority(http2::core::empty_output_buffer(), decision)
 	match http2::core::priority_send_failure(decision)
-		Ok(failure) => if http2::core::outbound_stream_control_failure_id(failure) == expected_id and http2::core::priority_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::priority_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_stream_control_failure_id(failure) == expected_id and http2::core::outbound_stream_control_failure_stream_id(failure) == stream_id and http2::core::outbound_stream_control_failure_last_stream_id(failure) == last_stream_id and http2::core::outbound_stream_control_failure_active_state(failure) == "draining" and http2::core::outbound_stream_control_failure_rule_provenance(failure) == "goaway_last_stream_id" and http2::core::priority_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::priority_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -435,11 +447,11 @@ fn assert_retired_empty_priority_output_table(name: String) -> Result<(), String
 end
 
 fn assert_retired_empty_goaway_output_table(name: String) -> Result<(), String>
-	let closed: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(0)?, http2::core::connection_lifecycle_closed(3, 0))
-	let decision: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 0, 5, 0, byte_chunk([]))
+	let closed: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(0)?, http2::core::connection_lifecycle_closed(5, 13))
+	let decision: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 17, 7, 22, byte_chunk([]))
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_goaway(http2::core::empty_output_buffer(), decision)
 	match http2::core::goaway_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_goaway_family(name)? != "" and http2::core::goaway_send_status(decision) == "rejected" and http2::core::goaway_send_failure_id(failure) == "http2.protocol.stream_after_goaway" and byte_count_to_int(byte_chunk_count(http2::core::goaway_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if expected_retired_empty_goaway_family(name)? == "goaway-widen" and http2::core::goaway_send_status(decision) == "rejected" and http2::core::goaway_send_failure_id(failure) == "http2.protocol.stream_after_goaway" and http2::core::goaway_send_failure_offset(failure) == 17 and http2::core::goaway_send_failure_stream_id(failure) == 7 and http2::core::goaway_send_failure_last_stream_id(failure) == 5 and http2::core::goaway_send_failure_shutdown_state(failure) == "closed" and http2::core::goaway_send_failure_endpoint_role(failure) == "server" and http2::core::goaway_send_failure_rule_provenance(failure) == "goaway_last_stream_id" and http2::core::goaway_send_failure_reason(failure) == "boundary_increased" and byte_count_to_int(byte_chunk_count(http2::core::goaway_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)

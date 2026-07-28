@@ -293,7 +293,28 @@ sub validate_retirement_output_implementation {
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/
             || $source !~ /\bhttp2::core::send_request_headers\b/
-            || $source !~ /\bhttp2::core::output_buffer_append_(?:window_update|headers)\b/;
+            || $source !~ /\bhttp2::core::output_buffer_append_(?:window_update|headers)\b/
+            || $source !~ /http2-headers-after-narrow-local-goaway-late/
+            || $source !~ /connection_lifecycle_draining\(3,\s*22\)/
+            || $source !~ /send_request_headers\(state,\s*34,\s*5/
+            || $source !~ /outbound_headers_failure_stream_id\(failure\)\s*==\s*5/s
+            || $source !~ /outbound_headers_failure_active_state\(failure\)\s*==\s*"draining"/s
+            || $source !~ /outbound_headers_failure_rule_provenance\(failure\)\s*==\s*"goaway_last_stream_id"/s;
+    die "retirement GOAWAY empty-output evidence does not preserve the widened boundary failure\n"
+        if $source !~ /assert_retired_empty_goaway_output_table\(name: String\).*?connection_lifecycle_closed\(5,\s*13\).*?send_goaway_shutdown\(closed,\s*17,\s*7,\s*22/s
+            || $source !~ /goaway_send_failure_stream_id\(failure\)\s*==\s*7/s
+            || $source !~ /goaway_send_failure_last_stream_id\(failure\)\s*==\s*5/s
+            || $source !~ /goaway_send_failure_shutdown_state\(failure\)\s*==\s*"closed"/s
+            || $source !~ /goaway_send_failure_endpoint_role\(failure\)\s*==\s*"server"/s
+            || $source !~ /goaway_send_failure_reason\(failure\)\s*==\s*"boundary_increased"/s;
+    die "retirement PUSH_PROMISE or PRIORITY GOAWAY evidence still shares one boundary state\n"
+        if $source !~ /http2-push-promise-after-goaway-late.*?connection_lifecycle_draining\(5,\s*11\).*?stream_id:\s*7/s
+            || $source !~ /http2-push-promise-after-local-goaway-late.*?connection_lifecycle_draining\(5,\s*11\).*?stream_id:\s*7/s
+            || $source !~ /http2-push-promise-after-narrow-local-goaway-late.*?connection_lifecycle_draining\(3,\s*22\).*?stream_id:\s*5/s
+            || $source !~ /let stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 5 else 7 end/
+            || $source !~ /let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end/
+            || $source !~ /outbound_stream_control_failure_stream_id\(failure\)\s*==\s*stream_id/s
+            || $source !~ /outbound_stream_control_failure_last_stream_id\(failure\)\s*==\s*last_stream_id/s;
 }
 
 sub validate_veln_test {
@@ -1005,6 +1026,42 @@ sub run_self_test {
     };
     die "self-test accepted unrelated SETTINGS ACK cleared local batch\n"
         if $unrelated_ack_batch_accepted;
+    my $generic_zero_length_headers_source = $retirement_source;
+    $generic_zero_length_headers_source =~
+        s/send_request_headers\(state, 34, 5, headers, false\)/send_request_headers(state, 0, 1, headers, false)/;
+    my $generic_zero_length_headers_accepted = eval {
+        validate_retirement_output_implementation($generic_zero_length_headers_source);
+        1;
+    };
+    die "self-test accepted generic zero-length HEADERS GOAWAY evidence\n"
+        if $generic_zero_length_headers_accepted;
+    my $generic_goaway_widen_source = $retirement_source;
+    $generic_goaway_widen_source =~
+        s/send_goaway_shutdown\(closed, 17, 7, 22/send_goaway_shutdown(closed, 0, 5, 0/;
+    my $generic_goaway_widen_accepted = eval {
+        validate_retirement_output_implementation($generic_goaway_widen_source);
+        1;
+    };
+    die "self-test accepted substituted GOAWAY widen output evidence\n"
+        if $generic_goaway_widen_accepted;
+    my $generic_push_promise_goaway_source = $retirement_source;
+    $generic_push_promise_goaway_source =~
+        s/connection_lifecycle_draining\(3, 22\)\), stream_id: 5/connection_lifecycle_draining(5, 11)), stream_id: 7/;
+    my $generic_push_promise_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_push_promise_goaway_source);
+        1;
+    };
+    die "self-test accepted shared PUSH_PROMISE GOAWAY boundary evidence\n"
+        if $generic_push_promise_goaway_accepted;
+    my $generic_priority_goaway_source = $retirement_source;
+    $generic_priority_goaway_source =~
+        s/let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end/let last_stream_id: Int = 5/;
+    my $generic_priority_goaway_accepted = eval {
+        validate_retirement_output_implementation($generic_priority_goaway_source);
+        1;
+    };
+    die "self-test accepted shared PRIORITY GOAWAY boundary evidence\n"
+        if $generic_priority_goaway_accepted;
     my $generic_canonical_mismatch_implementation =
         $canonical_equivalent_implementation;
     $generic_canonical_mismatch_implementation =~
