@@ -313,12 +313,20 @@ sub operation_branch {
 sub initial_state_model {
     my ($row, $text, $endpoint_role) = @_;
     my @state = ("role=$endpoint_role");
-    push @state, "lifecycle=draining" if $text =~ /\bdraining\b/i;
-    push @state, "lifecycle=closed" if $text =~ /\bclosed\b/i && $text !~ /\bhalf-closed\b/i;
-    push @state, "lifecycle=open" if @state == 1;
-    push @state, "stream=half-closed-local" if $text =~ /\bhalf[-_]closed[-_]local\b/i;
-    push @state, "stream=half-closed-remote" if $text =~ /\bhalf[-_]closed[-_]remote\b/i;
-    push @state, "stream=reserved-by-peer" if $text =~ /\breserved[-_]by[-_]peer\b/i;
+    if ($text =~ /\bclosed\b/i && $text !~ /\bhalf-closed\b/i) {
+        push @state, "lifecycle=closed";
+    } elsif ($text =~ /\bdraining\b/i) {
+        push @state, "lifecycle=draining";
+    } else {
+        push @state, "lifecycle=open";
+    }
+    if ($text =~ /\breserved[-_]by[-_]peer\b/i) {
+        push @state, "stream=reserved-by-peer";
+    } elsif ($text =~ /\bhalf[-_]closed[-_]local\b/i) {
+        push @state, "stream=half-closed-local";
+    } elsif ($text =~ /\bhalf[-_]closed[-_]remote\b/i) {
+        push @state, "stream=half-closed-remote";
+    }
     push @state, "hpack=dynamic-table" if $text =~ /\b(?:DynamicTable|dynamic_table|hpack table|table-size)\b/i;
     push @state, "flow=bounded-credit" if $text =~ /\b(?:flow_control|window|credit)\b/i;
     push @state, "continuation=pending" if $text =~ /\bcontinuation\b/i;
@@ -336,7 +344,33 @@ sub public_setup_model {
     push @steps, "build-header-list" if $text =~ /\b(?:HeaderList|header_field|request_headers|response_headers)\b/;
     push @steps, "build-frame-bytes" if $text =~ /\b(?:byte_chunk_from_hex|frame::encode_header|frame::decode)\b/;
     push @steps, "create-output-buffer" if $initial_state =~ /output=caller-owned/;
+    if ($row->{kind} eq "stdout") {
+        push @steps, stdout_projection_setup_steps($row->{value});
+    } elsif ($row->{kind} eq "output_table") {
+        push @steps, "select-retired-output-table";
+        push @steps, "assert-retained-output-row:" . output_table_name($row);
+    }
     return join(">", @steps);
+}
+
+sub stdout_projection_setup_steps {
+    my ($value) = @_;
+    my @steps;
+    my ($label, $projection) = $value =~ /^([^ ]+)(?: ([^ ]+))?/;
+    push @steps, "select-retired-stdout-row:$label" if defined $label;
+    push @steps, "project-stdout:$projection"
+        if defined $projection && $projection ne "";
+    if ($value =~ /\bkind ([0-9]+)\b/) {
+        push @steps, "select-frame-kind:$1";
+    }
+    push @steps, "apply-padding-input" if $value =~ /\bpadding\b/i;
+    push @steps, "apply-continuation-input" if $value =~ /\bcontinuation\b/i;
+    push @steps, "apply-goaway-state" if $value =~ /\bgoaway\b/i;
+    push @steps, "apply-flow-control-state" if $value =~ /\b(?:flow|window|credit)\b/i;
+    push @steps, "apply-content-length-state" if $value =~ /\bcontent[-_]length\b/i;
+    push @steps, "apply-settings-state" if $value =~ /\bsettings\b/i;
+    push @steps, "apply-hpack-state" if $value =~ /\bhpack\b/i;
+    return @steps;
 }
 
 sub required_post_state {
@@ -380,10 +414,22 @@ sub concrete_input {
     }
     if ($row->{kind} eq "stdout") {
         my @facts = ("operation=$owning_operation");
+        my ($label, $projection) = $row->{value} =~ /^([^ ]+)(?: ([^ ]+))?/;
+        push @facts, "stdout-label=$label" if defined $label;
+        push @facts, "stdout-projection=$projection"
+            if defined $projection && $projection ne "";
         push @facts, "hex-octets=" . (length($1) / 2) if $row->{value} =~ / hex "([0-9a-f]*)"/;
         push @facts, "frame-kind=$1" if $row->{value} =~ /\bkind ([0-9]+)\b/;
+        push @facts, "offset=$1" if $row->{value} =~ /\boffset (-?[0-9]+)\b/;
+        push @facts, "stream=$1" if $row->{value} =~ /\bstream (-?[0-9]+)\b/;
+        push @facts, "next-offset=$1" if $row->{value} =~ /\bnext (-?[0-9]+)\b/;
+        push @facts, "wire-size=$1" if $row->{value} =~ /\bwire_size (-?[0-9]+)\b/;
+        push @facts, "first-byte=$1" if $row->{value} =~ /\bfirst_byte (-?[0-9]+)\b/;
+        push @facts, "encoded-count=$1" if $row->{value} =~ /\bencoded_count (-?[0-9]+)\b/;
+        push @facts, "table-size=$1" if $row->{value} =~ /\btable_size (-?[0-9]+)\b/;
         push @facts, "diagnostic-id=$1" if $row->{value} =~ /\b((?:http2|hpack|schema|codec)\.[a-z0-9_.]+)\b/;
-        push @facts, "stdout-sha256=" . sha256_hex($row->{value}) if @facts == 1;
+        my @ints = $row->{value} =~ /(?<![A-Za-z0-9_])-?\d+(?![A-Za-z0-9_])/g;
+        push @facts, "ints=" . join(",", @ints) if @ints;
         return join(";", @facts);
     }
     my (undef, $helper, $line) = split /\t/, $row->{value}, 3;
@@ -494,9 +540,11 @@ sub render_coverage_report {
 sub validate_structured_scenarios {
     my ($scenarios) = @_;
     my %projection_seen;
+    my %ordered_setup_seen;
     for my $scenario (@$scenarios) {
         die "duplicate retirement projection $scenario->{result_projection}\n"
             if $projection_seen{ $scenario->{result_projection} }++;
+        $ordered_setup_seen{ $scenario->{ordered_setup} }++;
         for my $field (
             qw(owning_operation operation_branch initial_state ordered_setup concrete_input required_post_state executable_projection)
         ) {
@@ -507,7 +555,17 @@ sub validate_structured_scenarios {
             if $scenario->{ordered_setup} =~ /\bhistorical-/;
         die "scenario $scenario->{id} keeps helper-line hash inputs\n"
             if $scenario->{concrete_input} =~ /\bhelper-line:[0-9a-f]{64}\b/;
+        die "scenario $scenario->{id} keeps stdout hash-only input facts\n"
+            if $scenario->{concrete_input} =~ /\bstdout-sha256=[0-9a-f]{64}\b/;
+        my @lifecycles = $scenario->{initial_state} =~ /\blifecycle=/g;
+        die "scenario $scenario->{id} combines multiple lifecycle states\n"
+            if @lifecycles > 1;
+        my @streams = $scenario->{initial_state} =~ /\bstream=/g;
+        die "scenario $scenario->{id} combines multiple stream states\n"
+            if @streams > 1;
     }
+    die "structured scenario setup model is too coarse\n"
+        if keys(%ordered_setup_seen) < 100;
 }
 
 sub assert_file_equals {

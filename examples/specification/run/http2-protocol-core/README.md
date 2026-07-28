@@ -22,6 +22,11 @@ The checked migration artifacts are:
 - `retirement-scenarios.jsonl`: row-addressable structured projection model.
 - `retirement-coverage.tsv`: generated dimension coverage report.
 
+The structured scenario model keeps stdout input facts as row labels,
+projections, frame facts, offsets, streams, sizes, byte counts, and diagnostic
+ids. It rejects hash-only stdout inputs and duplicate lifecycle or stream
+states so row evidence cannot collapse into shared assertion bodies.
+
 Regenerate and verify the structured files with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run
 `scripts/check-http2-retirement-evidence`.

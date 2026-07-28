@@ -49,7 +49,8 @@ public operation, branch, initial-state model, ordered setup, concrete input
 facts, required post-state, executable projection, endpoint role, result
 projection, output provenance, failure atomicity, and diagnostic-precedence
 dimensions. The checker rejects duplicate result projections and stale
-historical setup or helper-line hash inputs, keeping every row addressable even
+historical setup, helper-line hash inputs, hash-only stdout inputs, and
+duplicate lifecycle or stream-state axes, keeping every row addressable even
 when several rows share one executable evidence test. The
 retirement-output standard-package test keeps historical output tables tied to
 public `http2::frame`, `http2::hpack`, and `http2::core` transitions.

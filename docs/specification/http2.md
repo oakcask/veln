@@ -932,6 +932,11 @@ required post-state, executable projection, endpoint role, output provenance,
 failure atomicity, and diagnostic-precedence dimensions. The
 `result_projection` field is unique per row so shared executable tests cannot
 collapse multiple retired assertions into one projection.
+Stdout rows use structured input facts such as label, projection, frame kind,
+stream, offset, wire size, byte counts, and diagnostic id rather than a
+hash-only placeholder. Initial-state rows contain only one lifecycle axis and
+only one stream-state axis, and the checker rejects duplicate lifecycle or
+stream tokens.
 `retirement-coverage.tsv` summarizes those dimensions, including the owning
 operation, branch, initial-state, post-state, and unique projection axes, and
 `scripts/check-http2-retirement-evidence` regenerates and checks both files
