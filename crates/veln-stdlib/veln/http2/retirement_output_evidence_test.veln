@@ -481,9 +481,12 @@ fn assert_retired_empty_settings_output_table(name: String) -> Result<(), String
 end
 
 fn assert_retired_empty_settings_ack_cleared_output_table(name: String) -> Result<(), String>
-	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(http2::core::empty_settings_ack_state())
+	let pending: SettingsAckState = http2::core::settings_ack_after_peer_frame(http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 17, 1), 4, 0, 6)
+	let sent: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(pending)
+	let cleared: SettingsAckState = http2::core::pending_settings_ack_send_state(sent)
+	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(cleared)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_pending_settings_ack(http2::core::empty_output_buffer(), no_pending)
-	if http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(output) == 0
+	if name == "http2-peer-settings-ack-cleared" and http2::core::pending_settings_ack_send_status(sent) == "accepted" and chunks_equal(http2::core::pending_settings_ack_send_bytes(sent), byte_chunk_from_hex("000000040100000000")?)? and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(pending)) == 17 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(pending)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(pending)) == "active" and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(cleared)) == 17 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(cleared)) == 1 and http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(cleared)) == "none" and http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(output) == 0
 		Ok(())
 	else
 		Err(name)
