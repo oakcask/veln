@@ -41,9 +41,12 @@ or sequence-extension slice is part of this work.
 
 - Helper and stdout relevance is still too broad for some historical items.
   The checker binds each row to a complete historical value and retained
-  assertion body, but several distinct helper shapes still map to shared
-  retained tests whose bodies do not mechanically compare the item-specific
-  before and after connection value or every nested field check.
+  assertion body, and outbound PUSH_PROMISE state-preservation rows now require
+  the retained test body to contain the historical invocation's corresponding
+  failure branch projection. Several other distinct helper and stdout shapes
+  still map to shared retained tests whose bodies do not mechanically compare
+  the item-specific before and after connection value or every nested field
+  check.
 - Output table evidence still reconstructs many historical byte sequences from
   the retained bytes supplied by the manifest. Empty output tables now require
   the expected production failure id for DATA, WINDOW_UPDATE, PRIORITY,
@@ -58,7 +61,10 @@ or sequence-extension slice is part of this work.
   the corresponding absence of bytes.
 - The retirement checker should reject same-domain substitutions that omit the
   historical endpoint role, starting state, diagnostic precedence, complete
-  result projection, exact emitted bytes, or failure/no-output state.
+  result projection, exact emitted bytes, or failure/no-output state. It now
+  rejects same-domain substitutions for outbound PUSH_PROMISE
+  state-preservation rows when the retained body omits the branch projection
+  selected by the historical invocation.
 
 ## Implementation Notes
 

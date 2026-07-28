@@ -74,7 +74,10 @@ invocation from its helper and caller, including component-specific
 connection-state preservation checks. Outbound HEADERS and PUSH_PROMISE helper
 evidence distinguishes accepted transitions, rejected transitions, and
 failure-atomic state preservation so a same-domain success test cannot satisfy
-a historical failure helper. The three connection-stream helper sites must
+a historical failure helper. Outbound PUSH_PROMISE state-preservation rows also
+bind to the branch projection selected by the historical invocation, including
+ordering, SETTINGS_ENABLE_PUSH, GOAWAY, frame-size, HPACK-state, and
+header-list-limit failures. The three connection-stream helper sites must
 reference SETTINGS, PING, and GOAWAY tests respectively.
 Production HTTP/2 diagnostic stdout rows must compare their retained
 diagnostic id. The historical
