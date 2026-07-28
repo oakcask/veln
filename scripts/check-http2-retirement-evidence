@@ -394,7 +394,7 @@ sub helper_evidence_domain {
     } if $helper eq "require_outbound_push_promise_failure";
     return {
         label => "failure-atomic outbound PUSH_PROMISE state preservation",
-        pattern => qr/\btest outbound_push_promise_failures_preserve_ordering_state_and_output\(\).*?\bsend_push_promise\b.*?\bpush_promise_send_bytes\b.*?\bpeer_settings_highest_peer_created_stream_id\b/s,
+        pattern => qr/\btest outbound_push_promise_failures_preserve_ordering_state_and_output\(\)(?=.*?\bsend_push_promise\b)(?=.*?\bpush_promise_send_bytes\b)(?=.*?\bpeer_settings_highest_peer_created_stream_id\b)(?=.*?\bstream_closed_lifecycle\b)(?=.*?\blower_after_close\b)(?=.*?\bstream_reset_lifecycle\b)(?=.*?\blower_after_reset\b)(?=.*?\bconnection_state_hpack_table_entry_count\b)(?=.*?\bhttp2\.peer_limit\.header_list_size_exceeded\b)/s,
     } if $helper eq "require_outbound_push_promise_state_preserved";
 
     return {
@@ -823,7 +823,11 @@ sub run_self_test {
         "$good\n"
             . "test outbound_push_promise_failures_preserve_ordering_state_and_output() -> Result<(), String>\n"
             . "\tlet decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 29, 1, 4, headers)\n"
-            . "\tif byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 4\n"
+            . "\tlet closed_state: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(streams, http2::core::stream_entry(4, http2::core::stream_closed_lifecycle(), 0, 0, 5, 0)))\n"
+            . "\tlet lower_after_close: CorePushPromiseSendDecision = http2::core::send_push_promise(closed_state, 47, 1, 2, headers)\n"
+            . "\tlet reset_state: CoreConnectionState = http2::core::connection_state_with_streams(state, http2::core::stream_collection_add_or_replace(streams, http2::core::stream_entry(4, http2::core::stream_reset_lifecycle(8), 0, 0, 5, 0)))\n"
+            . "\tlet lower_after_reset: CorePushPromiseSendDecision = http2::core::send_push_promise(reset_state, 53, 1, 2, headers)\n"
+            . "\tif byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::peer_settings_highest_peer_created_stream_id(http2::core::connection_state_peer_settings(state)) == 4 and http2::core::connection_state_hpack_table_entry_count(state) == 1 and http2::core::outbound_headers_failure_id(header_list_failure) == \"http2.peer_limit.header_list_size_exceeded\"\n"
             . "\t\tOk(())\n\telse\n\t\tErr(\"unexpected\")\n\tend\nend\n",
     );
 

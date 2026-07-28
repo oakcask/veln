@@ -286,8 +286,10 @@ metadata without changing the observed body count, and accepted trailers
 preserve that content-length metadata while applying local END_STREAM
 lifecycle.
 Header-list failures, stream-id or lifecycle failures, GOAWAY boundary
-failures, and HPACK encode failures expose typed failures with no bytes and no
-next state.
+failures, peer maximum-header-list-size failures, and HPACK encode failures
+expose typed failures with no bytes and no next state. A nonzero peer
+`SETTINGS_MAX_HEADER_LIST_SIZE` bounds the encoded HPACK header block before a
+HEADERS frame is emitted.
 
 `http2::core::send_push_promise(state, offset, stream_id,
 promised_stream_id, headers)` is the server outbound PUSH_PROMISE transition.
@@ -295,12 +297,14 @@ It requires an associated open stream, a nonzero server-initiated promised
 stream id above the retained promised-stream high-water, peer push still
 enabled when advertised, and no active GOAWAY boundary for the associated
 stream. It validates the promised request headers, encodes the header block
-through the public production HPACK encoder, applies the peer maximum frame
-size to the PUSH_PROMISE payload, emits one kind-`5` frame with END_HEADERS
-set, records the promised stream as reserved-local with peer-advertised
-initial window credit, and advances the promised-stream high-water only in
-the returned state. Endpoint, stream, ordering, disabled-push, GOAWAY,
-frame-size, header-list, and HPACK failures expose no bytes and no next state.
+through the public production HPACK encoder, applies the peer maximum header
+list size to the encoded block, applies the peer maximum frame size to the
+PUSH_PROMISE payload, emits one kind-`5` frame with END_HEADERS set, records
+the promised stream as reserved-local with peer-advertised initial window
+credit, and advances the promised-stream high-water only in the returned
+state. Endpoint, stream, ordering, disabled-push, GOAWAY, frame-size,
+header-list-size, header-list, and HPACK failures expose no bytes and no next
+state.
 The focused
 [`http2-core-outbound-headers`](../../examples/specification/run/http2-core-outbound-headers/)
 case records accepted HEADERS and PUSH_PROMISE bytes, created and reserved
@@ -308,7 +312,8 @@ stream projections, response-header content-length updates, trailer closure
 with preserved content-length state, PUSH_PROMISE high-water projection,
 header-list failure fields, GOAWAY boundary rejection, promised-stream
 ordering rejection, disabled-push rejection, peer frame-size rejection,
-endpoint rejection, empty failure output, and public failure accessors.
+peer header-list-size rejection, endpoint rejection, empty failure output,
+and public failure accessors.
 
 `http2::core::send_rst_stream(state, offset, stream_id, error_code)` emits a
 kind-`3`, flags-`0` RST_STREAM frame from an existing open outbound stream and

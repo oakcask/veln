@@ -198,5 +198,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let too_large_push: CorePushPromiseSendDecision = http2::core::send_push_promise(tiny_state, 43, 1, 6, request_headers()?)
 	print_failure("push-promise-frame-size", require_push_failure(too_large_push)?)
 	print_empty("push-promise-frame-size")
+	let tight_header_list_settings: PeerSettingsState = http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(server_state), 19, byte_chunk_from_hex("000600000001")?)?
+	let tight_header_list_state: CoreConnectionState = http2::core::connection_state_with_peer_settings(server_state, tight_header_list_settings)
+	let too_large_header_list_push: CorePushPromiseSendDecision = http2::core::send_push_promise(tight_header_list_state, 45, 1, 6, request_headers()?)
+	print_failure("push-promise-header-list-limit", require_push_failure(too_large_header_list_push)?)
+	print_empty("push-promise-header-list-limit")
 	Ok(())
 end

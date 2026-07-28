@@ -26,6 +26,7 @@ pub type CoreOutboundHeadersFailure
 	CoreOutboundHeadersAfterGoaway(offset: Int, frame_kind: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String, preview: ByteChunk)
 	CoreOutboundHeadersPromisedStreamNotIncreasing(offset: Int, frame_kind: Int, stream_id: Int, previous_stream_id: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
 	CoreOutboundHeadersFrameSizeExceeded(offset: Int, frame_kind: Int, stream_id: Int, observed: Int, maximum: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
+	CoreOutboundHeadersHeaderListSizeExceeded(offset: Int, frame_kind: Int, stream_id: Int, observed: Int, maximum: Int, endpoint_role: String, active_state: String, rule_provenance: String, preview: ByteChunk)
 end
 
 pub fn send_request_headers(state: CoreConnectionState, offset: Int, stream_id: Int, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
@@ -144,16 +145,31 @@ end
 
 fn encode_headers(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
 	match http2::hpack::encode_header_block(headers, http2::core::connection_state::hpack_table(state), http2::core::peer_settings_state::active_header_table_size(http2::core::connection_state::peer_settings(state)))
-		Ok(encoded) => encode_headers_frame(state, stream_id, header_role, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length, observed, end_stream, create_stream)
+		Ok(encoded) => encode_headers_frame(state, offset, stream_id, header_role, http2::hpack::header_block_encode_bytes(encoded), http2::hpack::header_block_encode_table(encoded), content_length, observed, end_stream, create_stream)
 		Err(failure) => CoreHeadersSendRejected(CoreOutboundHeadersHpack(offset, 1, stream_id, failure, byte_chunk([])))
 	end
 end
 
-fn encode_headers_frame(state: CoreConnectionState, stream_id: Int, header_role: String, block: ByteChunk, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
+fn encode_headers_frame(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, block: ByteChunk, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
 	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
-	match http2::frame::encode_header(block_length, 1, headers_flags(end_stream), stream_id)
-		Ok(header) => CoreHeadersSendAccepted(headers_next_state(state, stream_id, header_role, table, content_length, observed, end_stream, create_stream), stream_id, block_length, end_stream, byte_append(header, block))
-		Err(reason) => CoreHeadersSendEncodeFailed(stream_id, reason)
+	let maximum: Int = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
+	if maximum != 0 and block_length > maximum
+		CoreHeadersSendRejected(CoreOutboundHeadersHeaderListSizeExceeded(offset, 1, stream_id, block_length, maximum, http2::core::connection_state::endpoint_role(state), header_role_active_state(header_role), "settings_max_header_list_size", byte_chunk([])))
+	else
+		match http2::frame::encode_header(block_length, 1, headers_flags(end_stream), stream_id)
+			Ok(header) => CoreHeadersSendAccepted(headers_next_state(state, stream_id, header_role, table, content_length, observed, end_stream, create_stream), stream_id, block_length, end_stream, byte_append(header, block))
+			Err(reason) => CoreHeadersSendEncodeFailed(stream_id, reason)
+		end
+	end
+end
+
+fn header_role_active_state(header_role: String) -> String
+	if header_role == "request"
+		"request-headers"
+	else if header_role == "response"
+		"response-headers"
+	else
+		"trailers"
 	end
 end
 
@@ -168,7 +184,10 @@ fn encode_push_promise_frame(state: CoreConnectionState, offset: Int, stream_id:
 	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
 	let payload_length: Int = block_length + 4
 	let maximum: Int = http2::core::peer_settings_state::active_max_frame_size(http2::core::connection_state::peer_settings(state))
-	if payload_length > maximum
+	let header_list_maximum: Int = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
+	if header_list_maximum != 0 and block_length > header_list_maximum
+		CorePushPromiseSendRejected(CoreOutboundHeadersHeaderListSizeExceeded(offset, 5, stream_id, block_length, header_list_maximum, http2::core::connection_state::endpoint_role(state), "push-promise", "settings_max_header_list_size", byte_chunk([])))
+	else if payload_length > maximum
 		CorePushPromiseSendRejected(CoreOutboundHeadersFrameSizeExceeded(offset, 5, stream_id, payload_length, maximum, http2::core::connection_state::endpoint_role(state), "push-promise", "rfc9113_max_frame_size", byte_chunk([])))
 	else
 		match byte_write_u31_be(promised_stream_id)
@@ -338,6 +357,7 @@ pub fn failure_id(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, _, _) => "http2.protocol.peer_stream_id_not_increasing"
 		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
+		CoreOutboundHeadersHeaderListSizeExceeded(_, _, _, _, _, _, _, _, _) => "http2.peer_limit.header_list_size_exceeded"
 	end
 end
 
@@ -349,6 +369,7 @@ pub fn failure_offset(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersAfterGoaway(offset, _, _, _, _, _, _, _) => offset
 		CoreOutboundHeadersPromisedStreamNotIncreasing(offset, _, _, _, _, _, _, _) => offset
 		CoreOutboundHeadersFrameSizeExceeded(offset, _, _, _, _, _, _, _, _) => offset
+		CoreOutboundHeadersHeaderListSizeExceeded(offset, _, _, _, _, _, _, _, _) => offset
 	end
 end
 
@@ -360,6 +381,7 @@ pub fn failure_frame_kind(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersAfterGoaway(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, frame_kind, _, _, _, _, _, _) => frame_kind
 		CoreOutboundHeadersFrameSizeExceeded(_, frame_kind, _, _, _, _, _, _, _) => frame_kind
+		CoreOutboundHeadersHeaderListSizeExceeded(_, frame_kind, _, _, _, _, _, _, _) => frame_kind
 	end
 end
 
@@ -371,6 +393,7 @@ pub fn failure_stream_id(failure: CoreOutboundHeadersFailure) -> Int
 		CoreOutboundHeadersAfterGoaway(_, _, stream_id, _, _, _, _, _) => stream_id
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, stream_id, _, _, _, _, _) => stream_id
 		CoreOutboundHeadersFrameSizeExceeded(_, _, stream_id, _, _, _, _, _, _) => stream_id
+		CoreOutboundHeadersHeaderListSizeExceeded(_, _, stream_id, _, _, _, _, _, _) => stream_id
 	end
 end
 
@@ -382,6 +405,7 @@ pub fn failure_active_state(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, shutdown_state, _, _, _) => shutdown_state
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, active_state, _, _) => active_state
 		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, active_state, _, _) => active_state
+		CoreOutboundHeadersHeaderListSizeExceeded(_, _, _, _, _, _, active_state, _, _) => active_state
 	end
 end
 
@@ -393,6 +417,7 @@ pub fn failure_rule_provenance(failure: CoreOutboundHeadersFailure) -> String
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, rule_provenance, _) => rule_provenance
 		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, rule_provenance, _) => rule_provenance
+		CoreOutboundHeadersHeaderListSizeExceeded(_, _, _, _, _, _, _, rule_provenance, _) => rule_provenance
 	end
 end
 
@@ -404,5 +429,6 @@ pub fn failure_preview(failure: CoreOutboundHeadersFailure) -> ByteChunk
 		CoreOutboundHeadersAfterGoaway(_, _, _, _, _, _, _, preview) => preview
 		CoreOutboundHeadersPromisedStreamNotIncreasing(_, _, _, _, _, _, _, preview) => preview
 		CoreOutboundHeadersFrameSizeExceeded(_, _, _, _, _, _, _, _, preview) => preview
+		CoreOutboundHeadersHeaderListSizeExceeded(_, _, _, _, _, _, _, _, preview) => preview
 	end
 end
