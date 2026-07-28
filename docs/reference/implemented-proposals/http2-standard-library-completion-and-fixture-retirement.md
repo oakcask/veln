@@ -19,7 +19,10 @@ Each historical `require_*` invocation, exact stdout line, and
 `output_chunk_list` assertion from the retired route is bound to retained
 mechanical evidence by `scripts/check-http2-retirement-evidence`. The checker
 requires the historical value, retained assertion body, and combined binding to
-match, and it rejects unclassified evidence rows.
+match, and it rejects unclassified evidence rows. Its relevance checks reject
+same-domain substitutions that omit the retained endpoint role, starting state,
+diagnostic id, result projection, emitted bytes, or failure-atomicity
+projection.
 
 ## Evidence
 
@@ -46,6 +49,13 @@ The independent retirement checker reports complete retained coverage:
 - stdout lines: 2044
 - output tables: 315
 - unclassified items: 0
+
+The checker self-test covers the former broad-substitution risks, including
+accepted outbound HEADERS evidence for rejected helper rows, inbound
+PUSH_PROMISE evidence for outbound state preservation, unrelated stdout
+projections, grouped output evidence, nested DATA output evidence, failed HPACK
+decode input-identity evidence, generic non-empty HPACK failures, and stale
+empty-output substitutions.
 
 The guarded standard-package run passes the retained HTTP/2 output evidence
 tests together with the focused HTTP/2 core and HPACK tests.
