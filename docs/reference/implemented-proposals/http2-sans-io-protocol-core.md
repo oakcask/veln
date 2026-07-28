@@ -72,11 +72,14 @@ invocation from its helper and caller, including component-specific
 connection-state preservation checks. Outbound HEADERS and PUSH_PROMISE helper
 evidence distinguishes accepted transitions, rejected transitions, and
 failure-atomic state preservation so a same-domain success test cannot satisfy
-a historical failure helper. Outbound PUSH_PROMISE state-preservation rows also
-bind to the branch projection selected by the historical invocation, including
-ordering, SETTINGS_ENABLE_PUSH, GOAWAY, frame-size, HPACK-state, and
-header-list-limit failures. The three connection-stream helper sites must
-reference SETTINGS, PING, and GOAWAY tests respectively.
+a historical failure helper. Outbound PUSH_PROMISE failure rows that retain a
+current production failure id must also bind to evidence that compares that id
+in the PUSH_PROMISE failure transition instead of a generic outbound HEADERS
+failure test. Outbound PUSH_PROMISE state-preservation rows also bind to the
+branch projection selected by the historical invocation, including ordering,
+SETTINGS_ENABLE_PUSH, GOAWAY, frame-size, HPACK-state, and header-list-limit
+failures. The three connection-stream helper sites must reference SETTINGS,
+PING, and GOAWAY tests respectively.
 Production HTTP/2 diagnostic stdout rows must compare their retained
 diagnostic id. The historical
 `:fixture` continuation projection is bound to a production receive-frame
@@ -87,7 +90,8 @@ flow-control, content-length, stream-collection, priority, output-encoding, or
 shutdown boundary according to the retained projection kind. Unclassified
 helper and stdout projection kinds fail the gate. The checker self-test
 rejects the former peer-stream, outbound HEADERS success-for-failure,
-unrelated chunk, generic HPACK, generic non-empty HPACK failure, nested-DATA,
+outbound PUSH_PROMISE missing-failure-id, unrelated chunk, generic HPACK,
+generic non-empty HPACK failure, nested-DATA,
 grouped-output, comment-only empty-output, inbound-entry, and encode-error
 substitutions.
 

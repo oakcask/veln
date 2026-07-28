@@ -487,9 +487,28 @@ sub validate_evidence_relevance {
         validate_outbound_push_promise_state_relevance($row, $assertion);
         return;
     }
+    validate_helper_literal_relevance($row, $assertion);
     my $domain = helper_evidence_domain($caller, $helper);
     die "evidence for $row->{key} does not exercise its $domain->{label} domain\n"
         if $assertion !~ $domain->{pattern};
+}
+
+sub validate_helper_literal_relevance {
+    my ($row, $assertion) = @_;
+    my (undef, $helper, $line) = split /\t/, $row->{value}, 3;
+    return if $helper ne "require_outbound_push_promise_failure";
+    my %required;
+    while ($line =~ /"([^"]+)"/g) {
+        my $literal = $1;
+        next
+            if $literal !~
+                /^(?:http2\.protocol\.(?:peer_stream_id_not_increasing|invalid_stream_id|stream_after_goaway)|http2\.peer_limit\.(?:frame_size_exceeded|header_list_size_exceeded))$/;
+        $required{$literal} = 1;
+    }
+    for my $literal (sort keys %required) {
+        die "evidence for $row->{key} omits retained helper literal $literal\n"
+            if index($assertion, $literal) < 0;
+    }
 }
 
 sub validate_outbound_push_promise_state_relevance {
@@ -1172,6 +1191,32 @@ sub run_self_test {
         $outbound_headers_failure,
         "$good\nif http2::core::outbound_headers_failure_id(failure) == "
             . "\"http2.protocol.invalid_frame_kind\"\n",
+    );
+
+    my $outbound_push_failure = {
+        kind => "helper",
+        key => "main.veln:13712:require_outbound_push_promise_failure",
+        value => "verify_outbound_push_promise_ordering_cases\t"
+            . "require_outbound_push_promise_failure\t"
+            . "\tlet ignored_repeated: () = "
+            . "require_outbound_push_promise_failure("
+            . "\"repeated outbound promised stream id was accepted\", "
+            . "repeated, \"http2.protocol.peer_stream_id_not_increasing\")?",
+    };
+    my $missing_push_literal = eval {
+        validate_evidence_relevance(
+            $outbound_push_failure,
+            "$good\nhttp2::core::outbound_headers_failure_id(failure)\n",
+        );
+        1;
+    };
+    die "self-test accepted helper evidence without the retained diagnostic id\n"
+        if $missing_push_literal;
+    validate_evidence_relevance(
+        $outbound_push_failure,
+        "$good\nhttp2::core::send_push_promise(state, 29, 1, 4, headers)\n"
+            . "if http2::core::outbound_headers_failure_id(failure) == "
+            . "\"http2.protocol.peer_stream_id_not_increasing\"\n",
     );
 
     my $outbound_push_state = {

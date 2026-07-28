@@ -45,13 +45,15 @@ The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,
 and separates outbound HEADERS and PUSH_PROMISE accepted, rejected, and
 state-preservation evidence. A retained failure helper therefore cannot be
-satisfied by an accepted same-domain send test. The checker requires every
-stdout projection kind to reach the matching public protocol boundary, checks
-retained production diagnostic ids, and rejects a continuation projection
-unless the referenced test checks its continuation, wire-size, and
-single-decode result. Veln references must exercise the public HTTP/2
-standard-library boundary through a checked branch. Case references must place
-their evidence needle inside an `equals` or `contains` assertion. This
+satisfied by an accepted same-domain send test. Outbound PUSH_PROMISE failure
+rows with retained current production failure ids must bind to a PUSH_PROMISE
+failure transition that compares that id. The checker requires every stdout
+projection kind to reach the matching public protocol boundary, checks retained
+production diagnostic ids, and rejects a continuation projection unless the
+referenced test checks its continuation, wire-size, and single-decode result.
+Veln references must exercise the public HTTP/2 standard-library boundary
+through a checked branch. Case references must place their evidence needle
+inside an `equals` or `contains` assertion. This
 directory contains no reusable Veln implementation. The retained manifest is a
 compatibility and audit route, not the source of current HTTP/2 behavior.
 

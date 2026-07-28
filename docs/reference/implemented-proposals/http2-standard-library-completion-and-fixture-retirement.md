@@ -22,7 +22,10 @@ requires the historical value, retained assertion body, and combined binding to
 match, and it rejects unclassified evidence rows. Its relevance checks reject
 same-domain substitutions that omit the retained endpoint role, starting state,
 diagnostic id, result projection, emitted bytes, or failure-atomicity
-projection.
+projection. Outbound PUSH_PROMISE failure rows that retain a current
+production failure id must bind to evidence that compares that id in the
+PUSH_PROMISE failure transition, not to a generic outbound HEADERS failure
+test.
 
 ## Evidence
 
@@ -53,9 +56,10 @@ The independent retirement checker reports complete retained coverage:
 The checker self-test covers the former broad-substitution risks, including
 accepted outbound HEADERS evidence for rejected helper rows, inbound
 PUSH_PROMISE evidence for outbound state preservation, unrelated stdout
-projections, grouped output evidence, nested DATA output evidence, failed HPACK
-decode input-identity evidence, generic non-empty HPACK failures, and stale
-empty-output substitutions.
+projections, outbound PUSH_PROMISE helper evidence without the retained
+production failure id, grouped output evidence, nested DATA output evidence,
+failed HPACK decode input-identity evidence, generic non-empty HPACK failures,
+and stale empty-output substitutions.
 
 The guarded standard-package run passes the retained HTTP/2 output evidence
 tests together with the focused HTTP/2 core and HPACK tests.
