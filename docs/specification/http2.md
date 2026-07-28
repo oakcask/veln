@@ -922,7 +922,10 @@ and re-encode each indexed field, literal field, and table-size update to the
 exact retained bytes through the public production HPACK element encoders. It
 also checks each historical empty output table through the public send or
 response domain that owns the retained row. Rejected send rows require the
-expected production failure id before proving that no decision bytes or
-output-buffer chunks were emitted. The retained PING-ACK-received row uses the
-public PING response transition and proves the `no_response` ACK result
-instead of substituting an outbound PING length failure.
+expected production failure id and row-specific projection before proving that
+no decision bytes or output-buffer chunks were emitted. DATA empty-output rows
+bind the retained name to a starting stream entry, payload, end-stream flag,
+and exact content-length or flow-control failure projection. The retained
+PING-ACK-received row uses the public PING response transition and proves the
+`no_response` ACK result instead of substituting an outbound PING length
+failure.

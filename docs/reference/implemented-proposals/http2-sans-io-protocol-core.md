@@ -99,8 +99,7 @@ to the narrower peer-stream-admission assertion.
 The focused standard-package tests and executable specification cases remain
 independently runnable without the historical fixture. They cover migrated
 state transitions and diagnostic projections through the public
-standard-library boundary, while the remaining item-specific retirement gaps
-stay tracked as planned work. Explicitly selecting
+standard-library boundary. Explicitly selecting
 [`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
 keeps the complete standard-package analysis closure while selecting only that
 file's tests from the standard-package root. Standard-package test execution

@@ -30,7 +30,9 @@ match, and it rejects unclassified evidence rows.
   HPACK codec.
 - `crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln` checks
   retained output rows through production frame, HPACK, send, response, and
-  output-buffer boundaries.
+  output-buffer boundaries. Empty DATA rows bind each retained name to its own
+  starting stream entry, payload, end-stream flag, and exact content-length or
+  flow-control failure projection.
 - `examples/specification/run/http2-core-*` and
   `examples/specification/run/http2-protocol-core-*` cases retain the
   observable command, human diagnostic, JSON diagnostic, and emitted-byte

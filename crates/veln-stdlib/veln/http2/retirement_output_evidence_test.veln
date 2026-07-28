@@ -296,13 +296,12 @@ fn assert_retired_zero_length_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
-	let family: String = expected_retired_empty_data_family(name)?
-	let entry: CoreStreamEntry = retired_empty_data_stream_entry(family)?
-	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
-	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, byte_chunk_from_hex("00")?, true)
+	let item: { entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String } = retired_empty_data_item(name)?
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), item.entry))
+	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, item.data, item.end_stream)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_data(http2::core::empty_output_buffer(), decision)
 	match http2::core::data_send_failure(decision)
-		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == expected_retired_empty_data_failure_id(family) and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == item.failure_id and http2::core::outbound_data_flow_failure_frame_kind(failure) == 0 and http2::core::outbound_data_flow_failure_stream_id(failure) == 1 and http2::core::outbound_data_flow_failure_data_length(failure) == item.data_length and http2::core::outbound_data_flow_failure_observed_value(failure) == item.observed_value and http2::core::outbound_data_flow_failure_content_length_expected(failure) == item.content_length_expected and http2::core::outbound_data_flow_failure_content_length_observed(failure) == item.content_length_observed and http2::core::outbound_data_flow_failure_active_state(failure) == item.active_state and http2::core::outbound_data_flow_failure_rule_provenance(failure) == item.rule_provenance and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -520,30 +519,44 @@ fn retired_empty_settings_failure_matches(name: String, failure: LocalSettingsFa
 	Ok(http2::core::local_settings_failure_id(failure) == "http2.peer_limit.settings_value_out_of_range" and http2::core::local_settings_failure_offset(failure) == expected.offset and http2::core::local_settings_failure_setting_identifier(failure) == expected.setting_identifier and http2::core::local_settings_failure_setting_name(failure) == expected.setting_name and http2::core::local_settings_failure_observed_value(failure) == expected.observed_value and http2::core::local_settings_failure_accepted_min_value(failure) == expected.accepted_min and http2::core::local_settings_failure_accepted_max_value(failure) == expected.accepted_max and http2::core::local_settings_failure_peer_limit_provenance(failure) == "local_settings")
 end
 
-fn expected_retired_empty_data_family(name: String) -> Result<String, String>
-	if name == "http2-content-length-over" or name == "http2-content-length-early-end-stream"
-		Ok("content-length")
-	else if name == "http2-data-padded-connection-window" or name == "http2-data-padded-frame-size" or name == "http2-data-connection-zero" or name == "http2-data-stream-zero" or name == "http2-data-connection-refill-before" or name == "http2-data-stream-refill-before" or name == "http2-data-after-local-window-update-no-refill" or name == "http2-data-after-initial-window-reduce" or name == "http2-data-after-goaway-late" or name == "http2-data-after-local-goaway-late" or name == "http2-data-after-narrow-local-goaway-late"
-		Ok("no-output-data")
+fn retired_empty_data_item(name: String) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
+	if name == "http2-content-length-over"
+		retired_empty_data_content_length_item(4, 4, byte_chunk_from_hex("00")?, false, 5)
+	else if name == "http2-content-length-early-end-stream"
+		retired_empty_data_content_length_item(4, 1, byte_chunk_from_hex("00")?, true, 2)
+	else if name == "http2-data-padded-connection-window"
+		retired_empty_data_flow_item(0, byte_chunk_from_hex("0000")?, false, -2)
+	else if name == "http2-data-padded-frame-size"
+		retired_empty_data_flow_item(1, byte_chunk_from_hex("000000")?, false, -2)
+	else if name == "http2-data-connection-zero"
+		retired_empty_data_flow_item(0, byte_chunk_from_hex("00")?, false, -1)
+	else if name == "http2-data-stream-zero"
+		retired_empty_data_flow_item(1, byte_chunk_from_hex("0000")?, false, -1)
+	else if name == "http2-data-connection-refill-before"
+		retired_empty_data_flow_item(2, byte_chunk_from_hex("00000000")?, false, -2)
+	else if name == "http2-data-stream-refill-before"
+		retired_empty_data_flow_item(3, byte_chunk_from_hex("0000000000")?, false, -2)
+	else if name == "http2-data-after-local-window-update-no-refill"
+		retired_empty_data_flow_item(4, byte_chunk_from_hex("000000000000")?, false, -2)
+	else if name == "http2-data-after-initial-window-reduce"
+		retired_empty_data_flow_item(5, byte_chunk_from_hex("00000000000000")?, false, -2)
+	else if name == "http2-data-after-goaway-late"
+		retired_empty_data_flow_item(6, byte_chunk_from_hex("0000000000000000")?, false, -2)
+	else if name == "http2-data-after-local-goaway-late"
+		retired_empty_data_flow_item(7, byte_chunk_from_hex("000000000000000000")?, false, -2)
+	else if name == "http2-data-after-narrow-local-goaway-late"
+		retired_empty_data_flow_item(8, byte_chunk_from_hex("00000000000000000000")?, false, -2)
 	else
 		Err(name)
 	end
 end
 
-fn retired_empty_data_stream_entry(family: String) -> Result<CoreStreamEntry, String>
-	if family == "content-length"
-		require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 4, 4, 0))
-	else
-		require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 0, 0 - 1, 0))
-	end
+fn retired_empty_data_content_length_item(expected: Int, observed: Int, data: ByteChunk, end_stream: Bool, next_observed: Int) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
+	Ok({ entry: require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 10, expected, observed))?, data: data, end_stream: end_stream, failure_id: "http2.protocol.content_length_mismatch", data_length: 0, observed_value: 0, content_length_expected: expected, content_length_observed: next_observed, active_state: "open-stream", rule_provenance: "rfc9113_content_length_body" })
 end
 
-fn expected_retired_empty_data_failure_id(family: String) -> String
-	if family == "content-length"
-		"http2.protocol.content_length_mismatch"
-	else
-		"http2.flow_control.window_exceeded"
-	end
+fn retired_empty_data_flow_item(send_credit: Int, data: ByteChunk, end_stream: Bool, observed_value: Int) -> Result<{ entry : CoreStreamEntry, data : ByteChunk, end_stream : Bool, failure_id : String, data_length : Int, observed_value : Int, content_length_expected : Int, content_length_observed : Int, active_state : String, rule_provenance : String }, String>
+	Ok({ entry: require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, send_credit, 0 - 1, 0))?, data: data, end_stream: end_stream, failure_id: "http2.flow_control.window_exceeded", data_length: byte_count_to_int(byte_chunk_count(data)), observed_value: observed_value, content_length_expected: 0 - 1, content_length_observed: 0, active_state: "stream-send-window", rule_provenance: "outbound_data_debits_stream_send_window" })
 end
 
 fn expected_retired_empty_headers_family(name: String) -> Result<String, String>

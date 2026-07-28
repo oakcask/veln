@@ -234,7 +234,9 @@ sub validate_retirement_output_implementation {
             || $source !~ /assert_retired_empty_settings_output_table\(name: String\)/
             || $source =~ /\bhttp2::core::validate_frame_payload_length\b/;
     die "retirement empty-output evidence does not bind retained table names to failure families\n"
-        if $source !~ /expected_retired_empty_data_family\(name: String\)/
+        if $source !~ /retired_empty_data_item\(name: String\)/
+            || $source !~ /retired_empty_data_content_length_item\(expected: Int, observed: Int, data: ByteChunk, end_stream: Bool, next_observed: Int\)/
+            || $source !~ /retired_empty_data_flow_item\(send_credit: Int, data: ByteChunk, end_stream: Bool, observed_value: Int\)/
             || $source !~ /expected_retired_empty_headers_family\(name: String\)/
             || $source !~ /retired_empty_headers_state\(name: String\)/
             || $source !~ /expected_retired_empty_headers_failure_id\(name: String\)/
@@ -249,7 +251,6 @@ sub validate_retirement_output_implementation {
             || $source !~ /retired_empty_settings_items\(name: String\)/
             || $source !~ /expected_retired_empty_settings_failure\(name: String\)/
             || $source !~ /retired_empty_settings_failure_matches\(name: String, failure: LocalSettingsFailure\)/
-            || $source !~ /expected_retired_empty_data_failure_id\(family: String\)/
             || $source !~ /expected_retired_empty_window_update_failure_id\(name: String\)/
             || $source !~ /expected_retired_empty_priority_failure_id\(name: String\)/
             || $source !~ /\bhttp2::core::(?:data_send_failure|headers_send_failure|push_promise_send_failure|window_update_send_failure|priority_send_failure|goaway_send_failure|ping_request_failure)\b/
@@ -271,6 +272,10 @@ sub validate_retirement_output_implementation {
     die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
         if $source =~ /outbound_data_flow_failure_id\(failure\)\s*!=\s*""/
             || $source =~ /outbound_stream_control_failure_id\(failure\)\s*!=\s*""/;
+    die "retirement DATA empty-output evidence still groups rows by broad family"
+        if $source =~ /expected_retired_empty_data_family\(name: String\)/
+            || $source =~ /retired_empty_data_stream_entry\(family: String\)/
+            || $source =~ /expected_retired_empty_data_failure_id\(family: String\)/;
     die "retirement empty-output evidence keeps local SETTINGS failures generic"
         if $source =~ /assert_retired_empty_settings_output_table\(name: String\).*?\bsend_local_setting\(/s;
     die "retirement empty-output evidence keeps HEADERS or PUSH_PROMISE failures generic"

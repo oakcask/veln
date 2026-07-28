@@ -27,7 +27,8 @@ WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is
 classified by historical frame domain and retained table-name family. Rejected
 send rows must observe the expected production send failure id before checking
 that no decision bytes or output-buffer chunks were emitted. DATA empty-output
-rows distinguish content-length failures from flow-control failures, and
+rows bind retained table names to a starting stream entry, payload,
+end-stream flag, and exact content-length or flow-control failure projection.
 HEADERS and PUSH_PROMISE empty-output rows bind retained table names to
 peer-limit, SETTINGS_ENABLE_PUSH, or GOAWAY send states rather than accepting
 one generic rejected send.
