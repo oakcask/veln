@@ -4,9 +4,9 @@ Status: superseded
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-This record preserves historical evidence for migrated slices. Remaining
-fixture-retirement work is tracked by
-[`http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+This record preserves historical evidence for migrated slices. The completed
+fixture-retirement boundary is recorded by
+[`http2-standard-library-completion-and-fixture-retirement.md`](http2-standard-library-completion-and-fixture-retirement.md).
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -21,10 +21,8 @@ evidence is not the authority for current behavior.
 
 ## Retirement Evidence
 
-This section describes the current retirement-evidence gate. It is not a claim
-that every historical row has a complete item-specific replacement for endpoint
-role, starting state, diagnostic precedence, emitted bytes, and failure
-atomicity.
+This section describes the retirement-evidence gate that closed the broad
+fixture route.
 
 The checked
 [`retirement-evidence.tsv`](../../../examples/specification/run/http2-protocol-core/retirement-evidence.tsv)

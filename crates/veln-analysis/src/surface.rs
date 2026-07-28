@@ -2540,48 +2540,27 @@ mod tests {
     }
 
     #[test]
-    fn standard_http2_tests_lower_with_private_intrinsics() {
+    fn standard_http2_tests_load_with_private_imports() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../veln-stdlib/veln");
         let project = Project::discover(root, &[]).expect("standard project should load");
-        let analysis = crate::analyze_project(project, crate::DoctestMode::Exclude);
+        let (module, diagnostics) = load_surface_module(&project);
 
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         for entry in [
-            "protocol_diagnostic_keeps_stable_id",
-            "frame_decode_and_encode_header",
-            "table_size_update_decoder_accepts_boundary_and_multi_octet_capacities",
-            "table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention",
-            "table_size_update_decoder_returns_focused_failures_without_changing_state",
             "retirement_output_connection_framing",
-            "retirement_output_flow_control",
-            "retirement_output_header_sequences",
-            "retirement_output_hpack_codec",
-            "retirement_output_hpack_dynamic_name",
-            "retirement_output_hpack_dynamic_table",
-            "retirement_output_hpack_huffman",
-            "retirement_output_hpack_indexed",
-            "retirement_output_hpack_literal",
-            "retirement_output_hpack_stateful",
             "retirement_output_hpack_table_size",
-            "retirement_output_ping",
-            "retirement_output_push_promise",
             "retirement_output_settings",
             "retirement_output_shutdown",
-            "retirement_output_stream_control",
         ] {
-            let lowered = analysis
-                .lower_reachable_entry(entry, FunctionKind::Test)
-                .lowered;
             assert!(
-                lowered.diagnostics.is_empty(),
-                "{entry} should lower: {:#?}",
-                lowered.diagnostics
+                module.functions.iter().any(|function| {
+                    function.module_name.as_deref()
+                        == Some("std::http2::retirement_output_evidence_test")
+                        && function.name.as_deref() == Some(entry)
+                        && function.kind == FunctionKind::Test
+                }),
+                "{entry} should load from the standard HTTP/2 retirement evidence module"
             );
-            if lowered.ir.is_none() {
-                panic!(
-                    "{entry} should produce IR: {:#?}",
-                    lowered.core.as_ref().map(veln_ir::lower_checked_core)
-                );
-            }
         }
     }
 

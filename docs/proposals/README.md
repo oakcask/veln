@@ -17,8 +17,6 @@ current language behavior unless the matching page under
 - [Parallel Test Execution](parallel-test-execution.md): use bounded,
   CPU-aware case scheduling while preserving deterministic reports, static
   gates, and a serial compatibility route.
-- HTTP/2 standard library completion and fixture retirement:
-  [http2-standard-library-completion-and-fixture-retirement.md](http2-standard-library-completion-and-fixture-retirement.md).
 
 ## Selection Rule
 

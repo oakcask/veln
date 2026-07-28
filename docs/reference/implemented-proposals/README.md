@@ -14,6 +14,8 @@ behavior.
 
 ## Completed Umbrella Routes
 
+- HTTP/2 standard library completion and fixture retirement:
+  [http2-standard-library-completion-and-fixture-retirement.md](http2-standard-library-completion-and-fixture-retirement.md).
 - Local inference and annotation elision:
   [local-inference-and-annotation-elision.md](local-inference-and-annotation-elision.md).
 - Binary data standard library:
@@ -27,15 +29,10 @@ behavior.
 Read these only for completion boundaries and history. Current behavior starts
 under `../../specification/` and its executable example routes.
 
-## Partial Historical Routes
-
-- HTTP/2 standard library completion and fixture retirement:
-  [http2-sans-io-protocol-core.md](http2-sans-io-protocol-core.md). Remaining
-  planned work is tracked in
-  [../../proposals/http2-standard-library-completion-and-fixture-retirement.md](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
-
 ## Records
 
+- HTTP/2 sans-I/O protocol core:
+  [http2-sans-io-protocol-core.md](http2-sans-io-protocol-core.md).
 - Schema declaration composition surface:
   [schema-declaration-surface.md](schema-declaration-surface.md).
 - Integer bitwise operators:
