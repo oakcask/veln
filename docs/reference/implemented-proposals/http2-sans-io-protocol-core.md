@@ -15,10 +15,11 @@ send paths use the public HPACK codec.
 
 The broad `http2-protocol-core` implementation and case were removed after
 their reusable responsibilities moved to standard-owned modules and focused
-cases. The historical inventory, checker, retained route, and output-evidence
-harness were migration-only artifacts; current HTTP/2 verification no longer
-depends on the pinned pre-retirement fixture revision or any retirement
-manifest.
+cases. The retained historical inventory, structured scenario manifest,
+dimensioned coverage report, checker, retained route, and output-evidence
+harness are migration-only artifacts; current HTTP/2 behavior is still owned
+by the public standard modules, focused standard-package tests, and executable
+specification cases.
 
 ## Completion Evidence
 
@@ -39,10 +40,11 @@ executable specification cases:
   human and JSON diagnostic projections are current behavior; they are not a
   broad fixture or migration inventory.
 
-Before cleanup, the final migration checker reported checked item-level
-evidence for 652 helper invocations, 2,044 stdout lines, and 315 output
-tables, with zero unclassified items. Its mutation self-test also passed. The
-cleanup then removed the migration-only checker, historical retirement
-manifest, retained route, and retirement-output standard-package test so future
-HTTP/2 behavior changes update `http2.md`, focused specification cases, and
-public standard-package tests directly.
+The migration checker reports checked item-level evidence for 652 helper
+invocations, 2,044 stdout lines, and 315 output tables, with zero unclassified
+items. It also checks `retirement-scenarios.jsonl` and
+`retirement-coverage.tsv` against the regenerated model so endpoint role,
+ordered setup, concrete input, result projection, output provenance, failure
+atomicity, and diagnostic-precedence dimensions remain row-addressable. The
+retirement-output standard-package test keeps historical output tables tied to
+public `http2::frame`, `http2::hpack`, and `http2::core` transitions.

@@ -921,7 +921,13 @@ non-append behavior through the public facade.
 The retired `http2-protocol-core` route is no longer an executable case.
 Focused `http2-core-*` cases cover state transitions and emitted bytes, while
 focused `http2-protocol-core-*` cases retain human and JSON diagnostic
-coverage. Migration-only retirement inventories, generated checks, and
-retirement-output tests have been removed; the public standard modules,
-focused standard-package tests, and executable specification cases above own
-current behavior.
+coverage.
+The retained retirement evidence under
+`../../examples/specification/run/http2-protocol-core/` is migration-only
+evidence, not a reusable implementation. `retirement-scenarios.jsonl` assigns
+each historical helper invocation, exact stdout line, and output table to a
+row-addressable projection with endpoint role, ordered setup, concrete input,
+output provenance, failure atomicity, and diagnostic-precedence dimensions.
+`retirement-coverage.tsv` summarizes those dimensions, and
+`scripts/check-http2-retirement-evidence` regenerates and checks both files
+against the historical fixture inventory and current executable evidence.
