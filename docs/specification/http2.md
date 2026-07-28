@@ -918,8 +918,13 @@ concatenated bytes. The focused
 [`http2-core-output-buffer`](../../examples/specification/run/http2-core-output-buffer/)
 case records ordered chunks, combined bytes, and failure/no-response
 non-append behavior through the public facade.
-The broad `http2-protocol-core` case and its migration inventory are retired.
-Focused `http2-core-*` cases cover state transitions, emitted bytes, and
-failure atomicity through the public core. Focused `http2-protocol-core-*`
-cases remain only where their human and JSON diagnostic projections are
-current observable behavior.
+The broad `http2-protocol-core` implementation is retired and is not current
+HTTP/2 behavior. Focused `http2-core-*` cases cover state transitions,
+emitted bytes, and failure atomicity through the public core. Focused
+`http2-protocol-core-*` cases remain only where their human and JSON
+diagnostic projections are current observable behavior. The retired route's
+`retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
+`retirement-coverage.tsv` files are historical migration evidence checked by
+`scripts/check-http2-retirement-evidence`; they bind deleted broad-fixture
+rows to the focused evidence and standard-package tests without restoring a
+reusable fixture implementation.
