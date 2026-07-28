@@ -18,11 +18,13 @@ chunks do not count. The shared retained implementation is included in the
 binding hash. It reconstructs complete frame sequences with the public frame
 codec and sends non-frame vectors through the production HPACK decoder.
 Successful HPACK receives must consume the full vector; failed receives must
-report a production failure kind while preserving the caller-owned table.
+report the expected production failure kind for the retained vector while
+preserving the caller-owned table.
 Singleton zero-length chunks exercise the corresponding rejected
 WINDOW_UPDATE or HEADERS send, including unchanged output, while empty output
-is classified by historical frame domain. The checker rejects nested-DATA and
-failed-decode input-identity substitutions.
+is classified by historical frame domain. The checker rejects nested-DATA,
+failed-decode input-identity substitutions, and generic non-empty HPACK
+failure checks.
 
 The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,

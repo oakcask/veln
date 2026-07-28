@@ -62,11 +62,26 @@ fn validate_retired_hpack_block(name: String, expected: ByteChunk) -> Result<(),
 		else
 			Err(name)
 		end
-		Err(failure) => if http2::hpack::header_block_failure_kind(failure) != "" and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
+		Err(failure) => if http2::hpack::header_block_failure_kind(failure) == expected_retired_hpack_failure_kind(name, expected)? and http2::hpack::dynamic_table_entry_count(table) == 0 and http2::hpack::dynamic_table_capacity(table) == 4096
 			Ok(())
 		else
 			Err(name)
 		end
+	end
+end
+
+fn expected_retired_hpack_failure_kind(name: String, expected: ByteChunk) -> Result<String, String>
+	let first: Int = byte_at(expected, 0)?
+	if first >= 128
+		Ok("indexed_failure")
+	else if first >= 64
+		Ok("literal_failure")
+	else if first >= 32
+		Ok("table_size_update_failure")
+	else if first >= 16
+		Ok("literal_failure")
+	else
+		Ok("literal_failure")
 	end
 end
 
