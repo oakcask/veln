@@ -225,8 +225,14 @@ sub validate_retirement_output_implementation {
             || $source !~ /expected_retired_empty_goaway_family\(name: String\)/
             || $source !~ /expected_retired_empty_ping_family\(name: String\)/
             || $source !~ /retired_empty_settings_item\(name: String\)/
+            || $source !~ /expected_retired_empty_data_failure_id\(family: String\)/
+            || $source !~ /expected_retired_empty_window_update_failure_id\(name: String\)/
+            || $source !~ /expected_retired_empty_priority_failure_id\(name: String\)/
             || $source !~ /\bhttp2::core::(?:data_send_failure|headers_send_failure|push_promise_send_failure|window_update_send_failure|priority_send_failure|goaway_send_failure|ping_request_failure)\b/
             || $source !~ /\bhttp2::core::(?:outbound_data_flow_failure_id|outbound_headers_failure_id|outbound_stream_control_failure_id|goaway_send_failure_id|frame_payload_length_failure_active_state)\b/;
+    die "retirement empty-output evidence accepts generic data, window, or priority failure ids"
+        if $source =~ /outbound_data_flow_failure_id\(failure\)\s*!=\s*""/
+            || $source =~ /outbound_stream_control_failure_id\(failure\)\s*!=\s*""/;
     die "retirement zero-length evidence does not obtain failure output from its send domain\n"
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/

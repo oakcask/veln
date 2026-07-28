@@ -45,9 +45,12 @@ or sequence-extension slice is part of this work.
   retained tests whose bodies do not mechanically compare the item-specific
   before and after connection value or every nested field check.
 - Output table evidence still reconstructs many historical byte sequences from
-  the retained bytes supplied by the manifest. Empty output tables are grouped
-  by frame family and do not yet construct each historical starting state and
-  transition before proving the corresponding absence of bytes.
+  the retained bytes supplied by the manifest. Empty output tables now require
+  the expected production failure id for DATA, WINDOW_UPDATE, and PRIORITY
+  families, including content-length versus flow-control DATA precedence and
+  GOAWAY-before-output PRIORITY precedence. Some empty output rows are still
+  grouped by frame family instead of constructing every historical starting
+  state and transition before proving the corresponding absence of bytes.
 - The retirement checker should reject same-domain substitutions that omit the
   historical endpoint role, starting state, diagnostic precedence, complete
   result projection, exact emitted bytes, or failure/no-output state.

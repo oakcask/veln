@@ -914,4 +914,7 @@ non-append behavior through the public facade.
 The retired `http2-protocol-core` route is no longer an executable case.
 Focused `http2-core-*` cases cover state transitions and emitted bytes, while
 focused `http2-protocol-core-*` cases retain human and JSON diagnostic
-coverage.
+coverage. The retained retirement-output evidence independently checks each
+historical empty output table through the public send domains and requires the
+expected production failure id before proving that no decision bytes or output
+buffer chunks were emitted.

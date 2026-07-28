@@ -24,10 +24,14 @@ preserving the caller-owned table.
 Singleton zero-length chunks exercise the corresponding rejected
 WINDOW_UPDATE or HEADERS send, including unchanged output. Empty output is
 classified by historical frame domain and retained table-name family, and the
-focused test must observe a production send failure before checking that no
-decision bytes or output-buffer chunks were emitted. The checker rejects
-nested-DATA, failed-decode input-identity substitutions, and generic non-empty
-HPACK failure checks.
+focused test must observe the expected production send failure id before
+checking that no decision bytes or output-buffer chunks were emitted. DATA
+empty-output rows distinguish content-length failures from flow-control
+failures, and PRIORITY empty-output rows construct an open stream in a draining
+connection so the GOAWAY boundary wins with the retained diagnostic
+precedence. The checker rejects nested-DATA, failed-decode input-identity
+substitutions, generic non-empty HPACK failure checks, and generic data,
+window, or priority failure-id checks.
 
 The checker also derives a public protocol domain for every helper invocation,
 binds connection-stream helpers to their SETTINGS, PING, or GOAWAY domain,

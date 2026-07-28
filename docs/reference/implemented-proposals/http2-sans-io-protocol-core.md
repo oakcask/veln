@@ -99,8 +99,9 @@ independently runnable without the historical fixture. They cover migrated
 state transitions and diagnostic projections through the public
 standard-library boundary, while the remaining item-specific retirement gaps
 stay tracked as planned work. Explicitly selecting
-`http2/retirement_output_evidence_test.veln` from the standard-package root
+[`retirement_output_evidence_test.veln`](../../../crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln)
 keeps the complete standard-package analysis closure while selecting only that
-file's tests. Standard-package test execution generates the shared JVM program
-once and dispatches each selected test by name, so the full guarded suite does
-not regenerate the complete class set for every test.
+file's tests from the standard-package root. Standard-package test execution
+generates the shared JVM program once and dispatches each selected test by
+name, so the full guarded suite does not regenerate the complete class set for
+every test.

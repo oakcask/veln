@@ -159,12 +159,13 @@ fn assert_retired_zero_length_output_table(name: String) -> Result<(), String>
 end
 
 fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
-	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 0, 0 - 1, 0))?
+	let family: String = expected_retired_empty_data_family(name)?
+	let entry: CoreStreamEntry = retired_empty_data_stream_entry(family)?
 	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::server_connection_state(0)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry))
-	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, byte_chunk_from_hex("00")?, false)
+	let decision: CoreDataSendDecision = http2::core::send_data(state, 0, 1, byte_chunk_from_hex("00")?, true)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_data(http2::core::empty_output_buffer(), decision)
 	match http2::core::data_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_data_family(name)? != "" and http2::core::outbound_data_flow_failure_id(failure) != "" and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == expected_retired_empty_data_failure_id(family) and http2::core::data_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::data_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -202,11 +203,12 @@ fn assert_retired_empty_push_promise_output_table(name: String) -> Result<(), St
 end
 
 fn assert_retired_empty_window_update_output_table(name: String) -> Result<(), String>
+	let expected_id: String = expected_retired_empty_window_update_failure_id(name)?
 	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483647)?)
 	let decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 0, 0, 1)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(http2::core::empty_output_buffer(), decision)
 	match http2::core::window_update_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_window_update_family(name)? != "" and http2::core::outbound_data_flow_failure_id(failure) != "" and http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_data_flow_failure_id(failure) == expected_id and http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -216,11 +218,14 @@ fn assert_retired_empty_window_update_output_table(name: String) -> Result<(), S
 end
 
 fn assert_retired_empty_priority_output_table(name: String) -> Result<(), String>
-	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(1, 0))
+	let expected_id: String = expected_retired_empty_priority_failure_id(name)?
+	let entry: CoreStreamEntry = require_stream_entry(http2::core::stream_entry(3, http2::core::stream_open_lifecycle(), 1, 1, 0 - 1, 0))?
+	let streams: CoreStreamCollection = http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), entry)
+	let state: CoreConnectionState = http2::core::connection_state_with_streams(http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(1, 0)), streams)
 	let decision: CorePrioritySendDecision = http2::core::send_priority(state, 0, 3, 1, false, 16)
 	let output: CoreOutputBuffer = http2::core::output_buffer_append_priority(http2::core::empty_output_buffer(), decision)
 	match http2::core::priority_send_failure(decision)
-		Ok(failure) => if expected_retired_empty_priority_family(name)? != "" and http2::core::outbound_stream_control_failure_id(failure) != "" and http2::core::priority_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::priority_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(failure) => if http2::core::outbound_stream_control_failure_id(failure) == expected_id and http2::core::priority_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::priority_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
 			Ok(())
 		else
 			Err(name)
@@ -279,6 +284,22 @@ fn expected_retired_empty_data_family(name: String) -> Result<String, String>
 	end
 end
 
+fn retired_empty_data_stream_entry(family: String) -> Result<CoreStreamEntry, String>
+	if family == "content-length"
+		require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 4, 4, 0))
+	else
+		require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 1, 0, 0 - 1, 0))
+	end
+end
+
+fn expected_retired_empty_data_failure_id(family: String) -> String
+	if family == "content-length"
+		"http2.protocol.content_length_mismatch"
+	else
+		"http2.flow_control.window_exceeded"
+	end
+end
+
 fn expected_retired_empty_headers_family(name: String) -> Result<String, String>
 	if name == "http2-headers-hpack-table-size-update-over-peer-limit"
 		Ok("header-list-limit")
@@ -303,9 +324,27 @@ fn expected_retired_empty_window_update_family(name: String) -> Result<String, S
 	end
 end
 
+fn expected_retired_empty_window_update_failure_id(name: String) -> Result<String, String>
+	let family: String = expected_retired_empty_window_update_family(name)?
+	if family == "window-update"
+		Ok("http2.flow_control.window_exceeded")
+	else
+		Err(name)
+	end
+end
+
 fn expected_retired_empty_priority_family(name: String) -> Result<String, String>
 	if name == "http2-priority-after-goaway-late" or name == "http2-priority-after-local-goaway-late" or name == "http2-priority-after-narrow-local-goaway-late"
 		Ok("priority-goaway")
+	else
+		Err(name)
+	end
+end
+
+fn expected_retired_empty_priority_failure_id(name: String) -> Result<String, String>
+	let family: String = expected_retired_empty_priority_family(name)?
+	if family == "priority-goaway"
+		Ok("http2.protocol.stream_after_goaway")
 	else
 		Err(name)
 	end
