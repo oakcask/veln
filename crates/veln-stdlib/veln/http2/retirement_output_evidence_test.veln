@@ -33,6 +33,17 @@ fn require_stream_entry(result: Result<CoreStreamEntry, FlowControlDomainFailure
 	end
 end
 
+fn require_connection_credit(value: Int) -> Result<CoreConnectionWindowCredit, String>
+	match http2::core::connection_window_credit(value)
+		Ok(credit) => Ok(credit)
+		Err(failure) => Err(http2::core::flow_control_failure_domain(failure))
+	end
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":scheme", byte_chunk_from_hex("6874747073")?), http2::hpack::prepend_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("2f")?), http2::hpack::empty_header_list()))))
+end
+
 fn validate_retired_nonempty_frame_sequence(name: String, remaining: ByteChunk) -> Result<(), String>
 	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(byte_view(remaining, byte_offset(0)?, byte_chunk_count(remaining))?)?
 	let frame_count: Int = 9 + decoded.length
@@ -146,28 +157,103 @@ fn assert_retired_empty_data_output_table(name: String) -> Result<(), String>
 	end
 end
 
+fn assert_retired_empty_headers_output_table(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(0, 0))
+	let decision: CoreHeadersSendDecision = http2::core::send_request_headers(state, 0, 1, request_headers()?, false)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_headers(http2::core::empty_output_buffer(), decision)
+	if http2::core::headers_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::headers_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_push_promise_output_table(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::client_connection_state(0)?
+	let decision: CorePushPromiseSendDecision = http2::core::send_push_promise(state, 0, 1, 2, request_headers()?)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_push_promise(http2::core::empty_output_buffer(), decision)
+	if http2::core::push_promise_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::push_promise_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_window_update_output_table(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_receive_credit(http2::core::server_connection_state(0)?, require_connection_credit(2147483647)?)
+	let decision: CoreWindowUpdateSendDecision = http2::core::send_window_update(state, 0, 0, 1)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_window_update(http2::core::empty_output_buffer(), decision)
+	if http2::core::window_update_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::window_update_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_priority_output_table(name: String) -> Result<(), String>
+	let state: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::client_connection_state(0)?, http2::core::connection_lifecycle_draining(1, 0))
+	let decision: CorePrioritySendDecision = http2::core::send_priority(state, 0, 3, 1, false, 16)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_priority(http2::core::empty_output_buffer(), decision)
+	if http2::core::priority_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::priority_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_goaway_output_table(name: String) -> Result<(), String>
+	let closed: CoreConnectionState = http2::core::connection_state_with_lifecycle(http2::core::server_connection_state(0)?, http2::core::connection_lifecycle_closed(3, 0))
+	let decision: CoreGoawaySendDecision = http2::core::send_goaway_shutdown(closed, 0, 5, 0, byte_chunk([]))
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_goaway(http2::core::empty_output_buffer(), decision)
+	if http2::core::goaway_send_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::goaway_send_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_ping_output_table(name: String) -> Result<(), String>
+	let decision: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0102")?)
+	let output: CoreOutputBuffer = http2::core::output_buffer_append_ping_request(http2::core::empty_output_buffer(), decision)
+	if http2::core::ping_request_status(decision) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(decision))) == 0 and http2::core::output_buffer_count(output) == 0
+		Ok(())
+	else
+		Err(name)
+	end
+end
+
+fn assert_retired_empty_settings_output_table(name: String) -> Result<(), String>
+	let no_pending: PeerSettingsAckSendDecision = http2::core::send_pending_settings_ack(http2::core::empty_settings_ack_state())
+	let no_pending_output: CoreOutputBuffer = http2::core::output_buffer_append_pending_settings_ack(http2::core::empty_output_buffer(), no_pending)
+	match http2::core::send_local_setting(http2::core::local_settings_max_frame_size(1), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())
+		Ok(local_failure) => if http2::core::local_settings_send_status(local_failure) == "rejected" and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(local_failure))) == 0 and http2::core::pending_settings_ack_send_status(no_pending) == "no_pending" and byte_count_to_int(byte_chunk_count(http2::core::pending_settings_ack_send_bytes(no_pending))) == 0 and http2::core::output_buffer_count(no_pending_output) == 0
+			Ok(())
+		else
+			Err(name)
+		end
+		Err(_) => Err(name)
+	end
+end
+
 fn assert_retired_empty_output_table(name: String, kind: Int) -> Result<(), String>
-	let flags: Int = if kind == 1
-		8
-	else
-		0
-	end
-	let observed: Int = if kind == 1 or kind == 5 or kind == 6 or kind == 7 or kind == 8 or kind == 3 or kind == 2
-		0
-	else
-		1
-	end
 	if kind == 0
 		assert_retired_empty_data_output_table(name)
+	else if kind == 1
+		assert_retired_empty_headers_output_table(name)
+	else if kind == 2
+		assert_retired_empty_priority_output_table(name)
+	else if kind == 4
+		assert_retired_empty_settings_output_table(name)
+	else if kind == 5
+		assert_retired_empty_push_promise_output_table(name)
+	else if kind == 6
+		assert_retired_empty_ping_output_table(name)
+	else if kind == 7
+		assert_retired_empty_goaway_output_table(name)
+	else if kind == 8
+		assert_retired_empty_window_update_output_table(name)
 	else
-		match http2::core::validate_frame_payload_length(0, kind, flags, 1, observed, "retired-output", byte_chunk([]))
-			Ok(_) => Err(name)
-			Err(_) => if http2::core::output_buffer_count(http2::core::empty_output_buffer()) == 0
-				Ok(())
-			else
-				Err(name)
-			end
-		end
+		Err(name)
 	end
 end
 

@@ -201,9 +201,17 @@ sub validate_retirement_output_implementation {
         if $source =~ /Err\([^)]*\)\s*=>\s*if chunks_equal/;
     die "retirement output evidence accepts any non-empty HPACK failure kind\n"
         if $source =~ /header_block_failure_kind\([^)]*\)\s*!=\s*""/;
-    die "retirement empty-output evidence does not preserve frame-specific failure domains\n"
+    die "retirement empty-output evidence does not preserve send-domain failures\n"
         if $source !~ /assert_retired_empty_output_table\(name: String, kind: Int\)/
-            || $source !~ /\bhttp2::core::validate_frame_payload_length\b/;
+            || $source !~ /assert_retired_empty_data_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_headers_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_push_promise_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_window_update_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_priority_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_goaway_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_ping_output_table\(name: String\)/
+            || $source !~ /assert_retired_empty_settings_output_table\(name: String\)/
+            || $source =~ /\bhttp2::core::validate_frame_payload_length\b/;
     die "retirement zero-length evidence does not obtain failure output from its send domain\n"
         if $source !~ /assert_retired_zero_length_output_table\(name: String\)/
             || $source !~ /\bhttp2::core::send_window_update\b/
