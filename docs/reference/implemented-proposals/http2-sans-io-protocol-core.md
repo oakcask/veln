@@ -15,9 +15,12 @@ send paths use the public HPACK codec.
 
 The broad `http2-protocol-core` implementation was removed after its reusable
 responsibilities moved to standard-owned modules and focused cases. The
-retired route contains no reusable Veln implementation and no migration-only
-inventory. Current HTTP/2 behavior is owned by the public standard modules,
-focused standard-package tests, and executable specification cases.
+retired route contains no reusable Veln implementation. It retains only the
+historical migration manifest, structured scenario projection, dimensioned
+coverage report, and checker needed to verify that each retired helper,
+stdout, and output-table assertion has replacement evidence. Current HTTP/2
+behavior is owned by the public standard modules, focused standard-package
+tests, and executable specification cases.
 
 ## Completion Evidence
 
@@ -38,10 +41,25 @@ executable specification cases:
   human and JSON diagnostic projections are current behavior; they are not a
   broad fixture, migration inventory, or reusable implementation.
 
-The migration-only retirement gate was removed after replacement coverage
-became independently executable through the current standard-package tests and
-focused specification cases. The workspace no longer reconstructs the deleted
-broad fixture from history, retains row-addressable retirement manifests, or
-runs generated retirement row tests. Unsupported HPACK header blocks are
-covered through the public `std::http2::hpack` failure surface rather than
-`hpack.fixture.unsupported_header_block`.
+The retained retirement gate is checked by
+`scripts/check-http2-retirement-evidence`. It inventories the deleted broad
+fixture from history, requires item-level evidence for 652 helper invocations,
+2,044 exact stdout lines, and 315 output tables, verifies the generated
+row-addressable scenario manifest, coverage report, and generated projection
+evidence test, and rejects unclassified, stale, or unsupported HPACK fixture
+compatibility evidence targets. Historical values remain in the inventory, but
+current replacement evidence for unsupported HPACK header blocks must use the
+public `std::http2::hpack` failure surface rather than
+`hpack.fixture.unsupported_header_block`. Each generated scenario has an
+executable projection recipe that binds the historical row to its
+focused evidence target, public operation, branch, initial state, concrete
+input, expected projection, post-state, output provenance, and diagnostic
+precedence rather than relying on an assertion hash alone.
+`retirement_projection_evidence_test.veln` runs bounded projection chunk
+digest checks plus the generated aggregate projection manifest digest as
+standard package tests. Generated expectation functions supply the expected
+chunk and aggregate digests, while the checker retains the row-level recipe
+validation and rejects stale or substituted row dimensions. Meanwhile,
+`retirement_output_evidence_test.veln` validates the historical output bytes
+through the production frame and public HPACK codecs without restoring the
+broad fixture implementation.
