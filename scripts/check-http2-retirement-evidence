@@ -11,13 +11,16 @@ my $inventory = @ARGV == 1 && $ARGV[0] eq "--inventory";
 my $self_test = @ARGV == 1 && $ARGV[0] eq "--self-test";
 my $regenerate_structured =
     @ARGV == 1 && $ARGV[0] eq "--regenerate-structured";
-die "usage: scripts/check-http2-retirement-evidence [--inventory|--self-test|--regenerate-structured]\n"
+my $semantic_gap_report =
+    @ARGV == 1 && $ARGV[0] eq "--semantic-gap-report";
+die "usage: scripts/check-http2-retirement-evidence [--inventory|--self-test|--regenerate-structured|--semantic-gap-report]\n"
     if @ARGV > 1
         || (
             @ARGV == 1
             && !$inventory
             && !$self_test
             && !$regenerate_structured
+            && !$semantic_gap_report
         );
 
 if ($self_test) {
@@ -86,6 +89,10 @@ my $expected_scenarios = render_scenarios(\@scenarios);
 my $expected_coverage = render_coverage_report(\@scenarios);
 my $expected_projection_evidence = render_projection_evidence_source(\@scenarios);
 validate_structured_scenarios(\@scenarios);
+if ($semantic_gap_report) {
+    print semantic_gap_report(\@scenarios);
+    exit 0;
+}
 validate_generated_projection_evidence($expected_projection_evidence);
 if ($regenerate_structured) {
     write_file($scenario_manifest, $expected_scenarios);
@@ -577,6 +584,51 @@ sub render_coverage_report {
         }
     }
     return join("", @lines);
+}
+
+sub semantic_gap_report {
+    my ($scenarios) = @_;
+    my %by_evidence;
+    my %by_assertion;
+    for my $scenario (@$scenarios) {
+        push @{ $by_evidence{ $scenario->{evidence} } }, $scenario;
+        push @{ $by_assertion{ $scenario->{assertion_sha256} } }, $scenario;
+    }
+    my @lines = (
+        "dimension\tvalue\trow_count\toperation_count\trole_count\tbranch_count\tinitial_count\tinput_count\n",
+        "total\trows\t" . scalar(@$scenarios) . "\n",
+        "total\tevidence_targets\t" . scalar(keys %by_evidence) . "\n",
+        "total\tassertion_bodies\t" . scalar(keys %by_assertion) . "\n",
+    );
+    push @lines, semantic_gap_rows("evidence_target", \%by_evidence);
+    push @lines, semantic_gap_rows("assertion_body", \%by_assertion);
+    return join("", @lines);
+}
+
+sub semantic_gap_rows {
+    my ($dimension, $groups) = @_;
+    my @rows;
+    for my $key (sort keys %$groups) {
+        my $items = $groups->{$key};
+        next if @$items < 2;
+        my %operations = map { $_->{owning_operation} => 1 } @$items;
+        my %roles = map { $_->{endpoint_role} => 1 } @$items;
+        my %branches = map { $_->{operation_branch} => 1 } @$items;
+        my %initials = map { $_->{initial_state} => 1 } @$items;
+        my %inputs = map { $_->{concrete_input} => 1 } @$items;
+        push @rows, join(
+            "\t",
+            $dimension,
+            $key,
+            scalar(@$items),
+            scalar(keys %operations),
+            scalar(keys %roles),
+            scalar(keys %branches),
+            scalar(keys %initials),
+            scalar(keys %inputs),
+        ) . "\n";
+    }
+    return sort @rows;
 }
 
 sub render_projection_evidence_source {

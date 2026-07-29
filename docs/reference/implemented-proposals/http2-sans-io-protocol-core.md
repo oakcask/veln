@@ -1,11 +1,13 @@
 # HTTP/2 Standard Library Completion and Fixture Retirement
 
-Status: implemented
+Status: superseded
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-This record preserves the standard-library migration boundary for the retired
-broad fixture.
+The remaining retirement evidence work is tracked by
+[`../../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+This record preserves standard-library migration history for the broad
+fixture and is not a completion claim for the semantic retirement gate.
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
 content-length, shutdown, and output-buffer behavior is owned by
@@ -22,7 +24,7 @@ stdout, and output-table assertion has replacement evidence. Current HTTP/2
 behavior is owned by the public standard modules, focused standard-package
 tests, and executable specification cases.
 
-## Completion Evidence
+## Implemented Core Evidence
 
 The current behavior is covered by public standard-package tests and focused
 executable specification cases:
@@ -41,7 +43,7 @@ executable specification cases:
   human and JSON diagnostic projections are current behavior; they are not a
   broad fixture, migration inventory, or reusable implementation.
 
-The retained retirement gate is checked by
+The retained retirement consistency checker is
 `scripts/check-http2-retirement-evidence`. It inventories the deleted broad
 fixture from history, requires item-level evidence for 652 helper invocations,
 2,044 exact stdout lines, and 315 output tables, verifies the generated
@@ -78,9 +80,10 @@ standard package test validates each row address, rejects empty detail and
 executable-projection values, requires setup, input, result projection,
 terminal detail, and executable-projection codes to resolve back to the
 declared row values, and compares each chunk's generated semantic fingerprint
-with an expected value, while the checker rejects stale or substituted row
-dimensions before regeneration.
-Meanwhile,
+with an expected value. These checks keep the generated artifacts consistent,
+but they do not yet prove that every row invokes the owning public transition
+with that row's concrete setup and input. Use the active proposal for the
+remaining semantic retirement gate.
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
 broad fixture implementation. Its output evidence remains shared only through

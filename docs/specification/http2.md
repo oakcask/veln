@@ -924,34 +924,23 @@ emitted bytes, and failure atomicity through the public core. Focused
 `http2-protocol-core-*` cases remain only where their human and JSON
 diagnostic projections are current observable behavior. The retired route's
 `retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
-`retirement-coverage.tsv` files are historical migration evidence checked by
+`retirement-coverage.tsv` files are historical migration artifacts checked by
 `scripts/check-http2-retirement-evidence`. The same generated model emits
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
 which imports the public HTTP/2 core, frame, and HPACK modules, executes a
-small public codec/send boundary guard, checks every generated row through
-20-row public test groups, requires each row address and endpoint role,
-operation, branch, state, setup, input, post-state, output, diagnostic,
-terminal detail, executable-projection, and semantic projection fields to be
-populated, requires setup, input, result projection, terminal detail, and
-executable-projection codes to resolve back to the row's declared values, and
-verifies bounded chunk fingerprints, bounded chunk digests, plus the aggregate
-projection digest as standard-package tests. The
-generated Veln test recomputes each semantic projection code from the row's
-endpoint role, operation, branch, state, setup, input, projection, post-state,
-output, diagnostic, terminal row-detail, and executable-projection codes; the
-checker owns the row-level executable-projection model and emits the value
-tables used by the generated test to reject substituted terminal details or
-executable-projection strings. It also rejects stale row bindings, hash-only
-recipes, operation substitutions, missing output provenance, and unclassified
-diagnostic or state-preservation dimensions before regenerating the Veln
-evidence. Rows bound to `retirement_output_evidence_test.veln` are checked
-against the named test and helper bodies reachable from that test, not the
-whole output-evidence file. Historical stdout rows that describe retained
-output chunks route to the same named test as the matching output-table
-assertion.
+small public codec/send boundary guard, checks generated row fields through
+20-row public test groups, and verifies bounded chunk fingerprints, bounded
+chunk digests, plus the aggregate projection digest as standard-package tests.
+Rows bound to `retirement_output_evidence_test.veln` are checked against the
+named test and helper bodies reachable from that test, not the whole
+output-evidence file. Historical stdout rows that describe retained output
+chunks route to the same named test as the matching output-table assertion.
 Retirement evidence may retain historical stdout values for inventory
 integrity, but current evidence targets must not route unsupported HPACK
 header blocks through `hpack.fixture.unsupported_header_block`; replacement
 evidence for those rows uses public `std::http2::hpack` decode failures.
-These artifacts bind the historical rows to focused evidence and public
-operation dimensions without restoring a reusable fixture implementation.
+These artifacts keep the historical inventory consistent without restoring a
+reusable fixture implementation. They are not the current behavioral
+specification for the public HTTP/2 modules and do not by themselves complete
+the remaining row-specific semantic retirement gate tracked in
+[`../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../proposals/http2-standard-library-completion-and-fixture-retirement.md).

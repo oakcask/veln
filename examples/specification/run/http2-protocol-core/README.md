@@ -7,8 +7,9 @@ This path is kept only as a route for old documentation links. The broad
 reusable behavior moved to standard-owned modules and focused cases.
 
 This directory contains no reusable Veln implementation. It retains
-migration-only evidence for the completed semantic retirement gate; that
-evidence is not current HTTP/2 behavior.
+migration-only artifacts for the historical inventory; those artifacts are not
+current HTTP/2 behavior and do not complete the remaining row-specific
+semantic retirement gate.
 
 Use the focused executable cases whose names start with `http2-core-` for the
 current sans-I/O core evidence. Use focused `http2-protocol-core-*` cases for
@@ -35,11 +36,11 @@ states. Each row also carries an `executable_projection` recipe that names the
 historical row, focused evidence target, public operation to invoke, branch,
 initial state, ordered setup, concrete input, result projection, post-state,
 output provenance, and diagnostic precedence. The checker rejects
-assertion-hash-only recipes and operation substitutions so row evidence cannot
-collapse into unrelated assertion bodies. Output stdout rows are routed to the
-same output-evidence test that contains the retained output-table assertion
-for their table name, and relevance checks inspect only that reachable
-assertion source. The generated standard-package test keeps this row set
+assertion-hash-only recipes and operation substitutions, but row evidence can
+still share focused assertion bodies. Output stdout rows are routed to the same
+output-evidence test that contains the retained output-table assertion for
+their table name, and relevance checks inspect only that reachable assertion
+source. The generated standard-package test keeps this row set
 executable in bounded groups by checking chunk fingerprints, chunk digests,
 and the aggregate digest for the same retained rows through generated
 expectation functions. It also resolves setup, input, and result projection
@@ -49,4 +50,6 @@ recipe code.
 
 Regenerate and verify the structured files and generated test source with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run
-`scripts/check-http2-retirement-evidence`.
+`scripts/check-http2-retirement-evidence`. Use
+`scripts/check-http2-retirement-evidence --semantic-gap-report` to inspect
+shared evidence targets that still need row-specific semantic migration.
