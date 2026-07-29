@@ -936,9 +936,9 @@ match its ordinal, and verifies bounded chunk fingerprints, bounded chunk
 digests, plus the aggregate projection digest as standard-package tests. The
 generated Veln test recomputes each semantic projection code from the row's
 endpoint role, operation, branch, state, setup, input, projection, post-state,
-output, and diagnostic dimension codes; the checker owns the row-level
-executable-projection model: it rejects stale row bindings, hash-only recipes,
-operation substitutions, missing output provenance, and unclassified
+output, diagnostic, terminal row-detail, and executable-projection codes; the
+checker owns the row-level executable-projection model: it rejects stale row
+bindings, hash-only recipes, operation substitutions, missing output provenance, and unclassified
 diagnostic or state-preservation dimensions before regenerating the Veln
 evidence. Rows bound to `retirement_output_evidence_test.veln` are checked
 against the named test and helper bodies reachable from that test, not the

@@ -70,13 +70,13 @@ and executes a small public boundary guard through frame encoding, HPACK
 encode/decode, and PING send projection so the evidence cannot compile as a
 standalone fixture-only artifact. The generated row checks run through
 20-row groups. Each row carries the endpoint role, operation, branch, state,
-setup, input, projection, post-state, output, diagnostic dimension, and a
-semantic code recomputed from those dimension codes by the generated Veln
-test. The standard package test validates each row address, rejects empty
-dimension codes, requires row projection codes to match their ordinals, and
-compares each chunk's generated semantic fingerprint with an expected value,
-while the checker rejects stale or substituted row dimensions before
-regeneration.
+setup, input, projection, post-state, output, diagnostic dimension, terminal
+row-detail code, executable-projection code, and a semantic code recomputed
+from those codes by the generated Veln test. The standard package test
+validates each row address, rejects empty dimension codes, requires row
+projection codes to match their ordinals, and compares each chunk's generated
+semantic fingerprint with an expected value, while the checker rejects stale
+or substituted row dimensions before regeneration.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the

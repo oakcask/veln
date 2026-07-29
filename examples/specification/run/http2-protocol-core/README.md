@@ -40,8 +40,10 @@ collapse into unrelated assertion bodies. Output stdout rows are routed to the
 same output-evidence test that contains the retained output-table assertion
 for their table name, and relevance checks inspect only that reachable
 assertion source. The generated standard-package test keeps this row set
-executable in bounded groups by checking chunk digests and the aggregate
-digest for the same retained rows through generated expectation functions.
+executable in bounded groups by checking chunk fingerprints, chunk digests,
+and the aggregate digest for the same retained rows through generated
+expectation functions. The row fingerprints include the terminal
+`executable_projection` detail and the full executable-projection recipe code.
 
 Regenerate and verify the structured files and generated test source with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run
