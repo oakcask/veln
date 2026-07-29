@@ -56,14 +56,16 @@ focused evidence target, public operation, branch, initial state, concrete
 input, expected projection, post-state, output provenance, and diagnostic
 precedence rather than relying on an assertion hash alone.
 `retirement_projection_evidence_test.veln` runs bounded projection chunk
-digest checks plus the generated aggregate projection manifest digest as
-standard package tests. The generated test also imports the public
-`http2::core`, `http2::frame`, and `http2::hpack` modules and executes a
-small public boundary guard through frame encoding, HPACK encode/decode, and
-PING send projection so the digest evidence cannot compile as a standalone
-fixture-only artifact. Generated expectation functions supply the expected
-chunk and aggregate digests, while the checker retains the row-level recipe
-validation and rejects stale or substituted row dimensions. Meanwhile,
+row checks, bounded projection chunk digest checks, and the generated aggregate
+projection manifest digest as standard package tests. The generated test also
+imports the public `http2::core`, `http2::frame`, and `http2::hpack` modules
+and executes a small public boundary guard through frame encoding, HPACK
+encode/decode, and PING send projection so the evidence cannot compile as a
+standalone fixture-only artifact. Each row check carries the operation,
+branch, state, setup, input, projection, post-state, output, diagnostic
+dimension, and projection hash produced by the structured scenario model,
+while the checker rejects stale or substituted row dimensions before
+regeneration. Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
 broad fixture implementation.

@@ -625,6 +625,14 @@ sub render_projection_evidence_source {
         "\tend\n",
         "end\n",
         "\n",
+        "fn require_retirement_projection_row(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, projection_sha256: String) -> Result<(), String>\n",
+        "\tif id != \"\" and ordinal > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code > 0 and post_code > 0 and output_code > 0 and diagnostic_code > 0 and projection_sha256 != \"\"\n",
+        "\t\tOk(())\n",
+        "\telse\n",
+        "\t\tErr(id)\n",
+        "\tend\n",
+        "end\n",
+        "\n",
         "fn retirement_projection_chunk_matches(id: String, start_row: Int, end_row: Int, row_count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
         "\tid != \"\" and start_row > 0 and end_row >= start_row and row_count == (end_row - start_row + 1) and projection_sha256 == expected_sha256\n",
         "end\n",
@@ -638,6 +646,15 @@ sub render_projection_evidence_source {
         "end\n",
     );
     my $chunk_size = 100;
+    my %operation_codes = dimension_codes($scenarios, "owning_operation");
+    my %branch_codes = dimension_codes($scenarios, "operation_branch");
+    my %initial_codes = dimension_codes($scenarios, "initial_state");
+    my %setup_codes = dimension_codes($scenarios, "ordered_setup");
+    my %input_codes = dimension_codes($scenarios, "concrete_input");
+    my %result_codes = dimension_codes($scenarios, "result_projection");
+    my %post_codes = dimension_codes($scenarios, "required_post_state");
+    my %output_codes = dimension_codes($scenarios, "output_provenance");
+    my %diagnostic_codes = dimension_codes($scenarios, "diagnostic_precedence");
     for (my $start = 0; $start < @$scenarios; $start += $chunk_size) {
         my $end = $start + $chunk_size - 1;
         $end = $#$scenarios if $end > $#$scenarios;
@@ -657,6 +674,38 @@ sub render_projection_evidence_source {
             "test retirement_projection_manifest_chunk_",
             $suffix,
             "() -> Result<(), String>\n";
+        for my $index ($start .. $end) {
+            my $scenario = $scenarios->[$index];
+            my $row_suffix = sprintf("%04d", $index + 1);
+            push @lines,
+                "\tlet checked_row_",
+                $row_suffix,
+                ": () = require_retirement_projection_row(",
+                veln_string($scenario->{id}),
+                ", ",
+                $index + 1,
+                ", ",
+                $operation_codes{ $scenario->{owning_operation} },
+                ", ",
+                $branch_codes{ $scenario->{operation_branch} },
+                ", ",
+                $initial_codes{ $scenario->{initial_state} },
+                ", ",
+                $setup_codes{ $scenario->{ordered_setup} },
+                ", ",
+                $input_codes{ $scenario->{concrete_input} },
+                ", ",
+                $result_codes{ $scenario->{result_projection} },
+                ", ",
+                $post_codes{ $scenario->{required_post_state} },
+                ", ",
+                $output_codes{ $scenario->{output_provenance} },
+                ", ",
+                $diagnostic_codes{ $scenario->{diagnostic_precedence} },
+                ", ",
+                veln_string($scenario->{projection_sha256}),
+                ")?\n";
+        }
         push @lines,
             "\tlet checked: () = require_retirement_projection_chunk(",
             veln_string("http2-retirement-projection-chunk-$suffix"),
@@ -684,6 +733,17 @@ sub render_projection_evidence_source {
         ")?\n";
     push @lines, "\tOk(())\n", "end\n";
     return join("", @lines);
+}
+
+sub dimension_codes {
+    my ($scenarios, $field) = @_;
+    my %codes;
+    my $next = 1;
+    for my $value (sort map { $_->{$field} } @$scenarios) {
+        next if exists $codes{$value};
+        $codes{$value} = $next++;
+    }
+    return %codes;
 }
 
 sub veln_string {
@@ -797,14 +857,25 @@ sub validate_generated_projection_evidence {
         if $source =~ /\bfn expected_retirement_projection_sha_[0-9]{4}\(\) -> String/;
     die "generated projection evidence uses old row match signature without executable projection\n"
         if $source =~ /fn retirement_projection_row_matches\(id: String, projection_sha256: String, expected_sha256: String\)/;
-    die "generated projection evidence uses old row require signature without executable projection\n"
-        if $source =~ /fn require_retirement_projection_row\(id: String, projection_sha256: String, expected_sha256: String\)/;
-    die "generated projection evidence still emits per-row checks\n"
-        if $source =~ /\brequire_retirement_projection_row\(/;
+    die "generated projection evidence omits per-row checks\n"
+        if $source !~ /\bfn require_retirement_projection_row\(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, projection_sha256: String\) -> Result<\(\), String>/
+            || $source !~ /\brequire_retirement_projection_row\("http2-retirement-0001",/
+            || $source !~ /\brequire_retirement_projection_row\("http2-retirement-3011",/;
     die "generated projection evidence lets row calls provide their own expected SHA literal\n"
         if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
     die "generated projection evidence lets row calls provide their own expected projection literal\n"
         if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+"/;
+    die "generated projection evidence does not check row operation dimensions\n"
+        if $source !~ /operation_code > 0/
+            || $source !~ /branch_code > 0/
+            || $source !~ /initial_code > 0/
+            || $source !~ /setup_code > 0/
+            || $source !~ /input_code > 0/
+            || $source !~ /result_code > 0/
+            || $source !~ /post_code > 0/
+            || $source !~ /output_code > 0/
+            || $source !~ /diagnostic_code > 0/
+            || $source !~ /projection_sha256 != ""/;
     die "generated projection evidence lets manifest calls provide their own expected SHA literal\n"
         if $source =~ /require_retirement_projection_manifest\("[^"]+",\s*[0-9]+,\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
 }
