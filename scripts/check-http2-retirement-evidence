@@ -1179,6 +1179,7 @@ sub validate_generated_projection_evidence {
             || $source !~ /post == retirement_projection_post_value\(post_code\)/
             || $source !~ /output == retirement_projection_output_value\(output_code\)/
             || $source !~ /diagnostic == retirement_projection_diagnostic_value\(diagnostic_code\)/
+            || $source !~ /projection_sha256 != ""/
             || $source !~ /detail_code > 0/
             || $source !~ /executable_code > 0/
             || $source !~ /\bfn retirement_projection_row_semantic_code\(endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, detail_code: Int, executable_code: Int\) -> Int/
