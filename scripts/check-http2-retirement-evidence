@@ -1794,6 +1794,57 @@ sub run_self_test {
     };
     die "self-test accepted executable projection with substituted invoke\n"
         if $wrong_invoke_projection_accepted;
+    my %projection_mutations = (
+        branch => [qr/branch=exact-output-success/, "branch=diagnostic-failure"],
+        initial => [qr/initial=role=local;lifecycle=open;output=caller-owned/, "initial=role=server;lifecycle=open"],
+        setup => [qr/setup=create-connection-state>create-output-buffer/, "setup=create-connection-state"],
+        input => [qr/input=operation=send_headers;table=sample;chunk-count=1;chunk-octets=1/, "input=operation=send_headers;table=sample;chunk-count=0;chunk-octets="],
+        result => [qr/result=row-0001:output_chunk_list:sample/, "result=row-0001:stdout:sample:count"],
+        post => [qr/post=emitted-bytes-exact/, "post=state-transition-exact"],
+        output => [qr/output=public-core-send/, "output=checked-case-assertion"],
+        diagnostic => [qr/diagnostic=not-applicable/, "diagnostic=checked-diagnostic-id"],
+    );
+    for my $dimension (sort keys %projection_mutations) {
+        my %mutated_projection = %$projection_scenario;
+        my ($pattern, $replacement) = @{ $projection_mutations{$dimension} };
+        $mutated_projection{executable_projection} =~ s/$pattern/$replacement/;
+        my $accepted = eval {
+            validate_executable_projection(\%mutated_projection);
+            1;
+        };
+        die "self-test accepted executable projection with substituted $dimension\n"
+            if $accepted;
+    }
+    my %helper_field_projection = %$projection_scenario;
+    $helper_field_projection{historical_kind} = "helper";
+    $helper_field_projection{executable_projection} =~
+        s/\|output_table=sample/\|caller=sample_caller|helper=require_sample/;
+    for my $field (qw(caller helper)) {
+        my %missing_field_projection = %helper_field_projection;
+        $missing_field_projection{executable_projection} =~ s/\|$field=[^|]+//;
+        my $accepted = eval {
+            validate_executable_projection(\%missing_field_projection);
+            1;
+        };
+        die "self-test accepted executable projection missing $field\n"
+            if $accepted;
+    }
+    my %missing_stdout_projection = %$projection_scenario;
+    $missing_stdout_projection{historical_kind} = "stdout";
+    my $missing_stdout_accepted = eval {
+        validate_executable_projection(\%missing_stdout_projection);
+        1;
+    };
+    die "self-test accepted executable projection missing stdout_line\n"
+        if $missing_stdout_accepted;
+    my %missing_output_projection = %$projection_scenario;
+    $missing_output_projection{executable_projection} =~ s/\|output_table=[^|]+//;
+    my $missing_output_accepted = eval {
+        validate_executable_projection(\%missing_output_projection);
+        1;
+    };
+    die "self-test accepted executable projection missing output_table\n"
+        if $missing_output_accepted;
     my $chunk_projection_source =
         "use http2::core\n"
         . "use http2::frame\n"
