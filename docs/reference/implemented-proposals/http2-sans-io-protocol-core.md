@@ -60,9 +60,12 @@ tests for every generated scenario. Each row test carries the historical key,
 focused evidence target, endpoint role, public operation, branch, initial
 state, ordered setup, concrete input, result projection, output provenance,
 failure-atomicity classification, diagnostic precedence, required post-state,
-executable projection, and row binding digest. The checker retains the
-row-level executable projection validation and rejects stale or substituted
-row dimensions.
+executable projection, and row binding digest. The Veln tests check the row
+kind, public operation, and executable-projection operation field while the
+manifest check crosses the public `http2::core` and `http2::hpack`
+boundaries. The checker retains full row-level executable projection
+validation and rejects stale or substituted row dimensions before regenerating
+the Veln evidence.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the

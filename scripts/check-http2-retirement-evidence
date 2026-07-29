@@ -583,25 +583,57 @@ sub render_projection_evidence_source {
     my ($scenarios) = @_;
     my @lines = (
         "use prelude\n",
+        "use http2::core\n",
+        "use http2::hpack\n",
         "\n",
         "fn retirement_projection_manifest_matches(count: Int, chunk_count: Int) -> Bool\n",
         "\tcount == 3011 and chunk_count == 31\n",
         "end\n",
         "\n",
+        "fn retirement_projection_value(projection: String, key: String) -> Result<String, String>\n",
+        "\tmatch string_split_once(projection, key)\n",
+        "\t\tSome(pair) => match string_split_once(pair.right, \"|\")\n",
+        "\t\t\tSome(value) => Ok(value.left)\n",
+        "\t\t\tNone => Ok(pair.right)\n",
+        "\t\tend\n",
+        "\t\tNone => Err(key)\n",
+        "\tend\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_public_boundaries_match() -> Result<Bool, String>\n",
+        "\tlet state: CoreConnectionState = http2::core::server_connection_state(0)?\n",
+        "\tlet table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?\n",
+        "\tOk(http2::core::connection_state_endpoint_role(state) == \"server\" and http2::core::stream_collection_count(http2::core::empty_stream_collection()) == 0 and http2::hpack::dynamic_table_entry_count(table) == 0)\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_public_operation_known(operation: String) -> Bool\n",
+        "\toperation == \"connection_state\" or operation == \"stream_state\" or operation == \"hpack_header_block\" or operation == \"frame_codec\" or operation == \"receive_connection_chunk\" or operation == \"receive_frame\" or operation == \"send_data\" or operation == \"send_push_promise\" or operation == \"send_headers\" or operation == \"send_window_update\" or operation == \"send_priority\" or operation == \"send_rst_stream\" or operation == \"send_ping\" or operation == \"send_settings\" or operation == \"send_goaway\"\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_kind_matches(kind: String, historical_key: String, projection: String) -> Bool\n",
+        "\tmatch string_split_once(historical_key, \"case.toml:stdout:\")\n",
+        "\t\tSome(_) => kind == \"stdout\"\n",
+        "\t\tNone => match string_split_once(historical_key, \"case.toml:output_chunk_list:\")\n",
+        "\t\t\tSome(_) => kind == \"output_table\"\n",
+        "\t\t\tNone => kind == \"helper\"\n",
+        "\t\tend\n",
+        "\tend\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_row_matches(id: String, historical_kind: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Result<Bool, String>\n",
+        "\tOk(id != \"\" and historical_key != \"\" and evidence != \"\" and endpoint_role != \"\" and owning_operation != \"\" and operation_branch != \"\" and initial_state != \"\" and ordered_setup != \"\" and concrete_input != \"\" and result_projection != \"\" and output_provenance != \"\" and failure_atomicity != \"\" and diagnostic_precedence != \"\" and required_post_state != \"\" and projection_sha256 != \"\" and retirement_projection_kind_matches(historical_kind, historical_key, result_projection) and retirement_projection_public_operation_known(owning_operation) and retirement_projection_value(executable_projection, \"invoke=\")? == owning_operation)\n",
+        "end\n",
+        "\n",
         "fn require_retirement_projection_manifest(id: String, count: Int, chunk_count: Int) -> Result<(), String>\n",
-        "\tif retirement_projection_manifest_matches(count, chunk_count)\n",
+        "\tif retirement_projection_manifest_matches(count, chunk_count) and retirement_projection_public_boundaries_match()?\n",
         "\t\tOk(())\n",
         "\telse\n",
         "\t\tErr(id)\n",
         "\tend\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_matches(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Bool\n",
-        "\tid != \"\" and historical_key != \"\" and evidence != \"\" and endpoint_role != \"\" and owning_operation != \"\" and operation_branch != \"\" and initial_state != \"\" and ordered_setup != \"\" and concrete_input != \"\" and result_projection != \"\" and output_provenance != \"\" and failure_atomicity != \"\" and diagnostic_precedence != \"\" and required_post_state != \"\" and executable_projection != \"\" and projection_sha256 != \"\"\n",
-        "end\n",
-        "\n",
-        "fn require_retirement_projection_row(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Result<(), String>\n",
-        "\tif retirement_projection_row_matches(id, historical_key, evidence, endpoint_role, owning_operation, operation_branch, initial_state, ordered_setup, concrete_input, result_projection, output_provenance, failure_atomicity, diagnostic_precedence, required_post_state, executable_projection, projection_sha256)\n",
+        "fn require_retirement_projection_row(id: String, historical_kind: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_row_matches(id, historical_kind, historical_key, evidence, endpoint_role, owning_operation, operation_branch, initial_state, ordered_setup, concrete_input, result_projection, output_provenance, failure_atomicity, diagnostic_precedence, required_post_state, executable_projection, projection_sha256)?\n",
         "\t\tOk(())\n",
         "\telse\n",
         "\t\tErr(id)\n",
@@ -622,6 +654,7 @@ sub render_projection_evidence_source {
                 ", ",
                 map { veln_string($_) } (
                     $scenario->{id},
+                    $scenario->{historical_kind},
                     $scenario->{historical_key},
                     $scenario->{evidence},
                     $scenario->{endpoint_role},
@@ -748,6 +781,13 @@ sub validate_generated_projection_evidence {
         if $source !~ /\brequire_retirement_projection_row\(/;
     die "generated projection evidence omits row chunk tests\n"
         if $source !~ /\btest retirement_projection_rows_0001_0100\(\) -> Result<\(\), String>/;
+    die "generated projection evidence does not validate row projections in Veln\n"
+        if $source !~ /\bretirement_projection_value\(projection: String, key: String\)/
+            || $source !~ /\bretirement_projection_public_operation_known\(operation: String\)/
+            || $source !~ /\bretirement_projection_kind_matches\(kind: String, historical_key: String, projection: String\)/
+            || $source !~ /\bretirement_projection_value\(executable_projection, "invoke="\)\? == owning_operation/;
+    die "generated projection evidence does not import the public HTTP/2 boundaries\n"
+        if $source !~ /^use http2::core$/m || $source !~ /^use http2::hpack$/m;
     die "generated projection evidence still emits digest-only chunk checks\n"
         if $source =~ /\bexpected_retirement_projection_chunk_sha_/
             || $source =~ /\brequire_retirement_projection_chunk\(/;
@@ -764,7 +804,7 @@ sub validate_generated_projection_evidence {
             || $source =~ /expected_executable_projection: String/
             || $source =~ /expected_sha256: String/;
     die "generated projection evidence omits row dimension arguments\n"
-        if $source !~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[0-9a-f]{64}"\)\?/;
+        if $source !~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[0-9a-f]{64}"\)\?/;
 }
 
 sub projection_unescape {
@@ -1594,8 +1634,15 @@ sub run_self_test {
     die "self-test accepted executable projection with substituted invoke\n"
         if $wrong_invoke_projection_accepted;
     my $chunk_projection_source =
-        "test retirement_projection_rows_0001_0100() -> Result<(), String>\n"
-        . "\trequire_retirement_projection_row(\"http2-retirement-0001\", \"case.toml:output_chunk_list:sample\", \"evidence#test\", \"local\", \"send_headers\", \"exact-output-success\", \"role=local;lifecycle=open\", \"create-connection-state\", \"operation=send_headers\", \"row-0001:output_chunk_list:sample\", \"public-core-send\", \"not-applicable\", \"not-applicable\", \"emitted-bytes-exact\", \"row=case.toml:output_chunk_list:sample|evidence=evidence#test|invoke=send_headers|branch=exact-output-success|initial=role=local;lifecycle=open|setup=create-connection-state|input=operation=send_headers|result=row-0001:output_chunk_list:sample|post=emitted-bytes-exact|output=public-core-send|diagnostic=not-applicable|output_table=sample\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")?\n"
+        "use http2::core\n"
+        . "use http2::hpack\n"
+        . "fn retirement_projection_value(projection: String, key: String) -> Result<String, String>\n"
+        . "\tretirement_projection_value(executable_projection, \"invoke=\")? == owning_operation\n"
+        . "end\n"
+        . "fn retirement_projection_public_operation_known(operation: String) -> Bool\nend\n"
+        . "fn retirement_projection_kind_matches(kind: String, historical_key: String, projection: String) -> Bool\nend\n"
+        . "test retirement_projection_rows_0001_0100() -> Result<(), String>\n"
+        . "\trequire_retirement_projection_row(\"http2-retirement-0001\", \"output_table\", \"case.toml:output_chunk_list:sample\", \"evidence#test\", \"local\", \"send_headers\", \"exact-output-success\", \"role=local;lifecycle=open\", \"create-connection-state\", \"operation=send_headers\", \"row-0001:output_chunk_list:sample\", \"public-core-send\", \"not-applicable\", \"not-applicable\", \"emitted-bytes-exact\", \"row=case.toml:output_chunk_list:sample|evidence=evidence#test|invoke=send_headers|branch=exact-output-success|initial=role=local;lifecycle=open|setup=create-connection-state|input=operation=send_headers|result=row-0001:output_chunk_list:sample|post=emitted-bytes-exact|output=public-core-send|diagnostic=not-applicable|output_table=sample\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")?\n"
         . "\tOk(())\nend\n";
     validate_generated_projection_evidence($chunk_projection_source);
     my $digest_projection_source =
