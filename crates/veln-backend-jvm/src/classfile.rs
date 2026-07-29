@@ -166,10 +166,20 @@ impl<'a> ClassfileEmitter<'a> {
 
         let mut code = MethodCode::new(Rc::clone(&class.constant_pool));
         let try_start = code.mark();
-        let result = code.new_label();
+        code.push_i32(0);
+        code.istore(3);
+        let loop_start = code.new_label();
+        let loop_done = code.new_label();
+        code.bind(loop_start);
+        code.iload(3);
+        code.aload(0);
+        code.op(0xbe);
+        code.branch_to(0xa2, loop_done);
+
+        let dispatched = code.new_label();
         for entry_function in entry_functions {
             code.aload(0);
-            code.push_i32(0);
+            code.iload(3);
             code.op(0x32);
             code.ldc_string(entry_function);
             code.invokevirtual("java/lang/String", "equals", "(Ljava/lang/Object;)Z");
@@ -180,7 +190,8 @@ impl<'a> ClassfileEmitter<'a> {
                 &object_method_descriptor(0),
             );
             code.astore(1);
-            code.branch_to(0xa7, result);
+            self.emit_entry_result(&mut code);
+            code.branch_to(0xa7, dispatched);
             code.bind(next);
         }
         code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
@@ -190,8 +201,10 @@ impl<'a> ClassfileEmitter<'a> {
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.op(0xb1);
 
-        code.bind(result);
-        self.emit_entry_result(&mut code);
+        code.bind(dispatched);
+        code.iinc(3, 1);
+        code.branch_to(0xa7, loop_start);
+        code.bind(loop_done);
         let try_end = code.mark();
         code.op(0xb1);
 
@@ -482,7 +495,7 @@ impl<'a> ClassfileEmitter<'a> {
             name: "main".to_string(),
             descriptor: "([Ljava/lang/String;)V".to_string(),
             max_stack: code.max_stack,
-            max_locals: 3,
+            max_locals: code.max_locals.max(3),
             code: code.code,
             exceptions: code.exceptions,
         });
@@ -3035,6 +3048,41 @@ impl MethodCode {
                 self.code.push(slot as u8);
             }
             _ => panic!("too many JVM locals"),
+        }
+    }
+
+    fn iload(&mut self, slot: u16) {
+        self.max_locals = self.max_locals.max(slot + 1);
+        match slot {
+            0..=3 => self.code.push(0x1a + slot as u8),
+            _ if slot <= u8::MAX as u16 => {
+                self.code.push(0x15);
+                self.code.push(slot as u8);
+            }
+            _ => panic!("too many JVM locals"),
+        }
+    }
+
+    fn istore(&mut self, slot: u16) {
+        self.max_locals = self.max_locals.max(slot + 1);
+        match slot {
+            0..=3 => self.code.push(0x3b + slot as u8),
+            _ if slot <= u8::MAX as u16 => {
+                self.code.push(0x36);
+                self.code.push(slot as u8);
+            }
+            _ => panic!("too many JVM locals"),
+        }
+    }
+
+    fn iinc(&mut self, slot: u16, value: i8) {
+        self.max_locals = self.max_locals.max(slot + 1);
+        if slot <= u8::MAX as u16 {
+            self.code.push(0x84);
+            self.code.push(slot as u8);
+            self.code.push(value as u8);
+        } else {
+            panic!("too many JVM locals");
         }
     }
 

@@ -60,8 +60,15 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
                     .collect::<Vec<_>>(),
             )
         });
-        for case in &mut cases {
-            run_test_case(&analysis, reusable_program.as_ref(), case)?;
+        let batch_handled = if let Some(program) = reusable_program.as_ref() {
+            run_reusable_test_batch(program, &mut cases)?
+        } else {
+            false
+        };
+        if !batch_handled {
+            for case in &mut cases {
+                run_test_case(&analysis, reusable_program.as_ref(), case)?;
+            }
         }
     }
 
@@ -84,6 +91,41 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::from(1)
     })
+}
+
+fn run_reusable_test_batch(
+    reusable_program: &JvmProgram,
+    cases: &mut [TestCase],
+) -> Result<bool, String> {
+    if cases.is_empty()
+        || cases
+            .iter()
+            .any(|case| case.expected_output.is_some() || case.expected_runtime_failure.is_some())
+    {
+        return Ok(false);
+    }
+
+    let java_args = cases
+        .iter()
+        .map(|case| case.name.clone())
+        .collect::<Vec<_>>();
+    match execute_test_program(reusable_program, &java_args)? {
+        TestExecution::Ran(artifacts) if artifacts.output.status.success() => {
+            for case in cases {
+                apply_runtime_result(case, None);
+            }
+            Ok(true)
+        }
+        TestExecution::Ran(_) => Ok(false),
+        TestExecution::ToolError(message) => {
+            for case in cases {
+                case.status = TestCaseStatus::Error;
+                case.reason = Some("runner_error".to_string());
+                case.failure = Some(TestFailure::runtime(message.clone()));
+            }
+            Ok(true)
+        }
+    }
 }
 
 fn selection_plan(
