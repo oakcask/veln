@@ -68,12 +68,13 @@ standard package tests. The generated test also
 imports the public `http2::core`, `http2::frame`, and `http2::hpack` modules
 and executes a small public boundary guard through frame encoding, HPACK
 encode/decode, and PING send projection so the evidence cannot compile as a
-standalone fixture-only artifact. Each row check carries the operation,
-branch, state, setup, input, projection, post-state, output, diagnostic
-dimension, and projection hash produced by the structured scenario model. The
-standard package test validates each row address, rejects empty dimensions,
-requires row projection codes to match their ordinals, and compares each
-chunk's generated dimension fingerprint with an expected value, while the
+standalone fixture-only artifact. The generated row checks run through
+20-row groups. Each row carries the operation, branch, state, setup, input,
+projection, post-state, output, diagnostic dimension, and a semantic code
+derived from the structured scenario model's executable projection and digest.
+The standard package test validates each row address, rejects empty dimension
+codes, requires row projection codes to match their ordinals, and compares
+each chunk's generated semantic fingerprint with an expected value, while the
 checker rejects stale or substituted row dimensions before regeneration.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes

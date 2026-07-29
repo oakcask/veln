@@ -625,16 +625,16 @@ sub render_projection_evidence_source {
         "\tend\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_row(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, projection_sha256: String) -> Result<Int, String>\n",
-        "\tif id != \"\" and ordinal > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and projection_sha256 != \"\"\n",
-        "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code))\n",
+        "fn require_retirement_projection_row(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n",
+        "\tif id != \"\" and ordinal > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code > 0\n",
+        "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n",
         "\telse\n",
         "\t\tErr(id)\n",
         "\tend\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int) -> Int\n",
-        "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47\n",
+        "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n",
+        "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47 + semantic_code * 53\n",
         "end\n",
         "\n",
         "fn retirement_projection_chunk_matches(id: String, start_row: Int, end_row: Int, row_count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
@@ -687,7 +687,51 @@ sub render_projection_evidence_source {
                 $post_codes{ $scenario->{required_post_state} },
                 $output_codes{ $scenario->{output_provenance} },
                 $diagnostic_codes{ $scenario->{diagnostic_precedence} },
+                retirement_projection_semantic_code($scenario),
             );
+        }
+        my $row_group_size = 20;
+        for (my $group_start = $start; $group_start <= $end; $group_start += $row_group_size) {
+            my $group_end = $group_start + $row_group_size - 1;
+            $group_end = $end if $group_end > $end;
+            my $group_suffix = sprintf("%04d_%04d", $group_start + 1, $group_end + 1);
+            push @lines, "\n";
+            push @lines, "fn require_retirement_projection_rows_", $group_suffix, "() -> Result<Int, String>\n";
+            my @checked_group_rows;
+            for my $index ($group_start .. $group_end) {
+                my $scenario = $scenarios->[$index];
+                my $row_suffix = sprintf("%04d", $index + 1);
+                push @checked_group_rows, "declared_row_$row_suffix";
+                push @lines,
+                    "\tlet declared_row_",
+                    $row_suffix,
+                    ": Int = require_retirement_projection_row(",
+                    veln_string($scenario->{id}),
+                    ", ",
+                    $index + 1,
+                    ", ",
+                    $operation_codes{ $scenario->{owning_operation} },
+                    ", ",
+                    $branch_codes{ $scenario->{operation_branch} },
+                    ", ",
+                    $initial_codes{ $scenario->{initial_state} },
+                    ", ",
+                    $setup_codes{ $scenario->{ordered_setup} },
+                    ", ",
+                    $input_codes{ $scenario->{concrete_input} },
+                    ", ",
+                    $result_codes{ $scenario->{result_projection} },
+                    ", ",
+                    $post_codes{ $scenario->{required_post_state} },
+                    ", ",
+                    $output_codes{ $scenario->{output_provenance} },
+                    ", ",
+                    $diagnostic_codes{ $scenario->{diagnostic_precedence} },
+                    ", ",
+                    retirement_projection_semantic_code($scenario),
+                    ")?\n";
+            }
+            push @lines, "\tOk(", join(" + ", @checked_group_rows), ")\n", "end\n";
         }
         push @lines, "\n";
         push @lines,
@@ -710,45 +754,24 @@ sub render_projection_evidence_source {
             "test retirement_projection_manifest_chunk_",
             $suffix,
             "() -> Result<(), String>\n";
-        my @checked_rows;
-        for my $index ($start .. $end) {
-            my $scenario = $scenarios->[$index];
-            my $row_suffix = sprintf("%04d", $index + 1);
-            push @checked_rows, "checked_row_$row_suffix";
+        my @checked_row_groups;
+        for (my $group_start = $start; $group_start <= $end; $group_start += 20) {
+            my $group_end = $group_start + 20 - 1;
+            $group_end = $end if $group_end > $end;
+            my $group_suffix = sprintf("%04d_%04d", $group_start + 1, $group_end + 1);
+            push @checked_row_groups, "checked_rows_$group_suffix";
             push @lines,
-                "\tlet checked_row_",
-                $row_suffix,
-                ": Int = require_retirement_projection_row(",
-                veln_string($scenario->{id}),
-                ", ",
-                $index + 1,
-                ", ",
-                $operation_codes{ $scenario->{owning_operation} },
-                ", ",
-                $branch_codes{ $scenario->{operation_branch} },
-                ", ",
-                $initial_codes{ $scenario->{initial_state} },
-                ", ",
-                $setup_codes{ $scenario->{ordered_setup} },
-                ", ",
-                $input_codes{ $scenario->{concrete_input} },
-                ", ",
-                $result_codes{ $scenario->{result_projection} },
-                ", ",
-                $post_codes{ $scenario->{required_post_state} },
-                ", ",
-                $output_codes{ $scenario->{output_provenance} },
-                ", ",
-                $diagnostic_codes{ $scenario->{diagnostic_precedence} },
-                ", ",
-                veln_string($scenario->{projection_sha256}),
-                ")?\n";
+                "\tlet checked_rows_",
+                $group_suffix,
+                ": Int = require_retirement_projection_rows_",
+                $group_suffix,
+                "()?\n";
         }
         push @lines,
             "\tlet checked_fingerprint: () = require_retirement_projection_chunk_fingerprint(",
             veln_string("http2-retirement-projection-chunk-fingerprint-$suffix"),
             ", ",
-            join(" + ", @checked_rows),
+            join(" + ", @checked_row_groups),
             ", expected_retirement_projection_chunk_fingerprint_",
             $suffix,
             "())?\n";
@@ -793,6 +816,7 @@ sub retirement_projection_row_fingerprint {
         $post_code,
         $output_code,
         $diagnostic_code,
+        $semantic_code,
     ) = @_;
     return $ordinal * 13
         + $operation_code * 17
@@ -803,7 +827,28 @@ sub retirement_projection_row_fingerprint {
         + $result_code * 37
         + $post_code * 41
         + $output_code * 43
-        + $diagnostic_code * 47;
+        + $diagnostic_code * 47
+        + $semantic_code * 53;
+}
+
+sub retirement_projection_semantic_code {
+    my ($scenario) = @_;
+    my $digest = sha256_hex(join(
+        "\0",
+        $scenario->{endpoint_role},
+        $scenario->{owning_operation},
+        $scenario->{operation_branch},
+        $scenario->{initial_state},
+        $scenario->{ordered_setup},
+        $scenario->{concrete_input},
+        $scenario->{result_projection},
+        $scenario->{required_post_state},
+        $scenario->{output_provenance},
+        $scenario->{diagnostic_precedence},
+        $scenario->{executable_projection},
+        $scenario->{projection_sha256},
+    ));
+    return 1 + (hex(substr($digest, 0, 8)) % 1_000_000);
 }
 
 sub dimension_codes {
@@ -928,18 +973,21 @@ sub validate_generated_projection_evidence {
         if $source =~ /\bfn expected_retirement_projection_sha_[0-9]{4}\(\) -> String/;
     die "generated projection evidence uses old row match signature without executable projection\n"
         if $source =~ /fn retirement_projection_row_matches\(id: String, projection_sha256: String, expected_sha256: String\)/;
-    die "generated projection evidence omits per-row checks\n"
-        if $source !~ /\bfn require_retirement_projection_row\(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, projection_sha256: String\) -> Result<Int, String>/
-            || $source !~ /\brequire_retirement_projection_row\("http2-retirement-0001",/
-            || $source !~ /\brequire_retirement_projection_row\("http2-retirement-3011",/;
+    die "generated projection evidence omits row-specific checks\n"
+        if $source !~ /\bfn require_retirement_projection_row\(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Result<Int, String>/
+            || $source !~ /\bfn require_retirement_projection_rows_0001_0020\(\) -> Result<Int, String>/
+            || $source !~ /\bfn require_retirement_projection_rows_3001_3011\(\) -> Result<Int, String>/
+            || $source !~ /\brequire_retirement_projection_rows_0001_0020\(\)\?/
+            || $source !~ /\brequire_retirement_projection_rows_3001_3011\(\)\?/;
     die "generated projection evidence lets row calls provide their own expected SHA literal\n"
         if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
     die "generated projection evidence lets row calls provide their own expected projection literal\n"
-        if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+"/;
+        if $source =~ /test retirement_projection_manifest_chunk_[0-9_]+\(.*?let checked_row_[0-9]{4}: Int = require_retirement_projection_row\(/s;
     die "generated projection evidence does not check row operation dimensions\n"
-        if $source !~ /\bfn retirement_projection_row_fingerprint\(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int\) -> Int/
+        if $source !~ /\bfn retirement_projection_row_fingerprint\(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Int/
             || $source !~ /result_code == ordinal/
-            || $source !~ /\bOk\(retirement_projection_row_fingerprint\(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code\)\)/
+            || $source !~ /semantic_code > 0/
+            || $source !~ /\bOk\(retirement_projection_row_fingerprint\(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code\)\)/
             || $source !~ /\bfn expected_retirement_projection_chunk_fingerprint_0001_0100\(\) -> Int/
             || $source !~ /\bexpected_retirement_projection_chunk_fingerprint_3001_3011\(\)/
             || $source !~ /\brequire_retirement_projection_chunk_fingerprint\(/;
@@ -1856,21 +1904,29 @@ sub run_self_test {
         . "\thttp2::hpack::decode_header_block(input, table, 4096)\n"
         . "\tOk(())\nend\n"
         . "fn expected_retirement_projection_manifest_sha() -> String\nend\n"
-        . "fn require_retirement_projection_row(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, projection_sha256: String) -> Result<Int, String>\n"
-        . "\tif id != \"\" and ordinal > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and projection_sha256 != \"\"\n"
-        . "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code))\n\telse\n\t\tErr(id)\n\tend\nend\n"
-        . "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int) -> Int\n"
-        . "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47\n"
+        . "fn require_retirement_projection_row(id: String, ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n"
+        . "\tif id != \"\" and ordinal > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code > 0\n"
+        . "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n\telse\n\t\tErr(id)\n\tend\nend\n"
+        . "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n"
+        . "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47 + semantic_code * 53\n"
         . "end\n"
         . "fn require_retirement_projection_chunk_fingerprint(id: String, observed: Int, expected: Int) -> Result<(), String>\n"
         . "\tif observed == expected\n\t\tOk(())\n\telse\n\t\tErr(id)\n\tend\nend\n"
         . "fn expected_retirement_projection_chunk_sha_0001_0100() -> String\nend\n"
         . "fn expected_retirement_projection_chunk_fingerprint_0001_0100() -> Int\n\t1\nend\n"
         . "fn expected_retirement_projection_chunk_fingerprint_3001_3011() -> Int\n\t1\nend\n"
+        . "fn require_retirement_projection_rows_0001_0020() -> Result<Int, String>\n"
+        . "\tlet declared_row_0001: Int = require_retirement_projection_row(\"http2-retirement-0001\", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 101)?\n"
+        . "\tOk(declared_row_0001)\n"
+        . "end\n"
+        . "fn require_retirement_projection_rows_3001_3011() -> Result<Int, String>\n"
+        . "\tlet declared_row_3011: Int = require_retirement_projection_row(\"http2-retirement-3011\", 3011, 2, 2, 2, 2, 2, 3011, 2, 2, 2, 202)?\n"
+        . "\tOk(declared_row_3011)\n"
+        . "end\n"
         . "test retirement_projection_manifest_chunk_0001_0100() -> Result<(), String>\n"
-        . "\tlet checked_row_0001: Int = require_retirement_projection_row(\"http2-retirement-0001\", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")?\n"
-        . "\tlet checked_row_3011: Int = require_retirement_projection_row(\"http2-retirement-3011\", 3011, 2, 2, 2, 2, 2, 3011, 2, 2, 2, \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\")?\n"
-        . "\trequire_retirement_projection_chunk_fingerprint(\"chunk-fingerprint\", checked_row_0001 + checked_row_3011, expected_retirement_projection_chunk_fingerprint_3001_3011())?\n"
+        . "\tlet checked_rows_0001_0020: Int = require_retirement_projection_rows_0001_0020()?\n"
+        . "\tlet checked_rows_3001_3011: Int = require_retirement_projection_rows_3001_3011()?\n"
+        . "\trequire_retirement_projection_chunk_fingerprint(\"chunk-fingerprint\", checked_rows_0001_0020 + checked_rows_3001_3011, expected_retirement_projection_chunk_fingerprint_3001_3011())?\n"
         . "\trequire_retirement_projection_chunk(\"chunk\", 1, 100, 100, \"a\", expected_retirement_projection_chunk_sha_0001_0100())?\n"
         . "\trequire_retirement_projection_public_boundary()?\n"
         . "\tOk(())\nend\n";
