@@ -625,20 +625,24 @@ sub render_projection_evidence_source {
         "\tend\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_row(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n",
-        "\tif retirement_projection_row_dimensions_match(id, ordinal, endpoint_role, operation, branch, initial, setup, input, result_projection, post, output, diagnostic, projection_sha256, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code)\n",
-        "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n",
+        "fn require_retirement_projection_row(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n",
+        "\tif retirement_projection_row_dimensions_match(id, ordinal, endpoint_role, operation, branch, initial, setup, input, result_projection, post, output, diagnostic, projection_sha256, endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code)\n",
+        "\t\tOk(retirement_projection_row_fingerprint(ordinal, endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n",
         "\telse\n",
         "\t\tErr(id)\n",
         "\tend\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_dimensions_match(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Bool\n",
-        "\tid != \"\" and ordinal > 0 and endpoint_role != \"\" and operation != \"\" and branch != \"\" and initial != \"\" and setup != \"\" and input != \"\" and result_projection != \"\" and post != \"\" and output != \"\" and diagnostic != \"\" and projection_sha256 != \"\" and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code > 0\n",
+        "fn retirement_projection_row_dimensions_match(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Bool\n",
+        "\tid != \"\" and ordinal > 0 and endpoint_role != \"\" and operation != \"\" and branch != \"\" and initial != \"\" and setup != \"\" and input != \"\" and result_projection != \"\" and post != \"\" and output != \"\" and diagnostic != \"\" and projection_sha256 != \"\" and endpoint_role_code > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code == retirement_projection_row_semantic_code(endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code)\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n",
-        "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47 + semantic_code * 53\n",
+        "fn retirement_projection_row_semantic_code(endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int) -> Int\n",
+        "\tendpoint_role_code * 59 + operation_code * 61 + branch_code * 67 + initial_code * 71 + setup_code * 73 + input_code * 79 + result_code * 83 + post_code * 89 + output_code * 97 + diagnostic_code * 101\n",
+        "end\n",
+        "\n",
+        "fn retirement_projection_row_fingerprint(ordinal: Int, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n",
+        "\tordinal * 13 + endpoint_role_code * 17 + operation_code * 19 + branch_code * 23 + initial_code * 29 + setup_code * 31 + input_code * 37 + result_code * 41 + post_code * 43 + output_code * 47 + diagnostic_code * 53 + semantic_code * 59\n",
         "end\n",
         "\n",
         "fn retirement_projection_chunk_matches(id: String, start_row: Int, end_row: Int, row_count: Int, projection_sha256: String, expected_sha256: String) -> Bool\n",
@@ -662,6 +666,7 @@ sub render_projection_evidence_source {
         "end\n",
     );
     my $chunk_size = 100;
+    my %endpoint_role_codes = dimension_codes($scenarios, "endpoint_role");
     my %operation_codes = dimension_codes($scenarios, "owning_operation");
     my %branch_codes = dimension_codes($scenarios, "operation_branch");
     my %initial_codes = dimension_codes($scenarios, "initial_state");
@@ -682,6 +687,7 @@ sub render_projection_evidence_source {
             my $scenario = $scenarios->[$index];
             $chunk_fingerprint += retirement_projection_row_fingerprint(
                 $index + 1,
+                $endpoint_role_codes{ $scenario->{endpoint_role} },
                 $operation_codes{ $scenario->{owning_operation} },
                 $branch_codes{ $scenario->{operation_branch} },
                 $initial_codes{ $scenario->{initial_state} },
@@ -691,7 +697,18 @@ sub render_projection_evidence_source {
                 $post_codes{ $scenario->{required_post_state} },
                 $output_codes{ $scenario->{output_provenance} },
                 $diagnostic_codes{ $scenario->{diagnostic_precedence} },
-                retirement_projection_semantic_code($scenario),
+                retirement_projection_semantic_code(
+                    $endpoint_role_codes{ $scenario->{endpoint_role} },
+                    $operation_codes{ $scenario->{owning_operation} },
+                    $branch_codes{ $scenario->{operation_branch} },
+                    $initial_codes{ $scenario->{initial_state} },
+                    $setup_codes{ $scenario->{ordered_setup} },
+                    $input_codes{ $scenario->{concrete_input} },
+                    $result_codes{ $scenario->{result_projection} },
+                    $post_codes{ $scenario->{required_post_state} },
+                    $output_codes{ $scenario->{output_provenance} },
+                    $diagnostic_codes{ $scenario->{diagnostic_precedence} },
+                ),
             );
         }
         my $row_group_size = 20;
@@ -736,6 +753,8 @@ sub render_projection_evidence_source {
                     ", ",
                     veln_string($scenario->{projection_sha256}),
                     ", ",
+                    $endpoint_role_codes{ $scenario->{endpoint_role} },
+                    ", ",
                     $operation_codes{ $scenario->{owning_operation} },
                     ", ",
                     $branch_codes{ $scenario->{operation_branch} },
@@ -754,7 +773,18 @@ sub render_projection_evidence_source {
                     ", ",
                     $diagnostic_codes{ $scenario->{diagnostic_precedence} },
                     ", ",
-                    retirement_projection_semantic_code($scenario),
+                    retirement_projection_semantic_code(
+                        $endpoint_role_codes{ $scenario->{endpoint_role} },
+                        $operation_codes{ $scenario->{owning_operation} },
+                        $branch_codes{ $scenario->{operation_branch} },
+                        $initial_codes{ $scenario->{initial_state} },
+                        $setup_codes{ $scenario->{ordered_setup} },
+                        $input_codes{ $scenario->{concrete_input} },
+                        $result_codes{ $scenario->{result_projection} },
+                        $post_codes{ $scenario->{required_post_state} },
+                        $output_codes{ $scenario->{output_provenance} },
+                        $diagnostic_codes{ $scenario->{diagnostic_precedence} },
+                    ),
                     ")?\n";
             }
             push @lines, "\tOk(", join(" + ", @checked_group_rows), ")\n", "end\n";
@@ -833,6 +863,7 @@ sub render_projection_evidence_source {
 sub retirement_projection_row_fingerprint {
     my (
         $ordinal,
+        $endpoint_role_code,
         $operation_code,
         $branch_code,
         $initial_code,
@@ -845,36 +876,42 @@ sub retirement_projection_row_fingerprint {
         $semantic_code,
     ) = @_;
     return $ordinal * 13
-        + $operation_code * 17
-        + $branch_code * 19
-        + $initial_code * 23
-        + $setup_code * 29
-        + $input_code * 31
-        + $result_code * 37
-        + $post_code * 41
-        + $output_code * 43
-        + $diagnostic_code * 47
-        + $semantic_code * 53;
+        + $endpoint_role_code * 17
+        + $operation_code * 19
+        + $branch_code * 23
+        + $initial_code * 29
+        + $setup_code * 31
+        + $input_code * 37
+        + $result_code * 41
+        + $post_code * 43
+        + $output_code * 47
+        + $diagnostic_code * 53
+        + $semantic_code * 59;
 }
 
 sub retirement_projection_semantic_code {
-    my ($scenario) = @_;
-    my $digest = sha256_hex(join(
-        "\0",
-        $scenario->{endpoint_role},
-        $scenario->{owning_operation},
-        $scenario->{operation_branch},
-        $scenario->{initial_state},
-        $scenario->{ordered_setup},
-        $scenario->{concrete_input},
-        $scenario->{result_projection},
-        $scenario->{required_post_state},
-        $scenario->{output_provenance},
-        $scenario->{diagnostic_precedence},
-        $scenario->{executable_projection},
-        $scenario->{projection_sha256},
-    ));
-    return 1 + (hex(substr($digest, 0, 8)) % 1_000_000);
+    my (
+        $endpoint_role_code,
+        $operation_code,
+        $branch_code,
+        $initial_code,
+        $setup_code,
+        $input_code,
+        $result_code,
+        $post_code,
+        $output_code,
+        $diagnostic_code,
+    ) = @_;
+    return $endpoint_role_code * 59
+        + $operation_code * 61
+        + $branch_code * 67
+        + $initial_code * 71
+        + $setup_code * 73
+        + $input_code * 79
+        + $result_code * 83
+        + $post_code * 89
+        + $output_code * 97
+        + $diagnostic_code * 101;
 }
 
 sub dimension_codes {
@@ -1000,9 +1037,11 @@ sub validate_generated_projection_evidence {
     die "generated projection evidence uses old row match signature without executable projection\n"
         if $source =~ /fn retirement_projection_row_matches\(id: String, projection_sha256: String, expected_sha256: String\)/;
     die "generated projection evidence omits row-specific checks\n"
-        if $source !~ /\bfn require_retirement_projection_row\(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Result<Int, String>/
-            || $source !~ /\bfn retirement_projection_row_dimensions_match\(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Bool/
+        if $source !~ /\bfn require_retirement_projection_row\(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Result<Int, String>/
+            || $source !~ /\bfn retirement_projection_row_dimensions_match\(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Bool/
             || $source !~ /endpoint_role != "" and operation != "" and branch != "" and initial != "" and setup != "" and input != "" and result_projection != "" and post != "" and output != "" and diagnostic != "" and projection_sha256 != ""/
+            || $source !~ /\bfn retirement_projection_row_semantic_code\(endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int\) -> Int/
+            || $source !~ /semantic_code == retirement_projection_row_semantic_code\(endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code\)/
             || $source !~ /\bfn require_retirement_projection_rows_0001_0020\(\) -> Result<Int, String>/
             || $source !~ /\bfn require_retirement_projection_rows_3001_3011\(\) -> Result<Int, String>/
             || $source !~ /\brequire_retirement_projection_rows_0001_0020\(\)\?/
@@ -1012,10 +1051,11 @@ sub validate_generated_projection_evidence {
     die "generated projection evidence lets row calls provide their own expected projection literal\n"
         if $source =~ /test retirement_projection_manifest_chunk_[0-9_]+\(.*?let checked_row_[0-9]{4}: Int = require_retirement_projection_row\(/s;
     die "generated projection evidence does not check row operation dimensions\n"
-        if $source !~ /\bfn retirement_projection_row_fingerprint\(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Int/
+        if $source !~ /\bfn retirement_projection_row_fingerprint\(ordinal: Int, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int\) -> Int/
             || $source !~ /result_code == ordinal/
-            || $source !~ /semantic_code > 0/
-            || $source !~ /\bOk\(retirement_projection_row_fingerprint\(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code\)\)/
+            || $source !~ /endpoint_role_code > 0/
+            || $source !~ /semantic_code == retirement_projection_row_semantic_code/
+            || $source !~ /\bOk\(retirement_projection_row_fingerprint\(ordinal, endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code\)\)/
             || $source !~ /\bfn expected_retirement_projection_chunk_fingerprint_0001_0100\(\) -> Int/
             || $source !~ /\bexpected_retirement_projection_chunk_fingerprint_3001_3011\(\)/
             || $source !~ /\brequire_retirement_projection_chunk_fingerprint\(/;
@@ -1932,14 +1972,17 @@ sub run_self_test {
         . "\thttp2::hpack::decode_header_block(input, table, 4096)\n"
         . "\tOk(())\nend\n"
         . "fn expected_retirement_projection_manifest_sha() -> String\nend\n"
-        . "fn require_retirement_projection_row(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n"
-        . "\tif retirement_projection_row_dimensions_match(id, ordinal, endpoint_role, operation, branch, initial, setup, input, result_projection, post, output, diagnostic, projection_sha256, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code)\n"
-        . "\t\tOk(retirement_projection_row_fingerprint(ordinal, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n\telse\n\t\tErr(id)\n\tend\nend\n"
-        . "fn retirement_projection_row_dimensions_match(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Bool\n"
-        . "\tid != \"\" and ordinal > 0 and endpoint_role != \"\" and operation != \"\" and branch != \"\" and initial != \"\" and setup != \"\" and input != \"\" and result_projection != \"\" and post != \"\" and output != \"\" and diagnostic != \"\" and projection_sha256 != \"\" and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code > 0\n"
+        . "fn require_retirement_projection_row(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Result<Int, String>\n"
+        . "\tif retirement_projection_row_dimensions_match(id, ordinal, endpoint_role, operation, branch, initial, setup, input, result_projection, post, output, diagnostic, projection_sha256, endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code)\n"
+        . "\t\tOk(retirement_projection_row_fingerprint(ordinal, endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code, semantic_code))\n\telse\n\t\tErr(id)\n\tend\nend\n"
+        . "fn retirement_projection_row_dimensions_match(id: String, ordinal: Int, endpoint_role: String, operation: String, branch: String, initial: String, setup: String, input: String, result_projection: String, post: String, output: String, diagnostic: String, projection_sha256: String, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Bool\n"
+        . "\tid != \"\" and ordinal > 0 and endpoint_role != \"\" and operation != \"\" and branch != \"\" and initial != \"\" and setup != \"\" and input != \"\" and result_projection != \"\" and post != \"\" and output != \"\" and diagnostic != \"\" and projection_sha256 != \"\" and endpoint_role_code > 0 and operation_code > 0 and branch_code > 0 and initial_code > 0 and setup_code > 0 and input_code > 0 and result_code == ordinal and post_code > 0 and output_code > 0 and diagnostic_code > 0 and semantic_code == retirement_projection_row_semantic_code(endpoint_role_code, operation_code, branch_code, initial_code, setup_code, input_code, result_code, post_code, output_code, diagnostic_code)\n"
         . "end\n"
-        . "fn retirement_projection_row_fingerprint(ordinal: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n"
-        . "\tordinal * 13 + operation_code * 17 + branch_code * 19 + initial_code * 23 + setup_code * 29 + input_code * 31 + result_code * 37 + post_code * 41 + output_code * 43 + diagnostic_code * 47 + semantic_code * 53\n"
+        . "fn retirement_projection_row_semantic_code(endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int) -> Int\n"
+        . "\tendpoint_role_code * 59 + operation_code * 61 + branch_code * 67 + initial_code * 71 + setup_code * 73 + input_code * 79 + result_code * 83 + post_code * 89 + output_code * 97 + diagnostic_code * 101\n"
+        . "end\n"
+        . "fn retirement_projection_row_fingerprint(ordinal: Int, endpoint_role_code: Int, operation_code: Int, branch_code: Int, initial_code: Int, setup_code: Int, input_code: Int, result_code: Int, post_code: Int, output_code: Int, diagnostic_code: Int, semantic_code: Int) -> Int\n"
+        . "\tordinal * 13 + endpoint_role_code * 17 + operation_code * 19 + branch_code * 23 + initial_code * 29 + setup_code * 31 + input_code * 37 + result_code * 41 + post_code * 43 + output_code * 47 + diagnostic_code * 53 + semantic_code * 59\n"
         . "end\n"
         . "fn require_retirement_projection_chunk_fingerprint(id: String, observed: Int, expected: Int) -> Result<(), String>\n"
         . "\tif observed == expected\n\t\tOk(())\n\telse\n\t\tErr(id)\n\tend\nend\n"
@@ -1947,11 +1990,11 @@ sub run_self_test {
         . "fn expected_retirement_projection_chunk_fingerprint_0001_0100() -> Int\n\t1\nend\n"
         . "fn expected_retirement_projection_chunk_fingerprint_3001_3011() -> Int\n\t1\nend\n"
         . "fn require_retirement_projection_rows_0001_0020() -> Result<Int, String>\n"
-        . "\tlet declared_row_0001: Int = require_retirement_projection_row(\"http2-retirement-0001\", 1, \"peer\", \"receive_frame\", \"accepted\", \"role=peer;lifecycle=open\", \"create-connection-state\", \"operation=receive_frame\", \"row-0001:helper:caller:helper\", \"state-transition-exact\", \"public-core-receive\", \"not-applicable\", \"row=main.veln:1:helper|evidence=source#test(|invoke=receive_frame\", 1, 1, 1, 1, 1, 1, 1, 1, 1, 101)?\n"
+        . "\tlet declared_row_0001: Int = require_retirement_projection_row(\"http2-retirement-0001\", 1, \"peer\", \"receive_frame\", \"accepted\", \"role=peer;lifecycle=open\", \"create-connection-state\", \"operation=receive_frame\", \"row-0001:helper:caller:helper\", \"state-transition-exact\", \"public-core-receive\", \"not-applicable\", \"row=main.veln:1:helper|evidence=source#test(|invoke=receive_frame\", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 780)?\n"
         . "\tOk(declared_row_0001)\n"
         . "end\n"
         . "fn require_retirement_projection_rows_3001_3011() -> Result<Int, String>\n"
-        . "\tlet declared_row_3011: Int = require_retirement_projection_row(\"http2-retirement-3011\", 3011, \"server\", \"send_headers\", \"diagnostic-failure\", \"role=server;lifecycle=open\", \"build-header-list\", \"operation=send_headers\", \"row-3011:stdout:sample:result\", \"diagnostic-id-exact\", \"public-core-send\", \"checked-diagnostic-id\", \"row=case.toml:stdout:3011|evidence=source#test(|invoke=send_headers\", 2, 2, 2, 2, 2, 3011, 2, 2, 2, 202)?\n"
+        . "\tlet declared_row_3011: Int = require_retirement_projection_row(\"http2-retirement-3011\", 3011, \"server\", \"send_headers\", \"diagnostic-failure\", \"role=server;lifecycle=open\", \"build-header-list\", \"operation=send_headers\", \"row-3011:stdout:sample:result\", \"diagnostic-id-exact\", \"public-core-send\", \"checked-diagnostic-id\", \"row=case.toml:stdout:3011|evidence=source#test(|invoke=send_headers\", 2, 2, 2, 2, 2, 2, 3011, 2, 2, 2, 251307)?\n"
         . "\tOk(declared_row_3011)\n"
         . "end\n"
         . "test retirement_projection_manifest_chunk_0001_0100() -> Result<(), String>\n"

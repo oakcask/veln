@@ -5,9 +5,20 @@ repository_root="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 standard_root="$repository_root/crates/veln-stdlib/veln"
 
 cd "$standard_root"
-exec bash ../../../scripts/agent-run \
-  cargo run \
-  --manifest-path ../../../Cargo.toml \
-  --locked \
-  -p veln-cli \
-  -- test
+for target in \
+  prelude_test.veln \
+  http2/frame_test.veln \
+  http2/diagnostic_test.veln \
+  http2/hpack_test.veln \
+  http2/core_test.veln \
+  http2/retirement_output_evidence_test.veln \
+  http2/retirement_projection_evidence_test.veln
+do
+  bash ../../../scripts/agent-run \
+    cargo run \
+    --manifest-path ../../../Cargo.toml \
+    --locked \
+    -p veln-cli \
+    -- test \
+    "$target"
+done

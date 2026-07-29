@@ -929,14 +929,14 @@ diagnostic projections are current observable behavior. The retired route's
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
 which imports the public HTTP/2 core, frame, and HPACK modules, executes a
 small public codec/send boundary guard, checks every generated row through
-20-row public test groups, requires each row address and operation, branch,
-state, setup, input, post-state, output, diagnostic, and semantic projection
-code to be populated, requires each row projection code to match its ordinal,
-and verifies bounded chunk fingerprints, bounded chunk digests, plus the
-aggregate projection digest as standard-package tests. The semantic projection
-code is generated from the row's executable projection, result projection,
-post-state, output provenance, diagnostic precedence, and projection digest;
-the checker owns the row-level
+20-row public test groups, requires each row address and endpoint role,
+operation, branch, state, setup, input, post-state, output, diagnostic, and
+semantic projection code to be populated, requires each row projection code to
+match its ordinal, and verifies bounded chunk fingerprints, bounded chunk
+digests, plus the aggregate projection digest as standard-package tests. The
+generated Veln test recomputes each semantic projection code from the row's
+endpoint role, operation, branch, state, setup, input, projection, post-state,
+output, and diagnostic dimension codes; the checker owns the row-level
 executable-projection model: it rejects stale row bindings, hash-only recipes,
 operation substitutions, missing output provenance, and unclassified
 diagnostic or state-preservation dimensions before regenerating the Veln
