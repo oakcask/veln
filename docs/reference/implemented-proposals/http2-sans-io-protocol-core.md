@@ -55,11 +55,14 @@ executable projection recipe that binds the historical row to its
 focused evidence target, public operation, branch, initial state, concrete
 input, expected projection, post-state, output provenance, and diagnostic
 precedence rather than relying on an assertion hash alone.
-`retirement_projection_evidence_test.veln` runs bounded projection chunk
-digest checks plus the generated aggregate projection manifest digest as
-standard package tests. Generated expectation functions supply the expected
-chunk and aggregate digests, while the checker retains the row-level recipe
-validation and rejects stale or substituted row dimensions. Meanwhile,
+`retirement_projection_evidence_test.veln` runs bounded standard-package row
+tests for every generated scenario. Each row test carries the historical key,
+focused evidence target, endpoint role, public operation, branch, initial
+state, ordered setup, concrete input, result projection, output provenance,
+failure-atomicity classification, diagnostic precedence, required post-state,
+and row binding digest. The checker retains the row-level executable
+projection validation and rejects stale or substituted row dimensions.
+Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
 broad fixture implementation.

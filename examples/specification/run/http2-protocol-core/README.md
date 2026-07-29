@@ -22,8 +22,7 @@ The checked migration artifacts are:
 - `retirement-scenarios.jsonl`: row-addressable structured projection model.
 - `retirement-coverage.tsv`: generated dimension coverage report.
 - `retirement_projection_evidence_test.veln`: generated standard-package test
-  source that checks bounded projection chunk digests and the aggregate
-  projection manifest digest against generated expectation functions.
+  source that checks every retained row in bounded groups.
 
 The structured scenario model keeps stdout input facts as row labels,
 projections, frame facts, offsets, streams, sizes, byte counts, and diagnostic
@@ -34,9 +33,11 @@ initial state, ordered setup, concrete input, result projection, post-state,
 output provenance, and diagnostic precedence. The checker rejects
 assertion-hash-only recipes and operation substitutions so row evidence cannot
 collapse into shared assertion bodies. The generated standard-package test
-keeps this row set executable in bounded groups by checking chunk digests and
-the aggregate digest for the same retained rows through generated expectation
-functions.
+keeps this row set executable in bounded groups by checking each retained row's
+historical key, evidence target, endpoint role, operation, branch, initial
+state, setup, concrete input, result projection, output provenance,
+failure-atomicity classification, diagnostic precedence, required post-state,
+and binding digest.
 
 Regenerate and verify the structured files and generated test source with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run
