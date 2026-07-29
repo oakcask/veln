@@ -1,4 +1,25 @@
 use prelude
+use http2::core
+use http2::frame
+use http2::hpack
+
+fn require_retirement_projection_public_boundary() -> Result<(), String>
+	let frame_header: ByteChunk = http2::frame::encode_header(8, 6, 0, 0)?
+	let ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex("0102030405060708")?)
+	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::empty_header_list())
+	match http2::hpack::encode_header_block(headers, table, 4096)
+		Ok(encoded) => match http2::hpack::decode_header_block(byte_view(http2::hpack::header_block_encode_bytes(encoded), byte_offset(0)?, byte_chunk_count(http2::hpack::header_block_encode_bytes(encoded)))?, table, 4096)
+			Ok(decoded) => if byte_count_to_int(byte_chunk_count(frame_header)) == 9 and http2::core::ping_request_status(ping) == "accepted" and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(ping))) == 17 and http2::hpack::header_list_count(http2::hpack::header_block_headers(decoded)) == 1 and http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(http2::hpack::header_block_encode_bytes(encoded)))
+				Ok(())
+			else
+				Err("retirement projection public boundary mismatch")
+			end
+			Err(failure) => Err(http2::hpack::header_block_failure_kind(failure))
+		end
+		Err(failure) => Err(http2::hpack::header_block_encode_failure_kind(failure))
+	end
+end
 
 fn expected_retirement_projection_manifest_sha() -> String
 	"29dbec6c6bedbab6f42906a2bb2def5246111aa5e9c1ef4a91bc53a252603327"
@@ -309,6 +330,7 @@ test retirement_projection_manifest_chunk_3001_3011() -> Result<(), String>
 end
 
 test retirement_projection_manifest_digest() -> Result<(), String>
+	let public_boundary: () = require_retirement_projection_public_boundary()?
 	let checked: () = require_retirement_projection_manifest("http2-retirement-projection-manifest", 3011, "29dbec6c6bedbab6f42906a2bb2def5246111aa5e9c1ef4a91bc53a252603327")?
 	Ok(())
 end

@@ -927,11 +927,13 @@ diagnostic projections are current observable behavior. The retired route's
 `retirement-coverage.tsv` files are historical migration evidence checked by
 `scripts/check-http2-retirement-evidence`. The same generated model emits
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-which verifies bounded chunk digests and the aggregate projection digest as
-standard-package tests. The checker owns the row-level executable-projection
-validation: it rejects stale row bindings, hash-only recipes, operation
-substitutions, missing output provenance, and unclassified diagnostic or
-state-preservation dimensions before regenerating the Veln digest evidence.
+which imports the public HTTP/2 core, frame, and HPACK modules, executes a
+small public codec/send boundary guard, and verifies bounded chunk digests
+plus the aggregate projection digest as standard-package tests. The checker
+owns the row-level executable-projection validation: it rejects stale row
+bindings, hash-only recipes, operation substitutions, missing output
+provenance, and unclassified diagnostic or state-preservation dimensions
+before regenerating the Veln digest evidence.
 Retirement evidence may retain historical stdout values for inventory
 integrity, but current evidence targets must not route unsupported HPACK
 header blocks through `hpack.fixture.unsupported_header_block`; replacement

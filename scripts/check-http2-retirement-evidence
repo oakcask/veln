@@ -584,6 +584,27 @@ sub render_projection_evidence_source {
     my $digest = sha256_hex(join("\0", map { $_->{projection_sha256} } @$scenarios));
     my @lines = (
         "use prelude\n",
+        "use http2::core\n",
+        "use http2::frame\n",
+        "use http2::hpack\n",
+        "\n",
+        "fn require_retirement_projection_public_boundary() -> Result<(), String>\n",
+        "\tlet frame_header: ByteChunk = http2::frame::encode_header(8, 6, 0, 0)?\n",
+        "\tlet ping: PingRequestDecision = http2::core::send_ping(byte_chunk_from_hex(\"0102030405060708\")?)\n",
+        "\tlet table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?\n",
+        "\tlet headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(\":method\", byte_chunk_from_hex(\"474554\")?), http2::hpack::empty_header_list())\n",
+        "\tmatch http2::hpack::encode_header_block(headers, table, 4096)\n",
+        "\t\tOk(encoded) => match http2::hpack::decode_header_block(byte_view(http2::hpack::header_block_encode_bytes(encoded), byte_offset(0)?, byte_chunk_count(http2::hpack::header_block_encode_bytes(encoded)))?, table, 4096)\n",
+        "\t\t\tOk(decoded) => if byte_count_to_int(byte_chunk_count(frame_header)) == 9 and http2::core::ping_request_status(ping) == \"accepted\" and byte_count_to_int(byte_chunk_count(http2::core::ping_request_bytes(ping))) == 17 and http2::hpack::header_list_count(http2::hpack::header_block_headers(decoded)) == 1 and http2::hpack::header_block_consumed(decoded) == byte_count_to_int(byte_chunk_count(http2::hpack::header_block_encode_bytes(encoded)))\n",
+        "\t\t\t\tOk(())\n",
+        "\t\t\telse\n",
+        "\t\t\t\tErr(\"retirement projection public boundary mismatch\")\n",
+        "\t\t\tend\n",
+        "\t\t\tErr(failure) => Err(http2::hpack::header_block_failure_kind(failure))\n",
+        "\t\tend\n",
+        "\t\tErr(failure) => Err(http2::hpack::header_block_encode_failure_kind(failure))\n",
+        "\tend\n",
+        "end\n",
         "\n",
         "fn expected_retirement_projection_manifest_sha() -> String\n",
         "\t",
@@ -655,6 +676,7 @@ sub render_projection_evidence_source {
     }
     push @lines, "\n";
     push @lines, "test retirement_projection_manifest_digest() -> Result<(), String>\n";
+    push @lines, "\tlet public_boundary: () = require_retirement_projection_public_boundary()?\n";
     push @lines, "\tlet checked: () = require_retirement_projection_manifest(",
         veln_string("http2-retirement-projection-manifest"),
         ", ", scalar(@$scenarios),
@@ -758,6 +780,17 @@ sub validate_generated_projection_evidence {
         if $source !~ /\bfn expected_retirement_projection_chunk_sha_0001_0100\(\) -> String/;
     die "generated projection evidence omits manifest expected-value function\n"
         if $source !~ /\bfn expected_retirement_projection_manifest_sha\(\) -> String/;
+    die "generated projection evidence does not import public HTTP/2 modules\n"
+        if $source !~ /\buse http2::core\b/
+            || $source !~ /\buse http2::frame\b/
+            || $source !~ /\buse http2::hpack\b/;
+    die "generated projection evidence does not execute a public HTTP/2 projection boundary\n"
+        if $source !~ /\bfn require_retirement_projection_public_boundary\(\) -> Result<\(\), String>/
+            || $source !~ /\bhttp2::frame::encode_header\b/
+            || $source !~ /\bhttp2::core::send_ping\b/
+            || $source !~ /\bhttp2::hpack::encode_header_block\b/
+            || $source !~ /\bhttp2::hpack::decode_header_block\b/
+            || $source !~ /require_retirement_projection_public_boundary\(\)\?/;
     die "generated projection evidence still emits per-row recipe functions\n"
         if $source =~ /\bfn expected_retirement_projection_recipe_[0-9]{4}\(\) -> String/;
     die "generated projection evidence still emits per-row SHA functions\n"
@@ -1603,10 +1636,20 @@ sub run_self_test {
     die "self-test accepted executable projection with substituted invoke\n"
         if $wrong_invoke_projection_accepted;
     my $chunk_projection_source =
-        "fn expected_retirement_projection_manifest_sha() -> String\nend\n"
+        "use http2::core\n"
+        . "use http2::frame\n"
+        . "use http2::hpack\n"
+        . "fn require_retirement_projection_public_boundary() -> Result<(), String>\n"
+        . "\thttp2::frame::encode_header(8, 6, 0, 0)?\n"
+        . "\thttp2::core::send_ping(byte_chunk_from_hex(\"0102030405060708\")?)\n"
+        . "\thttp2::hpack::encode_header_block(headers, table, 4096)\n"
+        . "\thttp2::hpack::decode_header_block(input, table, 4096)\n"
+        . "\tOk(())\nend\n"
+        . "fn expected_retirement_projection_manifest_sha() -> String\nend\n"
         . "fn expected_retirement_projection_chunk_sha_0001_0100() -> String\nend\n"
         . "test retirement_projection_manifest_chunk_0001_0100() -> Result<(), String>\n"
         . "\trequire_retirement_projection_chunk(\"chunk\", 1, 100, 100, \"a\", expected_retirement_projection_chunk_sha_0001_0100())?\n"
+        . "\trequire_retirement_projection_public_boundary()?\n"
         . "\tOk(())\nend\n";
     validate_generated_projection_evidence($chunk_projection_source);
     my $row_projection_source =
