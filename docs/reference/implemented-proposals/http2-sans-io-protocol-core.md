@@ -73,10 +73,11 @@ standalone fixture-only artifact. The generated row checks run through
 setup, input, projection, post-state, output, diagnostic dimension, terminal
 row-detail code, executable-projection code, and a semantic code recomputed
 from those codes by the generated Veln test. The standard package test
-validates each row address, rejects empty dimension codes, requires row
-projection codes to match their ordinals, and compares each chunk's generated
-semantic fingerprint with an expected value, while the checker rejects stale
-or substituted row dimensions before regeneration.
+validates each row address, rejects empty dimension codes, requires setup,
+input, and result projection codes to resolve back to the declared row values,
+and compares each chunk's generated semantic fingerprint with an expected
+value, while the checker rejects stale or substituted row dimensions before
+regeneration.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the

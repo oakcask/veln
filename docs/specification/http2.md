@@ -931,9 +931,10 @@ which imports the public HTTP/2 core, frame, and HPACK modules, executes a
 small public codec/send boundary guard, checks every generated row through
 20-row public test groups, requires each row address and endpoint role,
 operation, branch, state, setup, input, post-state, output, diagnostic, and
-semantic projection code to be populated, requires each row projection code to
-match its ordinal, and verifies bounded chunk fingerprints, bounded chunk
-digests, plus the aggregate projection digest as standard-package tests. The
+semantic projection code to be populated, requires setup, input, and result
+projection codes to resolve back to the row's declared values, and verifies
+bounded chunk fingerprints, bounded chunk digests, plus the aggregate
+projection digest as standard-package tests. The
 generated Veln test recomputes each semantic projection code from the row's
 endpoint role, operation, branch, state, setup, input, projection, post-state,
 output, diagnostic, terminal row-detail, and executable-projection codes; the
