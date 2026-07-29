@@ -928,10 +928,12 @@ diagnostic projections are current observable behavior. The retired route's
 `scripts/check-http2-retirement-evidence`. The same generated model emits
 [`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
 which imports the public HTTP/2 core, frame, and HPACK modules, executes a
-small public codec/send boundary guard, checks every generated row's operation,
-branch, state, setup, input, projection, post-state, output, diagnostic
-dimension, and verifies bounded chunk digests plus the aggregate projection
-digest as standard-package tests. The checker owns the row-level
+small public codec/send boundary guard, checks every generated row's
+row-address, positive operation, branch, state, setup, input, post-state,
+output, and diagnostic dimension codes, requires each row projection code to
+match its ordinal, and verifies bounded chunk fingerprints, bounded chunk
+digests, plus the aggregate projection digest as standard-package tests. The
+checker owns the row-level
 executable-projection model: it rejects stale row bindings, hash-only recipes,
 operation substitutions, missing output provenance, and unclassified
 diagnostic or state-preservation dimensions before regenerating the Veln
