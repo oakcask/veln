@@ -931,9 +931,10 @@ which verifies every row in bounded groups as standard-package tests. Each
 generated row test carries the historical key, focused evidence target,
 endpoint role, public operation, branch, initial state, ordered setup,
 concrete input, result projection, output provenance, failure-atomicity
-classification, diagnostic precedence, required post-state, and row binding
-digest. The checker owns the executable-projection validation behind those
-bindings: it rejects stale row bindings, hash-only recipes, operation
+classification, diagnostic precedence, required post-state, executable
+projection, and row binding digest. The checker owns the
+executable-projection validation behind those bindings: it rejects stale row
+bindings, hash-only recipes, operation
 substitutions, missing output provenance, and unclassified diagnostic or
 state-preservation dimensions before regenerating the Veln row evidence.
 Retirement evidence may retain historical stdout values for inventory

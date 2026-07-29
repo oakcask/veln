@@ -596,12 +596,12 @@ sub render_projection_evidence_source {
         "\tend\n",
         "end\n",
         "\n",
-        "fn retirement_projection_row_matches(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, projection_sha256: String, expected_sha256: String) -> Bool\n",
-        "\tid != \"\" and historical_key != \"\" and evidence != \"\" and endpoint_role != \"\" and owning_operation != \"\" and operation_branch != \"\" and initial_state != \"\" and ordered_setup != \"\" and concrete_input != \"\" and result_projection != \"\" and output_provenance != \"\" and failure_atomicity != \"\" and diagnostic_precedence != \"\" and required_post_state != \"\" and projection_sha256 == expected_sha256\n",
+        "fn retirement_projection_row_matches(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Bool\n",
+        "\tid != \"\" and historical_key != \"\" and evidence != \"\" and endpoint_role != \"\" and owning_operation != \"\" and operation_branch != \"\" and initial_state != \"\" and ordered_setup != \"\" and concrete_input != \"\" and result_projection != \"\" and output_provenance != \"\" and failure_atomicity != \"\" and diagnostic_precedence != \"\" and required_post_state != \"\" and executable_projection != \"\" and projection_sha256 != \"\"\n",
         "end\n",
         "\n",
-        "fn require_retirement_projection_row(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, projection_sha256: String, expected_sha256: String) -> Result<(), String>\n",
-        "\tif retirement_projection_row_matches(id, historical_key, evidence, endpoint_role, owning_operation, operation_branch, initial_state, ordered_setup, concrete_input, result_projection, output_provenance, failure_atomicity, diagnostic_precedence, required_post_state, projection_sha256, expected_sha256)\n",
+        "fn require_retirement_projection_row(id: String, historical_key: String, evidence: String, endpoint_role: String, owning_operation: String, operation_branch: String, initial_state: String, ordered_setup: String, concrete_input: String, result_projection: String, output_provenance: String, failure_atomicity: String, diagnostic_precedence: String, required_post_state: String, executable_projection: String, projection_sha256: String) -> Result<(), String>\n",
+        "\tif retirement_projection_row_matches(id, historical_key, evidence, endpoint_role, owning_operation, operation_branch, initial_state, ordered_setup, concrete_input, result_projection, output_provenance, failure_atomicity, diagnostic_precedence, required_post_state, executable_projection, projection_sha256)\n",
         "\t\tOk(())\n",
         "\telse\n",
         "\t\tErr(id)\n",
@@ -635,7 +635,7 @@ sub render_projection_evidence_source {
                     $scenario->{failure_atomicity},
                     $scenario->{diagnostic_precedence},
                     $scenario->{required_post_state},
-                    $scenario->{projection_sha256},
+                    $scenario->{executable_projection},
                     $scenario->{projection_sha256},
                 )
             );
@@ -756,11 +756,15 @@ sub validate_generated_projection_evidence {
     die "generated projection evidence still emits old per-row SHA functions\n"
         if $source =~ /\bfn expected_retirement_projection_sha_[0-9]{4}\(\) -> String/;
     die "generated projection evidence lets row calls provide their own expected SHA literal\n"
-        if $source =~ /require_retirement_projection_row\("[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
+        if $source =~ /require_retirement_projection_row\([^)]*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
     die "generated projection evidence lets manifest calls provide their own expected SHA literal\n"
         if $source =~ /require_retirement_projection_manifest\("[^"]+",\s*[0-9]+,\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
+    die "generated projection evidence still accepts caller-supplied expected projection data\n"
+        if $source =~ /\bexpected_retirement_projection_(?:text|digest)_[0-9_]/
+            || $source =~ /expected_executable_projection: String/
+            || $source =~ /expected_sha256: String/;
     die "generated projection evidence omits row dimension arguments\n"
-        if $source !~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[0-9a-f]{64}",\s*"[0-9a-f]{64}"\)\?/;
+        if $source !~ /require_retirement_projection_row\("[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[^"]+",\s*"[0-9a-f]{64}"\)\?/;
 }
 
 sub projection_unescape {
@@ -1591,7 +1595,7 @@ sub run_self_test {
         if $wrong_invoke_projection_accepted;
     my $chunk_projection_source =
         "test retirement_projection_rows_0001_0100() -> Result<(), String>\n"
-        . "\trequire_retirement_projection_row(\"http2-retirement-0001\", \"case.toml:output_chunk_list:sample\", \"evidence#test\", \"local\", \"send_headers\", \"exact-output-success\", \"role=local;lifecycle=open\", \"create-connection-state\", \"operation=send_headers\", \"row-0001:output_chunk_list:sample\", \"public-core-send\", \"not-applicable\", \"not-applicable\", \"emitted-bytes-exact\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")?\n"
+        . "\trequire_retirement_projection_row(\"http2-retirement-0001\", \"case.toml:output_chunk_list:sample\", \"evidence#test\", \"local\", \"send_headers\", \"exact-output-success\", \"role=local;lifecycle=open\", \"create-connection-state\", \"operation=send_headers\", \"row-0001:output_chunk_list:sample\", \"public-core-send\", \"not-applicable\", \"not-applicable\", \"emitted-bytes-exact\", \"row=case.toml:output_chunk_list:sample|evidence=evidence#test|invoke=send_headers|branch=exact-output-success|initial=role=local;lifecycle=open|setup=create-connection-state|input=operation=send_headers|result=row-0001:output_chunk_list:sample|post=emitted-bytes-exact|output=public-core-send|diagnostic=not-applicable|output_table=sample\", \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\")?\n"
         . "\tOk(())\nend\n";
     validate_generated_projection_evidence($chunk_projection_source);
     my $digest_projection_source =

@@ -60,8 +60,9 @@ tests for every generated scenario. Each row test carries the historical key,
 focused evidence target, endpoint role, public operation, branch, initial
 state, ordered setup, concrete input, result projection, output provenance,
 failure-atomicity classification, diagnostic precedence, required post-state,
-and row binding digest. The checker retains the row-level executable
-projection validation and rejects stale or substituted row dimensions.
+executable projection, and row binding digest. The checker retains the
+row-level executable projection validation and rejects stale or substituted
+row dimensions.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
