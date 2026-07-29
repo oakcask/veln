@@ -937,7 +937,11 @@ checker owns the row-level
 executable-projection model: it rejects stale row bindings, hash-only recipes,
 operation substitutions, missing output provenance, and unclassified
 diagnostic or state-preservation dimensions before regenerating the Veln
-evidence.
+evidence. Rows bound to `retirement_output_evidence_test.veln` are checked
+against the named test and helper bodies reachable from that test, not the
+whole output-evidence file. Historical stdout rows that describe retained
+output chunks route to the same named test as the matching output-table
+assertion.
 Retirement evidence may retain historical stdout values for inventory
 integrity, but current evidence targets must not route unsupported HPACK
 header blocks through `hpack.fixture.unsupported_header_block`; replacement

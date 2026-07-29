@@ -19,6 +19,9 @@ prefix. Current behavior starts at
 The checked migration artifacts are:
 
 - `retirement-evidence.tsv`: historical row binding to executable evidence.
+  Rows that use `retirement_output_evidence_test.veln` are hashed against the
+  named test and the helper bodies reachable from that test, not the whole
+  output-evidence file.
 - `retirement-scenarios.jsonl`: row-addressable structured projection model.
 - `retirement-coverage.tsv`: generated dimension coverage report.
 - `retirement_projection_evidence_test.veln`: generated standard-package test
@@ -33,10 +36,12 @@ historical row, focused evidence target, public operation to invoke, branch,
 initial state, ordered setup, concrete input, result projection, post-state,
 output provenance, and diagnostic precedence. The checker rejects
 assertion-hash-only recipes and operation substitutions so row evidence cannot
-collapse into shared assertion bodies. The generated standard-package test
-keeps this row set executable in bounded groups by checking chunk digests and
-the aggregate digest for the same retained rows through generated expectation
-functions.
+collapse into unrelated assertion bodies. Output stdout rows are routed to the
+same output-evidence test that contains the retained output-table assertion
+for their table name, and relevance checks inspect only that reachable
+assertion source. The generated standard-package test keeps this row set
+executable in bounded groups by checking chunk digests and the aggregate
+digest for the same retained rows through generated expectation functions.
 
 Regenerate and verify the structured files and generated test source with
 `scripts/check-http2-retirement-evidence --regenerate-structured`, then run

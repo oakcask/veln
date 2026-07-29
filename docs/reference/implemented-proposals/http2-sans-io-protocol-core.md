@@ -54,7 +54,13 @@ public `std::http2::hpack` failure surface rather than
 executable projection recipe that binds the historical row to its
 focused evidence target, public operation, branch, initial state, concrete
 input, expected projection, post-state, output provenance, and diagnostic
-precedence rather than relying on an assertion hash alone.
+precedence rather than relying on an assertion hash alone. Rows that target
+`retirement_output_evidence_test.veln` are hashed and checked against the
+named test plus the helper bodies reachable from that test, so stdout and
+output rows cannot satisfy relevance checks from unrelated tests in the same
+file. Historical stdout lines that describe retained output chunks route to
+the output-evidence test containing the matching retained output-table
+assertion.
 `retirement_projection_evidence_test.veln` runs bounded projection chunk
 row checks, bounded projection chunk fingerprint checks, bounded projection
 chunk digest checks, and the generated aggregate projection manifest digest as
@@ -72,4 +78,5 @@ checker rejects stale or substituted row dimensions before regeneration.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
-broad fixture implementation.
+broad fixture implementation. Its output evidence remains shared only through
+reachable helper code used by the named test.

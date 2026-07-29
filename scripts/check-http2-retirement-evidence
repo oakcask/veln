@@ -989,7 +989,7 @@ sub evidence_assertion {
                 "crates/veln-stdlib/veln/http2/retirement_output_evidence_test.veln"
         ) {
             validate_retirement_output_implementation($source);
-            return $source;
+            return veln_reachable_assertion_source($body, $source);
         }
         return $body;
     }
@@ -1156,6 +1156,27 @@ sub validate_retirement_output_implementation {
             || $source !~ /let last_stream_id: Int = if name == "http2-priority-after-narrow-local-goaway-late" 3 else 5 end/
             || $source !~ /outbound_stream_control_failure_stream_id\(failure\)\s*==\s*stream_id/s
             || $source !~ /outbound_stream_control_failure_last_stream_id\(failure\)\s*==\s*last_stream_id/s;
+}
+
+sub veln_reachable_assertion_source {
+    my ($body, $source) = @_;
+    my @pending = ($body);
+    my @ordered = ($body);
+    my %visited;
+
+    while (@pending) {
+        my $current = shift @pending;
+        for my $callee ($current =~ /\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g) {
+            next if $visited{$callee}++;
+            my ($helper) =
+                $source =~ /(^fn \Q$callee\E\(.*?)(?=^(?:pub )?fn |^test |\z)/ms;
+            next if !defined $helper;
+            push @ordered, $helper;
+            push @pending, $helper;
+        }
+    }
+
+    return join("\n", @ordered);
 }
 
 sub validate_veln_test {
