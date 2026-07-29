@@ -922,27 +922,9 @@ The broad `http2-protocol-core` implementation is retired and is not current
 HTTP/2 behavior. Focused `http2-core-*` cases cover state transitions,
 emitted bytes, and failure atomicity through the public core. Focused
 `http2-protocol-core-*` cases remain only where their human and JSON
-diagnostic projections are current observable behavior. The retired route's
-`retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
-`retirement-coverage.tsv` files are historical migration evidence checked by
-`scripts/check-http2-retirement-evidence`. The same generated model emits
-[`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-which covers every row in bounded groups as standard-package tests. The Veln
-row checks validate the historical row kind, the generated public operation,
-and the operation field parsed from the executable projection, and the
-manifest check crosses the public `http2::core` and `http2::hpack`
-boundaries. Each generated row test carries the historical key, focused evidence target,
-endpoint role, public operation, branch, initial state, ordered setup,
-concrete input, result projection, output provenance, failure-atomicity
-classification, diagnostic precedence, required post-state, executable
-projection, and row binding digest. The checker owns the
-executable-projection validation behind those bindings: it rejects stale row
-bindings, hash-only recipes, operation substitutions, missing output
-provenance, mismatched projection fields, and unclassified diagnostic or
-state-preservation dimensions before regenerating the Veln row evidence.
-Retirement evidence may retain historical stdout values for inventory
-integrity, but current evidence targets must not route unsupported HPACK
-header blocks through `hpack.fixture.unsupported_header_block`; replacement
-evidence for those rows uses public `std::http2::hpack` decode failures.
-These artifacts bind the historical rows to focused evidence and public
-operation dimensions without restoring a reusable fixture implementation.
+diagnostic projections are current observable behavior. Migration-only
+retirement inventories, generated row tests, and the checker that read the
+deleted broad fixture from history are no longer part of the specification
+evidence. Unsupported HPACK header blocks are specified through public
+`std::http2::hpack` decode failures, not
+`hpack.fixture.unsupported_header_block` compatibility.
