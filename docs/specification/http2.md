@@ -930,16 +930,19 @@ diagnostic projections are current observable behavior. The retired route's
 which imports the public HTTP/2 core, frame, and HPACK modules, executes a
 small public codec/send boundary guard, checks every generated row through
 20-row public test groups, requires each row address and endpoint role,
-operation, branch, state, setup, input, post-state, output, diagnostic, and
-semantic projection code to be populated, requires setup, input, and result
-projection codes to resolve back to the row's declared values, and verifies
-bounded chunk fingerprints, bounded chunk digests, plus the aggregate
+operation, branch, state, setup, input, post-state, output, diagnostic,
+terminal detail, executable-projection, and semantic projection fields to be
+populated, requires setup, input, result projection, terminal detail, and
+executable-projection codes to resolve back to the row's declared values, and
+verifies bounded chunk fingerprints, bounded chunk digests, plus the aggregate
 projection digest as standard-package tests. The
 generated Veln test recomputes each semantic projection code from the row's
 endpoint role, operation, branch, state, setup, input, projection, post-state,
 output, diagnostic, terminal row-detail, and executable-projection codes; the
-checker owns the row-level executable-projection model: it rejects stale row
-bindings, hash-only recipes, operation substitutions, missing output provenance, and unclassified
+checker owns the row-level executable-projection model and emits the value
+tables used by the generated test to reject substituted terminal details or
+executable-projection strings. It also rejects stale row bindings, hash-only
+recipes, operation substitutions, missing output provenance, and unclassified
 diagnostic or state-preservation dimensions before regenerating the Veln
 evidence. Rows bound to `retirement_output_evidence_test.veln` are checked
 against the named test and helper bodies reachable from that test, not the

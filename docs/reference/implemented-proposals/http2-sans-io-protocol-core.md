@@ -50,11 +50,12 @@ evidence test, and rejects unclassified, stale, or unsupported HPACK fixture
 compatibility evidence targets. Historical values remain in the inventory, but
 current replacement evidence for unsupported HPACK header blocks must use the
 public `std::http2::hpack` failure surface rather than
-`hpack.fixture.unsupported_header_block`. Each generated scenario has an
-executable projection recipe that binds the historical row to its
+`hpack.fixture.unsupported_header_block`. Each generated scenario records a
+row-addressed executable-projection model that binds the historical row to its
 focused evidence target, public operation, branch, initial state, concrete
-input, expected projection, post-state, output provenance, and diagnostic
-precedence rather than relying on an assertion hash alone. Rows that target
+input, expected projection, post-state, output provenance, diagnostic
+precedence, and terminal row detail rather than relying on an assertion hash
+alone. Rows that target
 `retirement_output_evidence_test.veln` are hashed and checked against the
 named test plus the helper bodies reachable from that test, so stdout and
 output rows cannot satisfy relevance checks from unrelated tests in the same
@@ -71,13 +72,14 @@ encode/decode, and PING send projection so the evidence cannot compile as a
 standalone fixture-only artifact. The generated row checks run through
 20-row groups. Each row carries the endpoint role, operation, branch, state,
 setup, input, projection, post-state, output, diagnostic dimension, terminal
-row-detail code, executable-projection code, and a semantic code recomputed
-from those codes by the generated Veln test. The standard package test
-validates each row address, rejects empty dimension codes, requires setup,
-input, and result projection codes to resolve back to the declared row values,
-and compares each chunk's generated semantic fingerprint with an expected
-value, while the checker rejects stale or substituted row dimensions before
-regeneration.
+row-detail string and code, executable-projection string and code, and a
+semantic code recomputed from those codes by the generated Veln test. The
+standard package test validates each row address, rejects empty detail and
+executable-projection values, requires setup, input, result projection,
+terminal detail, and executable-projection codes to resolve back to the
+declared row values, and compares each chunk's generated semantic fingerprint
+with an expected value, while the checker rejects stale or substituted row
+dimensions before regeneration.
 Meanwhile,
 `retirement_output_evidence_test.veln` validates the historical output bytes
 through the production frame and public HPACK codecs without restoring the
