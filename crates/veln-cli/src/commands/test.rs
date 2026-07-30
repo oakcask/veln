@@ -44,47 +44,61 @@ pub(crate) fn test(
     attach_doctest_expectations(&mut cases, &analysis.doctest_expectations);
     let mut suite_errors = Vec::new();
     let diagnostics = analysis.semantic_diagnostics();
+    let diagnostics_have_errors = has_error(&diagnostics);
 
-    if cases.is_empty() && !has_error(&diagnostics) {
+    if cases.is_empty() && !diagnostics_have_errors {
         suite_errors.push(SuiteError::discovery(
             "no test declarations were discovered",
         ));
     }
 
-    if has_error(&diagnostics) {
-        for case in &mut cases {
-            case.status = TestCaseStatus::Blocked;
-            case.reason = Some("static_gate".to_string());
-        }
-    } else if suite_errors.is_empty() {
-        let reusable_program = analysis.reusable_standard_ir().map(|ir| {
-            generate_classfiles_with_test_entries(
-                ir,
-                &cases
-                    .iter()
-                    .map(|case| case.name.clone())
-                    .collect::<Vec<_>>(),
+    let mut analysis_slot = Some(analysis);
+    process_discovered_test_cases(
+        &mut cases,
+        diagnostics_have_errors,
+        suite_errors.is_empty(),
+        |runnable_cases| {
+            let analysis = analysis_slot
+                .take()
+                .expect("analysis state should be available before test execution");
+            let reusable_program = analysis.reusable_standard_ir().map(|ir| {
+                generate_classfiles_with_test_entries(
+                    ir,
+                    &runnable_cases
+                        .iter()
+                        .map(|case| case.name.clone())
+                        .collect::<Vec<_>>(),
+                )
+            });
+            let active_jobs = resolve_test_jobs(jobs, runnable_cases.len(), || {
+                std::thread::available_parallelism().ok()
+            });
+            let analysis_mutex = Mutex::new(analysis);
+            let cases = run_test_case_jobs(
+                runnable_cases,
+                active_jobs,
+                |case| {
+                    let analysis = analysis_mutex
+                        .lock()
+                        .map_err(|_| "test analysis state was poisoned".to_string())?;
+                    Ok(prepare_test_case_job(
+                        &analysis,
+                        reusable_program.as_ref(),
+                        case,
+                    ))
+                },
+                execute_test_case_job,
             )
-        });
-        let active_jobs = resolve_test_jobs(jobs, cases.len(), || {
-            std::thread::available_parallelism().ok()
-        });
-        let analysis_mutex = Mutex::new(analysis);
-        let jobs = std::mem::take(&mut cases);
-        cases = run_ordered_bounded(jobs, active_jobs, |case| {
-            let prepared = {
-                let analysis = analysis_mutex
-                    .lock()
-                    .map_err(|_| "test analysis state was poisoned".to_string())?;
-                prepare_test_case_job(&analysis, reusable_program.as_ref(), case)
-            };
-            execute_test_case_job(prepared)
-        })
-        .map_err(test_scheduler_error)?;
-        analysis = analysis_mutex
-            .into_inner()
-            .map_err(|_| "test analysis state was poisoned".to_string())?;
-    }
+            .map_err(test_scheduler_error)?;
+            analysis_slot = Some(
+                analysis_mutex
+                    .into_inner()
+                    .map_err(|_| "test analysis state was poisoned".to_string())?,
+            );
+            Ok::<_, String>(cases)
+        },
+    )?;
+    analysis = analysis_slot.expect("analysis state should be available after test execution");
 
     let report = TestReport::new(
         TestSelection::new(&analysis.project, &test_files, explicit)
@@ -131,6 +145,42 @@ fn test_scheduler_error(error: SchedulerError<String>) -> String {
         SchedulerError::Job(message) => message,
         SchedulerError::WorkerPanicked => "test scheduler worker panicked".to_string(),
     }
+}
+
+fn process_discovered_test_cases<E, Run>(
+    cases: &mut Vec<TestCase>,
+    diagnostics_have_errors: bool,
+    suite_can_run: bool,
+    run: Run,
+) -> Result<(), E>
+where
+    Run: FnOnce(Vec<TestCase>) -> Result<Vec<TestCase>, E>,
+{
+    if diagnostics_have_errors {
+        for case in cases {
+            case.status = TestCaseStatus::Blocked;
+            case.reason = Some("static_gate".to_string());
+        }
+    } else if suite_can_run {
+        let runnable_cases = std::mem::take(cases);
+        *cases = run(runnable_cases)?;
+    }
+    Ok(())
+}
+
+fn run_test_case_jobs<P, E, Prepare, Execute>(
+    cases: Vec<TestCase>,
+    active_jobs: usize,
+    prepare: Prepare,
+    execute: Execute,
+) -> Result<Vec<TestCase>, SchedulerError<E>>
+where
+    P: Send,
+    E: Send,
+    Prepare: Fn(TestCase) -> Result<P, E> + Sync,
+    Execute: Fn(P) -> Result<TestCase, E> + Sync,
+{
+    run_ordered_bounded(cases, active_jobs, |case| execute(prepare(case)?))
 }
 
 fn selection_plan(
@@ -183,8 +233,15 @@ fn selection_plan(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_test_jobs;
+    use super::process_discovered_test_cases;
+    use super::{SchedulerError, resolve_test_jobs, run_test_case_jobs};
+    use std::collections::BTreeSet;
     use std::num::NonZeroUsize;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Condvar, Mutex};
+    use veln_diagnostics::JsonValue;
+    use veln_source::{SourceFile, TextRange};
+    use veln_test::{TestCase, TestCaseSource, TestCaseStatus, TestFailure};
 
     #[test]
     fn resolves_worker_count_from_explicit_automatic_fallback_and_case_count() {
@@ -202,6 +259,200 @@ mod tests {
             });
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn production_case_orchestration_obeys_selected_bound_and_preserves_order() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let max_active = Arc::new(AtomicUsize::new(0));
+        let gate = Arc::new((Mutex::new(BTreeSet::new()), Condvar::new()));
+
+        let cases = named_cases(["alpha", "beta", "gamma"]);
+        let records = run_test_case_jobs(cases, 2, Ok::<_, ()>, {
+            let active = Arc::clone(&active);
+            let max_active = Arc::clone(&max_active);
+            let gate = Arc::clone(&gate);
+            move |mut case: TestCase| {
+                let now_active = active.fetch_add(1, Ordering::SeqCst) + 1;
+                max_active.fetch_max(now_active, Ordering::SeqCst);
+
+                let (lock, cvar) = &*gate;
+                let mut started = lock.lock().expect("started set should lock");
+                started.insert(case.name.clone());
+                cvar.notify_all();
+                while started.len() < 2 {
+                    started = cvar.wait(started).expect("started set should lock");
+                }
+                drop(started);
+
+                case.events
+                    .push(JsonValue::string(format!("{} out", case.name)));
+                active.fetch_sub(1, Ordering::SeqCst);
+                Ok::<_, ()>(case)
+            }
+        })
+        .expect("case orchestration should complete");
+
+        assert_eq!(case_names(&records), ["alpha", "beta", "gamma"]);
+        assert_eq!(max_active.load(Ordering::SeqCst), 2);
+        assert_eq!(records[0].events, [JsonValue::string("alpha out")]);
+        assert_eq!(records[1].events, [JsonValue::string("beta out")]);
+        assert_eq!(records[2].events, [JsonValue::string("gamma out")]);
+    }
+
+    #[test]
+    fn production_case_orchestration_keeps_jobs_serial_when_bound_is_one() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let max_active = Arc::new(AtomicUsize::new(0));
+
+        let records =
+            run_test_case_jobs(named_cases(["alpha", "beta", "gamma"]), 1, Ok::<_, ()>, {
+                let active = Arc::clone(&active);
+                let max_active = Arc::clone(&max_active);
+                move |case: TestCase| {
+                    let now_active = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    max_active.fetch_max(now_active, Ordering::SeqCst);
+                    active.fetch_sub(1, Ordering::SeqCst);
+                    Ok::<_, ()>(case)
+                }
+            })
+            .expect("case orchestration should complete");
+
+        assert_eq!(case_names(&records), ["alpha", "beta", "gamma"]);
+        assert_eq!(max_active.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn production_case_orchestration_reports_mixed_results_in_discovered_order() {
+        let records = run_test_case_jobs(
+            named_cases(["pass", "fail", "blocked", "doctest", "runner"]),
+            3,
+            Ok::<_, ()>,
+            |mut case| {
+                match case.name.as_str() {
+                    "pass" => {}
+                    "fail" => {
+                        case.status = TestCaseStatus::Failed;
+                        case.reason = Some("runtime_failure".to_string());
+                        case.failure = Some(TestFailure::result("bad".to_string(), None));
+                    }
+                    "blocked" => {
+                        case.status = TestCaseStatus::Blocked;
+                        case.reason = Some("static_gate".to_string());
+                    }
+                    "doctest" => {
+                        case.kind = "doctest".to_string();
+                    }
+                    "runner" => {
+                        case.status = TestCaseStatus::Error;
+                        case.reason = Some("runner_error".to_string());
+                        case.failure = Some(TestFailure::runtime("java not found"));
+                    }
+                    _ => panic!("unexpected case"),
+                }
+                Ok::<_, ()>(case)
+            },
+        )
+        .expect("case orchestration should complete");
+
+        assert_eq!(
+            case_names(&records),
+            ["pass", "fail", "blocked", "doctest", "runner"]
+        );
+        assert_eq!(records[0].status, TestCaseStatus::Passed);
+        assert_eq!(records[1].status, TestCaseStatus::Failed);
+        assert_eq!(
+            records[1]
+                .failure
+                .as_ref()
+                .map(|failure| failure.kind.as_str()),
+            Some("result")
+        );
+        assert_eq!(records[2].status, TestCaseStatus::Blocked);
+        assert_eq!(records[3].kind, "doctest");
+        assert_eq!(records[3].status, TestCaseStatus::Passed);
+        assert_eq!(records[4].status, TestCaseStatus::Error);
+        assert_eq!(records[4].reason.as_deref(), Some("runner_error"));
+    }
+
+    #[test]
+    fn static_gate_blocks_cases_without_starting_runnable_workers() {
+        let worker_starts = AtomicUsize::new(0);
+        let mut cases = named_cases(["alpha", "beta"]);
+        process_discovered_test_cases(&mut cases, true, true, |runnable_cases| {
+            worker_starts.fetch_add(runnable_cases.len(), Ordering::SeqCst);
+            Ok::<_, ()>(runnable_cases)
+        })
+        .expect("static gate should not fail");
+
+        assert_eq!(worker_starts.load(Ordering::SeqCst), 0);
+        assert!(
+            cases
+                .iter()
+                .all(|case| case.status == TestCaseStatus::Blocked
+                    && case.reason.as_deref() == Some("static_gate"))
+        );
+    }
+
+    #[test]
+    fn production_case_orchestration_joins_all_workers_after_error() {
+        let completed = Arc::new(AtomicUsize::new(0));
+        let result = run_test_case_jobs(named_cases(["alpha", "beta", "gamma", "delta"]), 2, Ok, {
+            let completed = Arc::clone(&completed);
+            move |case: TestCase| {
+                completed.fetch_add(1, Ordering::SeqCst);
+                if case.name == "beta" {
+                    Err("injected orchestration failure")
+                } else {
+                    Ok(case)
+                }
+            }
+        });
+
+        match result {
+            Err(SchedulerError::Job("injected orchestration failure")) => {}
+            _ => panic!("expected injected orchestration failure"),
+        }
+        assert_eq!(completed.load(Ordering::SeqCst), 4);
+    }
+
+    fn named_cases<const N: usize>(names: [&str; N]) -> Vec<TestCase> {
+        names
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| test_case(index + 1, name))
+            .collect()
+    }
+
+    fn test_case(index: usize, name: &str) -> TestCase {
+        let source = SourceFile::new("main_test.veln", format!("test {name}() -> ()\nend\n"));
+        let span = source.span(TextRange::new(0, source.len()));
+        TestCase {
+            id: format!("case-{index}"),
+            name: name.to_string(),
+            kind: "test".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main_test.veln".to_string(),
+                node_id: format!("test-{index}"),
+                span,
+            },
+            reason: None,
+            failure: None,
+            expected_output: None,
+            expected_runtime_failure: None,
+            events: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn case_names<const N: usize>(cases: &[TestCase]) -> [&str; N] {
+        cases
+            .iter()
+            .map(|case| case.name.as_str())
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("case count should match expected names")
     }
 }
 

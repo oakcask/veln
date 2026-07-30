@@ -14,9 +14,7 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-- [Parallel Test Execution](parallel-test-execution.md): use bounded,
-  CPU-aware case scheduling while preserving deterministic reports, static
-  gates, and a serial compatibility route.
+No active proposals are currently cataloged here.
 
 ## Selection Rule
 
