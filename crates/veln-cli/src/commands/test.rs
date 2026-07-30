@@ -234,6 +234,7 @@ fn selection_plan(
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::process_discovered_test_cases;
     use super::{

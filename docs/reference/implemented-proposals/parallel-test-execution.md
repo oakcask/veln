@@ -9,7 +9,7 @@ the specification pages and executable examples for current command behavior.
 
 - Current command behavior:
   [../../specification/commands.md](../../specification/commands.md), then
-  [../../specification/commands-full.md#veln-test---json--j-jobs---jobs-jobs-target-](../../specification/commands-full.md#veln-test---json--j-jobs---jobs-jobs-target-)
+  [../../specification/commands-full.md#veln-test---json--j---jobs-target](../../specification/commands-full.md#veln-test---json--j---jobs-target)
   when exact command rules matter.
 - Test JSON behavior:
   [../../specification/test-json.md](../../specification/test-json.md).
