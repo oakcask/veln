@@ -918,13 +918,14 @@ concatenated bytes. The focused
 [`http2-core-output-buffer`](../../examples/specification/run/http2-core-output-buffer/)
 case records ordered chunks, combined bytes, and failure/no-response
 non-append behavior through the public facade.
-The retired `http2-protocol-core` route is no longer an executable case.
-Focused `http2-core-*` cases cover state transitions and emitted bytes, while
-focused `http2-protocol-core-*` cases retain human and JSON diagnostic
-coverage. The retained retirement-output evidence checks frame and HPACK codec
-reconstruction, selected production send and response failures, and unchanged
-output for rejected decisions. Its manifest preserves the complete historical
-output inventory and binds each row to checked source. Complete item-specific
-equivalence, including production-derived bytes and historical setup state for
-every row, remains planned in
-[`http2-standard-library-completion-and-fixture-retirement.md`](../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+The broad `http2-protocol-core` implementation is retired and is not current
+HTTP/2 behavior. Focused `http2-core-*` cases cover state transitions,
+emitted bytes, and failure atomicity through the public core. Focused
+`http2-protocol-core-*` cases remain only where their human and JSON
+diagnostic projections are current observable behavior. Standard-package
+`frame_test.veln`, `diagnostic_test.veln`, `hpack_test.veln`, and
+`core_test.veln` cover the public modules without reading the retired fixture
+or a historical migration manifest. The migration-only inventories,
+generator, checker, and generated retirement tests were removed after this
+independent coverage passed. The completion boundary is recorded in
+[`http2-standard-library-completion-and-fixture-retirement.md`](../reference/implemented-proposals/http2-standard-library-completion-and-fixture-retirement.md).

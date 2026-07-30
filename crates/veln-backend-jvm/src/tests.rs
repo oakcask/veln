@@ -761,11 +761,31 @@ fn bytecode_backend_dispatches_reusable_test_entries_when_java_is_available() {
     };
     let beta = run_jvm_program_when_java_is_available("bytecode-test-beta", &program, &["beta"])
         .expect("the same Java runtime should remain available");
+    let all =
+        run_jvm_program_when_java_is_available("bytecode-test-all", &program, &["alpha", "beta"])
+            .expect("the same Java runtime should remain available");
 
-    assert!(alpha.status.success());
-    assert!(beta.status.success());
+    assert!(
+        alpha.status.success(),
+        "alpha stdout={} stderr={}",
+        String::from_utf8_lossy(&alpha.stdout),
+        String::from_utf8_lossy(&alpha.stderr)
+    );
+    assert!(
+        beta.status.success(),
+        "beta stdout={} stderr={}",
+        String::from_utf8_lossy(&beta.stdout),
+        String::from_utf8_lossy(&beta.stderr)
+    );
+    assert!(
+        all.status.success(),
+        "all stdout={} stderr={}",
+        String::from_utf8_lossy(&all.stdout),
+        String::from_utf8_lossy(&all.stderr)
+    );
     assert_eq!(String::from_utf8_lossy(&alpha.stdout), "alpha\n");
     assert_eq!(String::from_utf8_lossy(&beta.stdout), "beta\n");
+    assert_eq!(String::from_utf8_lossy(&all.stdout), "alpha\nbeta\n");
 }
 
 #[test]

@@ -2547,19 +2547,18 @@ mod tests {
 
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         for entry in [
-            "retirement_output_connection_framing",
-            "retirement_output_hpack_table_size",
-            "retirement_output_settings",
-            "retirement_output_shutdown",
+            "receive_frame_dispatch_decodes_headers_with_production_hpack",
+            "outbound_request_headers_send_emits_hpack_bytes_and_creates_stream",
+            "output_buffer_preserves_successful_send_order",
+            "goaway_send_emits_exact_bytes_and_updates_shutdown_immutably",
         ] {
             assert!(
                 module.functions.iter().any(|function| {
-                    function.module_name.as_deref()
-                        == Some("std::http2::retirement_output_evidence_test")
+                    function.module_name.as_deref() == Some("std::http2::core_test")
                         && function.name.as_deref() == Some(entry)
                         && function.kind == FunctionKind::Test
                 }),
-                "{entry} should load from the standard HTTP/2 retirement evidence module"
+                "{entry} should load from the standard HTTP/2 core test module"
             );
         }
     }
