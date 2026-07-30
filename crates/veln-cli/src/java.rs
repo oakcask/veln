@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, ExitCode, ExitStatus, Output};
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const JVM_CACHE_MARKER: &str = ".veln-cache-ok";
@@ -83,16 +84,30 @@ fn ensure_cached_jvm_classes_in(
     cache_root: &Path,
     program: &veln_backend_jvm::JvmProgram,
 ) -> Result<CachedJvmClasses, String> {
+    ensure_cached_jvm_classes_in_with_hooks(cache_root, program, &NoJvmCacheHooks)
+}
+
+fn ensure_cached_jvm_classes_in_with_hooks(
+    cache_root: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+    hooks: &dyn JvmCacheHooks,
+) -> Result<CachedJvmClasses, String> {
     fs::create_dir_all(cache_root).map_err(|error| error.to_string())?;
     let key = jvm_class_cache_key(program);
     let cache_dir = cache_root.join(&key);
+    let lock_dir = cache_lock_dir(cache_root, &key);
 
     for _ in 0..JVM_CACHE_PREPARE_ATTEMPTS {
-        if validated_cache_exists(&cache_dir, program)? {
-            return Ok(CachedJvmClasses::Ready(cache_dir));
+        {
+            let _lock = JvmCacheLock::acquire(&lock_dir).map_err(|error| error.to_string())?;
+            hooks.after_initial_lock();
+            if validated_cache_exists(&cache_dir, program)? {
+                return Ok(CachedJvmClasses::Ready(cache_dir));
+            }
+            remove_invalid_cache(&cache_dir)?;
         }
 
-        remove_invalid_cache(&cache_dir)?;
+        hooks.before_prepare();
         let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program)? {
             CacheCompilePreparation::Ready(path) => path,
             CacheCompilePreparation::ToolError(message) => {
@@ -100,6 +115,8 @@ fn ensure_cached_jvm_classes_in(
             }
         };
 
+        hooks.before_publish_lock();
+        let _lock = JvmCacheLock::acquire(&lock_dir).map_err(|error| error.to_string())?;
         match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program)? {
             CachePublish::Published | CachePublish::ReusedValidated => {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
@@ -110,6 +127,16 @@ fn ensure_cached_jvm_classes_in(
 
     Err("could not prepare validated JVM class cache entry".to_string())
 }
+
+trait JvmCacheHooks {
+    fn after_initial_lock(&self) {}
+    fn before_prepare(&self) {}
+    fn before_publish_lock(&self) {}
+}
+
+struct NoJvmCacheHooks;
+
+impl JvmCacheHooks for NoJvmCacheHooks {}
 
 enum CacheCompilePreparation {
     Ready(PathBuf),
@@ -233,6 +260,12 @@ fn publish_cached_jvm_classes(
     cache_dir: &Path,
     program: &veln_backend_jvm::JvmProgram,
 ) -> io::Result<CachePublish> {
+    if validate_cached_jvm_classes(cache_dir, program)? {
+        fs::remove_dir_all(compile_dir)?;
+        return Ok(CachePublish::ReusedValidated);
+    }
+    remove_invalid_cache_io(cache_dir)?;
+
     match fs::rename(compile_dir, cache_dir) {
         Ok(()) => Ok(CachePublish::Published),
         Err(error) if is_cache_publish_collision(&error) => {
@@ -249,6 +282,46 @@ fn publish_cached_jvm_classes(
             let _ = fs::remove_dir_all(compile_dir);
             Err(error)
         }
+    }
+}
+
+struct JvmCacheLock {
+    dir: PathBuf,
+}
+
+impl JvmCacheLock {
+    fn acquire(dir: &Path) -> io::Result<Self> {
+        loop {
+            match fs::create_dir(dir) {
+                Ok(()) => {
+                    return Ok(Self {
+                        dir: dir.to_path_buf(),
+                    });
+                }
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                    thread::yield_now();
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+}
+
+impl Drop for JvmCacheLock {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir(&self.dir);
+    }
+}
+
+fn cache_lock_dir(cache_root: &Path, key: &str) -> PathBuf {
+    cache_root.join(format!("{key}.lock"))
+}
+
+fn remove_invalid_cache_io(cache_dir: &Path) -> io::Result<()> {
+    match fs::remove_dir_all(cache_dir) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
     }
 }
 
@@ -572,6 +645,8 @@ fn missing_java_message(command_name: &str) -> String {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Barrier, Condvar, Mutex};
+    use std::thread;
 
     use veln_backend_jvm::{JvmClassFile, JvmProgram};
 
@@ -619,6 +694,83 @@ mod tests {
             .collect::<Vec<_>>();
         entries.sort();
         entries
+    }
+
+    struct CountingHook {
+        before_prepare: Option<Arc<Barrier>>,
+        prepare_count: AtomicUsize,
+    }
+
+    impl CountingHook {
+        fn new(before_prepare: Option<Arc<Barrier>>) -> Self {
+            Self {
+                before_prepare,
+                prepare_count: AtomicUsize::new(0),
+            }
+        }
+
+        fn prepare_count(&self) -> usize {
+            self.prepare_count.load(Ordering::SeqCst)
+        }
+    }
+
+    impl JvmCacheHooks for CountingHook {
+        fn before_prepare(&self) {
+            self.prepare_count.fetch_add(1, Ordering::SeqCst);
+            if let Some(barrier) = &self.before_prepare {
+                barrier.wait();
+            }
+        }
+    }
+
+    struct PauseBeforePublishHook {
+        state: Arc<(Mutex<PauseBeforePublishState>, Condvar)>,
+    }
+
+    struct PauseBeforePublishState {
+        reached_publish: bool,
+        release_publish: bool,
+    }
+
+    impl PauseBeforePublishHook {
+        fn new() -> Self {
+            Self {
+                state: Arc::new((
+                    Mutex::new(PauseBeforePublishState {
+                        reached_publish: false,
+                        release_publish: false,
+                    }),
+                    Condvar::new(),
+                )),
+            }
+        }
+
+        fn wait_until_reached_publish(&self) {
+            let (state, cvar) = &*self.state;
+            let mut state = state.lock().expect("publish pause state should lock");
+            while !state.reached_publish {
+                state = cvar.wait(state).expect("publish pause state should relock");
+            }
+        }
+
+        fn release_publish(&self) {
+            let (state, cvar) = &*self.state;
+            let mut state = state.lock().expect("publish pause state should lock");
+            state.release_publish = true;
+            cvar.notify_all();
+        }
+    }
+
+    impl JvmCacheHooks for PauseBeforePublishHook {
+        fn before_publish_lock(&self) {
+            let (state, cvar) = &*self.state;
+            let mut state = state.lock().expect("publish pause state should lock");
+            state.reached_publish = true;
+            cvar.notify_all();
+            while !state.release_publish {
+                state = cvar.wait(state).expect("publish pause state should relock");
+            }
+        }
     }
 
     #[cfg(unix)]
@@ -818,6 +970,46 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_warm_same_key_hits_reuse_valid_entry_without_rebuild() {
+        let root = temp_root("cache-warm-concurrent");
+        let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        let hook = Arc::new(CountingHook::new(None));
+        let start = Arc::new(Barrier::new(5));
+
+        let handles = (0..4)
+            .map(|_| {
+                let root = root.clone();
+                let program = Arc::clone(&program);
+                let hook = Arc::clone(&hook);
+                let start = Arc::clone(&start);
+                thread::spawn(move || {
+                    start.wait();
+                    cached_path(
+                        ensure_cached_jvm_classes_in_with_hooks(&root, &program, &*hook)
+                            .expect("warm cache should be reused"),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        start.wait();
+
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("worker should finish"))
+            .collect::<Vec<_>>();
+
+        assert!(results.iter().all(|path| path == &cache_dir));
+        assert_eq!(hook.prepare_count(), 0);
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+        assert_eq!(ready_cache_entries(&root), vec![cache_dir]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
     fn cached_jvm_classes_use_new_entry_after_program_changes() {
         let root = temp_root("cache-source-change");
         let initial = jvm_program(&[("VelnEntry.class", b"entry")]);
@@ -834,6 +1026,83 @@ mod tests {
 
         assert_ne!(first, second);
         assert_eq!(ready_cache_entries(&root), vec![first, second]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn concurrent_cold_different_key_publications_both_validate() {
+        let root = temp_root("cache-cold-different-key-concurrent");
+        let left = Arc::new(jvm_program(&[("VelnEntry.class", b"left")]));
+        let right = Arc::new(jvm_program(&[("VelnEntry.class", b"right")]));
+        let hook = Arc::new(CountingHook::new(Some(Arc::new(Barrier::new(2)))));
+
+        let left_handle = {
+            let root = root.clone();
+            let left = Arc::clone(&left);
+            let hook = Arc::clone(&hook);
+            thread::spawn(move || {
+                cached_path(
+                    ensure_cached_jvm_classes_in_with_hooks(&root, &left, &*hook)
+                        .expect("left cache should be prepared"),
+                )
+            })
+        };
+        let right_handle = {
+            let root = root.clone();
+            let right = Arc::clone(&right);
+            let hook = Arc::clone(&hook);
+            thread::spawn(move || {
+                cached_path(
+                    ensure_cached_jvm_classes_in_with_hooks(&root, &right, &*hook)
+                        .expect("right cache should be prepared"),
+                )
+            })
+        };
+
+        let left_cache = left_handle.join().expect("left worker should finish");
+        let right_cache = right_handle.join().expect("right worker should finish");
+
+        assert_ne!(left_cache, right_cache);
+        assert!(validate_cached_jvm_classes(&left_cache, &left).expect("left should validate"));
+        assert!(validate_cached_jvm_classes(&right_cache, &right).expect("right should validate"));
+        let mut expected_entries = vec![left_cache, right_cache];
+        expected_entries.sort();
+        assert_eq!(ready_cache_entries(&root), expected_entries);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn concurrent_cold_same_key_publication_reuses_winner() {
+        let root = temp_root("cache-cold-same-key-concurrent");
+        let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
+        let hook = Arc::new(CountingHook::new(Some(Arc::new(Barrier::new(4)))));
+
+        let handles = (0..4)
+            .map(|_| {
+                let root = root.clone();
+                let program = Arc::clone(&program);
+                let hook = Arc::clone(&hook);
+                thread::spawn(move || {
+                    cached_path(
+                        ensure_cached_jvm_classes_in_with_hooks(&root, &program, &*hook)
+                            .expect("same-key cache should be prepared"),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("worker should finish"))
+            .collect::<Vec<_>>();
+        let cache_dir = results[0].clone();
+
+        assert!(results.iter().all(|path| path == &cache_dir));
+        assert_eq!(hook.prepare_count(), 4);
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+        assert_eq!(ready_cache_entries(&root), vec![cache_dir]);
 
         fs::remove_dir_all(root).expect("test root should be removed");
     }
@@ -882,6 +1151,48 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_invalid_same_key_repair_converges_on_valid_entry() {
+        let root = temp_root("cache-repair-concurrent");
+        let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join("VelnEntry.class"), b"poisoned")
+            .expect("class should be poisoned");
+        let hook = Arc::new(CountingHook::new(Some(Arc::new(Barrier::new(4)))));
+
+        let handles = (0..4)
+            .map(|_| {
+                let root = root.clone();
+                let program = Arc::clone(&program);
+                let hook = Arc::clone(&hook);
+                thread::spawn(move || {
+                    cached_path(
+                        ensure_cached_jvm_classes_in_with_hooks(&root, &program, &*hook)
+                            .expect("same-key cache should be repaired"),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("worker should finish"))
+            .collect::<Vec<_>>();
+
+        assert!(results.iter().all(|path| path == &cache_dir));
+        assert_eq!(hook.prepare_count(), 4);
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+        assert_eq!(
+            fs::read(cache_dir.join("VelnEntry.class")).expect("class should be readable"),
+            b"entry"
+        );
+        assert_eq!(ready_cache_entries(&root), vec![cache_dir]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
     fn cache_publish_revalidates_winning_entry_after_race() {
         let root = temp_root("cache-publish-race");
         let program = jvm_program(&[("VelnEntry.class", b"entry")]);
@@ -917,8 +1228,8 @@ mod tests {
     }
 
     #[test]
-    fn cache_publish_removes_invalid_winning_entry_after_race() {
-        let root = temp_root("cache-publish-invalid-race");
+    fn cache_publish_replaces_invalid_entry_before_publish() {
+        let root = temp_root("cache-publish-invalid");
         let program = jvm_program(&[("VelnEntry.class", b"entry")]);
         let compile_dir =
             create_cache_compile_dir(&root, "cache-key").expect("compile dir should be created");
@@ -937,10 +1248,42 @@ mod tests {
         assert!(matches!(
             publish_cached_jvm_classes(&compile_dir, &cache_dir, &program)
                 .expect("race should be handled"),
-            CachePublish::LostInvalidRace
+            CachePublish::Published
         ));
         assert!(!compile_dir.exists());
-        assert!(!cache_dir.exists());
+        assert!(validate_cached_jvm_classes(&cache_dir, &program).expect("cache should validate"));
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn publish_loser_revalidates_winner_after_controlled_interleaving() {
+        let root = temp_root("cache-publish-interleaving");
+        let program = Arc::new(jvm_program(&[("VelnEntry.class", b"entry")]));
+        let loser_hook = Arc::new(PauseBeforePublishHook::new());
+
+        let loser_handle = {
+            let root = root.clone();
+            let program = Arc::clone(&program);
+            let loser_hook = Arc::clone(&loser_hook);
+            thread::spawn(move || {
+                cached_path(
+                    ensure_cached_jvm_classes_in_with_hooks(&root, &program, &*loser_hook)
+                        .expect("loser should reuse published cache"),
+                )
+            })
+        };
+        loser_hook.wait_until_reached_publish();
+
+        let winner = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("winner should publish cache"),
+        );
+        loser_hook.release_publish();
+        let loser = loser_handle.join().expect("loser should finish");
+
+        assert_eq!(loser, winner);
+        assert!(validate_cached_jvm_classes(&winner, &program).expect("cache should validate"));
+        assert_eq!(ready_cache_entries(&root), vec![winner]);
 
         fs::remove_dir_all(root).expect("test root should be removed");
     }
