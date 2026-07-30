@@ -11,4 +11,4 @@ format = "empty"
 summary = "Run tests"
 usage = "veln test [OPTIONS] [TARGETS]..."
 arguments = ["  [TARGETS]...  Source files, directories, or test targets"]
-options = ["      --json  Emit machine-readable JSON", "  -h, --help  Print help"]
+options = ["      --json         Emit machine-readable JSON", "  -j, --jobs <JOBS>  Maximum runnable test cases to execute concurrently", "  -h, --help         Print help"]

@@ -1,0 +1,47 @@
+command = ["test", "--json", "--jobs", "1"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 3
+
+[[json_assert]]
+path = "summary.passed"
+equals = 3
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "alpha"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "alpha out"
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "beta"
+
+[[json_assert]]
+path = "cases.1.events.0.text"
+equals = "beta out"
+
+[[json_assert]]
+path = "cases.2.name"
+equals = "gamma"
+
+[[json_assert]]
+path = "cases.2.events.0.text"
+equals = "gamma out"

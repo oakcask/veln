@@ -395,14 +395,20 @@ requiring the full command reference on the first read.
   receive/send calls, fixture-backed or production loopback socket
   listen/accept/read/write and address metadata calls, and relative timeout
   or deadline calls stay runtime errors.
-- `test`: test and doctest selection, static gates, direct JVM classfile
-  execution without an ordinary Java source compiler requirement,
-  `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest
-  expectations, runtime failures, and test JSON. Use
+- `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`
+  case execution, the serial `--jobs 1` compatibility route, deterministic
+  ordered reporting, direct JVM classfile execution without an ordinary Java
+  source compiler requirement, `runtime=contract`, `runtime=ensure`, and
+  `runtime=result` doctest expectations, runtime failures, captured stdio
+  events, and test JSON. Use
   [source-surface.md](source-surface.md) first for doctest fence metadata,
   [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules.
+  command rules. The checked examples
+  `../../examples/specification/test/parallel-jobs-one-json/`,
+  `../../examples/specification/test/parallel-jobs-two-json/`, and
+  `../../examples/specification/test/parallel-jobs-auto-json/` show that
+  serial, bounded, and automatic job modes preserve ordered case records.
 - `repair`: preview, apply one safe advisory hole repair candidate, or apply
   one explicitly confirmed manual-review candidate with override recording. Use
   [repair-candidates.md](repair-candidates.md) for candidate input and

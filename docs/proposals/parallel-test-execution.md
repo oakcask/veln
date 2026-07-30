@@ -2,25 +2,13 @@
 
 Status: proposed
 
-`veln test` currently analyzes the selected project once, then lowers, builds,
-and runs each discovered test case in a serial loop. Independent cases cannot
-use more than one processor through the test runner, so suites with many
-runtime tests spend unnecessary wall-clock time waiting for per-case lowering,
-JVM generation, cache preparation, and Java execution.
-
-This proposal makes case execution parallel by default while preserving the
-existing discovery, static-gate, result, and output contracts.
+`veln test` exposes bounded job control and schedules runnable cases through
+the ordered bounded executor. This proposal remains active only for the
+remaining completion evidence and cleanup gates that are not yet promoted to
+implemented proposal history.
 
 ## Goals
 
-- Keep at most a bounded number of test cases in flight.
-- Use the processors available to the process by default.
-- Let callers request an exact concurrency limit, including serial execution.
-- Preserve stable case order in human and JSON output regardless of completion
-  order.
-- Preserve the suite-wide static gate: no case starts when project diagnostics
-  contain an error.
-- Keep each case's generated files, runtime traces, stdout, and stderr isolated.
 - Demonstrate a wall-clock improvement on a representative multi-case suite
   without making timing thresholds part of correctness tests.
 
@@ -37,7 +25,7 @@ existing discovery, static-gate, result, and output contracts.
 
 ## Command Interface
 
-The command accepts a job limit before its existing targets:
+The implemented command accepts a job limit before its existing targets:
 
 ```text
 veln test [--json] [-j <JOBS> | --jobs <JOBS>] [target ...]
@@ -77,9 +65,10 @@ without scheduling cases.
 
 ### Scheduling
 
-Each runnable case receives a stable ordinal from the existing discovered case
-order. A bounded scheduler claims ordinals and executes no more than the active
-job limit concurrently. Every claimed job owns its complete case pipeline:
+The implemented runner gives each runnable case a stable ordinal from the
+existing discovered case order. A bounded scheduler claims ordinals and
+executes no more than the active job limit concurrently. Every claimed job owns
+its complete case pipeline:
 
 1. lower the entry reachable from that test;
 2. generate its JVM program;
@@ -142,7 +131,7 @@ before the default changes.
 
 ## Implementation Shape
 
-The implementation should keep scheduling separate from Veln-specific case
+The implementation keeps scheduling separate from Veln-specific case
 execution:
 
 - a bounded executor accepts ordered jobs and returns ordered results;
@@ -162,24 +151,14 @@ unavoidable unsafe phase outside the workers. It must not duplicate whole-projec
 analysis once per case, because that would trade elapsed time for unbounded
 memory and repeated work.
 
+Current implementation note: `ProjectAnalysis` is not `Sync`, so per-case
+lowering preparation is guarded while JVM execution and capture run outside
+that guard. Future work may make immutable analysis inputs shareable to overlap
+more of the per-case pipeline.
+
 ## Verification
 
-### Command and Scheduler Tests
-
-- Parse long and short job flags with JSON mode and multiple targets.
-- Reject zero, missing, malformed, repeated, and overflowing values.
-- Verify automatic job resolution, its one-job fallback, and clamping to the
-  runnable case count through injected availability rather than host assumptions.
-- Use a controllable fake case executor with synchronization barriers and
-  atomics to prove that more than one job can overlap, the configured bound is
-  never exceeded, and `--jobs 1` never overlaps jobs.
-- Complete fake jobs in reverse and mixed orders and assert byte-identical
-  ordered human and JSON reports.
-- Verify that a static gate and an empty runnable set start no workers.
-- Verify that failures do not cancel remaining cases and that workers are
-  joined before an orchestration error is returned.
-
-### Filesystem and Cache Tests
+### Remaining Filesystem and Cache Evidence
 
 - Run simultaneous cases and prove their trace paths and cleanup are disjoint.
 - Exercise concurrent JVM cache hits, different-key publication, and same-key
@@ -187,11 +166,8 @@ memory and repeated work.
 - Confirm that captured stdout, stderr, contract traces, and result traces stay
   attached to the producing case under overlap.
 
-### End-to-End and Performance Evidence
+### Remaining End-to-End and Performance Evidence
 
-- Add an executable CLI case containing multiple independent tests and compare
-  `--jobs 1`, `--jobs 2`, and automatic mode for identical ordered reports and
-  exit status.
 - Cover mixed pass, failure, blocked-lowering, doctest expectation, and runner
   error results in one ordered report where practical.
 - Measure a representative CPU-bound multi-case suite in serial and automatic
@@ -212,15 +188,6 @@ memory and repeated work.
 
 ## Documentation and Completion
 
-Implementation is complete only when:
-
-1. the command help and short command specification document `--jobs` and the
-   automatic default;
-2. the full command and test JSON specifications describe deterministic
-   parallel execution and the serial compatibility route;
-3. executable specification coverage demonstrates the observable command
-   behavior;
-4. the concurrency, isolation, cache-race, ordering, and performance gates
-   above pass; and
-5. this proposal is removed from the active catalog and retained as an
-   implemented proposal record.
+Implementation history may move this proposal out of the active catalog after
+the remaining mixed-result, isolation, cache-race, and performance evidence is
+recorded.

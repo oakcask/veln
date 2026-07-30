@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
+use std::sync::Mutex;
 
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
@@ -22,14 +23,18 @@ use crate::commands::test_scheduler::{SchedulerError, run_ordered_bounded};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
 
-pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String> {
+pub(crate) fn test(
+    json: bool,
+    jobs: Option<usize>,
+    targets: Vec<PathBuf>,
+) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, &targets);
     let selection_plan = selection_plan(&root, &targets, explicit, &target_expansion)?;
     let project = Project::discover(root, &selection_plan.analysis_targets)
         .map_err(|error| error.to_string())?;
-    let analysis = analyze_project(project, DoctestMode::Include);
+    let mut analysis = analyze_project(project, DoctestMode::Include);
     let test_files = selected_test_files(
         &analysis.project,
         &analysis.module,
@@ -61,19 +66,24 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
                     .collect::<Vec<_>>(),
             )
         });
-        let batch_handled = if let Some(program) = reusable_program.as_ref() {
-            run_reusable_test_batch(program, &mut cases)?
-        } else {
-            false
-        };
-        if !batch_handled {
-            let jobs = std::mem::take(&mut cases)
-                .into_iter()
-                .map(|case| prepare_test_case_job(&analysis, reusable_program.as_ref(), case))
-                .collect();
-            cases = run_ordered_bounded(jobs, 1, execute_test_case_job)
-                .map_err(test_scheduler_error)?;
-        }
+        let active_jobs = resolve_test_jobs(jobs, cases.len(), || {
+            std::thread::available_parallelism().ok()
+        });
+        let analysis_mutex = Mutex::new(analysis);
+        let jobs = std::mem::take(&mut cases);
+        cases = run_ordered_bounded(jobs, active_jobs, |case| {
+            let prepared = {
+                let analysis = analysis_mutex
+                    .lock()
+                    .map_err(|_| "test analysis state was poisoned".to_string())?;
+                prepare_test_case_job(&analysis, reusable_program.as_ref(), case)
+            };
+            execute_test_case_job(prepared)
+        })
+        .map_err(test_scheduler_error)?;
+        analysis = analysis_mutex
+            .into_inner()
+            .map_err(|_| "test analysis state was poisoned".to_string())?;
     }
 
     let report = TestReport::new(
@@ -97,6 +107,22 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     })
 }
 
+pub(crate) fn resolve_test_jobs(
+    explicit: Option<usize>,
+    runnable_cases: usize,
+    available_parallelism: impl FnOnce() -> Option<std::num::NonZeroUsize>,
+) -> usize {
+    if runnable_cases == 0 {
+        return 0;
+    }
+    let requested = explicit.unwrap_or_else(|| {
+        available_parallelism()
+            .map(std::num::NonZeroUsize::get)
+            .unwrap_or(1)
+    });
+    requested.min(runnable_cases)
+}
+
 fn test_scheduler_error(error: SchedulerError<String>) -> String {
     match error {
         SchedulerError::InvalidBound => {
@@ -104,41 +130,6 @@ fn test_scheduler_error(error: SchedulerError<String>) -> String {
         }
         SchedulerError::Job(message) => message,
         SchedulerError::WorkerPanicked => "test scheduler worker panicked".to_string(),
-    }
-}
-
-fn run_reusable_test_batch(
-    reusable_program: &JvmProgram,
-    cases: &mut [TestCase],
-) -> Result<bool, String> {
-    if cases.is_empty()
-        || cases
-            .iter()
-            .any(|case| case.expected_output.is_some() || case.expected_runtime_failure.is_some())
-    {
-        return Ok(false);
-    }
-
-    let java_args = cases
-        .iter()
-        .map(|case| case.name.clone())
-        .collect::<Vec<_>>();
-    match execute_test_program(reusable_program, &java_args)? {
-        TestExecution::Ran(artifacts) if artifacts.output.status.success() => {
-            for case in cases {
-                apply_runtime_result(case, None);
-            }
-            Ok(true)
-        }
-        TestExecution::Ran(_) => Ok(false),
-        TestExecution::ToolError(message) => {
-            for case in cases {
-                case.status = TestCaseStatus::Error;
-                case.reason = Some("runner_error".to_string());
-                case.failure = Some(TestFailure::runtime(message.clone()));
-            }
-            Ok(true)
-        }
     }
 }
 
@@ -188,6 +179,30 @@ fn selection_plan(
         &source_roots,
         target_expansion.source_to_test_added_count,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_test_jobs;
+    use std::num::NonZeroUsize;
+
+    #[test]
+    fn resolves_worker_count_from_explicit_automatic_fallback_and_case_count() {
+        let cases = [
+            (Some(3), 5, Some(8), 3),
+            (None, 5, Some(4), 4),
+            (None, 5, None, 1),
+            (Some(8), 3, Some(8), 3),
+            (None, 0, Some(8), 0),
+        ];
+
+        for (explicit, runnable_cases, available, expected) in cases {
+            let actual = resolve_test_jobs(explicit, runnable_cases, || {
+                available.and_then(NonZeroUsize::new)
+            });
+            assert_eq!(actual, expected);
+        }
+    }
 }
 
 fn preserve_standard_package_analysis(
