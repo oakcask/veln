@@ -6,3 +6,4 @@ pub(crate) mod package;
 pub(crate) mod repair;
 pub(crate) mod run;
 pub(crate) mod test;
+pub(crate) mod test_scheduler;
