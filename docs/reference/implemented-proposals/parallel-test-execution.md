@@ -47,10 +47,16 @@ joining before the command reports the failure.
 - Ordered executor coverage uses barriers and atomics for selected-bound
   overlap, serial behavior, ordered completion, run-all-cases behavior, and
   joining after an orchestration error.
-- Production-path orchestration coverage injects fake preparation and execution
-  closures to observe the selected bound, serial route, static-gate no-work
-  path, mixed pass/failure/blocked/doctest/runner-error results, ordered
-  records, and complete joining after failure.
+- Production-path orchestration coverage injects fake preparation and
+  execution closures to observe the selected bound, serial route, static-gate
+  no-work path, ordered records, and complete joining after failure.
+- Production JVM-path coverage runs `prepare_test_case_job`,
+  `execute_test_case_job`, and `execute_test_program` with real analyzed
+  projects. It forces overlapping runnable cases at the JVM execution boundary,
+  checks per-case build directory and trace-file isolation, verifies captured
+  stdout and stderr ownership, and combines pass, result failure, per-case
+  lowering blockage, doctest, and runner-error outcomes in discovered-case
+  order.
 - JVM class-cache race coverage checks concurrent warm same-key hits, cold
   different-key publication, and cold same-key publication.
 - Executable CLI examples under `../../../examples/specification/test/` check

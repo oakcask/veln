@@ -3,6 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
 use std::sync::Mutex;
+#[cfg(test)]
+use std::sync::{Arc, MutexGuard, OnceLock};
 
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
@@ -234,14 +236,26 @@ fn selection_plan(
 #[cfg(test)]
 mod tests {
     use super::process_discovered_test_cases;
-    use super::{SchedulerError, resolve_test_jobs, run_test_case_jobs};
+    use super::{
+        SchedulerError, TestExecution, TestProgramHookGuard, execute_test_case_job,
+        prepare_test_case_job, resolve_test_jobs, run_test_case_jobs,
+    };
     use std::collections::BTreeSet;
+    use std::fs;
     use std::num::NonZeroUsize;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Condvar, Mutex};
+    use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
+    use veln_backend_jvm::generate_classfiles_with_test_entries;
     use veln_diagnostics::JsonValue;
+    use veln_project::Project;
     use veln_source::{SourceFile, TextRange};
-    use veln_test::{TestCase, TestCaseSource, TestCaseStatus, TestFailure};
+    use veln_test::{
+        TestCase, TestCaseSource, TestCaseStatus, TestFailure, attach_doctest_expectations,
+        discover_test_cases, selected_test_files,
+    };
 
     #[test]
     fn resolves_worker_count_from_explicit_automatic_fallback_and_case_count() {
@@ -416,6 +430,309 @@ mod tests {
         assert_eq!(completed.load(Ordering::SeqCst), 4);
     }
 
+    #[test]
+    fn production_jvm_path_overlaps_and_keeps_case_artifacts_isolated() {
+        if !jdk_is_available() {
+            return;
+        }
+
+        let project = TempProject::new("production-jvm-overlap");
+        project.write(
+            "main_test.veln",
+            concat!(
+                "test alpha() -> () effects [stdio]\n",
+                "  stdio::println(\"alpha out\")\n",
+                "  stdio::eprintln(\"alpha err\")\n",
+                "  ()\n",
+                "end\n",
+                "test beta() -> () effects [stdio]\n",
+                "  stdio::println(\"beta out\")\n",
+                "  stdio::eprintln(\"beta err\")\n",
+                "  ()\n",
+                "end\n",
+                "test gamma() -> () effects [stdio]\n",
+                "  stdio::println(\"gamma out\")\n",
+                "  stdio::eprintln(\"gamma err\")\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let (analysis, cases) = analyzed_cases(&project.root);
+        let case_names = cases
+            .iter()
+            .map(|case| case.name.clone())
+            .collect::<Vec<_>>();
+        let reusable_program = analysis
+            .reusable_standard_ir()
+            .map(|ir| generate_classfiles_with_test_entries(ir, &case_names));
+        let analysis_mutex = Mutex::new(analysis);
+        let observed = Arc::new((
+            Mutex::new(ProductionPathObservation::default()),
+            Condvar::new(),
+        ));
+        let _hook = TestProgramHookGuard::install({
+            let observed = Arc::clone(&observed);
+            Arc::new(
+                move |_case_name,
+                      build_dir,
+                      event_file,
+                      contract_error_file,
+                      result_error_file,
+                      java_args| {
+                    let (lock, cvar) = &*observed;
+                    let mut observation = lock.lock().expect("observation should lock");
+                    observation.build_dirs.push(build_dir.to_path_buf());
+                    observation.event_files.push(event_file.to_path_buf());
+                    observation
+                        .contract_error_files
+                        .push(contract_error_file.to_path_buf());
+                    observation
+                        .result_error_files
+                        .push(result_error_file.to_path_buf());
+                    observation.java_args.push(java_args.to_vec());
+                    cvar.notify_all();
+                    while observation.build_dirs.len() < 2 {
+                        observation = cvar
+                            .wait(observation)
+                            .expect("observation should lock after wait");
+                    }
+                    None
+                },
+            )
+        });
+
+        let records = run_test_case_jobs(
+            cases,
+            2,
+            |case| {
+                let analysis = analysis_mutex.lock().expect("analysis state should lock");
+                Ok::<_, String>(prepare_test_case_job(
+                    &analysis,
+                    reusable_program.as_ref(),
+                    case,
+                ))
+            },
+            execute_test_case_job,
+        )
+        .expect("production JVM path should complete");
+
+        assert_eq!(case_names_of(&records), ["alpha", "beta", "gamma"]);
+        assert_stdio_event(&records[0], "stdout", "alpha out");
+        assert_stdio_event(&records[0], "stderr", "alpha err");
+        assert_stdio_event(&records[1], "stdout", "beta out");
+        assert_stdio_event(&records[1], "stderr", "beta err");
+        assert_stdio_event(&records[2], "stdout", "gamma out");
+        assert_stdio_event(&records[2], "stderr", "gamma err");
+
+        let observation = observed.0.lock().expect("observation should lock");
+        assert_eq!(observation.build_dirs.len(), 3);
+        assert_unique_paths(&observation.build_dirs);
+        assert_unique_paths(&observation.event_files);
+        assert_unique_paths(&observation.contract_error_files);
+        assert_unique_paths(&observation.result_error_files);
+        assert!(
+            observation.build_dirs.iter().all(|path| !path.exists()),
+            "per-case build directories should be cleaned up after execution"
+        );
+    }
+
+    #[test]
+    fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
+        if !jdk_is_available() {
+            return;
+        }
+
+        let project = TempProject::new("production-mixed-results");
+        project.write(
+            "main.veln",
+            concat!(
+                "# Mixed doctest fixture.\n",
+                "## ```veln\n",
+                "## stdio::println(\"doctest out\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## doctest out\n",
+                "## ```\n",
+                "pub fn documented() -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "main_test.veln",
+            concat!(
+                "test pass() -> () effects [stdio]\n",
+                "  stdio::println(\"pass out\")\n",
+                "  ()\n",
+                "end\n",
+                "test fail() -> Result<(), String>\n",
+                "  Err(\"bad\")\n",
+                "end\n",
+                "test blocked() -> Result<(), String>\n",
+                "  _\n",
+                "end\n",
+                "test runner() -> () effects [stdio]\n",
+                "  stdio::println(\"runner should not stream\")\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let (analysis, cases) = analyzed_cases(&project.root);
+        let analysis_mutex = Mutex::new(analysis);
+        let _hook = TestProgramHookGuard::install(Arc::new(
+            |case_name,
+             _build_dir,
+             _event_file,
+             _contract_error_file,
+             _result_error_file,
+             _java_args| {
+                (case_name == "runner")
+                    .then(|| TestExecution::ToolError("injected runner tool error".to_string()))
+            },
+        ));
+
+        let records = run_test_case_jobs(
+            cases,
+            3,
+            |case| {
+                let analysis = analysis_mutex.lock().expect("analysis state should lock");
+                Ok::<_, String>(prepare_test_case_job(&analysis, None, case))
+            },
+            execute_test_case_job,
+        )
+        .expect("mixed production path should complete");
+
+        assert_eq!(
+            case_names_of(&records),
+            ["pass", "fail", "blocked", "runner", "doctest_1"]
+        );
+        assert_eq!(records[0].status, TestCaseStatus::Passed);
+        assert_stdout_event(&records[0], "pass out");
+        assert_eq!(records[1].status, TestCaseStatus::Failed);
+        assert_eq!(
+            records[1]
+                .failure
+                .as_ref()
+                .map(|failure| failure.kind.as_str()),
+            Some("result")
+        );
+        assert_eq!(records[2].status, TestCaseStatus::Blocked);
+        assert_eq!(records[2].reason.as_deref(), Some("static_gate"));
+        assert!(
+            records[2]
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "hole.unfilled"),
+            "blocked case should carry per-case lowering diagnostics"
+        );
+        assert_eq!(records[3].status, TestCaseStatus::Error);
+        assert_eq!(records[3].reason.as_deref(), Some("runner_error"));
+        assert_eq!(
+            records[3]
+                .failure
+                .as_ref()
+                .map(|failure| failure.message.as_str()),
+            Some("injected runner tool error")
+        );
+        assert_eq!(records[4].kind, "doctest");
+        assert_eq!(records[4].status, TestCaseStatus::Passed);
+        assert_stdio_event(&records[4], "stdout", "doctest out");
+    }
+
+    #[derive(Default)]
+    struct ProductionPathObservation {
+        build_dirs: Vec<PathBuf>,
+        event_files: Vec<PathBuf>,
+        contract_error_files: Vec<PathBuf>,
+        result_error_files: Vec<PathBuf>,
+        java_args: Vec<Vec<String>>,
+    }
+
+    struct TempProject {
+        root: PathBuf,
+    }
+
+    impl TempProject {
+        fn new(name: &str) -> Self {
+            static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
+            let id = NEXT_TEST_DIR.fetch_add(1, Ordering::Relaxed);
+            let root = std::env::temp_dir()
+                .join(format!("veln-cli-test-{name}-{}-{id}", std::process::id()));
+            let _ = fs::remove_dir_all(&root);
+            fs::create_dir_all(&root).expect("test project directory should be created");
+            Self { root }
+        }
+
+        fn write(&self, path: &str, text: &str) {
+            let path = self.root.join(path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("fixture parent should be created");
+            }
+            fs::write(path, text).expect("fixture should be written");
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn analyzed_cases(root: &Path) -> (ProjectAnalysis, Vec<TestCase>) {
+        let project =
+            Project::discover(root.to_path_buf(), &[]).expect("test project should be discovered");
+        let analysis = analyze_project(project, DoctestMode::Include);
+        let test_files = selected_test_files(&analysis.project, &analysis.module, None);
+        let mut cases = discover_test_cases(&analysis.module, &test_files);
+        attach_doctest_expectations(&mut cases, &analysis.doctest_expectations);
+        (analysis, cases)
+    }
+
+    fn jdk_is_available() -> bool {
+        Command::new("java").arg("-version").output().is_ok()
+            && Command::new("java")
+                .arg("--list-modules")
+                .output()
+                .is_ok_and(|output| {
+                    String::from_utf8_lossy(&output.stdout).contains("jdk.compiler")
+                })
+    }
+
+    fn assert_stdio_event(case: &TestCase, stream: &str, text: &str) {
+        assert!(
+            case.events.iter().any(|event| {
+                json_field(event, "kind") == Some(&JsonValue::string("stdio"))
+                    && json_field(event, "stream") == Some(&JsonValue::string(stream))
+                    && json_field(event, "text") == Some(&JsonValue::string(text))
+            }),
+            "case `{}` should include {stream} event `{text}` in {:?}",
+            case.name,
+            case.events
+        );
+    }
+
+    fn json_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
+        let JsonValue::Object(fields) = value else {
+            return None;
+        };
+        fields
+            .iter()
+            .find_map(|(field, value)| (field == key).then_some(value))
+    }
+
+    fn assert_stdout_event(case: &TestCase, text: &str) {
+        assert_stdio_event(case, "stdout", text);
+    }
+
+    fn assert_unique_paths(paths: &[PathBuf]) {
+        let unique = paths.iter().collect::<BTreeSet<_>>();
+        assert_eq!(
+            unique.len(),
+            paths.len(),
+            "paths should be unique: {paths:?}"
+        );
+    }
+
     fn named_cases<const N: usize>(names: [&str; N]) -> Vec<TestCase> {
         names
             .into_iter()
@@ -447,6 +764,10 @@ mod tests {
     }
 
     fn case_names<const N: usize>(cases: &[TestCase]) -> [&str; N] {
+        case_names_of(cases)
+    }
+
+    fn case_names_of<const N: usize>(cases: &[TestCase]) -> [&str; N] {
         cases
             .iter()
             .map(|case| case.name.as_str())
@@ -577,7 +898,7 @@ fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(&program, &java_args)? {
+    } = match execute_test_program(&case.name, &program, &java_args)? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
@@ -612,11 +933,29 @@ enum TestExecution {
     ToolError(String),
 }
 
-fn execute_test_program(jvm: &JvmProgram, java_args: &[String]) -> Result<TestExecution, String> {
+fn execute_test_program(
+    case_name: &str,
+    jvm: &JvmProgram,
+    java_args: &[String],
+) -> Result<TestExecution, String> {
+    #[cfg(not(test))]
+    let _ = case_name;
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let result_error_file = build_dir.join("result-errors.tsv");
+    #[cfg(test)]
+    if let Some(test_execution) = run_test_program_hook(
+        case_name,
+        &build_dir,
+        &event_file,
+        &contract_error_file,
+        &result_error_file,
+        java_args,
+    ) {
+        let _ = fs::remove_dir_all(&build_dir);
+        return Ok(test_execution);
+    }
     let event_env = [
         ("VELN_STDIO_EVENTS", event_file.as_os_str()),
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
@@ -643,6 +982,79 @@ fn execute_test_program(jvm: &JvmProgram, java_args: &[String]) -> Result<TestEx
             result_error_trace,
         })),
         JvmRunResult::ToolError(message) => Ok(TestExecution::ToolError(message)),
+    }
+}
+
+#[cfg(test)]
+type TestProgramHook =
+    dyn Fn(&str, &Path, &Path, &Path, &Path, &[String]) -> Option<TestExecution> + Send + Sync;
+
+#[cfg(test)]
+fn test_program_hook_slot() -> &'static Mutex<Option<Arc<TestProgramHook>>> {
+    static HOOK: OnceLock<Mutex<Option<Arc<TestProgramHook>>>> = OnceLock::new();
+    HOOK.get_or_init(|| Mutex::new(None))
+}
+
+#[cfg(test)]
+fn test_program_hook_serial_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+#[cfg(test)]
+fn run_test_program_hook(
+    case_name: &str,
+    build_dir: &Path,
+    event_file: &Path,
+    contract_error_file: &Path,
+    result_error_file: &Path,
+    java_args: &[String],
+) -> Option<TestExecution> {
+    let hook = test_program_hook_slot()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    hook.and_then(|hook| {
+        hook(
+            case_name,
+            build_dir,
+            event_file,
+            contract_error_file,
+            result_error_file,
+            java_args,
+        )
+    })
+}
+
+#[cfg(test)]
+struct TestProgramHookGuard {
+    _serial: MutexGuard<'static, ()>,
+}
+
+#[cfg(test)]
+impl TestProgramHookGuard {
+    fn install(hook: Arc<TestProgramHook>) -> Self {
+        let serial = test_program_hook_serial_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut slot = test_program_hook_slot()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        assert!(
+            slot.is_none(),
+            "test program hook should not already be set"
+        );
+        *slot = Some(hook);
+        Self { _serial: serial }
+    }
+}
+
+#[cfg(test)]
+impl Drop for TestProgramHookGuard {
+    fn drop(&mut self) {
+        *test_program_hook_slot()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
     }
 }
 
