@@ -18,6 +18,7 @@ use veln_test::{
     stdio_events_from_output, stdio_events_from_trace,
 };
 
+use crate::commands::test_scheduler::{SchedulerError, run_ordered_bounded};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
 
@@ -66,9 +67,12 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
             false
         };
         if !batch_handled {
-            for case in &mut cases {
-                run_test_case(&analysis, reusable_program.as_ref(), case)?;
-            }
+            let jobs = std::mem::take(&mut cases)
+                .into_iter()
+                .map(|case| prepare_test_case_job(&analysis, reusable_program.as_ref(), case))
+                .collect();
+            cases = run_ordered_bounded(jobs, 1, execute_test_case_job)
+                .map_err(test_scheduler_error)?;
         }
     }
 
@@ -91,6 +95,16 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::from(1)
     })
+}
+
+fn test_scheduler_error(error: SchedulerError<String>) -> String {
+    match error {
+        SchedulerError::InvalidBound => {
+            "test scheduler concurrency bound must be positive".to_string()
+        }
+        SchedulerError::Job(message) => message,
+        SchedulerError::WorkerPanicked => "test scheduler worker panicked".to_string(),
+    }
 }
 
 fn run_reusable_test_batch(
@@ -225,11 +239,21 @@ fn absolute_path(root: &Path, path: &Path) -> PathBuf {
     }
 }
 
-fn run_test_case(
+enum TestCaseJob {
+    Ready {
+        case: TestCase,
+        module: SurfaceModule,
+        program: JvmProgram,
+        java_args: Vec<String>,
+    },
+    Completed(TestCase),
+}
+
+fn prepare_test_case_job(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
-    case: &mut TestCase,
-) -> Result<(), String> {
+    mut case: TestCase,
+) -> TestCaseJob {
     let reachable = analysis
         .reusable_standard_ir()
         .is_none()
@@ -240,7 +264,7 @@ fn run_test_case(
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = reachable.lowered.diagnostics.clone();
-                return Ok(());
+                return TestCaseJob::Completed(case);
             };
             (&reachable.module, ir)
         }
@@ -252,34 +276,57 @@ fn run_test_case(
         ),
     };
 
-    let generated;
     let (program, java_args) = if let Some(program) = reusable_program {
-        (program, vec![case.name.clone()])
+        (program.clone(), vec![case.name.clone()])
     } else {
-        generated = generate_classfiles_with_entry(ir, &case.name);
-        (&generated, Vec::new())
+        (generate_classfiles_with_entry(ir, &case.name), Vec::new())
     };
+
+    TestCaseJob::Ready {
+        case,
+        module: module.clone(),
+        program,
+        java_args,
+    }
+}
+
+fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
+    let (mut case, module, program, java_args) = match job {
+        TestCaseJob::Ready {
+            case,
+            module,
+            program,
+            java_args,
+        } => (case, module, program, java_args),
+        TestCaseJob::Completed(case) => return Ok(case),
+    };
+
     let TestRunArtifacts {
         output,
         event_trace,
         contract_error_trace,
         result_error_trace,
-    } = match execute_test_program(program, &java_args)? {
+    } = match execute_test_program(&program, &java_args)? {
         TestExecution::Ran(artifacts) => artifacts,
         TestExecution::ToolError(message) => {
             case.status = TestCaseStatus::Error;
             case.reason = Some("runner_error".to_string());
             case.failure = Some(TestFailure::runtime(message));
-            return Ok(());
+            return Ok(case);
         }
     };
 
-    collect_test_events(case, module, &output, &event_trace);
-    apply_test_process_result(case, &output, &contract_error_trace, &result_error_trace);
+    collect_test_events(&mut case, &module, &output, &event_trace);
+    apply_test_process_result(
+        &mut case,
+        &output,
+        &contract_error_trace,
+        &result_error_trace,
+    );
     if case.status == TestCaseStatus::Passed {
-        compare_expected_output(case);
+        compare_expected_output(&mut case);
     }
-    Ok(())
+    Ok(case)
 }
 
 struct TestRunArtifacts {
