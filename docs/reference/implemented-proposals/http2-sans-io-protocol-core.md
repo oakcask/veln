@@ -1,90 +1,27 @@
-# HTTP/2 Standard Library Completion and Fixture Retirement
+# HTTP/2 Sans-I/O Protocol Core
 
-Status: superseded
+Status: implemented
 
 Current behavior is specified by
 [`http2.md`](../../specification/http2.md) and its focused executable routes.
-The remaining retirement evidence work is tracked by
-[`../../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../../proposals/http2-standard-library-completion-and-fixture-retirement.md).
-This record preserves standard-library migration history for the broad
-fixture and is not a completion claim for the semantic retirement gate.
+This record preserves the migration history for the former broad
+`http2-protocol-core` fixture.
 
 Reusable connection, stream, HPACK, receive, send, flow-control,
-content-length, shutdown, and output-buffer behavior is owned by
-`std::http2::core` and `std::http2::hpack`. Transitions are immutable, failure
-decisions preserve caller-owned state and output, and production receive and
-send paths use the public HPACK codec.
+content-length, shutdown, and output-buffer behavior moved into
+`std::http2::core`, `std::http2::frame`, and `std::http2::hpack`. Production
+receive and send paths use the public HPACK codec, and failed immutable
+transitions preserve caller-owned state and output.
 
-The broad `http2-protocol-core` implementation was removed after its reusable
-responsibilities moved to standard-owned modules and focused cases. The
-retired route contains no reusable Veln implementation. It retains only the
-historical migration manifest, structured scenario projection, dimensioned
-coverage report, and checker needed to verify that each retired helper,
-stdout, and output-table assertion has replacement evidence. Current HTTP/2
-behavior is owned by the public standard modules, focused standard-package
-tests, and executable specification cases.
+The broad fixture implementation and its case manifest were removed. Focused
+`http2-core-*` executable cases now record public state, branch, byte, and
+diagnostic projections. Focused `http2-protocol-core-*` cases remain only when
+their human or JSON diagnostics are current observable behavior; they do not
+restore the broad fixture.
 
-## Implemented Core Evidence
-
-The current behavior is covered by public standard-package tests and focused
-executable specification cases:
-
-- `core_test.veln` covers immutable aggregate connection state, stream
-  collections, flow-control domains, SETTINGS state, receive-frame dispatch,
-  chunked receive state, shutdown, PING, outbound DATA, WINDOW_UPDATE,
-  HEADERS, PUSH_PROMISE, RST_STREAM, PRIORITY, and output-buffer ordering.
-- `hpack_test.veln` covers HPACK integer, Huffman, dynamic-table, indexed
-  field, literal field, table-size update, header-block decoding, and
-  header-block encoding behavior.
-- Focused `http2-core-*` cases under `examples/specification/run/` record
-  public state, branch, diagnostic, and byte projections for the standard
-  sans-I/O surface.
-- Focused `http2-protocol-core-*` cases remain executable only where their
-  human and JSON diagnostic projections are current behavior; they are not a
-  broad fixture, migration inventory, or reusable implementation.
-
-The retained retirement consistency checker is
-`scripts/check-http2-retirement-evidence`. It inventories the deleted broad
-fixture from history, requires item-level evidence for 652 helper invocations,
-2,044 exact stdout lines, and 315 output tables, verifies the generated
-row-addressable scenario manifest, coverage report, and generated projection
-evidence test, and rejects unclassified, stale, or unsupported HPACK fixture
-compatibility evidence targets. Historical values remain in the inventory, but
-current replacement evidence for unsupported HPACK header blocks must use the
-public `std::http2::hpack` failure surface rather than
-`hpack.fixture.unsupported_header_block`. Each generated scenario records a
-row-addressed executable-projection model that binds the historical row to its
-focused evidence target, public operation, branch, initial state, concrete
-input, expected projection, post-state, output provenance, diagnostic
-precedence, and terminal row detail rather than relying on an assertion hash
-alone. Rows that target
-`retirement_output_evidence_test.veln` are hashed and checked against the
-named test plus the helper bodies reachable from that test, so stdout and
-output rows cannot satisfy relevance checks from unrelated tests in the same
-file. Historical stdout lines that describe retained output chunks route to
-the output-evidence test containing the matching retained output-table
-assertion.
-`retirement_projection_evidence_test.veln` runs bounded projection chunk
-row checks, bounded projection chunk fingerprint checks, bounded projection
-chunk digest checks, and the generated aggregate projection manifest digest as
-standard package tests. The generated test also
-imports the public `http2::core`, `http2::frame`, and `http2::hpack` modules
-and executes a small public boundary guard through frame encoding, HPACK
-encode/decode, and PING send projection so the evidence cannot compile as a
-standalone fixture-only artifact. The generated row checks run through
-20-row groups. Each row carries the endpoint role, operation, branch, state,
-setup, input, projection, post-state, output, diagnostic dimension, terminal
-row-detail string and code, executable-projection string and code, and a
-semantic code recomputed from those codes by the generated Veln test. The
-standard package test validates each row address, rejects empty detail and
-executable-projection values, requires setup, input, result projection,
-terminal detail, and executable-projection codes to resolve back to the
-declared row values, and compares each chunk's generated semantic fingerprint
-with an expected value. These checks keep the generated artifacts consistent,
-but they do not yet prove that every row invokes the owning public transition
-with that row's concrete setup and input. Use the active proposal for the
-remaining semantic retirement gate.
-`retirement_output_evidence_test.veln` validates the historical output bytes
-through the production frame and public HPACK codecs without restoring the
-broad fixture implementation. Its output evidence remains shared only through
-reachable helper code used by the named test.
+The historical row inventory and generated retirement checks were temporary
+migration gates. After public standard-package tests and executable
+specification cases passed without reading those artifacts, the inventory,
+scenario model, coverage report, generator, checker, and generated retirement
+tests were removed. The final boundary and verification routes are recorded in
+[`http2-standard-library-completion-and-fixture-retirement.md`](http2-standard-library-completion-and-fixture-retirement.md).

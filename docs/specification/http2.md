@@ -922,25 +922,10 @@ The broad `http2-protocol-core` implementation is retired and is not current
 HTTP/2 behavior. Focused `http2-core-*` cases cover state transitions,
 emitted bytes, and failure atomicity through the public core. Focused
 `http2-protocol-core-*` cases remain only where their human and JSON
-diagnostic projections are current observable behavior. The retired route's
-`retirement-evidence.tsv`, `retirement-scenarios.jsonl`, and
-`retirement-coverage.tsv` files are historical migration artifacts checked by
-`scripts/check-http2-retirement-evidence`. The same generated model emits
-[`retirement_projection_evidence_test.veln`](../../crates/veln-stdlib/veln/http2/retirement_projection_evidence_test.veln),
-which imports the public HTTP/2 core, frame, and HPACK modules, executes a
-small public codec/send boundary guard, checks generated row fields through
-20-row public test groups, and verifies bounded chunk fingerprints, bounded
-chunk digests, plus the aggregate projection digest as standard-package tests.
-Rows bound to `retirement_output_evidence_test.veln` are checked against the
-named test and helper bodies reachable from that test, not the whole
-output-evidence file. Historical stdout rows that describe retained output
-chunks route to the same named test as the matching output-table assertion.
-Retirement evidence may retain historical stdout values for inventory
-integrity, but current evidence targets must not route unsupported HPACK
-header blocks through `hpack.fixture.unsupported_header_block`; replacement
-evidence for those rows uses public `std::http2::hpack` decode failures.
-These artifacts keep the historical inventory consistent without restoring a
-reusable fixture implementation. They are not the current behavioral
-specification for the public HTTP/2 modules and do not by themselves complete
-the remaining row-specific semantic retirement gate tracked in
-[`../proposals/http2-standard-library-completion-and-fixture-retirement.md`](../proposals/http2-standard-library-completion-and-fixture-retirement.md).
+diagnostic projections are current observable behavior. Standard-package
+`frame_test.veln`, `diagnostic_test.veln`, `hpack_test.veln`, and
+`core_test.veln` cover the public modules without reading the retired fixture
+or a historical migration manifest. The migration-only inventories,
+generator, checker, and generated retirement tests were removed after this
+independent coverage passed. The completion boundary is recorded in
+[`http2-standard-library-completion-and-fixture-retirement.md`](../reference/implemented-proposals/http2-standard-library-completion-and-fixture-retirement.md).

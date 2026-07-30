@@ -1866,16 +1866,20 @@ end
 
 test local_settings_send_failure_preserves_policy_ack_state_and_output() -> Result<(), String>
 	let initial_ack: SettingsAckState = http2::core::record_local_settings_batch(http2::core::empty_settings_ack_state(), 5, 1)
-	let initial_policy: LocalSettingsPolicy = http2::core::local_settings_send_policy(require_local_settings_sent(http2::core::send_local_setting(http2::core::local_settings_enable_push(0), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?)
+	let accepted: LocalSettingsSendDecision = require_local_settings_sent(http2::core::send_local_setting(http2::core::local_settings_enable_push(0), "server", http2::core::empty_local_settings_policy(), http2::core::empty_settings_ack_state())?)?
+	let initial_policy: LocalSettingsPolicy = http2::core::local_settings_send_policy(accepted)
 	let items: List<LocalSettingsItem> = Cons(http2::core::local_settings_header_table_size(4096), Cons(http2::core::local_settings_enable_connect_protocol(2), Cons(http2::core::local_settings_enable_push(1), Nil)))
 	let decision: LocalSettingsSendDecision = http2::core::send_local_settings_batch(items, "server", initial_policy, initial_ack)?
-	match decision
-		LocalSettingsRejected(failure) => if http2::core::local_settings_failure_offset(failure) == 6 and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_policy_enable_push_value(initial_policy) == 0 and http2::core::local_settings_policy_enable_push_offset(initial_policy) == 0 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(initial_ack)) == 5 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(initial_ack)) == 1 and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
-			Ok(())
-		else
-			Err("local SETTINGS range failure changed policy, ACK state, or output")
+	match http2::core::local_settings_send_failure(decision)
+		Ok(failure) => match http2::core::local_settings_send_failure(accepted)
+			Err(reason) => if reason == "accepted local SETTINGS send has no failure" and http2::core::local_settings_failure_offset(failure) == 6 and http2::core::local_settings_failure_setting_identifier(failure) == 8 and http2::core::local_settings_policy_enable_push_value(initial_policy) == 0 and http2::core::local_settings_policy_enable_push_offset(initial_policy) == 0 and http2::core::outstanding_settings_identifier(http2::core::settings_ack_outstanding(initial_ack)) == 5 and http2::core::outstanding_settings_batch_count(http2::core::settings_ack_outstanding(initial_ack)) == 1 and byte_count_to_int(byte_chunk_count(http2::core::local_settings_send_bytes(decision))) == 0
+				Ok(())
+			else
+				Err("local SETTINGS failure accessor lost failure or preserved-state context")
+			end
+			Ok(_) => Err("accepted local SETTINGS send exposed a protocol failure")
 		end
-		_ => Err("invalid local SETTINGS batch was accepted")
+		Err(_) => Err("invalid local SETTINGS batch did not expose its protocol failure")
 	end
 end
 

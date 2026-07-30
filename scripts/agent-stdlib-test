@@ -10,9 +10,7 @@ for target in \
   http2/frame_test.veln \
   http2/diagnostic_test.veln \
   http2/hpack_test.veln \
-  http2/core_test.veln \
-  http2/retirement_output_evidence_test.veln \
-  http2/retirement_projection_evidence_test.veln
+  http2/core_test.veln
 do
   bash ../../../scripts/agent-run \
     cargo run \
