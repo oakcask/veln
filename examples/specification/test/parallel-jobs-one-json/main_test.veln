@@ -1,0 +1,14 @@
+test alpha() -> () effects [stdio]
+	stdio::println("alpha out")
+	()
+end
+
+test beta() -> () effects [stdio]
+	stdio::println("beta out")
+	()
+end
+
+test gamma() -> () effects [stdio]
+	stdio::println("gamma out")
+	()
+end

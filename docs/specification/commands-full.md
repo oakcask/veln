@@ -320,7 +320,7 @@ Missing `java` before class loading is reported as a JDK setup error.
 
 <a id="veln-test"></a>
 
-## `veln test [--json] [target ...]`
+## `veln test [--json] [-j <JOBS> | --jobs <JOBS>] [target ...]`
 
 `test` reuses the parser, semantic diagnostics, checked-core lowering, typed IR,
 JVM backend, and Java execution path used by `run`, including the generated JVM
@@ -328,6 +328,17 @@ class cache.
 
 Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
+
+`-j <JOBS>` and `--jobs <JOBS>` set the maximum number of runnable test cases
+that may execute concurrently. `JOBS` is a positive decimal integer. When the
+option is omitted, `test` uses the process's available parallelism and falls
+back to one job if availability cannot be determined. The active worker count
+is clamped to the runnable case count, and an empty runnable set starts no
+workers. `--jobs 1` is the serial compatibility route for suites whose cases
+share external state. The job option is recognized before `--`, including
+after a target; after `--`, the same token is a target. Zero, missing,
+malformed, repeated, mixed-spelling repeated, and overflowing job values are
+command-line errors before project discovery.
 
 Without explicit targets, `test` selects top-level `test` declarations in
 discovered `*_test.veln` files and in any other discovered source file that
@@ -412,6 +423,18 @@ case fails with
 the discovered doctest case is blocked with `reason: "static_gate"`. JDK setup
 failures become case errors with reason `runner_error`, including a missing
 `java` before class loading.
+
+When the static gate passes, every runnable case is scheduled through the
+bounded ordered executor. The coordinator constructs and renders the report
+only after all workers finish, so human status lines, JSON `cases`, diagnostics,
+captured events, summary counts, failures, and exit status remain in discovered
+case order regardless of completion order. Worker stdout and stderr are
+captured per case and are not streamed while workers are active. The checked
+examples under `../../examples/specification/test/parallel-jobs-one-json/`,
+`../../examples/specification/test/parallel-jobs-two-json/`, and
+`../../examples/specification/test/parallel-jobs-auto-json/` are the primary
+observable specification for ordered JSON case records across serial, bounded,
+and automatic job modes.
 
 Runtime failure expectation matching is independent from expected-output
 comparison. Satisfying `runtime=contract`, `runtime=ensure`, or

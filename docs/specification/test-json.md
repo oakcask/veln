@@ -26,6 +26,9 @@ This page routes implemented JSON output for `veln test --json`.
   `RuntimeDiagnostic(...)` payloads in `cases.*.failure.details.value` and
   project contained byte and value payload fields into the same structured
   diagnostic details used by `run --json`.
+- `test --json` keeps `cases`, captured `events`, `summary`, top-level
+  `status`, diagnostics, and failures in discovered-case order for serial
+  `--jobs 1`, explicit bounded `--jobs <JOBS>`, and automatic job modes.
 
 ## Read When
 
@@ -46,6 +49,10 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
 - Readable coverage for runtime expectation plus output mismatch:
   `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
+- Ordered parallel-job coverage:
+  `../../examples/specification/test/parallel-jobs-one-json/`,
+  `../../examples/specification/test/parallel-jobs-two-json/`, and
+  `../../examples/specification/test/parallel-jobs-auto-json/`.
 - Runtime diagnostic payload and helper-returned value-shape assertion
   coverage:
   `../../examples/specification/test/runtime-diagnostic-payload-json/`,

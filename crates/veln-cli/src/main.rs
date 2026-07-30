@@ -30,7 +30,11 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             inputs,
             entry_args,
         } => commands::run::run_entry(json, entry, inputs, entry_args),
-        Command::Test { json, targets } => commands::test::test(json, targets),
+        Command::Test {
+            json,
+            jobs,
+            targets,
+        } => commands::test::test(json, jobs, targets),
         Command::Repair {
             json,
             apply,

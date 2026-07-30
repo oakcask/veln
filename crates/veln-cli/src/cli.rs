@@ -21,6 +21,7 @@ pub(crate) enum Command {
     },
     Test {
         json: bool,
+        jobs: Option<usize>,
         targets: Vec<PathBuf>,
     },
     Repair {
@@ -139,11 +140,22 @@ fn test_command() -> ClapCommand {
     ClapCommand::new("test")
         .about("Run tests")
         .arg(json_arg())
+        .arg(test_jobs_arg())
         .arg(path_args(
             "targets",
             "Source files, directories, or test targets",
             "TARGETS",
         ))
+}
+
+fn test_jobs_arg() -> Arg {
+    Arg::new("jobs")
+        .short('j')
+        .long("jobs")
+        .help("Maximum runnable test cases to execute concurrently")
+        .value_name("JOBS")
+        .num_args(1)
+        .value_parser(clap::value_parser!(usize))
 }
 
 fn repair_command() -> ClapCommand {
@@ -324,6 +336,7 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
         Some(("run", matches)) => run_from_matches(matches),
         Some(("test", matches)) => Command::Test {
             json: matches.get_flag("json"),
+            jobs: matches.get_one::<usize>("jobs").copied(),
             targets: path_values(matches, "targets"),
         },
         Some(("repair", matches)) => Command::Repair {
@@ -474,12 +487,50 @@ fn reject_missing_run_entry<'a>(args: impl Iterator<Item = &'a String>) -> Resul
 }
 
 fn reject_unknown_test_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
-    for arg in args {
+    let mut args = args.peekable();
+    let mut seen_jobs = false;
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--json" | "--help" | "-h" => {}
+            "--" => return Ok(()),
+            "-j" | "--jobs" => {
+                reject_repeated_test_jobs(&mut seen_jobs)?;
+                let Some(value) = args.next() else {
+                    return Err(format!("test flag `{arg}` requires a value"));
+                };
+                validate_test_jobs_value(arg, value)?;
+            }
+            flag if flag.starts_with("--jobs=") => {
+                reject_repeated_test_jobs(&mut seen_jobs)?;
+                let value = flag
+                    .split_once('=')
+                    .expect("prefix check guarantees an equals sign")
+                    .1;
+                validate_test_jobs_value("--jobs", value)?;
+            }
             flag if flag.starts_with('-') => return Err(format!("unknown test flag `{flag}`")),
             _ => {}
         }
+    }
+    Ok(())
+}
+
+fn reject_repeated_test_jobs(seen_jobs: &mut bool) -> Result<(), String> {
+    if *seen_jobs {
+        return Err("test jobs flag may only be provided once".to_string());
+    }
+    *seen_jobs = true;
+    Ok(())
+}
+
+fn validate_test_jobs_value(flag: &str, value: &str) -> Result<(), String> {
+    let jobs = value
+        .parse::<usize>()
+        .map_err(|_| format!("test flag `{flag}` requires a positive integer value"))?;
+    if jobs == 0 {
+        return Err(format!(
+            "test flag `{flag}` requires a positive integer value"
+        ));
     }
     Ok(())
 }
@@ -826,15 +877,84 @@ mod tests {
         let command = parse(&["test", "--json", "src/main.veln", "tests"])
             .expect("test command should parse");
 
-        let Command::Test { json, targets } = command else {
+        let Command::Test {
+            json,
+            jobs,
+            targets,
+        } = command
+        else {
             panic!("expected test command");
         };
 
         assert!(json);
+        assert_eq!(jobs, None);
         assert_eq!(
             targets,
             [PathBuf::from("src/main.veln"), PathBuf::from("tests")]
         );
+    }
+
+    #[test]
+    fn test_parser_accepts_jobs_spellings_and_placement() {
+        let command = parse(&["test", "--json", "src/main.veln", "-j", "2"])
+            .expect("short jobs flag after a target should parse");
+        let Command::Test {
+            json,
+            jobs,
+            targets,
+        } = command
+        else {
+            panic!("expected test command");
+        };
+        assert!(json);
+        assert_eq!(jobs, Some(2));
+        assert_eq!(targets, [PathBuf::from("src/main.veln")]);
+
+        let command = parse(&["test", "--jobs", "3", "src/main.veln", "tests"])
+            .expect("long jobs flag should parse");
+        let Command::Test { jobs, targets, .. } = command else {
+            panic!("expected test command");
+        };
+        assert_eq!(jobs, Some(3));
+        assert_eq!(
+            targets,
+            [PathBuf::from("src/main.veln"), PathBuf::from("tests")]
+        );
+    }
+
+    #[test]
+    fn test_parser_treats_jobs_after_separator_as_target() {
+        let command = parse(&["test", "--json", "--", "--jobs", "2"])
+            .expect("jobs after separator should be a target");
+        let Command::Test {
+            json,
+            jobs,
+            targets,
+        } = command
+        else {
+            panic!("expected test command");
+        };
+
+        assert!(json);
+        assert_eq!(jobs, None);
+        assert_eq!(targets, [PathBuf::from("--jobs"), PathBuf::from("2")]);
+    }
+
+    #[test]
+    fn test_parser_rejects_invalid_jobs_values() {
+        for args in [
+            &["test", "--jobs", "0"][..],
+            &["test", "--jobs"][..],
+            &["test", "--jobs", "many"][..],
+            &["test", "-j", "-1"][..],
+            &["test", "--jobs", "184467440737095516160"][..],
+            &["test", "-j", "2", "--jobs", "3"][..],
+        ] {
+            assert!(
+                parse(args).is_err(),
+                "invalid jobs arguments should fail: {args:?}"
+            );
+        }
     }
 
     #[test]
