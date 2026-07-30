@@ -240,13 +240,15 @@ fn absolute_path(root: &Path, path: &Path) -> PathBuf {
 }
 
 enum TestCaseJob {
-    Ready {
-        case: TestCase,
-        module: SurfaceModule,
-        program: JvmProgram,
-        java_args: Vec<String>,
-    },
-    Completed(TestCase),
+    Ready(Box<ReadyTestCaseJob>),
+    Completed(Box<TestCase>),
+}
+
+struct ReadyTestCaseJob {
+    case: TestCase,
+    module: SurfaceModule,
+    program: JvmProgram,
+    java_args: Vec<String>,
 }
 
 fn prepare_test_case_job(
@@ -264,7 +266,7 @@ fn prepare_test_case_job(
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = reachable.lowered.diagnostics.clone();
-                return TestCaseJob::Completed(case);
+                return TestCaseJob::Completed(Box::new(case));
             };
             (&reachable.module, ir)
         }
@@ -282,23 +284,26 @@ fn prepare_test_case_job(
         (generate_classfiles_with_entry(ir, &case.name), Vec::new())
     };
 
-    TestCaseJob::Ready {
+    TestCaseJob::Ready(Box::new(ReadyTestCaseJob {
         case,
         module: module.clone(),
         program,
         java_args,
-    }
+    }))
 }
 
 fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {
     let (mut case, module, program, java_args) = match job {
-        TestCaseJob::Ready {
-            case,
-            module,
-            program,
-            java_args,
-        } => (case, module, program, java_args),
-        TestCaseJob::Completed(case) => return Ok(case),
+        TestCaseJob::Ready(job) => {
+            let ReadyTestCaseJob {
+                case,
+                module,
+                program,
+                java_args,
+            } = *job;
+            (case, module, program, java_args)
+        }
+        TestCaseJob::Completed(case) => return Ok(*case),
     };
 
     let TestRunArtifacts {
