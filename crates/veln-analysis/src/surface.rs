@@ -2554,8 +2554,7 @@ mod tests {
         ] {
             assert!(
                 module.functions.iter().any(|function| {
-                    function.module_name.as_deref()
-                        == Some("std::http2::core_test")
+                    function.module_name.as_deref() == Some("std::http2::core_test")
                         && function.name.as_deref() == Some(entry)
                         && function.kind == FunctionKind::Test
                 }),
