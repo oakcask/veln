@@ -16,9 +16,7 @@
   boundaries consistent.
 * When creating or substantially revising any document that specifies
   behavior, including proposals, design notes, and reference material, use
-  `$verifiable-specification-writing`. Prefer the most directly verifiable
-  practical medium over prose, and keep prose for routing, rationale, scope,
-  and constraints that cannot reasonably be expressed mechanically.
+  `$verifiable-specification-writing`.
 * When adding or changing human diagnostics, keep the primary message focused
   on the specific failed fact at the reported span. Put causes, provenance,
   repair hints, and other related locations in `related` notes, and add human

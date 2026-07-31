@@ -1,4 +1,4 @@
 interface:
   display_name: "Verifiable Specification Writing"
-  short_description: "Prefer verifiable media for behavior specifications"
-  default_prompt: "Use $verifiable-specification-writing to express behavioral requirements in the most directly verifiable practical form."
+  short_description: "Write declarative, verifiable behavior specifications"
+  default_prompt: "Use $verifiable-specification-writing to express externally observable behavior declaratively in the most directly verifiable practical form."
