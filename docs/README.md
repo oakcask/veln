@@ -39,6 +39,13 @@ decision and state-transition tables. Use diagrams as derived or supporting
 views when possible. Keep prose for routing, rationale, scope, and constraints
 that cannot reasonably be expressed mechanically.
 
+Specify behavior declaratively as an externally observable contract. Do not
+prescribe internal algorithms, data structures, or operation order unless they
+are required design constraints. When an internal algorithm or ordered
+procedure needs prose explanation, use Simplified Technical English style:
+write short sentences, put one action or condition in each sentence, and use
+consistent terminology.
+
 Planned behavior must identify its acceptance model and intended verification
 without presenting not-yet-running evidence as implemented. Current behavior
 must route to checked evidence when practical.

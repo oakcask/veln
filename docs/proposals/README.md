@@ -34,6 +34,11 @@ Keep prose for scope, rationale, non-goals, and constraints that cannot
 reasonably be expressed in the primary verification medium. Do not describe
 planned evidence as already passing.
 
+State proposed behavior declaratively as an externally observable contract.
+Keep internal algorithms and ordered procedures outside normative behavior
+unless they are required design constraints. Use Simplified Technical English
+style when those details need prose explanation.
+
 ## Update When
 
 Promote observable behavior to executable evidence under

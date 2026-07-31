@@ -12,14 +12,20 @@ behavior in the strongest practical verification medium. Keep natural-language
 text subordinate to primary evidence when the claim can be expressed
 mechanically or structurally.
 
+Specify behavior declaratively as an externally observable contract. State
+inputs, outcomes, failures, visible state transitions, and invariants without
+prescribing internal control flow, data structures, or operation order unless
+those details are required constraints.
+
 Apply this rule by content, not directory. A reference or design page that
 defines behavior is in scope. Pure routing, rationale, history, bibliography,
 and explanation are not normative unless they also make behavioral claims.
 
 ## Workflow
 
-1. Identify each normative claim and the observable fact that would prove or
-   disprove it. Separate rationale, scope, and non-goals from those claims.
+1. Identify each normative claim and the external observation that would prove
+   or disprove it. Separate internal design explanation, rationale, scope, and
+   non-goals from those claims.
 2. Choose the strongest practical primary medium using the selection guide
    below. Prefer an existing repository harness or artifact format.
 3. Write or update the primary artifact before expanding prose when practical.
@@ -32,6 +38,21 @@ and explanation are not normative unless they also make behavioral claims.
    label its authority accurately and state what will verify it.
 7. If only prose is practical, state the reason briefly and make the prose
    falsifiable with explicit inputs, outcomes, boundaries, or invariants.
+
+## Declarative Boundary
+
+- Describe what users, callers, tools, or interoperating systems can observe.
+- State inputs, outcomes, failures, invariants, and externally visible state
+  transitions.
+- Do not turn the current implementation algorithm into a normative
+  requirement.
+- Include an internal algorithm, data structure, or operation order only when
+  it is needed to explain the design or when compatibility, safety,
+  performance, or another explicit constraint makes it significant.
+- Mark internal explanations as rationale or implementation guidance unless
+  they are intentionally normative.
+- Explain why an internal detail is normative when the specification must
+  constrain it.
 
 ## Medium Selection
 
@@ -53,6 +74,23 @@ and explanation are not normative unless they also make behavioral claims.
   or executable model as authoritative.
 - Rationale, scope, non-goals, provenance, and genuinely non-mechanical
   constraints: use concise prose.
+
+## Simplified Technical English Style
+
+When an internal algorithm or ordered procedure needs prose explanation, use
+Simplified Technical English style. Do not claim formal conformance to a
+controlled-language standard.
+
+- Use one action or condition per sentence.
+- Use short sentences with an explicit subject and verb.
+- Use the same term for the same concept. Do not introduce stylistic synonyms.
+- Define abbreviations and specialized terms before using them.
+- Prefer active voice when the actor is relevant.
+- Put a condition before the action that depends on it.
+- Use numbered steps when order is significant.
+- Use one imperative action per procedural step.
+- State the expected result when it is not obvious.
+- Avoid ambiguous pronouns, nested conditions, idioms, and informal metaphors.
 
 ## Planned and Current Behavior
 
@@ -83,6 +121,13 @@ verification agree.
 - State tables include failures and unchanged-state outcomes where relevant.
 - Benchmarks identify workload, metric, comparison, and noise handling.
 - Prose routes to or explains primary evidence instead of duplicating it.
+- Normative text describes externally observable behavior rather than an
+  accidental implementation strategy.
+- Any normative internal constraint explains why the detail must be
+  constrained.
+- Internal algorithm and procedure sections are distinguishable from
+  behavioral requirements.
+- Algorithm and procedure prose follows Simplified Technical English style.
 - Planned evidence is not presented as implemented or passing.
 - Verification commands or CI routes are discoverable.
 - Any prose-only exception explains why stronger representation is not

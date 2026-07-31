@@ -11,6 +11,9 @@ tracked in `../proposals/`.
   command, JSON, runtime, contract, or hole change.
 - Keep prose thin: prefer executable or mechanically checked specifications for
   behavior detail, and use prose pages for routing, summary, and explanation.
+- Specify externally observable behavior declaratively. Explain internal
+  algorithms or ordered procedures only when needed, using Simplified
+  Technical English style.
 - Prefer executable or checked specification evidence for behavior changes:
   `../../examples/specification/`, generated grammar from
   `source-surface-executable.pl`, compiler tests, or CLI harness cases.
