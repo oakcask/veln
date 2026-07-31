@@ -15,9 +15,10 @@ end
 fn bool_count(flags: List<Bool>) -> Int
 	match flags
 		Nil => 0
-		Cons(head, tail) => match head
-			true => 1 + bool_count(tail)
-			false => bool_count(tail)
+		Cons(head, tail) => if head
+			1 + bool_count(tail)
+		else
+			bool_count(tail)
 		end
 	end
 end

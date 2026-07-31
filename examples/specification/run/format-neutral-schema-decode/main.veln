@@ -81,9 +81,10 @@ end
 fn bool_list_score(flags: List<Bool>) -> Int
 	match flags
 		Nil => 0
-		Cons(head, tail) => match head
-			true => 1 + bool_list_score(tail)
-			false => bool_list_score(tail)
+		Cons(head, tail) => if head
+			1 + bool_list_score(tail)
+		else
+			bool_list_score(tail)
 		end
 	end
 end
@@ -99,9 +100,10 @@ fn decoded_ratio_status(result: Result<{code: Int, label: String, items: List<In
 	match result
 		Ok(packet) => match packet.ratios
 			Nil => "missing"
-			Cons(head, _) => match head > 1.0
-				true => "ratio-high"
-				false => "ratio-low"
+			Cons(head, _) => if head > 1.0
+				"ratio-high"
+			else
+				"ratio-low"
 			end
 		end
 		Err(message) => message
@@ -131,9 +133,10 @@ end
 fn decoded_state(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.states, "enabled")
-			Some(enabled) => match enabled
-				true => "enabled"
-				false => "disabled"
+			Some(enabled) => if enabled
+				"enabled"
+			else
+				"disabled"
 			end
 			None => "missing"
 		end
@@ -144,9 +147,10 @@ end
 fn decoded_weight(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.weights, "ratio")
-			Some(weight) => match weight > 1.0
-				true => "weight-high"
-				false => "weight-low"
+			Some(weight) => if weight > 1.0
+				"weight-high"
+			else
+				"weight-low"
 			end
 			None => "missing"
 		end
@@ -167,9 +171,10 @@ end
 fn decoded_optional_metadata(result: Result<{code: Int, label: String, items: List<Int>, flags: List<Bool>, ratios: List<Float>, names: List<String>, scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>, metadata: {ready: Bool, score: Float}, optional_code: Option<Int>, optional_metadata: Option<{ready: Bool, score: Float}>}, String>) -> String
 	match result
 		Ok(packet) => match packet.optional_metadata
-			Some(metadata) => match metadata.ready
-				true => "ready"
-				false => "blocked"
+			Some(metadata) => if metadata.ready
+				"ready"
+			else
+				"blocked"
 			end
 			None => "missing"
 		end
@@ -200,9 +205,10 @@ end
 fn decoded_nested_option_active(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> String
 	match result
 		Ok(packet) => match packet.metadata.active
-			Some(active) => match active
-				true => "active"
-				false => "inactive"
+			Some(active) => if active
+				"active"
+			else
+				"inactive"
 			end
 			None => "missing"
 		end
@@ -213,9 +219,10 @@ end
 fn decoded_nested_option_ratio(result: Result<{metadata: {label: Option<String>, retries: Option<Int>, active: Option<Bool>, ratio: Option<Float>}}, String>) -> String
 	match result
 		Ok(packet) => match packet.metadata.ratio
-			Some(ratio) => match ratio > 1.0
-				true => "ratio-high"
-				false => "ratio-low"
+			Some(ratio) => if ratio > 1.0
+				"ratio-high"
+			else
+				"ratio-low"
 			end
 			None => "missing"
 		end
@@ -241,9 +248,10 @@ fn decoded_nested_list_ratio_status(result: Result<{metadata: {items: List<Int>,
 	match result
 		Ok(packet) => match packet.metadata.ratios
 			Nil => "missing"
-			Cons(head, _) => match head > 1.0
-				true => "nested-ratio-high"
-				false => "nested-ratio-low"
+			Cons(head, _) => if head > 1.0
+				"nested-ratio-high"
+			else
+				"nested-ratio-low"
 			end
 		end
 		Err(message) => message
@@ -283,9 +291,10 @@ end
 fn decoded_nested_state(result: Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.metadata.states, "enabled")
-			Some(enabled) => match enabled
-				true => "nested-enabled"
-				false => "nested-disabled"
+			Some(enabled) => if enabled
+				"nested-enabled"
+			else
+				"nested-disabled"
 			end
 			None => "missing"
 		end
@@ -296,9 +305,10 @@ end
 fn decoded_nested_weight(result: Result<{metadata: {scores: Dict<String, Int>, labels: Dict<String, String>, states: Dict<String, Bool>, weights: Dict<String, Float>}}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.metadata.weights, "ratio")
-			Some(weight) => match weight > 1.0
-				true => "nested-weight-high"
-				false => "nested-weight-low"
+			Some(weight) => if weight > 1.0
+				"nested-weight-high"
+			else
+				"nested-weight-low"
 			end
 			None => "missing"
 		end
@@ -336,9 +346,10 @@ fn decoded_optional_dict_state(result: Result<{scores: Option<Dict<String, Int>>
 	match result
 		Ok(packet) => match packet.states
 			Some(states) => match dict_get(states, "enabled")
-				Some(enabled) => match enabled
-					true => "option-enabled"
-					false => "option-disabled"
+				Some(enabled) => if enabled
+					"option-enabled"
+				else
+					"option-disabled"
 				end
 				None => "missing-key"
 			end
@@ -352,9 +363,10 @@ fn decoded_optional_dict_weight(result: Result<{scores: Option<Dict<String, Int>
 	match result
 		Ok(packet) => match packet.weights
 			Some(weights) => match dict_get(weights, "ratio")
-				Some(weight) => match weight > 1.0
-					true => "option-weight-high"
-					false => "option-weight-low"
+				Some(weight) => if weight > 1.0
+					"option-weight-high"
+				else
+					"option-weight-low"
 				end
 				None => "missing-key"
 			end
@@ -394,9 +406,10 @@ fn decoded_nested_optional_dict_state(result: Result<{metadata: {scores: Option<
 	match result
 		Ok(packet) => match packet.metadata.states
 			Some(states) => match dict_get(states, "enabled")
-				Some(enabled) => match enabled
-					true => "nested-option-enabled"
-					false => "nested-option-disabled"
+				Some(enabled) => if enabled
+					"nested-option-enabled"
+				else
+					"nested-option-disabled"
 				end
 				None => "missing-key"
 			end
@@ -410,9 +423,10 @@ fn decoded_nested_optional_dict_weight(result: Result<{metadata: {scores: Option
 	match result
 		Ok(packet) => match packet.metadata.weights
 			Some(weights) => match dict_get(weights, "ratio")
-				Some(weight) => match weight > 1.0
-					true => "nested-option-weight-high"
-					false => "nested-option-weight-low"
+				Some(weight) => if weight > 1.0
+					"nested-option-weight-high"
+				else
+					"nested-option-weight-low"
 				end
 				None => "missing-key"
 			end

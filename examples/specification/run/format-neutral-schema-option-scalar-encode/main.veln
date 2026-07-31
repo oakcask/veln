@@ -21,9 +21,10 @@ end
 fn ready_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
 	match result
 		Ok(packet) => match packet.ready
-			Some(ready) => match ready
-				true => "ready"
-				false => "blocked"
+			Some(ready) => if ready
+				"ready"
+			else
+				"blocked"
 			end
 			None => "missing-ready"
 		end
@@ -34,9 +35,10 @@ end
 fn ratio_text(result: Result<{code: Option<Int>, ready: Option<Bool>, ratio: Option<Float>, label: Option<String>}, String>) -> String
 	match result
 		Ok(packet) => match packet.ratio
-			Some(ratio) => match ratio > 1.0
-				true => "ratio-high"
-				false => "ratio-low"
+			Some(ratio) => if ratio > 1.0
+				"ratio-high"
+			else
+				"ratio-low"
 			end
 			None => "missing-ratio"
 		end

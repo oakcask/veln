@@ -16,9 +16,10 @@ end
 
 fn http2_protocol_diagnostic(failure: Http2ProtocolFailure) -> Result<(), RuntimeDiagnostic>
 	match failure
-		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview) => match expected_fixture == "HPACK static indexed header" and codec_module == "hpack_static"
-			true => Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview))))
-			false => Err(fallback_payload("expected source-visible HPACK static indexed header failure"))
+		HpackFixtureDecodeFailed(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview) => if expected_fixture == "HPACK static indexed header" and codec_module == "hpack_static"
+			Err(RuntimeDiagnostic("hpack.static.unsupported_index", "HPACK static index is not supported", RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(offset, observed_size, observed_first_byte, expected_fixture, codec_module, preview))))
+		else
+			Err(fallback_payload("expected source-visible HPACK static indexed header failure"))
 		end
 	end
 end

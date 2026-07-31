@@ -21,9 +21,10 @@ end
 fn encoded_state(result: Result<{scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.states, "enabled")
-			Some(value) => match value
-				true => "enabled"
-				false => "disabled"
+			Some(value) => if value
+				"enabled"
+			else
+				"disabled"
 			end
 			None => "missing"
 		end
@@ -34,9 +35,10 @@ end
 fn encoded_weight(result: Result<{scores: Dict<String, Int>, states: Dict<String, Bool>, weights: Dict<String, Float>, names: Dict<String, String>}, String>) -> String
 	match result
 		Ok(packet) => match dict_get(packet.weights, "ratio")
-			Some(value) => match value > 1.0
-				true => "weight-high"
-				false => "weight-low"
+			Some(value) => if value > 1.0
+				"weight-high"
+			else
+				"weight-low"
 			end
 			None => "missing"
 		end

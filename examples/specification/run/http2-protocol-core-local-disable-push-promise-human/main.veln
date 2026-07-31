@@ -39,9 +39,10 @@ end
 
 fn receive(bytes: ByteChunk, local_policy: LocalEnablePush) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(bytes))
-	match available < 9
-		true => Ok(Waiting)
-		false => decode_header(bytes, local_policy)
+	if available < 9
+		Ok(Waiting)
+	else
+		decode_header(bytes, local_policy)
 	end
 end
 
@@ -54,9 +55,10 @@ end
 
 fn validate_client_push_promise_policy(offset: Int, kind: Int, stream_id: Int, local_policy: LocalEnablePush, preview: ByteView) -> Result<Http2Step, String>
 	match local_policy
-		LocalEnablePush(value) => match kind == 5 and stream_id != 0 and value == 0
-			true => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, preview)))
-			false => Ok(FrameOk(kind))
+		LocalEnablePush(value) => if kind == 5 and stream_id != 0 and value == 0
+			Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, preview)))
+		else
+			Ok(FrameOk(kind))
 		end
 	end
 end

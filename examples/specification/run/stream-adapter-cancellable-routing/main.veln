@@ -43,9 +43,10 @@ fn action_score(actions: List<ResponseAction>) -> Int
 end
 
 fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 

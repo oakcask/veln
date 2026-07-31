@@ -13,9 +13,10 @@ fn add_int(acc: Int, item: Int) -> Int
 end
 
 fn count_true(acc: Int, item: Bool) -> Int
-	match item
-		true => acc + 1
-		false => acc
+	if item
+		acc + 1
+	else
+		acc
 	end
 end
 
@@ -32,9 +33,10 @@ fn true_count(items: List<Bool>) -> Int
 end
 
 fn float_list_kind(items: List<Float>) -> String
-	match list_fold(items, 0.0, add_float) > 1.0
-		true => "weight-high"
-		false => "weight-low"
+	if list_fold(items, 0.0, add_float) > 1.0
+		"weight-high"
+	else
+		"weight-low"
 	end
 end
 

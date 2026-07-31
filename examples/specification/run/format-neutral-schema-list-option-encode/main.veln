@@ -27,9 +27,10 @@ fn optional_true_count(flags: List<Option<Bool>>) -> Int
 	match flags
 		Nil => 0
 		Cons(head, tail) => match head
-			Some(value) => match value
-				true => 1 + optional_true_count(tail)
-				false => optional_true_count(tail)
+			Some(value) => if value
+				1 + optional_true_count(tail)
+			else
+				optional_true_count(tail)
 			end
 			None => optional_true_count(tail)
 		end
@@ -76,9 +77,10 @@ end
 fn bool_list_true_count(flags: List<Bool>) -> Int
 	match flags
 		Nil => 0
-		Cons(head, tail) => match head
-			true => 1 + bool_list_true_count(tail)
-			false => bool_list_true_count(tail)
+		Cons(head, tail) => if head
+			1 + bool_list_true_count(tail)
+		else
+			bool_list_true_count(tail)
 		end
 	end
 end

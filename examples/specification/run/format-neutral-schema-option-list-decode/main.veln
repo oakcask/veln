@@ -18,9 +18,10 @@ end
 fn bool_list_score(flags: List<Bool>) -> Int
 	match flags
 		Nil => 0
-		Cons(head, tail) => match head
-			true => 1 + bool_list_score(tail)
-			false => bool_list_score(tail)
+		Cons(head, tail) => if head
+			1 + bool_list_score(tail)
+		else
+			bool_list_score(tail)
 		end
 	end
 end
@@ -49,9 +50,10 @@ fn decoded_ratio_status(result: Result<{items: Option<List<Int>>, flags: Option<
 	match result
 		Ok(packet) => match packet.ratios
 			Some(ratios) => match ratios
-				Cons(head, _) => match head > 1.0
-					true => "ratio-high"
-					false => "ratio-low"
+				Cons(head, _) => if head > 1.0
+					"ratio-high"
+				else
+					"ratio-low"
 				end
 				Nil => "missing"
 			end

@@ -96,17 +96,19 @@ end
 fn dynamic_core_evict_for_remaining_table_size(remaining_table_size: Int, dynamic_entry: HpackDynamicCoreEntry) -> HpackDynamicCoreEntry
 	match dynamic_entry
 		NoDynamicCoreEntry => NoDynamicCoreEntry
-		DynamicCoreEntry(name, value, older) => match dynamic_core_entry_size(name, value) <= remaining_table_size
-			true => DynamicCoreEntry(name, value, dynamic_core_evict_for_remaining_table_size(remaining_table_size - dynamic_core_entry_size(name, value), older))
-			false => NoDynamicCoreEntry
+		DynamicCoreEntry(name, value, older) => if dynamic_core_entry_size(name, value) <= remaining_table_size
+			DynamicCoreEntry(name, value, dynamic_core_evict_for_remaining_table_size(remaining_table_size - dynamic_core_entry_size(name, value), older))
+		else
+			NoDynamicCoreEntry
 		end
 	end
 end
 
 fn dynamic_core_bounded_entry(table_size: Int, name: String, value: String, dynamic_entry: HpackDynamicCoreEntry) -> HpackDynamicCoreEntry
-	match dynamic_core_entry_size(name, value) > table_size
-		true => NoDynamicCoreEntry
-		false => dynamic_core_evict_for_table_size(table_size, DynamicCoreEntry(name, value, dynamic_entry))
+	if dynamic_core_entry_size(name, value) > table_size
+		NoDynamicCoreEntry
+	else
+		dynamic_core_evict_for_table_size(table_size, DynamicCoreEntry(name, value, dynamic_entry))
 	end
 end
 
@@ -125,17 +127,19 @@ fn dynamic_core_low_seven_bits(byte: Int) -> Int
 end
 
 fn dynamic_core_decode_integer_tail(block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, prefix_width: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
-	match index < observed_size
-		false => dynamic_core_malformed_integer_prefix(block, prefix_width, offset)
-		true => dynamic_core_decode_integer_tail_byte(dynamic_core_byte_at_or_missing(block, index), block, observed_size, index, multiplier, value, prefix_width, offset)
+	if index < observed_size
+		dynamic_core_decode_integer_tail_byte(dynamic_core_byte_at_or_missing(block, index), block, observed_size, index, multiplier, value, prefix_width, offset)
+	else
+		dynamic_core_malformed_integer_prefix(block, prefix_width, offset)
 	end
 end
 
 fn dynamic_core_decode_integer_tail_byte(current: Int, block: ByteChunk, observed_size: Int, index: Int, multiplier: Int, value: Int, prefix_width: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
 	let next_value: Int = value + dynamic_core_low_seven_bits(current) * multiplier
-	match current < 128
-		true => Ok(HpackDynamicCoreIntegerPrefix(next_value, index + 1))
-		false => dynamic_core_decode_integer_tail(block, observed_size, index + 1, multiplier * 128, next_value, prefix_width, offset)
+	if current < 128
+		Ok(HpackDynamicCoreIntegerPrefix(next_value, index + 1))
+	else
+		dynamic_core_decode_integer_tail(block, observed_size, index + 1, multiplier * 128, next_value, prefix_width, offset)
 	end
 end
 
@@ -154,9 +158,10 @@ fn dynamic_core_decode_prefixed_integer(prefix_value: Int, prefix_max: Int, bloc
 end
 
 fn dynamic_core_decode_prefixed_integer_with_width(prefix_value: Int, prefix_max: Int, prefix_width: Int, block: ByteChunk, observed_size: Int, next_index: Int, offset: Int) -> Result<HpackDynamicCoreIntegerPrefix, HpackDynamicCoreFailure>
-	match prefix_value < prefix_max
-		true => Ok(HpackDynamicCoreIntegerPrefix(prefix_value, next_index))
-		false => dynamic_core_decode_integer_tail(block, observed_size, next_index, 1, prefix_max, prefix_width, offset)
+	if prefix_value < prefix_max
+		Ok(HpackDynamicCoreIntegerPrefix(prefix_value, next_index))
+	else
+		dynamic_core_decode_integer_tail(block, observed_size, next_index, 1, prefix_max, prefix_width, offset)
 	end
 end
 
@@ -300,10 +305,10 @@ fn dynamic_core_static_table_name(name_index: Int) -> Option<String>
 end
 
 fn dynamic_core_static_name_literal_value(block: ByteChunk, observed_size: Int, offset: Int) -> Result<String, HpackDynamicCoreFailure>
-	match observed_size > 1
-		true => match dynamic_core_byte_at_or_missing(block, 1) >= 0 and dynamic_core_byte_at_or_missing(block, 1) < 127
-			true => match observed_size == 2 + dynamic_core_byte_at_or_missing(block, 1)
-				true => match byte_count(2)
+	if observed_size > 1
+		if dynamic_core_byte_at_or_missing(block, 1) >= 0 and dynamic_core_byte_at_or_missing(block, 1) < 127
+			if observed_size == 2 + dynamic_core_byte_at_or_missing(block, 1)
+				match byte_count(2)
 					Ok(prefix_count) => match byte_drop(block, prefix_count)
 						Ok(value_suffix) => match byte_count(dynamic_core_byte_at_or_missing(block, 1))
 							Ok(value_count) => match byte_take(value_suffix, value_count)
@@ -319,11 +324,14 @@ fn dynamic_core_static_name_literal_value(block: ByteChunk, observed_size: Int, 
 					end
 					Err(_) => dynamic_core_unsupported_static_name_literal_string(block, offset)
 				end
-				false => dynamic_core_unsupported_static_name_literal_string(block, offset)
+			else
+				dynamic_core_unsupported_static_name_literal_string(block, offset)
 			end
-			false => dynamic_core_unsupported_static_name_literal_string(block, offset)
+		else
+			dynamic_core_unsupported_static_name_literal_string(block, offset)
 		end
-		false => dynamic_core_unsupported_static_name_literal_string(block, offset)
+	else
+		dynamic_core_unsupported_static_name_literal_string(block, offset)
 	end
 end
 
@@ -399,12 +407,12 @@ end
 
 fn dynamic_core_decode_raw_string_literal_prefix_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
 	match dynamic_core_decode_string_length_at(block, observed_size, index, offset)
-		Ok(length) => match dynamic_core_string_length_huffman_marked(length)
-			true => dynamic_core_unsupported_raw_literal_string(block, offset)
-			false => match observed_size >= dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
-				true => dynamic_core_decode_raw_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
-				false => dynamic_core_unsupported_raw_literal_string(block, offset)
-			end
+		Ok(length) => if dynamic_core_string_length_huffman_marked(length)
+			dynamic_core_unsupported_raw_literal_string(block, offset)
+		else if observed_size >= dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
+			dynamic_core_decode_raw_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
+		else
+			dynamic_core_unsupported_raw_literal_string(block, offset)
 		end
 		Err(failure) => Err(failure)
 	end
@@ -412,15 +420,16 @@ end
 
 fn dynamic_core_decode_string_literal_at(block: ByteChunk, observed_size: Int, index: Int, offset: Int) -> Result<HpackDynamicCoreStringLiteral, HpackDynamicCoreFailure>
 	match dynamic_core_decode_string_length_at(block, observed_size, index, offset)
-		Ok(length) => match dynamic_core_string_length_huffman_marked(length)
-			true => match observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
-				true => dynamic_core_decode_huffman_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
-				false => dynamic_core_unsupported_raw_literal_string(block, offset)
+		Ok(length) => if dynamic_core_string_length_huffman_marked(length)
+			if observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
+				dynamic_core_decode_huffman_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
+			else
+				dynamic_core_unsupported_raw_literal_string(block, offset)
 			end
-			false => match observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
-				true => dynamic_core_decode_raw_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
-				false => dynamic_core_unsupported_raw_literal_string(block, offset)
-			end
+		else if observed_size == dynamic_core_string_length_prefix_size(length) + dynamic_core_string_length_encoded_count(length)
+			dynamic_core_decode_raw_string_literal_value(block, dynamic_core_string_length_encoded_count(length), dynamic_core_string_length_prefix_size(length), offset)
+		else
+			dynamic_core_unsupported_raw_literal_string(block, offset)
 		end
 		Err(failure) => Err(failure)
 	end
@@ -447,30 +456,33 @@ fn dynamic_core_decoded_literal_for_indexing(indexing: HpackDynamicCoreLiteralIn
 end
 
 fn dynamic_core_decode_literal_header_with_name(indexing: HpackDynamicCoreLiteralIndexing, name: String, observed_size: Int, state: HpackDynamicCoreState, block: ByteChunk, offset: Int, value_index: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	match value_index < observed_size
-		true => match dynamic_core_decode_string_literal_at(block, observed_size, value_index, offset)
+	if value_index < observed_size
+		match dynamic_core_decode_string_literal_at(block, observed_size, value_index, offset)
 			Ok(literal) => dynamic_core_decoded_literal_for_indexing(indexing, name, dynamic_core_string_literal_value(literal), dynamic_core_string_literal_wire_size(literal), state)
 			Err(failure) => Err(failure)
 		end
-		false => dynamic_core_unsupported_raw_literal(block, offset)
+	else
+		dynamic_core_unsupported_raw_literal(block, offset)
 	end
 end
 
 fn dynamic_core_decode_raw_name_literal_header_block(indexing: HpackDynamicCoreLiteralIndexing, observed_size: Int, state: HpackDynamicCoreState, block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
-	match observed_size >= 3
-		true => match dynamic_core_decode_raw_string_literal_prefix_at(block, observed_size, 1, offset)
+	if observed_size >= 3
+		match dynamic_core_decode_raw_string_literal_prefix_at(block, observed_size, 1, offset)
 			Ok(name) => dynamic_core_decode_literal_header_with_name(indexing, dynamic_core_string_literal_value(name), observed_size, state, block, offset, dynamic_core_string_literal_wire_size(name))
 			Err(failure) => Err(failure)
 		end
-		false => dynamic_core_unsupported_raw_literal(block, offset)
+	else
+		dynamic_core_unsupported_raw_literal(block, offset)
 	end
 end
 
 fn dynamic_core_decode_literal_dynamic_name_with_prefix(indexing: HpackDynamicCoreLiteralIndexing, prefix_value: Int, prefix_max: Int, observed_size: Int, state: HpackDynamicCoreState, block: ByteChunk, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	match dynamic_core_decode_prefixed_integer(prefix_value, prefix_max, block, observed_size, 1, offset)
-		Ok(name_index) => match dynamic_core_integer_prefix_value(name_index) >= 62
-			true => dynamic_core_decode_literal_dynamic_name_at(indexing, dynamic_core_integer_prefix_value(name_index) - 62, dynamic_core_integer_prefix_size(name_index), observed_size, state, block, offset)
-			false => dynamic_core_unsupported_raw_literal(block, offset)
+		Ok(name_index) => if dynamic_core_integer_prefix_value(name_index) >= 62
+			dynamic_core_decode_literal_dynamic_name_at(indexing, dynamic_core_integer_prefix_value(name_index) - 62, dynamic_core_integer_prefix_size(name_index), observed_size, state, block, offset)
+		else
+			dynamic_core_unsupported_raw_literal(block, offset)
 		end
 		Err(failure) => Err(failure)
 	end
@@ -487,9 +499,10 @@ end
 
 fn dynamic_core_decode_saturated_indexed_header(block: ByteChunk, state: HpackDynamicCoreState, observed_size: Int, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	match dynamic_core_decode_prefixed_integer(127, 127, block, observed_size, 1, offset)
-		Ok(prefix) => match dynamic_core_integer_prefix_size(prefix) == observed_size
-			true => dynamic_core_decode_indexed_at(dynamic_core_integer_prefix_value(prefix) - 62, block, state, offset)
-			false => dynamic_core_unsupported_indexed_header(block, offset)
+		Ok(prefix) => if dynamic_core_integer_prefix_size(prefix) == observed_size
+			dynamic_core_decode_indexed_at(dynamic_core_integer_prefix_value(prefix) - 62, block, state, offset)
+		else
+			dynamic_core_unsupported_indexed_header(block, offset)
 		end
 		Err(failure) => Err(failure)
 	end
@@ -504,9 +517,10 @@ pub fn empty_dynamic_core_state(table_size: Int, decode_count: Int) -> HpackDyna
 end
 
 pub fn carried_single_dynamic_entry_state(table_size: Int, decode_count: Int, name: String, value: String) -> HpackDynamicCoreState
-	match dynamic_core_entry_size(name, value) <= table_size
-		true => HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, NoDynamicCoreEntry))
-		false => HpackDynamicCoreState(table_size, decode_count, NoDynamicCoreEntry)
+	if dynamic_core_entry_size(name, value) <= table_size
+		HpackDynamicCoreState(table_size, decode_count, DynamicCoreEntry(name, value, NoDynamicCoreEntry))
+	else
+		HpackDynamicCoreState(table_size, decode_count, NoDynamicCoreEntry)
 	end
 end
 
@@ -533,30 +547,32 @@ end
 pub fn decode_indexed_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
-	match first_byte >= 190
-		true => match observed_size == 1
+	if first_byte >= 190
+		match observed_size == 1
 			true => dynamic_core_decode_indexed_at(first_byte - 190, block, state, offset)
 			false => match first_byte == 255
 				true => dynamic_core_decode_saturated_indexed_header(block, state, observed_size, offset)
 				false => dynamic_core_unsupported_indexed_header(block, offset)
 			end
 		end
-		false => dynamic_core_unsupported_indexed_header(block, offset)
+	else
+		dynamic_core_unsupported_indexed_header(block, offset)
 	end
 end
 
 pub fn decode_static_name_literal_with_indexing_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
-	match first_byte > 64 and first_byte < 127
-		true => match dynamic_core_static_table_name(first_byte - 64)
+	if first_byte > 64 and first_byte < 127
+		match dynamic_core_static_table_name(first_byte - 64)
 			Some(name) => match dynamic_core_static_name_literal_value(block, observed_size, offset)
 				Ok(value) => Ok(HpackDynamicCoreDecodeTransition(dynamic_core_literal_with_indexing_header(name, value, observed_size), dynamic_core_next_state(dynamic_core_insert_entry_state(state, name, value))))
 				Err(failure) => Err(failure)
 			end
 			None => dynamic_core_unsupported_static_name_literal(block, offset)
 		end
-		false => dynamic_core_unsupported_static_name_literal(block, offset)
+	else
+		dynamic_core_unsupported_static_name_literal(block, offset)
 	end
 end
 
@@ -574,9 +590,10 @@ end
 pub fn decode_dynamic_name_literal_header_field(block: ByteChunk, state: HpackDynamicCoreState, offset: Int) -> Result<HpackDynamicCoreDecodeTransition, HpackDynamicCoreFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = dynamic_core_byte_at_or_missing(block, 0)
-	match first_byte >= 64 and first_byte < 128
-		true => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithIndexing, first_byte - 64, 63, observed_size, state, block, offset)
-		false => match first_byte
+	if first_byte >= 64 and first_byte < 128
+		dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithIndexing, first_byte - 64, 63, observed_size, state, block, offset)
+	else
+		match first_byte
 			15 => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralWithoutIndexing, 15, 15, observed_size, state, block, offset)
 			31 => dynamic_core_decode_literal_dynamic_name_with_prefix(DynamicCoreLiteralNeverIndexed, 15, 15, observed_size, state, block, offset)
 			_ => dynamic_core_unsupported_raw_literal(block, offset)

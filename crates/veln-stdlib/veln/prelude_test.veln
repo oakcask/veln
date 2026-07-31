@@ -3,9 +3,10 @@ fn increment(value: Int) -> Int
 end
 
 test pure_veln_control() -> Result<(), String>
-	match list_is_empty(list_nil())
-		true => Ok(())
-		false => Err("list should be empty")
+	if list_is_empty(list_nil())
+		Ok(())
+	else
+		Err("list should be empty")
 	end
 end
 
@@ -28,9 +29,10 @@ end
 
 test source_adt_and_intrinsic_delegation() -> Result<(), String>
 	match byte(7)
-		Ok(value) => match byte_to_int(value) == vec_len([1, 2, 3, 4, 5, 6, 7])
-			true => Ok(())
-			false => Err("byte value did not match")
+		Ok(value) => if byte_to_int(value) == vec_len([1, 2, 3, 4, 5, 6, 7])
+			Ok(())
+		else
+			Err("byte value did not match")
 		end
 		Err(error) => Err(error)
 	end

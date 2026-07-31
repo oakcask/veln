@@ -114,19 +114,20 @@ fn static_index_wire_size(byte: Int) -> Int
 end
 
 fn all_bytes_indexed(block: ByteChunk, index: Int, count: Int) -> Bool
-	match index == count
-		true => true
-		false => match byte_at_or_missing(block, index) >= 128
-			true => all_bytes_indexed(block, index + 1, count)
-			false => false
-		end
+	if index == count
+		true
+	else if byte_at_or_missing(block, index) >= 128
+		all_bytes_indexed(block, index + 1, count)
+	else
+		false
 	end
 end
 
 fn all_indexes_supported(block: ByteChunk, index: Int, count: Int) -> Bool
-	match index == count
-		true => true
-		false => match static_table_header_from_indexed_byte(byte_at_or_missing(block, index))
+	if index == count
+		true
+	else
+		match static_table_header_from_indexed_byte(byte_at_or_missing(block, index))
 			Some(_) => all_indexes_supported(block, index + 1, count)
 			None => false
 		end
@@ -176,13 +177,15 @@ end
 fn literal_without_indexing_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = byte_at_or_missing(block, 0)
 	match first_byte
-		15 => match byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
-			true => 15 + byte_at_or_missing(block, 1)
-			false => -1
+		15 => if byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
+			15 + byte_at_or_missing(block, 1)
+		else
+			-1
 		end
-		_ => match first_byte > 0 and first_byte < 15
-			true => first_byte
-			false => -1
+		_ => if first_byte > 0 and first_byte < 15
+			first_byte
+		else
+			-1
 		end
 	end
 end
@@ -196,22 +199,25 @@ end
 
 fn literal_with_indexing_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = byte_at_or_missing(block, 0)
-	match first_byte > 64 and first_byte < 127
-		true => first_byte - 64
-		false => -1
+	if first_byte > 64 and first_byte < 127
+		first_byte - 64
+	else
+		-1
 	end
 end
 
 fn literal_never_indexed_name_index(block: ByteChunk) -> Int
 	let first_byte: Int = byte_at_or_missing(block, 0)
 	match first_byte
-		31 => match byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
-			true => 15 + byte_at_or_missing(block, 1)
-			false => -1
+		31 => if byte_at_or_missing(block, 1) >= 0 and byte_at_or_missing(block, 1) < 128
+			15 + byte_at_or_missing(block, 1)
+		else
+			-1
 		end
-		_ => match first_byte > 16 and first_byte < 31
-			true => first_byte - 16
-			false => -1
+		_ => if first_byte > 16 and first_byte < 31
+			first_byte - 16
+		else
+			-1
 		end
 	end
 end
@@ -231,10 +237,10 @@ fn static_table_literal_name(name_index: Int) -> Option<String>
 end
 
 fn literal_raw_value(block: ByteChunk, count: Int, value_index: Int, offset: Int) -> Result<String, HpackStaticFailure>
-	match value_index < count
-		true => match byte_at_or_missing(block, value_index) >= 0 and byte_at_or_missing(block, value_index) < 127
-			true => match count == value_index + 1 + byte_at_or_missing(block, value_index)
-				true => match byte_count(value_index + 1)
+	if value_index < count
+		if byte_at_or_missing(block, value_index) >= 0 and byte_at_or_missing(block, value_index) < 127
+			if count == value_index + 1 + byte_at_or_missing(block, value_index)
+				match byte_count(value_index + 1)
 					Ok(prefix_count) => match byte_drop(block, prefix_count)
 						Ok(value_suffix) => match byte_count(byte_at_or_missing(block, value_index))
 							Ok(value_count) => match byte_take(value_suffix, value_count)
@@ -250,19 +256,22 @@ fn literal_raw_value(block: ByteChunk, count: Int, value_index: Int, offset: Int
 					end
 					Err(_) => not_static_string(block, offset)
 				end
-				false => not_static_string(block, offset)
+			else
+				not_static_string(block, offset)
 			end
-			false => not_static_string(block, offset)
+		else
+			not_static_string(block, offset)
 		end
-		false => not_static_string(block, offset)
+	else
+		not_static_string(block, offset)
 	end
 end
 
 fn literal_huffman_value(block: ByteChunk, count: Int, value_index: Int, offset: Int) -> Result<String, HpackStaticFailure>
-	match value_index < count
-		true => match byte_at_or_missing(block, value_index) >= 128 and byte_at_or_missing(block, value_index) < 255
-			true => match count == value_index + 1 + byte_at_or_missing(block, value_index) - 128
-				true => match byte_count(value_index + 1)
+	if value_index < count
+		if byte_at_or_missing(block, value_index) >= 128 and byte_at_or_missing(block, value_index) < 255
+			if count == value_index + 1 + byte_at_or_missing(block, value_index) - 128
+				match byte_count(value_index + 1)
 					Ok(prefix_count) => match byte_drop(block, prefix_count)
 						Ok(value_suffix) => match byte_count(byte_at_or_missing(block, value_index) - 128)
 							Ok(value_count) => match byte_take(value_suffix, value_count)
@@ -278,18 +287,22 @@ fn literal_huffman_value(block: ByteChunk, count: Int, value_index: Int, offset:
 					end
 					Err(_) => not_static_string(block, offset)
 				end
-				false => not_static_string(block, offset)
+			else
+				not_static_string(block, offset)
 			end
-			false => not_static_string(block, offset)
+		else
+			not_static_string(block, offset)
 		end
-		false => not_static_string(block, offset)
+	else
+		not_static_string(block, offset)
 	end
 end
 
 fn literal_value(block: ByteChunk, count: Int, value_index: Int, offset: Int) -> Result<String, HpackStaticFailure>
-	match byte_at_or_missing(block, value_index) >= 128
-		true => literal_huffman_value(block, count, value_index, offset)
-		false => literal_raw_value(block, count, value_index, offset)
+	if byte_at_or_missing(block, value_index) >= 128
+		literal_huffman_value(block, count, value_index, offset)
+	else
+		literal_raw_value(block, count, value_index, offset)
 	end
 end
 
@@ -320,28 +333,29 @@ fn decode_literal_never_indexed_block(block: ByteChunk, count: Int, offset: Int)
 end
 
 fn decode_static_name_literal_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
-	match byte_at_or_missing(block, 0) >= 64 and byte_at_or_missing(block, 0) < 128
-		true => decode_literal_with_indexing_block(block, count, offset)
-		false => match byte_at_or_missing(block, 0) >= 16 and byte_at_or_missing(block, 0) < 32
-			true => decode_literal_never_indexed_block(block, count, offset)
-			false => decode_literal_without_indexing_block(block, count, offset)
-		end
+	if byte_at_or_missing(block, 0) >= 64 and byte_at_or_missing(block, 0) < 128
+		decode_literal_with_indexing_block(block, count, offset)
+	else if byte_at_or_missing(block, 0) >= 16 and byte_at_or_missing(block, 0) < 32
+		decode_literal_never_indexed_block(block, count, offset)
+	else
+		decode_literal_without_indexing_block(block, count, offset)
 	end
 end
 
 fn decode_supported_block(block: ByteChunk, count: Int, offset: Int) -> Result<HpackHeaderList, HpackStaticFailure>
-	match all_indexes_supported(block, 0, count)
-		false => unsupported_static_index(block, offset)
-		true => match count == 1
+	if all_indexes_supported(block, 0, count)
+		match count == 1
 			true => Ok(single_header(byte_at_or_missing(block, 0)))
-			false => match count == 3 and supported_request_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1), byte_at_or_missing(block, 2))
-				true => Ok(request_marker(request_method(byte_at_or_missing(block, 0)), 9))
-				false => match count == 2 and supported_response_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
-					true => response_block(block, offset, byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
-					false => not_static(block, offset)
-				end
+			false => if count == 3 and supported_request_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1), byte_at_or_missing(block, 2))
+				Ok(request_marker(request_method(byte_at_or_missing(block, 0)), 9))
+			else if count == 2 and supported_response_block(byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
+				response_block(block, offset, byte_at_or_missing(block, 0), byte_at_or_missing(block, 1))
+			else
+				not_static(block, offset)
 			end
 		end
+	else
+		unsupported_static_index(block, offset)
 	end
 end
 
@@ -349,9 +363,10 @@ pub fn decode_header_block(block: ByteChunk, offset: Int) -> Result<HpackHeaderL
 	let count: Int = observed_size(block)
 	match count
 		0 => not_static(block, offset)
-		_ => match all_bytes_indexed(block, 0, count)
-			false => decode_static_name_literal_block(block, count, offset)
-			true => decode_supported_block(block, count, offset)
+		_ => if all_bytes_indexed(block, 0, count)
+			decode_supported_block(block, count, offset)
+		else
+			decode_static_name_literal_block(block, count, offset)
 		end
 	end
 end

@@ -15,9 +15,10 @@ end
 
 fn handle_stream_event(event: StreamEvent, state: { request_count : Int }) -> { actions : List<ResponseAction>, next_state : { request_count : Int } }
 	match event
-		Request(stream_id, payload, end_stream) => match end_stream
-			true => { actions: list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil())), next_state: { request_count: state.request_count + 1 } }
-			false => { actions: list_cons(SendBytes(stream_id, payload), list_nil()), next_state: { request_count: state.request_count + 1 } }
+		Request(stream_id, payload, end_stream) => if end_stream
+			{ actions: list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil())), next_state: { request_count: state.request_count + 1 } }
+		else
+			{ actions: list_cons(SendBytes(stream_id, payload), list_nil()), next_state: { request_count: state.request_count + 1 } }
 		end
 		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
 	end

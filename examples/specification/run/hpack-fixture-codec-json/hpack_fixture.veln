@@ -106,12 +106,13 @@ end
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	match byte_count_to_int(byte_chunk_count(block))
 		1 => match byte_at(block, 0)
-			Ok(first_byte) => match first_byte >= 128 and first_byte < 192
-				true => match decode_static_indexed_header(first_byte - 128, state)
+			Ok(first_byte) => if first_byte >= 128 and first_byte < 192
+				match decode_static_indexed_header(first_byte - 128, state)
 					Some(transition) => Ok(transition)
 					None => unsupported(block, offset)
 				end
-				false => unsupported(block, offset)
+			else
+				unsupported(block, offset)
 			end
 			Err(_) => unsupported(block, offset)
 		end
@@ -199,12 +200,13 @@ fn hpack_static_name_index(name: String) -> Int
 end
 
 fn encode_hpack_integer_tail(remaining: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match remaining < 128
-		true => match byte_write_u8_be(remaining)
+	if remaining < 128
+		match byte_write_u8_be(remaining)
 			Ok(encoded) => Ok(encoded)
 			Err(_) => unsupported_header_list_encoding(headers, offset)
 		end
-		false => match byte_write_u8_be((remaining - (remaining / 128) * 128) + 128)
+	else
+		match byte_write_u8_be((remaining - (remaining / 128) * 128) + 128)
 			Ok(current) => match encode_hpack_integer_tail(remaining / 128, headers, offset)
 				Ok(next) => Ok(byte_append(current, next))
 				Err(failure) => Err(failure)
@@ -215,12 +217,13 @@ fn encode_hpack_integer_tail(remaining: Int, headers: HpackHeaderList, offset: I
 end
 
 fn encode_hpack_integer_with_prefix(value: Int, prefix_max: Int, prefix_base: Int, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match value < prefix_max
-		true => match byte_write_u8_be(prefix_base + value)
+	if value < prefix_max
+		match byte_write_u8_be(prefix_base + value)
 			Ok(encoded) => Ok(encoded)
 			Err(_) => unsupported_header_list_encoding(headers, offset)
 		end
-		false => match byte_write_u8_be(prefix_base + prefix_max)
+	else
+		match byte_write_u8_be(prefix_base + prefix_max)
 			Ok(prefix) => match encode_hpack_integer_tail(value - prefix_max, headers, offset)
 				Ok(tail) => Ok(byte_append(prefix, tail))
 				Err(failure) => Err(failure)
@@ -258,9 +261,10 @@ end
 
 fn encode_static_name_literal_without_indexing(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
 	let index: Int = hpack_static_name_index(name)
-	match index < 0
-		true => unsupported_header_list_encoding(headers, offset)
-		false => match encode_hpack_integer_with_prefix(index, 15, 0, headers, offset)
+	if index < 0
+		unsupported_header_list_encoding(headers, offset)
+	else
+		match encode_hpack_integer_with_prefix(index, 15, 0, headers, offset)
 			Ok(prefix) => match encode_hpack_raw_string_literal(value, headers, offset)
 				Ok(encoded_value) => Ok(byte_append(prefix, encoded_value))
 				Err(failure) => Err(failure)
@@ -271,18 +275,16 @@ fn encode_static_name_literal_without_indexing(name: String, value: String, head
 end
 
 fn encode_static_indexed_header(name: String, value: String, headers: HpackHeaderList, offset: Int) -> Result<ByteChunk, HpackFixtureFailure>
-	match name == ":method" and value == "GET"
-		true => encoded_hex_or_failure("82", headers, offset)
-		false => match name == ":path" and value == "/"
-			true => encoded_hex_or_failure("84", headers, offset)
-			false => match name == ":scheme" and value == "https"
-				true => encoded_hex_or_failure("87", headers, offset)
-				false => match name == ":status" and value == "200"
-					true => encoded_hex_or_failure("88", headers, offset)
-					false => unsupported_header_list_encoding(headers, offset)
-				end
-			end
-		end
+	if name == ":method" and value == "GET"
+		encoded_hex_or_failure("82", headers, offset)
+	else if name == ":path" and value == "/"
+		encoded_hex_or_failure("84", headers, offset)
+	else if name == ":scheme" and value == "https"
+		encoded_hex_or_failure("87", headers, offset)
+	else if name == ":status" and value == "200"
+		encoded_hex_or_failure("88", headers, offset)
+	else
+		unsupported_header_list_encoding(headers, offset)
 	end
 end
 

@@ -13,9 +13,10 @@ fn add_int(total: Int, item: Int) -> Int
 end
 
 fn count_true(total: Int, item: Bool) -> Int
-	match item
-		true => total + 1
-		false => total
+	if item
+		total + 1
+	else
+		total
 	end
 end
 

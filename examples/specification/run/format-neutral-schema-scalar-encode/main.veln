@@ -17,9 +17,10 @@ end
 
 fn encoded_ready(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> String
 	match result
-		Ok(packet) => match packet.ready
-			true => "ready"
-			false => "blocked"
+		Ok(packet) => if packet.ready
+			"ready"
+		else
+			"blocked"
 		end
 		Err(message) => message
 	end
@@ -27,9 +28,10 @@ end
 
 fn encoded_ratio(result: Result<{code: Int, ready: Bool, ratio: Float, label: String}, String>) -> String
 	match result
-		Ok(packet) => match packet.ratio > 1.0
-			true => "ratio-high"
-			false => "ratio-low"
+		Ok(packet) => if packet.ratio > 1.0
+			"ratio-high"
+		else
+			"ratio-low"
 		end
 		Err(message) => message
 	end

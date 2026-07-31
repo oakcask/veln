@@ -35,9 +35,10 @@ end
 
 fn receive(bytes: ByteChunk) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(bytes))
-	match available < 9
-		true => Ok(Waiting)
-		false => decode_header(bytes)
+	if available < 9
+		Ok(Waiting)
+	else
+		decode_header(bytes)
 	end
 end
 

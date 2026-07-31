@@ -15,9 +15,10 @@ end
 fn bool_list_score(flags: List<Bool>) -> Int
 	match flags
 		Nil => 0
-		Cons(head, tail) => match head
-			true => 1 + bool_list_score(tail)
-			false => bool_list_score(tail)
+		Cons(head, tail) => if head
+			1 + bool_list_score(tail)
+		else
+			bool_list_score(tail)
 		end
 	end
 end
@@ -46,9 +47,10 @@ fn decoded_nested_ratio_status(result: Result<{metadata: {items: Option<List<Int
 	match result
 		Ok(packet) => match packet.metadata.ratios
 			Some(ratios) => match ratios
-				Cons(head, _) => match head > 1.0
-					true => "nested-ratio-high"
-					false => "nested-ratio-low"
+				Cons(head, _) => if head > 1.0
+					"nested-ratio-high"
+				else
+					"nested-ratio-low"
 				end
 				Nil => "missing"
 			end

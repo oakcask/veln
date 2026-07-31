@@ -39,9 +39,10 @@ fn emit_invalid_fixture(fixture: { name : String, source : String, expected_erro
 		Ok(_) => "unexpected_ok"
 		Err(error) => error
 	end
-	let checked: String = match actual == fixture.expected_error
-		true => actual
-		false => "unexpected_error"
+	let checked: String = if actual == fixture.expected_error
+		actual
+	else
+		"unexpected_error"
 	end
 	stdio::print("fixture ")
 	stdio::print(fixture.name)

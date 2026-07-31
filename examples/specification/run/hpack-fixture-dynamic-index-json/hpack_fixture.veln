@@ -61,9 +61,10 @@ end
 fn evict_for_table_size(table_size: Int, dynamic_entry: HpackDynamicEntry) -> HpackDynamicEntry
 	match dynamic_entry
 		NoDynamicEntry => NoDynamicEntry
-		DynamicEntry(name, value, older) => match dynamic_entry_size(name, value) <= table_size
-			true => DynamicEntry(name, value, NoDynamicEntry)
-			false => NoDynamicEntry
+		DynamicEntry(name, value, older) => if dynamic_entry_size(name, value) <= table_size
+			DynamicEntry(name, value, NoDynamicEntry)
+		else
+			NoDynamicEntry
 		end
 	end
 end
@@ -133,15 +134,14 @@ end
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
 	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
 	let first_byte: Int = byte_at_or_missing(block, 0)
-	match first_byte == 68 and observed_size == 9
-		true => decoded_literal_with_indexing(state)
-		false => match first_byte == 62 and observed_size == 1
-			true => decoded_table_size_update(state, 30)
-			false => match first_byte >= 190 and observed_size == 1
-				true => decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
-				false => unsupported(block, offset)
-			end
-		end
+	if first_byte == 68 and observed_size == 9
+		decoded_literal_with_indexing(state)
+	else if first_byte == 62 and observed_size == 1
+		decoded_table_size_update(state, 30)
+	else if first_byte >= 190 and observed_size == 1
+		decoded_dynamic_indexed_header_at(first_byte - 190, state, block, offset)
+	else
+		unsupported(block, offset)
 	end
 end
 

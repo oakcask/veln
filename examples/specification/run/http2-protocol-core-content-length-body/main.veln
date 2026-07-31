@@ -34,9 +34,10 @@ end
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, String>
 	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
 	match send_credit
-		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
-			true => validate_outbound_content_length(stream_id, payload, application_length, application_length, 1, end_stream, connection_window, stream_window, expected_length, observed_length)
-			false => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => if stream_id == open_stream_id
+			validate_outbound_content_length(stream_id, payload, application_length, application_length, 1, end_stream, connection_window, stream_window, expected_length, observed_length)
+		else
+			Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 		end
 		OutboundSendCredit(_, _) => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 	end
@@ -48,43 +49,47 @@ fn send_padded_data(stream_id: Int, payload: ByteChunk, padding_length: Int, max
 	let encoded_length: Int = padded_data_encoded_length(application_length, padding_length, max_application_frame_payload)
 	let frame_count: Int = padded_data_frame_count(application_length, max_application_frame_payload)
 	match send_credit
-		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
-			true => validate_outbound_content_length(stream_id, payload, encoded_length, application_length, frame_count, end_stream, connection_window, stream_window, expected_length, observed_length)
-			false => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => if stream_id == open_stream_id
+			validate_outbound_content_length(stream_id, payload, encoded_length, application_length, frame_count, end_stream, connection_window, stream_window, expected_length, observed_length)
+		else
+			Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 		end
 		OutboundSendCredit(_, _) => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, 0, application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 	end
 end
 
 fn padded_data_encoded_length(remaining_length: Int, padding_length: Int, max_application_frame_payload: Int) -> Int
-	match remaining_length > max_application_frame_payload
-		true => max_application_frame_payload + padding_length + 1 + padded_data_encoded_length(remaining_length - max_application_frame_payload, padding_length, max_application_frame_payload)
-		false => remaining_length + padding_length + 1
+	if remaining_length > max_application_frame_payload
+		max_application_frame_payload + padding_length + 1 + padded_data_encoded_length(remaining_length - max_application_frame_payload, padding_length, max_application_frame_payload)
+	else
+		remaining_length + padding_length + 1
 	end
 end
 
 fn padded_data_frame_count(remaining_length: Int, max_application_frame_payload: Int) -> Int
-	match remaining_length > max_application_frame_payload
-		true => 1 + padded_data_frame_count(remaining_length - max_application_frame_payload, max_application_frame_payload)
-		false => 1
+	if remaining_length > max_application_frame_payload
+		1 + padded_data_frame_count(remaining_length - max_application_frame_payload, max_application_frame_payload)
+	else
+		1
 	end
 end
 
 fn validate_outbound_content_length(stream_id: Int, payload: ByteChunk, encoded_length: Int, application_length: Int, output_frames: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, String>
 	let next_observed_length: Int = observed_length + application_length
-	match next_observed_length > expected_length
-		true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
-		false => match end_stream and next_observed_length < expected_length
-			true => Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
-			false => Ok(OutboundDataAccepted(encoded_length, application_length, end_stream, output_frames, data_sent_send_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length, expected_length, next_observed_length)))
-		end
+	if next_observed_length > expected_length
+		Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+	else if end_stream and next_observed_length < expected_length
+		Ok(OutboundDataRejected(stream_id, encoded_length, end_stream, ContentLengthMismatch(0, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+	else
+		Ok(OutboundDataAccepted(encoded_length, application_length, end_stream, output_frames, data_sent_send_credit(stream_id, end_stream, connection_window - encoded_length, stream_window - encoded_length, expected_length, next_observed_length)))
 	end
 end
 
 fn data_sent_send_credit(stream_id: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> OutboundSendCredit
-	match end_stream
-		true => OutboundSendCredit(connection_window, OutboundClosedStream(stream_id))
-		false => OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length))
+	if end_stream
+		OutboundSendCredit(connection_window, OutboundClosedStream(stream_id))
+	else
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(stream_id, stream_window, expected_length, observed_length))
 	end
 end
 
@@ -178,9 +183,10 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 end
 
 fn bool_to_int(value: Bool) -> Int
-	match value
-		true => 1
-		false => 0
+	if value
+		1
+	else
+		0
 	end
 end
 

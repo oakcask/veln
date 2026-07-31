@@ -25,9 +25,10 @@ end
 fn ready_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
 	match result
 		Ok(packet) => match packet.ready
-			Ok(ready) => match ready
-				true => "ready"
-				false => "blocked"
+			Ok(ready) => if ready
+				"ready"
+			else
+				"blocked"
 			end
 			Err(maybe_code) => match maybe_code
 				Some(code) => int_to_string(code)
@@ -41,14 +42,16 @@ end
 fn ratio_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<Bool, Option<Int>>, ratio: Result<Float, Option<Bool>>, label: Result<String, Option<Float>>, metadata: {flag: Bool, outcome: Result<String, Option<Int>>}}, String>) -> String
 	match result
 		Ok(packet) => match packet.ratio
-			Ok(ratio) => match ratio > 1.0
-				true => "ratio-high"
-				false => "ratio-low"
+			Ok(ratio) => if ratio > 1.0
+				"ratio-high"
+			else
+				"ratio-low"
 			end
 			Err(maybe_flag) => match maybe_flag
-				Some(flag) => match flag
-					true => "ratio-flag"
-					false => "ratio-clear"
+				Some(flag) => if flag
+					"ratio-flag"
+				else
+					"ratio-clear"
 				end
 				None => "missing-ratio"
 			end
@@ -62,9 +65,10 @@ fn label_text(result: Result<{code: Result<Int, Option<String>>, ready: Result<B
 		Ok(packet) => match packet.label
 			Ok(label) => label
 			Err(maybe_ratio) => match maybe_ratio
-				Some(ratio) => match ratio > 1.0
-					true => "label-ratio-high"
-					false => "label-ratio-low"
+				Some(ratio) => if ratio > 1.0
+					"label-ratio-high"
+				else
+					"label-ratio-low"
 				end
 				None => "missing-label"
 			end
@@ -79,9 +83,10 @@ fn metadata_text(result: Result<{code: Result<Int, Option<String>>, ready: Resul
 			Ok(outcome) => outcome
 			Err(maybe_code) => match maybe_code
 				Some(code) => int_to_string(code)
-				None => match packet.metadata.flag
-					true => "metadata-missing"
-					false => "metadata-clear"
+				None => if packet.metadata.flag
+					"metadata-missing"
+				else
+					"metadata-clear"
 				end
 			end
 		end

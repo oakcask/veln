@@ -65,9 +65,10 @@ end
 
 fn encode_headers_intent(stream_id: Int, header_block: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundHeadersDecision, String>
 	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
-	match payload_length > max_frame_size
-		true => encode_split_headers(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_credit, stream_credit)
-		false => encode_single_headers(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_credit, stream_credit)
+	if payload_length > max_frame_size
+		encode_split_headers(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_credit, stream_credit)
+	else
+		encode_single_headers(stream_id, payload_length, header_block, end_stream, max_frame_size, connection_credit, stream_credit)
 	end
 end
 
@@ -90,9 +91,10 @@ end
 
 fn encode_remaining_headers(stream_id: Int, payload_length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
 	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
-	match remaining_length > max_frame_size
-		true => encode_nonfinal_continuation(stream_id, payload_length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
-		false => encode_final_continuation(stream_id, payload_length, end_stream, remaining_length, max_frame_size, connection_credit, stream_credit, remaining, encoded)
+	if remaining_length > max_frame_size
+		encode_nonfinal_continuation(stream_id, payload_length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
+	else
+		encode_final_continuation(stream_id, payload_length, end_stream, remaining_length, max_frame_size, connection_credit, stream_credit, remaining, encoded)
 	end
 end
 
@@ -114,23 +116,26 @@ fn encode_final_continuation(stream_id: Int, payload_length: Int, end_stream: Bo
 end
 
 fn headers_flags(end_stream: Bool) -> Int
-	match end_stream
-		true => 5
-		false => 4
+	if end_stream
+		5
+	else
+		4
 	end
 end
 
 fn first_headers_flags(end_stream: Bool) -> Int
-	match end_stream
-		true => 1
-		false => 0
+	if end_stream
+		1
+	else
+		0
 	end
 end
 
 fn headers_sent_state(stream_id: Int, end_stream: Bool, connection_credit: Int, stream_credit: Int) -> StreamSendState
-	match end_stream
-		true => ClosedSendStream(stream_id)
-		false => OpenSendStream(stream_id, connection_credit, stream_credit)
+	if end_stream
+		ClosedSendStream(stream_id)
+	else
+		OpenSendStream(stream_id, connection_credit, stream_credit)
 	end
 end
 
@@ -143,19 +148,20 @@ end
 
 fn validate_data_credit(stream_id: Int, payload: ByteChunk, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundDataDecision, String>
 	let length: Int = byte_count_to_int(byte_chunk_count(payload))
-	match length > connection_credit
-		true => Ok(OutboundDataRejected("connection-flow-control", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
-		false => match length > stream_credit
-			true => Ok(OutboundDataRejected("stream-flow-control", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
-			false => encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
-		end
+	if length > connection_credit
+		Ok(OutboundDataRejected("connection-flow-control", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
+	else if length > stream_credit
+		Ok(OutboundDataRejected("stream-flow-control", SendContext(max_frame_size, OpenSendStream(stream_id, connection_credit, stream_credit))))
+	else
+		encode_data_intent(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
 	end
 end
 
 fn encode_data_intent(stream_id: Int, payload: ByteChunk, length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int) -> Result<OutboundDataDecision, String>
-	match length > max_frame_size
-		true => encode_split_data(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
-		false => encode_single_data(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
+	if length > max_frame_size
+		encode_split_data(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
+	else
+		encode_single_data(stream_id, payload, length, end_stream, max_frame_size, connection_credit, stream_credit)
 	end
 end
 
@@ -178,9 +184,10 @@ end
 
 fn encode_remaining_data(stream_id: Int, length: Int, end_stream: Bool, max_frame_size: Int, connection_credit: Int, stream_credit: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundDataDecision, String>
 	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
-	match remaining_length > max_frame_size
-		true => encode_nonfinal_data(stream_id, length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
-		false => encode_final_data(stream_id, length, end_stream, remaining_length, max_frame_size, connection_credit, stream_credit, remaining, encoded)
+	if remaining_length > max_frame_size
+		encode_nonfinal_data(stream_id, length, end_stream, max_frame_size, connection_credit, stream_credit, remaining, encoded)
+	else
+		encode_final_data(stream_id, length, end_stream, remaining_length, max_frame_size, connection_credit, stream_credit, remaining, encoded)
 	end
 end
 
@@ -202,16 +209,18 @@ fn encode_final_data(stream_id: Int, length: Int, end_stream: Bool, final_length
 end
 
 fn data_flags(end_stream: Bool) -> Int
-	match end_stream
-		true => 1
-		false => 0
+	if end_stream
+		1
+	else
+		0
 	end
 end
 
 fn data_sent_state(stream_id: Int, length: Int, end_stream: Bool, connection_credit: Int, stream_credit: Int) -> StreamSendState
-	match end_stream
-		true => ClosedSendStream(stream_id)
-		false => OpenSendStream(stream_id, connection_credit - length, stream_credit - length)
+	if end_stream
+		ClosedSendStream(stream_id)
+	else
+		OpenSendStream(stream_id, connection_credit - length, stream_credit - length)
 	end
 end
 
