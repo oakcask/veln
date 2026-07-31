@@ -42,9 +42,9 @@ pub fn send_trailers(state: CoreConnectionState, offset: Int, stream_id: Int, he
 end
 
 pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if label != "open" and stream_id > last_stream_id
 		CorePushPromiseSendRejected(CoreOutboundHeadersAfterGoaway(offset, 5, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
 	else if http2::core::connection_state::endpoint_role(state) != "server"
@@ -70,7 +70,7 @@ fn peer_disable_push_is_active(state: PeerSettingsState) -> Bool
 end
 
 fn send_push_promise_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList, entry: CoreStreamEntry) -> CorePushPromiseSendDecision
-	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	let lifecycle = http2::core::stream_state::entry_lifecycle(entry)
 	if not http2::core::stream_state::lifecycle_projects_open_stream(lifecycle)
 		CorePushPromiseSendRejected(CoreOutboundHeadersInvalidStream(offset, 5, stream_id, "associated open stream id", http2::core::connection_state::endpoint_role(state), http2::core::stream_state::lifecycle_active_state(lifecycle), http2::core::stream_state::lifecycle_rejection_rule(lifecycle), byte_chunk([])))
 	else
@@ -82,9 +82,9 @@ fn send_push_promise_for_entry(state: CoreConnectionState, offset: Int, stream_i
 end
 
 fn validate_headers_goaway(state: CoreConnectionState, offset: Int, frame_kind: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool) -> CoreHeadersSendDecision
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if label != "open" and stream_id > last_stream_id
 		CoreHeadersSendRejected(CoreOutboundHeadersAfterGoaway(offset, frame_kind, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
 	else
@@ -121,7 +121,7 @@ fn send_new_request_headers(state: CoreConnectionState, offset: Int, stream_id: 
 end
 
 fn send_headers_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool, entry: CoreStreamEntry) -> CoreHeadersSendDecision
-	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	let lifecycle = http2::core::stream_state::entry_lifecycle(entry)
 	if not lifecycle_accepts_outbound_headers(lifecycle)
 		CoreHeadersSendRejected(CoreOutboundHeadersInvalidStream(offset, 1, stream_id, "open outbound headers stream", http2::core::connection_state::endpoint_role(state), http2::core::stream_state::lifecycle_active_state(lifecycle), outbound_headers_rule(lifecycle), byte_chunk([])))
 	else
@@ -130,7 +130,7 @@ fn send_headers_for_entry(state: CoreConnectionState, offset: Int, stream_id: In
 end
 
 fn validate_header_list_for_send(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, headers: HeaderList, end_stream: Bool, entry: CoreStreamEntry) -> CoreHeadersSendDecision
-	let validation: Result<Int, HeaderListValidationFailure> = if header_role == "response"
+	let validation = if header_role == "response"
 		http2::core::header_list_validation::validate_response(headers, end_stream)
 	else if header_role == "trailer"
 		http2::core::header_list_validation::validate_trailers(headers, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)))
@@ -151,8 +151,8 @@ fn encode_headers(state: CoreConnectionState, offset: Int, stream_id: Int, heade
 end
 
 fn encode_headers_frame(state: CoreConnectionState, offset: Int, stream_id: Int, header_role: String, block: ByteChunk, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreHeadersSendDecision
-	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
-	let maximum: Int = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
+	let block_length = byte_count_to_int(byte_chunk_count(block))
+	let maximum = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
 	if maximum != 0 and block_length > maximum
 		CoreHeadersSendRejected(CoreOutboundHeadersHeaderListSizeExceeded(offset, 1, stream_id, block_length, maximum, http2::core::connection_state::endpoint_role(state), header_role_active_state(header_role), "settings_max_header_list_size", byte_chunk([])))
 	else
@@ -181,10 +181,10 @@ fn encode_push_promise_headers(state: CoreConnectionState, offset: Int, stream_i
 end
 
 fn encode_push_promise_frame(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, block: ByteChunk, table: DynamicTable, content_length: Int) -> CorePushPromiseSendDecision
-	let block_length: Int = byte_count_to_int(byte_chunk_count(block))
-	let payload_length: Int = block_length + 4
-	let maximum: Int = http2::core::peer_settings_state::active_max_frame_size(http2::core::connection_state::peer_settings(state))
-	let header_list_maximum: Int = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
+	let block_length = byte_count_to_int(byte_chunk_count(block))
+	let payload_length = block_length + 4
+	let maximum = http2::core::peer_settings_state::active_max_frame_size(http2::core::connection_state::peer_settings(state))
+	let header_list_maximum = http2::core::peer_settings_state::max_header_list_size_value(http2::core::connection_state::peer_settings(state))
 	if header_list_maximum != 0 and block_length > header_list_maximum
 		CorePushPromiseSendRejected(CoreOutboundHeadersHeaderListSizeExceeded(offset, 5, stream_id, block_length, header_list_maximum, http2::core::connection_state::endpoint_role(state), "push-promise", "settings_max_header_list_size", byte_chunk([])))
 	else if payload_length > maximum
@@ -201,8 +201,8 @@ fn encode_push_promise_frame(state: CoreConnectionState, offset: Int, stream_id:
 end
 
 fn headers_next_state(state: CoreConnectionState, stream_id: Int, header_role: String, table: DynamicTable, content_length: Int, observed: Int, end_stream: Bool, create_stream: Bool) -> CoreConnectionState
-	let with_table: CoreConnectionState = http2::core::connection_state::with_hpack_table(state, table)
-	let next_lifecycle: CoreStreamLifecycle = if end_stream
+	let with_table = http2::core::connection_state::with_hpack_table(state, table)
+	let next_lifecycle = if end_stream
 		http2::core::stream_state::half_closed_local_lifecycle()
 	else
 		http2::core::stream_state::open_lifecycle()
@@ -215,7 +215,7 @@ fn headers_next_state(state: CoreConnectionState, stream_id: Int, header_role: S
 end
 
 fn headers_next_created_stream_state(state: CoreConnectionState, stream_id: Int, lifecycle: CoreStreamLifecycle, content_length: Int, observed: Int) -> CoreConnectionState
-	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	let initial_credit = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
 	match http2::core::stream_state::entry(stream_id, lifecycle, initial_credit, initial_credit, content_length, observed)
 		Ok(entry) => http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry))
 		Err(_) => state
@@ -223,12 +223,12 @@ fn headers_next_created_stream_state(state: CoreConnectionState, stream_id: Int,
 end
 
 fn headers_next_existing_stream_state(state: CoreConnectionState, stream_id: Int, header_role: String, content_length: Int, observed: Int, end_stream: Bool) -> CoreConnectionState
-	let updated_content: CoreStreamCollection = if header_role == "trailer"
+	let updated_content = if header_role == "trailer"
 		http2::core::connection_state::streams(state)
 	else
 		http2::core::stream_state::with_content_length(http2::core::connection_state::streams(state), stream_id, content_length, observed)
 	end
-	let updated_lifecycle: CoreStreamCollection = if end_stream
+	let updated_lifecycle = if end_stream
 		http2::core::stream_state::with_lifecycle(updated_content, stream_id, next_local_end_lifecycle(existing_lifecycle(updated_content, stream_id)))
 	else
 		updated_content
@@ -237,8 +237,8 @@ fn headers_next_existing_stream_state(state: CoreConnectionState, stream_id: Int
 end
 
 fn push_promise_next_state(state: CoreConnectionState, promised_stream_id: Int, table: DynamicTable, content_length: Int) -> CoreConnectionState
-	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
-	let with_table: CoreConnectionState = http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_hpack_table(state, table), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id))
+	let initial_credit = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	let with_table = http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_hpack_table(state, table), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id))
 	match http2::core::stream_state::entry(promised_stream_id, http2::core::stream_state::reserved_local_lifecycle(), initial_credit, initial_credit, content_length, 0)
 		Ok(entry) => http2::core::connection_state::with_streams(with_table, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(with_table), entry))
 		Err(_) => with_table
@@ -253,12 +253,12 @@ fn existing_lifecycle(collection: CoreStreamCollection, stream_id: Int) -> CoreS
 end
 
 fn lifecycle_accepts_outbound_headers(lifecycle: CoreStreamLifecycle) -> Bool
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	label == "open" or label == "reserved-by-peer" or label == "half-closed-remote"
 end
 
 fn outbound_headers_rule(lifecycle: CoreStreamLifecycle) -> String
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	if label == "half-closed-local"
 		"half_closed_local_rejects_local_headers"
 	else
@@ -267,7 +267,7 @@ fn outbound_headers_rule(lifecycle: CoreStreamLifecycle) -> String
 end
 
 fn next_local_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	if label == "half-closed-remote"
 		http2::core::stream_state::closed_lifecycle()
 	else

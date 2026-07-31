@@ -32,8 +32,8 @@ pub fn client(starting_offset: Int) -> Result<CoreConnectionState, String>
 end
 
 fn initial(endpoint_role: String, starting_offset: Int, initial_peer_settings: InitialPeerSettingsGateState) -> Result<CoreConnectionState, String>
-	let hpack_table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
-	let connection_credit: CoreConnectionWindowCredit = match http2::core::flow_control::connection_window_credit(65535)
+	let hpack_table = http2::hpack::empty_dynamic_table(4096)?
+	let connection_credit = match http2::core::flow_control::connection_window_credit(65535)
 		Ok(credit) => credit
 		Err(_) => Err("HTTP/2 default connection window credit was invalid")?
 	end

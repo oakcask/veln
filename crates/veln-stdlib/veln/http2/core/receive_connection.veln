@@ -53,7 +53,7 @@ fn receive_preface(connection: CoreConnectionState, buffered: ByteChunk, output:
 end
 
 fn accept_preface_transition(connection: CoreConnectionState, output: CoreOutputBuffer, initial_settings_accepted: Bool, transition: ConnectionPrefaceTransition) -> Result<CoreReceiveConnectionDecision, String>
-	let next_connection: CoreConnectionState = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_preface(connection, http2::core::connection_preface::transition_state(transition)), preface_next_offset(connection, transition))
+	let next_connection = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_preface(connection, http2::core::connection_preface::transition_state(transition)), preface_next_offset(connection, transition))
 	if http2::core::connection_preface::transition_completed(transition)
 		receive_frame_from_buffer(next_connection, http2::core::connection_preface::transition_suffix(transition), output, initial_settings_accepted)
 	else
@@ -70,7 +70,7 @@ fn preface_next_offset(connection: CoreConnectionState, transition: ConnectionPr
 end
 
 fn receive_frame_from_buffer(connection: CoreConnectionState, buffered: ByteChunk, output: CoreOutputBuffer, initial_settings_accepted: Bool) -> Result<CoreReceiveConnectionDecision, String>
-	let buffered_count: Int = byte_count_to_int(byte_chunk_count(buffered))
+	let buffered_count = byte_count_to_int(byte_chunk_count(buffered))
 	if buffered_count < 9
 		Ok(CoreReceiveConnectionAccepted(CoreReceiveConnectionState(connection, buffered, output, initial_settings_accepted), "buffered"))
 	else
@@ -79,7 +79,7 @@ fn receive_frame_from_buffer(connection: CoreConnectionState, buffered: ByteChun
 end
 
 fn receive_complete_or_buffered(connection: CoreConnectionState, buffered: ByteChunk, output: CoreOutputBuffer, initial_settings_accepted: Bool, buffered_count: Int, payload_length: Int) -> Result<CoreReceiveConnectionDecision, String>
-	let frame_count: Int = 9 + payload_length
+	let frame_count = 9 + payload_length
 	if buffered_count < frame_count
 		Ok(CoreReceiveConnectionAccepted(CoreReceiveConnectionState(connection, buffered, output, initial_settings_accepted), "buffered"))
 	else
@@ -119,9 +119,9 @@ fn apply_complete_frame(connection: CoreConnectionState, output: CoreOutputBuffe
 end
 
 fn accept_receive_frame(decision: CoreReceiveFrameDecision, output: CoreOutputBuffer, initial_settings_accepted: Bool, header: FrameHeader, suffix: ByteChunk) -> Result<CoreReceiveConnectionDecision, String>
-	let next_connection: CoreConnectionState = http2::core::receive_frame::decision_state(decision)?
-	let output_transition: ReceiveOutputTransition = output_after_frame(next_connection, output, header)?
-	let after_frame: CoreReceiveConnectionState = CoreReceiveConnectionState(output_transition_connection(output_transition), suffix, output_transition_output(output_transition), initial_settings_accepted)
+	let next_connection = http2::core::receive_frame::decision_state(decision)?
+	let output_transition = output_after_frame(next_connection, output, header)?
+	let after_frame = CoreReceiveConnectionState(output_transition_connection(output_transition), suffix, output_transition_output(output_transition), initial_settings_accepted)
 	if byte_count_to_int(byte_chunk_count(suffix)) == 0
 		Ok(CoreReceiveConnectionAccepted(after_frame, http2::core::receive_frame::decision_applied_transition(decision)))
 	else
@@ -144,7 +144,7 @@ fn output_after_frame(connection: CoreConnectionState, output: CoreOutputBuffer,
 end
 
 fn append_pending_settings_ack(connection: CoreConnectionState, output: CoreOutputBuffer, decision: PeerSettingsAckSendDecision) -> Result<ReceiveOutputTransition, String>
-	let next_connection: CoreConnectionState = http2::core::connection_state::with_settings_ack(connection, http2::core::settings_ack::send_state(decision))
+	let next_connection = http2::core::connection_state::with_settings_ack(connection, http2::core::settings_ack::send_state(decision))
 	match http2::core::settings_ack::send_status(decision)
 		"accepted" => Ok(ReceiveOutputTransition(next_connection, http2::core::output_buffer::append_chunk(output, http2::core::settings_ack::send_bytes(decision))))
 		_ => Ok(ReceiveOutputTransition(next_connection, output))

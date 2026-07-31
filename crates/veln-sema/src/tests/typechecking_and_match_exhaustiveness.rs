@@ -511,6 +511,60 @@ fn descriptor_routed_try_checks_result_error_type_at_operand() {
 }
 
 #[test]
+fn descriptor_routed_try_infers_omitted_local_success_type_from_operand() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn parse(raw: String) -> Result<Int, String>\n",
+            "  Ok(1)\n",
+            "end\n",
+            "fn main(raw: String) -> Result<(), String>\n",
+            "  let value = parse(raw)?\n",
+            "  let incremented = value + 1\n",
+            "  ensure incremented > value\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn descriptor_routed_try_keeps_return_error_constraint_with_omitted_local_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn parse(raw: String) -> Result<Int, String>\n",
+            "  Ok(1)\n",
+            "end\n",
+            "fn main(raw: String) -> Result<(), AppError>\n",
+            "  let value = parse(raw)?\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("try operand result error type should be diagnosed");
+    assert_eq!(
+        diagnostic.message,
+        "expected `Result<Int, AppError>`, but found `Result<Int, String>`"
+    );
+    assert_diagnostic_span(diagnostic, 5, 15, 5, 25);
+}
+
+#[test]
 fn accepts_supported_type_forms_and_record_expected_fields() {
     let source = SourceFile::new(
         "main.veln",

@@ -34,7 +34,7 @@ fn accept_remote_end_stream(state: CoreConnectionState, stream_id: Int, end_stre
 end
 
 fn remote_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	if label == "half-closed-local"
 		http2::core::stream_state::closed_lifecycle()
 	else if label == "closed"

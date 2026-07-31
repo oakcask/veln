@@ -44,7 +44,7 @@ pub fn decode_failure(reason: String, preview: ByteChunk) -> CoreReceiveFrameFai
 end
 
 pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let frame_count: Int = byte_count_to_int(byte_chunk_count(frame_bytes))
+	let frame_count = byte_count_to_int(byte_chunk_count(frame_bytes))
 	match byte_view(frame_bytes, byte_offset(0)?, byte_count(frame_count)?)
 		Ok(frame_view) => match http2::frame::decode(frame_view)
 			Ok(decoded) => apply_decoded(state, decoded.length, decoded.kind, decoded.flags, decoded.stream_id, byte_view_to_chunk(decoded.payload), header_preview(frame_bytes)?, frame_bytes)
@@ -55,7 +55,7 @@ pub fn apply(state: CoreConnectionState, frame_bytes: ByteChunk) -> Result<CoreR
 end
 
 fn apply_decoded(state: CoreConnectionState, length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let offset: Int = http2::core::connection_state::next_offset(state)
+	let offset = http2::core::connection_state::next_offset(state)
 	match http2::core::frame_payload_length::validate(offset, kind, flags, stream_id, length, active_state(state, kind, stream_id), header)
 		Ok(_) => apply_after_payload_length(state, offset, length, kind, flags, stream_id, payload, header, frame_bytes)
 		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadLengthFailure(failure)))
@@ -76,7 +76,7 @@ fn apply_after_payload_length(state: CoreConnectionState, offset: Int, length: I
 end
 
 fn apply_after_pending_check(state: CoreConnectionState, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteChunk, header: ByteChunk, frame_bytes: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let admission: CoreStreamFrameAdmissionDecision = http2::core::stream_frame_admission::validate_inbound(offset, kind, stream_id, http2::core::connection_state::streams(state), header)
+	let admission = http2::core::stream_frame_admission::validate_inbound(offset, kind, stream_id, http2::core::connection_state::streams(state), header)
 	match http2::core::stream_frame_admission::decision_status(admission)
 		"accepted" => apply_admitted(state, offset, length, kind, flags, stream_id, payload, header, frame_bytes)
 		_ => match http2::core::stream_frame_admission::decision_failure(admission)
@@ -126,7 +126,7 @@ fn apply_continuation_frame(state: CoreConnectionState, offset: Int, length: Int
 end
 
 fn apply_header_transition(state: CoreConnectionState, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, transition: HeaderBlockTransition, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let pending_state: CoreConnectionState = http2::core::connection_state::with_pending_header_block(state, http2::core::pending_header_block::transition_state(transition))
+	let pending_state = http2::core::connection_state::with_pending_header_block(state, http2::core::pending_header_block::transition_state(transition))
 	if http2::core::pending_header_block::transition_completed(transition)
 		complete_header_block(pending_state, offset, length, kind, stream_id, transition, header)
 	else
@@ -135,7 +135,7 @@ fn apply_header_transition(state: CoreConnectionState, offset: Int, length: Int,
 end
 
 fn complete_header_block(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let block: ByteChunk = http2::core::pending_header_block::transition_header_block(transition)
+	let block = http2::core::pending_header_block::transition_header_block(transition)
 	match http2::hpack::decode_header_block(chunk_view(block)?, http2::core::connection_state::hpack_table(state), http2::core::peer_settings_state::active_header_table_size(http2::core::connection_state::peer_settings(state)))
 		Ok(decoded) => validate_completed_headers(state, offset, length, kind, stream_id, transition, decoded, header)
 		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameHpackFailure(offset, kind, stream_id, failure, block)))
@@ -143,8 +143,8 @@ fn complete_header_block(state: CoreConnectionState, offset: Int, length: Int, k
 end
 
 fn validate_completed_headers(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, decoded: HeaderBlockDecodeTransition, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let headers: HeaderList = http2::hpack::header_block_headers(decoded)
-	let validation: Result<Int, HeaderListValidationFailure> = if http2::core::pending_header_block::transition_is_trailer(transition) or existing_stream_without_pseudo(state, stream_id, headers)
+	let headers = http2::hpack::header_block_headers(decoded)
+	let validation = if http2::core::pending_header_block::transition_is_trailer(transition) or existing_stream_without_pseudo(state, stream_id, headers)
 		http2::core::header_list_validation::validate_trailers(headers, trailer_active_state(state, stream_id, headers))
 	else if header_list_has_name(headers, ":status")
 		http2::core::header_list_validation::validate_response(headers, http2::core::pending_header_block::transition_end_stream(transition))
@@ -158,7 +158,7 @@ fn validate_completed_headers(state: CoreConnectionState, offset: Int, length: I
 end
 
 fn apply_completed_header_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, decoded: HeaderBlockDecodeTransition, content_length: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let hpack_state: CoreConnectionState = http2::core::connection_state::with_hpack_table(state, http2::hpack::header_block_table(decoded))
+	let hpack_state = http2::core::connection_state::with_hpack_table(state, http2::hpack::header_block_table(decoded))
 	if http2::core::pending_header_block::transition_promised_stream_id(transition) > 0
 		apply_completed_push_promise_state(hpack_state, offset, length, kind, stream_id, transition, content_length, header)
 	else
@@ -167,8 +167,8 @@ fn apply_completed_header_state(state: CoreConnectionState, offset: Int, length:
 end
 
 fn apply_completed_headers_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, content_length: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let ensured: CoreConnectionState = ensure_stream_for_headers(state, stream_id, content_length)?
-	let lifecycle: CoreStreamLifecycleTransitionDecision = http2::core::stream_transition::apply_remote_end_stream(ensured, offset, kind, stream_id, http2::core::pending_header_block::transition_end_stream(transition), header)
+	let ensured = ensure_stream_for_headers(state, stream_id, content_length)?
+	let lifecycle = http2::core::stream_transition::apply_remote_end_stream(ensured, offset, kind, stream_id, http2::core::pending_header_block::transition_end_stream(transition), header)
 	match http2::core::stream_transition::decision_status(lifecycle)
 		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(lifecycle)?, offset + 9 + length), kind, stream_id, length, "header-block"))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(lifecycle)?)))
@@ -176,7 +176,7 @@ fn apply_completed_headers_state(state: CoreConnectionState, offset: Int, length
 end
 
 fn apply_completed_push_promise_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, content_length: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let promised_stream_id: Int = http2::core::pending_header_block::transition_promised_stream_id(transition)
+	let promised_stream_id = http2::core::pending_header_block::transition_promised_stream_id(transition)
 	match validate_promised_stream_id(state, offset, stream_id, promised_stream_id, header)
 		Ok(_) => add_reserved_promised_stream(state, offset, length, kind, stream_id, promised_stream_id, content_length)
 		Err(failure) => Ok(CoreReceiveFrameRejected(failure))
@@ -184,7 +184,7 @@ fn apply_completed_push_promise_state(state: CoreConnectionState, offset: Int, l
 end
 
 fn add_reserved_promised_stream(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, promised_stream_id: Int, content_length: Int) -> Result<CoreReceiveFrameDecision, String>
-	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	let initial_credit = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
 	match http2::core::stream_state::entry(promised_stream_id, http2::core::stream_state::reserved_by_peer_lifecycle(), initial_credit, initial_credit, content_length, 0)
 		Ok(entry) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry)), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id)), offset + 9 + length), kind, stream_id, length, "push-promise"))
 		Err(_) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 5, stream_id, "promised stream default flow-control credit is invalid", byte_chunk([]))))
@@ -217,14 +217,14 @@ fn apply_peer_settings_frame(state: CoreConnectionState, offset: Int, length: In
 end
 
 fn apply_valid_peer_settings_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let next_peer_settings: PeerSettingsState = http2::core::peer_settings_state::apply_payload(http2::core::connection_state::peer_settings(state), offset + 9, payload)?
-	let next_ack: SettingsAckState = http2::core::settings_ack::after_peer_frame(http2::core::connection_state::settings_ack(state), 4, 0, length)
-	let next_state: CoreConnectionState = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(http2::core::connection_state::with_peer_settings(state, next_peer_settings), next_ack), offset + 9 + length)
+	let next_peer_settings = http2::core::peer_settings_state::apply_payload(http2::core::connection_state::peer_settings(state), offset + 9, payload)?
+	let next_ack = http2::core::settings_ack::after_peer_frame(http2::core::connection_state::settings_ack(state), 4, 0, length)
+	let next_state = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(http2::core::connection_state::with_peer_settings(state, next_peer_settings), next_ack), offset + 9 + length)
 	Ok(CoreReceiveFrameAccepted(next_state, 4, 0, length, "settings"))
 end
 
 fn apply_goaway_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let decision: CoreConnectionShutdownDecision = http2::core::receive_shutdown::apply_goaway(state, offset, payload, header)
+	let decision = http2::core::receive_shutdown::apply_goaway(state, offset, payload, header)
 	match http2::core::receive_shutdown::decision_status(decision)
 		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::decision_state(decision)?, offset + 9 + length), 7, 0, length, "goaway"))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionShutdownFailure(http2::core::receive_shutdown::decision_failure(decision)?)))
@@ -249,7 +249,7 @@ fn apply_data_flow_control_decision(decision: CoreDataReceiveFlowControlDecision
 end
 
 fn apply_remote_end_stream_after_data(state: CoreConnectionState, offset: Int, length: Int, flags: Int, stream_id: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let decision: CoreStreamLifecycleTransitionDecision = http2::core::stream_transition::apply_remote_end_stream(state, offset, 0, stream_id, end_stream_set(flags), header)
+	let decision = http2::core::stream_transition::apply_remote_end_stream(state, offset, 0, stream_id, end_stream_set(flags), header)
 	match http2::core::stream_transition::decision_status(decision)
 		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 9 + length), 0, stream_id, length, "data"))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(decision)?)))
@@ -281,7 +281,7 @@ fn apply_window_update_frame(state: CoreConnectionState, offset: Int, stream_id:
 end
 
 fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let decision: CoreStreamWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, header)
+	let decision = http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, header)
 	match http2::core::window_update_flow_control::decision_status(decision)
 		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::decision_state(decision)?, offset + 13), 8, stream_id, 4, "stream-window-update"))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamWindowUpdateFailure(http2::core::window_update_flow_control::decision_failure(decision)?)))
@@ -289,7 +289,7 @@ fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id
 end
 
 fn apply_connection_window_update(state: CoreConnectionState, offset: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
-	let decision: CoreConnectionWindowUpdateFlowControlDecision = http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, header)
+	let decision = http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, header)
 	match http2::core::window_update_flow_control::connection_decision_status(decision)
 		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::connection_decision_state(decision)?, offset + 13), 8, 0, 4, "connection-window-update"))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionWindowUpdateFailure(http2::core::window_update_flow_control::connection_decision_failure(decision)?)))
@@ -326,17 +326,17 @@ fn data_content_length(length: Int, flags: Int, payload: ByteChunk) -> Result<In
 end
 
 fn headers_fragment(length: Int, flags: Int, payload: ByteChunk) -> Result<ByteChunk, String>
-	let pad_prefix: Int = if padded_set(flags)
+	let pad_prefix = if padded_set(flags)
 		1
 	else
 		0
 	end
-	let priority_prefix: Int = if priority_set(flags)
+	let priority_prefix = if priority_set(flags)
 		5
 	else
 		0
 	end
-	let prefix_count: Int = pad_prefix + priority_prefix
+	let prefix_count = pad_prefix + priority_prefix
 	if length < prefix_count
 		Err("HEADERS frame prefix exceeds payload")
 	else
@@ -353,12 +353,12 @@ type PushPromiseParts
 end
 
 fn push_promise_parts(length: Int, flags: Int, payload: ByteChunk) -> Result<PushPromiseParts, String>
-	let pad_prefix: Int = if padded_set(flags)
+	let pad_prefix = if padded_set(flags)
 		1
 	else
 		0
 	end
-	let prefix_count: Int = pad_prefix + 4
+	let prefix_count = pad_prefix + 4
 	if length < prefix_count
 		Err("PUSH_PROMISE frame prefix exceeds payload")
 	else
@@ -367,8 +367,8 @@ fn push_promise_parts(length: Int, flags: Int, payload: ByteChunk) -> Result<Pus
 end
 
 fn push_promise_parts_after_prefix(length: Int, flags: Int, payload: ByteChunk, pad_prefix: Int, prefix_count: Int) -> Result<PushPromiseParts, String>
-	let promised_stream_id: Int = byte_read_u31_be(byte_view(payload, byte_offset(pad_prefix)?, byte_count(4)?)?)?
-	let fragment: ByteChunk = payload_fragment(payload, prefix_count, length - prefix_count, pad_length_or_zero(flags, payload)?)?
+	let promised_stream_id = byte_read_u31_be(byte_view(payload, byte_offset(pad_prefix)?, byte_count(4)?)?)?
+	let fragment = payload_fragment(payload, prefix_count, length - prefix_count, pad_length_or_zero(flags, payload)?)?
 	Ok(PushPromiseParts(promised_stream_id, fragment))
 end
 
@@ -420,7 +420,7 @@ fn ensure_stream_for_headers(state: CoreConnectionState, stream_id: Int, content
 end
 
 fn add_new_header_stream(state: CoreConnectionState, stream_id: Int, content_length: Int) -> Result<CoreConnectionState, String>
-	let initial_credit: Int = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
+	let initial_credit = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
 	match http2::core::stream_state::entry(stream_id, http2::core::stream_state::open_lifecycle(), initial_credit, initial_credit, content_length, 0)
 		Ok(entry) => Ok(http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry)))
 		Err(_) => Err("new header stream has invalid flow-control credit")
@@ -475,8 +475,8 @@ fn apply_data_content_length(state: CoreConnectionState, offset: Int, stream_id:
 end
 
 fn validate_data_content_length_entry(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, end_stream: Bool, preview: ByteChunk, entry: CoreStreamEntry) -> Result<CoreConnectionState, CoreReceiveFrameFailure>
-	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
-	let observed: Int = http2::core::stream_state::entry_content_length_observed(entry) + data_length
+	let expected = http2::core::stream_state::entry_content_length_expected(entry)
+	let observed = http2::core::stream_state::entry_content_length_observed(entry) + data_length
 	if expected < 0
 		Ok(state)
 	else if observed > expected
@@ -493,7 +493,7 @@ fn content_length_failure(offset: Int, stream_id: Int, expected: Int, observed: 
 end
 
 fn padded_data_content_length(length: Int, payload: ByteChunk) -> Result<Int, String>
-	let pad_length: Int = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
+	let pad_length = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
 	if pad_length > length - 1
 		Err("padded DATA frame pad length exceeds payload")
 	else
@@ -502,7 +502,7 @@ fn padded_data_content_length(length: Int, payload: ByteChunk) -> Result<Int, St
 end
 
 fn padded_set(flags: Int) -> Bool
-	let quotient: Int = flags / 8
+	let quotient = flags / 8
 	quotient / 2 * 2 != quotient
 end
 

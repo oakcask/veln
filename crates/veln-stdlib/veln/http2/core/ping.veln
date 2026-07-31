@@ -15,7 +15,7 @@ pub type PingResponseDecision
 end
 
 pub fn request(payload: ByteChunk) -> PingRequestDecision
-	let payload_length: Int = byte_count_to_int(byte_chunk_count(payload))
+	let payload_length = byte_count_to_int(byte_chunk_count(payload))
 	match http2::core::frame_payload_length::validate(0, 6, 0, 0, payload_length, "connection-control", payload)
 		Ok(_) => encode_request(payload, payload_length)
 		Err(failure) => PingRequestRejected(payload_length, failure)

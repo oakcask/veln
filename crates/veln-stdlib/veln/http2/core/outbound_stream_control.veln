@@ -77,9 +77,9 @@ fn send_priority_for_entry(state: CoreConnectionState, offset: Int, stream_id: I
 end
 
 fn validate_priority_goaway(state: CoreConnectionState, offset: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> CorePrioritySendDecision
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if label != "open" and stream_id > last_stream_id
 		CorePrioritySendRejected(CoreOutboundStreamAfterGoaway(offset, stream_id, last_stream_id, label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
 	else
@@ -104,10 +104,10 @@ fn encode_priority(state: CoreConnectionState, stream_id: Int, dependency_stream
 end
 
 fn priority_dependency_payload_with_exclusive(payload: ByteChunk, exclusive: Bool) -> Result<ByteChunk, String>
-	let first: Int = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
-	let second: Int = byte_read_u8_be(byte_view(payload, byte_offset(1)?, byte_count(1)?)?)?
-	let third: Int = byte_read_u8_be(byte_view(payload, byte_offset(2)?, byte_count(1)?)?)?
-	let fourth: Int = byte_read_u8_be(byte_view(payload, byte_offset(3)?, byte_count(1)?)?)?
+	let first = byte_read_u8_be(byte_view(payload, byte_offset(0)?, byte_count(1)?)?)?
+	let second = byte_read_u8_be(byte_view(payload, byte_offset(1)?, byte_count(1)?)?)?
+	let third = byte_read_u8_be(byte_view(payload, byte_offset(2)?, byte_count(1)?)?)?
+	let fourth = byte_read_u8_be(byte_view(payload, byte_offset(3)?, byte_count(1)?)?)?
 	Ok(byte_append(byte_append(byte_append(byte_write_u8_be(first + exclusive_bit_value(exclusive))?, byte_write_u8_be(second)?), byte_write_u8_be(third)?), byte_write_u8_be(fourth)?))
 end
 

@@ -33,7 +33,7 @@ fn validate_settings(offset: Int, flags: Int, stream_id: Int, observed_length: I
 end
 
 fn validate_headers(offset: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
-	let expected_length: Int = headers_prefix_length(flags)
+	let expected_length = headers_prefix_length(flags)
 	if observed_length >= expected_length
 		valid(offset, 1, flags, stream_id, observed_length, preview)
 	else if padded_set(flags)
@@ -44,7 +44,7 @@ fn validate_headers(offset: Int, flags: Int, stream_id: Int, observed_length: In
 end
 
 fn validate_push_promise(offset: Int, flags: Int, stream_id: Int, observed_length: Int, active_state: String, preview: ByteChunk) -> Result<FramePayloadLength, FramePayloadLengthFailure>
-	let expected_length: Int = if padded_set(flags)
+	let expected_length = if padded_set(flags)
 		5
 	else
 		4
@@ -83,12 +83,12 @@ fn invalid(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, e
 end
 
 fn headers_prefix_length(flags: Int) -> Int
-	let padded_length: Int = if padded_set(flags)
+	let padded_length = if padded_set(flags)
 		1
 	else
 		0
 	end
-	let priority_length: Int = if priority_set(flags)
+	let priority_length = if priority_set(flags)
 		5
 	else
 		0

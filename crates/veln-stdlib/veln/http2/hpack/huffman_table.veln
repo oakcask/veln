@@ -279,7 +279,7 @@ pub fn code(symbol: Int) -> HuffmanCode
 end
 
 pub fn matching_symbol(value_to_match: Int, length_to_match: Int, symbol: Int) -> Option<Int>
-	let candidate: HuffmanCode = code(symbol)
+	let candidate = code(symbol)
 	if value(candidate) == value_to_match and length(candidate) == length_to_match
 		Some(symbol)
 	else if symbol == 256

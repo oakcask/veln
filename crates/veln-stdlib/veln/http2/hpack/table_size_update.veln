@@ -29,7 +29,7 @@ fn decode_integer(input: ByteView) -> Result<{ value : Int, consumed : Int }, Ta
 end
 
 fn apply_update(decoded: { value : Int, consumed : Int }, table: DynamicTable, peer_maximum: Int) -> Result<TableSizeUpdateCodecTransition, TableSizeUpdateCodecFailure>
-	let capacity: Int = http2::hpack::integer::value(decoded)
+	let capacity = http2::hpack::integer::value(decoded)
 	if capacity > peer_maximum
 		Err(TableSizeUpdateCodecCapacityLimit(capacity, peer_maximum))
 	else

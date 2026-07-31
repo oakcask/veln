@@ -148,8 +148,8 @@ fn chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) ->
 end
 
 fn chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
-	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
-	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	let left_count = byte_count_to_int(byte_chunk_count(left))
+	let right_count = byte_count_to_int(byte_chunk_count(right))
 	if left_count == right_count
 		chunks_equal_at(left, right, 0, left_count)
 	else
@@ -228,12 +228,12 @@ fn unavailable_indexed_failure_matches(failure: IndexedDecodeFailure, index: Int
 end
 
 fn indexed_transition_matches(transition: IndexedDecodeTransition, expected_name: String, expected_value: ByteChunk, expected_consumed: Int) -> Result<Bool, String>
-	let header: IndexedHeaderField = http2::hpack::indexed_decode_header(transition)
+	let header = http2::hpack::indexed_decode_header(transition)
 	Ok(http2::hpack::indexed_header_name(header) == expected_name and chunks_equal(http2::hpack::indexed_header_value(header), expected_value)? and http2::hpack::indexed_decode_consumed(transition) == expected_consumed)
 end
 
 fn literal_transition_matches(transition: LiteralDecodeTransition, expected_representation: String, expected_name: String, expected_value: ByteChunk, expected_consumed: Int) -> Result<Bool, String>
-	let header: LiteralHeaderField = http2::hpack::literal_decode_header(transition)
+	let header = http2::hpack::literal_decode_header(transition)
 	Ok(http2::hpack::literal_decode_representation(transition) == expected_representation and http2::hpack::literal_header_name(header) == expected_name and chunks_equal(http2::hpack::literal_header_value(header), expected_value)? and http2::hpack::literal_decode_consumed(transition) == expected_consumed)
 end
 
@@ -307,7 +307,7 @@ fn build_indexed_dynamic_table(remaining: Int, table: DynamicTable) -> Result<Dy
 end
 
 fn expect_huffman_encoding(input_hex: String, expected_hex: String) -> Result<(), String>
-	let actual: ByteChunk = http2::hpack::encode_huffman(byte_chunk_from_hex(input_hex)?)?
+	let actual = http2::hpack::encode_huffman(byte_chunk_from_hex(input_hex)?)?
 	if chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
 		Ok(())
 	else
@@ -316,7 +316,7 @@ fn expect_huffman_encoding(input_hex: String, expected_hex: String) -> Result<()
 end
 
 fn expect_huffman_decoding(input_hex: String, expected_hex: String) -> Result<(), String>
-	let actual: ByteChunk = decode_huffman_chunk(byte_chunk_from_hex(input_hex)?)?
+	let actual = decode_huffman_chunk(byte_chunk_from_hex(input_hex)?)?
 	if chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
 		Ok(())
 	else
@@ -336,9 +336,9 @@ fn expect_huffman_decode_error(input_hex: String, expected: String) -> Result<()
 end
 
 fn every_huffman_octet_round_trips(symbol: Int) -> Result<Bool, String>
-	let input: ByteChunk = byte_write_u8_be(symbol)?
-	let encoded: ByteChunk = http2::hpack::encode_huffman(input)?
-	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	let input = byte_write_u8_be(symbol)?
+	let encoded = http2::hpack::encode_huffman(input)?
+	let decoded = decode_huffman_chunk(encoded)?
 	if chunks_equal(input, decoded)?
 		if symbol == 255
 			Ok(true)
@@ -359,8 +359,8 @@ fn octet_sequence(first: Int, last: Int) -> Result<ByteChunk, String>
 end
 
 fn expect_encoding(value: Int, prefix_bits: Int, representation_bits: Int, expected_hex: String) -> Result<(), String>
-	let actual: ByteChunk = http2::hpack::encode_integer(value, prefix_bits, representation_bits)?
-	let equal: Bool = chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
+	let actual = http2::hpack::encode_integer(value, prefix_bits, representation_bits)?
+	let equal = chunks_equal(actual, byte_chunk_from_hex(expected_hex)?)?
 	if equal
 		Ok(())
 	else
@@ -391,7 +391,7 @@ fn expect_decode_error(input: ByteChunk, prefix_bits: Int, expected: String) -> 
 end
 
 fn expect_decoding(input_hex: String, prefix_bits: Int, expected_value: Int, expected_consumed: Int) -> Result<(), String>
-	let decoded: { value : Int, consumed : Int } = decode_chunk(byte_chunk_from_hex(input_hex)?, prefix_bits)?
+	let decoded = decode_chunk(byte_chunk_from_hex(input_hex)?, prefix_bits)?
 	if http2::hpack::decoded_integer_value(decoded) == expected_value and http2::hpack::decoded_integer_consumed(decoded) == expected_consumed
 		Ok(())
 	else
@@ -400,17 +400,17 @@ fn expect_decoding(input_hex: String, prefix_bits: Int, expected_value: Int, exp
 end
 
 fn round_trip_prefix_width(prefix_bits: Int) -> Result<(), String>
-	let prefix_max: Int = (1 << prefix_bits) - 1
-	let representation_bits: Int = 256 - (1 << prefix_bits)
-	let direct: ByteChunk = http2::hpack::encode_integer(prefix_max - 1, prefix_bits, representation_bits)?
-	let boundary: ByteChunk = http2::hpack::encode_integer(prefix_max, prefix_bits, representation_bits)?
-	let continued: ByteChunk = http2::hpack::encode_integer(prefix_max + 128, prefix_bits, representation_bits)?
-	let direct_decoded: { value : Int, consumed : Int } = decode_chunk(direct, prefix_bits)?
-	let boundary_decoded: { value : Int, consumed : Int } = decode_chunk(boundary, prefix_bits)?
-	let continued_decoded: { value : Int, consumed : Int } = decode_chunk(continued, prefix_bits)?
-	let encodings_match: Bool = chunks_equal(direct, byte_chunk_from_hex("fe")?)? and chunks_equal(boundary, byte_chunk_from_hex("ff00")?)? and chunks_equal(continued, byte_chunk_from_hex("ff8001")?)?
-	let values_match: Bool = http2::hpack::decoded_integer_value(direct_decoded) == prefix_max - 1 and http2::hpack::decoded_integer_value(boundary_decoded) == prefix_max and http2::hpack::decoded_integer_value(continued_decoded) == prefix_max + 128
-	let consumed_match: Bool = http2::hpack::decoded_integer_consumed(direct_decoded) == 1 and http2::hpack::decoded_integer_consumed(boundary_decoded) == 2 and http2::hpack::decoded_integer_consumed(continued_decoded) == 3
+	let prefix_max = (1 << prefix_bits) - 1
+	let representation_bits = 256 - (1 << prefix_bits)
+	let direct = http2::hpack::encode_integer(prefix_max - 1, prefix_bits, representation_bits)?
+	let boundary = http2::hpack::encode_integer(prefix_max, prefix_bits, representation_bits)?
+	let continued = http2::hpack::encode_integer(prefix_max + 128, prefix_bits, representation_bits)?
+	let direct_decoded = decode_chunk(direct, prefix_bits)?
+	let boundary_decoded = decode_chunk(boundary, prefix_bits)?
+	let continued_decoded = decode_chunk(continued, prefix_bits)?
+	let encodings_match = chunks_equal(direct, byte_chunk_from_hex("fe")?)? and chunks_equal(boundary, byte_chunk_from_hex("ff00")?)? and chunks_equal(continued, byte_chunk_from_hex("ff8001")?)?
+	let values_match = http2::hpack::decoded_integer_value(direct_decoded) == prefix_max - 1 and http2::hpack::decoded_integer_value(boundary_decoded) == prefix_max and http2::hpack::decoded_integer_value(continued_decoded) == prefix_max + 128
+	let consumed_match = http2::hpack::decoded_integer_consumed(direct_decoded) == 1 and http2::hpack::decoded_integer_consumed(boundary_decoded) == 2 and http2::hpack::decoded_integer_consumed(continued_decoded) == 3
 	if encodings_match and values_match and consumed_match
 		match prefix_bits
 			8 => Ok(())
@@ -425,7 +425,7 @@ test integer_encode_direct_boundary_and_continuation() -> Result<(), String>
 	let _ = expect_encoding(10, 5, 224, "ea")?
 	let _ = expect_encoding(31, 5, 224, "ff00")?
 	let _ = expect_encoding(1337, 5, 0, "1f9a0a")?
-	let decoded: { value : Int, consumed : Int } = decode_chunk(byte_chunk_from_hex("1f9a0a")?, 5)?
+	let decoded = decode_chunk(byte_chunk_from_hex("1f9a0a")?, 5)?
 	if http2::hpack::decoded_integer_value(decoded) == 1337 and http2::hpack::decoded_integer_consumed(decoded) == 3
 		Ok(())
 	else
@@ -447,9 +447,9 @@ test integer_round_trips_every_prefix_width() -> Result<(), String>
 end
 
 test integer_round_trips_maximum_int() -> Result<(), String>
-	let encoded: ByteChunk = http2::hpack::encode_integer(9223372036854775807, 8, 0)?
-	let decoded: { value : Int, consumed : Int } = decode_chunk(encoded, 8)?
-	let encoded_matches: Bool = chunks_equal(encoded, byte_chunk_from_hex("ff80feffffffffffff7f")?)?
+	let encoded = http2::hpack::encode_integer(9223372036854775807, 8, 0)?
+	let decoded = decode_chunk(encoded, 8)?
+	let encoded_matches = chunks_equal(encoded, byte_chunk_from_hex("ff80feffffffffffff7f")?)?
 	if encoded_matches and http2::hpack::decoded_integer_value(decoded) == 9223372036854775807 and http2::hpack::decoded_integer_consumed(decoded) == 10
 		Ok(())
 	else
@@ -481,7 +481,7 @@ test integer_decode_rejects_values_and_sequences_beyond_int() -> Result<(), Stri
 end
 
 test integer_decode_direct_value() -> Result<(), String>
-	let decoded: { value : Int, consumed : Int } = decode_chunk(byte_chunk_from_hex("ea")?, 5)?
+	let decoded = decode_chunk(byte_chunk_from_hex("ea")?, 5)?
 	if http2::hpack::decoded_integer_value(decoded) == 10 and http2::hpack::decoded_integer_consumed(decoded) == 1
 		Ok(())
 	else
@@ -490,7 +490,7 @@ test integer_decode_direct_value() -> Result<(), String>
 end
 
 test integer_decode_stops_after_terminal_octet() -> Result<(), String>
-	let decoded: { value : Int, consumed : Int } = decode_chunk(byte_chunk_from_hex("1f9a0aff")?, 5)?
+	let decoded = decode_chunk(byte_chunk_from_hex("1f9a0aff")?, 5)?
 	if http2::hpack::decoded_integer_value(decoded) == 1337 and http2::hpack::decoded_integer_consumed(decoded) == 3
 		Ok(())
 	else
@@ -506,8 +506,8 @@ test huffman_codec_preserves_canonical_vectors() -> Result<(), String>
 end
 
 test huffman_codec_accepts_empty_input() -> Result<(), String>
-	let encoded: ByteChunk = http2::hpack::encode_huffman(byte_chunk([]))?
-	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	let encoded = http2::hpack::encode_huffman(byte_chunk([]))?
+	let decoded = decode_huffman_chunk(encoded)?
 	if byte_count_to_int(byte_chunk_count(encoded)) == 0 and byte_count_to_int(byte_chunk_count(decoded)) == 0
 		Ok(())
 	else
@@ -524,9 +524,9 @@ test huffman_codec_round_trips_every_single_octet() -> Result<(), String>
 end
 
 test huffman_codec_round_trips_recursive_multi_octet_input() -> Result<(), String>
-	let input: ByteChunk = octet_sequence(0, 3)?
-	let encoded: ByteChunk = http2::hpack::encode_huffman(input)?
-	let decoded: ByteChunk = decode_huffman_chunk(encoded)?
+	let input = octet_sequence(0, 3)?
+	let encoded = http2::hpack::encode_huffman(input)?
+	let decoded = decode_huffman_chunk(encoded)?
 	if chunks_equal(input, decoded)?
 		Ok(())
 	else
@@ -597,7 +597,7 @@ test static_entry_reverse_lookup_covers_every_entry() -> Result<(), String>
 end
 
 test static_name_reverse_lookup_returns_first_matching_index() -> Result<(), String>
-	let duplicates_match: Bool = option_int_matches(http2::hpack::static_name_index(":method"), 2) and option_int_matches(http2::hpack::static_name_index(":path"), 4) and option_int_matches(http2::hpack::static_name_index(":scheme"), 6) and option_int_matches(http2::hpack::static_name_index(":status"), 8)
+	let duplicates_match = option_int_matches(http2::hpack::static_name_index(":method"), 2) and option_int_matches(http2::hpack::static_name_index(":path"), 4) and option_int_matches(http2::hpack::static_name_index(":scheme"), 6) and option_int_matches(http2::hpack::static_name_index(":status"), 8)
 	if every_static_name_reverse_matches(1) and duplicates_match
 		Ok(())
 	else
@@ -606,14 +606,14 @@ test static_name_reverse_lookup_returns_first_matching_index() -> Result<(), Str
 end
 
 test static_table_lookups_reject_indices_names_and_values_outside_the_table() -> Result<(), String>
-	let forward_misses: Bool = match http2::hpack::static_entry(0)
+	let forward_misses = match http2::hpack::static_entry(0)
 		Some(_) => false
 		None => match http2::hpack::static_entry(62)
 			Some(_) => false
 			None => true
 		end
 	end
-	let reverse_misses: Bool = match http2::hpack::static_entry_index(":method", "PUT")
+	let reverse_misses = match http2::hpack::static_entry_index(":method", "PUT")
 		Some(_) => false
 		None => match http2::hpack::static_entry_index("unknown-header", "")
 			Some(_) => false
@@ -631,7 +631,7 @@ test static_table_lookups_reject_indices_names_and_values_outside_the_table() ->
 end
 
 test dynamic_table_starts_empty() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
+	let table = http2::hpack::empty_dynamic_table(4096)?
 	if http2::hpack::dynamic_table_capacity(table) == 4096 and http2::hpack::dynamic_table_size(table) == 0 and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
@@ -640,13 +640,13 @@ test dynamic_table_starts_empty() -> Result<(), String>
 end
 
 test dynamic_table_inserts_newest_first_with_exact_octet_size() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(128)?
-	let first_value: ByteChunk = byte_chunk_from_hex("31")?
-	let second_value: ByteChunk = byte_chunk_from_hex("3232")?
-	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", first_value)?
-	let second: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", second_value)?
-	let entries_match: Bool = dynamic_entry_matches(second, 1, "bb", second_value)? and dynamic_entry_matches(second, 2, "a", first_value)?
-	let original_preserved: Bool = http2::hpack::dynamic_table_size(empty) == 0 and http2::hpack::dynamic_table_entry_count(empty) == 0 and http2::hpack::dynamic_table_size(first) == 34 and http2::hpack::dynamic_table_entry_count(first) == 1
+	let empty = http2::hpack::empty_dynamic_table(128)?
+	let first_value = byte_chunk_from_hex("31")?
+	let second_value = byte_chunk_from_hex("3232")?
+	let first = http2::hpack::insert_dynamic_table_entry(empty, "a", first_value)?
+	let second = http2::hpack::insert_dynamic_table_entry(first, "bb", second_value)?
+	let entries_match = dynamic_entry_matches(second, 1, "bb", second_value)? and dynamic_entry_matches(second, 2, "a", first_value)?
+	let original_preserved = http2::hpack::dynamic_table_size(empty) == 0 and http2::hpack::dynamic_table_entry_count(empty) == 0 and http2::hpack::dynamic_table_size(first) == 34 and http2::hpack::dynamic_table_entry_count(first) == 1
 	if entries_match and original_preserved and http2::hpack::dynamic_table_size(second) == 70 and http2::hpack::dynamic_table_entry_count(second) == 2
 		Ok(())
 	else
@@ -655,11 +655,11 @@ test dynamic_table_inserts_newest_first_with_exact_octet_size() -> Result<(), St
 end
 
 test dynamic_table_evicts_oldest_entries_until_the_newest_prefix_fits() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(74)?
-	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
-	let second: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
-	let third: DynamicTable = http2::hpack::insert_dynamic_table_entry(second, "ccc", byte_chunk_from_hex("333333")?)?
-	let retained_match: Bool = dynamic_entry_matches(third, 1, "ccc", byte_chunk_from_hex("333333")?)? and dynamic_entry_matches(third, 2, "bb", byte_chunk_from_hex("3232")?)?
+	let empty = http2::hpack::empty_dynamic_table(74)?
+	let first = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
+	let second = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
+	let third = http2::hpack::insert_dynamic_table_entry(second, "ccc", byte_chunk_from_hex("333333")?)?
+	let retained_match = dynamic_entry_matches(third, 1, "ccc", byte_chunk_from_hex("333333")?)? and dynamic_entry_matches(third, 2, "bb", byte_chunk_from_hex("3232")?)?
 	if retained_match and dynamic_entry_is_missing(third, 3) and http2::hpack::dynamic_table_size(third) == 74 and http2::hpack::dynamic_table_entry_count(third) == 2
 		Ok(())
 	else
@@ -668,10 +668,10 @@ test dynamic_table_evicts_oldest_entries_until_the_newest_prefix_fits() -> Resul
 end
 
 test dynamic_table_oversize_insertion_clears_only_the_result_table() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(35)?
-	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("3131")?)?
-	let cleared: DynamicTable = http2::hpack::insert_dynamic_table_entry(original, "bb", byte_chunk_from_hex("3232")?)?
-	let original_match: Bool = dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("3131")?)?
+	let empty = http2::hpack::empty_dynamic_table(35)?
+	let original = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("3131")?)?
+	let cleared = http2::hpack::insert_dynamic_table_entry(original, "bb", byte_chunk_from_hex("3232")?)?
+	let original_match = dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("3131")?)?
 	if original_match and http2::hpack::dynamic_table_size(original) == 35 and http2::hpack::dynamic_table_entry_count(original) == 1 and http2::hpack::dynamic_table_size(cleared) == 0 and http2::hpack::dynamic_table_entry_count(cleared) == 0
 		Ok(())
 	else
@@ -680,14 +680,14 @@ test dynamic_table_oversize_insertion_clears_only_the_result_table() -> Result<(
 end
 
 test dynamic_table_capacity_changes_are_immutable_and_evict_when_shrinking() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(100)?
-	let first: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
-	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
-	let shrunk: DynamicTable = http2::hpack::dynamic_table_with_capacity(original, 36)?
-	let grown: DynamicTable = http2::hpack::dynamic_table_with_capacity(shrunk, 160)?
-	let shrunk_match: Bool = dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
-	let grown_match: Bool = dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
-	let original_preserved: Bool = http2::hpack::dynamic_table_capacity(original) == 100 and http2::hpack::dynamic_table_size(original) == 70 and http2::hpack::dynamic_table_entry_count(original) == 2
+	let empty = http2::hpack::empty_dynamic_table(100)?
+	let first = http2::hpack::insert_dynamic_table_entry(empty, "a", byte_chunk_from_hex("31")?)?
+	let original = http2::hpack::insert_dynamic_table_entry(first, "bb", byte_chunk_from_hex("3232")?)?
+	let shrunk = http2::hpack::dynamic_table_with_capacity(original, 36)?
+	let grown = http2::hpack::dynamic_table_with_capacity(shrunk, 160)?
+	let shrunk_match = dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
+	let grown_match = dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
+	let original_preserved = http2::hpack::dynamic_table_capacity(original) == 100 and http2::hpack::dynamic_table_size(original) == 70 and http2::hpack::dynamic_table_entry_count(original) == 2
 	if shrunk_match and grown_match and original_preserved and http2::hpack::dynamic_table_capacity(shrunk) == 36 and http2::hpack::dynamic_table_size(shrunk) == 36 and http2::hpack::dynamic_table_capacity(grown) == 160 and http2::hpack::dynamic_table_size(grown) == 36
 		Ok(())
 	else
@@ -696,11 +696,11 @@ test dynamic_table_capacity_changes_are_immutable_and_evict_when_shrinking() -> 
 end
 
 test dynamic_table_zero_capacity_stays_empty_until_a_later_insertion() -> Result<(), String>
-	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
-	let zero: DynamicTable = http2::hpack::dynamic_table_with_capacity(original, 0)?
-	let ignored: DynamicTable = http2::hpack::insert_dynamic_table_entry(zero, "bb", byte_chunk_from_hex("3232")?)?
-	let grown: DynamicTable = http2::hpack::dynamic_table_with_capacity(ignored, 64)?
-	let inserted: DynamicTable = http2::hpack::insert_dynamic_table_entry(grown, "bb", byte_chunk_from_hex("3232")?)?
+	let original = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
+	let zero = http2::hpack::dynamic_table_with_capacity(original, 0)?
+	let ignored = http2::hpack::insert_dynamic_table_entry(zero, "bb", byte_chunk_from_hex("3232")?)?
+	let grown = http2::hpack::dynamic_table_with_capacity(ignored, 64)?
+	let inserted = http2::hpack::insert_dynamic_table_entry(grown, "bb", byte_chunk_from_hex("3232")?)?
 	if http2::hpack::dynamic_table_entry_count(zero) == 0 and http2::hpack::dynamic_table_entry_count(ignored) == 0 and http2::hpack::dynamic_table_entry_count(grown) == 0 and dynamic_entry_matches(inserted, 1, "bb", byte_chunk_from_hex("3232")?)?
 		Ok(())
 	else
@@ -709,16 +709,16 @@ test dynamic_table_zero_capacity_stays_empty_until_a_later_insertion() -> Result
 end
 
 test dynamic_table_rejects_negative_capacities_without_changing_input() -> Result<(), String>
-	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
-	let creation_rejected: Bool = match http2::hpack::empty_dynamic_table(-1)
+	let original = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "a", byte_chunk_from_hex("31")?)?
+	let creation_rejected = match http2::hpack::empty_dynamic_table(-1)
 		Ok(_) => false
 		Err(failure) => failure == "HPACK dynamic table capacity must not be negative"
 	end
-	let transition_rejected: Bool = match http2::hpack::dynamic_table_with_capacity(original, -1)
+	let transition_rejected = match http2::hpack::dynamic_table_with_capacity(original, -1)
 		Ok(_) => false
 		Err(failure) => failure == "HPACK dynamic table capacity must not be negative"
 	end
-	let original_preserved: Bool = http2::hpack::dynamic_table_capacity(original) == 64 and http2::hpack::dynamic_table_size(original) == 34 and dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("31")?)?
+	let original_preserved = http2::hpack::dynamic_table_capacity(original) == 64 and http2::hpack::dynamic_table_size(original) == 34 and dynamic_entry_matches(original, 1, "a", byte_chunk_from_hex("31")?)?
 	if creation_rejected and transition_rejected and original_preserved
 		Ok(())
 	else
@@ -727,9 +727,9 @@ test dynamic_table_rejects_negative_capacities_without_changing_input() -> Resul
 end
 
 test dynamic_table_lookup_is_one_based_and_preserves_arbitrary_value_octets() -> Result<(), String>
-	let value: ByteChunk = byte_chunk_from_hex("00ff")?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", value)?
-	let value_matches: Bool = dynamic_entry_matches(table, 1, "x", value)?
+	let value = byte_chunk_from_hex("00ff")?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", value)?
+	let value_matches = dynamic_entry_matches(table, 1, "x", value)?
 	if value_matches and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_is_missing(table, -1) and dynamic_entry_is_missing(table, 0) and dynamic_entry_is_missing(table, 2)
 		Ok(())
 	else
@@ -746,12 +746,12 @@ test indexed_header_decoder_resolves_every_static_entry() -> Result<(), String>
 end
 
 test indexed_header_decoder_resolves_dynamic_entries_newest_first() -> Result<(), String>
-	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "older", byte_chunk_from_hex("31")?)?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
-	let newest: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("be")?, table)?
-	let previous: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
-	let matches: Bool = indexed_transition_matches(newest, "newest", byte_chunk_from_hex("00ff")?, 1)? and indexed_transition_matches(previous, "older", byte_chunk_from_hex("31")?, 1)?
-	let states_preserved: Bool = table_matches_two_entries(table, 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(newest), 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(previous), 128, 78)?
+	let older = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "older", byte_chunk_from_hex("31")?)?
+	let table = http2::hpack::insert_dynamic_table_entry(older, "newest", byte_chunk_from_hex("00ff")?)?
+	let newest = require_indexed_chunk(byte_chunk_from_hex("be")?, table)?
+	let previous = require_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
+	let matches = indexed_transition_matches(newest, "newest", byte_chunk_from_hex("00ff")?, 1)? and indexed_transition_matches(previous, "older", byte_chunk_from_hex("31")?, 1)?
+	let states_preserved = table_matches_two_entries(table, 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(newest), 128, 78)? and table_matches_two_entries(http2::hpack::indexed_decode_table(previous), 128, 78)?
 	if matches and states_preserved
 		Ok(())
 	else
@@ -760,8 +760,8 @@ test indexed_header_decoder_resolves_dynamic_entries_newest_first() -> Result<()
 end
 
 test indexed_header_decoder_accepts_multi_octet_dynamic_indices() -> Result<(), String>
-	let table: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
-	let transition: IndexedDecodeTransition = require_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
+	let table = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
+	let transition = require_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
 	if indexed_transition_matches(transition, "x", byte_write_u8_be(65)?, 2)? and http2::hpack::dynamic_table_entry_count(http2::hpack::indexed_decode_table(transition)) == 66
 		Ok(())
 	else
@@ -770,20 +770,20 @@ test indexed_header_decoder_accepts_multi_octet_dynamic_indices() -> Result<(), 
 end
 
 test indexed_header_decoder_returns_focused_integer_and_zero_failures() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
-	let empty: Bool = match decode_indexed_chunk(byte_chunk([]), table)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let empty = match decode_indexed_chunk(byte_chunk([]), table)?
 		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "incomplete_integer"
 		_ => false
 	end
-	let incomplete: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff80")?, table)?
+	let incomplete = match decode_indexed_chunk(byte_chunk_from_hex("ff80")?, table)?
 		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "incomplete_integer"
 		_ => false
 	end
-	let malformed: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff80808080808080808000")?, table)?
+	let malformed = match decode_indexed_chunk(byte_chunk_from_hex("ff80808080808080808000")?, table)?
 		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "malformed_integer"
 		_ => false
 	end
-	let zero: Bool = match decode_indexed_chunk(byte_chunk_from_hex("80")?, table)?
+	let zero = match decode_indexed_chunk(byte_chunk_from_hex("80")?, table)?
 		Err(failure) => http2::hpack::indexed_decode_failure_kind(failure) == "zero_index"
 		_ => false
 	end
@@ -795,12 +795,12 @@ test indexed_header_decoder_returns_focused_integer_and_zero_failures() -> Resul
 end
 
 test indexed_header_decoder_reports_unavailable_dynamic_entries_without_next_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
-	let unavailable: Bool = match decode_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let unavailable = match decode_indexed_chunk(byte_chunk_from_hex("bf")?, table)?
 		Err(failure) => unavailable_indexed_failure_matches(failure, 63, 2, 1)
 		_ => false
 	end
-	let wide_unavailable: Bool = match decode_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
+	let wide_unavailable = match decode_indexed_chunk(byte_chunk_from_hex("ff00")?, table)?
 		Err(failure) => unavailable_indexed_failure_matches(failure, 127, 66, 1)
 		_ => false
 	end
@@ -812,13 +812,13 @@ test indexed_header_decoder_reports_unavailable_dynamic_entries_without_next_sta
 end
 
 test literal_header_decoder_supports_all_representations_and_table_transitions() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(256)?, "older", byte_chunk_from_hex("31")?)?
-	let incremental: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("44072f746172676574")?, table)?
-	let without: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("04052f736b6970")?, table)?
-	let never: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("14072f736563726574")?, table)?
-	let results_match: Bool = literal_transition_matches(incremental, "incremental_indexing", ":path", byte_chunk_from_hex("2f746172676574")?, 9)? and literal_transition_matches(without, "without_indexing", ":path", byte_chunk_from_hex("2f736b6970")?, 7)? and literal_transition_matches(never, "never_indexed", ":path", byte_chunk_from_hex("2f736563726574")?, 9)?
-	let inserted: DynamicTable = http2::hpack::literal_decode_table(incremental)
-	let states_match: Bool = dynamic_entry_matches(inserted, 1, ":path", byte_chunk_from_hex("2f746172676574")?)? and dynamic_entry_matches(inserted, 2, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(without), 1, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(never), 1, "older", byte_chunk_from_hex("31")?)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(256)?, "older", byte_chunk_from_hex("31")?)?
+	let incremental = require_literal_chunk(byte_chunk_from_hex("44072f746172676574")?, table)?
+	let without = require_literal_chunk(byte_chunk_from_hex("04052f736b6970")?, table)?
+	let never = require_literal_chunk(byte_chunk_from_hex("14072f736563726574")?, table)?
+	let results_match = literal_transition_matches(incremental, "incremental_indexing", ":path", byte_chunk_from_hex("2f746172676574")?, 9)? and literal_transition_matches(without, "without_indexing", ":path", byte_chunk_from_hex("2f736b6970")?, 7)? and literal_transition_matches(never, "never_indexed", ":path", byte_chunk_from_hex("2f736563726574")?, 9)?
+	let inserted = http2::hpack::literal_decode_table(incremental)
+	let states_match = dynamic_entry_matches(inserted, 1, ":path", byte_chunk_from_hex("2f746172676574")?)? and dynamic_entry_matches(inserted, 2, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(without), 1, "older", byte_chunk_from_hex("31")?)? and dynamic_entry_matches(http2::hpack::literal_decode_table(never), 1, "older", byte_chunk_from_hex("31")?)?
 	if results_match and states_match and http2::hpack::dynamic_table_entry_count(table) == 1
 		Ok(())
 	else
@@ -827,10 +827,10 @@ test literal_header_decoder_supports_all_representations_and_table_transitions()
 end
 
 test literal_header_decoder_preserves_raw_and_huffman_octets() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(128)?
-	let raw: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("4001780200ff")?, table)?
-	let huffman_name: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("008349509f026f6b")?, table)?
-	let huffman_value: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("0485ffc7ffffdd")?, table)?
+	let table = http2::hpack::empty_dynamic_table(128)?
+	let raw = require_literal_chunk(byte_chunk_from_hex("4001780200ff")?, table)?
+	let huffman_name = require_literal_chunk(byte_chunk_from_hex("008349509f026f6b")?, table)?
+	let huffman_value = require_literal_chunk(byte_chunk_from_hex("0485ffc7ffffdd")?, table)?
 	if literal_transition_matches(raw, "incremental_indexing", "x", byte_chunk_from_hex("00ff")?, 6)? and literal_transition_matches(huffman_name, "without_indexing", "test", byte_chunk_from_hex("6f6b")?, 8)? and literal_transition_matches(huffman_value, "without_indexing", ":path", byte_chunk_from_hex("00ff")?, 7)?
 		Ok(())
 	else
@@ -839,14 +839,14 @@ test literal_header_decoder_preserves_raw_and_huffman_octets() -> Result<(), Str
 end
 
 test literal_header_decoder_resolves_dynamic_names_and_multi_octet_prefixes() -> Result<(), String>
-	let table: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
-	let direct: LiteralDecodeTransition = require_literal_chunk(byte_chunk_from_hex("0f7000")?, table)?
-	let long_name: ByteChunk = repeated_octet(97, 128)?
-	let long_input: ByteChunk = byte_append(byte_chunk_from_hex("007f01")?, byte_append(long_name, byte_chunk_from_hex("00")?))
-	let long: LiteralDecodeTransition = require_literal_chunk(long_input, table)?
-	let long_value: ByteChunk = repeated_octet(255, 128)?
-	let long_value_input: ByteChunk = byte_append(byte_chunk_from_hex("047f01")?, long_value)
-	let long_value_transition: LiteralDecodeTransition = require_literal_chunk(long_value_input, table)?
+	let table = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
+	let direct = require_literal_chunk(byte_chunk_from_hex("0f7000")?, table)?
+	let long_name = repeated_octet(97, 128)?
+	let long_input = byte_append(byte_chunk_from_hex("007f01")?, byte_append(long_name, byte_chunk_from_hex("00")?))
+	let long = require_literal_chunk(long_input, table)?
+	let long_value = repeated_octet(255, 128)?
+	let long_value_input = byte_append(byte_chunk_from_hex("047f01")?, long_value)
+	let long_value_transition = require_literal_chunk(long_value_input, table)?
 	if literal_transition_matches(direct, "without_indexing", "x", byte_chunk([]), 3)? and http2::hpack::literal_decode_consumed(long) == 132 and http2::hpack::literal_header_name(http2::hpack::literal_decode_header(long)) == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" and literal_transition_matches(long_value_transition, "without_indexing", ":path", long_value, 131)?
 		Ok(())
 	else
@@ -855,8 +855,8 @@ test literal_header_decoder_resolves_dynamic_names_and_multi_octet_prefixes() ->
 end
 
 test literal_header_decoder_returns_focused_name_failures_without_changing_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
-	let failures_match: Bool = literal_failure_kind(byte_chunk([]), table, "incomplete_name_index")? and literal_failure_kind(byte_chunk_from_hex("80")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f80808080808080808000")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f3000")?, table, "unavailable_dynamic_name")? and literal_failure_kind(byte_chunk_from_hex("00")?, table, "incomplete_name_length")? and literal_failure_kind(byte_chunk_from_hex("00ff80808080808080808000")?, table, "malformed_name_length")? and literal_failure_kind(byte_chunk_from_hex("000378")?, table, "truncated_raw_name")? and literal_failure_kind(byte_chunk_from_hex("0001ff00")?, table, "invalid_name_octets")? and literal_failure_kind(byte_chunk_from_hex("00810000")?, table, "name_huffman_failure")?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let failures_match = literal_failure_kind(byte_chunk([]), table, "incomplete_name_index")? and literal_failure_kind(byte_chunk_from_hex("80")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f80808080808080808000")?, table, "malformed_name_index")? and literal_failure_kind(byte_chunk_from_hex("0f3000")?, table, "unavailable_dynamic_name")? and literal_failure_kind(byte_chunk_from_hex("00")?, table, "incomplete_name_length")? and literal_failure_kind(byte_chunk_from_hex("00ff80808080808080808000")?, table, "malformed_name_length")? and literal_failure_kind(byte_chunk_from_hex("000378")?, table, "truncated_raw_name")? and literal_failure_kind(byte_chunk_from_hex("0001ff00")?, table, "invalid_name_octets")? and literal_failure_kind(byte_chunk_from_hex("00810000")?, table, "name_huffman_failure")?
 	if failures_match and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
 		Ok(())
 	else
@@ -865,12 +865,12 @@ test literal_header_decoder_returns_focused_name_failures_without_changing_state
 end
 
 test literal_header_decoder_returns_focused_value_failures_without_changing_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
-	let truncated_details: Bool = match decode_literal_chunk(byte_chunk_from_hex("040378")?, table)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let truncated_details = match decode_literal_chunk(byte_chunk_from_hex("040378")?, table)?
 		Err(failure) => http2::hpack::literal_decode_failure_kind(failure) == "truncated_raw_value" and http2::hpack::literal_decode_failure_expected_octets(failure) == 3 and http2::hpack::literal_decode_failure_available_octets(failure) == 1
 		Ok(_) => false
 	end
-	let failures_match: Bool = literal_failure_kind(byte_chunk_from_hex("04")?, table, "incomplete_value_length")? and literal_failure_kind(byte_chunk_from_hex("04ff80808080808080808000")?, table, "malformed_value_length")? and truncated_details and literal_failure_kind(byte_chunk_from_hex("048100")?, table, "value_huffman_failure")?
+	let failures_match = literal_failure_kind(byte_chunk_from_hex("04")?, table, "incomplete_value_length")? and literal_failure_kind(byte_chunk_from_hex("04ff80808080808080808000")?, table, "malformed_value_length")? and truncated_details and literal_failure_kind(byte_chunk_from_hex("048100")?, table, "value_huffman_failure")?
 	if failures_match and http2::hpack::dynamic_table_size(table) == 35 and dynamic_entry_matches(table, 1, "x", byte_chunk_from_hex("00ff")?)?
 		Ok(())
 	else
@@ -879,12 +879,12 @@ test literal_header_decoder_returns_focused_value_failures_without_changing_stat
 end
 
 test table_size_update_decoder_accepts_boundary_and_multi_octet_capacities() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
-	let zero: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("20")?, table, 4096)?
-	let direct: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3e")?, table, 4096)?
-	let saturated: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f00")?, table, 4096)?
-	let wide: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3fe11f")?, table, 4096)?
-	let values_match: Bool = http2::hpack::table_size_update_capacity(zero) == 0 and http2::hpack::table_size_update_consumed(zero) == 1 and http2::hpack::table_size_update_capacity(direct) == 30 and http2::hpack::table_size_update_consumed(direct) == 1 and http2::hpack::table_size_update_capacity(saturated) == 31 and http2::hpack::table_size_update_consumed(saturated) == 2 and http2::hpack::table_size_update_capacity(wide) == 4096 and http2::hpack::table_size_update_consumed(wide) == 3
+	let table = http2::hpack::empty_dynamic_table(4096)?
+	let zero = require_table_size_update_chunk(byte_chunk_from_hex("20")?, table, 4096)?
+	let direct = require_table_size_update_chunk(byte_chunk_from_hex("3e")?, table, 4096)?
+	let saturated = require_table_size_update_chunk(byte_chunk_from_hex("3f00")?, table, 4096)?
+	let wide = require_table_size_update_chunk(byte_chunk_from_hex("3fe11f")?, table, 4096)?
+	let values_match = http2::hpack::table_size_update_capacity(zero) == 0 and http2::hpack::table_size_update_consumed(zero) == 1 and http2::hpack::table_size_update_capacity(direct) == 30 and http2::hpack::table_size_update_consumed(direct) == 1 and http2::hpack::table_size_update_capacity(saturated) == 31 and http2::hpack::table_size_update_consumed(saturated) == 2 and http2::hpack::table_size_update_capacity(wide) == 4096 and http2::hpack::table_size_update_consumed(wide) == 3
 	if values_match and http2::hpack::dynamic_table_capacity(table) == 4096
 		Ok(())
 	else
@@ -893,15 +893,15 @@ test table_size_update_decoder_accepts_boundary_and_multi_octet_capacities() -> 
 end
 
 test table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention() -> Result<(), String>
-	let older: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
-	let shrunk_transition: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f05")?, table, 100)?
-	let shrunk: DynamicTable = http2::hpack::table_size_update_table(shrunk_transition)
-	let grown_transition: TableSizeUpdateTransition = require_table_size_update_chunk(byte_chunk_from_hex("3f8101")?, shrunk, 160)?
-	let grown: DynamicTable = http2::hpack::table_size_update_table(grown_transition)
-	let shrink_match: Bool = http2::hpack::dynamic_table_capacity(shrunk) == 36 and http2::hpack::dynamic_table_size(shrunk) == 36 and dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
-	let growth_match: Bool = http2::hpack::dynamic_table_capacity(grown) == 160 and http2::hpack::dynamic_table_size(grown) == 36 and dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
-	let original_match: Bool = http2::hpack::dynamic_table_capacity(table) == 100 and http2::hpack::dynamic_table_size(table) == 70 and http2::hpack::dynamic_table_entry_count(table) == 2
+	let older = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "a", byte_chunk_from_hex("31")?)?
+	let table = http2::hpack::insert_dynamic_table_entry(older, "bb", byte_chunk_from_hex("3232")?)?
+	let shrunk_transition = require_table_size_update_chunk(byte_chunk_from_hex("3f05")?, table, 100)?
+	let shrunk = http2::hpack::table_size_update_table(shrunk_transition)
+	let grown_transition = require_table_size_update_chunk(byte_chunk_from_hex("3f8101")?, shrunk, 160)?
+	let grown = http2::hpack::table_size_update_table(grown_transition)
+	let shrink_match = http2::hpack::dynamic_table_capacity(shrunk) == 36 and http2::hpack::dynamic_table_size(shrunk) == 36 and dynamic_entry_matches(shrunk, 1, "bb", byte_chunk_from_hex("3232")?)? and dynamic_entry_is_missing(shrunk, 2)
+	let growth_match = http2::hpack::dynamic_table_capacity(grown) == 160 and http2::hpack::dynamic_table_size(grown) == 36 and dynamic_entry_matches(grown, 1, "bb", byte_chunk_from_hex("3232")?)?
+	let original_match = http2::hpack::dynamic_table_capacity(table) == 100 and http2::hpack::dynamic_table_size(table) == 70 and http2::hpack::dynamic_table_entry_count(table) == 2
 	if shrink_match and growth_match and original_match
 		Ok(())
 	else
@@ -910,9 +910,9 @@ test table_size_update_decoder_shrinks_with_eviction_and_grows_with_retention() 
 end
 
 test table_size_update_decoder_returns_focused_failures_without_changing_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
-	let failure_kinds_match: Bool = table_size_update_failure_matches(byte_chunk_from_hex("80")?, table, 64, "not_table_size_update")? and table_size_update_failure_matches(byte_chunk([]), table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80")?, table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80808080808080808000")?, table, 64, "malformed_integer")?
-	let limit_match: Bool = match decode_table_size_update_chunk(byte_chunk_from_hex("3f3a")?, table, 64)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "x", byte_chunk_from_hex("00ff")?)?
+	let failure_kinds_match = table_size_update_failure_matches(byte_chunk_from_hex("80")?, table, 64, "not_table_size_update")? and table_size_update_failure_matches(byte_chunk([]), table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80")?, table, 64, "incomplete_integer")? and table_size_update_failure_matches(byte_chunk_from_hex("3f80808080808080808000")?, table, 64, "malformed_integer")?
+	let limit_match = match decode_table_size_update_chunk(byte_chunk_from_hex("3f3a")?, table, 64)?
 		Err(failure) => http2::hpack::table_size_update_failure_kind(failure) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(failure) == 89 and http2::hpack::table_size_update_failure_peer_maximum(failure) == 64
 		Ok(_) => false
 	end
@@ -924,12 +924,12 @@ test table_size_update_decoder_returns_focused_failures_without_changing_state()
 end
 
 test header_block_decoder_preserves_order_octets_and_dynamic_transitions() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let empty: HeaderBlockDecodeTransition = require_header_block(byte_chunk([]), table, 256)?
-	let mixed: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("824001780200ffbe04012f")?, table, 256)?
-	let headers: HeaderList = http2::hpack::header_block_headers(mixed)
-	let next_table: DynamicTable = http2::hpack::header_block_table(mixed)
-	let fields_match: Bool = header_list_entry_matches(headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(headers, 1, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(headers, 2, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(headers, 3, ":path", byte_chunk_from_hex("2f")?)?
+	let table = http2::hpack::empty_dynamic_table(256)?
+	let empty = require_header_block(byte_chunk([]), table, 256)?
+	let mixed = require_header_block(byte_chunk_from_hex("824001780200ffbe04012f")?, table, 256)?
+	let headers = http2::hpack::header_block_headers(mixed)
+	let next_table = http2::hpack::header_block_table(mixed)
+	let fields_match = header_list_entry_matches(headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(headers, 1, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(headers, 2, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(headers, 3, ":path", byte_chunk_from_hex("2f")?)?
 	if http2::hpack::header_list_count(http2::hpack::header_block_headers(empty)) == 0 and http2::hpack::header_block_consumed(empty) == 0 and http2::hpack::header_list_count(headers) == 4 and http2::hpack::header_block_consumed(mixed) == 11 and fields_match and dynamic_entry_matches(next_table, 1, "x", byte_chunk_from_hex("00ff")?)? and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
@@ -938,18 +938,18 @@ test header_block_decoder_preserves_order_octets_and_dynamic_transitions() -> Re
 end
 
 test header_block_decoder_composes_every_literal_form_and_list_boundaries() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let transition: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("44072f74617267657404052f736b697014072f736563726574008349509f026f6b0485ffc7ffffdd")?, table, 256)?
-	let headers: HeaderList = http2::hpack::header_block_headers(transition)
-	let fields_match: Bool = header_list_entry_matches(headers, 0, ":path", byte_chunk_from_hex("2f746172676574")?)? and header_list_entry_matches(headers, 1, ":path", byte_chunk_from_hex("2f736b6970")?)? and header_list_entry_matches(headers, 2, ":path", byte_chunk_from_hex("2f736563726574")?)? and header_list_entry_matches(headers, 3, "test", byte_chunk_from_hex("6f6b")?)? and header_list_entry_matches(headers, 4, ":path", byte_chunk_from_hex("00ff")?)?
-	let list_boundaries_match: Bool = match http2::hpack::header_list_at(headers, -1)
+	let table = http2::hpack::empty_dynamic_table(256)?
+	let transition = require_header_block(byte_chunk_from_hex("44072f74617267657404052f736b697014072f736563726574008349509f026f6b0485ffc7ffffdd")?, table, 256)?
+	let headers = http2::hpack::header_block_headers(transition)
+	let fields_match = header_list_entry_matches(headers, 0, ":path", byte_chunk_from_hex("2f746172676574")?)? and header_list_entry_matches(headers, 1, ":path", byte_chunk_from_hex("2f736b6970")?)? and header_list_entry_matches(headers, 2, ":path", byte_chunk_from_hex("2f736563726574")?)? and header_list_entry_matches(headers, 3, "test", byte_chunk_from_hex("6f6b")?)? and header_list_entry_matches(headers, 4, ":path", byte_chunk_from_hex("00ff")?)?
+	let list_boundaries_match = match http2::hpack::header_list_at(headers, -1)
 		None => match http2::hpack::header_list_at(headers, 5)
 			None => true
 			Some(_) => false
 		end
 		Some(_) => false
 	end
-	let next_table: DynamicTable = http2::hpack::header_block_table(transition)
+	let next_table = http2::hpack::header_block_table(transition)
 	if http2::hpack::header_list_count(headers) == 5 and http2::hpack::header_block_consumed(transition) == 40 and fields_match and list_boundaries_match and http2::hpack::dynamic_table_entry_count(next_table) == 1 and dynamic_entry_matches(next_table, 1, ":path", byte_chunk_from_hex("2f746172676574")?)? and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
@@ -958,12 +958,12 @@ test header_block_decoder_composes_every_literal_form_and_list_boundaries() -> R
 end
 
 test header_block_decoder_reuses_next_table_and_accepts_update_only_blocks() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "original", byte_chunk_from_hex("31")?)?
-	let inserted: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("4001780132")?, table, 128)?
-	let reused: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("be")?, http2::hpack::header_block_table(inserted), 128)?
-	let updated: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("203f21")?, table, 128)?
-	let reuse_matches: Bool = http2::hpack::header_block_consumed(reused) == 1 and header_list_entry_matches(http2::hpack::header_block_headers(reused), 0, "x", byte_chunk_from_hex("32")?)?
-	let update_matches: Bool = http2::hpack::header_block_consumed(updated) == 3 and http2::hpack::header_list_count(http2::hpack::header_block_headers(updated)) == 0 and http2::hpack::dynamic_table_capacity(http2::hpack::header_block_table(updated)) == 64 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_table(updated)) == 0
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "original", byte_chunk_from_hex("31")?)?
+	let inserted = require_header_block(byte_chunk_from_hex("4001780132")?, table, 128)?
+	let reused = require_header_block(byte_chunk_from_hex("be")?, http2::hpack::header_block_table(inserted), 128)?
+	let updated = require_header_block(byte_chunk_from_hex("203f21")?, table, 128)?
+	let reuse_matches = http2::hpack::header_block_consumed(reused) == 1 and header_list_entry_matches(http2::hpack::header_block_headers(reused), 0, "x", byte_chunk_from_hex("32")?)?
+	let update_matches = http2::hpack::header_block_consumed(updated) == 3 and http2::hpack::header_list_count(http2::hpack::header_block_headers(updated)) == 0 and http2::hpack::dynamic_table_capacity(http2::hpack::header_block_table(updated)) == 64 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_table(updated)) == 0
 	if reuse_matches and update_matches and http2::hpack::dynamic_table_capacity(table) == 128 and dynamic_entry_matches(table, 1, "original", byte_chunk_from_hex("31")?)?
 		Ok(())
 	else
@@ -972,9 +972,9 @@ test header_block_decoder_reuses_next_table_and_accepts_update_only_blocks() -> 
 end
 
 test header_block_decoder_accepts_leading_updates_and_rejects_misplaced_updates() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "x", byte_chunk_from_hex("31")?)?
-	let transition: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("203f2182")?, table, 128)?
-	let misplaced: Bool = match decode_header_block_chunk(byte_chunk_from_hex("8220")?, table, 128)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(128)?, "x", byte_chunk_from_hex("31")?)?
+	let transition = require_header_block(byte_chunk_from_hex("203f2182")?, table, 128)?
+	let misplaced = match decode_header_block_chunk(byte_chunk_from_hex("8220")?, table, 128)?
 		Err(failure) => match http2::hpack::header_block_indexed_failure(failure)
 			None => match http2::hpack::header_block_literal_failure(failure)
 				None => match http2::hpack::header_block_table_size_update_failure(failure)
@@ -995,29 +995,29 @@ test header_block_decoder_accepts_leading_updates_and_rejects_misplaced_updates(
 end
 
 test header_block_decoder_preserves_nested_failures_and_input_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "original", byte_chunk_from_hex("00ff")?)?
-	let indexed: Bool = match decode_header_block_chunk(byte_chunk_from_hex("be")?, http2::hpack::empty_dynamic_table(64)?, 64)?
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "original", byte_chunk_from_hex("00ff")?)?
+	let indexed = match decode_header_block_chunk(byte_chunk_from_hex("be")?, http2::hpack::empty_dynamic_table(64)?, 64)?
 		Err(failure) => match http2::hpack::header_block_indexed_failure(failure)
 			Some(nested) => http2::hpack::indexed_decode_failure_kind(nested) == "unavailable_dynamic_entry" and http2::hpack::indexed_decode_failure_index(nested) == 62 and http2::hpack::indexed_decode_failure_dynamic_index(nested) == 1 and http2::hpack::indexed_decode_failure_dynamic_entry_count(nested) == 0
 			None => false
 		end
 		Ok(_) => false
 	end
-	let literal: Bool = match decode_header_block_chunk(byte_chunk_from_hex("040300ff")?, table, 64)?
+	let literal = match decode_header_block_chunk(byte_chunk_from_hex("040300ff")?, table, 64)?
 		Err(failure) => match http2::hpack::header_block_literal_failure(failure)
 			Some(nested) => http2::hpack::literal_decode_failure_kind(nested) == "truncated_raw_value" and http2::hpack::literal_decode_failure_expected_octets(nested) == 3 and http2::hpack::literal_decode_failure_available_octets(nested) == 2
 			None => false
 		end
 		Ok(_) => false
 	end
-	let update: Bool = match decode_header_block_chunk(byte_chunk_from_hex("3f3a")?, table, 64)?
+	let update = match decode_header_block_chunk(byte_chunk_from_hex("3f3a")?, table, 64)?
 		Err(failure) => match http2::hpack::header_block_table_size_update_failure(failure)
 			Some(nested) => http2::hpack::table_size_update_failure_kind(nested) == "capacity_limit" and http2::hpack::table_size_update_failure_capacity(nested) == 89 and http2::hpack::table_size_update_failure_peer_maximum(nested) == 64
 			None => false
 		end
 		Ok(_) => false
 	end
-	let late_failure: Bool = match decode_header_block_chunk(byte_chunk_from_hex("203f2140017801317f")?, table, 64)?
+	let late_failure = match decode_header_block_chunk(byte_chunk_from_hex("203f2140017801317f")?, table, 64)?
 		Err(failure) => http2::hpack::header_block_failure_kind(failure) == "literal_failure"
 		Ok(_) => false
 	end
@@ -1051,12 +1051,12 @@ fn encoded_block_matches(transition: HeaderBlockEncodeTransition, expected: Stri
 end
 
 test header_encoder_emits_exact_static_and_multi_octet_dynamic_indices() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
-	let static_transition: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), 2, empty))?
+	let empty = http2::hpack::empty_dynamic_table(4096)?
+	let static_transition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), 2, empty))?
 	# evidence http2-hpack-static-indexed-method-post
-	let static_post: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("504f5354")?), 3, empty))?
-	let populated: DynamicTable = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
-	let dynamic_transition: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_write_u8_be(65)?), 127, populated))?
+	let static_post = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("504f5354")?), 3, empty))?
+	let populated = build_indexed_dynamic_table(66, http2::hpack::empty_dynamic_table(4096)?)?
+	let dynamic_transition = require_header_encode(http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_write_u8_be(65)?), 127, populated))?
 	if encoded_header_matches(static_transition, "82")? and encoded_header_matches(static_post, "83")? and encoded_header_matches(dynamic_transition, "ff00")? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_transition)) == 66 and http2::hpack::dynamic_table_entry_count(empty) == 0
 		Ok(())
 	else
@@ -1066,9 +1066,9 @@ end
 
 test header_block_decoder_retains_exact_huffman_nul_octets() -> Result<(), String>
 	# evidence http2-hpack-literal-path-nul-huffman
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(4096)?
-	let transition: HeaderBlockDecodeTransition = require_header_block(byte_chunk_from_hex("0482ffc7")?, table, 4096)?
-	let headers: HeaderList = http2::hpack::header_block_headers(transition)
+	let table = http2::hpack::empty_dynamic_table(4096)?
+	let transition = require_header_block(byte_chunk_from_hex("0482ffc7")?, table, 4096)?
+	let headers = http2::hpack::header_block_headers(transition)
 	if http2::hpack::header_block_consumed(transition) == 4 and http2::hpack::header_list_count(headers) == 1 and header_list_entry_matches(headers, 0, ":path", byte_chunk_from_hex("00")?)? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_table(transition)) == 0 and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
@@ -1077,24 +1077,24 @@ test header_block_decoder_retains_exact_huffman_nul_octets() -> Result<(), Strin
 end
 
 test literal_encoder_covers_representations_name_sources_and_string_policies() -> Result<(), String>
-	let empty: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let named_table: DynamicTable = http2::hpack::insert_dynamic_table_entry(empty, "x", byte_chunk_from_hex("31")?)?
-	let direct_incremental: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 0, 0, false, false, empty))?
-	let direct_without: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 1, 0, false, false, empty))?
-	let direct_never: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 2, 0, false, false, empty))?
-	let static_incremental: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 0, 4, false, false, empty))?
-	let static_without: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 1, 4, false, false, empty))?
-	let static_never: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 2, 4, false, false, empty))?
-	let dynamic_incremental: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 0, 62, false, false, named_table))?
-	let dynamic_without: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 1, 62, false, false, named_table))?
-	let dynamic_never: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 2, 62, false, false, named_table))?
-	let empty_value: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk([])), 1, 4, false, false, empty))?
-	let huffman: HeaderEncodeTransition = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_visible_ascii_string("www.example.com")?), 1, 0, true, true, empty))?
-	let decoded_huffman: LiteralDecodeTransition = require_literal_chunk(http2::hpack::header_encode_bytes(huffman), empty)?
-	let direct_exact: Bool = encoded_header_matches(direct_incremental, "400178017a")? and encoded_header_matches(direct_without, "000178017a")? and encoded_header_matches(direct_never, "100178017a")?
-	let static_exact: Bool = encoded_header_matches(static_incremental, "44017a")? and encoded_header_matches(static_without, "04017a")? and encoded_header_matches(static_never, "14017a")?
-	let dynamic_exact: Bool = encoded_header_matches(dynamic_incremental, "7e017a")? and encoded_header_matches(dynamic_without, "0f2f017a")? and encoded_header_matches(dynamic_never, "1f2f017a")?
-	let transitions: Bool = dynamic_entry_matches(http2::hpack::header_encode_table(direct_incremental), 1, "x", byte_chunk_from_hex("7a")?)? and dynamic_entry_matches(http2::hpack::header_encode_table(static_incremental), 1, ":path", byte_chunk_from_hex("7a")?)? and dynamic_entry_matches(http2::hpack::header_encode_table(dynamic_incremental), 1, "x", byte_chunk_from_hex("7a")?)? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_incremental)) == 2 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(direct_without)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(static_without)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_without)) == 1 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(direct_never)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(static_never)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_never)) == 1
+	let empty = http2::hpack::empty_dynamic_table(256)?
+	let named_table = http2::hpack::insert_dynamic_table_entry(empty, "x", byte_chunk_from_hex("31")?)?
+	let direct_incremental = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 0, 0, false, false, empty))?
+	let direct_without = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 1, 0, false, false, empty))?
+	let direct_never = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 2, 0, false, false, empty))?
+	let static_incremental = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 0, 4, false, false, empty))?
+	let static_without = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 1, 4, false, false, empty))?
+	let static_never = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk_from_hex("7a")?), 2, 4, false, false, empty))?
+	let dynamic_incremental = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 0, 62, false, false, named_table))?
+	let dynamic_without = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 1, 62, false, false, named_table))?
+	let dynamic_never = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("7a")?), 2, 62, false, false, named_table))?
+	let empty_value = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field(":path", byte_chunk([])), 1, 4, false, false, empty))?
+	let huffman = require_header_encode(http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk_from_visible_ascii_string("www.example.com")?), 1, 0, true, true, empty))?
+	let decoded_huffman = require_literal_chunk(http2::hpack::header_encode_bytes(huffman), empty)?
+	let direct_exact = encoded_header_matches(direct_incremental, "400178017a")? and encoded_header_matches(direct_without, "000178017a")? and encoded_header_matches(direct_never, "100178017a")?
+	let static_exact = encoded_header_matches(static_incremental, "44017a")? and encoded_header_matches(static_without, "04017a")? and encoded_header_matches(static_never, "14017a")?
+	let dynamic_exact = encoded_header_matches(dynamic_incremental, "7e017a")? and encoded_header_matches(dynamic_without, "0f2f017a")? and encoded_header_matches(dynamic_never, "1f2f017a")?
+	let transitions = dynamic_entry_matches(http2::hpack::header_encode_table(direct_incremental), 1, "x", byte_chunk_from_hex("7a")?)? and dynamic_entry_matches(http2::hpack::header_encode_table(static_incremental), 1, ":path", byte_chunk_from_hex("7a")?)? and dynamic_entry_matches(http2::hpack::header_encode_table(dynamic_incremental), 1, "x", byte_chunk_from_hex("7a")?)? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_incremental)) == 2 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(direct_without)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(static_without)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_without)) == 1 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(direct_never)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(static_never)) == 0 and http2::hpack::dynamic_table_entry_count(http2::hpack::header_encode_table(dynamic_never)) == 1
 	if direct_exact and static_exact and dynamic_exact and encoded_header_matches(empty_value, "0400")? and encoded_header_matches(huffman, "0081f38cf1e3c2e5f23a6ba0ab90f4ff")? and transitions and literal_transition_matches(decoded_huffman, "without_indexing", "x", byte_chunk_from_visible_ascii_string("www.example.com")?, 16)? and http2::hpack::dynamic_table_entry_count(empty) == 0 and http2::hpack::dynamic_table_entry_count(named_table) == 1
 		Ok(())
 	else
@@ -1103,12 +1103,12 @@ test literal_encoder_covers_representations_name_sources_and_string_policies() -
 end
 
 test header_block_encoder_preserves_order_reuses_in_block_state_and_round_trips() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::empty_dynamic_table(256)?
-	let headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::empty_header_list())))
-	let transition: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(headers, table, 256))?
-	let decoded: HeaderBlockDecodeTransition = require_header_block(http2::hpack::header_block_encode_bytes(transition), table, 256)?
-	let decoded_headers: HeaderList = http2::hpack::header_block_headers(decoded)
-	let fields_match: Bool = header_list_entry_matches(decoded_headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(decoded_headers, 1, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(decoded_headers, 2, "x", byte_chunk_from_hex("00ff")?)?
+	let table = http2::hpack::empty_dynamic_table(256)?
+	let headers = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::prepend_header_field(http2::hpack::header_field("x", byte_chunk_from_hex("00ff")?), http2::hpack::empty_header_list())))
+	let transition = require_header_block_encode(http2::hpack::encode_header_block(headers, table, 256))?
+	let decoded = require_header_block(http2::hpack::header_block_encode_bytes(transition), table, 256)?
+	let decoded_headers = http2::hpack::header_block_headers(decoded)
+	let fields_match = header_list_entry_matches(decoded_headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(decoded_headers, 1, "x", byte_chunk_from_hex("00ff")?)? and header_list_entry_matches(decoded_headers, 2, "x", byte_chunk_from_hex("00ff")?)?
 	if encoded_block_matches(transition, "824001780200ffbe")? and fields_match and http2::hpack::header_list_count(decoded_headers) == 3 and dynamic_entry_matches(http2::hpack::header_block_encode_table(transition), 1, "x", byte_chunk_from_hex("00ff")?)? and http2::hpack::dynamic_table_entry_count(table) == 0
 		Ok(())
 	else
@@ -1117,10 +1117,10 @@ test header_block_encoder_preserves_order_reuses_in_block_state_and_round_trips(
 end
 
 test header_block_encoder_handles_empty_lists_capacity_eviction_and_recursive_lists() -> Result<(), String>
-	let original: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "older", byte_chunk_from_hex("31")?)?, "newest", byte_chunk_from_hex("32")?)?
-	let empty: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::empty_header_list(), original, 100))?
-	let one: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field("newest", byte_chunk_from_hex("32")?), http2::hpack::empty_header_list())
-	let shrunk: HeaderBlockEncodeTransition = require_header_block_encode(http2::hpack::encode_header_block(one, original, 39))?
+	let original = http2::hpack::insert_dynamic_table_entry(http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(100)?, "older", byte_chunk_from_hex("31")?)?, "newest", byte_chunk_from_hex("32")?)?
+	let empty = require_header_block_encode(http2::hpack::encode_header_block(http2::hpack::empty_header_list(), original, 100))?
+	let one = http2::hpack::prepend_header_field(http2::hpack::header_field("newest", byte_chunk_from_hex("32")?), http2::hpack::empty_header_list())
+	let shrunk = require_header_block_encode(http2::hpack::encode_header_block(one, original, 39))?
 	if encoded_block_matches(empty, "")? and encoded_block_matches(shrunk, "3f08be")? and http2::hpack::dynamic_table_entry_count(http2::hpack::header_block_encode_table(shrunk)) == 1 and dynamic_entry_matches(http2::hpack::header_block_encode_table(shrunk), 1, "newest", byte_chunk_from_hex("32")?)? and http2::hpack::dynamic_table_entry_count(original) == 2
 		Ok(())
 	else
@@ -1129,44 +1129,44 @@ test header_block_encoder_handles_empty_lists_capacity_eviction_and_recursive_li
 end
 
 test header_encoders_return_focused_failures_without_output_or_next_state() -> Result<(), String>
-	let table: DynamicTable = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "original", byte_chunk_from_hex("00ff")?)?
-	let invalid_representation: Bool = match http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk([])), 3, 0, false, false, table)
+	let table = http2::hpack::insert_dynamic_table_entry(http2::hpack::empty_dynamic_table(64)?, "original", byte_chunk_from_hex("00ff")?)?
+	let invalid_representation = match http2::hpack::encode_literal_header_field(http2::hpack::header_field("x", byte_chunk([])), 3, 0, false, false, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "invalid_representation"
 		Ok(_) => false
 	end
-	let invalid_name: Bool = match http2::hpack::encode_literal_header_field(http2::hpack::header_field("Bad", byte_chunk([])), 0, 0, false, false, table)
+	let invalid_name = match http2::hpack::encode_literal_header_field(http2::hpack::header_field("Bad", byte_chunk([])), 0, 0, false, false, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "invalid_name"
 		Ok(_) => false
 	end
-	let zero: Bool = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), 0, table)
+	let zero = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), 0, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "zero_index"
 		Ok(_) => false
 	end
-	let unavailable_static: Bool = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), -1, table)
+	let unavailable_static = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), -1, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "unavailable_static_index" and http2::hpack::header_encode_failure_index(failure) == -1
 		Ok(_) => false
 	end
-	let unavailable: Bool = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), 63, table)
+	let unavailable = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field("x", byte_chunk([])), 63, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "unavailable_dynamic_index" and http2::hpack::header_encode_failure_index(failure) == 63 and http2::hpack::header_encode_failure_dynamic_index(failure) == 2 and http2::hpack::header_encode_failure_dynamic_entry_count(failure) == 1
 		Ok(_) => false
 	end
-	let mismatch: Bool = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("504f5354")?), 2, table)
+	let mismatch = match http2::hpack::encode_indexed_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("504f5354")?), 2, table)
 		Err(failure) => http2::hpack::header_encode_failure_kind(failure) == "indexed_field_mismatch" and http2::hpack::header_encode_failure_index(failure) == 2
 		Ok(_) => false
 	end
-	let bad_headers: HeaderList = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field("Bad", byte_chunk([])), http2::hpack::empty_header_list()))
-	let late: Bool = match http2::hpack::encode_header_block(bad_headers, table, 64)
+	let bad_headers = http2::hpack::prepend_header_field(http2::hpack::header_field(":method", byte_chunk_from_hex("474554")?), http2::hpack::prepend_header_field(http2::hpack::header_field("Bad", byte_chunk([])), http2::hpack::empty_header_list()))
+	let late = match http2::hpack::encode_header_block(bad_headers, table, 64)
 		Err(failure) => match http2::hpack::header_block_encode_header_failure(failure)
 			Some(header_failure) => http2::hpack::header_block_encode_failure_kind(failure) == "header_field" and http2::hpack::header_block_encode_failure_position(failure) == 1 and http2::hpack::header_encode_failure_kind(header_failure) == "invalid_name"
 			None => false
 		end
 		Ok(_) => false
 	end
-	let capacity: Bool = match http2::hpack::encode_header_block(http2::hpack::empty_header_list(), table, -1)
+	let capacity = match http2::hpack::encode_header_block(http2::hpack::empty_header_list(), table, -1)
 		Err(failure) => http2::hpack::header_block_encode_failure_kind(failure) == "active_capacity" and http2::hpack::header_block_encode_failure_capacity(failure) == -1
 		Ok(_) => false
 	end
-	let headers_unchanged: Bool = http2::hpack::header_list_count(bad_headers) == 2 and header_list_entry_matches(bad_headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(bad_headers, 1, "Bad", byte_chunk([]))?
+	let headers_unchanged = http2::hpack::header_list_count(bad_headers) == 2 and header_list_entry_matches(bad_headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_list_entry_matches(bad_headers, 1, "Bad", byte_chunk([]))?
 	if invalid_representation and invalid_name and zero and unavailable_static and unavailable and mismatch and late and capacity and headers_unchanged and http2::hpack::dynamic_table_capacity(table) == 64 and dynamic_entry_matches(table, 1, "original", byte_chunk_from_hex("00ff")?)?
 		Ok(())
 	else

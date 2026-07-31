@@ -365,8 +365,8 @@ fn validate_u32_setting(offset: Int, identifier: Int, setting_name: String, valu
 end
 
 fn encode_batch(items: List<LocalSettingsItem>, policy: LocalSettingsPolicy) -> Result<LocalSettingsTransition, String>
-	let item_count: Int = count_items(items)
-	let payload: ByteChunk = encode_payload(items)?
+	let item_count = count_items(items)
+	let payload = encode_payload(items)?
 	match http2::frame::encode_header(6 * item_count, 4, 0, 0)
 		Ok(header) => Ok(LocalSettingsTransitionSent(first_item_identifier(items), first_value_from_items(items), apply_policy(items, 0, policy), item_count, byte_append(header, payload)))
 		Err(reason) => Ok(LocalSettingsTransitionEncodeFailed(reason))
