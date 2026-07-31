@@ -30,12 +30,7 @@ pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
     let environment = TypeEnvironment::from_module(module);
-    let validate_standard_bodies = !module.functions.iter().any(|function| {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    });
+    let validate_standard_bodies = should_validate_standard_bodies(module);
     let semantic_diagnostics =
         analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
     let checked = lower_analyzed_surface_module_with_environment(
@@ -89,6 +84,25 @@ fn analyze_surface_module_with_environment(
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
     lower_analyzed_surface_module(module, analyze_surface_module(module))
+}
+
+pub fn lower_project_reachable_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
+    let environment = TypeEnvironment::from_module(module);
+    let diagnostics = analyze_surface_module_with_environment(
+        module,
+        &environment,
+        should_validate_standard_bodies(module),
+    );
+    lower_analyzed_surface_module_with_environment(module, diagnostics, &environment, false)
+}
+
+fn should_validate_standard_bodies(module: &SurfaceModule) -> bool {
+    !module.functions.iter().any(|function| {
+        !function
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    })
 }
 
 pub fn lower_analyzed_surface_module(

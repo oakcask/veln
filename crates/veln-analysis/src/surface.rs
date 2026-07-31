@@ -2598,7 +2598,7 @@ mod tests {
         let (module, diagnostics) = load_surface_module(&project);
         assert!(diagnostics.is_empty(), "{diagnostics:#?}");
         let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
-        let lowered = veln_sema::lower_checked_surface_module(&reachable);
+        let lowered = veln_sema::lower_project_reachable_surface_module(&reachable);
         assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
         let core = lowered.core.expect("project should lower to core");
         let main = core

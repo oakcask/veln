@@ -4,7 +4,9 @@ use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
-use veln_sema::{LoweredSurfaceModule, check_project_surface_module, lower_checked_surface_module};
+use veln_sema::{
+    LoweredSurfaceModule, check_project_surface_module, lower_project_reachable_surface_module,
+};
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
@@ -109,7 +111,7 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
-        let lowered = lower_checked_surface_module(&module);
+        let lowered = lower_project_reachable_surface_module(&module);
         ReachableEntryAnalysis { module, lowered }
     }
 
