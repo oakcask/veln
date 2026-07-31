@@ -29,8 +29,8 @@ fn octets_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) ->
 end
 
 fn octets_equal_next(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
-	let left_value: Int = byte_read_u8_be(byte_view(left, byte_offset(index)?, byte_count(1)?)?)?
-	let right_value: Int = byte_read_u8_be(byte_view(right, byte_offset(index)?, byte_count(1)?)?)?
+	let left_value = byte_read_u8_be(byte_view(left, byte_offset(index)?, byte_count(1)?)?)?
+	let right_value = byte_read_u8_be(byte_view(right, byte_offset(index)?, byte_count(1)?)?)?
 	if left_value == right_value
 		octets_equal_at(left, right, index + 1, count)
 	else
@@ -39,8 +39,8 @@ fn octets_equal_next(left: ByteChunk, right: ByteChunk, index: Int, count: Int) 
 end
 
 fn octets_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
-	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
-	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	let left_count = byte_count_to_int(byte_chunk_count(left))
+	let right_count = byte_count_to_int(byte_chunk_count(right))
 	if left_count == right_count
 		octets_equal_at(left, right, 0, left_count)
 	else
@@ -71,7 +71,7 @@ fn valid_name_bytes(bytes: ByteChunk, index: Int, count: Int) -> Result<Bool, St
 end
 
 fn valid_name_next(bytes: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
-	let value: Int = byte_read_u8_be(byte_view(bytes, byte_offset(index)?, byte_count(1)?)?)?
+	let value = byte_read_u8_be(byte_view(bytes, byte_offset(index)?, byte_count(1)?)?)?
 	if valid_name_byte(value)
 		valid_name_bytes(bytes, index + 1, count)
 	else
@@ -179,7 +179,7 @@ fn encode_integer(value: Int, prefix_bits: Int, representation_bits: Int) -> Res
 end
 
 fn encode_string(value: ByteChunk, huffman: Bool) -> Result<ByteChunk, HeaderEncodeCodecFailure>
-	let encoded: Result<ByteChunk, String> = if huffman
+	let encoded = if huffman
 		http2::hpack::string_encoder::huffman(value)
 	else
 		http2::hpack::string_encoder::raw(value)
@@ -218,7 +218,7 @@ fn next_literal_table(table: DynamicTable, representation: Int, name: String, va
 end
 
 pub fn encode_indexed(index: Int, name: String, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
-	let checked_name: ByteChunk = checked_name_bytes(name)?
+	let checked_name = checked_name_bytes(name)?
 	if indexed_field_matches(index, name, value, table)?
 		Ok(HeaderEncodeCodecTransition(encode_integer(index, 7, 128)?, table))
 	else
@@ -227,16 +227,16 @@ pub fn encode_indexed(index: Int, name: String, value: ByteChunk, table: Dynamic
 end
 
 pub fn encode_literal(name: String, value: ByteChunk, representation: Int, name_index: Int, huffman_name: Bool, huffman_value: Bool, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
-	let name_bytes: ByteChunk = checked_name_bytes(name)?
-	let prefix: { bits : Int, base : Int } = representation_prefix(representation)?
-	let encoded_prefix: ByteChunk = encode_literal_prefix(name, name_index, table, prefix)?
-	let encoded_name: ByteChunk = if name_index == 0
+	let name_bytes = checked_name_bytes(name)?
+	let prefix = representation_prefix(representation)?
+	let encoded_prefix = encode_literal_prefix(name, name_index, table, prefix)?
+	let encoded_name = if name_index == 0
 		encode_string(name_bytes, huffman_name)?
 	else
 		byte_chunk([])
 	end
-	let encoded_value: ByteChunk = encode_string(value, huffman_value)?
-	let next_table: DynamicTable = next_literal_table(table, representation, name, value)?
+	let encoded_value = encode_string(value, huffman_value)?
+	let next_table = next_literal_table(table, representation, name, value)?
 	Ok(HeaderEncodeCodecTransition(byte_append(byte_append(encoded_prefix, encoded_name), encoded_value), next_table))
 end
 
@@ -251,26 +251,26 @@ fn encode_literal_prefix(name: String, name_index: Int, table: DynamicTable, pre
 end
 
 fn automatic_literal(name: String, name_bytes: ByteChunk, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
-	let name_index: Int = match http2::hpack::static_table::name_index(name)
+	let name_index = match http2::hpack::static_table::name_index(name)
 		Some(index) => index
 		None => match dynamic_name_index(table, name, 1)
 			Some(index) => index
 			None => 0
 		end
 	end
-	let prefix: ByteChunk = encode_integer(name_index, 6, 64)?
-	let encoded_name: ByteChunk = if name_index == 0
+	let prefix = encode_integer(name_index, 6, 64)?
+	let encoded_name = if name_index == 0
 		encode_automatic_string(name_bytes)?
 	else
 		byte_chunk([])
 	end
-	let encoded_value: ByteChunk = encode_automatic_string(value)?
-	let next_table: DynamicTable = next_literal_table(table, 0, name, value)?
+	let encoded_value = encode_automatic_string(value)?
+	let next_table = next_literal_table(table, 0, name, value)?
 	Ok(HeaderEncodeCodecTransition(byte_append(byte_append(prefix, encoded_name), encoded_value), next_table))
 end
 
 pub fn encode_automatic(name: String, value: ByteChunk, table: DynamicTable) -> Result<HeaderEncodeCodecTransition, HeaderEncodeCodecFailure>
-	let name_bytes: ByteChunk = checked_name_bytes(name)?
+	let name_bytes = checked_name_bytes(name)?
 	match static_exact_index(name, value, 1)
 		Err(_) => Err(HeaderEncodeStringFailure)
 		Ok(Some(index)) => encode_indexed(index, name, value, table)

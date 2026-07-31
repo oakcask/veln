@@ -33,7 +33,7 @@ fn advance_combined(starting_offset: Int, combined: ByteChunk) -> Result<Connect
 end
 
 fn complete_or_wait(starting_offset: Int, combined: ByteChunk) -> Result<ConnectionPrefaceTransition, ConnectionPrefaceFailure>
-	let available: Int = byte_count_to_int(byte_chunk_count(combined))
+	let available = byte_count_to_int(byte_chunk_count(combined))
 	if available < preface_count()
 		Ok(ConnectionPrefaceTransition(MatchingConnectionPreface(starting_offset, combined), false, byte_chunk([])))
 	else

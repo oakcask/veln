@@ -21,9 +21,9 @@ pub fn apply_data(state: CoreConnectionState, offset: Int, stream_id: Int, data_
 end
 
 fn apply_existing_stream(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, entry: CoreStreamEntry, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
-	let connection_credit: CoreConnectionWindowCredit = http2::core::connection_state::connection_receive_credit(state)
-	let stream_credit: CoreStreamWindowCredit = http2::core::stream_state::entry_receive_credit(entry)
-	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_connection_window(connection_credit, data_length)
+	let connection_credit = http2::core::connection_state::connection_receive_credit(state)
+	let stream_credit = http2::core::stream_state::entry_receive_credit(entry)
+	let decision = http2::core::flow_control::debit_connection_window(connection_credit, data_length)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => match http2::core::flow_control::connection_window_credit(http2::core::flow_control::credit_decision_value(decision))
 			Ok(next_connection_credit) => apply_stream_window(state, offset, stream_id, data_length, stream_credit, next_connection_credit, preview)
@@ -37,7 +37,7 @@ fn apply_existing_stream(state: CoreConnectionState, offset: Int, stream_id: Int
 end
 
 fn apply_stream_window(state: CoreConnectionState, offset: Int, stream_id: Int, data_length: Int, stream_credit: CoreStreamWindowCredit, next_connection_credit: CoreConnectionWindowCredit, preview: ByteChunk) -> CoreDataReceiveFlowControlDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_stream_window(stream_credit, data_length)
+	let decision = http2::core::flow_control::debit_stream_window(stream_credit, data_length)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => match http2::core::flow_control::stream_window_credit(http2::core::flow_control::credit_decision_value(decision))
 			Ok(next_stream_credit) => accept_state(state, stream_id, next_connection_credit, next_stream_credit)
@@ -51,7 +51,7 @@ fn apply_stream_window(state: CoreConnectionState, offset: Int, stream_id: Int, 
 end
 
 fn accept_state(state: CoreConnectionState, stream_id: Int, next_connection_credit: CoreConnectionWindowCredit, next_stream_credit: CoreStreamWindowCredit) -> CoreDataReceiveFlowControlDecision
-	let next_streams: CoreStreamCollection = http2::core::stream_state::with_receive_credit(http2::core::connection_state::streams(state), stream_id, next_stream_credit)
+	let next_streams = http2::core::stream_state::with_receive_credit(http2::core::connection_state::streams(state), stream_id, next_stream_credit)
 	CoreDataReceiveFlowControlAccepted(http2::core::connection_state::with_streams(http2::core::connection_state::with_connection_receive_credit(state, next_connection_credit), next_streams))
 end
 

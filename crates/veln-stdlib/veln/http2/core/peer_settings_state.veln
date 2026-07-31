@@ -41,7 +41,7 @@ pub fn empty() -> PeerSettingsState
 end
 
 pub fn apply_payload(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk) -> Result<PeerSettingsState, String>
-	let payload_count: Int = byte_count_to_int(byte_chunk_count(payload))
+	let payload_count = byte_count_to_int(byte_chunk_count(payload))
 	if payload_count / 6 * 6 == payload_count
 		apply_items(state, payload_offset, payload, 0, payload_count)
 	else
@@ -204,11 +204,11 @@ fn apply_items(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk
 end
 
 fn apply_item(state: PeerSettingsState, payload_offset: Int, payload: ByteChunk, item_offset: Int) -> Result<PeerSettingsState, String>
-	let item: ByteView = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
-	let item_bytes: ByteChunk = byte_view_to_chunk(item)
-	let identifier: Int = byte_read_u16_be(byte_view(item_bytes, byte_offset(0)?, byte_count(2)?)?)?
-	let value: Int = byte_read_u32_be(byte_view(item_bytes, byte_offset(2)?, byte_count(4)?)?)?
-	let absolute_offset: Int = payload_offset + item_offset
+	let item = byte_view(payload, byte_offset(item_offset)?, byte_count(6)?)?
+	let item_bytes = byte_view_to_chunk(item)
+	let identifier = byte_read_u16_be(byte_view(item_bytes, byte_offset(0)?, byte_count(2)?)?)?
+	let value = byte_read_u32_be(byte_view(item_bytes, byte_offset(2)?, byte_count(4)?)?)?
+	let absolute_offset = payload_offset + item_offset
 	match state
 		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id) => match identifier
 			5 => Ok(PeerSettings(PeerMaxFrameSize(value, absolute_offset), initial_window_size, enable_push, max_concurrent_streams, header_table_size, max_header_list_size, highest_peer_stream_id))

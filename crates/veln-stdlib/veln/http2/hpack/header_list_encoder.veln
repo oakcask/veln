@@ -45,8 +45,8 @@ fn select_capacity(table: DynamicTable, active_capacity: Int) -> Result<HeaderLi
 end
 
 pub fn encode_headers(fields: List<HeaderCodecField>, table: DynamicTable, active_capacity: Int) -> Result<HeaderListEncodeCodecTransition, HeaderListEncodeCodecFailure>
-	let capacity: HeaderListEncodeCodecTransition = select_capacity(table, active_capacity)?
-	let encoded: HeaderListEncodeCodecTransition = encode_fields(fields, transition_table(capacity), 0)?
+	let capacity = select_capacity(table, active_capacity)?
+	let encoded = encode_fields(fields, transition_table(capacity), 0)?
 	Ok(HeaderListEncodeCodecTransition(byte_append(transition_bytes(capacity), transition_bytes(encoded)), transition_table(encoded)))
 end
 

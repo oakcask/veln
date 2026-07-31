@@ -34,9 +34,9 @@ fn apply_goaway_payload(state: CoreConnectionState, offset: Int, decoded: Goaway
 end
 
 fn apply_goaway_boundary(state: CoreConnectionState, offset: Int, new_last_stream_id: Int, new_error_code: Int, preview: ByteChunk) -> CoreConnectionShutdownDecision
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let current_last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let current_last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if label == "open"
 		accept_lifecycle(state, http2::core::connection_state::draining(new_last_stream_id, new_error_code))
 	else if new_last_stream_id > current_last_stream_id
@@ -57,16 +57,16 @@ fn reject_boundary_increase(state: CoreConnectionState, offset: Int, stream_id: 
 end
 
 fn decode_goaway_payload(payload: ByteChunk) -> Result<GoawayPayload, String>
-	let field_count: ByteCount = byte_count(4)?
-	let last_stream_id: Int = byte_read_u31_be(byte_view(payload, byte_offset(0)?, field_count)?)?
-	let error_code: Int = byte_read_u32_be(byte_view(payload, byte_offset(4)?, field_count)?)?
+	let field_count = byte_count(4)?
+	let last_stream_id = byte_read_u31_be(byte_view(payload, byte_offset(0)?, field_count)?)?
+	let error_code = byte_read_u32_be(byte_view(payload, byte_offset(4)?, field_count)?)?
 	Ok(GoawayPayload(last_stream_id, error_code))
 end
 
 fn drained_lifecycle(lifecycle: CoreConnectionLifecycle, streams: CoreStreamCollection) -> CoreConnectionLifecycle
-	let label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
-	let error_code: Int = http2::core::connection_state::lifecycle_error_code(lifecycle)
+	let label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let error_code = http2::core::connection_state::lifecycle_error_code(lifecycle)
 	if label == "draining"
 		if http2::core::stream_state::has_active_in_boundary(streams, last_stream_id)
 			lifecycle

@@ -372,7 +372,7 @@ fn indexed_decode_failure(failure: HeaderCodecFailure) -> IndexedDecodeFailure
 end
 
 fn indexed_decode_transition(transition: HeaderCodecTransition) -> IndexedDecodeTransition
-	let header: HeaderCodecField = http2::hpack::header_codec::transition_header(transition)
+	let header = http2::hpack::header_codec::transition_header(transition)
 	IndexedDecodeTransition(IndexedHeaderField(http2::hpack::header_codec::header_name(header), http2::hpack::header_codec::header_value(header)), http2::hpack::header_codec::transition_consumed(transition), http2::hpack::header_codec::transition_table(transition))
 end
 
@@ -464,8 +464,8 @@ fn literal_decode_failure(failure: HeaderCodecFailure) -> LiteralDecodeFailure
 end
 
 fn literal_decode_transition(decoded: { transition : HeaderCodecTransition, representation : Int }) -> LiteralDecodeTransition
-	let transition: HeaderCodecTransition = decoded.transition
-	let header: HeaderCodecField = http2::hpack::header_codec::transition_header(transition)
+	let transition = decoded.transition
+	let header = http2::hpack::header_codec::transition_header(transition)
 	LiteralDecodeTransition(LiteralHeaderField(http2::hpack::header_codec::header_name(header), http2::hpack::header_codec::header_value(header)), http2::hpack::header_codec::transition_consumed(transition), http2::hpack::header_codec::transition_table(transition), decoded.representation)
 end
 

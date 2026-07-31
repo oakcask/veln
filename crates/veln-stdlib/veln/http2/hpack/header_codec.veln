@@ -84,7 +84,7 @@ fn static_header(index: Int, consumed: Int, table: DynamicTable) -> Result<Heade
 end
 
 fn dynamic_header(index: Int, consumed: Int, table: DynamicTable) -> Result<HeaderCodecTransition, HeaderCodecFailure>
-	let dynamic_index: Int = index - 61
+	let dynamic_index = index - 61
 	match http2::hpack::dynamic_table::lookup(table, dynamic_index)
 		Some(entry) => Ok(HeaderCodecTransition(HeaderCodecField(http2::hpack::dynamic_table::entry_name(entry), http2::hpack::dynamic_table::entry_value(entry)), consumed, table))
 		None => Err(HeaderCodecUnavailableDynamicEntry(index, dynamic_index, http2::hpack::dynamic_table::entry_count(table)))
@@ -92,9 +92,9 @@ fn dynamic_header(index: Int, consumed: Int, table: DynamicTable) -> Result<Head
 end
 
 pub fn decode_indexed(input: ByteView, table: DynamicTable) -> Result<HeaderCodecTransition, HeaderCodecFailure>
-	let decoded: { value : Int, consumed : Int } = decode_integer(input)?
-	let index: Int = http2::hpack::integer::value(decoded)
-	let consumed: Int = http2::hpack::integer::consumed(decoded)
+	let decoded = decode_integer(input)?
+	let index = http2::hpack::integer::value(decoded)
+	let consumed = http2::hpack::integer::consumed(decoded)
 	if index == 0
 		Err(HeaderCodecZeroIndex)
 	else if index <= 61
@@ -185,9 +185,9 @@ fn drop_consumed(input: ByteView, consumed: Int, name: Bool) -> Result<ByteView,
 end
 
 fn decode_literal_name(input: ByteView, table: DynamicTable, prefix_bits: Int) -> Result<{ name : String, consumed : Int }, HeaderCodecFailure>
-	let decoded_index: { value : Int, consumed : Int } = decode_name_integer(input, prefix_bits)?
-	let name_index: Int = http2::hpack::integer::value(decoded_index)
-	let index_consumed: Int = http2::hpack::integer::consumed(decoded_index)
+	let decoded_index = decode_name_integer(input, prefix_bits)?
+	let name_index = http2::hpack::integer::value(decoded_index)
+	let index_consumed = http2::hpack::integer::consumed(decoded_index)
 	if name_index == 0
 		decode_direct_literal_name(input, index_consumed)
 	else
@@ -196,8 +196,8 @@ fn decode_literal_name(input: ByteView, table: DynamicTable, prefix_bits: Int) -
 end
 
 fn decode_direct_literal_name(input: ByteView, index_consumed: Int) -> Result<{ name : String, consumed : Int }, HeaderCodecFailure>
-	let name_input: ByteView = drop_consumed(input, index_consumed, true)?
-	let decoded_name: StringCodecValue = decode_name_string(name_input)?
+	let name_input = drop_consumed(input, index_consumed, true)?
+	let decoded_name = decode_name_string(name_input)?
 	match byte_chunk_to_visible_ascii_string(http2::hpack::string_codec::value(decoded_name))
 		Ok(name) => Ok({ name: name, consumed: index_consumed + http2::hpack::string_codec::consumed(decoded_name) })
 		Err(_) => Err(HeaderCodecInvalidNameOctets)
@@ -205,11 +205,11 @@ fn decode_direct_literal_name(input: ByteView, index_consumed: Int) -> Result<{ 
 end
 
 fn literal_transition(input: ByteView, table: DynamicTable, representation: Int, decoded_name: { name : String, consumed : Int }) -> Result<HeaderCodecTransition, HeaderCodecFailure>
-	let value_input: ByteView = drop_consumed(input, decoded_name.consumed, false)?
-	let decoded_value: StringCodecValue = decode_value_string(value_input)?
-	let value: ByteChunk = http2::hpack::string_codec::value(decoded_value)
-	let consumed: Int = decoded_name.consumed + http2::hpack::string_codec::consumed(decoded_value)
-	let next_table: DynamicTable = literal_next_table(table, representation, decoded_name.name, value)?
+	let value_input = drop_consumed(input, decoded_name.consumed, false)?
+	let decoded_value = decode_value_string(value_input)?
+	let value = http2::hpack::string_codec::value(decoded_value)
+	let consumed = decoded_name.consumed + http2::hpack::string_codec::consumed(decoded_value)
+	let next_table = literal_next_table(table, representation, decoded_name.name, value)?
 	Ok(HeaderCodecTransition(HeaderCodecField(decoded_name.name, value), consumed, next_table))
 end
 
@@ -225,8 +225,8 @@ fn literal_next_table(table: DynamicTable, representation: Int, name: String, va
 end
 
 fn decode_literal_first(input: ByteView, table: DynamicTable, first: Int) -> Result<{ transition : HeaderCodecTransition, representation : Int }, HeaderCodecFailure>
-	let prefix: { prefix_bits : Int, representation : Int } = literal_prefix_bits(first)?
-	let decoded_name: { name : String, consumed : Int } = decode_literal_name(input, table, prefix.prefix_bits)?
+	let prefix = literal_prefix_bits(first)?
+	let decoded_name = decode_literal_name(input, table, prefix.prefix_bits)?
 	Ok({ transition: literal_transition(input, table, prefix.representation, decoded_name)?, representation: prefix.representation })
 end
 

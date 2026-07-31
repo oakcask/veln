@@ -26,10 +26,10 @@ pub type CoreOutboundDataFlowFailure
 end
 
 pub fn send_data(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, end_stream: Bool) -> CoreDataSendDecision
-	let data_length: Int = byte_count_to_int(byte_chunk_count(data))
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let data_length = byte_count_to_int(byte_chunk_count(data))
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if lifecycle_label != "open" and stream_id > last_stream_id
 		CoreDataSendRejected(CoreOutboundDataAfterGoaway(offset, 0, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
 	else if stream_id == 0
@@ -43,7 +43,7 @@ pub fn send_data(state: CoreConnectionState, offset: Int, stream_id: Int, data: 
 end
 
 fn send_data_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry) -> CoreDataSendDecision
-	let lifecycle: CoreStreamLifecycle = http2::core::stream_state::entry_lifecycle(entry)
+	let lifecycle = http2::core::stream_state::entry_lifecycle(entry)
 	if not lifecycle_accepts_outbound_data(lifecycle)
 		CoreDataSendRejected(CoreOutboundDataInvalidStream(offset, 0, stream_id, http2::core::stream_state::lifecycle_active_state(lifecycle), outbound_lifecycle_rule(lifecycle), byte_chunk([])))
 	else
@@ -52,8 +52,8 @@ fn send_data_for_entry(state: CoreConnectionState, offset: Int, stream_id: Int, 
 end
 
 fn apply_data_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry) -> CoreDataSendDecision
-	let send_credit: CoreStreamWindowCredit = http2::core::stream_state::entry_send_credit(entry)
-	let next_credit_value: Int = http2::core::flow_control::stream_window_credit_value(send_credit) - data_length
+	let send_credit = http2::core::stream_state::entry_send_credit(entry)
+	let next_credit_value = http2::core::flow_control::stream_window_credit_value(send_credit) - data_length
 	if next_credit_value < 0
 		CoreDataSendRejected(CoreOutboundDataFlowControl(offset, 0, stream_id, data_length, next_credit_value, "stream-send-window", "outbound_data_debits_stream_send_window", byte_chunk([])))
 	else
@@ -62,7 +62,7 @@ fn apply_data_flow_control(state: CoreConnectionState, offset: Int, stream_id: I
 end
 
 fn apply_checked_data_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry, send_credit: CoreStreamWindowCredit) -> CoreDataSendDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::debit_stream_window(send_credit, data_length)
+	let decision = http2::core::flow_control::debit_stream_window(send_credit, data_length)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => apply_data_content_length(state, offset, stream_id, data, data_length, end_stream, entry, http2::core::flow_control::credit_decision_value(decision))
 		_ => match http2::core::flow_control::credit_decision_failure(decision)
@@ -73,8 +73,8 @@ fn apply_checked_data_flow_control(state: CoreConnectionState, offset: Int, stre
 end
 
 fn apply_data_content_length(state: CoreConnectionState, offset: Int, stream_id: Int, data: ByteChunk, data_length: Int, end_stream: Bool, entry: CoreStreamEntry, next_credit_value: Int) -> CoreDataSendDecision
-	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
-	let observed: Int = http2::core::stream_state::entry_content_length_observed(entry) + data_length
+	let expected = http2::core::stream_state::entry_content_length_expected(entry)
+	let observed = http2::core::stream_state::entry_content_length_observed(entry) + data_length
 	if expected >= 0 and observed > expected
 		CoreDataSendRejected(CoreOutboundDataContentLength(offset, 0, stream_id, expected, observed, http2::core::stream_state::lifecycle_active_state(http2::core::stream_state::entry_lifecycle(entry)), "rfc9113_content_length_body", byte_chunk([])))
 	else if expected >= 0 and end_stream and observed != expected
@@ -95,10 +95,10 @@ fn encode_data(state: CoreConnectionState, stream_id: Int, data: ByteChunk, data
 end
 
 fn data_next_state(state: CoreConnectionState, stream_id: Int, end_stream: Bool, entry: CoreStreamEntry, next_credit: CoreStreamWindowCredit, observed: Int) -> CoreConnectionState
-	let with_credit: CoreStreamCollection = http2::core::stream_state::with_send_credit(http2::core::connection_state::streams(state), stream_id, next_credit)
-	let expected: Int = http2::core::stream_state::entry_content_length_expected(entry)
-	let with_content_length: CoreStreamCollection = http2::core::stream_state::with_content_length(with_credit, stream_id, expected, observed)
-	let with_lifecycle: CoreStreamCollection = if end_stream
+	let with_credit = http2::core::stream_state::with_send_credit(http2::core::connection_state::streams(state), stream_id, next_credit)
+	let expected = http2::core::stream_state::entry_content_length_expected(entry)
+	let with_content_length = http2::core::stream_state::with_content_length(with_credit, stream_id, expected, observed)
+	let with_lifecycle = if end_stream
 		http2::core::stream_state::with_lifecycle(with_content_length, stream_id, local_end_lifecycle(http2::core::stream_state::entry_lifecycle(entry)))
 	else
 		with_content_length
@@ -118,9 +118,9 @@ pub fn send_window_update(state: CoreConnectionState, offset: Int, stream_id: In
 end
 
 fn send_stream_window_update_after_goaway_check(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
-	let lifecycle: CoreConnectionLifecycle = http2::core::connection_state::lifecycle(state)
-	let lifecycle_label: String = http2::core::connection_state::lifecycle_label(lifecycle)
-	let last_stream_id: Int = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
+	let lifecycle = http2::core::connection_state::lifecycle(state)
+	let lifecycle_label = http2::core::connection_state::lifecycle_label(lifecycle)
+	let last_stream_id = http2::core::connection_state::lifecycle_last_stream_id(lifecycle)
 	if lifecycle_label != "open" and stream_id > last_stream_id
 		CoreWindowUpdateSendRejected(CoreOutboundDataAfterGoaway(offset, 8, stream_id, last_stream_id, lifecycle_label, http2::core::connection_state::endpoint_role(state), "goaway_last_stream_id", byte_chunk([])))
 	else
@@ -129,7 +129,7 @@ fn send_stream_window_update_after_goaway_check(state: CoreConnectionState, offs
 end
 
 fn send_connection_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement) -> CoreWindowUpdateSendDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_connection_window(http2::core::connection_state::connection_receive_credit(state), increment)
+	let decision = http2::core::flow_control::refill_connection_window(http2::core::connection_state::connection_receive_credit(state), increment)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => match http2::core::flow_control::connection_window_credit(http2::core::flow_control::credit_decision_value(decision))
 			Ok(next_credit) => encode_window_update(http2::core::connection_state::with_connection_receive_credit(state, next_credit), stream_id, http2::core::flow_control::window_update_increment_value(increment))
@@ -154,7 +154,7 @@ fn send_stream_window_update(state: CoreConnectionState, offset: Int, stream_id:
 end
 
 fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement, entry: CoreStreamEntry) -> CoreWindowUpdateSendDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_stream_window(http2::core::stream_state::entry_receive_credit(entry), increment)
+	let decision = http2::core::flow_control::refill_stream_window(http2::core::stream_state::entry_receive_credit(entry), increment)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => match http2::core::flow_control::stream_window_credit(http2::core::flow_control::credit_decision_value(decision))
 			Ok(next_credit) => encode_window_update(http2::core::connection_state::with_streams(state, http2::core::stream_state::with_receive_credit(http2::core::connection_state::streams(state), stream_id, next_credit)), stream_id, http2::core::flow_control::window_update_increment_value(increment))
@@ -178,12 +178,12 @@ fn encode_window_update(state: CoreConnectionState, stream_id: Int, increment: I
 end
 
 fn lifecycle_accepts_outbound_data(lifecycle: CoreStreamLifecycle) -> Bool
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	label == "open" or label == "client-push-associated" or label == "half-closed-remote"
 end
 
 fn outbound_lifecycle_rule(lifecycle: CoreStreamLifecycle) -> String
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	if label == "half-closed-local"
 		"half_closed_local_rejects_local_data"
 	else
@@ -192,7 +192,7 @@ fn outbound_lifecycle_rule(lifecycle: CoreStreamLifecycle) -> String
 end
 
 fn local_end_lifecycle(lifecycle: CoreStreamLifecycle) -> CoreStreamLifecycle
-	let label: String = http2::core::stream_state::lifecycle_label(lifecycle)
+	let label = http2::core::stream_state::lifecycle_label(lifecycle)
 	if label == "half-closed-remote"
 		http2::core::stream_state::closed_lifecycle()
 	else if label == "closed"

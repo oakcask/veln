@@ -29,9 +29,9 @@ pub fn decode(input: ByteView) -> Result<StringCodecValue, StringCodecFailure>
 end
 
 fn decode_value(input: ByteView, decoded: { value : Int, consumed : Int }) -> Result<StringCodecValue, StringCodecFailure>
-	let length: Int = http2::hpack::integer::value(decoded)
-	let prefix_consumed: Int = http2::hpack::integer::consumed(decoded)
-	let available: Int = byte_count_to_int(byte_view_count(input)) - prefix_consumed
+	let length = http2::hpack::integer::value(decoded)
+	let prefix_consumed = http2::hpack::integer::consumed(decoded)
+	let available = byte_count_to_int(byte_view_count(input)) - prefix_consumed
 	if length > available
 		Err(StringCodecTruncatedRawOctets(length, available))
 	else

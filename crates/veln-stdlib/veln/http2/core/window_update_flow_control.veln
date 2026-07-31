@@ -32,7 +32,7 @@ pub fn apply_stream_window_update(state: CoreConnectionState, offset: Int, strea
 end
 
 pub fn apply_connection_window_update(state: CoreConnectionState, offset: Int, increment: Int, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
-	let connection_credit: CoreConnectionWindowCredit = http2::core::connection_state::connection_receive_credit(state)
+	let connection_credit = http2::core::connection_state::connection_receive_credit(state)
 	match http2::core::flow_control::window_update_increment(increment)
 		Ok(checked_increment) => apply_connection_checked_increment(state, offset, checked_increment, connection_credit, preview)
 		Err(failure) => CoreConnectionWindowUpdateFlowControlRejected(CoreConnectionWindowUpdateFlowControlInvalidIncrement(offset, increment, http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), http2::core::flow_control::connection_window_credit_value(connection_credit), preview))
@@ -40,7 +40,7 @@ pub fn apply_connection_window_update(state: CoreConnectionState, offset: Int, i
 end
 
 fn apply_existing_stream(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, entry: CoreStreamEntry, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
-	let stream_credit: CoreStreamWindowCredit = http2::core::stream_state::entry_send_credit(entry)
+	let stream_credit = http2::core::stream_state::entry_send_credit(entry)
 	match http2::core::flow_control::window_update_increment(increment)
 		Ok(checked_increment) => apply_checked_increment(state, offset, stream_id, checked_increment, stream_credit, preview)
 		Err(failure) => CoreStreamWindowUpdateFlowControlRejected(CoreStreamWindowUpdateFlowControlInvalidIncrement(offset, stream_id, increment, http2::core::flow_control::failure_accepted_min_value(failure), http2::core::flow_control::failure_accepted_max_value(failure), http2::core::flow_control::stream_window_credit_value(stream_credit), preview))
@@ -48,7 +48,7 @@ fn apply_existing_stream(state: CoreConnectionState, offset: Int, stream_id: Int
 end
 
 fn apply_checked_increment(state: CoreConnectionState, offset: Int, stream_id: Int, increment: CoreWindowUpdateIncrement, stream_credit: CoreStreamWindowCredit, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_stream_window(stream_credit, increment)
+	let decision = http2::core::flow_control::refill_stream_window(stream_credit, increment)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => accept_state(state, stream_id, http2::core::flow_control::credit_decision_value(decision))
 		_ => match http2::core::flow_control::credit_decision_failure(decision)
@@ -66,7 +66,7 @@ fn accept_state(state: CoreConnectionState, stream_id: Int, next_stream_credit: 
 end
 
 fn apply_connection_checked_increment(state: CoreConnectionState, offset: Int, increment: CoreWindowUpdateIncrement, connection_credit: CoreConnectionWindowCredit, preview: ByteChunk) -> CoreConnectionWindowUpdateFlowControlDecision
-	let decision: FlowControlCreditDecision = http2::core::flow_control::refill_connection_window(connection_credit, increment)
+	let decision = http2::core::flow_control::refill_connection_window(connection_credit, increment)
 	match http2::core::flow_control::credit_decision_status(decision)
 		"accepted" => accept_connection_state(state, http2::core::flow_control::credit_decision_value(decision))
 		_ => match http2::core::flow_control::credit_decision_failure(decision)

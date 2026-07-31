@@ -40,8 +40,8 @@ pub fn decode(input: ByteView, prefix_bits: Int) -> Result<{ value : Int, consum
 end
 
 fn decode_first(input: ByteView, prefix_max: Int) -> Result<{ value : Int, consumed : Int }, String>
-	let first: Int = byte_read_u8_be(input)?
-	let value: Int = first & prefix_max
+	let first = byte_read_u8_be(input)?
+	let value = first & prefix_max
 	if value < prefix_max
 		Ok({ value: value, consumed: 1 })
 	else
@@ -61,7 +61,7 @@ fn decode_continuation(input: ByteView, value: Int, shift: Int, consumed: Int) -
 end
 
 fn decode_continuation_byte(input: ByteView, value: Int, shift: Int, consumed: Int, next: Int) -> Result<{ value : Int, consumed : Int }, String>
-	let payload: Int = next & 127
+	let payload = next & 127
 	if shift == 56 and payload == 127 and value > 72057594037927935
 		Err("HPACK integer continuation is too large")
 	else

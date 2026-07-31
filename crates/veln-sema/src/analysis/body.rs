@@ -2791,11 +2791,11 @@ impl<'a> FunctionChecker<'a> {
         let (value_type, error_type) = match (expected, return_result) {
             (Some(expected), Some((_, error_type))) => (expected.ty.clone(), error_type),
             (Some(expected), None) => (expected.ty.clone(), Type::Unknown),
-            (None, Some((value_type, error_type))) => (value_type, error_type),
+            (None, Some((_, error_type))) => (Type::Unknown, error_type),
             (None, None) => (Type::Unknown, Type::Unknown),
         };
-        let inner_expected = ExpectedType {
-            ty: adt::result_type(value_type.clone(), error_type),
+        let mut inner_expected = ExpectedType {
+            ty: adt::result_type(value_type.clone(), error_type.clone()),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
@@ -2805,6 +2805,11 @@ impl<'a> FunctionChecker<'a> {
             ),
         };
         let actual = self.infer_expr(inner, Some(&inner_expected));
+        if expected.is_none()
+            && let Some((actual_value, _)) = adt::result_parts(&actual)
+        {
+            inner_expected.ty = adt::result_type(actual_value.clone(), error_type);
+        }
         self.check_assignable(
             inner,
             &inner_expected.ty,
@@ -2812,7 +2817,14 @@ impl<'a> FunctionChecker<'a> {
             &inner_expected,
             "return_value",
         );
-        value_type
+        expected.map_or_else(
+            || {
+                adt::result_parts(&actual)
+                    .map(|(value, _)| value.clone())
+                    .unwrap_or(Type::Unknown)
+            },
+            |_| value_type,
+        )
     }
 
     pub(super) fn infer_prefix(

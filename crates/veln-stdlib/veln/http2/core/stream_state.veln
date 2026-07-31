@@ -25,8 +25,8 @@ pub fn empty() -> CoreStreamCollection
 end
 
 pub fn entry(stream_id: Int, lifecycle: CoreStreamLifecycle, receive_credit_value: Int, send_credit_value: Int, content_length_expected: Int, content_length_observed: Int) -> Result<CoreStreamEntry, FlowControlDomainFailure>
-	let receive_credit: CoreStreamWindowCredit = http2::core::flow_control::stream_window_credit(receive_credit_value)?
-	let send_credit: CoreStreamWindowCredit = http2::core::flow_control::stream_window_credit(send_credit_value)?
+	let receive_credit = http2::core::flow_control::stream_window_credit(receive_credit_value)?
+	let send_credit = http2::core::flow_control::stream_window_credit(send_credit_value)?
 	Ok(CoreStreamEntry(stream_id, lifecycle, receive_credit, send_credit, content_length_expected, content_length_observed))
 end
 

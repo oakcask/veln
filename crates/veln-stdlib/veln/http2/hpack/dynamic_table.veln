@@ -39,9 +39,9 @@ fn count_entry(count: Int, entry: DynamicEntry) -> Int
 end
 
 pub fn insert(table: DynamicTable, name: String, value: ByteChunk) -> Result<DynamicTable, String>
-	let name_bytes: ByteChunk = byte_chunk_from_visible_ascii_string(name)?
-	let inserted: DynamicEntry = DynamicEntry(name, value)
-	let inserted_size: Int = byte_count_to_int(byte_chunk_count(name_bytes)) + byte_count_to_int(byte_chunk_count(value)) + 32
+	let name_bytes = byte_chunk_from_visible_ascii_string(name)?
+	let inserted = DynamicEntry(name, value)
+	let inserted_size = byte_count_to_int(byte_chunk_count(name_bytes)) + byte_count_to_int(byte_chunk_count(value)) + 32
 	match table
 		DynamicTable(table_capacity, _, entries) => if inserted_size > table_capacity
 			Ok(DynamicTable(table_capacity, 0, Nil))
@@ -84,7 +84,7 @@ pub fn entry_value(entry: DynamicEntry) -> ByteChunk
 end
 
 fn table_with_entries(table_capacity: Int, entries: List<DynamicEntry>) -> Result<DynamicTable, String>
-	let bounded: List<DynamicEntry> = entries_within_capacity(entries, table_capacity)?
+	let bounded = entries_within_capacity(entries, table_capacity)?
 	Ok(DynamicTable(table_capacity, entries_size(bounded)?, bounded))
 end
 

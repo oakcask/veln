@@ -201,7 +201,7 @@ pub fn send_encode_reason(decision: PeerSettingsAckSendDecision) -> String
 end
 
 fn add_outstanding(outstanding_settings: OutstandingLocalSettings, first_identifier: Int, item_count: Int) -> OutstandingLocalSettings
-	let batch: SettingsAckBatch = SettingsAckBatch(first_identifier, item_count)
+	let batch = SettingsAckBatch(first_identifier, item_count)
 	match outstanding_settings
 		NoOutstandingLocalSettings => OutstandingLocalSettings(Cons(batch, Nil))
 		OutstandingLocalSettings(batches) => OutstandingLocalSettings(append_batch(batches, batch))

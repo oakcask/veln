@@ -442,7 +442,7 @@ pub fn stream_id(value: Int) -> Result<StreamId, String>
 end
 
 pub fn client_stream_id(value: Int) -> Result<StreamId, String>
-	let validated: StreamId = stream_id(value)?
+	let validated = stream_id(value)?
 	if value / 2 * 2 != value
 		Ok(validated)
 	else
@@ -451,7 +451,7 @@ pub fn client_stream_id(value: Int) -> Result<StreamId, String>
 end
 
 pub fn server_stream_id(value: Int) -> Result<StreamId, String>
-	let validated: StreamId = stream_id(value)?
+	let validated = stream_id(value)?
 	if value / 2 * 2 == value
 		Ok(validated)
 	else

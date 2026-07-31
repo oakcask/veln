@@ -1,4 +1,4 @@
 fn load_source_text(path: Path) -> Result<String, FsError> effects [fs]
-	let text: String = fs::read_to_string(path)?
+	let text = fs::read_to_string(path)?
 	Ok(text)
 end
