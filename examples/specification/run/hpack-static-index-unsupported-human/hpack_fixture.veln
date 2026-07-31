@@ -40,9 +40,10 @@ fn unsupported_static_index(block: ByteChunk, offset: Int) -> Result<HpackDecode
 end
 
 pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
-	match byte_at_or_missing(block, 0) == 128 and byte_count_to_int(byte_chunk_count(block)) == 1
-		true => unsupported_static_index(block, offset)
-		false => Ok(HpackDecodeTransition(HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8), state))
+	if byte_at_or_missing(block, 0) == 128 and byte_count_to_int(byte_chunk_count(block)) == 1
+		unsupported_static_index(block, offset)
+	else
+		Ok(HpackDecodeTransition(HpackHeaderList(HpackHeader(":method", "GET"), HpackHeader(":fixture", "static-indexed"), 8), state))
 	end
 end
 

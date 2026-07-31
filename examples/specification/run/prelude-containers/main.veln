@@ -13,9 +13,10 @@ fn double(value: Int) -> Int
 end
 
 fn positive(value: Int) -> Option<Int>
-	match value > 0
-		true => Some(value)
-		false => None
+	if value > 0
+		Some(value)
+	else
+		None
 	end
 end
 
@@ -85,9 +86,10 @@ pub fn main() -> () effects [stdio]
 		Ok(value) => int_to_string(value)
 		Err(error) => error
 	end
-	let fifth: String = match dict_contains(dictionary, "b")
-		true => "b"
-		false => "missing"
+	let fifth: String = if dict_contains(dictionary, "b")
+		"b"
+	else
+		"missing"
 	end
 	let sixth: String = int_to_string(option_unwrap_or(None, 7))
 	let seventh: String = match vec_try_map([1, 2, 3], fallible_double)
@@ -95,9 +97,10 @@ pub fn main() -> () effects [stdio]
 		Err(error) => error
 	end
 	let empty_vec: Vec<Int> = []
-	let eighth: String = match vec_is_empty(empty_vec)
-		true => "empty"
-		false => "nonempty"
+	let eighth: String = if vec_is_empty(empty_vec)
+		"empty"
+	else
+		"nonempty"
 	end
 	let list: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))
 	let ninth: String = int_to_string(list_fold(list, 0, add))
@@ -108,9 +111,10 @@ pub fn main() -> () effects [stdio]
 		Ok(items) => int_to_string(list_fold(items, 0, add))
 		Err(error) => error
 	end
-	let fourteenth: String = match list_is_empty(list_nil())
-		true => "list-empty"
-		false => "list-nonempty"
+	let fourteenth: String = if list_is_empty(list_nil())
+		"list-empty"
+	else
+		"list-nonempty"
 	end
 	stdio::println(second)
 	stdio::println(third)

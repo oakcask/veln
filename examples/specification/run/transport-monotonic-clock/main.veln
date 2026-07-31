@@ -1,8 +1,9 @@
 # Monotonic time exposes elapsed-time ordering without wall-clock dates.
 fn ensure_monotonic(first: Int, second: Int) -> Result<(), String>
-	match second < first
-		true => Err("monotonic clock moved backwards")
-		false => Ok(())
+	if second < first
+		Err("monotonic clock moved backwards")
+	else
+		Ok(())
 	end
 end
 

@@ -71,16 +71,18 @@ fn cleanup_count(actions: List<ResponseAction>) -> Int
 end
 
 fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 
 fn bool_count(value: Bool) -> Int
-	match value
-		true => 1
-		false => 0
+	if value
+		1
+	else
+		0
 	end
 end
 
@@ -231,9 +233,10 @@ fn request_adapter_cancel(owner: CancelOwner) -> () effects [time]
 end
 
 fn maybe_cancel_before_accept(owner: CancelOwner, cancel_first: Bool) -> () effects [time]
-	match cancel_first
-		true => request_adapter_cancel(owner)
-		false => ()
+	if cancel_first
+		request_adapter_cancel(owner)
+	else
+		()
 	end
 end
 

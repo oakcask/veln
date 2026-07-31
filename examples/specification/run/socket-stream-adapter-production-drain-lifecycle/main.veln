@@ -44,9 +44,10 @@ fn end_count(actions: List<ResponseAction>) -> Int
 end
 
 fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 
@@ -115,9 +116,10 @@ fn add_stream_summary(summary: { streams : Int, chunks : Int, ended : Int, write
 end
 
 fn bool_count(value: Bool) -> Int
-	match value
-		true => 1
-		false => 0
+	if value
+		1
+	else
+		0
 	end
 end
 

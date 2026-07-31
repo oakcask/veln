@@ -82,9 +82,10 @@ fn drain_one(stream: NetStream, worker: Task<Result<HandlerOutput, String>>) -> 
 end
 
 fn prepend_drain(success: Bool, tail: { drained: Int, successes: Int, failures: Int }) -> { drained: Int, successes: Int, failures: Int }
-	match success
-		true => { drained: 1 + tail.drained, successes: 1 + tail.successes, failures: tail.failures }
-		false => { drained: 1 + tail.drained, successes: tail.successes, failures: 1 + tail.failures }
+	if success
+		{ drained: 1 + tail.drained, successes: 1 + tail.successes, failures: tail.failures }
+	else
+		{ drained: 1 + tail.drained, successes: tail.successes, failures: 1 + tail.failures }
 	end
 end
 

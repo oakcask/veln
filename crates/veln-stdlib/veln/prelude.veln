@@ -96,12 +96,12 @@ pub type EncodeStep<TState>
 end
 
 pub fn byte(value: Int) -> Result<Byte, String>
-	match value < 0
-		true => Err("byte value must be between 0 and 255")
-		false => match value > 255
-			true => Err("byte value must be between 0 and 255")
-			false => Ok(Byte(value))
-		end
+	if value < 0
+		Err("byte value must be between 0 and 255")
+	else if value > 255
+		Err("byte value must be between 0 and 255")
+	else
+		Ok(Byte(value))
 	end
 end
 
@@ -201,9 +201,10 @@ end
 
 fn byte_chunks_produce_cons(chunks: List<ByteChunk>, head: ByteChunk, tail: List<ByteChunk>, budget: ByteCount, produced: ByteCount) -> {chunks: List<ByteChunk>, produced: ByteCount, remaining: List<ByteChunk>}
 	let next = byte_count_to_int(produced) + byte_count_to_int(byte_chunk_count(head))
-	match next > byte_count_to_int(budget)
-		true => {chunks: Nil, produced: produced, remaining: chunks}
-		false => byte_chunks_prepend_produced(head, byte_chunks_produce_from(tail, budget, ByteCount(next)))
+	if next > byte_count_to_int(budget)
+		{chunks: Nil, produced: produced, remaining: chunks}
+	else
+		byte_chunks_prepend_produced(head, byte_chunks_produce_from(tail, budget, ByteCount(next)))
 	end
 end
 
@@ -360,9 +361,10 @@ pub fn byte_write_u64_le(value: Int) -> Result<ByteChunk, String>
 end
 
 pub fn byte_count(value: Int) -> Result<ByteCount, String>
-	match value < 0
-		true => Err("byte count must be non-negative")
-		false => Ok(ByteCount(value))
+	if value < 0
+		Err("byte count must be non-negative")
+	else
+		Ok(ByteCount(value))
 	end
 end
 
@@ -373,9 +375,10 @@ pub fn byte_count_to_int(value: ByteCount) -> Int
 end
 
 pub fn byte_offset(value: Int) -> Result<ByteOffset, String>
-	match value < 0
-		true => Err("byte offset must be non-negative")
-		false => Ok(ByteOffset(value))
+	if value < 0
+		Err("byte offset must be non-negative")
+	else
+		Ok(ByteOffset(value))
 	end
 end
 
@@ -426,9 +429,10 @@ end
 
 fn vec_filter_step(state: { values : Vec<A>, keep : fn(A) -> Bool }, item: A) -> { values : Vec<A>, keep : fn(A) -> Bool }
 	let keep = state.keep
-	match keep(item)
-		true => { values: vec_push(state.values, item), keep: keep }
-		false => state
+	if keep(item)
+		{ values: vec_push(state.values, item), keep: keep }
+	else
+		state
 	end
 end
 
@@ -516,9 +520,10 @@ end
 fn list_filter_step(items: List<A>, f: fn(A) -> Bool, acc: List<A>) -> List<A>
 	match items
 		Nil => acc
-		Cons(head, tail) => match f(head)
-			true => list_filter_step(tail, f, Cons(head, acc))
-			false => list_filter_step(tail, f, acc)
+		Cons(head, tail) => if f(head)
+			list_filter_step(tail, f, Cons(head, acc))
+		else
+			list_filter_step(tail, f, acc)
 		end
 	end
 end
@@ -586,9 +591,10 @@ end
 fn dict_filter_with_step(state: { values : Dict<K, V>, keep : fn(C, K, V) -> Bool, context : C }, key: K, value: V) -> { values : Dict<K, V>, keep : fn(C, K, V) -> Bool, context : C }
 	let keep = state.keep
 	let context = state.context
-	match keep(context, key, value)
-		true => { values: prelude_builtin::dict_insert(state.values, key, value), keep: keep, context: context }
-		false => state
+	if keep(context, key, value)
+		{ values: prelude_builtin::dict_insert(state.values, key, value), keep: keep, context: context }
+	else
+		state
 	end
 end
 

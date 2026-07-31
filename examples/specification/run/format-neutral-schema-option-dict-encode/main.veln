@@ -26,9 +26,10 @@ fn encoded_state(result: Result<{scores: Option<Dict<String, Int>>, states: Opti
 	match result
 		Ok(packet) => match packet.states
 			Some(states) => match dict_get(states, "enabled")
-				Some(value) => match value
-					true => "enabled"
-					false => "disabled"
+				Some(value) => if value
+					"enabled"
+				else
+					"disabled"
 				end
 				None => "missing-state"
 			end
@@ -42,9 +43,10 @@ fn encoded_weight(result: Result<{scores: Option<Dict<String, Int>>, states: Opt
 	match result
 		Ok(packet) => match packet.weights
 			Some(weights) => match dict_get(weights, "ratio")
-				Some(value) => match value > 1.0
-					true => "weight-high"
-					false => "weight-low"
+				Some(value) => if value > 1.0
+					"weight-high"
+				else
+					"weight-low"
 				end
 				None => "missing-weight"
 			end

@@ -38,9 +38,10 @@ end
 
 fn send_headers(stream_id: Int, header_block: ByteChunk, max_frame_size: Int) -> Result<OutboundHeadersDecision, String>
 	let payload_length: Int = byte_count_to_int(byte_chunk_count(header_block))
-	match payload_length > max_frame_size
-		true => encode_split_headers(stream_id, payload_length, header_block, max_frame_size)
-		false => encode_single_headers(stream_id, payload_length, header_block)
+	if payload_length > max_frame_size
+		encode_split_headers(stream_id, payload_length, header_block, max_frame_size)
+	else
+		encode_single_headers(stream_id, payload_length, header_block)
 	end
 end
 
@@ -63,9 +64,10 @@ end
 
 fn encode_continuation_headers(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundHeadersDecision, String>
 	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
-	match remaining_length > max_frame_size
-		true => encode_nonfinal_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
-		false => encode_final_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
+	if remaining_length > max_frame_size
+		encode_nonfinal_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
+	else
+		encode_final_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
 	end
 end
 
@@ -90,9 +92,10 @@ fn send_push_promise(stream_id: Int, promised_stream_id: Int, header_block: Byte
 	let header_block_length: Int = byte_count_to_int(byte_chunk_count(header_block))
 	let payload_length: Int = header_block_length + 4
 	match encode_push_promise_payload(promised_stream_id)
-		Ok(promised_payload) => match payload_length > max_frame_size
-			true => encode_split_push_promise(stream_id, payload_length, promised_payload, header_block, max_frame_size)
-			false => encode_single_push_promise(stream_id, payload_length, promised_payload, header_block)
+		Ok(promised_payload) => if payload_length > max_frame_size
+			encode_split_push_promise(stream_id, payload_length, promised_payload, header_block, max_frame_size)
+		else
+			encode_single_push_promise(stream_id, payload_length, promised_payload, header_block)
 		end
 		Err(error) => Ok(OutboundPushPromiseEncodeFailed(payload_length, error))
 	end
@@ -117,9 +120,10 @@ end
 
 fn encode_continuation_push_promise(stream_id: Int, payload_length: Int, max_frame_size: Int, remaining: ByteChunk, encoded: ByteChunk) -> Result<OutboundPushPromiseDecision, String>
 	let remaining_length: Int = byte_count_to_int(byte_chunk_count(remaining))
-	match remaining_length > max_frame_size
-		true => encode_nonfinal_push_promise_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
-		false => encode_final_push_promise_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
+	if remaining_length > max_frame_size
+		encode_nonfinal_push_promise_continuation(stream_id, payload_length, max_frame_size, remaining, encoded)
+	else
+		encode_final_push_promise_continuation(stream_id, payload_length, remaining_length, remaining, encoded)
 	end
 end
 
@@ -183,28 +187,30 @@ end
 fn byte_chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
 	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
 	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
-	match left_count == right_count
-		true => byte_chunks_equal_at(left, right, 0, left_count)
-		false => Ok(false)
+	if left_count == right_count
+		byte_chunks_equal_at(left, right, 0, left_count)
+	else
+		Ok(false)
 	end
 end
 
 fn byte_chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
-	match index == count
-		true => Ok(true)
-		false => match byte_at(left, index)? == byte_at(right, index)?
-			true => byte_chunks_equal_at(left, right, index + 1, count)
-			false => Ok(false)
-		end
+	if index == count
+		Ok(true)
+	else if byte_at(left, index)? == byte_at(right, index)?
+		byte_chunks_equal_at(left, right, index + 1, count)
+	else
+		Ok(false)
 	end
 end
 
 fn checked_hex_label(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
 	let expected: ByteChunk = byte_chunk_from_hex(expected_hex)?
 	let matches_expected: Bool = byte_chunks_equal(chunk, expected)?
-	match matches_expected
-		true => Ok(expected_hex)
-		false => Ok("mismatch")
+	if matches_expected
+		Ok(expected_hex)
+	else
+		Ok("mismatch")
 	end
 end
 

@@ -18,9 +18,10 @@ end
 
 fn decode_manual_offset_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
 	match byte_count(3)
-		Ok(required) => match byte_count_to_int(byte_view_count(input)) < 3
-			true => NeedMore(NeedBytes(required))
-			false => decode_ready_packet(input, base, required)
+		Ok(required) => if byte_count_to_int(byte_view_count(input)) < 3
+			NeedMore(NeedBytes(required))
+		else
+			decode_ready_packet(input, base, required)
 		end
 		Err(message) => Invalid(DecodeError(message, base, "ManualOffsetPacketWire"))
 	end
@@ -45,9 +46,10 @@ end
 
 fn decode_validated_kind(base: ByteOffset, consumed: ByteCount, length: Int, kind_view: ByteView) -> DecodeStep<{length: Int, kind: Int}>
 	match byte_read_u8_be(kind_view)
-		Ok(kind) => match kind <= length
-			true => Decoded({length: length, kind: kind}, consumed)
-			false => Invalid(DecodeError("codec.invalid_input", absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
+		Ok(kind) => if kind <= length
+			Decoded({length: length, kind: kind}, consumed)
+		else
+			Invalid(DecodeError("codec.invalid_input", absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
 		end
 		Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualOffsetPacketWire.kind"))
 	end

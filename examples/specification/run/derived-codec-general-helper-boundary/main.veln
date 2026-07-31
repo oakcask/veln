@@ -122,9 +122,10 @@ end
 fn packet_bytes_match(chunk: ByteChunk, index: Int) -> Result<Bool, String>
 	match index
 		15 => Ok(true)
-		_ => match chunk_byte(chunk, index)? == expected_packet_byte(index)
-			true => packet_bytes_match(chunk, index + 1)
-			false => Ok(false)
+		_ => if chunk_byte(chunk, index)? == expected_packet_byte(index)
+			packet_bytes_match(chunk, index + 1)
+		else
+			Ok(false)
 		end
 	end
 end
@@ -138,9 +139,10 @@ end
 
 fn emit_encoded_chunk(name: String, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
 	let matches: Bool = matches_expected_packet(chunk)?
-	match matches
-		true => emit_encoded_chunk_unchecked(name, chunk, expected_hex)
-		false => Err("encoded chunk mismatch")
+	if matches
+		emit_encoded_chunk_unchecked(name, chunk, expected_hex)
+	else
+		Err("encoded chunk mismatch")
 	end
 end
 

@@ -5,12 +5,13 @@ test frame_decode_and_encode_header() -> Result<(), String>
 	let input: ByteChunk = byte_chunk_from_hex("000003010400000001aabbcc")?
 	let view: ByteView = byte_view(input, byte_offset(0)?, byte_chunk_count(input))?
 	let decoded: { length : Int, kind : Int, flags : Int, stream_id : Int, payload : ByteView } = http2::frame::decode(view)?
-	match decoded.length == 3 and decoded.kind == 1 and decoded.flags == 4 and decoded.stream_id == 1
-		true => match byte_count_to_int(byte_chunk_count(http2::frame::encode_header(3, 1, 4, 1)?)) == 9
+	if decoded.length == 3 and decoded.kind == 1 and decoded.flags == 4 and decoded.stream_id == 1
+		match byte_count_to_int(byte_chunk_count(http2::frame::encode_header(3, 1, 4, 1)?)) == 9
 			true => Ok(())
 			false => Err("HTTP/2 frame header encoding changed")
 		end
-		false => Err("HTTP/2 frame decoding changed")
+	else
+		Err("HTTP/2 frame decoding changed")
 	end
 end
 

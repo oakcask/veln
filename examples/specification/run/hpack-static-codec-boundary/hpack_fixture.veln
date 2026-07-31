@@ -651,9 +651,10 @@ end
 fn hpack_static_huffman_decoded_string(decoded: ByteChunk) -> Option<String>
 	match byte_chunk_to_visible_ascii_string(decoded)
 		Ok(value) => Some(value)
-		Err(_) => match byte_count_to_int(byte_chunk_count(decoded)) == 1 and hpack_fixture_byte_at_or_missing(decoded, 0) == 10
-			true => Some("\n")
-			false => match byte_count_to_int(byte_chunk_count(decoded)) == 1
+		Err(_) => if byte_count_to_int(byte_chunk_count(decoded)) == 1 and hpack_fixture_byte_at_or_missing(decoded, 0) == 10
+			Some("\n")
+		else
+			match byte_count_to_int(byte_chunk_count(decoded)) == 1
 				true => hpack_static_huffman_single_byte_label(hpack_fixture_byte_at_or_missing(decoded, 0))
 				false => if byte_count_to_int(byte_chunk_count(decoded)) == 2 and hpack_fixture_byte_at_or_missing(decoded, 0) == 0
 					match hpack_fixture_byte_at_or_missing(decoded, 1)
@@ -670,9 +671,10 @@ fn hpack_static_huffman_decoded_string(decoded: ByteChunk) -> Option<String>
 end
 
 fn hpack_static_huffman_done(decoded: ByteChunk, code: Int, length: Int) -> Option<String>
-	match hpack_static_huffman_padding_valid(code, length)
-		true => hpack_static_huffman_decoded_string(decoded)
-		false => None
+	if hpack_static_huffman_padding_valid(code, length)
+		hpack_static_huffman_decoded_string(decoded)
+	else
+		None
 	end
 end
 
@@ -686,17 +688,19 @@ fn hpack_static_huffman_decode_bit(encoded: ByteChunk, bit_index: Int, total_bit
 			Some(next_decoded) => hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, next_decoded, 0, 0)
 			None => None
 		end
-		None => match next_length > 30
-			true => None
-			false => hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, decoded, next_code, next_length)
+		None => if next_length > 30
+			None
+		else
+			hpack_static_huffman_decode_bits(encoded, bit_index + 1, total_bits, decoded, next_code, next_length)
 		end
 	end
 end
 
 fn hpack_static_huffman_decode_bits(encoded: ByteChunk, bit_index: Int, total_bits: Int, decoded: ByteChunk, code: Int, length: Int) -> Option<String>
-	match bit_index == total_bits
-		true => hpack_static_huffman_done(decoded, code, length)
-		false => hpack_static_huffman_decode_bit(encoded, bit_index, total_bits, decoded, code, length)
+	if bit_index == total_bits
+		hpack_static_huffman_done(decoded, code, length)
+	else
+		hpack_static_huffman_decode_bit(encoded, bit_index, total_bits, decoded, code, length)
 	end
 end
 

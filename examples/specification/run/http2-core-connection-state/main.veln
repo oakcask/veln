@@ -2,9 +2,10 @@ use http2::core from "std"
 use stdio
 
 fn bool_label(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 

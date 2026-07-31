@@ -9,8 +9,9 @@ pub fn main() -> Result<(), RuntimeDiagnostic> effects [net]
 	let stream: NetStream = net::accept(listener)
 	let local: String = net::stream_local_addr(stream)
 	let peer: String = net::stream_peer_addr(stream)
-	match local == peer
-		true => protocol_failure()
-		false => protocol_failure()
+	if local == peer
+		protocol_failure()
+	else
+		protocol_failure()
 	end
 end

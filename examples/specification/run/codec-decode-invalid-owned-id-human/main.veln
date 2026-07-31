@@ -37,9 +37,10 @@ end
 
 fn decode_validated_kind(base: ByteOffset, consumed: ByteCount, length: Int, kind_view: ByteView) -> DecodeStep<{length: Int, kind: Int}>
 	match byte_read_u8_be(kind_view)
-		Ok(kind) => match kind <= length
-			true => Decoded({length: length, kind: kind}, consumed)
-			false => Invalid(DecodeErrorWithReason("codec.packet_kind_invalid", absolute_offset(base, 2), "ManualPacketWire.kind", "kind value exceeds declared length"))
+		Ok(kind) => if kind <= length
+			Decoded({length: length, kind: kind}, consumed)
+		else
+			Invalid(DecodeErrorWithReason("codec.packet_kind_invalid", absolute_offset(base, 2), "ManualPacketWire.kind", "kind value exceeds declared length"))
 		end
 		Err(message) => Invalid(DecodeError(message, absolute_offset(base, 2), "ManualPacketWire.kind"))
 	end

@@ -17,9 +17,10 @@ end
 
 fn count_optional_true(total: Int, item: Option<Bool>) -> Int
 	match item
-		Some(value) => match value
-			true => total + 1
-			false => total
+		Some(value) => if value
+			total + 1
+		else
+			total
 		end
 		None => total
 	end

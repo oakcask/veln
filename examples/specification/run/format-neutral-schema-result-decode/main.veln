@@ -24,9 +24,10 @@ end
 
 fn result_bool_text(result: Result<Bool, String>) -> String
 	match result
-		Ok(value) => match value
-			true => "enabled"
-			false => "disabled"
+		Ok(value) => if value
+			"enabled"
+		else
+			"disabled"
 		end
 		Err(message) => message
 	end
@@ -34,9 +35,10 @@ end
 
 fn result_float_text(result: Result<Float, String>) -> String
 	match result
-		Ok(value) => match value > 1.0
-			true => "ratio-high"
-			false => "ratio-low"
+		Ok(value) => if value > 1.0
+			"ratio-high"
+		else
+			"ratio-low"
 		end
 		Err(message) => message
 	end

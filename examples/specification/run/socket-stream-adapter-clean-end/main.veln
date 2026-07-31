@@ -90,9 +90,10 @@ fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseActi
 end
 
 fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 

@@ -12,9 +12,10 @@ end
 
 fn append_chunk(bytes: ByteChunk, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Result<{ pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, String>
 	let combined: ByteChunk = byte_append(state.pending, bytes)
-	match byte_count_to_int(byte_chunk_count(combined)) > byte_count_to_int(state.limit)
-		true => Err("pending input exceeds retained byte limit")
-		false => Ok({ pending: combined, next_offset: state.next_offset, limit: state.limit })
+	if byte_count_to_int(byte_chunk_count(combined)) > byte_count_to_int(state.limit)
+		Err("pending input exceeds retained byte limit")
+	else
+		Ok({ pending: combined, next_offset: state.next_offset, limit: state.limit })
 	end
 end
 

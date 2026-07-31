@@ -6,9 +6,10 @@ end
 fn parse_line(catalog: Dict<String, Int>, line: String) -> Result<{ sku : String, quantity : Int, unit_cents : Int }, { kind : String, input : String }>
 	match string_split_once(line, ",")
 		Some(parts) => match string_parse_int(parts.right)
-			Ok(quantity) => match quantity <= 0
-				true => Err({ kind: "bad_quantity", input: parts.right })
-				false => match dict_get(catalog, parts.left)
+			Ok(quantity) => if quantity <= 0
+				Err({ kind: "bad_quantity", input: parts.right })
+			else
+				match dict_get(catalog, parts.left)
 					Some(price) => Ok({ sku: parts.left, quantity: quantity, unit_cents: price })
 					None => Err({ kind: "unknown_sku", input: parts.left })
 				end

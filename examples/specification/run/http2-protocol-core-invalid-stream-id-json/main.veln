@@ -35,9 +35,10 @@ end
 
 fn receive(bytes: ByteChunk) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(bytes))
-	match available < 9
-		true => Ok(Waiting)
-		false => decode_header(bytes)
+	if available < 9
+		Ok(Waiting)
+	else
+		decode_header(bytes)
 	end
 end
 
@@ -51,9 +52,10 @@ end
 
 fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int, preview: ByteView) -> Result<Http2Step, String>
 	match kind
-		1 => match stream_id_is_client_initiated(stream_id)
-			true => Ok(FrameOk(kind))
-			false => Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", preview)))
+		1 => if stream_id_is_client_initiated(stream_id)
+			Ok(FrameOk(kind))
+		else
+			Ok(Failed(InvalidStreamId(offset, kind, stream_id, "nonzero client-initiated stream id", "server", preview)))
 		end
 		_ => Ok(FrameOk(kind))
 	end

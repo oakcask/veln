@@ -40,21 +40,22 @@ end
 fn send_data(stream_id: Int, payload: ByteChunk, end_stream: Bool, send_credit: OutboundSendCredit) -> Result<OutboundDataDecision, RuntimeDiagnostic>
 	let application_length: Int = byte_count_to_int(byte_chunk_count(payload))
 	match send_credit
-		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => match stream_id == open_stream_id
-			true => validate_outbound_content_length(stream_id, payload, application_length, end_stream, connection_window, stream_window, expected_length, observed_length)
-			false => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, observed_length + application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
+		OutboundSendCredit(connection_window, OutboundOpenStreamContentLength(open_stream_id, stream_window, expected_length, observed_length)) => if stream_id == open_stream_id
+			validate_outbound_content_length(stream_id, payload, application_length, end_stream, connection_window, stream_window, expected_length, observed_length)
+		else
+			Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, observed_length + application_length, "open-stream", "outbound_stream_window", byte_chunk_view(payload)?)))
 		end
 	end
 end
 
 fn validate_outbound_content_length(stream_id: Int, payload: ByteChunk, application_length: Int, end_stream: Bool, connection_window: Int, stream_window: Int, expected_length: Int, observed_length: Int) -> Result<OutboundDataDecision, RuntimeDiagnostic>
 	let next_observed_length: Int = observed_length + application_length
-	match next_observed_length > expected_length
-		true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
-		false => match end_stream and next_observed_length < expected_length
-			true => Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
-			false => Ok(OutboundDataAccepted(application_length, end_stream, OutboundSendCredit(connection_window - application_length, OutboundOpenStreamContentLength(stream_id, stream_window - application_length, expected_length, next_observed_length))))
-		end
+	if next_observed_length > expected_length
+		Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+	else if end_stream and next_observed_length < expected_length
+		Ok(OutboundDataRejected(stream_id, application_length, end_stream, ContentLengthMismatch(9, 0, stream_id, expected_length, next_observed_length, "open-stream", "rfc9113_content_length_body", byte_chunk_view(payload)?)))
+	else
+		Ok(OutboundDataAccepted(application_length, end_stream, OutboundSendCredit(connection_window - application_length, OutboundOpenStreamContentLength(stream_id, stream_window - application_length, expected_length, next_observed_length))))
 	end
 end
 

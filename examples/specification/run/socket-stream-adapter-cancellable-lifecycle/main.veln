@@ -101,9 +101,10 @@ fn lifecycle_result(address: String) -> Result<{ outcome : String, actions : Lis
 end
 
 fn bool_text(value: Bool) -> String
-	match value
-		true => "true"
-		false => "false"
+	if value
+		"true"
+	else
+		"false"
 	end
 end
 

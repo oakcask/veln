@@ -48,9 +48,10 @@ end
 
 fn flag_count(acc: Int, item: Result<Bool, String>) -> Int
 	match item
-		Ok(value) => match value
-			true => acc + 1
-			false => acc
+		Ok(value) => if value
+			acc + 1
+		else
+			acc
 		end
 		Err(_) => acc
 	end
