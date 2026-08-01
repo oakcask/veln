@@ -87,7 +87,7 @@ means the immutable `http2::core` connection state supplied to the row.
 | Open connection | `None` | Core close accepted | Return the accepted final state without another read |
 | Open connection | `None` | Pending preface, frame, or header block | Return a typed incomplete-input protocol failure and expose no successful next state |
 | Draining connection | `Some(chunk)` | Receive accepted | Preserve core GOAWAY and stream-admission rules; write accepted output in order |
-| Closed connection | Any read event | No further input accepted | Return the core-owned closed-connection decision without performing another protocol transition |
+| Closed connection | Driver entry | No core decision requested | Return the supplied closed state without performing a duplex-stream read, write, or protocol transition |
 
 The driver must use the existing core transitions for preface, initial peer
 SETTINGS, frame buffering, HPACK state, stream state, flow control, GOAWAY,
@@ -135,6 +135,7 @@ cancellation, and concurrency remain outside this first connection boundary.
 | Effect replacement | The driver requires `DuplexStream`; the handled adapter requires `net` and not `DuplexStream` | `check/http2-connection-transport-handler-effects` |
 | Runtime read failure | The command reports a transport runtime failure, not an HTTP/2 protocol failure | `run/http2-connection-tcp-read-failure-json` |
 | Runtime write failure | The command reports a transport runtime failure and preserves prior accepted writes | `run/http2-connection-tcp-write-failure-json` |
+| Closed entry | A supplied closed core state returns without invoking either duplex-stream operation | `run/http2-connection-closed-entry` |
 
 The relative paths are planned directories below `examples/specification/`.
 The pure split-input cases should compare public projections of core state and

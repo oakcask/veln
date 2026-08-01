@@ -75,6 +75,10 @@ body while keeping the selection lexically visible.
 handle drive() with net_stream(stream)
 ```
 
+Handler context arguments are ordinary expressions. The handler evaluates
+them once, from left to right, before it evaluates the handled body. Their
+effects remain effects of the complete `handle` expression.
+
 The formatter uses this single spelling. A handler is not a first-class value
 in this proposal. Source cannot store, return, or select a handler through an
 ordinary function value.
@@ -90,8 +94,9 @@ ordinary function value.
 - A public handler must declare the union of the effects used by its provider
   functions. A private handler may use the existing private inference rule.
 - A provider must not perform the effect implemented by its own handler.
-- A `handle body with provider` expression removes the handled effect from the
-  body's effect set and adds the handler's effect set.
+- A `handle body with provider(context)` expression removes the handled effect
+  from the body's effect set. It adds the effects of the handler context
+  arguments and the handler's effect set.
 - An inner handler for the same nominal effect shadows an outer handler while
   its body is evaluated.
 - A user-defined effect may remain in an exported function type. A runnable
@@ -102,15 +107,19 @@ ordinary function value.
 - Contracts cannot perform operations or install handlers. They retain their
   current effect-free call rule.
 
-The effect-set transformation is authoritative for checker acceptance:
+The effect-set transformation is authoritative for checker acceptance. If
+`B` is the body effect set, `C` is the union of the context-argument effect
+sets, `E` is the handled effect, and `H` is the handler effect set, the
+expression effect set is `C union (B without E) union H`.
 
-| Body effects | Handled effect | Handler effects | Expression effects |
-| --- | --- | --- | --- |
-| `[E]` | `E` | `[]` | `[]` |
-| `[E, net]` | `E` | `[]` | `[net]` |
-| `[E]` | `E` | `[net]` | `[net]` |
-| `[E, time]` | `E` | `[net]` | `[net, time]` |
-| `[time]` | `E` | `[net]` | `[net, time]` |
+| Body effects | Context effects | Handled effect | Handler effects | Expression effects |
+| --- | --- | --- | --- | --- |
+| `[E]` | `[]` | `E` | `[]` | `[]` |
+| `[E, net]` | `[]` | `E` | `[]` | `[net]` |
+| `[E]` | `[]` | `E` | `[net]` | `[net]` |
+| `[E, time]` | `[]` | `E` | `[net]` | `[net, time]` |
+| `[time]` | `[]` | `E` | `[net]` | `[net, time]` |
+| `[E]` | `[time]` | `E` | `[net]` | `[net, time]` |
 
 Effect sets remain unordered and duplicate-free. The final row is
 conservative: installing a handler contributes its declared effects even when
@@ -146,6 +155,7 @@ otherwise.
 | Provider performs its handled effect | The provider is rejected as a recursive handler definition | `check/handler-operation-signatures` |
 | Nested handlers | The innermost matching handler supplies the result, then the outer handler remains selected | `run/lexical-handler-nesting` |
 | Repeated operations | The same deep handler processes operations in source evaluation order | `run/lexical-handler-repeated-operations` |
+| Effectful context | Handler context arguments evaluate once before the body and their effects remain after handling | `run/lexical-handler-context-evaluation` |
 | Unhandled runnable effect | `veln run` and `veln test` reject the entry boundary before execution | `run/lexical-handler-unhandled-entry` |
 | Spawn boundary | A handler outside a spawned job does not satisfy an operation inside that job | `check/lexical-handler-task-boundary` |
 
@@ -177,7 +187,8 @@ boundaries without exposing backend representation.
 
 ## Completion Boundary
 
-This proposal is complete when the source surface, effect transformation,
-nested selection, task boundary, runnable-entry gate, diagnostics, and JVM
-execution cases above are checked and the implemented behavior is promoted to
-the matching specification pages. General resumptions remain separate work.
+This proposal is complete when the source surface, context evaluation, effect
+transformation, nested selection, task boundary, runnable-entry gate,
+diagnostics, and JVM execution cases above are checked and the implemented
+behavior is promoted to the matching specification pages. General resumptions
+remain separate work.
