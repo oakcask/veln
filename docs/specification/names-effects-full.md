@@ -167,7 +167,7 @@ the active handler stack. A runnable entry still rejects any user-defined
 effect that remains after lexical handling. The checked behavior is specified
 by the lexical-handler and handler-operation cases under
 `examples/specification/`, including the early-return cleanup and
-`veln test` success cases.
+public handler effect-declaration cases and the `veln test` success case.
 
 ## Compiler-Known Descriptor Table
 

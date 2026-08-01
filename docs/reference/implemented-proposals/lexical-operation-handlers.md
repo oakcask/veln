@@ -57,6 +57,7 @@ The executable specification covers the externally visible behavior:
 | --- | --- |
 | `check/lexical-handler-effect-replacement` | Handling removes the nominal effect and retains handler effects. |
 | `check/lexical-handler-private-effect-inference` | A private handler retains effects inferred from its providers. |
+| `check/lexical-handler-public-effect-declarations` | A public handler must declare retained provider effects, while duplicate declarations are canonicalized. |
 | `check/handler-operation-signatures` | Missing, duplicate, unknown, mismatched, and recursive providers are rejected with handler-specific related context. |
 | `check/handler-operation-signatures-human` | Handler-specific related context is rendered in human diagnostics. |
 | `run/lexical-handler-nesting` | Inner handlers shadow outer handlers only during the inner body. |

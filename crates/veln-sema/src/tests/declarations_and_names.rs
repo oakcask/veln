@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeEnvironment;
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -143,6 +144,50 @@ fn nominal_effect_missing_public_reports_perform_provenance() {
     assert!(related.contains("\"kind\":\"effect_provenance\""));
     assert!(related.contains("Call to `Audit::record` requires this effect."));
     assert!(related.contains("\"start\":{\"line\":6,\"column\":3,"));
+}
+
+#[test]
+fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn traced(offset: Int) -> Int effects [stdio]\n",
+            "  stdio::println(\"provider\")\n",
+            "  offset + 1\n",
+            "end\n",
+            "\n",
+            "pub handler missing(offset: Int) handles Ask\n",
+            "  value = traced\n",
+            "end\n",
+            "\n",
+            "pub handler declared(offset: Int) handles Ask effects [stdio, stdio]\n",
+            "  value = traced\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let environment = TypeEnvironment::from_module(&module);
+    let declared = environment
+        .handler_path(&["declared".to_string()], None)
+        .expect("declared handler should be present");
+    assert_eq!(declared.effects, ["stdio"]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let missing = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "handler.missing_public_effect")
+        .unwrap_or_else(|| panic!("expected missing handler effect: {diagnostics:#?}"));
+    assert_eq!(
+        missing.message,
+        "public handler `missing` uses undeclared effect `stdio`"
+    );
+    assert_eq!(missing.span.as_ref().unwrap().start.line, 10);
 }
 
 #[test]

@@ -1,0 +1,39 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["handler.missing_public_effect", "public handler `main::missing` uses undeclared effect `stdio`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "handler.missing_public_effect"
+severity = "error"
+kind = "effect"
+message = "public handler `main::missing` uses undeclared effect `stdio`"
+
+[[json_assert]]
+path = "diagnostics.0.details.handler"
+equals = "main::missing"
+
+[[json_assert]]
+path = "diagnostics.0.details.handled_effect"
+equals = "main::Ask"
+
+[[json_assert]]
+path = "diagnostics.0.details.operation"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.0.details.provider"
+equals = "traced"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "missing_public_effect"
