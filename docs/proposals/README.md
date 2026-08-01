@@ -14,7 +14,29 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-No active proposals are currently cataloged here.
+### First Experiment
+
+- [Lexical Operation Handlers](lexical-operation-handlers.md): add nominal
+  operation effects and automatically resuming lexical handlers without
+  exposing continuations.
+- [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md):
+  drive one HTTP/2 client or server connection through the proposed abstract
+  duplex-stream effect and an existing TCP `NetStream` handler.
+
+Read these proposals in order. The connection-driver proposal depends on the
+lexical-handler proposal.
+
+### Follow-Ups After Evidence
+
+- [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
+  add explicit deep, one-shot resumptions only after a checked example shows
+  that automatic resumption cannot express the required control flow.
+- [Effect-Polymorphic HTTP/2 Services](effect-polymorphic-http2-services.md):
+  add listener ownership, per-connection tasks, and application callbacks
+  whose effects are preserved by the service API.
+
+Do not select either follow-up before its activation gate is met. The first
+experiment is intended to provide the evidence for those gates.
 
 ## Selection Rule
 
