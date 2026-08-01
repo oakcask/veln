@@ -1,6 +1,6 @@
 # Lexical Operation Handlers
 
-Status: proposed
+Status: implemented
 
 ## Summary
 
@@ -26,8 +26,8 @@ effects. This proposal does not turn them into interceptable operations.
 ## Proposed Source Surface
 
 The current operation declaration and `perform` expression surface is
-specified under `../specification/` and checked by
-`../../examples/specification/check/user-effect-operation-boundaries/`. The
+specified under `../../specification/` and checked by
+`../../../examples/specification/check/user-effect-operation-boundaries/`. The
 following sketch shows the existing operation surface that handler
 declarations will consume.
 

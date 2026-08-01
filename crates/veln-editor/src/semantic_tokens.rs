@@ -516,6 +516,9 @@ impl<'a> Classifier<'a> {
             | TokenKind::Effect
             | TokenKind::Effects
             | TokenKind::Perform
+            | TokenKind::Handler
+            | TokenKind::Handles
+            | TokenKind::Handle
             | TokenKind::Let
             | TokenKind::End
             | TokenKind::Require

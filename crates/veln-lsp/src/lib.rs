@@ -67,6 +67,7 @@ pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
         uses: lowered.uses,
         aliases: lowered.aliases,
         effects: lowered.effects,
+        handlers: lowered.handlers,
         types: lowered.types,
         schemas: lowered.schemas,
         codecs: lowered.codecs,

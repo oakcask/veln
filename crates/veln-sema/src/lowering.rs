@@ -5,8 +5,8 @@ use veln_ast::{
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
     CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
-    CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
+    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
@@ -546,6 +546,12 @@ impl<'a> CoreLowerer<'a> {
                 args,
                 ..
             } => self.lower_perform(expr, effect, operation, args),
+            ExprKind::Handle {
+                body,
+                handler,
+                args,
+                ..
+            } => self.lower_handle(expr, body, handler, args, expected),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -982,6 +988,57 @@ impl<'a> CoreLowerer<'a> {
                 effect: effect.qualified_name.clone(),
                 operation: operation_name.to_string(),
                 args: lowered_args,
+            },
+        )
+    }
+
+    fn lower_handle(
+        &mut self,
+        expr: &Expr,
+        body: &Expr,
+        handler_path: &[String],
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let Some(handler) = self
+            .environment
+            .handler_path(handler_path, self.function.module_name.as_deref())
+            .cloned()
+        else {
+            for arg in args {
+                self.lower_expr(arg, None);
+            }
+            return self.lower_expr(body, expected);
+        };
+        let context_args = args
+            .iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                self.lower_expr(arg, handler.params.get(index).map(core_type).as_ref())
+            })
+            .collect::<Vec<_>>();
+        let providers = handler
+            .providers
+            .iter()
+            .filter_map(|provider| {
+                let function = self
+                    .environment
+                    .function_path(&provider.provider, self.function.module_name.as_deref())?;
+                Some(CoreHandlerProvider {
+                    operation: provider.operation.clone(),
+                    function: function.target_name.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let lowered = self.lower_expr(body, expected);
+        self.core_expr(
+            expr,
+            lowered.ty.clone(),
+            CoreExprKind::Handle {
+                effect: handler.effect,
+                providers,
+                context_args,
+                body: Box::new(lowered),
             },
         )
     }

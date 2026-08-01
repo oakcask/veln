@@ -41,10 +41,34 @@ pub struct UsePackage {
 pub enum SyntaxItem {
     Function(FunctionDecl),
     Effect(EffectDecl),
+    Handler(HandlerDecl),
     Type(TypeDecl),
     Schema(SchemaDecl),
     Codec(CodecDecl),
     PublicAlias(PublicAliasDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct HandlerDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub params: Vec<Param>,
+    pub effect: Vec<String>,
+    pub effect_span: SourceSpan,
+    pub effects: Option<Vec<String>>,
+    pub effect_spans: Option<Vec<SourceSpan>>,
+    pub providers: Vec<HandlerProviderDecl>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct HandlerProviderDecl {
+    pub operation: Option<String>,
+    pub operation_span: SourceSpan,
+    pub provider: Vec<String>,
+    pub provider_span: SourceSpan,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -292,6 +316,12 @@ pub enum ExprKind {
         effect_span: SourceSpan,
         operation: String,
         operation_span: SourceSpan,
+        args: Vec<Expr>,
+    },
+    Handle {
+        body: Box<Expr>,
+        handler: Vec<String>,
+        handler_span: SourceSpan,
         args: Vec<Expr>,
     },
     SchemaDecode {

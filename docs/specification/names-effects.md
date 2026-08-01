@@ -9,7 +9,7 @@ compiler-known calls.
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
 - Declaration effect spelling, host effect labels, nominal operation effects,
-  and effect inference:
+  lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested

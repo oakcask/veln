@@ -57,6 +57,7 @@ fn contract_predicate_accepts_qualified_function_value_arguments() {
         uses: main.uses,
         aliases: Vec::new(),
         effects: Vec::new(),
+        handlers: Vec::new(),
         schemas: Vec::new(),
         codecs: Vec::new(),
         types: main.types.into_iter().chain(rules.types).collect(),

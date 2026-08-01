@@ -1,0 +1,20 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide() -> Int
+	1
+end
+
+handler ask() handles Ask
+	value = provide
+end
+
+fn worker() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+pub fn main() -> () effects [concurrency]
+	let task = handle task::spawn(worker) with ask()
+	task::cancel(task)
+end

@@ -5,8 +5,9 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam,
-    IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
+    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider,
+    IrMatchArm, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
+    IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -168,6 +169,23 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
             effect: effect.clone(),
             operation: operation.clone(),
             args: lower_exprs(args)?,
+        })),
+        CoreExprKind::Handle {
+            effect,
+            providers,
+            context_args,
+            body,
+        } => Ok(Some(IrExprKind::Handle {
+            effect: effect.clone(),
+            providers: providers
+                .iter()
+                .map(|provider| IrHandlerProvider {
+                    operation: provider.operation.clone(),
+                    function: provider.function.clone(),
+                })
+                .collect(),
+            context_args: lower_exprs(context_args)?,
+            body: Box::new(lower_expr(body)?),
         })),
         CoreExprKind::FieldAccess { base, field } => Ok(Some(IrExprKind::FieldAccess {
             base: Box::new(lower_expr(base)?),

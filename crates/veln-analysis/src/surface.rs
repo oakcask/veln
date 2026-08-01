@@ -69,6 +69,7 @@ impl SurfaceParts {
                 uses: Vec::new(),
                 aliases: Vec::new(),
                 effects: Vec::new(),
+                handlers: Vec::new(),
                 types: Vec::new(),
                 schemas: Vec::new(),
                 codecs: Vec::new(),
@@ -112,6 +113,7 @@ fn process_parsed_source(
     parts.module.uses.extend(lowered.uses);
     parts.module.aliases.extend(lowered.aliases);
     parts.module.effects.extend(lowered.effects);
+    parts.module.handlers.extend(lowered.handlers);
     parts.module.types.extend(lowered.types);
     parts.module.schemas.extend(lowered.schemas);
     parts.module.codecs.extend(lowered.codecs);
@@ -330,6 +332,10 @@ fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {
         .module
         .effects
         .extend(additions.module.effects.clone());
+    parts
+        .module
+        .handlers
+        .extend(additions.module.handlers.clone());
     parts.module.types.extend(additions.module.types.clone());
     parts
         .module
@@ -1370,6 +1376,7 @@ fn module_with_reachable_functions(
         uses: module.uses.clone(),
         aliases: module.aliases.clone(),
         effects: module.effects.clone(),
+        handlers: module.handlers.clone(),
         types: module.types.clone(),
         schemas: module.schemas.clone(),
         codecs: module.codecs.clone(),
@@ -1514,6 +1521,7 @@ fn direct_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    &module.handlers,
                     &local_bindings,
                     &mut callees,
                 );
@@ -1529,6 +1537,7 @@ fn direct_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    &module.handlers,
                     &local_bindings,
                     &mut callees,
                 );
@@ -1655,6 +1664,7 @@ fn collect_function_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    handlers: &[veln_ast::HandlerDecl],
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -1676,6 +1686,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1697,6 +1708,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1707,6 +1719,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1719,6 +1732,37 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
+                    local_bindings,
+                    callees,
+                );
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            collect_handler_provider_callees(
+                expr,
+                current_module,
+                uses,
+                function_targets,
+                handlers,
+                callees,
+            );
+            collect_function_callees(
+                body,
+                current_module,
+                uses,
+                function_targets,
+                handlers,
+                local_bindings,
+                callees,
+            );
+            for arg in args {
+                collect_function_callees(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1730,6 +1774,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1738,6 +1783,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1748,6 +1794,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1758,6 +1805,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1767,6 +1815,7 @@ fn collect_function_callees(
             current_module,
             uses,
             function_targets,
+            handlers,
             local_bindings,
             callees,
         ),
@@ -1777,6 +1826,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1789,6 +1839,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1797,6 +1848,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1809,6 +1861,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1820,6 +1873,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1831,6 +1885,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     &arm_bindings,
                     callees,
                 );
@@ -1847,6 +1902,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1855,6 +1911,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1864,6 +1921,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1872,6 +1930,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    handlers,
                     local_bindings,
                     callees,
                 );
@@ -1881,6 +1940,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1891,6 +1951,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1901,6 +1962,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -1909,6 +1971,7 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                handlers,
                 local_bindings,
                 callees,
             );
@@ -2095,6 +2158,48 @@ fn collect_function_name_reference(
     }
     for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
         push_reachable(callees, callee);
+    }
+}
+
+fn collect_handler_provider_callees(
+    expr: &Expr,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    handlers: &[veln_ast::HandlerDecl],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let ExprKind::Handle { handler, .. } = &expr.kind else {
+        return;
+    };
+    let matching_handlers = handlers.iter().filter(|candidate| {
+        let Some(name) = &candidate.name else {
+            return false;
+        };
+        match handler.as_slice() {
+            [segment] => name == segment && candidate.module_name.as_deref() == current_module,
+            [_, .., segment] => {
+                let Some(use_decl) =
+                    imported_use_for_path(uses, &handler[..handler.len() - 1], current_module)
+                else {
+                    return false;
+                };
+                name == segment && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            }
+            _ => false,
+        }
+    });
+    for handler in matching_handlers {
+        for provider in &handler.providers {
+            for callee in resolve_function_reference(
+                &provider.provider,
+                current_module,
+                uses,
+                function_targets,
+            ) {
+                push_reachable(callees, callee);
+            }
+        }
     }
 }
 

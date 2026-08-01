@@ -23,10 +23,36 @@ pub struct SurfaceModule {
     pub uses: Vec<UseDecl>,
     pub aliases: Vec<PublicAlias>,
     pub effects: Vec<EffectDecl>,
+    pub handlers: Vec<HandlerDecl>,
     pub types: Vec<TypeDecl>,
     pub schemas: Vec<SchemaDecl>,
     pub codecs: Vec<CodecDecl>,
     pub functions: Vec<Function>,
+}
+
+#[derive(Clone, Debug)]
+pub struct HandlerDecl {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub params: Vec<Param>,
+    pub effect: Vec<String>,
+    pub effect_span: SourceSpan,
+    pub effects: Option<Vec<String>>,
+    pub effect_spans: Option<Vec<SourceSpan>>,
+    pub providers: Vec<HandlerProviderDecl>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct HandlerProviderDecl {
+    pub node_id: NodeId,
+    pub operation: Option<String>,
+    pub operation_span: SourceSpan,
+    pub provider: Vec<String>,
+    pub provider_span: SourceSpan,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -340,6 +366,12 @@ pub enum ExprKind {
         effect_span: SourceSpan,
         operation: String,
         operation_span: SourceSpan,
+        args: Vec<Expr>,
+    },
+    Handle {
+        body: Box<Expr>,
+        handler: Vec<String>,
+        handler_span: SourceSpan,
         args: Vec<Expr>,
     },
     SchemaDecode {

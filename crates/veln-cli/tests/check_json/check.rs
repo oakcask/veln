@@ -1454,7 +1454,7 @@ fn check_json_reports_recovery_with_required_details() {
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":1,\"column\":8,\"offset\":7}}",
             "\"details\":{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"module\"",
             "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"garbage\"}",
-            "\"expected\":[\"pub\",\"fn\",\"test\",\"type\",\"effect\",\"schema\"]",
+            "\"expected\":[\"pub\",\"fn\",\"test\",\"type\",\"effect\",\"handler\",\"schema\"]",
             "\"recovery\":{\"strategy\":\"synchronize_to_anchor\",\"anchor\":\"fn\",\"dropped_token_count\":2}",
         ],
     );

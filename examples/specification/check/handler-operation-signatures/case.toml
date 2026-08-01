@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["handler.missing_provider", "handler.provider_signature", "handler.recursive_provider"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "handler.missing_provider"
+severity = "error"
+kind = "effect"
+
+[[diagnostics]]
+id = "handler.provider_signature"
+severity = "error"
+kind = "type"
+
+[[diagnostics]]
+id = "handler.recursive_provider"
+severity = "error"
+kind = "effect"

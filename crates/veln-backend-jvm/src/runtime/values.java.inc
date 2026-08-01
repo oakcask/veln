@@ -301,6 +301,60 @@
     public interface Fn {
         Object call(Object... args);
     }
+
+    private static final ThreadLocal<java.util.List<HandlerFrame>> HANDLERS =
+        new ThreadLocal<java.util.List<HandlerFrame>>() {
+            @Override
+            protected java.util.List<HandlerFrame> initialValue() {
+                return new java.util.ArrayList<HandlerFrame>();
+            }
+        };
+
+    private static final class HandlerFrame {
+        private final String effect;
+        private final java.util.Map<String, Fn> providers;
+        private final Object[] context;
+
+        private HandlerFrame(String effect, java.util.Map<String, Fn> providers, Object[] context) {
+            this.effect = effect;
+            this.providers = providers;
+            this.context = context;
+        }
+    }
+
+    public static Object pushHandler(String effect, Object[] operations, Object[] providers, Object[] context) {
+        java.util.Map<String, Fn> table = new java.util.HashMap<String, Fn>();
+        for (int index = 0; index < operations.length; index += 1) {
+            table.put((String) operations[index], (Fn) providers[index]);
+        }
+        HANDLERS.get().add(new HandlerFrame(effect, table, context));
+        return UNIT;
+    }
+
+    public static Object popHandler() {
+        java.util.List<HandlerFrame> stack = HANDLERS.get();
+        stack.remove(stack.size() - 1);
+        return UNIT;
+    }
+
+    public static Object perform(String effect, String operation, Object[] args) {
+        java.util.List<HandlerFrame> stack = HANDLERS.get();
+        for (int index = stack.size() - 1; index >= 0; index -= 1) {
+            HandlerFrame frame = stack.get(index);
+            if (!frame.effect.equals(effect)) {
+                continue;
+            }
+            Fn provider = frame.providers.get(operation);
+            if (provider == null) {
+                break;
+            }
+            Object[] providerArgs = new Object[frame.context.length + args.length];
+            System.arraycopy(frame.context, 0, providerArgs, 0, frame.context.length);
+            System.arraycopy(args, 0, providerArgs, frame.context.length, args.length);
+            return provider.call(providerArgs);
+        }
+        throw new IllegalStateException("unhandled effect operation " + effect + "::" + operation);
+    }
     public static Result ok(Object value) {
         return Result.ok(value);
     }

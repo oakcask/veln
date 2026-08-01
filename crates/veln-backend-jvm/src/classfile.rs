@@ -5,8 +5,8 @@ use std::rc::Rc;
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
-    IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind,
+    IrRecordField, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
@@ -714,10 +714,16 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrExprKind::Call { target, args } => self.emit_call(code, expr, target, args),
             IrExprKind::FieldAccess { base, field } => self.emit_field_access(code, base, field),
             IrExprKind::Perform {
-                effect, operation, ..
-            } => {
-                panic!("unhandled perform expression reached JVM backend: {effect}::{operation}")
-            }
+                effect,
+                operation,
+                args,
+            } => self.emit_perform(code, effect, operation, args),
+            IrExprKind::Handle {
+                effect,
+                providers,
+                context_args,
+                body,
+            } => self.emit_handle(code, effect, providers, context_args, body),
             IrExprKind::Try(value) => self.emit_try(code, value),
             IrExprKind::Record(fields) => self.emit_record(code, fields),
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),
@@ -964,6 +970,61 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 );
             }
         }
+    }
+
+    fn emit_perform(
+        &mut self,
+        code: &mut MethodCode,
+        effect: &str,
+        operation: &str,
+        args: &[IrExpr],
+    ) {
+        code.ldc_string(effect);
+        code.ldc_string(operation);
+        self.emit_object_array(code, args.len(), |this, code, index| {
+            this.emit_expr(code, &args[index]);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "perform",
+            "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_handle(
+        &mut self,
+        code: &mut MethodCode,
+        effect: &str,
+        providers: &[IrHandlerProvider],
+        context_args: &[IrExpr],
+        body: &IrExpr,
+    ) {
+        code.ldc_string(effect);
+        self.emit_object_array(code, providers.len(), |_, code, index| {
+            code.ldc_string(&providers[index].operation);
+        });
+        self.emit_object_array(code, providers.len(), |this, code, index| {
+            this.emit_function_value(code, &providers[index].function);
+        });
+        self.emit_object_array(code, context_args.len(), |this, code, index| {
+            this.emit_expr(code, &context_args[index]);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "pushHandler",
+            "(Ljava/lang/String;[Ljava/lang/Object;[Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+        code.op(0x57);
+        self.emit_expr(code, body);
+        let result_slot = self.alloc_local();
+        code.astore(result_slot);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "popHandler",
+            "()Ljava/lang/Object;",
+        );
+        code.op(0x57);
+        code.aload(result_slot);
     }
 
     fn emit_schema_decode_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
@@ -2529,6 +2590,14 @@ fn scan_expr_tail_recursion(
             for arg in args {
                 scan_expr_tail_recursion(arg, function, false, facts);
             }
+        }
+        IrExprKind::Handle {
+            context_args, body, ..
+        } => {
+            for arg in context_args {
+                scan_expr_tail_recursion(arg, function, false, facts);
+            }
+            scan_expr_tail_recursion(body, function, tail_position, facts);
         }
         IrExprKind::ResultOk(value)
         | IrExprKind::ResultErr(value)

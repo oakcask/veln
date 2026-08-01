@@ -1,8 +1,8 @@
 use crate::{
     BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
-    FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaValidationClause,
-    SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter,
-    Visibility,
+    FunctionDecl, FunctionKind, HandlerDecl, Pattern, PatternKind, PrefixOp, SchemaDecl,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantFieldDelimiter, Visibility,
 };
 use veln_literals::parse_integer_literal;
 
@@ -43,6 +43,7 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
             SyntaxItem::Effect(effect) => format_effect_decl(&mut out, &comments, effect),
+            SyntaxItem::Handler(handler) => format_handler_decl(&mut out, &comments, handler),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
             SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
             SyntaxItem::Codec(codec) => format_codec_decl(&mut out, &comments, codec),
@@ -109,6 +110,59 @@ fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate:
     push_source_line(out, comments, effect.span.end.line, 0, String::from("end"));
 }
 
+fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &HandlerDecl) {
+    let mut header = String::new();
+    if handler.visibility == Visibility::Public {
+        header.push_str("pub ");
+    }
+    header.push_str("handler ");
+    header.push_str(handler.name.as_deref().unwrap_or("<missing>"));
+    header.push('(');
+    for (index, param) in handler.params.iter().enumerate() {
+        if index > 0 {
+            header.push_str(", ");
+        }
+        header.push_str(&param.name);
+        header.push_str(": ");
+        header.push_str(
+            param
+                .ty
+                .as_deref()
+                .map(canonical_type_text)
+                .unwrap_or_else(|| "unknown".to_string())
+                .as_str(),
+        );
+    }
+    header.push_str(") handles ");
+    header.push_str(&handler.effect.join("::"));
+    if let Some(effects) = &handler.effects {
+        header.push_str(" effects [");
+        header.push_str(&effects.join(", "));
+        header.push(']');
+    }
+    push_source_line(out, comments, handler.span.start.line, 0, header);
+    for provider in &handler.providers {
+        push_source_line(
+            out,
+            comments,
+            provider.span.start.line,
+            1,
+            format!(
+                "{} = {}",
+                provider.operation.as_deref().unwrap_or("<missing>"),
+                provider.provider.join("::")
+            ),
+        );
+    }
+    push_source_line(
+        out,
+        comments,
+        handler_end_line(handler),
+        0,
+        String::from("end"),
+    );
+}
+
 fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
     tree.items.iter().any(|item| match item {
         SyntaxItem::Function(function) => function.body.iter().any(|line| match line {
@@ -116,7 +170,7 @@ fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) 
                 expr_has_commented_match_rewrite(expr, comments)
             }
         }),
-        SyntaxItem::Schema(_) | SyntaxItem::Effect(_) => false,
+        SyntaxItem::Schema(_) | SyntaxItem::Effect(_) | SyntaxItem::Handler(_) => false,
         SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
     })
 }
@@ -140,6 +194,12 @@ fn expr_has_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> boo
         ExprKind::Perform { args, .. } => args
             .iter()
             .any(|arg| expr_has_commented_match_rewrite(arg, comments)),
+        ExprKind::Handle { body, args, .. } => {
+            expr_has_commented_match_rewrite(body, comments)
+                || args
+                    .iter()
+                    .any(|arg| expr_has_commented_match_rewrite(arg, comments))
+        }
         ExprKind::SchemaDecode { input, base, .. } => {
             expr_has_commented_match_rewrite(input, comments)
                 || expr_has_commented_match_rewrite(base, comments)
@@ -436,6 +496,14 @@ fn codec_end_line(codec: &CodecDecl) -> usize {
         codec.span.end.line
     } else {
         codec.span.start.line.max(codec_body_end_line(codec))
+    }
+}
+
+fn handler_end_line(handler: &HandlerDecl) -> usize {
+    if handler.end_present && handler.span.end.column == 1 {
+        handler.span.end.line.saturating_sub(1)
+    } else {
+        handler.span.end.line
     }
 }
 
@@ -1105,6 +1173,23 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
                 .join(", ");
             format!("perform {}::{}({args})", effect.join("::"), operation)
         }
+        ExprKind::Handle {
+            body,
+            handler,
+            args,
+            ..
+        } => {
+            let args = args
+                .iter()
+                .map(|arg| format_expr_at_indent(arg, indent))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "handle {} with {}({args})",
+                format_expr_at_indent(body, indent),
+                handler.join("::")
+            )
+        }
         ExprKind::SchemaDecode {
             schema,
             input,
@@ -1525,6 +1610,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         },
         ExprKind::Prefix { .. } => 25,
         ExprKind::Call { .. }
+        | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }

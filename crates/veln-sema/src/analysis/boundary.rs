@@ -28,6 +28,161 @@ use std::collections::BTreeSet;
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
 use veln_literals::parse_integer_literal;
 
+pub(crate) fn check_handler_declarations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for handler in &module.handlers {
+        let Some(signature) = handler.name.as_ref().and_then(|_| {
+            environment.handler_path(
+                &[handler.name.clone().unwrap_or_default()],
+                handler.module_name.as_deref(),
+            )
+        }) else {
+            continue;
+        };
+        let Some(effect) =
+            environment.user_effect_path(&handler.effect, handler.module_name.as_deref())
+        else {
+            diagnostics.push(Diagnostic::new(
+                "handler.effect_unknown",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!(
+                    "handled effect `{}` is not known",
+                    handler.effect.join("::")
+                ),
+                Some(handler.effect_span.clone()),
+                effect_details(handler.node_id.display("handler"), "handler_declaration"),
+            ));
+            continue;
+        };
+        for operation in &effect.operations {
+            if !signature
+                .providers
+                .iter()
+                .any(|provider| provider.operation == operation.name)
+            {
+                let mut diagnostic = Diagnostic::new(
+                    "handler.missing_provider",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!(
+                        "handler `{}` does not provide operation `{}`",
+                        signature.qualified_name, operation.name
+                    ),
+                    Some(handler.span.clone()),
+                    effect_details(handler.node_id.display("handler"), "handler_declaration"),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("effect_operation")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Operation `{}` is declared here.",
+                            operation.name
+                        )),
+                    ),
+                    ("span", span_json(&operation.name_span)),
+                ]));
+                diagnostics.push(diagnostic);
+            }
+        }
+        for provider in &handler.providers {
+            let Some(operation_name) = &provider.operation else {
+                continue;
+            };
+            let Some(operation) = effect
+                .operations
+                .iter()
+                .find(|operation| operation.name == *operation_name)
+            else {
+                continue;
+            };
+            let Some(function) =
+                environment.function_path(&provider.provider, handler.module_name.as_deref())
+            else {
+                diagnostics.push(Diagnostic::new(
+                    "handler.provider_unknown",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!("provider `{}` is not known", provider.provider.join("::")),
+                    Some(provider.provider_span.clone()),
+                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                ));
+                continue;
+            };
+            let mut expected_params = signature.params.clone();
+            expected_params.extend(operation.params.clone());
+            if function.params != expected_params || function.return_type != operation.return_type {
+                diagnostics.push(Diagnostic::new(
+                    "handler.provider_signature",
+                    Severity::Error,
+                    DiagnosticKind::Type,
+                    format!(
+                        "provider `{}` does not match operation `{operation_name}`",
+                        provider.provider.join("::")
+                    ),
+                    Some(provider.provider_span.clone()),
+                    type_details(
+                        provider.node_id.display("provider"),
+                        "handler_provider",
+                        "provider_signature",
+                        "handler_operation",
+                        "source",
+                        "assignable",
+                        [handler.node_id.display("handler")],
+                    ),
+                ));
+            }
+            if function
+                .effects
+                .iter()
+                .any(|effect_name| effect_name == &signature.effect)
+            {
+                diagnostics.push(Diagnostic::new(
+                    "handler.recursive_provider",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!(
+                        "provider `{}` performs handled effect `{}`",
+                        provider.provider.join("::"),
+                        signature.effect
+                    ),
+                    Some(provider.provider_span.clone()),
+                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                ));
+            }
+            if handler.visibility == Visibility::Public {
+                for effect_name in &function.effects {
+                    if !signature
+                        .effects
+                        .iter()
+                        .any(|declared| declared == effect_name)
+                    {
+                        diagnostics.push(Diagnostic::new(
+                            "handler.missing_public_effect",
+                            Severity::Error,
+                            DiagnosticKind::Effect,
+                            format!(
+                                "public handler `{}` uses undeclared effect `{effect_name}`",
+                                signature.qualified_name
+                            ),
+                            Some(handler.span.clone()),
+                            effect_details(
+                                handler.node_id.display("handler"),
+                                "handler_declaration",
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    diagnostics
+}
+
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 

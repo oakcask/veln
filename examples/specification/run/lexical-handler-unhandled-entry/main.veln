@@ -1,0 +1,7 @@
+effect Ask
+	value() -> Int
+end
+
+fn main() -> Int effects [Ask]
+	perform Ask::value()
+end

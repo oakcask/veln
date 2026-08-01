@@ -16,15 +16,12 @@ current language behavior unless the matching page under
 
 ### First Experiment
 
-- [Lexical Operation Handlers](lexical-operation-handlers.md): add lexical
-  handlers for already implemented nominal operation effects without exposing
-  continuations.
 - [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md):
   drive one HTTP/2 client or server connection through the proposed abstract
   duplex-stream effect and an existing TCP `NetStream` handler.
 
-Read these proposals in order. The connection-driver proposal depends on the
-lexical-handler proposal.
+The connection-driver proposal depends on the implemented lexical-handler
+record under `../reference/implemented-proposals/`.
 
 ### Follow-Ups After Evidence
 
