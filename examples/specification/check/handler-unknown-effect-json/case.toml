@@ -36,3 +36,11 @@ equals = "main::Ask"
 [[json_assert]]
 path = "diagnostics.0.related.0.operations.0"
 equals = "value"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.column"
+equals = 1

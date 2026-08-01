@@ -87,15 +87,7 @@ pub(crate) fn check_handler_declarations(
                                 .map(|operation| JsonValue::string(operation.name.clone())),
                         ),
                     ),
-                    (
-                        "span",
-                        span_json(
-                            candidate
-                                .operations
-                                .first()
-                                .map_or(&handler.effect_span, |operation| &operation.name_span),
-                        ),
-                    ),
+                    ("span", span_json(&candidate.span)),
                 ]));
             }
             diagnostics.push(diagnostic);
@@ -217,7 +209,7 @@ pub(crate) fn check_handler_declarations(
                             effect.qualified_name
                         )),
                     ),
-                    ("span", span_json(&handler.effect_span)),
+                    ("span", span_json(&effect.span)),
                 ]));
                 diagnostics.push(diagnostic);
                 continue;

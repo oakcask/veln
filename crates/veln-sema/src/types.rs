@@ -74,6 +74,7 @@ pub(crate) struct EffectSignature {
     pub(crate) qualified_name: String,
     pub(crate) module_name: Option<String>,
     pub(crate) visibility: Visibility,
+    pub(crate) span: SourceSpan,
     pub(crate) operations: Vec<EffectOperationSignature>,
 }
 
@@ -747,6 +748,7 @@ fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> {
                 qualified_name,
                 module_name: effect.module_name.clone(),
                 visibility: effect.visibility,
+                span: effect.span.clone(),
                 operations: effect
                     .operations
                     .iter()

@@ -76,3 +76,11 @@ equals = "recursive_provider"
 [[json_assert]]
 path = "diagnostics.2.related.0.kind"
 equals = "provider_function"
+
+[[json_assert]]
+path = "diagnostics.4.related.0.span.start.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.4.related.0.span.start.column"
+equals = 1
