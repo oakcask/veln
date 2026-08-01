@@ -14,6 +14,12 @@ current language behavior unless the matching page under
 
 ## Catalog
 
+### Next Selectable Slice
+
+- [HTTP/2 Application Event And Action Boundary](http2-application-event-action-boundary.md):
+  identify immutable request and response-action values with one checked
+  server-driver request and response before effect-polymorphic service work.
+
 ### Follow-Ups After Evidence
 
 - [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
@@ -23,7 +29,9 @@ current language behavior unless the matching page under
   add listener ownership, per-connection tasks, and application callbacks
   whose effects are preserved by the service API.
 
-Do not select either follow-up before its activation gate is met.
+Do not select either follow-up before its activation gate is met. The HTTP/2
+application boundary is the next selectable slice for the service gate. It
+does not by itself activate one-shot resumable handlers.
 
 ## Selection Rule
 

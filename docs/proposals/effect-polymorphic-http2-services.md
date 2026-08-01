@@ -14,12 +14,15 @@ callbacks instead of fixing those callbacks to one concrete effect set.
 This proposal depends on:
 
 - [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md), and
-- [HTTP/2 Duplex Stream Connection Driver](../reference/implemented-proposals/http2-duplex-stream-connection-driver.md).
+- [HTTP/2 Duplex Stream Connection Driver](../reference/implemented-proposals/http2-duplex-stream-connection-driver.md), and
+- [HTTP/2 Application Event And Action Boundary](http2-application-event-action-boundary.md).
 
-Implementation may start only after the connection-driver evidence identifies
-the application event and action values that cross the pure protocol boundary.
-The proposal must be revised if those values do not support one request and
-one response without exposing `NetStream` or mutable core state.
+The application-boundary proposal is the next selectable slice. This service
+proposal may start only after that slice identifies, implements, and checks
+the application request and action values that cross the pure protocol
+boundary. Revise this proposal to use or deliberately adapt those implemented
+values before adding effect rows. The values must support one request and one
+response without exposing `NetStream` or mutable core state.
 
 This proposal selects the current abrupt runtime boundary for transport
 failure. Source cleanup after that failure is not required. A separate
