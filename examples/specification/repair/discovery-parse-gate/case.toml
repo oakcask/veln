@@ -1,4 +1,5 @@
 command = ["repair", "--json", "src/bad.veln", "src/clean.veln"]
+source_errors = "expected"
 exit = 0
 
 [stdout]

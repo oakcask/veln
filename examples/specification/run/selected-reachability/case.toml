@@ -1,4 +1,5 @@
 command = ["run", "--json", "main", "app.veln", "math.veln"]
+source_errors = "expected"
 exit = 0
 
 [requires]
