@@ -26,7 +26,7 @@ end
 ## > let seed: Int = 2
 ## double(seed)
 ## ```
-pub fn double(value: Int) -> Int
+pub fn double(value: Int) -> result: Int
 	require value >= 0
 	ensure result >= value
 	value + value
@@ -39,6 +39,9 @@ end
 
 ## Decodes packet bytes with an explicit schema operation.
 ## ```veln
+## > let bytes: ByteChunk = byte_chunk_from_hex("0001")?
+## > let base_offset: ByteOffset = byte_offset(0)?
+## > let view: ByteView = byte_view(bytes, base_offset, byte_count(2)?)?
 ## let step: DecodeStep<{length: Int, kind: Int}> = decode PacketWire from view at base_offset
 ## step
 ## ```
@@ -48,6 +51,7 @@ end
 
 ## Encodes packet bytes with an explicit schema operation.
 ## ```veln
+## > let value: {length: Int, kind: Int} = {length: 0, kind: 1}
 ## encode PacketWire from value
 ## ```
 pub fn encode_packet_wire(value: {length: Int, kind: Int}) -> Result<ByteChunk, EncodeError>

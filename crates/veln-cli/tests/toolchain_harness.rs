@@ -7,8 +7,11 @@ use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use veln_analysis::{derive_source_module_path, load_surface_module};
+use veln_analysis::{
+    DoctestMode, checked_project_diagnostics, derive_source_module_path, load_surface_module,
+};
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
@@ -39,6 +42,7 @@ fn run_case(case_dir: &Path) {
         return;
     }
 
+    manifest.assert_no_unexpected_example_source_errors(case_dir, &project.root);
     manifest.validate_fixture_schema_references(&project.root);
 
     for run_index in 0..manifest.invocation.repeat {
@@ -338,10 +342,18 @@ struct CaseExpectations {
 struct CaseManifest {
     invocation: CaseInvocation,
     expectations: CaseExpectations,
+    source_errors: SourceErrorExpectation,
     manifest_error: Option<ManifestErrorExpectation>,
     tools: ToolSetup,
     requires: Requirements,
     skip: SkipRules,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum SourceErrorExpectation {
+    #[default]
+    Forbidden,
+    Expected,
 }
 
 impl CaseManifest {
@@ -375,6 +387,60 @@ impl CaseManifest {
         self.requires.jdk || self.tools.requires_jdk()
     }
 
+    fn assert_no_unexpected_example_source_errors(&self, case_dir: &Path, project_root: &Path) {
+        if !is_specification_example(case_dir) || !self.needs_independent_source_error_guard() {
+            return;
+        }
+        if self.command_explicitly_expects_source_errors()
+            && self.source_errors == SourceErrorExpectation::Forbidden
+        {
+            return;
+        }
+
+        let project = Project::discover(project_root.to_path_buf(), &[]).unwrap_or_else(|error| {
+            panic!(
+                "{}: inspect the example project inputs; source-error guard discovery failed: {error}",
+                case_dir.display()
+            )
+        });
+        let errors = checked_project_diagnostics(project, DoctestMode::Include)
+            .into_iter()
+            .filter(|diagnostic| diagnostic.severity == Severity::Error)
+            .collect::<Vec<_>>();
+
+        match (self.source_errors, errors.is_empty()) {
+            (SourceErrorExpectation::Forbidden, false) => {
+                panic!(
+                    "{}: remove unexpected source error diagnostics, or set `source_errors = \"expected\"` in case.toml when this example exists to exercise them; clean examples prevent unrelated editor errors.\n{}",
+                    case_dir.display(),
+                    source_error_evidence(&errors)
+                );
+            }
+            (SourceErrorExpectation::Expected, true) => {
+                panic!(
+                    "{}: remove stale `source_errors = \"expected\"` from case.toml; the example no longer produces a source error diagnostic",
+                    case_dir.display()
+                );
+            }
+            _ => {}
+        }
+    }
+
+    fn needs_independent_source_error_guard(&self) -> bool {
+        matches!(
+            self.invocation.command.first().map(String::as_str),
+            Some("check" | "doc" | "fmt" | "lsp" | "repair" | "run" | "test")
+        )
+    }
+
+    fn command_explicitly_expects_source_errors(&self) -> bool {
+        self.expectations.exit != 0
+            && matches!(
+                self.invocation.command.first().map(String::as_str),
+                Some("check" | "doc" | "fmt" | "repair")
+            )
+    }
+
     fn validate_fixture_schema_references(&self, project_root: &Path) {
         if self
             .expectations
@@ -397,6 +463,37 @@ impl CaseManifest {
             &self.expectations.binary_fixtures,
         );
     }
+}
+
+fn is_specification_example(case_dir: &Path) -> bool {
+    let components = case_dir.components().collect::<Vec<_>>();
+    components
+        .windows(2)
+        .any(|pair| pair[0].as_os_str() == "examples" && pair[1].as_os_str() == "specification")
+}
+
+fn source_error_evidence(errors: &[Diagnostic]) -> String {
+    errors
+        .iter()
+        .map(|diagnostic| {
+            let location = diagnostic.span.as_ref().map_or_else(
+                || "<unknown>".to_string(),
+                |span| {
+                    format!(
+                        "{}:{}:{}",
+                        span.file.as_str(),
+                        span.start.line,
+                        span.start.column
+                    )
+                },
+            );
+            format!(
+                "{location}: error[{}]: {}",
+                diagnostic.id, diagnostic.message
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 impl CaseExpectations {
@@ -857,6 +954,7 @@ struct ManifestParser<'a> {
     exit: Option<i32>,
     repeat: usize,
     env: Vec<(String, String)>,
+    source_errors: SourceErrorExpectation,
     stdout: StreamExpectation,
     stderr: StreamExpectation,
     help: Option<HelpExpectation>,
@@ -882,6 +980,7 @@ impl<'a> ManifestParser<'a> {
             exit: None,
             repeat: 1,
             env: Vec::new(),
+            source_errors: SourceErrorExpectation::Forbidden,
             stdout: StreamExpectation::default(),
             stderr: StreamExpectation::default(),
             help: None,
@@ -1076,6 +1175,9 @@ impl<'a> ManifestParser<'a> {
             "stdin" => self.stdin = Some(parse_string(self.path, line_number, value)),
             "exit" => self.exit = Some(parse_i32(self.path, line_number, value)),
             "repeat" => self.repeat = parse_positive_usize(self.path, line_number, value),
+            "source_errors" => {
+                self.source_errors = parse_source_error_expectation(self.path, line_number, value)
+            }
             _ => manifest_error(self.path, line_number, format!("unknown root key `{key}`")),
         }
     }
@@ -1362,6 +1464,7 @@ impl<'a> ManifestParser<'a> {
                 binary_fixtures: self.binary_fixtures,
                 output_chunk_lists: self.output_chunk_lists,
             },
+            source_errors: self.source_errors,
             manifest_error: self.manifest_error,
             tools: self.tools,
             requires: self.requires,
@@ -2013,6 +2116,22 @@ fn parse_bool(path: &Path, line_number: usize, value: &str) -> bool {
     }
 }
 
+fn parse_source_error_expectation(
+    path: &Path,
+    line_number: usize,
+    value: &str,
+) -> SourceErrorExpectation {
+    let value = parse_string(path, line_number, value);
+    match value.as_str() {
+        "expected" => SourceErrorExpectation::Expected,
+        _ => manifest_error(
+            path,
+            line_number,
+            format!("unknown source error expectation `{value}`"),
+        ),
+    }
+}
+
 fn parse_skip_platform(path: &Path, line_number: usize, value: &str) -> SkipPlatform {
     match value {
         "unix" => SkipPlatform::Unix,
@@ -2359,6 +2478,63 @@ java = "real"
     assert!(manifest.tools.needs_path());
     assert!(manifest.tools.requires_jdk());
     assert_eq!(manifest.tools.java, Some(ToolAvailability::Real));
+}
+
+#[test]
+fn example_source_error_guard_requires_explicit_intent() {
+    let root = test_temp_root("source-error-guard");
+    fs::write(
+        root.join("main.veln"),
+        "fn main() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("guard source should be written");
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 1
+"#,
+    );
+
+    let panic = std::panic::catch_unwind(|| {
+        manifest.assert_no_unexpected_example_source_errors(
+            Path::new("examples/specification/fmt/source-error-guard"),
+            &root,
+        );
+    })
+    .expect_err("unexpected source error should fail the guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("error[type.mismatch]"));
+    assert!(message.contains("prevent unrelated editor errors"));
+
+    fs::remove_dir_all(root).expect("guard root should be removed");
+}
+
+#[test]
+fn example_source_error_guard_accepts_declared_diagnostic_case() {
+    let root = test_temp_root("expected-source-error-guard");
+    fs::write(
+        root.join("main.veln"),
+        "fn main() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("guard source should be written");
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["lsp"]
+source_errors = "expected"
+exit = 0
+"#,
+    );
+
+    manifest.assert_no_unexpected_example_source_errors(
+        Path::new("examples/specification/lsp/source-error-guard"),
+        &root,
+    );
+    assert_eq!(manifest.source_errors, SourceErrorExpectation::Expected);
+
+    fs::remove_dir_all(root).expect("guard root should be removed");
 }
 
 #[test]
