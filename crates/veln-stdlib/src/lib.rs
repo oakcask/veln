@@ -41,6 +41,8 @@ mod tests {
             package.exports,
             [
                 "prelude.veln",
+                "transport.veln",
+                "transport/net.veln",
                 "http2/frame.veln",
                 "http2/diagnostic.veln",
                 "http2/hpack.veln",

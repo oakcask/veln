@@ -1,0 +1,21 @@
+use transport from "std"
+use transport::net from "std"
+
+fn read_from_duplex() -> Option<ByteChunk> effects [transport::DuplexStream]
+	perform transport::DuplexStream::read_chunk()
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let _ = handle read_from_duplex() with transport::net::net_stream(stream)
+	stdio::println("unreachable")
+	Ok(())
+end

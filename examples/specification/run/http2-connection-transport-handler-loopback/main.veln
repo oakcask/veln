@@ -1,0 +1,61 @@
+use transport from "std"
+use transport::net from "std"
+
+fn observe_duplex() -> Result<{ first : Int, second : Int, clean_end : Bool }, String> effects [transport::DuplexStream]
+	let first: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
+	let second: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
+	let ended: Option<ByteChunk> = perform transport::DuplexStream::read_chunk()
+	let outgoing_a: ByteChunk = byte_chunk_from_hex("0a")?
+	let outgoing_b: ByteChunk = byte_chunk_from_hex("0b0c")?
+	perform transport::DuplexStream::write_chunks(list_cons(outgoing_a, list_cons(outgoing_b, list_nil())))
+	Ok(summary(first, second, ended))
+end
+
+fn summary(first: Option<ByteChunk>, second: Option<ByteChunk>, ended: Option<ByteChunk>) -> { first : Int, second : Int, clean_end : Bool }
+	match first
+		Some(first_chunk) => match second
+			Some(second_chunk) => match ended
+				Some(_) => { first: chunk_count(first_chunk), second: chunk_count(second_chunk), clean_end: false }
+				None => byte_counts(first_chunk, second_chunk)
+			end
+			None => { first: chunk_count(first_chunk), second: -1, clean_end: false }
+		end
+		None => { first: -1, second: -1, clean_end: false }
+	end
+end
+
+fn chunk_count(chunk: ByteChunk) -> Int
+	byte_count_to_int(byte_chunk_count(chunk))
+end
+
+fn byte_counts(first: ByteChunk, second: ByteChunk) -> { first : Int, second : Int, clean_end : Bool }
+	{ first: chunk_count(first), second: chunk_count(second), clean_end: true }
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+fn emit_clean_end(clean_end: Bool) -> () effects [stdio]
+	if clean_end
+		stdio::println("clean-end")
+	else
+		stdio::println("not-clean-end")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let observed = handle observe_duplex()? with transport::net::net_stream(stream)
+	net::close_stream(stream)
+	stdio::print(int_to_string(observed.first))
+	stdio::print(" ")
+	stdio::print(int_to_string(observed.second))
+	stdio::print(" ")
+	emit_clean_end(observed.clean_end)
+	Ok(())
+end

@@ -169,6 +169,26 @@ by the lexical-handler and handler-operation cases under
 `examples/specification/`, including the early-return cleanup and
 public handler effect-declaration cases and the `veln test` success case.
 
+The exported standard `transport` module declares this public nominal effect:
+
+```veln
+pub effect DuplexStream
+	read_chunk() -> Option<ByteChunk>
+	write_chunks(chunks: List<ByteChunk>) -> ()
+end
+```
+
+The exported `transport::net` module declares
+`net_stream(stream: NetStream)` as a public lexical handler for
+`transport::DuplexStream`. Handling a body with `transport::net::net_stream`
+removes `std::transport::DuplexStream` from the inferred effect set and adds
+the existing coarse `net` effect from the handler providers. A public function
+that performs a duplex-stream operation without a handler must declare the
+duplex-stream effect. A public function that wraps that body with the
+`net_stream` handler must declare `net` and does not retain the handled
+duplex-stream effect. The static boundary is checked by
+`examples/specification/check/http2-connection-transport-handler-effects/`.
+
 ## Compiler-Known Descriptor Table
 
 Semantic analysis owns a standard symbol table for compiler-known library

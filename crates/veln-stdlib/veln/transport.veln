@@ -1,0 +1,6 @@
+use prelude
+
+pub effect DuplexStream
+	read_chunk() -> Option<ByteChunk>
+	write_chunks(chunks: List<ByteChunk>) -> ()
+end
