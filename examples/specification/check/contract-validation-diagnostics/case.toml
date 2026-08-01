@@ -18,6 +18,22 @@ severity = "error"
 kind = "contract"
 message = "contract predicate contains an unsupported construct"
 
+[diagnostics.span]
+file = "main.veln"
+line = 7
+column = 2
+
+[[diagnostics]]
+id = "contract.unsupported_construct"
+severity = "error"
+kind = "contract"
+message = "contract predicate contains an unsupported construct"
+
+[diagnostics.span]
+file = "main.veln"
+line = 16
+column = 2
+
 [[diagnostics]]
 id = "contract.type_mismatch"
 severity = "error"

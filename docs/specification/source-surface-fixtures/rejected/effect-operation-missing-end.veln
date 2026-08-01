@@ -1,0 +1,2 @@
+effect Audit
+	record(user: String, count: Int) -> String

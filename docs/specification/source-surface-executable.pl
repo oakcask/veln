@@ -88,12 +88,15 @@ grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | Hexadecimal
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
-grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
+grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
+grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
@@ -119,7 +122,7 @@ grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
 grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
-grammar_line(200, "EffectList    ::= Name (\",\" Name)* \",\"?").
+grammar_line(200, "EffectList    ::= MemberPath (\",\" MemberPath)* \",\"?").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
 grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
@@ -131,10 +134,11 @@ grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" 
 grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
+grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
 grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
@@ -274,7 +278,9 @@ keyword_kind("with", with).
 keyword_kind("format", format).
 keyword_kind("where", where).
 keyword_kind("test", test).
+keyword_kind("effect", effect).
 keyword_kind("effects", effects).
+keyword_kind("perform", perform).
 keyword_kind("let", let).
 keyword_kind("end", end).
 keyword_kind("require", require).
@@ -314,6 +320,7 @@ items --> item, !, items.
 items --> [].
 item --> nls, function_decl.
 item --> nls, test_decl.
+item --> nls, effect_decl.
 item --> nls, type_decl.
 item --> nls, schema_decl.
 item --> nls, public_alias.
@@ -345,6 +352,33 @@ test_decl -->
     body,
     tok(end),
     newline_opt.
+
+effect_decl -->
+    visibility,
+    tok(effect),
+    ident,
+    nl,
+    effect_operations,
+    tok(end),
+    newline_opt.
+
+effect_operations --> effect_operation, !, effect_operations_tail.
+effect_operations_tail --> effect_operation, !, effect_operations_tail.
+effect_operations_tail --> [].
+effect_operation -->
+    ident,
+    tok(lparen),
+    effect_params_opt,
+    tok(rparen),
+    tok(arrow),
+    type_text_until([nl]),
+    nl.
+
+effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
+effect_params_opt --> [].
+effect_params_tail --> tok(comma), effect_param, !, effect_params_tail.
+effect_params_tail --> [].
+effect_param --> ident, tok(colon), type_text_until([comma, rparen]).
 
 type_decl -->
     visibility,
@@ -463,9 +497,9 @@ result_binding_opt --> [].
 effects_opt --> effects_clause, !.
 effects_opt --> [].
 effects_clause --> tok(effects), tok(lbracket), effects_names_opt, tok(rbracket).
-effects_names_opt --> ident, effects_names_tail, trailing_comma_opt, !.
+effects_names_opt --> member_path, effects_names_tail, trailing_comma_opt, !.
 effects_names_opt --> [].
-effects_names_tail --> tok(comma), ident, !, effects_names_tail.
+effects_names_tail --> tok(comma), member_path, !, effects_names_tail.
 effects_names_tail --> [].
 
 contracts --> contract, !, contracts.
@@ -612,6 +646,7 @@ primary_expr --> tok(hole), satisfy_opt.
 primary_expr --> tok(underscore), satisfy_opt.
 primary_expr --> literal.
 primary_expr --> name_path.
+primary_expr --> perform_expr.
 primary_expr --> schema_decode_expr.
 primary_expr --> schema_encode_expr.
 primary_expr --> tok(lparen), nls, tok(rparen).
@@ -637,6 +672,27 @@ schema_encode_expr -->
     member_path,
     tok(from),
     expr.
+
+perform_expr -->
+    tok(perform),
+    effect_path_before_operation,
+    tok(double_colon),
+    ident,
+    tok(lparen),
+    nls,
+    args_opt,
+    nls,
+    tok(rparen).
+
+effect_path_before_operation --> ident, effect_path_before_operation_tail.
+effect_path_before_operation_tail -->
+    [t(double_colon, _), t(ident, _)],
+    peek_double_colon,
+    !,
+    effect_path_before_operation_tail.
+effect_path_before_operation_tail --> [].
+
+peek_double_colon([t(double_colon, _) | Rest], [t(double_colon, _) | Rest]).
 
 call_suffix --> tok(lparen), nls, args_opt, nls, tok(rparen).
 args_opt --> expr, nls, args_tail, trailing_comma_opt, !.

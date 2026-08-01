@@ -61,12 +61,15 @@ IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
 DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
-Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
+Item          ::= Function | TestDecl | EffectDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
+EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
+EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
@@ -92,7 +95,7 @@ VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
-EffectList    ::= Name ("," Name)* ","?
+EffectList    ::= MemberPath ("," MemberPath)* ","?
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
@@ -104,10 +107,11 @@ BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "+" | "-" | "*" | "/"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | Perform | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
+Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
 TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"

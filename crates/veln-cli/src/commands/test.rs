@@ -11,7 +11,7 @@ use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
     JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
 };
-use veln_diagnostics::DiagnosticEnvelope;
+use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{Project, discover_source_paths};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
@@ -850,6 +850,22 @@ fn prepare_test_case_job(
         .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test));
     let (module, ir) = match &reachable {
         Some(reachable) => {
+            if !reachable.lowered.diagnostics.is_empty() {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = reachable.lowered.diagnostics.clone();
+                return TestCaseJob::Completed(Box::new(case));
+            };
+            if let Some(diagnostic) = retained_user_effect_diagnostic(
+                &reachable.module,
+                reachable.lowered.core.as_ref(),
+                &case.name,
+            ) {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = vec![diagnostic];
+                return TestCaseJob::Completed(Box::new(case));
+            }
             let Some(ir) = &reachable.lowered.ir else {
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
@@ -878,6 +894,53 @@ fn prepare_test_case_job(
         program,
         java_args,
     }))
+}
+
+const HOST_EFFECT_LABELS: &[&str] = &[
+    "stdio",
+    "fs",
+    "net",
+    "db",
+    "time",
+    "random",
+    "process",
+    "concurrency",
+];
+
+fn retained_user_effect_diagnostic(
+    module: &SurfaceModule,
+    core: Option<&veln_core::CheckedProgram>,
+    test_name: &str,
+) -> Option<Diagnostic> {
+    let function = module.functions.iter().find(|function| {
+        function.kind == FunctionKind::Test && function.name.as_deref() == Some(test_name)
+    })?;
+    let effects = core
+        .and_then(|core| {
+            core.functions
+                .iter()
+                .find(|core_function| core_function.node_id == function.node_id)
+        })
+        .map(|core_function| &core_function.effects)?;
+    let effect = effects
+        .iter()
+        .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
+    Some(Diagnostic::new(
+        "effect.unhandled_user",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("runnable test retains user-defined effect `{effect}`"),
+        Some(function.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            (
+                "node_id",
+                JsonValue::string(function.node_id.display("test")),
+            ),
+            ("effect", JsonValue::string(effect.clone())),
+            ("boundary", JsonValue::string("test_entry")),
+        ]),
+    ))
 }
 
 fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {

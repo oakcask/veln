@@ -1,0 +1,8 @@
+effect Audit
+	record(value: String) -> String
+end
+
+test retained() -> () effects [Audit]
+	let observed: String = perform Audit::record("test")
+	()
+end

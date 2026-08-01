@@ -1,0 +1,7 @@
+effect Audit
+	record(value: String) -> String
+end
+
+fn main() -> String
+	perform Audit::record("run")
+end

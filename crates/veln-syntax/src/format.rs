@@ -42,6 +42,7 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         }
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
+            SyntaxItem::Effect(effect) => format_effect_decl(&mut out, &comments, effect),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
             SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
             SyntaxItem::Codec(codec) => format_codec_decl(&mut out, &comments, codec),
@@ -67,6 +68,47 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     out
 }
 
+fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate::EffectDecl) {
+    let mut header = String::new();
+    if effect.visibility == crate::Visibility::Public {
+        header.push_str("pub ");
+    }
+    header.push_str("effect ");
+    header.push_str(effect.name.as_deref().unwrap_or("<missing>"));
+    push_source_line(out, comments, effect.span.start.line, 0, header);
+    for operation in &effect.operations {
+        let mut line = String::new();
+        line.push_str(operation.name.as_deref().unwrap_or("<missing>"));
+        line.push('(');
+        for (index, param) in operation.params.iter().enumerate() {
+            if index > 0 {
+                line.push_str(", ");
+            }
+            line.push_str(&param.name);
+            line.push_str(": ");
+            line.push_str(
+                param
+                    .ty
+                    .as_deref()
+                    .map(canonical_type_text)
+                    .unwrap_or_else(|| "unknown".to_string())
+                    .as_str(),
+            );
+        }
+        line.push_str(") -> ");
+        line.push_str(
+            operation
+                .return_type
+                .as_deref()
+                .map(canonical_type_text)
+                .unwrap_or_else(|| "unknown".to_string())
+                .as_str(),
+        );
+        push_source_line(out, comments, operation.span.start.line, 1, line);
+    }
+    push_source_line(out, comments, effect.span.end.line, 0, String::from("end"));
+}
+
 fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) -> bool {
     tree.items.iter().any(|item| match item {
         SyntaxItem::Function(function) => function.body.iter().any(|line| match line {
@@ -74,7 +116,7 @@ fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &LineComments) 
                 expr_has_commented_match_rewrite(expr, comments)
             }
         }),
-        SyntaxItem::Schema(_) => false,
+        SyntaxItem::Schema(_) | SyntaxItem::Effect(_) => false,
         SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
     })
 }
@@ -95,6 +137,9 @@ fn expr_has_commented_match_rewrite(expr: &Expr, comments: &LineComments) -> boo
                     .iter()
                     .any(|arg| expr_has_commented_match_rewrite(arg, comments))
         }
+        ExprKind::Perform { args, .. } => args
+            .iter()
+            .any(|arg| expr_has_commented_match_rewrite(arg, comments)),
         ExprKind::SchemaDecode { input, base, .. } => {
             expr_has_commented_match_rewrite(input, comments)
                 || expr_has_commented_match_rewrite(base, comments)
@@ -1047,6 +1092,19 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             format!("{}<{}>", format_expr_at_indent(callee, indent), type_args)
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
+        ExprKind::Perform {
+            effect,
+            operation,
+            args,
+            ..
+        } => {
+            let args = args
+                .iter()
+                .map(|arg| format_expr_at_indent(arg, indent))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("perform {}::{}({args})", effect.join("::"), operation)
+        }
         ExprKind::SchemaDecode {
             schema,
             input,

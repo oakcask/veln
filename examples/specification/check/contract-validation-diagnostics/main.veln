@@ -8,6 +8,15 @@ pub fn effectful(text: String) -> () effects [stdio]
 	()
 end
 
+effect Audit
+	record(text: String) -> Bool
+end
+
+pub fn effectful_operation() -> Bool effects [Audit]
+	require perform Audit::record("contract")
+	perform Audit::record("body")
+end
+
 pub fn non_boolean(value: Int) -> ()
 	require value
 	()

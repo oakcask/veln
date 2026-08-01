@@ -1,0 +1,7 @@
+effect Audit
+	record(user: String) -> String
+end
+
+fn broken() -> String effects [Audit]
+	perform Audit("fixture")
+end

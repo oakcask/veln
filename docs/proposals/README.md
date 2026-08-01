@@ -16,9 +16,9 @@ current language behavior unless the matching page under
 
 ### First Experiment
 
-- [Lexical Operation Handlers](lexical-operation-handlers.md): add nominal
-  operation effects and automatically resuming lexical handlers without
-  exposing continuations.
+- [Lexical Operation Handlers](lexical-operation-handlers.md): add lexical
+  handlers for already implemented nominal operation effects without exposing
+  continuations.
 - [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md):
   drive one HTTP/2 client or server connection through the proposed abstract
   duplex-stream effect and an existing TCP `NetStream` handler.

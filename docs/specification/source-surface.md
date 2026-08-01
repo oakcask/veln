@@ -8,14 +8,16 @@ is not enough.
 
 - Source path derived local module identity, local and external package
   imports, functions, tests, source ADT type declarations, schema
-  declarations, public member aliases, canonical `#` comments, `##`
+  declarations, nominal effect operation declarations, public member aliases,
+  canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
   metadata plus `[lib].exports` source-file exports:
   [source-surface-full.md](source-surface-full.md).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
-  calls, standard channel calls, zero-argument task spawns, one-context
-  `task::spawn_with` calls, and method-call diagnostics:
+  calls, `perform` operation expressions, standard channel calls,
+  zero-argument task spawns, one-context `task::spawn_with` calls, and
+  method-call diagnostics:
   [source-surface-full.md](source-surface-full.md).
 - Contract predicate grammar:
   [source-surface-full.md](source-surface-full.md).

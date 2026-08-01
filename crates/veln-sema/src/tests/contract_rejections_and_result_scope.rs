@@ -327,6 +327,35 @@ fn contract_predicate_rejects_effectful_function_calls() {
 }
 
 #[test]
+fn contract_predicate_rejects_perform_as_effectful_operation() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> Bool\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int\n",
+            "require perform Audit::record(\"contract\")\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"effectful_operation\"")
+    }));
+}
+
+#[test]
 fn contract_predicate_rejects_non_boolean_function_calls() {
     let source = SourceFile::new(
         "main.veln",

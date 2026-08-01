@@ -4,10 +4,10 @@ Status: proposed
 
 ## Summary
 
-Add nominal operation effects and lexical handlers that supply an
-implementation for one effect within one expression. An operation call
-suspends at the lexical boundary only long enough for the selected provider
-function to return its result. Evaluation then resumes automatically.
+Add lexical handlers that supply an implementation for one already declared
+nominal operation effect within one expression. An operation call suspends at
+the lexical boundary only long enough for the selected provider function to
+return its result. Evaluation then resumes automatically.
 
 This proposal does not expose continuations. It tests whether Veln can make
 effectful standard-library code independent from a concrete host capability
@@ -15,18 +15,21 @@ without adding general control effects.
 
 ## Current Boundary
 
-Current `effects [...]` declarations contain a fixed set of coarse host labels.
-The checker infers those labels from compiler-known calls and requires public
-boundaries to cover them. Current source cannot declare an effect operation,
-perform one, or eliminate an effect with a handler.
+Current `effects [...]` declarations contain coarse host labels and
+module-owned nominal operation effects. Current source can declare an effect
+operation and statically checked `perform` expressions. Current source cannot
+eliminate a nominal effect with a handler.
 
 The existing labels such as `net`, `time`, and `concurrency` remain host
 effects. This proposal does not turn them into interceptable operations.
 
 ## Proposed Source Surface
 
-The following sketch is the proposed canonical shape. The executable grammar
-and accepted/rejected fixtures are authoritative once implemented.
+The current operation declaration and `perform` expression surface is
+specified under `../specification/` and checked by
+`../../examples/specification/check/user-effect-operation-boundaries/`. The
+following sketch shows the existing operation surface that handler
+declarations will consume.
 
 ```veln
 pub effect DuplexStream
@@ -35,8 +38,8 @@ pub effect DuplexStream
 end
 ```
 
-An effect name is nominal and module-owned. Imported effect names may appear as
-qualified paths in function and function-type effect sets.
+An effect name is nominal and module-owned. Imported effect names already
+appear as qualified paths in function and function-type effect sets.
 
 ```veln
 pub fn drive() -> Result<(), String> effects [transport::DuplexStream]
@@ -83,10 +86,8 @@ The formatter uses this single spelling. A handler is not a first-class value
 in this proposal. Source cannot store, return, or select a handler through an
 ordinary function value.
 
-## Static Semantics
+## Remaining Static Semantics
 
-- `perform E::operation(arguments)` contributes nominal effect `E`.
-- The operation arguments and result use the types declared by `E`.
 - A handler must provide exactly one provider for every operation of its
   handled effect.
 - Each provider must accept the handler context parameters followed by the
@@ -104,8 +105,8 @@ ordinary function value.
   handlers have been checked.
 - Existing host effects remain valid at runnable entry points under their
   current runtime boundaries.
-- Contracts cannot perform operations or install handlers. They retain their
-  current effect-free call rule.
+- Contracts cannot install handlers. They retain their current effect-free
+  call rule.
 
 The effect-set transformation is authoritative for checker acceptance. If
 `B` is the body effect set, `C` is the union of the context-argument effect
@@ -146,8 +147,6 @@ otherwise.
 
 | Case | Required observation | Planned evidence |
 | --- | --- | --- |
-| Declared operation call | The containing public function must declare the nominal effect | `check/user-effect-operation-boundaries` |
-| Unknown operation | The operation name is rejected at the operation span | `check/user-effect-operation-boundaries` |
 | Complete pure handler | The handled expression has no remaining nominal effect | `check/lexical-handler-effect-replacement` |
 | Host-backed handler | The nominal effect is replaced by `net` | `check/lexical-handler-effect-replacement` |
 | Missing provider | The handler declaration is rejected and names the missing operation in related context | `check/handler-operation-signatures` |
@@ -156,7 +155,7 @@ otherwise.
 | Nested handlers | The innermost matching handler supplies the result, then the outer handler remains selected | `run/lexical-handler-nesting` |
 | Repeated operations | The same deep handler processes operations in source evaluation order | `run/lexical-handler-repeated-operations` |
 | Effectful context | Handler context arguments evaluate once before the body and their effects remain after handling | `run/lexical-handler-context-evaluation` |
-| Unhandled runnable effect | `veln run` and `veln test` reject the entry boundary before execution | `run/lexical-handler-unhandled-entry` |
+| Unhandled runnable effect after handler checking | `veln run` and `veln test` reject the entry boundary before execution | `run/lexical-handler-unhandled-entry` |
 | Spawn boundary | A handler outside a spawned job does not satisfy an operation inside that job | `check/lexical-handler-task-boundary` |
 
 The relative paths in this table are planned directories below

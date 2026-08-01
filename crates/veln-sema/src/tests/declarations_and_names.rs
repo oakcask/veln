@@ -31,6 +31,218 @@ fn public_function_accepts_omitted_empty_effect_boundary() {
 }
 
 #[test]
+fn nominal_effect_perform_checks_and_lowers_operation() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String, count: Int) -> String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String effects [Audit]\n",
+            "  perform Audit::record(\"user\", 1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be present");
+    assert_eq!(core.effects.len(), 1);
+    assert_eq!(core.functions[0].effects, ["Audit"]);
+    let veln_core::CoreStmtKind::Return { expr } = &core.functions[0].body[0].kind else {
+        panic!("expected return statement");
+    };
+    assert!(matches!(
+        &expr.kind,
+        veln_core::CoreExprKind::Perform { effect, operation, args }
+            if effect == "Audit" && operation == "record" && args.len() == 2
+    ));
+}
+
+#[test]
+fn nominal_effect_unknown_operation_reports_operation_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String effects [Audit]\n",
+            "  perform Audit::missing(\"user\")\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.unknown_operation");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.line, 6);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 18);
+}
+
+#[test]
+fn nominal_effect_unknown_perform_reports_effect_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> String effects [MissingAudit]\n",
+            "  perform MissingAudit::record(\"user\")\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "effect.unknown"
+                && diagnostic.message == "performed effect `MissingAudit` is not known"
+        })
+        .unwrap_or_else(|| panic!("expected performed unknown effect: {diagnostics:#?}"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 2);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 11);
+    assert_eq!(diagnostic.span.as_ref().unwrap().end.column, 23);
+}
+
+#[test]
+fn nominal_effect_missing_public_reports_perform_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String\n",
+            "  perform Audit::record(\"user\")\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.missing_public")
+        .unwrap_or_else(|| panic!("expected missing public effect: {diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "public function uses undeclared effect `Audit`"
+    );
+    assert_eq!(diagnostic.related.len(), 1);
+    let related = diagnostic.related[0].to_json();
+    assert!(related.contains("\"kind\":\"effect_provenance\""));
+    assert!(related.contains("Call to `Audit::record` requires this effect."));
+    assert!(related.contains("\"start\":{\"line\":6,\"column\":3,"));
+}
+
+#[test]
+fn unknown_declared_effect_reports_effect_label_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        "pub fn main() -> () effects [stdio, telepathy]\n  ()\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.unknown");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.line, 1);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 37);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().end.column, 46);
+}
+
+#[test]
+fn unknown_function_type_effect_reports_effect_label_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(callback: fn() -> () effects [MissingAudit]) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "effect.unknown"
+                && diagnostic.message == "function type effect `MissingAudit` is not known"
+        })
+        .unwrap_or_else(|| panic!("expected function type unknown effect: {diagnostics:#?}"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 1);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 43);
+    assert_eq!(diagnostic.span.as_ref().unwrap().end.column, 55);
+}
+
+#[test]
+fn imported_qualified_effect_is_known_in_function_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "use logging\n",
+            "\n",
+            "pub fn main(callback: fn() -> () effects [logging::Audit]) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "pub effect Audit\n",
+            "  record() -> ()\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_surface_ast(&parse(&source).tree);
+    module.effects[0].module_name = Some("logging".to_string());
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn duplicate_effect_operation_reports_operation_name_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> String\n",
+            "  record(user: String) -> String\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.line, 3);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 3);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().end.column, 9);
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0].related[0]
+            .to_json()
+            .contains("\"kind\":\"duplicate_origin\"")
+    );
+}
+
+#[test]
 fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
     let source = SourceFile::new("main.veln", "fn answer()\n  1\nend\n");
     let parsed = parse(&source);
@@ -1105,6 +1317,7 @@ fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
         module: facade.module,
         uses: facade.uses,
         aliases: facade.aliases,
+        effects: Vec::new(),
         types: wire.types,
         schemas: wire.schemas,
         codecs: wire.codecs,
@@ -1259,6 +1472,7 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        effects: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
@@ -1537,6 +1751,7 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        effects: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
@@ -1685,6 +1900,7 @@ fn duplicate_use_aliases_are_scoped_to_declaring_module() {
         module: first.module,
         uses: [first.uses, second.uses].concat(),
         aliases: Vec::new(),
+        effects: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
         codecs: Vec::new(),

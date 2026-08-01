@@ -1,0 +1,7 @@
+pub effect Audit
+	record(user: String, count: Int) -> String
+end
+
+pub fn imported_callback(callback: fn(String) -> String effects [logging::Audit]) -> String effects [logging::Audit]
+	callback(perform Audit::record("imported", 1))
+end

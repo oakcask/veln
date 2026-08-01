@@ -1,0 +1,34 @@
+use logging
+
+effect LocalAudit
+	record(user: String, count: Int) -> String
+	record(user: String, count: Int) -> String
+end
+
+pub fn accepted_local() -> String effects [LocalAudit]
+	perform LocalAudit::record("local", 1)
+end
+
+pub fn imported_effect(callback: fn(String) -> String effects [logging::Audit]) -> String effects [logging::Audit]
+	logging::imported_callback(callback)
+end
+
+pub fn missing_public() -> String
+	perform LocalAudit::record("missing", 2)
+end
+
+pub fn unknown_operation() -> String effects [LocalAudit]
+	perform LocalAudit::missing("unknown")
+end
+
+pub fn wrong_arguments() -> String effects [LocalAudit]
+	perform LocalAudit::record("wrong", "count")
+end
+
+pub fn wrong_result() -> Int effects [LocalAudit]
+	perform LocalAudit::record("result", 3)
+end
+
+pub fn unknown_function_type_effect(callback: fn() -> () effects [MissingAudit]) -> ()
+	()
+end

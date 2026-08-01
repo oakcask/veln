@@ -7,11 +7,12 @@ mod satisfy;
 pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
-    CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, IfBranch, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField,
-    PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
-    SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
+    Expr, ExprKind, Function, FunctionKind, IfBranch, MatchArm, ModuleHeader, NodeId, Param,
+    Pattern, PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField,
+    ResultBinding, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 #[cfg(test)]

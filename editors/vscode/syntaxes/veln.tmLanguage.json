@@ -75,7 +75,7 @@
       "patterns": [
         {
           "name": "keyword.control.veln",
-          "match": "\\b(pub|fn|type|schema|codec|for|decode|encode|derive|with|format|where|test|effects|let|end|require|ensure|invariant|mod|use|from|at|match|if|else|or|and|not|validate|satisfy|true|false)\\b"
+          "match": "\\b(pub|fn|type|schema|codec|for|decode|encode|derive|with|format|where|test|effect|effects|perform|let|end|require|ensure|invariant|mod|use|from|at|match|if|else|or|and|not|validate|satisfy|true|false)\\b"
         }
       ]
     },

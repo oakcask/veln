@@ -68,6 +68,7 @@ impl SurfaceParts {
                 module: None,
                 uses: Vec::new(),
                 aliases: Vec::new(),
+                effects: Vec::new(),
                 types: Vec::new(),
                 schemas: Vec::new(),
                 codecs: Vec::new(),
@@ -110,6 +111,7 @@ fn process_parsed_source(
     }
     parts.module.uses.extend(lowered.uses);
     parts.module.aliases.extend(lowered.aliases);
+    parts.module.effects.extend(lowered.effects);
     parts.module.types.extend(lowered.types);
     parts.module.schemas.extend(lowered.schemas);
     parts.module.codecs.extend(lowered.codecs);
@@ -324,6 +326,10 @@ fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {
         .module
         .aliases
         .extend(additions.module.aliases.clone());
+    parts
+        .module
+        .effects
+        .extend(additions.module.effects.clone());
     parts.module.types.extend(additions.module.types.clone());
     parts
         .module
@@ -1363,6 +1369,7 @@ fn module_with_reachable_functions(
         module: module.module.clone(),
         uses: module.uses.clone(),
         aliases: module.aliases.clone(),
+        effects: module.effects.clone(),
         types: module.types.clone(),
         schemas: module.schemas.clone(),
         codecs: module.codecs.clone(),
@@ -1694,6 +1701,18 @@ fn collect_function_callees(
                     callees,
                 );
             }
+            for arg in args {
+                collect_function_callees(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
+                    callees,
+                );
+            }
+        }
+        ExprKind::Perform { args, .. } => {
             for arg in args {
                 collect_function_callees(
                     arg,

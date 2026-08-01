@@ -502,7 +502,8 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .filter(|param| param.is_variadic)
             .count();
-        for param in &self.function.params {
+        let signature = self.environment.function_for(self.function);
+        for (index, param) in self.function.params.iter().enumerate() {
             let private_omitted_parameter = self.function.visibility == Visibility::Private
                 && self.function.kind == FunctionKind::Function
                 && parameter_annotation_is_omitted(param);
@@ -572,8 +573,9 @@ impl<'a> FunctionChecker<'a> {
             }
             self.bindings.push(Binding::new(
                 param.name.clone(),
-                inferred_private_param
-                    .filter(|ty| !type_contains_unknown(ty))
+                signature
+                    .and_then(|signature| signature.params.get(index).cloned())
+                    .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
                     .unwrap_or_else(|| {
                         ty.map_or(Type::Unknown, |expected| {
                             if param.is_variadic {
@@ -829,11 +831,20 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let empty_declared_effects = Vec::new();
-        let declared_effects = self
+        let raw_declared_effects = self
             .function
             .effects
             .as_ref()
             .unwrap_or(&empty_declared_effects);
+        let declared_effects = raw_declared_effects
+            .iter()
+            .map(|effect| {
+                self.environment
+                    .user_effect_by_label(effect, self.function.module_name.as_deref())
+                    .map(|effect| effect.qualified_name.clone())
+                    .unwrap_or_else(|| effect.clone())
+            })
+            .collect::<Vec<_>>();
 
         let mut inferred_effects = Vec::<String>::new();
         for effect_use in &self.inferred_effects {
@@ -873,7 +884,7 @@ impl<'a> FunctionChecker<'a> {
                     &self.function.span,
                     effect,
                     boundary,
-                    declared_effects,
+                    &declared_effects,
                     &inferred_effects,
                     &provenance,
                     matching_path_count > provenance.len(),
@@ -917,6 +928,11 @@ impl<'a> FunctionChecker<'a> {
             };
         }
         if trimmed.contains("stdio::") {
+            return ContractValidation::UnsupportedConstruct {
+                reason: "effectful_operation",
+            };
+        }
+        if trimmed.contains("perform ") {
             return ContractValidation::UnsupportedConstruct {
                 reason: "effectful_operation",
             };
@@ -1333,6 +1349,13 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Unit => Type::unit(),
             ExprKind::TypeApply { .. } => Type::Unknown,
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
+            ExprKind::Perform {
+                effect,
+                effect_span,
+                operation,
+                operation_span,
+                args,
+            } => self.infer_perform(expr, effect, effect_span, operation, operation_span, args),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -1369,6 +1392,71 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }
+    }
+
+    fn infer_perform(
+        &mut self,
+        expr: &Expr,
+        effect_path: &[String],
+        effect_span: &SourceSpan,
+        operation_name: &str,
+        operation_span: &SourceSpan,
+        args: &[Expr],
+    ) -> Type {
+        let Some(effect) = self
+            .environment
+            .user_effect_path(effect_path, self.function.module_name.as_deref())
+        else {
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            self.diagnostics.push(Diagnostic::new(
+                "effect.unknown",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!("performed effect `{}` is not known", effect_path.join("::")),
+                Some(effect_span.clone()),
+                effect_details(expr.node_id.display("expr"), "perform_expression"),
+            ));
+            return Type::Unknown;
+        };
+        let Some(operation) = effect
+            .operations
+            .iter()
+            .find(|operation| operation.name == operation_name)
+        else {
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            self.diagnostics.push(Diagnostic::new(
+                "effect.unknown_operation",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!(
+                    "effect `{}` has no operation `{operation_name}`",
+                    effect.qualified_name
+                ),
+                Some(operation_span.clone()),
+                effect_details(expr.node_id.display("expr"), "perform_expression"),
+            ));
+            return Type::Unknown;
+        };
+
+        let origin = CallOrigin {
+            node_id: operation.node_id,
+            span: operation.name_span.clone(),
+            symbol: format!("{}::{operation_name}", effect.qualified_name),
+            effects: vec![effect.qualified_name.clone()],
+        };
+        self.check_call_arguments(args, &operation.params, None, &origin);
+        self.inferred_effects.push(EffectUse {
+            effect: effect.qualified_name.clone(),
+            node_id: expr.node_id,
+            span: expr.span.clone(),
+            kind: "perform_expression",
+            symbol: origin.symbol,
+        });
+        operation.return_type.clone()
     }
 
     fn infer_schema_decode(

@@ -40,10 +40,29 @@ pub struct UsePackage {
 #[derive(Clone, Debug)]
 pub enum SyntaxItem {
     Function(FunctionDecl),
+    Effect(EffectDecl),
     Type(TypeDecl),
     Schema(SchemaDecl),
     Codec(CodecDecl),
     PublicAlias(PublicAliasDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub operations: Vec<EffectOperationDecl>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectOperationDecl {
+    pub name: Option<String>,
+    pub name_span: SourceSpan,
+    pub params: Vec<Param>,
+    pub return_type: Option<String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -177,7 +196,9 @@ pub struct FunctionDecl {
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
+    pub return_type_span: Option<SourceSpan>,
     pub effects: Option<Vec<String>>,
+    pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<ContractClause>,
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
@@ -200,6 +221,7 @@ pub enum Visibility {
 pub struct Param {
     pub name: String,
     pub ty: Option<String>,
+    pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }
@@ -263,6 +285,13 @@ pub enum ExprKind {
     },
     Call {
         callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Perform {
+        effect: Vec<String>,
+        effect_span: SourceSpan,
+        operation: String,
+        operation_span: SourceSpan,
         args: Vec<Expr>,
     },
     SchemaDecode {
