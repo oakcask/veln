@@ -130,6 +130,16 @@ enough.
   read-failure, and write-failure executable cases under
   `examples/specification/run/http2-connection-transport-handler-*/` pin
   those observations.
+- `http2::connection::drive_client` uses the same caller-owned
+  `transport::DuplexStream` boundary as the server driver. Through
+  `transport::net::net_stream`, it writes the client connection preface and
+  initial client SETTINGS before the first read, then reads until clean end or
+  a protocol failure. The driver does not connect, close, shut down, retry,
+  spawn, or convert host transport failures into `Http2ConnectionFailure`.
+  `examples/specification/run/http2-connection-client-initial-output/` and
+  `examples/specification/run/http2-connection-tcp-loopback-client/` pin the
+  initial write ordering, TCP loopback handler boundary, and client
+  closed-entry no-effect boundary.
 
 ## Binary Schemas
 

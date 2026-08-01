@@ -1,0 +1,56 @@
+use http2::connection from "std"
+use http2::core from "std"
+use transport::net from "std"
+use stdio
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+fn run_client(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
+	handle http2::connection::drive_client(state) with transport::net::net_stream(stream)
+end
+
+fn print_result(label: String, result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	match result
+		Ok(state) => print_success(state)
+		Err(failure) => print_failure(failure)
+	end
+end
+
+fn print_success(state: CoreConnectionState) -> Result<(), String> effects [stdio]
+	stdio::print(http2::core::connection_state_endpoint_role(state))
+	stdio::print(" ")
+	stdio::print(http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+	Ok(())
+end
+
+fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects [stdio]
+	stdio::print(http2::connection::connection_failure_kind(failure))
+	stdio::print(" ")
+	stdio::println(http2::connection::connection_failure_id(failure))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let open_stream: NetStream = accept_next(listener)?
+	let open_state: CoreConnectionState = http2::core::client_connection_state(0)?
+	let open_result = run_client(open_stream, open_state)
+	let _ = print_result("open", open_result)?
+	net::close_stream(open_stream)
+	let closed_stream: NetStream = accept_next(listener)?
+	let base: CoreConnectionState = http2::core::client_connection_state(0)?
+	let closed_state: CoreConnectionState = http2::core::connection_state_with_lifecycle(base, http2::core::connection_lifecycle_closed(0, 0))
+	let closed_result = run_client(closed_stream, closed_state)
+	let _ = print_result("closed", closed_result)?
+	net::close_stream(closed_stream)
+	Ok(())
+end

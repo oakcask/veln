@@ -322,6 +322,10 @@ pub fn empty_output_buffer() -> CoreOutputBuffer
 	http2::core::output_buffer::empty()
 end
 
+fn output_buffer_append_chunk(output: CoreOutputBuffer, chunk: ByteChunk) -> CoreOutputBuffer
+	http2::core::output_buffer::append_chunk(output, chunk)
+end
+
 pub fn output_buffer_count(output: CoreOutputBuffer) -> Int
 	http2::core::output_buffer::count(output)
 end

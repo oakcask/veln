@@ -17,12 +17,40 @@ pub fn drive_server(state: CoreConnectionState) -> Result<CoreConnectionState, H
 	end
 end
 
+pub fn drive_client(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
+		Ok(state)
+	else
+		start_client(state)
+	end
+end
+
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0)
 		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
 		_ => Err(Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision)))
+	end
+end
+
+fn start_client(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "client", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), client_initial_output(decision)?), 0)
+		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
+		_ => Err(Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision)))
+	end
+end
+
+fn client_initial_output(decision: LocalSettingsSendDecision) -> Result<CoreOutputBuffer, Http2ConnectionFailure>
+	Ok(http2::core::output_buffer_append_local_settings(http2::core::output_buffer_append_chunk(http2::core::empty_output_buffer(), client_preface_bytes()?), decision))
+end
+
+fn client_preface_bytes() -> Result<ByteChunk, Http2ConnectionFailure>
+	match byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")
+		Ok(chunk) => Ok(chunk)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
 	end
 end
 
