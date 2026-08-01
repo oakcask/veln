@@ -5,4 +5,4 @@ exit = 1
 format = "empty"
 
 [stderr]
-contains = ["runnable entry retains user-defined effect `Audit`"]
+contains = ["runnable entry retains user-defined effect `main::Audit`"]

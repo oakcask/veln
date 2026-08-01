@@ -170,14 +170,17 @@ fn lower_run_entry(
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
     let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
     let lowered = reachable.lowered;
-    if let Some(diagnostic) =
-        retained_user_effect_diagnostic(&reachable.module, entry, FunctionKind::Function)
-    {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
-        return Ok(None);
-    }
     if has_error(&lowered.diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        return Ok(None);
+    }
+    if let Some(diagnostic) = retained_user_effect_diagnostic(
+        &reachable.module,
+        lowered.core.as_ref(),
+        entry,
+        FunctionKind::Function,
+    ) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
@@ -201,6 +204,7 @@ const HOST_EFFECT_LABELS: &[&str] = &[
 
 fn retained_user_effect_diagnostic(
     module: &veln_ast::SurfaceModule,
+    core: Option<&veln_core::CheckedProgram>,
     entry: &str,
     kind: FunctionKind,
 ) -> Option<Diagnostic> {
@@ -208,9 +212,14 @@ fn retained_user_effect_diagnostic(
         .functions
         .iter()
         .find(|function| function.kind == kind && function.name.as_deref() == Some(entry))?;
-    let effect = function
-        .effects
-        .as_ref()?
+    let effects = core
+        .and_then(|core| {
+            core.functions
+                .iter()
+                .find(|core_function| core_function.node_id == function.node_id)
+        })
+        .map(|core_function| &core_function.effects)?;
+    let effect = effects
         .iter()
         .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
     Some(Diagnostic::new(

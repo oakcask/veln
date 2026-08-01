@@ -110,7 +110,7 @@ Implemented effect labels are:
 
 Function and test `effects [...]` declarations may name these labels. A
 declaration that names any other effect reports `effect.unknown` at the
-function or test declaration. The checker currently infers `stdio`, `fs`,
+unknown effect label. The checker currently infers `stdio`, `fs`,
 `net`, `time`, `process`, and `concurrency` from compiler-known calls. The
 other labels are reserved coarse-grained public boundary labels for source
 compatibility.
@@ -130,12 +130,15 @@ types against the declared operation parameter types. The expression type is
 the declared operation result type. The expression contributes the nominal
 effect to the containing function's inferred effect set. Public functions must
 declare that effect. Private functions use the existing private effect
-inference rule. Duplicate operation declarations are duplicate-name
-diagnostics. An unknown operation is reported at the operation name span.
-Runnable `veln run` and `veln test` entry boundaries reject a retained
-user-defined effect before JVM execution. Exported library functions may
-retain user-defined effects in their signatures. The checked behavior is
-specified by `examples/specification/check/user-effect-operation-boundaries/`,
+inference rule. Duplicate operation declarations are reported at the duplicate
+operation name span and include the first declaration as related context. An
+unknown operation is reported at the operation name span. An unknown performed
+effect is reported at the performed effect path. Runnable `veln run` and
+`veln test` entry boundaries reject a retained user-defined effect before JVM
+execution, including effects inferred for a private run entry. Exported
+library functions may retain user-defined effects in their signatures. The
+checked behavior is specified by
+`examples/specification/check/user-effect-operation-boundaries/`,
 `examples/specification/run/user-effect-runnable-boundary/`, and
 `examples/specification/test/user-effect-test-boundary/`.
 

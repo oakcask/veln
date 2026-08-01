@@ -82,7 +82,7 @@ pub(crate) struct EffectOperationSignature {
     pub(crate) params: Vec<Type>,
     pub(crate) return_type: Type,
     pub(crate) node_id: NodeId,
-    pub(crate) span: SourceSpan,
+    pub(crate) name_span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -700,7 +700,7 @@ fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> {
                                 .collect(),
                             return_type: parse_type_or_unknown(operation.return_type.as_deref()),
                             node_id: operation.node_id,
-                            span: operation.span.clone(),
+                            name_span: operation.name_span.clone(),
                         })
                     })
                     .collect(),

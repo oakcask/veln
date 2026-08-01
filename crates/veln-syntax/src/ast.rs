@@ -59,6 +59,7 @@ pub struct EffectDecl {
 #[derive(Clone, Debug)]
 pub struct EffectOperationDecl {
     pub name: Option<String>,
+    pub name_span: SourceSpan,
     pub params: Vec<Param>,
     pub return_type: Option<String>,
     pub span: SourceSpan,
@@ -196,6 +197,7 @@ pub struct FunctionDecl {
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
     pub effects: Option<Vec<String>>,
+    pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<ContractClause>,
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
@@ -285,6 +287,7 @@ pub enum ExprKind {
     },
     Perform {
         effect: Vec<String>,
+        effect_span: SourceSpan,
         operation: String,
         operation_span: SourceSpan,
         args: Vec<Expr>,

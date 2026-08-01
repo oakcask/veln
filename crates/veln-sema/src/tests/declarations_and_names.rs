@@ -87,6 +87,78 @@ fn nominal_effect_unknown_operation_reports_operation_span() {
 }
 
 #[test]
+fn nominal_effect_unknown_perform_reports_effect_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> String effects [MissingAudit]\n",
+            "  perform MissingAudit::record(\"user\")\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "effect.unknown"
+                && diagnostic.message == "performed effect `MissingAudit` is not known"
+        })
+        .unwrap_or_else(|| panic!("expected performed unknown effect: {diagnostics:#?}"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 2);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 11);
+    assert_eq!(diagnostic.span.as_ref().unwrap().end.column, 23);
+}
+
+#[test]
+fn unknown_declared_effect_reports_effect_label_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        "pub fn main() -> () effects [stdio, telepathy]\n  ()\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.unknown");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.line, 1);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 37);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().end.column, 46);
+}
+
+#[test]
+fn duplicate_effect_operation_reports_operation_name_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> String\n",
+            "  record(user: String) -> String\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.line, 3);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 3);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().end.column, 9);
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0].related[0]
+            .to_json()
+            .contains("\"kind\":\"duplicate_origin\"")
+    );
+}
+
+#[test]
 fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
     let source = SourceFile::new("main.veln", "fn answer()\n  1\nend\n");
     let parsed = parse(&source);

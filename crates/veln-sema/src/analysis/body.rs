@@ -932,6 +932,11 @@ impl<'a> FunctionChecker<'a> {
                 reason: "effectful_operation",
             };
         }
+        if trimmed.contains("perform ") {
+            return ContractValidation::UnsupportedConstruct {
+                reason: "effectful_operation",
+            };
+        }
         let calls = contract_calls(trimmed)
             .into_iter()
             .filter(|call| !is_contract_keyword(&call.callee))
@@ -1346,10 +1351,11 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
             ExprKind::Perform {
                 effect,
+                effect_span,
                 operation,
                 operation_span,
                 args,
-            } => self.infer_perform(expr, effect, operation, operation_span, args),
+            } => self.infer_perform(expr, effect, effect_span, operation, operation_span, args),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -1392,6 +1398,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         expr: &Expr,
         effect_path: &[String],
+        effect_span: &SourceSpan,
         operation_name: &str,
         operation_span: &SourceSpan,
         args: &[Expr],
@@ -1408,7 +1415,7 @@ impl<'a> FunctionChecker<'a> {
                 Severity::Error,
                 DiagnosticKind::Effect,
                 format!("performed effect `{}` is not known", effect_path.join("::")),
-                Some(expr.span.clone()),
+                Some(effect_span.clone()),
                 effect_details(expr.node_id.display("expr"), "perform_expression"),
             ));
             return Type::Unknown;
@@ -1437,7 +1444,7 @@ impl<'a> FunctionChecker<'a> {
 
         let origin = CallOrigin {
             node_id: operation.node_id,
-            span: operation.span.clone(),
+            span: operation.name_span.clone(),
             symbol: format!("{}::{operation_name}", effect.qualified_name),
             effects: vec![effect.qualified_name.clone()],
         };

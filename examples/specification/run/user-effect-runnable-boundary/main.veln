@@ -2,6 +2,6 @@ effect Audit
 	record(value: String) -> String
 end
 
-pub fn main() -> String effects [Audit]
+fn main() -> String
 	perform Audit::record("run")
 end

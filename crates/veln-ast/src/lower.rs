@@ -275,6 +275,7 @@ impl AstBuilder {
         EffectOperationDecl {
             node_id: self.alloc(),
             name: operation.name.clone(),
+            name_span: operation.name_span.clone(),
             params: operation
                 .params
                 .iter()
@@ -418,6 +419,7 @@ impl AstBuilder {
                 }),
             return_type: function.return_type.clone(),
             effects: function.effects.clone(),
+            effect_spans: function.effect_spans.clone(),
             contracts: function
                 .contracts
                 .iter()
@@ -513,11 +515,13 @@ impl AstBuilder {
             }),
             SyntaxExprKind::Perform {
                 effect,
+                effect_span,
                 operation,
                 operation_span,
                 args,
             } => Some(ExprKind::Perform {
                 effect: effect.clone(),
+                effect_span: effect_span.clone(),
                 operation: operation.clone(),
                 operation_span: operation_span.clone(),
                 args: self.lower_exprs(args),

@@ -94,13 +94,16 @@ pub(crate) fn check_declared_effect_labels(
 
     declared_effects
         .iter()
-        .filter(|effect| {
+        .enumerate()
+        .filter(|(_, effect)| {
             !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
                 && environment
                     .user_effect_by_label(effect, function.module_name.as_deref())
                     .is_none()
         })
-        .map(|effect| unknown_declared_effect_diagnostic(function, effect, node_prefix, boundary))
+        .map(|(index, effect)| {
+            unknown_declared_effect_diagnostic(function, effect, index, node_prefix, boundary)
+        })
         .collect()
 }
 
@@ -151,6 +154,7 @@ fn empty_declared_effect_diagnostic(
 fn unknown_declared_effect_diagnostic(
     function: &Function,
     effect: &str,
+    effect_index: usize,
     node_prefix: &'static str,
     boundary: &'static str,
 ) -> Diagnostic {
@@ -163,7 +167,12 @@ fn unknown_declared_effect_diagnostic(
         Severity::Error,
         DiagnosticKind::Effect,
         format!("declared effect `{effect}` is not known"),
-        Some(function.span.clone()),
+        function
+            .effect_spans
+            .as_ref()
+            .and_then(|spans| spans.get(effect_index))
+            .cloned()
+            .or_else(|| Some(function.span.clone())),
         JsonValue::object([
             ("phase", JsonValue::string("effect")),
             (
@@ -332,14 +341,14 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
                     "operation",
                     "effect operation declaration",
                     operation_node_id,
-                    operation.span.clone(),
+                    operation.name_span.clone(),
                     first_node_id.clone(),
                     first_span,
                 ));
             } else {
                 operations.insert(
                     operation_name.clone(),
-                    (operation_node_id, operation.span.clone()),
+                    (operation_node_id, operation.name_span.clone()),
                 );
             }
         }

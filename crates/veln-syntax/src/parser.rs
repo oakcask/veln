@@ -113,6 +113,7 @@ struct FunctionReturn {
     binding: Option<crate::ResultBinding>,
     ty: Option<String>,
     effects: Option<Vec<String>>,
+    effect_spans: Option<Vec<SourceSpan>>,
 }
 
 fn integer_literal_diagnostics(source: &SourceFile, tokens: &[Token]) -> Vec<ParseDiagnostic> {
@@ -500,6 +501,7 @@ impl<'a> Parser<'a> {
 
     fn parse_effect_operation_decl(&mut self) -> EffectOperationDecl {
         let start = self.current().range;
+        let name_span = self.source.span(start);
         let name = self.expect_ident("effect_operation", "operation name");
         self.expect(TokenKind::LParen, "effect_operation", vec!["("]);
         let params = self.parse_params();
@@ -523,6 +525,7 @@ impl<'a> Parser<'a> {
         let end = self.expect_newline("effect_operation").range;
         EffectOperationDecl {
             name,
+            name_span,
             params,
             return_type,
             span: self.source.span(start.cover(end)),
@@ -1028,6 +1031,7 @@ impl<'a> Parser<'a> {
             return_binding: return_decl.binding,
             return_type: return_decl.ty,
             effects: return_decl.effects,
+            effect_spans: return_decl.effect_spans,
             contracts,
             body,
             span: self.source.span(start.cover(end)),
@@ -1093,15 +1097,18 @@ impl<'a> Parser<'a> {
         } else {
             (None, None)
         };
-        let effects = if self.eat(TokenKind::Effects).is_some() {
-            Some(self.parse_effect_list())
+        let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
+            let labels = self.parse_effect_list();
+            let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
+            (Some(effects), Some(spans))
         } else {
-            None
+            (None, None)
         };
         FunctionReturn {
             binding,
             ty,
             effects,
+            effect_spans,
         }
     }
 
@@ -1206,13 +1213,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_effect_list(&mut self) -> Vec<String> {
+    fn parse_effect_list(&mut self) -> Vec<(String, SourceSpan)> {
         self.expect(TokenKind::LBracket, "effect_declaration", vec!["["]);
         let mut effects = Vec::new();
         while !self.at(TokenKind::RBracket) && !self.at(TokenKind::Eof) {
+            let start = self.current().range;
             let effect = self.parse_name_path_segments("effect_declaration", "effect name");
             if !effect.is_empty() {
-                effects.push(effect.join("::"));
+                let end = self.previous().map_or(start, |token| token.range);
+                effects.push((effect.join("::"), self.source.span(start.cover(end))));
             }
             if self.eat(TokenKind::Comma).is_none() {
                 break;
@@ -2354,6 +2363,7 @@ impl<'a> ExprParser<'a> {
     fn parse_perform_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
         self.bump();
+        let effect_start = self.current().range;
         let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
         if path.len() < 2 {
             self.error_current(
@@ -2365,6 +2375,14 @@ impl<'a> ExprParser<'a> {
             );
         }
         let operation = path.pop().unwrap_or_default();
+        let effect_end = if path.is_empty() {
+            effect_start
+        } else {
+            self.tokens
+                .get(self.cursor.saturating_sub(3))
+                .map_or(effect_start, |token| token.range)
+        };
+        let effect_span = self.source.span(effect_start.cover(effect_end));
         let operation_span = self
             .previous()
             .map(|token| self.source.span(token.range))
@@ -2399,6 +2417,7 @@ impl<'a> ExprParser<'a> {
             span: self.source.span(start.cover(end)),
             kind: ExprKind::Perform {
                 effect: path,
+                effect_span,
                 operation,
                 operation_span,
                 args,
@@ -3435,6 +3454,9 @@ impl<'a> ContractPredicateParser<'a> {
             TokenKind::String | TokenKind::Int | TokenKind::Float | TokenKind::Ident => {
                 self.parse_name_path_or_literal();
             }
+            TokenKind::Perform => {
+                self.parse_perform_contract_primary();
+            }
             TokenKind::MalformedInt => {
                 self.bump();
             }
@@ -3534,6 +3556,14 @@ impl<'a> ContractPredicateParser<'a> {
                 );
                 break;
             }
+        }
+    }
+
+    fn parse_perform_contract_primary(&mut self) {
+        self.bump();
+        self.parse_name_path_or_literal();
+        if self.at(TokenKind::LParen) {
+            self.parse_call_args();
         }
     }
 

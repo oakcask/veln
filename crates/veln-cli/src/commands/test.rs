@@ -850,19 +850,28 @@ fn prepare_test_case_job(
         .then(|| analysis.lower_reachable_entry(&case.name, FunctionKind::Test));
     let (module, ir) = match &reachable {
         Some(reachable) => {
+            if !reachable.lowered.diagnostics.is_empty() {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = reachable.lowered.diagnostics.clone();
+                return TestCaseJob::Completed(Box::new(case));
+            };
+            if let Some(diagnostic) = retained_user_effect_diagnostic(
+                &reachable.module,
+                reachable.lowered.core.as_ref(),
+                &case.name,
+            ) {
+                case.status = TestCaseStatus::Blocked;
+                case.reason = Some("static_gate".to_string());
+                case.diagnostics = vec![diagnostic];
+                return TestCaseJob::Completed(Box::new(case));
+            }
             let Some(ir) = &reachable.lowered.ir else {
                 case.status = TestCaseStatus::Blocked;
                 case.reason = Some("static_gate".to_string());
                 case.diagnostics = reachable.lowered.diagnostics.clone();
                 return TestCaseJob::Completed(Box::new(case));
             };
-            if let Some(diagnostic) = retained_user_effect_diagnostic(&reachable.module, &case.name)
-            {
-                case.status = TestCaseStatus::Blocked;
-                case.reason = Some("static_gate".to_string());
-                case.diagnostics = vec![diagnostic];
-                return TestCaseJob::Completed(Box::new(case));
-            }
             (&reachable.module, ir)
         }
         None => (
@@ -898,13 +907,22 @@ const HOST_EFFECT_LABELS: &[&str] = &[
     "concurrency",
 ];
 
-fn retained_user_effect_diagnostic(module: &SurfaceModule, test_name: &str) -> Option<Diagnostic> {
+fn retained_user_effect_diagnostic(
+    module: &SurfaceModule,
+    core: Option<&veln_core::CheckedProgram>,
+    test_name: &str,
+) -> Option<Diagnostic> {
     let function = module.functions.iter().find(|function| {
         function.kind == FunctionKind::Test && function.name.as_deref() == Some(test_name)
     })?;
-    let effect = function
-        .effects
-        .as_ref()?
+    let effects = core
+        .and_then(|core| {
+            core.functions
+                .iter()
+                .find(|core_function| core_function.node_id == function.node_id)
+        })
+        .map(|core_function| &core_function.effects)?;
+    let effect = effects
         .iter()
         .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
     Some(Diagnostic::new(
