@@ -1013,7 +1013,7 @@ fn check_human_reports_unknown_effect_label_hint_as_note() {
     assert_eq!(
         stdout(&output),
         concat!(
-            "main.veln:1:1: error[effect.unknown]: declared effect `telepathy` is not known\n",
+            "main.veln:1:30: error[effect.unknown]: declared effect `telepathy` is not known\n",
             "  note: Use a known effect label or remove the declaration.\n",
         ),
     );
@@ -1454,7 +1454,7 @@ fn check_json_reports_recovery_with_required_details() {
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":1,\"column\":8,\"offset\":7}}",
             "\"details\":{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"module\"",
             "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"garbage\"}",
-            "\"expected\":[\"pub\",\"fn\",\"test\",\"type\",\"schema\"]",
+            "\"expected\":[\"pub\",\"fn\",\"test\",\"type\",\"effect\",\"schema\"]",
             "\"recovery\":{\"strategy\":\"synchronize_to_anchor\",\"anchor\":\"fn\",\"dropped_token_count\":2}",
         ],
     );

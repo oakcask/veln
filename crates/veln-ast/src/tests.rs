@@ -81,6 +81,11 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
             }
         }
         ExprKind::TypeApply { callee, .. } => collect_expr_node_ids(callee, ids),
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_expr_node_ids(arg, ids);
+            }
+        }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_expr_node_ids(input, ids);
             collect_expr_node_ids(base, ids);
@@ -327,6 +332,58 @@ fn lowers_schema_operations_without_codec_items() {
         &expr_line(&module.functions[1], 0).kind,
         ExprKind::SchemaEncode { schema, .. } if schema == &vec!["Http2FrameHeader".to_string()]
     ));
+}
+
+#[test]
+fn lowers_effect_declarations_and_perform_expressions() {
+    let module = lower_source(concat!(
+        "mod app.audit\n",
+        "pub effect Audit\n",
+        "  record(user: String, count: Int) -> String\n",
+        "  flush() -> ()\n",
+        "end\n",
+        "\n",
+        "pub fn record_once() -> String effects [Audit]\n",
+        "  perform Audit::record(\"user\", 1)\n",
+        "end\n",
+    ));
+
+    assert_eq!(module.effects.len(), 1);
+    let effect = &module.effects[0];
+    assert_eq!(effect.node_id.display("effect"), "effect-2");
+    assert_eq!(effect.module_name.as_deref(), Some("app.audit"));
+    assert_eq!(effect.visibility, Visibility::Public);
+    assert_eq!(effect.name.as_deref(), Some("Audit"));
+    assert_eq!(effect.operations.len(), 2);
+    assert_eq!(
+        effect.operations[0].node_id.display("effect_operation"),
+        "effect_operation-3"
+    );
+    assert_eq!(effect.operations[0].name.as_deref(), Some("record"));
+    assert_eq!(effect.operations[0].params.len(), 2);
+    assert_eq!(effect.operations[0].params[0].name, "user");
+    assert_eq!(effect.operations[0].params[0].ty.as_deref(), Some("String"));
+    assert_eq!(effect.operations[0].params[1].name, "count");
+    assert_eq!(effect.operations[0].params[1].ty.as_deref(), Some("Int"));
+    assert_eq!(effect.operations[0].return_type.as_deref(), Some("String"));
+    assert_eq!(effect.operations[1].name.as_deref(), Some("flush"));
+    assert_eq!(effect.operations[1].return_type.as_deref(), Some("()"));
+
+    let function = &module.functions[0];
+    let ExprKind::Perform {
+        effect,
+        operation,
+        args,
+        ..
+    } = &expr_line(function, 0).kind
+    else {
+        panic!("expected perform expression");
+    };
+    assert_eq!(effect, &vec!["Audit".to_string()]);
+    assert_eq!(operation, "record");
+    assert_eq!(args.len(), 2);
+    assert!(matches!(&args[0].kind, ExprKind::StringLiteral(value) if value == "\"user\""));
+    assert!(matches!(&args[1].kind, ExprKind::IntLiteral(value) if value == "1"));
 }
 
 #[test]

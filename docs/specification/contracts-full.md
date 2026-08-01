@@ -9,7 +9,9 @@ syntax, plain or qualified call syntax, prefix operators, arithmetic operators,
 comparisons, equality, and boolean operators.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
-contract predicates. Unsupported contract syntax in `require`, `ensure`, or
+contract predicates. It accepts `perform Effect::operation(arguments)` as
+contract predicate syntax so the checker can reject it under the effect-free
+validation rule. Unsupported contract syntax in `require`, `ensure`, or
 `invariant` reports `parse.contract_predicate`; unsupported syntax in a hole
 `satisfy` predicate reports `parse.satisfy_predicate`.
 
@@ -48,8 +50,8 @@ Names, call-looking text, and field-looking text inside string literals are
 literal text and do not participate in predicate name resolution, function-call
 discovery, or field validation.
 
-Contract predicates containing `stdio::`, effectful function calls,
-unsupported call targets, empty predicates, missing record fields,
+Contract predicates containing `stdio::`, `perform` expressions, effectful
+function calls, unsupported call targets, empty predicates, missing record fields,
 type-incompatible call arguments, non-boolean predicates, or unresolved names
 produce diagnostics. Valid contracts are recorded and may contribute hole
 repair constraints.

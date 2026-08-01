@@ -113,6 +113,39 @@ fn nominal_effect_unknown_perform_reports_effect_span() {
 }
 
 #[test]
+fn nominal_effect_missing_public_reports_perform_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "  record(user: String) -> String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String\n",
+            "  perform Audit::record(\"user\")\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.missing_public")
+        .unwrap_or_else(|| panic!("expected missing public effect: {diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "public function uses undeclared effect `Audit`"
+    );
+    assert_eq!(diagnostic.related.len(), 1);
+    let related = diagnostic.related[0].to_json();
+    assert!(related.contains("\"kind\":\"effect_provenance\""));
+    assert!(related.contains("Call to `Audit::record` requires this effect."));
+    assert!(related.contains("\"start\":{\"line\":6,\"column\":3,"));
+}
+
+#[test]
 fn unknown_declared_effect_reports_effect_label_span() {
     let source = SourceFile::new(
         "main.veln",
