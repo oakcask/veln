@@ -58,11 +58,14 @@ The executable specification covers the externally visible behavior:
 | `check/lexical-handler-effect-replacement` | Handling removes the nominal effect and retains handler effects. |
 | `check/lexical-handler-private-effect-inference` | A private handler retains effects inferred from its providers. |
 | `check/handler-operation-signatures` | Missing, duplicate, unknown, mismatched, and recursive providers are rejected with handler-specific related context. |
+| `check/handler-operation-signatures-human` | Handler-specific related context is rendered in human diagnostics. |
 | `run/lexical-handler-nesting` | Inner handlers shadow outer handlers only during the inner body. |
 | `run/lexical-handler-repeated-operations` | A deep handler supplies repeated operations in evaluation order. |
 | `run/lexical-handler-context-evaluation` | Context arguments evaluate once before the handled body. |
+| `run/lexical-handler-early-return-cleanup` | An inner handler is removed when `?` returns early from the function that installed it. |
 | `run/lexical-handler-unhandled-entry` | Runnable entry boundaries reject retained user-defined effects. |
 | `check/lexical-handler-task-boundary` | Spawned jobs do not inherit an installed handler. |
+| `test/lexical-handler-success` | `veln test` runs a test whose retained operation effect is fully handled. |
 
 The source grammar and accepted surface fixture are checked by
 `../../specification/source-surface-executable.pl` and

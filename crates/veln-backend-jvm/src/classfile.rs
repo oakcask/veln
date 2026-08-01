@@ -520,6 +520,7 @@ struct FunctionBytecodeEmitter<'a, 'program> {
     next_local: u16,
     max_local: u16,
     tail_loop_start: Option<usize>,
+    active_handler_frames: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -550,6 +551,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             next_local: function.params.len() as u16,
             max_local: function.params.len() as u16,
             tail_loop_start: None,
+            active_handler_frames: 0,
         }
     }
 
@@ -1015,16 +1017,45 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "(Ljava/lang/String;[Ljava/lang/Object;[Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
         );
         code.op(0x57);
+        let try_start = code.mark();
+        self.active_handler_frames += 1;
         self.emit_expr(code, body);
+        self.active_handler_frames -= 1;
+        let try_end = code.mark();
         let result_slot = self.alloc_local();
         code.astore(result_slot);
+        self.emit_pop_handler(code);
+        let done = code.new_label();
+        code.branch_to(0xa7, done);
+        let handler_pc = code.mark();
+        let throwable_slot = self.alloc_local();
+        code.astore(throwable_slot);
+        self.emit_pop_handler(code);
+        code.aload(throwable_slot);
+        code.op(0xbf);
+        code.exceptions.push(ExceptionHandler {
+            start_pc: try_start,
+            end_pc: try_end,
+            handler_pc,
+            catch_type: "java/lang/Throwable".to_string(),
+        });
+        code.bind(done);
+        code.aload(result_slot);
+    }
+
+    fn emit_pop_handler(&mut self, code: &mut MethodCode) {
         code.invokestatic(
             &self.program.options.runtime_class,
             "popHandler",
             "()Ljava/lang/Object;",
         );
         code.op(0x57);
-        code.aload(result_slot);
+    }
+
+    fn emit_active_handler_cleanup(&mut self, code: &mut MethodCode) {
+        for _ in 0..self.active_handler_frames {
+            self.emit_pop_handler(code);
+        }
     }
 
     fn emit_schema_decode_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
@@ -1914,6 +1945,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let ok = code.branch(0x99);
         self.emit_ensure_checks_for_result(code, temp);
         code.aload(temp);
+        self.emit_active_handler_cleanup(code);
         code.op(0xb0);
         code.bind(ok);
         code.aload(temp);

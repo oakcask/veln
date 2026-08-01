@@ -166,7 +166,8 @@ spawns require their callback effect boundary explicitly and do not inherit
 the active handler stack. A runnable entry still rejects any user-defined
 effect that remains after lexical handling. The checked behavior is specified
 by the lexical-handler and handler-operation cases under
-`examples/specification/`.
+`examples/specification/`, including the early-return cleanup and
+`veln test` success cases.
 
 ## Compiler-Known Descriptor Table
 

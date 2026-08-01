@@ -215,8 +215,7 @@ impl TypeEnvironment {
         functions.extend(schema_decode_function_signatures(module));
         functions.extend(schema_encode_function_signatures(module));
         functions.extend(schema_validate_function_signatures(module));
-        infer_function_body_effects(module, &mut functions, &effects, &handlers);
-        infer_private_handler_effects(&mut handlers, &functions, &module.uses);
+        infer_function_and_private_handler_effects(module, &mut functions, &effects, &mut handlers);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
@@ -833,6 +832,50 @@ fn infer_private_handler_effects(
             }
         }
         handler.effects = inferred;
+    }
+}
+
+fn infer_function_and_private_handler_effects(
+    module: &SurfaceModule,
+    functions: &mut [FunctionSignature],
+    user_effects: &[EffectSignature],
+    handlers: &mut [HandlerSignature],
+) {
+    let mut changed = true;
+    while changed {
+        let function_effects_before = functions
+            .iter()
+            .map(|function| {
+                (
+                    (function.module_name.clone(), function.name.clone()),
+                    function.effects.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let handler_effects_before = handlers
+            .iter()
+            .map(|handler| (handler.qualified_name.clone(), handler.effects.clone()))
+            .collect::<Vec<_>>();
+
+        infer_function_body_effects(module, functions, user_effects, handlers);
+        infer_private_handler_effects(handlers, functions, &module.uses);
+
+        let function_effects_after = functions
+            .iter()
+            .map(|function| {
+                (
+                    (function.module_name.clone(), function.name.clone()),
+                    function.effects.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let handler_effects_after = handlers
+            .iter()
+            .map(|handler| (handler.qualified_name.clone(), handler.effects.clone()))
+            .collect::<Vec<_>>();
+
+        changed = function_effects_before != function_effects_after
+            || handler_effects_before != handler_effects_after;
     }
 }
 
