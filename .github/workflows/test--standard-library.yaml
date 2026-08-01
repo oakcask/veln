@@ -1,0 +1,39 @@
+name: test / standard library
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test--standard-library.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+      - crates/veln-stdlib/veln/**
+      - scripts/agent-run
+      - scripts/agent-stdlib-test
+  pull_request:
+    paths:
+      - .github/workflows/test--standard-library.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+      - crates/veln-stdlib/veln/**
+      - scripts/agent-run
+      - scripts/agent-stdlib-test
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Run Veln standard library tests
+        run: bash scripts/agent-stdlib-test
