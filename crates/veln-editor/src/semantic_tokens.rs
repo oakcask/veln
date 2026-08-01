@@ -513,7 +513,9 @@ impl<'a> Classifier<'a> {
             | TokenKind::Format
             | TokenKind::Where
             | TokenKind::Test
+            | TokenKind::Effect
             | TokenKind::Effects
+            | TokenKind::Perform
             | TokenKind::Let
             | TokenKind::End
             | TokenKind::Require

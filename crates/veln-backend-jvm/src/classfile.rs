@@ -713,6 +713,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             }
             IrExprKind::Call { target, args } => self.emit_call(code, expr, target, args),
             IrExprKind::FieldAccess { base, field } => self.emit_field_access(code, base, field),
+            IrExprKind::Perform {
+                effect, operation, ..
+            } => {
+                panic!("unhandled perform expression reached JVM backend: {effect}::{operation}")
+            }
             IrExprKind::Try(value) => self.emit_try(code, value),
             IrExprKind::Record(fields) => self.emit_record(code, fields),
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),
@@ -2518,6 +2523,11 @@ fn scan_expr_tail_recursion(
             scan_expr_tail_recursion(scrutinee, function, false, facts);
             for arm in arms {
                 scan_expr_tail_recursion(&arm.value, function, tail_position, facts);
+            }
+        }
+        IrExprKind::Perform { args, .. } => {
+            for arg in args {
+                scan_expr_tail_recursion(arg, function, false, facts);
             }
         }
         IrExprKind::ResultOk(value)

@@ -4,7 +4,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    check_declared_effect_labels, check_duplicate_constructor_names,
+    check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
     check_duplicate_use_aliases, check_function_body, check_module_boundary, check_public_aliases,
     check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
@@ -51,6 +51,7 @@ fn analyze_surface_module_with_environment(
 
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
+    diagnostics.extend(check_duplicate_effect_names(module));
     diagnostics.extend(check_duplicate_schema_names(module));
     diagnostics.extend(check_duplicate_constructor_names(module));
     diagnostics.extend(check_module_boundary(module));
@@ -69,7 +70,7 @@ fn analyze_surface_module_with_environment(
         {
             continue;
         }
-        diagnostics.extend(check_declared_effect_labels(function));
+        diagnostics.extend(check_declared_effect_labels(function, environment));
         if function.visibility == Visibility::Public {
             diagnostics.extend(check_public_function_boundary(function));
         }

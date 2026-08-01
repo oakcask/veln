@@ -115,6 +115,30 @@ function or test declaration. The checker currently infers `stdio`, `fs`,
 other labels are reserved coarse-grained public boundary labels for source
 compatibility.
 
+Source modules may also declare nominal operation effects with `effect Name`
+or `pub effect Name`. Each operation declares ordinary parameter types and one
+result type. The effect name is owned by its module. Same-module declarations
+may use the short name in `effects [...]` lists and `perform` expressions.
+Imported declarations use the written module path, such as
+`effects [transport::DuplexStream]` and
+`perform transport::DuplexStream::read_chunk()`. Function type annotations use
+the same effect-list spelling.
+
+`perform E::operation(arguments)` resolves `E` as a nominal effect and resolves
+`operation` in that effect declaration. The checker validates the argument
+types against the declared operation parameter types. The expression type is
+the declared operation result type. The expression contributes the nominal
+effect to the containing function's inferred effect set. Public functions must
+declare that effect. Private functions use the existing private effect
+inference rule. Duplicate operation declarations are duplicate-name
+diagnostics. An unknown operation is reported at the operation name span.
+Runnable `veln run` and `veln test` entry boundaries reject a retained
+user-defined effect before JVM execution. Exported library functions may
+retain user-defined effects in their signatures. The checked behavior is
+specified by `examples/specification/check/user-effect-operation-boundaries/`,
+`examples/specification/run/user-effect-runnable-boundary/`, and
+`examples/specification/test/user-effect-test-boundary/`.
+
 ## Compiler-Known Descriptor Table
 
 Semantic analysis owns a standard symbol table for compiler-known library

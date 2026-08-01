@@ -6,7 +6,8 @@ use veln_source::SourceFile;
 fn first_function(output: &ParseOutput) -> &FunctionDecl {
     match &output.tree.items[0] {
         SyntaxItem::Function(function) => function,
-        SyntaxItem::Type(_)
+        SyntaxItem::Effect(_)
+        | SyntaxItem::Type(_)
         | SyntaxItem::Schema(_)
         | SyntaxItem::Codec(_)
         | SyntaxItem::PublicAlias(_) => {
@@ -48,6 +49,54 @@ fn parses_decode_as_an_explicit_module_member_name() {
             if matches!(&callee.kind, ExprKind::NamePath(segments)
                 if segments == &vec!["http2".to_string(), "frame".to_string(), "decode".to_string()])
     ));
+}
+
+#[test]
+fn parses_and_formats_nominal_effect_operations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub effect Audit\n",
+            "  record(user:String,count:Int)->String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String effects [Audit]\n",
+            "  perform Audit::record(\"user\", 1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Effect(effect) = &output.tree.items[0] else {
+        panic!("expected effect declaration");
+    };
+    assert_eq!(effect.name.as_deref(), Some("Audit"));
+    assert_eq!(effect.operations[0].name.as_deref(), Some("record"));
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform { effect, operation, args, .. }
+            if effect == &vec!["Audit".to_string()] && operation == "record" && args.len() == 2
+    ));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub effect Audit\n",
+            "\trecord(user: String, count: Int) -> String\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> String effects [Audit]\n",
+            "\tperform Audit::record(\"user\", 1)\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]

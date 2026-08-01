@@ -1,0 +1,7 @@
+effect Audit
+	record(user: String, count: Int) -> String
+end
+
+fn record_once() -> String effects [Audit]
+	perform Audit::record("fixture", 1)
+end

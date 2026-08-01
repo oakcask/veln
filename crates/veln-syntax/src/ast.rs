@@ -40,10 +40,28 @@ pub struct UsePackage {
 #[derive(Clone, Debug)]
 pub enum SyntaxItem {
     Function(FunctionDecl),
+    Effect(EffectDecl),
     Type(TypeDecl),
     Schema(SchemaDecl),
     Codec(CodecDecl),
     PublicAlias(PublicAliasDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub operations: Vec<EffectOperationDecl>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectOperationDecl {
+    pub name: Option<String>,
+    pub params: Vec<Param>,
+    pub return_type: Option<String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -263,6 +281,12 @@ pub enum ExprKind {
     },
     Call {
         callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Perform {
+        effect: Vec<String>,
+        operation: String,
+        operation_span: SourceSpan,
         args: Vec<Expr>,
     },
     SchemaDecode {

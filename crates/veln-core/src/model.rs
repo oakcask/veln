@@ -6,7 +6,26 @@ use crate::{CoreReadiness, CoreType};
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckedProgram {
     pub functions: Vec<CoreFunction>,
+    pub effects: Vec<CoreEffectDecl>,
     pub readiness: CoreReadiness,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreEffectDecl {
+    pub node_id: NodeId,
+    pub name: String,
+    pub visibility: Visibility,
+    pub operations: Vec<CoreEffectOperationDecl>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreEffectOperationDecl {
+    pub node_id: NodeId,
+    pub name: String,
+    pub params: Vec<CoreType>,
+    pub return_type: CoreType,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -104,6 +123,11 @@ pub enum CoreExprKind {
     },
     Call {
         target: CoreCallTarget,
+        args: Vec<CoreExpr>,
+    },
+    Perform {
+        effect: String,
+        operation: String,
         args: Vec<CoreExpr>,
     },
     FieldAccess {

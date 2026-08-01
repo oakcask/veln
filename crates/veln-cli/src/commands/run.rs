@@ -170,6 +170,12 @@ fn lower_run_entry(
 ) -> Result<Option<veln_ir::TypedProgram>, String> {
     let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
     let lowered = reachable.lowered;
+    if let Some(diagnostic) =
+        retained_user_effect_diagnostic(&reachable.module, entry, FunctionKind::Function)
+    {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+        return Ok(None);
+    }
     if has_error(&lowered.diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
         return Ok(None);
@@ -180,6 +186,46 @@ fn lower_run_entry(
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+const HOST_EFFECT_LABELS: &[&str] = &[
+    "stdio",
+    "fs",
+    "net",
+    "db",
+    "time",
+    "random",
+    "process",
+    "concurrency",
+];
+
+fn retained_user_effect_diagnostic(
+    module: &veln_ast::SurfaceModule,
+    entry: &str,
+    kind: FunctionKind,
+) -> Option<Diagnostic> {
+    let function = module
+        .functions
+        .iter()
+        .find(|function| function.kind == kind && function.name.as_deref() == Some(entry))?;
+    let effect = function
+        .effects
+        .as_ref()?
+        .iter()
+        .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
+    Some(Diagnostic::new(
+        "effect.unhandled_user",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("runnable entry retains user-defined effect `{effect}`"),
+        Some(function.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            ("node_id", JsonValue::string(function.node_id.display("fn"))),
+            ("effect", JsonValue::string(effect.clone())),
+            ("boundary", JsonValue::string("run_entry")),
+        ]),
+    ))
 }
 
 fn run_human(

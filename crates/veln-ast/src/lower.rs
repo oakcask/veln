@@ -3,9 +3,10 @@ use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, CodecDecl as SyntaxCodecDecl,
     CodecDirection as SyntaxCodecDirection,
     CodecImplementationKind as SyntaxCodecImplementationKind, ContractKind as SyntaxContractKind,
-    DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
-    FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
-    PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
+    DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
+    EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
+    ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule,
+    Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
     PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
     RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
     TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
@@ -13,11 +14,11 @@ use veln_syntax::{
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
-    CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
+    Expr, ExprKind, Function, FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern,
+    PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
+    SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -58,6 +59,7 @@ impl AstBuilder {
             .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
             .collect();
         let mut types = Vec::new();
+        let mut effects = Vec::new();
         let mut schemas = Vec::new();
         let mut codecs = Vec::new();
         let mut functions = Vec::new();
@@ -67,6 +69,9 @@ impl AstBuilder {
             match item {
                 SyntaxItem::Function(function) => {
                     functions.push(self.lower_function(function, module_name.clone()));
+                }
+                SyntaxItem::Effect(effect) => {
+                    effects.push(self.lower_effect_decl(effect, module_name.clone()));
                 }
                 SyntaxItem::Type(type_decl) => {
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
@@ -87,6 +92,7 @@ impl AstBuilder {
             module,
             uses,
             aliases,
+            effects,
             types,
             schemas,
             codecs,
@@ -237,6 +243,51 @@ impl AstBuilder {
                 })
                 .collect(),
             span: type_decl.span.clone(),
+        }
+    }
+
+    fn lower_effect_decl(
+        &mut self,
+        effect: &SyntaxEffectDecl,
+        module_name: Option<String>,
+    ) -> EffectDecl {
+        EffectDecl {
+            node_id: self.alloc(),
+            module_name,
+            visibility: match effect.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: effect.name.clone(),
+            operations: effect
+                .operations
+                .iter()
+                .map(|operation| self.lower_effect_operation_decl(operation))
+                .collect(),
+            span: effect.span.clone(),
+        }
+    }
+
+    fn lower_effect_operation_decl(
+        &mut self,
+        operation: &SyntaxEffectOperationDecl,
+    ) -> EffectOperationDecl {
+        EffectOperationDecl {
+            node_id: self.alloc(),
+            name: operation.name.clone(),
+            params: operation
+                .params
+                .iter()
+                .map(|param| Param {
+                    node_id: self.alloc(),
+                    name: param.name.clone(),
+                    ty: param.ty.clone(),
+                    is_variadic: param.is_variadic,
+                    span: param.span.clone(),
+                })
+                .collect(),
+            return_type: operation.return_type.clone(),
+            span: operation.span.clone(),
         }
     }
 
@@ -458,6 +509,17 @@ impl AstBuilder {
             }),
             SyntaxExprKind::Call { callee, args } => Some(ExprKind::Call {
                 callee: Box::new(self.lower_expr(callee)),
+                args: self.lower_exprs(args),
+            }),
+            SyntaxExprKind::Perform {
+                effect,
+                operation,
+                operation_span,
+                args,
+            } => Some(ExprKind::Perform {
+                effect: effect.clone(),
+                operation: operation.clone(),
+                operation_span: operation_span.clone(),
                 args: self.lower_exprs(args),
             }),
             SyntaxExprKind::SchemaDecode {

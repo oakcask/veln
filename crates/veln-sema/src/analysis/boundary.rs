@@ -74,7 +74,10 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
     diagnostics
 }
 
-pub(crate) fn check_declared_effect_labels(function: &Function) -> Vec<Diagnostic> {
+pub(crate) fn check_declared_effect_labels(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     let Some(declared_effects) = &function.effects else {
         return Vec::new();
     };
@@ -91,7 +94,12 @@ pub(crate) fn check_declared_effect_labels(function: &Function) -> Vec<Diagnosti
 
     declared_effects
         .iter()
-        .filter(|effect| !KNOWN_EFFECT_LABELS.contains(&effect.as_str()))
+        .filter(|effect| {
+            !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
+                && environment
+                    .user_effect_by_label(effect, function.module_name.as_deref())
+                    .is_none()
+        })
         .map(|effect| unknown_declared_effect_diagnostic(function, effect, node_prefix, boundary))
         .collect()
 }
@@ -282,6 +290,58 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
             ));
         } else {
             seen.insert(key, (node_id, alias.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
+pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+
+    for effect in &module.effects {
+        let Some(name) = &effect.name else {
+            continue;
+        };
+        let key = (effect.module_name.clone(), name.clone());
+        let node_id = effect.node_id.display("effect");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "effect",
+                "effect declaration",
+                node_id,
+                effect.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, effect.span.clone()));
+        }
+
+        let mut operations = BTreeMap::<String, (String, SourceSpan)>::new();
+        for operation in &effect.operations {
+            let Some(operation_name) = &operation.name else {
+                continue;
+            };
+            let operation_node_id = operation.node_id.display("operation");
+            if let Some((first_node_id, first_span)) = operations.get(operation_name) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    operation_name,
+                    "operation",
+                    "effect operation declaration",
+                    operation_node_id,
+                    operation.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                operations.insert(
+                    operation_name.clone(),
+                    (operation_node_id, operation.span.clone()),
+                );
+            }
         }
     }
 

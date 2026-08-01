@@ -6,11 +6,12 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
-    Expr, ExprKind, FunctionDecl, FunctionKind, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
-    PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
-    SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind, IfBranch,
+    MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAliasDecl,
+    PublicAliasKind, RecordField, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
+    lex,
 };
 
 #[derive(Clone, Debug)]
@@ -261,6 +262,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Schema) {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
+            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Effect) {
+                items.push(SyntaxItem::Effect(self.parse_effect_decl()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
@@ -271,6 +274,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Schema) {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
+            } else if self.at(TokenKind::Effect) {
+                items.push(SyntaxItem::Effect(self.parse_effect_decl()));
             } else if self.at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Test) {
@@ -280,9 +285,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function, test, type, or schema declaration",
+                    "expected a function, test, type, effect, or schema declaration",
                     "module",
-                    vec!["pub", "fn", "test", "type", "schema"],
+                    vec!["pub", "fn", "test", "type", "effect", "schema"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -440,6 +445,88 @@ impl<'a> Parser<'a> {
             }
         }
         params
+    }
+
+    fn parse_effect_decl(&mut self) -> EffectDecl {
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        let start = self
+            .expect(TokenKind::Effect, "effect_declaration", vec!["effect"])
+            .range;
+        let name = self.expect_ident("effect_declaration", "effect name");
+        self.expect_newline("effect_declaration");
+
+        let mut operations = Vec::new();
+        let mut end_present = false;
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                end_present = true;
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            operations.push(self.parse_effect_operation_decl());
+        }
+
+        if !end_present {
+            self.error_current(
+                "parse.expected_end",
+                "expected `end` to close effect declaration",
+                "effect_declaration",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+
+        let end = self.previous().map_or(start, |token| token.range);
+        EffectDecl {
+            visibility,
+            name,
+            operations,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_effect_operation_decl(&mut self) -> EffectOperationDecl {
+        let start = self.current().range;
+        let name = self.expect_ident("effect_operation", "operation name");
+        self.expect(TokenKind::LParen, "effect_operation", vec!["("]);
+        let params = self.parse_params();
+        self.expect(TokenKind::RParen, "effect_operation", vec![")"]);
+        let return_type = if self.eat(TokenKind::Arrow).is_some() {
+            Some(self.collect_return_type_until(
+                "effect_operation",
+                &[TokenKind::Newline, TokenKind::Eof],
+            ))
+        } else {
+            self.error_current(
+                "parse.effect_operation_return",
+                "effect operation is missing `->` and a result type",
+                "effect_operation",
+                vec!["->"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+            None
+        };
+        let end = self.expect_newline("effect_operation").range;
+        EffectOperationDecl {
+            name,
+            params,
+            return_type,
+            span: self.source.span(start.cover(end)),
+        }
     }
 
     fn parse_schema_decl(&mut self) -> SchemaDecl {
@@ -1123,8 +1210,9 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBracket, "effect_declaration", vec!["["]);
         let mut effects = Vec::new();
         while !self.at(TokenKind::RBracket) && !self.at(TokenKind::Eof) {
-            if let Some(effect) = self.expect_ident("effect_declaration", "effect name") {
-                effects.push(effect);
+            let effect = self.parse_name_path_segments("effect_declaration", "effect name");
+            if !effect.is_empty() {
+                effects.push(effect.join("::"));
             }
             if self.eat(TokenKind::Comma).is_none() {
                 break;
@@ -1132,6 +1220,25 @@ impl<'a> Parser<'a> {
         }
         self.expect(TokenKind::RBracket, "effect_declaration", vec!["]"]);
         effects
+    }
+
+    fn parse_name_path_segments(
+        &mut self,
+        context: &'static str,
+        expected_name: &'static str,
+    ) -> Vec<String> {
+        let mut segments = Vec::new();
+        if let Some(segment) = self.expect_ident(context, expected_name) {
+            segments.push(segment);
+        }
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if let Some(segment) = self.expect_ident(context, "path segment") {
+                segments.push(segment);
+            } else {
+                break;
+            }
+        }
+        segments
     }
 
     fn parse_contract(&mut self) -> ContractClause {
@@ -2232,6 +2339,7 @@ impl<'a> ExprParser<'a> {
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
             TokenKind::Ident => self.parse_name_path(),
+            TokenKind::Perform => self.parse_perform_primary(token),
             TokenKind::Decode => self.parse_schema_decode_primary(token),
             TokenKind::Encode => self.parse_schema_encode_primary(token),
             TokenKind::LParen => self.parse_group_or_unit_primary(),
@@ -2240,6 +2348,61 @@ impl<'a> ExprParser<'a> {
             TokenKind::Match => self.parse_match(),
             TokenKind::If => self.parse_if(),
             _ => self.parse_missing_primary(token),
+        }
+    }
+
+    fn parse_perform_primary(&mut self, token: Token) -> Expr {
+        let start = token.range;
+        self.bump();
+        let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
+        if path.len() < 2 {
+            self.error_current(
+                "parse.perform_expression",
+                "perform expression requires `Effect::operation`",
+                vec!["effect operation path"],
+                RecoveryStrategy::InsertToken,
+                Some("("),
+            );
+        }
+        let operation = path.pop().unwrap_or_default();
+        let operation_span = self
+            .previous()
+            .map(|token| self.source.span(token.range))
+            .unwrap_or_else(|| self.source.span(start));
+        self.expect_expr_token(
+            TokenKind::LParen,
+            "parse.perform_expression",
+            "perform expression is missing `(`",
+            vec!["("],
+        );
+        let mut args = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.is_at_end() {
+            args.push(self.parse_expr(0));
+            if self.eat(TokenKind::Comma).is_some() {
+                continue;
+            }
+            if self.at(TokenKind::RParen) || self.is_at_end() {
+                break;
+            }
+            self.error_current(
+                "parse.perform_argument",
+                "perform argument is missing `,` or `)`",
+                vec![",", ")"],
+                RecoveryStrategy::InsertToken,
+                Some(","),
+            );
+        }
+        let end = self
+            .eat(TokenKind::RParen)
+            .map_or_else(|| args.last().map_or(start, lhs_range), |token| token.range);
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Perform {
+                effect: path,
+                operation,
+                operation_span,
+                args,
+            },
         }
     }
 
@@ -2838,6 +3001,40 @@ impl<'a> ExprParser<'a> {
         }
     }
 
+    fn parse_name_path_segments(
+        &mut self,
+        context: &'static str,
+        expected_name: &'static str,
+    ) -> Vec<String> {
+        let mut segments = Vec::new();
+        if self.at(TokenKind::Ident) {
+            segments.push(self.bump().text);
+        } else {
+            self.error_current(
+                "parse.name_path",
+                format!("{context} is missing {expected_name}"),
+                vec![expected_name],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+        }
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if self.at(TokenKind::Ident) {
+                segments.push(self.bump().text);
+            } else {
+                self.error_current(
+                    "parse.name_path",
+                    format!("{context} has an incomplete path"),
+                    vec!["path segment"],
+                    RecoveryStrategy::InsertToken,
+                    None,
+                );
+                break;
+            }
+        }
+        segments
+    }
+
     fn parse_list(&mut self) -> Expr {
         let start = self.bump().range;
         let mut items = Vec::new();
@@ -3059,6 +3256,12 @@ impl<'a> ExprParser<'a> {
 
     fn current(&self) -> &Token {
         &self.tokens[self.cursor]
+    }
+
+    fn previous(&self) -> Option<&Token> {
+        self.cursor
+            .checked_sub(1)
+            .and_then(|index| self.tokens.get(index))
     }
 
     fn is_at_end(&self) -> bool {

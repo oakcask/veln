@@ -18,6 +18,7 @@ use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     codec_calls: Vec<CodecCallSignature>,
+    effects: Vec<EffectSignature>,
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
     codec_symbols: Vec<NamedSymbol>,
@@ -64,6 +65,24 @@ struct NamedSymbol {
     name: String,
     module_name: Option<String>,
     visibility: Visibility,
+}
+
+#[derive(Clone)]
+pub(crate) struct EffectSignature {
+    pub(crate) name: String,
+    pub(crate) qualified_name: String,
+    pub(crate) module_name: Option<String>,
+    pub(crate) visibility: Visibility,
+    pub(crate) operations: Vec<EffectOperationSignature>,
+}
+
+#[derive(Clone)]
+pub(crate) struct EffectOperationSignature {
+    pub(crate) name: String,
+    pub(crate) params: Vec<Type>,
+    pub(crate) return_type: Type,
+    pub(crate) node_id: NodeId,
+    pub(crate) span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -166,7 +185,8 @@ struct PrivateInferenceExprContext<'a> {
 
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        let mut functions = ordinary_function_signatures(module);
+        let effects = effect_signatures(module);
+        let mut functions = ordinary_function_signatures(module, &effects);
         let adts = AdtRegistry::from_module(module);
         infer_private_function_body_return_types(module, &mut functions, &adts);
         infer_private_function_call_site_signature_types(module, &mut functions, &adts);
@@ -175,13 +195,14 @@ impl TypeEnvironment {
         functions.extend(schema_decode_function_signatures(module));
         functions.extend(schema_encode_function_signatures(module));
         functions.extend(schema_validate_function_signatures(module));
-        infer_function_body_effects(module, &mut functions);
+        infer_function_body_effects(module, &mut functions, &effects);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
         Self {
             functions,
             codec_calls,
+            effects,
             schema_symbols: SchemaSymbolTable::from_module(module),
             type_symbols: named_type_symbols(module),
             codec_symbols: named_codec_symbols(module),
@@ -192,6 +213,41 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+
+    pub(crate) fn user_effect_by_label(
+        &self,
+        label: &str,
+        current_module: Option<&str>,
+    ) -> Option<&EffectSignature> {
+        self.effects.iter().find(|effect| {
+            effect.qualified_name == label
+                || (effect.name == label && effect.module_name.as_deref() == current_module)
+        })
+    }
+
+    pub(crate) fn user_effect_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&EffectSignature> {
+        match segments {
+            [name] => self.user_effect_by_label(name, current_module),
+            [_, .., name] => {
+                let use_decl = imported_use_for_path(
+                    &self.uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                )?;
+                let module_name = use_decl.name.as_str();
+                self.effects.iter().find(|effect| {
+                    effect.name == *name
+                        && effect.module_name.as_deref() == Some(module_name)
+                        && (use_decl.package.is_none() || effect.visibility == Visibility::Public)
+                })
+            }
+            _ => None,
+        }
     }
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
@@ -490,7 +546,10 @@ impl TypeEnvironment {
     }
 }
 
-pub(crate) fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+pub(crate) fn ordinary_function_signatures(
+    module: &SurfaceModule,
+    effects: &[EffectSignature],
+) -> Vec<FunctionSignature> {
     module
         .functions
         .iter()
@@ -498,7 +557,31 @@ pub(crate) fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<Functi
         .filter_map(|function| {
             let name = function.name.clone()?;
             let (params, variadic) = function_signature_params(function);
-            let return_type = parse_type_or_unknown(function.return_type.as_deref());
+            let params = params
+                .into_iter()
+                .map(|ty| {
+                    canonicalize_type_effects(
+                        ty,
+                        &module.uses,
+                        function.module_name.as_deref(),
+                        effects,
+                    )
+                })
+                .collect();
+            let variadic = variadic.map(|ty| {
+                canonicalize_type_effects(
+                    ty,
+                    &module.uses,
+                    function.module_name.as_deref(),
+                    effects,
+                )
+            });
+            let return_type = canonicalize_type_effects(
+                parse_type_or_unknown(function.return_type.as_deref()),
+                &module.uses,
+                function.module_name.as_deref(),
+                effects,
+            );
             Some(FunctionSignature {
                 target_name: crate::standard_symbols::standard_function_link_name(
                     function.module_name.as_deref(),
@@ -510,12 +593,147 @@ pub(crate) fn ordinary_function_signatures(module: &SurfaceModule) -> Vec<Functi
                 params,
                 variadic,
                 return_type,
-                effects: function.effects.clone().unwrap_or_default(),
+                effects: canonical_declared_effects(
+                    function.effects.clone().unwrap_or_default(),
+                    &module.uses,
+                    function.module_name.as_deref(),
+                    effects,
+                ),
                 node_id: function.node_id,
                 span: function.span.clone(),
             })
         })
         .collect()
+}
+
+fn canonicalize_type_effects(
+    ty: Type,
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+) -> Type {
+    match ty {
+        Type::Named { name, args } => Type::Named {
+            name,
+            args: args
+                .into_iter()
+                .map(|arg| canonicalize_type_effects(arg, uses, current_module, effects))
+                .collect(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| {
+                    (
+                        name,
+                        canonicalize_type_effects(ty, uses, current_module, effects),
+                    )
+                })
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects: declared,
+        } => Type::Function {
+            params: params
+                .into_iter()
+                .map(|param| canonicalize_type_effects(param, uses, current_module, effects))
+                .collect(),
+            variadic: variadic
+                .map(|ty| canonicalize_type_effects(*ty, uses, current_module, effects))
+                .map(Box::new),
+            return_type: Box::new(canonicalize_type_effects(
+                *return_type,
+                uses,
+                current_module,
+                effects,
+            )),
+            effects: canonical_declared_effects(declared, uses, current_module, effects),
+        },
+        Type::Unknown => Type::Unknown,
+    }
+}
+
+fn canonical_declared_effects(
+    declared: Vec<String>,
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+) -> Vec<String> {
+    declared
+        .into_iter()
+        .map(|effect| {
+            let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+            canonical_user_effect_label(&segments, uses, current_module, effects).unwrap_or(effect)
+        })
+        .collect()
+}
+
+fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> {
+    module
+        .effects
+        .iter()
+        .filter_map(|effect| {
+            let name = effect.name.clone()?;
+            let qualified_name = if let Some(module_name) = &effect.module_name {
+                format!("{module_name}::{name}")
+            } else {
+                name.clone()
+            };
+            Some(EffectSignature {
+                name,
+                qualified_name,
+                module_name: effect.module_name.clone(),
+                visibility: effect.visibility,
+                operations: effect
+                    .operations
+                    .iter()
+                    .filter_map(|operation| {
+                        Some(EffectOperationSignature {
+                            name: operation.name.clone()?,
+                            params: operation
+                                .params
+                                .iter()
+                                .map(|param| parse_type_or_unknown(param.ty.as_deref()))
+                                .collect(),
+                            return_type: parse_type_or_unknown(operation.return_type.as_deref()),
+                            node_id: operation.node_id,
+                            span: operation.span.clone(),
+                        })
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn canonical_user_effect_label(
+    segments: &[String],
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+) -> Option<String> {
+    match segments {
+        [name] => effects
+            .iter()
+            .find(|effect| effect.name == *name && effect.module_name.as_deref() == current_module)
+            .map(|effect| effect.qualified_name.clone()),
+        [_, .., name] => {
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            effects
+                .iter()
+                .find(|effect| {
+                    effect.name == *name
+                        && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && (use_decl.package.is_none() || effect.visibility == Visibility::Public)
+                })
+                .map(|effect| effect.qualified_name.clone())
+        }
+        _ => None,
+    }
 }
 
 fn function_signature_params(function: &veln_ast::Function) -> (Vec<Type>, Option<Type>) {
@@ -812,6 +1030,11 @@ fn collect_private_call_site_expr_constraints(
         }
         ExprKind::Call { callee, args } => {
             collect_private_call_site_call_constraints(callee, args, expected, context);
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_private_call_site_expr_constraints(arg, None, context);
+            }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_private_call_site_expr_constraints(
@@ -1540,6 +1763,11 @@ fn collect_private_prelude_callback_expr_constraints(
         ExprKind::Call { callee, args } => {
             collect_private_prelude_callback_call_constraints(callee, args, expected, context);
         }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_private_prelude_callback_expr_constraints(arg, None, context);
+            }
+        }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_private_prelude_callback_expr_constraints(
                 input,
@@ -2014,6 +2242,20 @@ fn infer_private_signature_expr_type(
                 adts,
             },
         ),
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                infer_private_signature_expr_type(
+                    arg,
+                    None,
+                    current_module,
+                    uses,
+                    bindings,
+                    returns_by_path,
+                    adts,
+                );
+            }
+            Type::Unknown
+        }
         ExprKind::SchemaDecode { input, base, .. } => {
             infer_private_signature_expr_type(
                 input,
@@ -5616,6 +5858,7 @@ fn function_signature_path<'a>(
 pub(crate) fn infer_function_body_effects(
     module: &SurfaceModule,
     functions: &mut [FunctionSignature],
+    user_effects: &[EffectSignature],
 ) {
     let mut effects_by_name = functions
         .iter()
@@ -5662,6 +5905,7 @@ pub(crate) fn infer_function_body_effects(
                             &bindings,
                             &effects_by_name,
                             &effects_by_module_path,
+                            user_effects,
                             &mut inferred,
                         );
                         let ty = parse_type_or_unknown(annotation.as_deref());
@@ -5675,6 +5919,7 @@ pub(crate) fn infer_function_body_effects(
                             &bindings,
                             &effects_by_name,
                             &effects_by_module_path,
+                            user_effects,
                             &mut inferred,
                         );
                     }
@@ -5738,6 +5983,7 @@ fn collect_expr_effects(
     bindings: &[Binding],
     effects_by_name: &BTreeMap<String, Vec<String>>,
     effects_by_module_path: &BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    user_effects: &[EffectSignature],
     inferred: &mut Vec<String>,
 ) {
     match &expr.kind {
@@ -5777,6 +6023,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5788,6 +6035,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5800,6 +6048,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
             collect_expr_effects(
@@ -5809,8 +6058,28 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
+        }
+        ExprKind::Perform { effect, args, .. } => {
+            if let Some(label) =
+                canonical_user_effect_label(effect, uses, current_module, user_effects)
+            {
+                push_unique_effect(inferred, &label);
+            }
+            for arg in args {
+                collect_expr_effects(
+                    arg,
+                    uses,
+                    current_module,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    user_effects,
+                    inferred,
+                );
+            }
         }
         ExprKind::SchemaEncode { value, .. } => {
             collect_expr_effects(
@@ -5820,6 +6089,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
         }
@@ -5834,6 +6104,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
         }
@@ -5846,6 +6117,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5859,6 +6131,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
                 collect_expr_effects(
@@ -5868,6 +6141,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5881,6 +6155,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5893,6 +6168,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
             for arm in arms {
@@ -5903,6 +6179,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5920,6 +6197,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
             collect_expr_effects(
@@ -5929,6 +6207,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
             for branch in else_if_branches {
@@ -5939,6 +6218,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
                 collect_expr_effects(
@@ -5948,6 +6228,7 @@ fn collect_expr_effects(
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
+                    user_effects,
                     inferred,
                 );
             }
@@ -5958,6 +6239,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
         }
@@ -5969,6 +6251,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
             collect_expr_effects(
@@ -5978,6 +6261,7 @@ fn collect_expr_effects(
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
+                user_effects,
                 inferred,
             );
         }

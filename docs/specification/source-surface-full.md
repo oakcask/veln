@@ -68,6 +68,8 @@ TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
+EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
+EffectOperation ::= Name "(" ParamList? ")" "->" TypeText NL
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | LowercaseSchemaPrimitive | LowercaseReservedBitsPrimitive | ReservedBitsPrimitive | RepeatPrimitive | CanonicalRepeatPrimitive
@@ -92,7 +94,7 @@ VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
-EffectList    ::= Name ("," Name)* ","?
+EffectList    ::= MemberPath ("," MemberPath)* ","?
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
@@ -104,8 +106,9 @@ BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "+" | "-" | "*" | "/"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | SchemaDecode | SchemaEncode | "(" Expr ")" | "()"
-                  | Record | Dict | List | Match | If
+PrimaryExpr   ::= Hole | Literal | NamePath | Perform | SchemaDecode | SchemaEncode
+                  | "(" Expr ")" | "()" | Record | Dict | List | Match | If
+Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
 Call          ::= "(" ArgList? ")"

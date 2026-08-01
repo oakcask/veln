@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, CodecDecl, FunctionDecl, ModuleDecl, PublicAliasDecl, SchemaDecl, SyntaxItem, Token,
-    TokenKind, TypeDecl, UseDecl,
+    BodyLine, CodecDecl, EffectDecl, FunctionDecl, ModuleDecl, PublicAliasDecl, SchemaDecl,
+    SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -67,6 +67,7 @@ pub enum SyntaxNodeKind {
     ModuleDecl,
     UseDecl,
     FunctionDecl,
+    EffectDecl,
     TypeDecl,
     SchemaDecl,
     CodecDecl,
@@ -142,6 +143,7 @@ pub(crate) fn build_lossless_root(
     );
     top_level.extend(items.iter().map(|item| match item {
         SyntaxItem::Function(function) => TopLevelNode::Function(function),
+        SyntaxItem::Effect(effect) => TopLevelNode::Effect(effect),
         SyntaxItem::Type(type_decl) => TopLevelNode::Type(type_decl),
         SyntaxItem::Schema(schema) => TopLevelNode::Schema(schema),
         SyntaxItem::Codec(codec) => TopLevelNode::Codec(codec),
@@ -158,6 +160,11 @@ pub(crate) fn build_lossless_root(
             }
             TopLevelNode::Use(range) => token_node(SyntaxNodeKind::UseDecl, range, node_tokens),
             TopLevelNode::Function(function) => build_lossless_function(function, node_tokens),
+            TopLevelNode::Effect(effect) => token_node(
+                SyntaxNodeKind::EffectDecl,
+                span_range(&effect.span),
+                node_tokens,
+            ),
             TopLevelNode::Type(type_decl) => token_node(
                 SyntaxNodeKind::TypeDecl,
                 span_range(&type_decl.span),
@@ -189,6 +196,7 @@ enum TopLevelNode<'a> {
     Module(TextRange),
     Use(TextRange),
     Function(&'a FunctionDecl),
+    Effect(&'a EffectDecl),
     Type(&'a TypeDecl),
     Schema(&'a SchemaDecl),
     Codec(&'a CodecDecl),
@@ -200,6 +208,7 @@ impl TopLevelNode<'_> {
         match self {
             Self::Module(range) | Self::Use(range) => *range,
             Self::Function(function) => span_range(&function.span),
+            Self::Effect(effect) => span_range(&effect.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
             Self::Schema(schema) => span_range(&schema.span),
             Self::Codec(codec) => span_range(&codec.span),

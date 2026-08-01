@@ -1,0 +1,9 @@
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"effect.unhandled_user\"", "\"status\":\"blocked\""]
+
+[stderr]
+format = "empty"

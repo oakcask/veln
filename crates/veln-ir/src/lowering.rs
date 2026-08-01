@@ -160,6 +160,15 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
         CoreExprKind::Call { target, args } => {
             lower_call_expr(expr.node_id, target, args).map(Some)
         }
+        CoreExprKind::Perform {
+            effect,
+            operation,
+            args,
+        } => Ok(Some(IrExprKind::Perform {
+            effect: effect.clone(),
+            operation: operation.clone(),
+            args: lower_exprs(args)?,
+        })),
         CoreExprKind::FieldAccess { base, field } => Ok(Some(IrExprKind::FieldAccess {
             base: Box::new(lower_expr(base)?),
             field: field.clone(),

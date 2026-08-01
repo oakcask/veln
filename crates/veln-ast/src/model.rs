@@ -22,6 +22,7 @@ pub struct SurfaceModule {
     pub module: Option<ModuleHeader>,
     pub uses: Vec<UseDecl>,
     pub aliases: Vec<PublicAlias>,
+    pub effects: Vec<EffectDecl>,
     pub types: Vec<TypeDecl>,
     pub schemas: Vec<SchemaDecl>,
     pub codecs: Vec<CodecDecl>,
@@ -83,6 +84,25 @@ pub enum PublicAliasKind {
     Function,
     Type,
     Schema,
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectDecl {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub operations: Vec<EffectOperationDecl>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct EffectOperationDecl {
+    pub node_id: NodeId,
+    pub name: Option<String>,
+    pub params: Vec<Param>,
+    pub return_type: Option<String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
@@ -309,6 +329,12 @@ pub enum ExprKind {
     },
     Call {
         callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Perform {
+        effect: Vec<String>,
+        operation: String,
+        operation_span: SourceSpan,
         args: Vec<Expr>,
     },
     SchemaDecode {

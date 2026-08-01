@@ -150,6 +150,11 @@ pub enum IrExprKind {
         target: IrCallTarget,
         args: Vec<IrExpr>,
     },
+    Perform {
+        effect: String,
+        operation: String,
+        args: Vec<IrExpr>,
+    },
     FieldAccess {
         base: Box<IrExpr>,
         field: String,

@@ -4,9 +4,9 @@ use veln_ast::{
 };
 use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
-    CoreDictEntry, CoreExpr, CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern,
-    CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind,
-    CoreType,
+    CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
+    CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness,
+    CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
@@ -98,6 +98,39 @@ fn lower_surface_module_to_core_if(
     CoreLoweringOutput {
         program: CheckedProgram {
             functions,
+            effects: module
+                .effects
+                .iter()
+                .filter_map(|effect| {
+                    Some(CoreEffectDecl {
+                        node_id: effect.node_id,
+                        name: effect.name.clone()?,
+                        visibility: effect.visibility,
+                        operations: effect
+                            .operations
+                            .iter()
+                            .filter_map(|operation| {
+                                Some(CoreEffectOperationDecl {
+                                    node_id: operation.node_id,
+                                    name: operation.name.clone()?,
+                                    params: operation
+                                        .params
+                                        .iter()
+                                        .map(|param| {
+                                            core_type(&parse_type_or_unknown(param.ty.as_deref()))
+                                        })
+                                        .collect(),
+                                    return_type: core_type(&parse_type_or_unknown(
+                                        operation.return_type.as_deref(),
+                                    )),
+                                    span: operation.span.clone(),
+                                })
+                            })
+                            .collect(),
+                        span: effect.span.clone(),
+                    })
+                })
+                .collect(),
             readiness: if blockers.is_empty() {
                 CoreReadiness::Complete
             } else {
@@ -199,7 +232,9 @@ impl<'a> CoreLowerer<'a> {
                 .as_ref()
                 .map(|binding| binding.name.clone()),
             return_type,
-            effects: self.function.effects.clone().unwrap_or_default(),
+            effects: signature
+                .map(|function| function.effects.clone())
+                .unwrap_or_else(|| self.function.effects.clone().unwrap_or_default()),
             contracts,
             body,
             span: self.function.span.clone(),
@@ -505,6 +540,12 @@ impl<'a> CoreLowerer<'a> {
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             }
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
+            ExprKind::Perform {
+                effect,
+                operation,
+                args,
+                ..
+            } => self.lower_perform(expr, effect, operation, args),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -905,6 +946,44 @@ impl<'a> CoreLowerer<'a> {
             return call;
         }
         self.lower_general_call(expr, callee, args, expected)
+    }
+
+    fn lower_perform(
+        &mut self,
+        expr: &Expr,
+        effect_path: &[String],
+        operation_name: &str,
+        args: &[Expr],
+    ) -> CoreExpr {
+        let Some(effect) = self
+            .environment
+            .user_effect_path(effect_path, self.function.module_name.as_deref())
+        else {
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+        let Some(operation) = effect
+            .operations
+            .iter()
+            .find(|operation| operation.name == operation_name)
+        else {
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+        let lowered_args = args
+            .iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                self.lower_expr(arg, operation.params.get(index).map(core_type).as_ref())
+            })
+            .collect();
+        self.core_expr(
+            expr,
+            core_type(&operation.return_type),
+            CoreExprKind::Perform {
+                effect: effect.qualified_name.clone(),
+                operation: operation_name.to_string(),
+                args: lowered_args,
+            },
+        )
     }
 
     fn lower_constructor_call(
