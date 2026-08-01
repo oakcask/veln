@@ -14,15 +14,6 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-### First Experiment
-
-- [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md):
-  add the remaining client connection driver through the implemented abstract
-  duplex-stream effect and `NetStream` handler.
-
-The connection-driver proposal depends on the implemented lexical-handler
-record under `../reference/implemented-proposals/`.
-
 ### Follow-Ups After Evidence
 
 - [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
@@ -32,8 +23,7 @@ record under `../reference/implemented-proposals/`.
   add listener ownership, per-connection tasks, and application callbacks
   whose effects are preserved by the service API.
 
-Do not select either follow-up before its activation gate is met. The first
-experiment is intended to provide the evidence for those gates.
+Do not select either follow-up before its activation gate is met.
 
 ## Selection Rule
 

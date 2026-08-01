@@ -14,7 +14,7 @@ callbacks instead of fixing those callbacks to one concrete effect set.
 This proposal depends on:
 
 - [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md), and
-- [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md).
+- [HTTP/2 Duplex Stream Connection Driver](../reference/implemented-proposals/http2-duplex-stream-connection-driver.md).
 
 Implementation may start only after the connection-driver evidence identifies
 the application event and action values that cross the pure protocol boundary.

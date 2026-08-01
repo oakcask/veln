@@ -47,14 +47,17 @@ behavior.
 
 ## Network Routes
 
-- HTTP/2 server duplex-stream connection driver behavior:
+- HTTP/2 duplex-stream connection driver behavior:
   `../../examples/specification/run/http2-connection-server-split-preface/`,
   `../../examples/specification/run/http2-connection-settings-ack/`,
   `../../examples/specification/run/http2-connection-partial-frame/`,
   `../../examples/specification/run/http2-connection-clean-end/`,
   `../../examples/specification/run/http2-connection-truncated-end-json/`,
   `../../examples/specification/run/http2-connection-protocol-failure-json/`,
-  and `../../examples/specification/run/http2-connection-closed-entry/`.
+  `../../examples/specification/run/http2-connection-closed-entry/`,
+  `../../examples/specification/run/http2-connection-client-initial-output/`,
+  and
+  `../../examples/specification/run/http2-connection-tcp-loopback-client/`.
 - Fixture-backed listener endpoint text, accepted-stream endpoint text, read,
   stream close, and listener close:
   `../../examples/specification/run/transport-socket-listener-address/`.

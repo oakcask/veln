@@ -40,8 +40,9 @@ The public routes are:
   accepted send bytes, and an immutable aggregate connection state that
   composes those migrated components with the public HPACK dynamic table and
   an immutable stream collection.
-- `http2::connection`: the `drive_server` duplex-stream connection driver and
-  typed protocol-owned connection failures for one caller-owned stream.
+- `http2::connection`: the `drive_server` and `drive_client` duplex-stream
+  connection drivers and typed protocol-owned connection failures for one
+  caller-owned stream.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -236,6 +237,14 @@ sends the initial empty server SETTINGS through the existing local SETTINGS
 send transition, commits the returned core state, and writes those bytes
 before reading peer input.
 
+`http2::connection::drive_client(state)` drives one client-side HTTP/2
+connection through `transport::DuplexStream`. If the supplied core lifecycle is
+closed, the driver returns that state without reading, writing, sending local
+SETTINGS, or requesting a protocol transition. Otherwise the driver first
+writes the HTTP/2 client connection preface, then writes the initial client
+SETTINGS bytes produced by the existing local SETTINGS send transition. It
+commits the returned core state before reading peer input.
+
 For each `Some(chunk)` read, the driver delegates to
 `http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
 returned receive state and write each newly accepted output chunk exactly once
@@ -252,8 +261,10 @@ The executable connection-driver evidence lives under
 `examples/specification/run/http2-connection-partial-frame/`,
 `examples/specification/run/http2-connection-clean-end/`,
 `examples/specification/run/http2-connection-truncated-end-json/`,
-`examples/specification/run/http2-connection-protocol-failure-json/`, and
-`examples/specification/run/http2-connection-closed-entry/`.
+`examples/specification/run/http2-connection-protocol-failure-json/`,
+`examples/specification/run/http2-connection-closed-entry/`,
+`examples/specification/run/http2-connection-client-initial-output/`, and
+`examples/specification/run/http2-connection-tcp-loopback-client/`.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

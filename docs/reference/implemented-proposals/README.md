@@ -79,6 +79,8 @@ under `../../specification/` and its executable example routes.
   [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
 - Lexical operation handlers:
   [lexical-operation-handlers.md](lexical-operation-handlers.md).
+- HTTP/2 duplex stream connection driver:
+  [http2-duplex-stream-connection-driver.md](http2-duplex-stream-connection-driver.md).
 - Canonical type argument delimiters:
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 - Remove legacy type delimiters:
