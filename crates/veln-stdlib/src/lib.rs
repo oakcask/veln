@@ -93,6 +93,9 @@ mod tests {
         {
             let entry = entry.expect("standard package entry should be readable");
             let entry_relative = relative.join(entry.file_name());
+            if entry.path().is_dir() && entry.file_name() == "target" {
+                continue;
+            }
             if entry.path().is_dir() {
                 collect_distribution_sources(root, &entry_relative, paths);
             } else {

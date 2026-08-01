@@ -39,6 +39,9 @@ fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) 
     for entry in entries {
         let entry = entry.expect("standard library directory entry should be readable");
         let path = entry.path();
+        if path.is_dir() && entry.file_name() == "target" {
+            continue;
+        }
         if path.is_dir() {
             collect_veln_sources(root, &path, paths);
             continue;
