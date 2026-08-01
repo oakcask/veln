@@ -1,0 +1,12 @@
+command = ["test", "--json", "main_test.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+contains = ["\"status\":\"passed\"", "\"name\":\"handled\""]
+
+[stderr]
+format = "empty"

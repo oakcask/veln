@@ -226,6 +226,9 @@ impl<'a> Classifier<'a> {
                 TokenKind::Schema => {
                     self.collect_schema_header(&mut semantic_tokens);
                 }
+                TokenKind::Handler => {
+                    self.collect_handler_header(&mut semantic_tokens);
+                }
                 TokenKind::Codec => {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
                     self.cursor += 1;
@@ -236,6 +239,8 @@ impl<'a> Classifier<'a> {
                 TokenKind::Pub => {
                     if self.next_significant_kind() == Some(TokenKind::Schema) {
                         self.collect_schema_header(&mut semantic_tokens);
+                    } else if self.next_significant_kind() == Some(TokenKind::Handler) {
+                        self.collect_handler_header(&mut semantic_tokens);
                     } else if self.next_significant_kind() == Some(TokenKind::Codec) {
                         semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
                         self.cursor += 1;
@@ -272,6 +277,63 @@ impl<'a> Classifier<'a> {
             }
         }
         semantic_tokens
+    }
+
+    fn collect_handler_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.params.clear();
+        self.locals.clear();
+        while self.at(TokenKind::Pub) || self.at(TokenKind::Handler) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+            self.cursor += 1;
+            self.skip_trivia();
+        }
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.modified(
+                token,
+                SemanticTokenType::Function,
+                &[SemanticTokenModifier::Declaration],
+            ));
+            self.cursor += 1;
+            self.skip_trivia();
+        }
+        if self.eat(TokenKind::LParen, semantic_tokens) {
+            self.collect_parameters(semantic_tokens);
+        }
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if self.at(TokenKind::Handles) {
+                let token = &self.tokens[self.cursor];
+                semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+                self.cursor += 1;
+                self.collect_effect_path(semantic_tokens);
+            } else if self.at(TokenKind::Effects) {
+                let token = &self.tokens[self.cursor];
+                semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+                self.cursor += 1;
+                self.collect_effect_list(semantic_tokens);
+            } else {
+                if let Some(classified) = self.classify_current_token() {
+                    semantic_tokens.push(classified);
+                }
+                self.cursor += 1;
+            }
+        }
+    }
+
+    fn collect_effect_path(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        while !self.at(TokenKind::Newline)
+            && !self.at(TokenKind::Effects)
+            && !self.at(TokenKind::Eof)
+        {
+            let token = &self.tokens[self.cursor];
+            if token.kind == TokenKind::Ident {
+                semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
+            } else if let Some(classified) = self.classify_current_token() {
+                semantic_tokens.push(classified);
+            }
+            self.cursor += 1;
+        }
     }
 
     fn collect_schema_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -516,6 +578,9 @@ impl<'a> Classifier<'a> {
             | TokenKind::Effect
             | TokenKind::Effects
             | TokenKind::Perform
+            | TokenKind::Handler
+            | TokenKind::Handles
+            | TokenKind::Handle
             | TokenKind::Let
             | TokenKind::End
             | TokenKind::Require
@@ -1051,6 +1116,74 @@ mod tests {
                     .bits()
             ))
         );
+    }
+
+    #[test]
+    fn collector_classifies_handler_declarations() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "pub handler ask(ctx: Int) handles Ask effects [stdio]\n",
+                "  value = provide_value\n",
+                "end\n",
+                "\n",
+                "fn provide_value(ctx: Int) -> Int\n",
+                "  ctx\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(tokens.contains(&(
+            "handler".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "ask".to_string(),
+                SemanticTokenType::Function,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits()
+            ))
+        );
+        assert!(
+            tokens.contains(&(
+                "ctx".to_string(),
+                SemanticTokenType::Parameter,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "handles".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "Ask".to_string(),
+            SemanticTokenType::EnumMember,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "stdio".to_string(),
+            SemanticTokenType::EnumMember,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "value".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "provide_value".to_string(),
+            SemanticTokenType::Function,
+            SemanticTokenModifiers::empty().bits()
+        )));
     }
 
     #[test]

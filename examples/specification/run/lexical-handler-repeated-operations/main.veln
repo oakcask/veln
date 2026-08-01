@@ -1,0 +1,21 @@
+effect Pick
+	next(step: Int) -> Int
+end
+
+fn provide(base: Int, step: Int) -> Int
+	base + step
+end
+
+handler pick(base: Int) handles Pick
+	next = provide
+end
+
+fn total() -> Int effects [Pick]
+	let first = perform Pick::next(1)
+	let second = perform Pick::next(2)
+	first + second
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(handle total() with pick(10)))
+end

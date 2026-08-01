@@ -1,0 +1,8 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["runnable entry retains user-defined effect `main::Ask`"]

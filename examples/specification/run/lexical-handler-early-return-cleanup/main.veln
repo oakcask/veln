@@ -1,0 +1,34 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide(ctx: Int) -> Int
+	ctx
+end
+
+handler ask(ctx: Int) handles Ask
+	value = provide
+end
+
+fn fail_inside_inner() -> Result<Int, String> effects [Ask]
+	let observed = perform Ask::value()
+	Err(int_to_string(observed))
+end
+
+fn inner_attempt() -> Result<Int, String> effects [Ask]
+	let value = handle fail_inside_inner()? with ask(5)
+	Ok(value)
+end
+
+fn outer_body() -> Int effects [Ask]
+	let attempted = inner_attempt()
+	let after = perform Ask::value()
+	match attempted
+		Ok(_) => 0
+		Err(_) => after
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(handle outer_body() with ask(12)))
+end

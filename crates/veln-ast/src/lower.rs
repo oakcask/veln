@@ -5,7 +5,8 @@ use veln_syntax::{
     CodecImplementationKind as SyntaxCodecImplementationKind, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
-    ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule,
+    ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
+    HandlerProviderDecl as SyntaxHandlerProviderDecl, ModuleDecl as SyntaxModule,
     Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
     PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
     RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
@@ -15,10 +16,11 @@ use veln_syntax::{
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
     CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
-    Expr, ExprKind, Function, FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern,
-    PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
-    SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerProviderDecl, MatchArm,
+    ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
+    PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -60,6 +62,7 @@ impl AstBuilder {
             .collect();
         let mut types = Vec::new();
         let mut effects = Vec::new();
+        let mut handlers = Vec::new();
         let mut schemas = Vec::new();
         let mut codecs = Vec::new();
         let mut functions = Vec::new();
@@ -72,6 +75,9 @@ impl AstBuilder {
                 }
                 SyntaxItem::Effect(effect) => {
                     effects.push(self.lower_effect_decl(effect, module_name.clone()));
+                }
+                SyntaxItem::Handler(handler) => {
+                    handlers.push(self.lower_handler_decl(handler, module_name.clone()));
                 }
                 SyntaxItem::Type(type_decl) => {
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
@@ -93,6 +99,7 @@ impl AstBuilder {
             uses,
             aliases,
             effects,
+            handlers,
             types,
             schemas,
             codecs,
@@ -290,6 +297,58 @@ impl AstBuilder {
                 .collect(),
             return_type: operation.return_type.clone(),
             span: operation.span.clone(),
+        }
+    }
+
+    fn lower_handler_decl(
+        &mut self,
+        handler: &SyntaxHandlerDecl,
+        module_name: Option<String>,
+    ) -> HandlerDecl {
+        HandlerDecl {
+            node_id: self.alloc(),
+            module_name,
+            visibility: match handler.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: handler.name.clone(),
+            params: handler
+                .params
+                .iter()
+                .map(|param| Param {
+                    node_id: self.alloc(),
+                    name: param.name.clone(),
+                    ty: param.ty.clone(),
+                    ty_span: param.ty_span.clone(),
+                    is_variadic: param.is_variadic,
+                    span: param.span.clone(),
+                })
+                .collect(),
+            effect: handler.effect.clone(),
+            effect_span: handler.effect_span.clone(),
+            effects: handler.effects.clone(),
+            effect_spans: handler.effect_spans.clone(),
+            providers: handler
+                .providers
+                .iter()
+                .map(|provider| self.lower_handler_provider_decl(provider))
+                .collect(),
+            span: handler.span.clone(),
+        }
+    }
+
+    fn lower_handler_provider_decl(
+        &mut self,
+        provider: &SyntaxHandlerProviderDecl,
+    ) -> HandlerProviderDecl {
+        HandlerProviderDecl {
+            node_id: self.alloc(),
+            operation: provider.operation.clone(),
+            operation_span: provider.operation_span.clone(),
+            provider: provider.provider.clone(),
+            provider_span: provider.provider_span.clone(),
+            span: provider.span.clone(),
         }
     }
 
@@ -527,6 +586,17 @@ impl AstBuilder {
                 effect_span: effect_span.clone(),
                 operation: operation.clone(),
                 operation_span: operation_span.clone(),
+                args: self.lower_exprs(args),
+            }),
+            SyntaxExprKind::Handle {
+                body,
+                handler,
+                handler_span,
+                args,
+            } => Some(ExprKind::Handle {
+                body: Box::new(self.lower_expr(body)),
+                handler: handler.clone(),
+                handler_span: handler_span.clone(),
                 args: self.lower_exprs(args),
             }),
             SyntaxExprKind::SchemaDecode {

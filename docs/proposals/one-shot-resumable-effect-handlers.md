@@ -23,7 +23,7 @@ streaming, or cleanup example demonstrates all of these facts:
 - The example identifies what happens to the suspended computation on success,
   failure, cancellation, and handler exit.
 
-Until that gate is met, [Lexical Operation Handlers](lexical-operation-handlers.md)
+Until that gate is met, [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md)
 remains the selected language scope.
 
 ## Proposed Semantics

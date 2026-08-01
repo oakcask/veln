@@ -1,0 +1,26 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide() -> Int
+	1
+end
+
+handler ask() handles Ask
+	value = provide
+end
+
+fn worker() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+fn worker_with_context(input: Int) -> Int effects [Ask]
+	perform Ask::value()
+end
+
+pub fn main() -> () effects [concurrency]
+	let task = handle task::spawn(worker) with ask()
+	let context_task = handle task::spawn_with(worker_with_context, 1) with ask()
+	task::cancel(task)
+	task::cancel(context_task)
+end

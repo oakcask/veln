@@ -1356,6 +1356,12 @@ impl<'a> FunctionChecker<'a> {
                 operation_span,
                 args,
             } => self.infer_perform(expr, effect, effect_span, operation, operation_span, args),
+            ExprKind::Handle {
+                body,
+                handler,
+                handler_span,
+                args,
+            } => self.infer_handle(expr, body, handler, handler_span, args, expected),
             ExprKind::SchemaDecode {
                 schema,
                 input,
@@ -1457,6 +1463,68 @@ impl<'a> FunctionChecker<'a> {
             symbol: origin.symbol,
         });
         operation.return_type.clone()
+    }
+
+    fn infer_handle(
+        &mut self,
+        expr: &Expr,
+        body: &Expr,
+        handler_path: &[String],
+        handler_span: &SourceSpan,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        let handler = self
+            .environment
+            .handler_path(handler_path, self.function.module_name.as_deref())
+            .cloned();
+        let Some(handler) = handler else {
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            let body_ty = self.infer_expr(body, expected);
+            self.diagnostics.push(Diagnostic::new(
+                "handler.unknown",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!("handler `{}` is not known", handler_path.join("::")),
+                Some(handler_span.clone()),
+                effect_details(expr.node_id.display("expr"), "handle_expression"),
+            ));
+            return body_ty;
+        };
+
+        self.check_call_arguments(
+            args,
+            &handler.params,
+            None,
+            &CallOrigin {
+                node_id: expr.node_id,
+                span: handler_span.clone(),
+                symbol: handler.qualified_name.clone(),
+                effects: handler.effects.clone(),
+            },
+        );
+        let before_body = self.inferred_effects.len();
+        let body_ty = self.infer_expr(body, expected);
+        let mut retained = self.inferred_effects[..before_body].to_vec();
+        retained.extend(
+            self.inferred_effects[before_body..]
+                .iter()
+                .filter(|effect_use| effect_use.effect != handler.effect)
+                .cloned(),
+        );
+        self.inferred_effects = retained;
+        for effect in &handler.effects {
+            self.inferred_effects.push(EffectUse {
+                effect: effect.clone(),
+                node_id: expr.node_id,
+                span: expr.span.clone(),
+                kind: "handle_expression",
+                symbol: handler.qualified_name.clone(),
+            });
+        }
+        body_ty
     }
 
     fn infer_schema_decode(

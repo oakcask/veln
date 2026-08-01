@@ -155,6 +155,12 @@ pub enum IrExprKind {
         operation: String,
         args: Vec<IrExpr>,
     },
+    Handle {
+        effect: String,
+        providers: Vec<IrHandlerProvider>,
+        context_args: Vec<IrExpr>,
+        body: Box<IrExpr>,
+    },
     FieldAccess {
         base: Box<IrExpr>,
         field: String,
@@ -176,6 +182,12 @@ pub enum IrExprKind {
         left: Box<IrExpr>,
         right: Box<IrExpr>,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrHandlerProvider {
+    pub operation: String,
+    pub function: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

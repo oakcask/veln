@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[handler.missing_provider]: handler `main::bad` does not provide operation `missing`", "note: main.veln:4:2: Operation `missing` is declared here.", "error[handler.provider_signature]: provider `wrong` does not match operation `value`", "note: main.veln:11:1: Provider `wrong` has this function signature.", "note: main.veln:2:2: Operation `value` declares the required provider suffix.", "note: main.veln:23:1: Handler `main::bad` contributes context parameters before operation parameters.", "error[handler.recursive_provider]: provider `recursive` performs handled effect `main::Ask`", "error[handler.duplicate_provider]: handler `main::duplicate_and_unknown` provides operation `op` more than once", "note: main.veln:29:2: The first provider for operation `op` is here.", "error[handler.unknown_operation]: handled effect `main::Single` has no operation `extra`", "note: main.veln:7:1: Effect `main::Single` is declared here."]
+
+[stderr]
+format = "empty"

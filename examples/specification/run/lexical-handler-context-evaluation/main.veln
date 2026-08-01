@@ -1,0 +1,25 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide(ctx: Int) -> Int
+	ctx
+end
+
+handler ask(ctx: Int) handles Ask
+	value = provide
+end
+
+fn context() -> Int effects [stdio]
+	stdio::println("context")
+	7
+end
+
+fn body() -> Int effects [Ask, stdio]
+	stdio::println("body")
+	perform Ask::value()
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(handle body() with ask(context())))
+end

@@ -15,7 +15,7 @@ path. Unix domain sockets are not required by this proposal.
 
 ## Dependencies
 
-This proposal depends on [Lexical Operation Handlers](lexical-operation-handlers.md).
+This proposal depends on [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md).
 It does not change the current HTTP/2 core while that dependency is absent.
 
 Current network and HTTP/2 behavior remains specified by

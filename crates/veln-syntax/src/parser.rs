@@ -6,13 +6,20 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
-    EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind, IfBranch,
-    MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAliasDecl,
-    PublicAliasKind, RecordField, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
-    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
-    lex,
+    EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind, HandlerDecl,
+    HandlerProviderDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind,
+    PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause, SchemaDecl,
+    SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem,
+    SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
+    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
+
+fn is_contextual_identifier(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Ident | TokenKind::Handle | TokenKind::Handler | TokenKind::Handles
+    )
+}
 
 #[derive(Clone, Debug)]
 pub struct ParseOutput {
@@ -266,6 +273,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Effect) {
                 items.push(SyntaxItem::Effect(self.parse_effect_decl()));
+            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Handler) {
+                items.push(SyntaxItem::Handler(self.parse_handler_decl()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
@@ -278,6 +287,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
             } else if self.at(TokenKind::Effect) {
                 items.push(SyntaxItem::Effect(self.parse_effect_decl()));
+            } else if self.at(TokenKind::Handler) {
+                items.push(SyntaxItem::Handler(self.parse_handler_decl()));
             } else if self.at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Test) {
@@ -287,9 +298,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function, test, type, effect, or schema declaration",
+                    "expected a function, test, type, effect, handler, or schema declaration",
                     "module",
-                    vec!["pub", "fn", "test", "type", "effect", "schema"],
+                    vec!["pub", "fn", "test", "type", "effect", "handler", "schema"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -540,6 +551,93 @@ impl<'a> Parser<'a> {
             name_span,
             params,
             return_type,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_handler_decl(&mut self) -> HandlerDecl {
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        let start = self
+            .expect(TokenKind::Handler, "handler_declaration", vec!["handler"])
+            .range;
+        let name = self.expect_ident("handler_declaration", "handler name");
+        self.expect(TokenKind::LParen, "handler_parameters", vec!["("]);
+        let params = self.parse_params_in_context("handler_parameters", true);
+        self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
+        self.expect(TokenKind::Handles, "handler_declaration", vec!["handles"]);
+        let effect_start = self.current().range;
+        let effect = self.parse_name_path_segments("handler_declaration", "handled effect");
+        let effect_end = self.previous().map_or(effect_start, |token| token.range);
+        let effect_span = self.source.span(effect_start.cover(effect_end));
+        let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
+            let labels = self.parse_effect_list();
+            let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
+            (Some(effects), Some(spans))
+        } else {
+            (None, None)
+        };
+        self.expect_newline("handler_declaration");
+
+        let mut providers = Vec::new();
+        let mut end_present = false;
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                end_present = true;
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            providers.push(self.parse_handler_provider_decl());
+        }
+        if !end_present {
+            self.error_current(
+                "parse.expected_end",
+                "expected `end` to close handler declaration",
+                "handler_declaration",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+        let end = self.previous().map_or(start, |token| token.range);
+        HandlerDecl {
+            visibility,
+            name,
+            params,
+            effect,
+            effect_span,
+            effects,
+            effect_spans,
+            providers,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_handler_provider_decl(&mut self) -> HandlerProviderDecl {
+        let start = self.current().range;
+        let operation_span = self.source.span(start);
+        let operation = self.expect_ident("handler_provider", "operation name");
+        self.expect(TokenKind::Equal, "handler_provider", vec!["="]);
+        let provider_start = self.current().range;
+        let provider = self.parse_name_path_segments("handler_provider", "provider function");
+        let provider_end = self.previous().map_or(provider_start, |token| token.range);
+        let end = self.expect_newline("handler_provider").range;
+        HandlerProviderDecl {
+            operation,
+            operation_span,
+            provider,
+            provider_span: self.source.span(provider_start.cover(provider_end)),
             span: self.source.span(start.cover(end)),
         }
     }
@@ -1684,7 +1782,7 @@ impl<'a> Parser<'a> {
     }
 
     fn expect_ident(&mut self, context: &'static str, expected: &'static str) -> Option<String> {
-        if self.at(TokenKind::Ident) {
+        if is_contextual_identifier(self.current().kind) {
             Some(self.bump().text)
         } else {
             self.error_current(
@@ -2399,8 +2497,9 @@ impl<'a> ExprParser<'a> {
             TokenKind::String => self.parse_literal_primary(token, ExprKind::StringLiteral),
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
-            TokenKind::Ident => self.parse_name_path(),
+            TokenKind::Ident | TokenKind::Handler | TokenKind::Handles => self.parse_name_path(),
             TokenKind::Perform => self.parse_perform_primary(token),
+            TokenKind::Handle => self.parse_handle_primary(token),
             TokenKind::Decode => self.parse_schema_decode_primary(token),
             TokenKind::Encode => self.parse_schema_encode_primary(token),
             TokenKind::LParen => self.parse_group_or_unit_primary(),
@@ -2472,6 +2571,57 @@ impl<'a> ExprParser<'a> {
                 effect_span,
                 operation,
                 operation_span,
+                args,
+            },
+        }
+    }
+
+    fn parse_handle_primary(&mut self, token: Token) -> Expr {
+        let start = token.range;
+        self.bump();
+        let body = self.parse_expr(0);
+        self.expect_expr_token(
+            TokenKind::With,
+            "parse.handle_expression",
+            "handle expression is missing `with`",
+            vec!["with"],
+        );
+        let handler_start = self.current().range;
+        let handler = self.parse_name_path_segments("handle_expression", "handler name");
+        let handler_end = self.previous().map_or(handler_start, |token| token.range);
+        self.expect_expr_token(
+            TokenKind::LParen,
+            "parse.handle_expression",
+            "handle expression is missing handler context arguments",
+            vec!["("],
+        );
+        let mut args = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.is_at_end() {
+            args.push(self.parse_expr(0));
+            if self.eat(TokenKind::Comma).is_some() {
+                continue;
+            }
+            if self.at(TokenKind::RParen) || self.is_at_end() {
+                break;
+            }
+            self.error_current(
+                "parse.handle_argument",
+                "handler context argument is missing `,` or `)`",
+                vec![",", ")"],
+                RecoveryStrategy::InsertToken,
+                Some(","),
+            );
+        }
+        let end = self.eat(TokenKind::RParen).map_or_else(
+            || args.last().map_or(handler_end, lhs_range),
+            |token| token.range,
+        );
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Handle {
+                body: Box::new(body),
+                handler,
+                handler_span: self.source.span(handler_start.cover(handler_end)),
                 args,
             },
         }
@@ -3046,7 +3196,7 @@ impl<'a> ExprParser<'a> {
         let mut end = start;
         let mut segments = vec![self.bump().text];
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) || self.at(TokenKind::Decode) {
+            if self.at_contextual_identifier() || self.at(TokenKind::Decode) {
                 let segment = self.bump();
                 end = segment.range;
                 segments.push(segment.text);
@@ -3078,7 +3228,7 @@ impl<'a> ExprParser<'a> {
         expected_name: &'static str,
     ) -> Vec<String> {
         let mut segments = Vec::new();
-        if self.at(TokenKind::Ident) {
+        if self.at_contextual_identifier() {
             segments.push(self.bump().text);
         } else {
             self.error_current(
@@ -3090,7 +3240,7 @@ impl<'a> ExprParser<'a> {
             );
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if self.at(TokenKind::Ident) {
+            if self.at_contextual_identifier() {
                 segments.push(self.bump().text);
             } else {
                 self.error_current(
@@ -3249,6 +3399,12 @@ impl<'a> ExprParser<'a> {
         self.tokens
             .get(self.cursor)
             .is_some_and(|token| token.kind == kind)
+    }
+
+    fn at_contextual_identifier(&self) -> bool {
+        self.tokens
+            .get(self.cursor)
+            .is_some_and(|token| is_contextual_identifier(token.kind))
     }
 
     fn peek_kind(&self, offset: usize) -> Option<TokenKind> {

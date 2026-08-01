@@ -88,7 +88,7 @@ grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | Hexadecimal
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
-grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
@@ -97,6 +97,8 @@ grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL Ty
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
+grammar_line(101, "HandlerDecl   ::= \"pub\"? \"handler\" Name \"(\" ParamList? \")\" \"handles\" MemberPath Effects? NL HandlerProvider+ \"end\" NL?").
+grammar_line(101, "HandlerProvider ::= Name \"=\" MemberPath NL").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
@@ -134,11 +136,12 @@ grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" 
 grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
 grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").
+grammar_line(309, "Handle        ::= \"handle\" Expr \"with\" MemberPath \"(\" ArgList? \")\"").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
 grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
@@ -281,6 +284,9 @@ keyword_kind("test", test).
 keyword_kind("effect", effect).
 keyword_kind("effects", effects).
 keyword_kind("perform", perform).
+keyword_kind("handler", handler).
+keyword_kind("handles", handles).
+keyword_kind("handle", handle).
 keyword_kind("let", let).
 keyword_kind("end", end).
 keyword_kind("require", require).
@@ -321,6 +327,7 @@ items --> [].
 item --> nls, function_decl.
 item --> nls, test_decl.
 item --> nls, effect_decl.
+item --> nls, handler_decl.
 item --> nls, type_decl.
 item --> nls, schema_decl.
 item --> nls, public_alias.
@@ -372,6 +379,30 @@ effect_operation -->
     tok(rparen),
     tok(arrow),
     type_text_until([nl]),
+    nl.
+
+handler_decl -->
+    visibility,
+    tok(handler),
+    ident,
+    tok(lparen),
+    params_opt,
+    tok(rparen),
+    tok(handles),
+    member_path,
+    effects_opt,
+    nl,
+    handler_providers,
+    tok(end),
+    newline_opt.
+
+handler_providers --> handler_provider, !, handler_providers_tail.
+handler_providers_tail --> handler_provider, !, handler_providers_tail.
+handler_providers_tail --> [].
+handler_provider -->
+    ident,
+    tok(equal),
+    member_path,
     nl.
 
 effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
@@ -647,6 +678,7 @@ primary_expr --> tok(underscore), satisfy_opt.
 primary_expr --> literal.
 primary_expr --> name_path.
 primary_expr --> perform_expr.
+primary_expr --> handle_expr.
 primary_expr --> schema_decode_expr.
 primary_expr --> schema_encode_expr.
 primary_expr --> tok(lparen), nls, tok(rparen).
@@ -678,6 +710,17 @@ perform_expr -->
     effect_path_before_operation,
     tok(double_colon),
     ident,
+    tok(lparen),
+    nls,
+    args_opt,
+    nls,
+    tok(rparen).
+
+handle_expr -->
+    tok(handle),
+    expr,
+    tok(with),
+    member_path,
     tok(lparen),
     nls,
     args_opt,

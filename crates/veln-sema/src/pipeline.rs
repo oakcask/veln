@@ -6,9 +6,10 @@ use veln_ir::{TypedProgram, lower_checked_core};
 use crate::analysis::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
-    check_duplicate_use_aliases, check_function_body, check_module_boundary, check_public_aliases,
-    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary,
+    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
+    check_module_boundary, check_public_aliases, check_public_function_boundary,
+    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
+    check_test_declaration_boundary,
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
@@ -60,6 +61,7 @@ fn analyze_surface_module_with_environment(
     diagnostics.extend(check_public_aliases(module));
     diagnostics.extend(check_schema_field_primitives(module));
     diagnostics.extend(check_schema_type_references(module));
+    diagnostics.extend(check_handler_declarations(module, environment));
 
     for function in &module.functions {
         if !validate_standard_bodies

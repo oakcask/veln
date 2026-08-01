@@ -1,0 +1,32 @@
+effect Ask
+	value() -> Int
+	other() -> Int
+	missing() -> Int
+end
+
+effect Single
+	op() -> Int
+end
+
+fn wrong(ctx: Int, value: String) -> Int
+	ctx
+end
+
+fn right(ctx: Int) -> Int
+	ctx
+end
+
+fn recursive(ctx: Int) -> Int effects [Ask]
+	perform Ask::value()
+end
+
+handler bad(ctx: Int) handles Ask
+	value = wrong
+	other = recursive
+end
+
+handler duplicate_and_unknown(ctx: Int) handles Single
+	op = right
+	op = right
+	extra = right
+end

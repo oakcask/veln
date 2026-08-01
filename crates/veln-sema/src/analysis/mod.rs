@@ -20,8 +20,8 @@ use crate::contracts::{
     predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
-    contract_details, effect_details, effect_missing_public_details, module_details, span_json,
-    type_details,
+    contract_details, effect_details, effect_missing_public_details, handler_details,
+    module_details, span_json, type_details,
 };
 use crate::effects::KNOWN_EFFECT_LABELS;
 use crate::prelude::{
@@ -56,7 +56,7 @@ pub(crate) use body::check_function_body;
 pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
-    check_duplicate_use_aliases, check_module_boundary, check_public_aliases,
-    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary,
+    check_duplicate_use_aliases, check_handler_declarations, check_module_boundary,
+    check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
+    check_schema_field_primitives, check_schema_type_references, check_test_declaration_boundary,
 };

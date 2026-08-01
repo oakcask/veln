@@ -77,6 +77,8 @@ under `../../specification/` and its executable example routes.
   [tail-recursion-trampoline.md](tail-recursion-trampoline.md).
 - Type parameter angle brackets:
   [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
+- Lexical operation handlers:
+  [lexical-operation-handlers.md](lexical-operation-handlers.md).
 - Canonical type argument delimiters:
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 - Remove legacy type delimiters:

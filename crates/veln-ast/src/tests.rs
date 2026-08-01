@@ -86,6 +86,12 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
                 collect_expr_node_ids(arg, ids);
             }
         }
+        ExprKind::Handle { body, args, .. } => {
+            collect_expr_node_ids(body, ids);
+            for arg in args {
+                collect_expr_node_ids(arg, ids);
+            }
+        }
         ExprKind::SchemaDecode { input, base, .. } => {
             collect_expr_node_ids(input, ids);
             collect_expr_node_ids(base, ids);

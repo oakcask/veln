@@ -13,7 +13,7 @@ callbacks instead of fixing those callbacks to one concrete effect set.
 
 This proposal depends on:
 
-- [Lexical Operation Handlers](lexical-operation-handlers.md), and
+- [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md), and
 - [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md).
 
 Implementation may start only after the connection-driver evidence identifies

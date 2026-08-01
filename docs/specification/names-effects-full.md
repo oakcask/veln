@@ -144,6 +144,31 @@ checked behavior is specified by
 `examples/specification/run/user-effect-runnable-boundary/`, and
 `examples/specification/test/user-effect-test-boundary/`.
 
+Lexical handlers provide all operations of one nominal effect for the dynamic
+evaluation of one `handle Body with Handler(arguments)` expression. A handler
+declaration names context parameters, the handled effect, an optional
+`effects [...]` list, and one provider function per handled operation. A
+provider receives handler context arguments before operation arguments and
+must return the operation result type. A handler declaration is rejected when
+an operation provider is missing, repeated, or names an operation absent from
+the handled effect. A provider may not retain the handled effect. A public
+handler must declare every effect retained by its providers. A private handler
+infers retained effects from its providers. Declared handler effect lists are
+canonical, unordered, and duplicate-free.
+
+The checker evaluates the effect set of a handle expression as the union of
+context argument effects, body effects with the handled nominal effect removed,
+and the handler declaration effects. Handler context arguments are evaluated
+left to right before the body. Handling is deep for calls made during the body,
+and nested handlers for the same operation shadow outer handlers until the
+nested body finishes. Handler state is lexical to the current task; task
+spawns require their callback effect boundary explicitly and do not inherit
+the active handler stack. A runnable entry still rejects any user-defined
+effect that remains after lexical handling. The checked behavior is specified
+by the lexical-handler and handler-operation cases under
+`examples/specification/`, including the early-return cleanup and
+public handler effect-declaration cases and the `veln test` success case.
+
 ## Compiler-Known Descriptor Table
 
 Semantic analysis owns a standard symbol table for compiler-known library

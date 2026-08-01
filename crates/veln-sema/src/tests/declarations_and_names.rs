@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::TypeEnvironment;
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -143,6 +144,50 @@ fn nominal_effect_missing_public_reports_perform_provenance() {
     assert!(related.contains("\"kind\":\"effect_provenance\""));
     assert!(related.contains("Call to `Audit::record` requires this effect."));
     assert!(related.contains("\"start\":{\"line\":6,\"column\":3,"));
+}
+
+#[test]
+fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn traced(offset: Int) -> Int effects [stdio]\n",
+            "  stdio::println(\"provider\")\n",
+            "  offset + 1\n",
+            "end\n",
+            "\n",
+            "pub handler missing(offset: Int) handles Ask\n",
+            "  value = traced\n",
+            "end\n",
+            "\n",
+            "pub handler declared(offset: Int) handles Ask effects [stdio, stdio]\n",
+            "  value = traced\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let environment = TypeEnvironment::from_module(&module);
+    let declared = environment
+        .handler_path(&["declared".to_string()], None)
+        .expect("declared handler should be present");
+    assert_eq!(declared.effects, ["stdio"]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let missing = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "handler.missing_public_effect")
+        .unwrap_or_else(|| panic!("expected missing handler effect: {diagnostics:#?}"));
+    assert_eq!(
+        missing.message,
+        "public handler `missing` uses undeclared effect `stdio`"
+    );
+    assert_eq!(missing.span.as_ref().unwrap().start.line, 10);
 }
 
 #[test]
@@ -1318,6 +1363,7 @@ fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
         uses: facade.uses,
         aliases: facade.aliases,
         effects: Vec::new(),
+        handlers: Vec::new(),
         types: wire.types,
         schemas: wire.schemas,
         codecs: wire.codecs,
@@ -1473,6 +1519,7 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
         uses: app.uses,
         aliases: Vec::new(),
         effects: Vec::new(),
+        handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
@@ -1752,6 +1799,7 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
         uses: app.uses,
         aliases: Vec::new(),
         effects: Vec::new(),
+        handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
@@ -1901,6 +1949,7 @@ fn duplicate_use_aliases_are_scoped_to_declaring_module() {
         uses: [first.uses, second.uses].concat(),
         aliases: Vec::new(),
         effects: Vec::new(),
+        handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
         codecs: Vec::new(),
@@ -2151,6 +2200,72 @@ fn wildcard_let_pattern_does_not_bind_or_shadow_names() {
     };
     assert!(matches!(&expr.kind, CoreExprKind::Local(name) if name == "value"));
     assert!(lowered.ir.is_some());
+}
+
+#[test]
+fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide(ctx: Int) -> Int\n",
+            "  ctx\n",
+            "end\n",
+            "\n",
+            "handler ask(ctx: Int) handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  handle perform Ask::value() with ask(41)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to checked core");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Handle { effect, providers, context_args, body }
+            if effect == "Ask"
+                && providers.len() == 1
+                && providers[0].operation == "value"
+                && context_args.len() == 1
+                && matches!(&body.kind, CoreExprKind::Perform { operation, .. } if operation == "value")
+    ));
+    let ir = lowered.ir.as_ref().expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to typed IR");
+    let IrStmtKind::Return { value: expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        IrExprKind::Handle { effect, providers, context_args, body }
+            if effect == "Ask"
+                && providers.len() == 1
+                && providers[0].operation == "value"
+                && context_args.len() == 1
+                && matches!(&body.kind, IrExprKind::Perform { operation, .. } if operation == "value")
+    ));
 }
 
 #[test]

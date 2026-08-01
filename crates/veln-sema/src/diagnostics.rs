@@ -67,6 +67,35 @@ pub(crate) fn effect_details(node_id: String, boundary: &'static str) -> JsonVal
     ])
 }
 
+pub(crate) fn handler_details(
+    node_id: String,
+    boundary: &'static str,
+    handler: impl Into<String>,
+    handled_effect: impl Into<String>,
+    operation: Option<&str>,
+    provider: Option<&[String]>,
+    reason: &'static str,
+) -> JsonValue {
+    JsonValue::object([
+        ("phase", JsonValue::string("effect")),
+        ("node_id", JsonValue::string(node_id)),
+        ("boundary", JsonValue::string(boundary)),
+        ("handler", JsonValue::string(handler)),
+        ("handled_effect", JsonValue::string(handled_effect)),
+        (
+            "operation",
+            operation.map_or(JsonValue::Null, JsonValue::string),
+        ),
+        (
+            "provider",
+            provider.map_or(JsonValue::Null, |segments| {
+                JsonValue::string(segments.join("::"))
+            }),
+        ),
+        ("reason", JsonValue::string(reason)),
+    ])
+}
+
 pub(crate) fn module_details(
     node_id: String,
     field: &'static str,
