@@ -1,0 +1,38 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["handler.effect_unknown"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "handler.effect_unknown"
+severity = "error"
+kind = "effect"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "unknown_handled_effect"
+
+[[json_assert]]
+path = "diagnostics.0.details.handled_effect"
+equals = "Missing"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "effect_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.effect"
+equals = "main::Ask"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.operations.0"
+equals = "value"

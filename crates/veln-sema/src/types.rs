@@ -271,6 +271,19 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn visible_user_effects(
+        &self,
+        current_module: Option<&str>,
+    ) -> Vec<&EffectSignature> {
+        self.effects
+            .iter()
+            .filter(|effect| {
+                effect.module_name.as_deref() == current_module
+                    || effect.visibility == Visibility::Public
+            })
+            .collect()
+    }
+
     pub(crate) fn handler_path(
         &self,
         segments: &[String],

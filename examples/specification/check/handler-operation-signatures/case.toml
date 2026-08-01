@@ -42,9 +42,37 @@ path = "diagnostics.1.related.0.kind"
 equals = "provider_function"
 
 [[json_assert]]
+path = "diagnostics.1.details.handler"
+equals = "main::bad"
+
+[[json_assert]]
+path = "diagnostics.1.details.handled_effect"
+equals = "main::Ask"
+
+[[json_assert]]
+path = "diagnostics.1.details.operation"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.1.details.provider"
+equals = "wrong"
+
+[[json_assert]]
+path = "diagnostics.1.details.reason"
+equals = "provider_signature"
+
+[[json_assert]]
 path = "diagnostics.1.related.1.kind"
 equals = "effect_operation"
 
 [[json_assert]]
 path = "diagnostics.1.related.2.kind"
 equals = "handler_declaration"
+
+[[json_assert]]
+path = "diagnostics.2.details.reason"
+equals = "recursive_provider"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.kind"
+equals = "provider_function"

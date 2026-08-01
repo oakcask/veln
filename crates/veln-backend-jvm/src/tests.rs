@@ -740,6 +740,40 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_runs_lexical_handlers_when_java_is_available() {
+    let ir = lower_to_ir(
+        "effect Pick\n\
+           next(value: Int) -> Int\n\
+         end\n\
+         fn provide(base: Int, value: Int) -> Int\n\
+           base + value\n\
+         end\n\
+         handler picker(base: Int) handles Pick\n\
+           next = provide\n\
+         end\n\
+         pub fn main() -> () effects [stdio]\n\
+           let total = handle perform Pick::next(1) + perform Pick::next(2) with picker(40)\n\
+           stdio::println(int_to_string(total))\n\
+         end\n",
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-lexical-handler", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "83\n");
+}
+
+#[test]
 fn bytecode_backend_dispatches_reusable_test_entries_when_java_is_available() {
     let ir = lower_to_ir(
         "test alpha() -> Result<(), String> effects [stdio]\n\

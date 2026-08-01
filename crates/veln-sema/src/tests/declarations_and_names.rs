@@ -2158,6 +2158,72 @@ fn wildcard_let_pattern_does_not_bind_or_shadow_names() {
 }
 
 #[test]
+fn lexical_handler_lowers_through_checked_core_and_typed_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide(ctx: Int) -> Int\n",
+            "  ctx\n",
+            "end\n",
+            "\n",
+            "handler ask(ctx: Int) handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  handle perform Ask::value() with ask(41)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to checked core");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Handle { effect, providers, context_args, body }
+            if effect == "Ask"
+                && providers.len() == 1
+                && providers[0].operation == "value"
+                && context_args.len() == 1
+                && matches!(&body.kind, CoreExprKind::Perform { operation, .. } if operation == "value")
+    ));
+    let ir = lowered.ir.as_ref().expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to typed IR");
+    let IrStmtKind::Return { value: expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        IrExprKind::Handle { effect, providers, context_args, body }
+            if effect == "Ask"
+                && providers.len() == 1
+                && providers[0].operation == "value"
+                && context_args.len() == 1
+                && matches!(&body.kind, IrExprKind::Perform { operation, .. } if operation == "value")
+    ));
+}
+
+#[test]
 fn duplicate_record_field_names_are_static_errors() {
     let source = SourceFile::new("main.veln", "fn bad() -> {a: Int}\n  {a: 1, a: 2}\nend\n");
     let parsed = parse(&source);

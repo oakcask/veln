@@ -39,6 +39,23 @@ Checked examples under `examples/specification/check/` pin these shapes for
 local bindings, private helper parameters and returns, constructor ambiguity,
 empty collection ambiguity, and match scrutinee ambiguity.
 
+## Handler Diagnostics
+
+Handler effect diagnostics use `phase = "effect"` and include `boundary`,
+`handler`, `handled_effect`, nullable `operation`, nullable `provider`, and
+`reason`. Unknown handled effects report `reason = "unknown_handled_effect"`
+and add visible candidate effect declarations as related notes with `effect`
+and `operations`.
+
+`handler.provider_signature` uses `phase = "type"` and includes the same
+handler, handled-effect, operation, provider, and boundary fields. It also
+reports `context_params`, `operation_params`, `expected_params`,
+`actual_params`, `expected_return_type`, and `actual_return_type`.
+
+The checked examples `handler-operation-signatures` and
+`handler-operation-signatures-human` pin the structured and human related
+context for missing, duplicate, unknown, mismatched, and recursive providers.
+
 ## Integer Bitwise Diagnostics
 
 `type.invalid_shift_count` details contain `operator`, `actual_count`,

@@ -1,0 +1,11 @@
+effect Ask
+	value() -> Int
+end
+
+fn value(ctx: Int) -> Int
+	ctx
+end
+
+handler missing(ctx: Int) handles Missing
+	value = value
+end

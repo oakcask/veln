@@ -45,7 +45,7 @@ pub(crate) fn check_handler_declarations(
         let Some(effect) =
             environment.user_effect_path(&handler.effect, handler.module_name.as_deref())
         else {
-            diagnostics.push(Diagnostic::new(
+            let mut diagnostic = Diagnostic::new(
                 "handler.effect_unknown",
                 Severity::Error,
                 DiagnosticKind::Effect,
@@ -54,8 +54,51 @@ pub(crate) fn check_handler_declarations(
                     handler.effect.join("::")
                 ),
                 Some(handler.effect_span.clone()),
-                effect_details(handler.node_id.display("handler"), "handler_declaration"),
-            ));
+                handler_details(
+                    handler.node_id.display("handler"),
+                    "handler_declaration",
+                    handler.name.clone().unwrap_or_default(),
+                    handler.effect.join("::"),
+                    None,
+                    None,
+                    "unknown_handled_effect",
+                ),
+            );
+            for candidate in environment.visible_user_effects(handler.module_name.as_deref()) {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("effect_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Candidate effect `{}` is declared here.",
+                            candidate.qualified_name
+                        )),
+                    ),
+                    (
+                        "effect",
+                        JsonValue::string(candidate.qualified_name.clone()),
+                    ),
+                    (
+                        "operations",
+                        JsonValue::array(
+                            candidate
+                                .operations
+                                .iter()
+                                .map(|operation| JsonValue::string(operation.name.clone())),
+                        ),
+                    ),
+                    (
+                        "span",
+                        span_json(
+                            candidate
+                                .operations
+                                .first()
+                                .map_or(&handler.effect_span, |operation| &operation.name_span),
+                        ),
+                    ),
+                ]));
+            }
+            diagnostics.push(diagnostic);
             continue;
         };
         let mut provided_operations = BTreeMap::<String, SourceSpan>::new();
@@ -73,7 +116,15 @@ pub(crate) fn check_handler_declarations(
                         signature.qualified_name
                     ),
                     Some(provider.operation_span.clone()),
-                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                    handler_details(
+                        provider.node_id.display("provider"),
+                        "handler_provider",
+                        signature.qualified_name.clone(),
+                        effect.qualified_name.clone(),
+                        Some(operation_name),
+                        Some(&provider.provider),
+                        "duplicate_provider",
+                    ),
                 );
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("handler_provider")),
@@ -105,7 +156,15 @@ pub(crate) fn check_handler_declarations(
                         signature.qualified_name, operation.name
                     ),
                     Some(handler.span.clone()),
-                    effect_details(handler.node_id.display("handler"), "handler_declaration"),
+                    handler_details(
+                        handler.node_id.display("handler"),
+                        "handler_declaration",
+                        signature.qualified_name.clone(),
+                        effect.qualified_name.clone(),
+                        Some(&operation.name),
+                        None,
+                        "missing_provider",
+                    ),
                 );
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("effect_operation")),
@@ -139,7 +198,15 @@ pub(crate) fn check_handler_declarations(
                         effect.qualified_name
                     ),
                     Some(provider.operation_span.clone()),
-                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                    handler_details(
+                        provider.node_id.display("provider"),
+                        "handler_provider",
+                        signature.qualified_name.clone(),
+                        effect.qualified_name.clone(),
+                        Some(operation_name),
+                        Some(&provider.provider),
+                        "unknown_operation",
+                    ),
                 );
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("effect_declaration")),
@@ -164,7 +231,15 @@ pub(crate) fn check_handler_declarations(
                     DiagnosticKind::Effect,
                     format!("provider `{}` is not known", provider.provider.join("::")),
                     Some(provider.provider_span.clone()),
-                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                    handler_details(
+                        provider.node_id.display("provider"),
+                        "handler_provider",
+                        signature.qualified_name.clone(),
+                        effect.qualified_name.clone(),
+                        Some(operation_name),
+                        Some(&provider.provider),
+                        "unknown_provider",
+                    ),
                 ));
                 continue;
             };
@@ -180,15 +255,68 @@ pub(crate) fn check_handler_declarations(
                         provider.provider.join("::")
                     ),
                     Some(provider.provider_span.clone()),
-                    type_details(
-                        provider.node_id.display("provider"),
-                        "handler_provider",
-                        "provider_signature",
-                        "handler_operation",
-                        "source",
-                        "assignable",
-                        [handler.node_id.display("handler")],
-                    ),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("type")),
+                        (
+                            "node_id",
+                            JsonValue::string(provider.node_id.display("provider")),
+                        ),
+                        ("boundary", JsonValue::string("handler_provider")),
+                        (
+                            "handler",
+                            JsonValue::string(signature.qualified_name.clone()),
+                        ),
+                        (
+                            "handled_effect",
+                            JsonValue::string(effect.qualified_name.clone()),
+                        ),
+                        ("operation", JsonValue::string(operation_name.clone())),
+                        ("provider", JsonValue::string(provider.provider.join("::"))),
+                        ("reason", JsonValue::string("provider_signature")),
+                        (
+                            "context_params",
+                            JsonValue::array(
+                                signature
+                                    .params
+                                    .iter()
+                                    .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                            ),
+                        ),
+                        (
+                            "operation_params",
+                            JsonValue::array(
+                                operation
+                                    .params
+                                    .iter()
+                                    .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                            ),
+                        ),
+                        (
+                            "expected_params",
+                            JsonValue::array(
+                                expected_params
+                                    .iter()
+                                    .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                            ),
+                        ),
+                        (
+                            "actual_params",
+                            JsonValue::array(
+                                function
+                                    .params
+                                    .iter()
+                                    .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                            ),
+                        ),
+                        (
+                            "expected_return_type",
+                            JsonValue::string(format!("{:?}", operation.return_type)),
+                        ),
+                        (
+                            "actual_return_type",
+                            JsonValue::string(format!("{:?}", function.return_type)),
+                        ),
+                    ]),
                 );
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("provider_function")),
@@ -261,7 +389,7 @@ pub(crate) fn check_handler_declarations(
                 .iter()
                 .any(|effect_name| effect_name == &signature.effect)
             {
-                diagnostics.push(Diagnostic::new(
+                let mut diagnostic = Diagnostic::new(
                     "handler.recursive_provider",
                     Severity::Error,
                     DiagnosticKind::Effect,
@@ -271,8 +399,53 @@ pub(crate) fn check_handler_declarations(
                         signature.effect
                     ),
                     Some(provider.provider_span.clone()),
-                    effect_details(provider.node_id.display("provider"), "handler_provider"),
-                ));
+                    handler_details(
+                        provider.node_id.display("provider"),
+                        "handler_provider",
+                        signature.qualified_name.clone(),
+                        effect.qualified_name.clone(),
+                        Some(operation_name),
+                        Some(&provider.provider),
+                        "recursive_provider",
+                    ),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("provider_function")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Provider `{}` retains `{}`.",
+                            provider.provider.join("::"),
+                            signature.effect
+                        )),
+                    ),
+                    ("provider", JsonValue::string(provider.provider.join("::"))),
+                    (
+                        "effects",
+                        JsonValue::array(function.effects.iter().cloned().map(JsonValue::string)),
+                    ),
+                    ("span", span_json(&function.span)),
+                ]));
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("handler_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Handler `{}` handles `{}`.",
+                            signature.qualified_name, effect.qualified_name
+                        )),
+                    ),
+                    (
+                        "handler",
+                        JsonValue::string(signature.qualified_name.clone()),
+                    ),
+                    (
+                        "handled_effect",
+                        JsonValue::string(effect.qualified_name.clone()),
+                    ),
+                    ("span", span_json(&handler.effect_span)),
+                ]));
+                diagnostics.push(diagnostic);
             }
             if handler.visibility == Visibility::Public {
                 for effect_name in &function.effects {
@@ -290,9 +463,14 @@ pub(crate) fn check_handler_declarations(
                                 signature.qualified_name
                             ),
                             Some(handler.span.clone()),
-                            effect_details(
+                            handler_details(
                                 handler.node_id.display("handler"),
                                 "handler_declaration",
+                                signature.qualified_name.clone(),
+                                effect.qualified_name.clone(),
+                                Some(operation_name),
+                                Some(&provider.provider),
+                                "missing_public_effect",
                             ),
                         ));
                     }

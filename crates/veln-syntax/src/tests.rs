@@ -101,6 +101,73 @@ fn parses_and_formats_nominal_effect_operations() {
 }
 
 #[test]
+fn parses_and_formats_lexical_handler_declarations_and_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value()->Int\n",
+            "end\n",
+            "\n",
+            "fn provide(ctx:Int)->Int\n",
+            "  ctx\n",
+            "end\n",
+            "\n",
+            "handler ask(ctx:Int) handles Ask effects [stdio]\n",
+            "  value=provide\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int effects [stdio]\n",
+            "  handle perform Ask::value() with ask(41)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Handler(handler) = &output.tree.items[2] else {
+        panic!("expected handler declaration");
+    };
+    assert_eq!(handler.name.as_deref(), Some("ask"));
+    assert_eq!(handler.effect, vec!["Ask".to_string()]);
+    assert_eq!(handler.providers[0].operation.as_deref(), Some("value"));
+    let SyntaxItem::Function(function) = &output.tree.items[3] else {
+        panic!("expected main function");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Handle { handler, args, body, .. }
+            if handler == &vec!["ask".to_string()]
+                && args.len() == 1
+                && matches!(&body.kind, ExprKind::Perform { operation, .. } if operation == "value")
+    ));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "effect Ask\n",
+            "\tvalue() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide(ctx: Int) -> Int\n",
+            "\tctx\n",
+            "end\n",
+            "\n",
+            "handler ask(ctx: Int) handles Ask effects [stdio]\n",
+            "\tvalue = provide\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int effects [stdio]\n",
+            "\thandle perform Ask::value() with ask(41)\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn rejects_effect_operation_parameter_without_type() {
     let source = SourceFile::new(
         "main.veln",
