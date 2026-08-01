@@ -24,4 +24,5 @@ mod types;
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
     lower_analyzed_surface_module, lower_checked_surface_module,
+    lower_project_reachable_surface_module,
 };
