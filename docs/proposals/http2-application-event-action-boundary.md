@@ -78,8 +78,11 @@ does not retain those events. Draining the next state again returns no events.
 
 This boundary prevents one transport read that contains multiple complete
 frames from losing an earlier event when the receive loop processes a later
-frame. Incomplete header blocks, response headers, trailers, and non-HEADERS
-frames produce no request-header event in this slice.
+frame. An incomplete request HEADERS block produces no request-header event.
+The final CONTINUATION frame produces one request-header event when it
+completes that block and the decoded request passes validation and its stream
+transition. Response headers, trailers, and frames unrelated to a pending
+request-header block produce no request-header event in this slice.
 
 The event drain must not expose or mutate the caller's core state. The final
 standard-library types may extend the existing receive state or use a separate
@@ -114,7 +117,10 @@ change.
 | Open server connection | Accepted incomplete request HEADERS block | Receiving | Retain no application event and invoke no callback |
 | Receiving | Accepted complete request HEADERS with `END_STREAM` | Handling | Retain and drain one request-header event, then invoke the callback once |
 | Receiving | Accepted complete request HEADERS without `END_STREAM` | Failed | Drain the request-header event, return unsupported-request failure, invoke no callback, and do not classify the input as a protocol failure |
+| Receiving before an application request | Clean accepted EOF | Complete | Return the accepted core state and invoke no callback |
 | Driving after one response | A second request event | Failed | Return unsupported-request-count failure and do not invoke the callback again |
+| Driving after one response | Clean accepted EOF | Complete | Return the accepted core state without another callback invocation |
+| Receiving or driving | EOF with an incomplete frame or header block | Failed | Return the existing incomplete-input connection failure and preserve prior committed writes |
 | Handling | Callback returns failure | Failed | Return callback failure and write no response action bytes |
 | Handling | Callback returns valid response actions | Writing | Apply each action to the accepted immutable core state in list order |
 | Writing | Core accepts an action | Writing or driving | Commit the returned state and write its bytes once in action order |
@@ -150,6 +156,9 @@ frame splitting, content-length, or flow-control rules.
 | Pure boundary | The application driver exposes only `transport::DuplexStream`; its callback has no effects | `check/http2-connection-application-boundary-effects` |
 | One request and response | One accepted headers-only request invokes the callback once and writes accepted response HEADERS and DATA bytes in order | `run/http2-connection-application-one-request` |
 | Event drain | Multiple complete frames in one transport chunk preserve their request events in receive order; a second drain returns no events | Focused HTTP/2 core test and `run/http2-core-application-event-drain` |
+| Continued request headers | A final CONTINUATION completes a valid request-header block, emits one event, and invokes the callback once | Focused HTTP/2 core test and `run/http2-connection-application-continuation-request` |
+| Clean EOF | Clean EOF before a request returns the accepted core state without a callback; clean EOF after one response returns its accepted core state without another callback | `run/http2-connection-application-clean-end` |
+| Incomplete EOF | EOF with a partial frame or pending header block returns the existing incomplete-input connection failure and preserves earlier committed writes | `run/http2-connection-application-incomplete-end-json` |
 | Callback failure | Callback failure writes no response bytes and remains distinct from protocol failure | `run/http2-connection-application-callback-failure-json` |
 | Unsupported request | Valid request HEADERS without `END_STREAM` produces the typed unsupported-request outcome without callback invocation | `run/http2-connection-application-unsupported-request-json` |
 | Second request | A second request produces the typed unsupported-request-count outcome without a second callback invocation | `run/http2-connection-application-second-request-json` |
