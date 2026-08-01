@@ -24,7 +24,7 @@ use crate::types::{
     schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
     schema_repeat_payload_accepts_lowercase_primitive, supported_encode_reserved_bits,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
 use veln_literals::parse_integer_literal;
 
@@ -58,6 +58,38 @@ pub(crate) fn check_handler_declarations(
             ));
             continue;
         };
+        let mut provided_operations = BTreeMap::<String, SourceSpan>::new();
+        for provider in &handler.providers {
+            let Some(operation_name) = &provider.operation else {
+                continue;
+            };
+            if let Some(first_span) = provided_operations.get(operation_name) {
+                let mut diagnostic = Diagnostic::new(
+                    "handler.duplicate_provider",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!(
+                        "handler `{}` provides operation `{operation_name}` more than once",
+                        signature.qualified_name
+                    ),
+                    Some(provider.operation_span.clone()),
+                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("handler_provider")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "The first provider for operation `{operation_name}` is here."
+                        )),
+                    ),
+                    ("span", span_json(first_span)),
+                ]));
+                diagnostics.push(diagnostic);
+            } else {
+                provided_operations.insert(operation_name.clone(), provider.operation_span.clone());
+            }
+        }
         for operation in &effect.operations {
             if !signature
                 .providers
@@ -98,6 +130,29 @@ pub(crate) fn check_handler_declarations(
                 .iter()
                 .find(|operation| operation.name == *operation_name)
             else {
+                let mut diagnostic = Diagnostic::new(
+                    "handler.unknown_operation",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!(
+                        "handled effect `{}` has no operation `{operation_name}`",
+                        effect.qualified_name
+                    ),
+                    Some(provider.operation_span.clone()),
+                    effect_details(provider.node_id.display("provider"), "handler_provider"),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("effect_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Effect `{}` is declared here.",
+                            effect.qualified_name
+                        )),
+                    ),
+                    ("span", span_json(&handler.effect_span)),
+                ]));
+                diagnostics.push(diagnostic);
                 continue;
             };
             let Some(function) =
@@ -116,7 +171,7 @@ pub(crate) fn check_handler_declarations(
             let mut expected_params = signature.params.clone();
             expected_params.extend(operation.params.clone());
             if function.params != expected_params || function.return_type != operation.return_type {
-                diagnostics.push(Diagnostic::new(
+                let mut diagnostic = Diagnostic::new(
                     "handler.provider_signature",
                     Severity::Error,
                     DiagnosticKind::Type,
@@ -134,7 +189,72 @@ pub(crate) fn check_handler_declarations(
                         "assignable",
                         [handler.node_id.display("handler")],
                     ),
-                ));
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("provider_function")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Provider `{}` has this function signature.",
+                            provider.provider.join("::")
+                        )),
+                    ),
+                    ("span", span_json(&function.span)),
+                    (
+                        "params",
+                        JsonValue::array(
+                            function
+                                .params
+                                .iter()
+                                .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                        ),
+                    ),
+                    (
+                        "return_type",
+                        JsonValue::string(format!("{:?}", function.return_type)),
+                    ),
+                ]));
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("effect_operation")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Operation `{operation_name}` declares the required provider suffix."
+                        )),
+                    ),
+                    ("span", span_json(&operation.name_span)),
+                    (
+                        "params",
+                        JsonValue::array(
+                            operation
+                                .params
+                                .iter()
+                                .map(|ty| JsonValue::string(format!("{ty:?}"))),
+                        ),
+                    ),
+                    (
+                        "return_type",
+                        JsonValue::string(format!("{:?}", operation.return_type)),
+                    ),
+                ]));
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("handler_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Handler `{}` contributes context parameters before operation parameters.",
+                            signature.qualified_name
+                        )),
+                    ),
+                    ("span", span_json(&handler.span)),
+                    (
+                        "context_params",
+                        JsonValue::array(signature.params.iter().map(|ty| {
+                            JsonValue::string(format!("{ty:?}"))
+                        })),
+                    ),
+                ]));
+                diagnostics.push(diagnostic);
             }
             if function
                 .effects

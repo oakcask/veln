@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["handler.missing_provider", "handler.provider_signature", "handler.recursive_provider"]
+contains = ["handler.missing_provider", "handler.provider_signature", "handler.recursive_provider", "handler.duplicate_provider", "handler.unknown_operation"]
 
 [stderr]
 format = "empty"
@@ -26,3 +26,25 @@ kind = "type"
 id = "handler.recursive_provider"
 severity = "error"
 kind = "effect"
+
+[[diagnostics]]
+id = "handler.duplicate_provider"
+severity = "error"
+kind = "effect"
+
+[[diagnostics]]
+id = "handler.unknown_operation"
+severity = "error"
+kind = "effect"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "provider_function"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "effect_operation"
+
+[[json_assert]]
+path = "diagnostics.1.related.2.kind"
+equals = "handler_declaration"

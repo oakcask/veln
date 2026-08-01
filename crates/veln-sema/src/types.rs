@@ -205,7 +205,7 @@ struct PrivateInferenceExprContext<'a> {
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         let effects = effect_signatures(module);
-        let handlers = handler_signatures(module, &effects);
+        let mut handlers = handler_signatures(module, &effects);
         let mut functions = ordinary_function_signatures(module, &effects);
         let adts = AdtRegistry::from_module(module);
         infer_private_function_body_return_types(module, &mut functions, &adts);
@@ -216,6 +216,7 @@ impl TypeEnvironment {
         functions.extend(schema_encode_function_signatures(module));
         functions.extend(schema_validate_function_signatures(module));
         infer_function_body_effects(module, &mut functions, &effects, &handlers);
+        infer_private_handler_effects(&mut handlers, &functions, &module.uses);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
@@ -708,13 +709,14 @@ fn canonical_declared_effects(
     current_module: Option<&str>,
     effects: &[EffectSignature],
 ) -> Vec<String> {
-    declared
-        .into_iter()
-        .map(|effect| {
-            let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
-            canonical_user_effect_label(&segments, uses, current_module, effects).unwrap_or(effect)
-        })
-        .collect()
+    let mut canonical = Vec::new();
+    for effect in declared {
+        let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+        let label =
+            canonical_user_effect_label(&segments, uses, current_module, effects).unwrap_or(effect);
+        push_unique_effect(&mut canonical, &label);
+    }
+    canonical
 }
 
 fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> {
@@ -806,6 +808,32 @@ fn handler_signatures(
             })
         })
         .collect()
+}
+
+fn infer_private_handler_effects(
+    handlers: &mut [HandlerSignature],
+    functions: &[FunctionSignature],
+    uses: &[UseDecl],
+) {
+    for handler in handlers
+        .iter_mut()
+        .filter(|handler| handler.visibility != Visibility::Public)
+    {
+        let mut inferred = Vec::new();
+        for provider in &handler.providers {
+            if let Some(function) = function_signature_path(
+                &provider.provider,
+                uses,
+                functions,
+                handler.module_name.as_deref(),
+            ) {
+                for effect in &function.effects {
+                    push_unique_effect(&mut inferred, effect);
+                }
+            }
+        }
+        handler.effects = inferred;
+    }
 }
 
 pub(crate) fn canonical_user_effect_label(
