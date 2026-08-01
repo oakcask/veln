@@ -5898,30 +5898,28 @@ pub(crate) fn infer_function_body_effects(
                         annotation,
                         expr,
                     } => {
-                        collect_expr_effects(
-                            expr,
-                            &module.uses,
-                            function.module_name.as_deref(),
-                            &bindings,
-                            &effects_by_name,
-                            &effects_by_module_path,
+                        let context = ExprEffectContext {
+                            uses: &module.uses,
+                            current_module: function.module_name.as_deref(),
+                            bindings: &bindings,
+                            effects_by_name: &effects_by_name,
+                            effects_by_module_path: &effects_by_module_path,
                             user_effects,
-                            &mut inferred,
-                        );
+                        };
+                        collect_expr_effects(expr, &context, &mut inferred);
                         let ty = parse_type_or_unknown(annotation.as_deref());
                         collect_pattern_bindings(pattern, &ty, &mut bindings);
                     }
                     BodyLineKind::Expr { expr } => {
-                        collect_expr_effects(
-                            expr,
-                            &module.uses,
-                            function.module_name.as_deref(),
-                            &bindings,
-                            &effects_by_name,
-                            &effects_by_module_path,
+                        let context = ExprEffectContext {
+                            uses: &module.uses,
+                            current_module: function.module_name.as_deref(),
+                            bindings: &bindings,
+                            effects_by_name: &effects_by_name,
+                            effects_by_module_path: &effects_by_module_path,
                             user_effects,
-                            &mut inferred,
-                        );
+                        };
+                        collect_expr_effects(expr, &context, &mut inferred);
                     }
                 }
             }
@@ -5976,16 +5974,16 @@ fn collect_let_pattern_bindings(
     }
 }
 
-fn collect_expr_effects(
-    expr: &Expr,
-    uses: &[UseDecl],
-    current_module: Option<&str>,
-    bindings: &[Binding],
-    effects_by_name: &BTreeMap<String, Vec<String>>,
-    effects_by_module_path: &BTreeMap<(String, String), (Vec<String>, Visibility)>,
-    user_effects: &[EffectSignature],
-    inferred: &mut Vec<String>,
-) {
+struct ExprEffectContext<'a> {
+    uses: &'a [UseDecl],
+    current_module: Option<&'a str>,
+    bindings: &'a [Binding],
+    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+    effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    user_effects: &'a [EffectSignature],
+}
+
+fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: &mut Vec<String>) {
     match &expr.kind {
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
@@ -6006,182 +6004,68 @@ fn collect_expr_effects(
                 } else {
                     for effect in effects_for_callee_path(
                         segments,
-                        uses,
-                        current_module,
-                        bindings,
-                        effects_by_name,
-                        effects_by_module_path,
+                        context.uses,
+                        context.current_module,
+                        context.bindings,
+                        context.effects_by_name,
+                        context.effects_by_module_path,
                     ) {
                         push_unique_effect(inferred, effect);
                     }
                 }
             } else {
-                collect_expr_effects(
-                    callee,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(callee, context, inferred);
             }
             for arg in args {
-                collect_expr_effects(
-                    arg,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(arg, context, inferred);
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_expr_effects(
-                input,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
-            collect_expr_effects(
-                base,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(input, context, inferred);
+            collect_expr_effects(base, context, inferred);
         }
         ExprKind::Perform { effect, args, .. } => {
-            if let Some(label) =
-                canonical_user_effect_label(effect, uses, current_module, user_effects)
-            {
+            if let Some(label) = canonical_user_effect_label(
+                effect,
+                context.uses,
+                context.current_module,
+                context.user_effects,
+            ) {
                 push_unique_effect(inferred, &label);
             }
             for arg in args {
-                collect_expr_effects(
-                    arg,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(arg, context, inferred);
             }
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_expr_effects(
-                value,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(value, context, inferred);
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::TypeApply { callee: base, .. }
         | ExprKind::Prefix { expr: base, .. } => {
-            collect_expr_effects(
-                base,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(base, context, inferred);
         }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_effects(
-                    &field.expr,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(&field.expr, context, inferred);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_effects(
-                    &entry.key,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
-                collect_expr_effects(
-                    &entry.value,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(&entry.key, context, inferred);
+                collect_expr_effects(&entry.value, context, inferred);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_expr_effects(
-                    item,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(item, context, inferred);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_effects(
-                scrutinee,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(scrutinee, context, inferred);
             for arm in arms {
-                collect_expr_effects(
-                    &arm.expr,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(&arm.expr, context, inferred);
             }
         }
         ExprKind::If {
@@ -6190,80 +6074,17 @@ fn collect_expr_effects(
             else_if_branches,
             else_branch,
         } => {
-            collect_expr_effects(
-                condition,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
-            collect_expr_effects(
-                then_branch,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(condition, context, inferred);
+            collect_expr_effects(then_branch, context, inferred);
             for branch in else_if_branches {
-                collect_expr_effects(
-                    &branch.condition,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
-                collect_expr_effects(
-                    &branch.expr,
-                    uses,
-                    current_module,
-                    bindings,
-                    effects_by_name,
-                    effects_by_module_path,
-                    user_effects,
-                    inferred,
-                );
+                collect_expr_effects(&branch.condition, context, inferred);
+                collect_expr_effects(&branch.expr, context, inferred);
             }
-            collect_expr_effects(
-                else_branch,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(else_branch, context, inferred);
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_effects(
-                left,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
-            collect_expr_effects(
-                right,
-                uses,
-                current_module,
-                bindings,
-                effects_by_name,
-                effects_by_module_path,
-                user_effects,
-                inferred,
-            );
+            collect_expr_effects(left, context, inferred);
+            collect_expr_effects(right, context, inferred);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }

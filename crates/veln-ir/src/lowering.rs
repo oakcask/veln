@@ -412,6 +412,7 @@ mod tests {
     fn complete_program(functions: Vec<CoreFunction>) -> CheckedProgram {
         CheckedProgram {
             functions,
+            effects: Vec::new(),
             readiness: CoreReadiness::Complete,
         }
     }
@@ -1241,6 +1242,7 @@ mod tests {
                 )],
                 ..function_shell(surface)
             }],
+            effects: Vec::new(),
             readiness: CoreReadiness::Blocked(vec![first.clone(), second]),
         };
 
