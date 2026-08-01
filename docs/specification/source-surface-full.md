@@ -68,7 +68,8 @@ TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 EffectDecl    ::= "pub"? "effect" Name NL EffectOperation+ "end" NL?
-EffectOperation ::= Name "(" ParamList? ")" "->" TypeText NL
+EffectOperation ::= Name "(" EffectParamList? ")" "->" TypeText NL
+EffectParamList ::= Name ":" TypeText ("," Name ":" TypeText)*
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat? SchemaField+ SchemaValidation? "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL

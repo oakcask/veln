@@ -112,6 +112,7 @@ struct FunctionHeader {
 struct FunctionReturn {
     binding: Option<crate::ResultBinding>,
     ty: Option<String>,
+    ty_span: Option<SourceSpan>,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
 }
@@ -478,6 +479,17 @@ impl<'a> Parser<'a> {
             operations.push(self.parse_effect_operation_decl());
         }
 
+        if operations.is_empty() {
+            self.error_current(
+                "parse.effect_operation_required",
+                "effect declaration requires at least one operation",
+                "effect_declaration",
+                vec!["operation declaration"],
+                RecoveryStrategy::InsertToken,
+                Some("end"),
+            );
+        }
+
         if !end_present {
             self.error_current(
                 "parse.expected_end",
@@ -504,7 +516,7 @@ impl<'a> Parser<'a> {
         let name_span = self.source.span(start);
         let name = self.expect_ident("effect_operation", "operation name");
         self.expect(TokenKind::LParen, "effect_operation", vec!["("]);
-        let params = self.parse_params();
+        let params = self.parse_params_in_context("effect_operation", true);
         self.expect(TokenKind::RParen, "effect_operation", vec![")"]);
         let return_type = if self.eat(TokenKind::Arrow).is_some() {
             Some(self.collect_return_type_until(
@@ -1030,6 +1042,7 @@ impl<'a> Parser<'a> {
             params: header.params,
             return_binding: return_decl.binding,
             return_type: return_decl.ty,
+            return_type_span: return_decl.ty_span,
             effects: return_decl.effects,
             effect_spans: return_decl.effect_spans,
             contracts,
@@ -1078,7 +1091,7 @@ impl<'a> Parser<'a> {
 
     fn parse_function_return_and_effects(&mut self, kind: FunctionKind) -> FunctionReturn {
         let return_context = Self::return_context(kind);
-        let (binding, ty) = if self.eat(TokenKind::Arrow).is_some() {
+        let (binding, ty, ty_span) = if self.eat(TokenKind::Arrow).is_some() {
             let return_binding = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
                 let name = self.bump();
                 let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
@@ -1089,13 +1102,18 @@ impl<'a> Parser<'a> {
             } else {
                 None
             };
+            let return_type_start = self.current().range;
             let return_type = self.collect_return_type_until(
                 return_context,
                 &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
             );
-            (return_binding, Some(return_type))
+            let return_type_end = self
+                .previous()
+                .map_or(return_type_start, |token| token.range);
+            let return_type_span = self.source.span(return_type_start.cover(return_type_end));
+            (return_binding, Some(return_type), Some(return_type_span))
         } else {
-            (None, None)
+            (None, None, None)
         };
         let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
             let labels = self.parse_effect_list();
@@ -1107,6 +1125,7 @@ impl<'a> Parser<'a> {
         FunctionReturn {
             binding,
             ty,
+            ty_span,
             effects,
             effect_spans,
         }
@@ -1171,24 +1190,57 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_params(&mut self) -> Vec<Param> {
+        self.parse_params_in_context("function_parameters", false)
+    }
+
+    fn parse_params_in_context(
+        &mut self,
+        context: &'static str,
+        require_types: bool,
+    ) -> Vec<Param> {
         let mut params = Vec::new();
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name = self.expect_ident("function_parameters", "parameter name");
+            let name = self.expect_ident(context, "parameter name");
             let mut is_variadic = false;
-            let ty = self.eat(TokenKind::Colon).map(|_| {
+            let mut ty_span = None;
+            let ty = self.eat(TokenKind::Colon).map(|colon| {
                 if self.eat_variadic_marker() {
                     is_variadic = true;
                 }
-                self.collect_type_until(
-                    "function_parameters",
+                let ty_start = self.current().range;
+                let ty = self.collect_type_until(
+                    context,
                     &[TokenKind::Comma, TokenKind::RParen, TokenKind::Eof],
-                )
+                );
+                let ty_end = self.previous().map_or(colon.range, |token| token.range);
+                ty_span = Some(self.source.span(ty_start.cover(ty_end)));
+                ty
             });
+            if require_types && ty.is_none() {
+                self.diagnostics.push(ParseDiagnostic {
+                    id: "parse.effect_operation_parameter_type",
+                    message: "effect operation parameter is missing a type annotation".to_string(),
+                    span: Some(self.source.span(start)),
+                    parser_context: context,
+                    unexpected: UnexpectedToken {
+                        kind: "identifier".to_string(),
+                        text: name.clone().unwrap_or_default(),
+                    },
+                    expected: vec![":"],
+                    recovery: Recovery {
+                        strategy: RecoveryStrategy::InsertToken,
+                        anchor: Some("parameter type".to_string()),
+                        dropped_token_count: 0,
+                    },
+                    repair_candidates: Vec::new(),
+                });
+            }
             let end = self.previous().map_or(start, |token| token.range);
             params.push(Param {
                 name: name.unwrap_or_default(),
                 ty,
+                ty_span,
                 is_variadic,
                 span: self.source.span(start.cover(end)),
             });

@@ -283,6 +283,7 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: param.name.clone(),
                     ty: param.ty.clone(),
+                    ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
                     span: param.span.clone(),
                 })
@@ -405,6 +406,7 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: param.name.clone(),
                     ty: param.ty.clone(),
+                    ty_span: param.ty_span.clone(),
                     is_variadic: param.is_variadic,
                     span: param.span.clone(),
                 })
@@ -418,6 +420,7 @@ impl AstBuilder {
                     span: binding.span.clone(),
                 }),
             return_type: function.return_type.clone(),
+            return_type_span: function.return_type_span.clone(),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
             contracts: function

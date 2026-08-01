@@ -227,6 +227,7 @@ pub struct Function {
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
+    pub return_type_span: Option<SourceSpan>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<Contract>,
@@ -260,6 +261,7 @@ pub struct Param {
     pub node_id: NodeId,
     pub name: String,
     pub ty: Option<String>,
+    pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }

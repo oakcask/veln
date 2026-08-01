@@ -164,6 +164,57 @@ fn unknown_declared_effect_reports_effect_label_span() {
 }
 
 #[test]
+fn unknown_function_type_effect_reports_effect_label_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(callback: fn() -> () effects [MissingAudit]) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "effect.unknown"
+                && diagnostic.message == "function type effect `MissingAudit` is not known"
+        })
+        .unwrap_or_else(|| panic!("expected function type unknown effect: {diagnostics:#?}"));
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 1);
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 43);
+    assert_eq!(diagnostic.span.as_ref().unwrap().end.column, 55);
+}
+
+#[test]
+fn imported_qualified_effect_is_known_in_function_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "use logging\n",
+            "\n",
+            "pub fn main(callback: fn() -> () effects [logging::Audit]) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "pub effect Audit\n",
+            "  record() -> ()\n",
+            "end\n",
+        ),
+    );
+    let mut module = lower_surface_ast(&parse(&source).tree);
+    module.effects[0].module_name = Some("logging".to_string());
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn duplicate_effect_operation_reports_operation_name_span() {
     let source = SourceFile::new(
         "main.veln",

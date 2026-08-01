@@ -123,6 +123,8 @@ Imported declarations use the written module path, such as
 `effects [transport::DuplexStream]` and
 `perform transport::DuplexStream::read_chunk()`. Function type annotations use
 the same effect-list spelling.
+Unknown nominal effects in function type annotations are rejected at the
+effect path inside the annotation.
 
 `perform E::operation(arguments)` resolves `E` as a nominal effect and resolves
 `operation` in that effect declaration. The checker validates the argument

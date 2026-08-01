@@ -100,6 +100,45 @@ fn parses_and_formats_nominal_effect_operations() {
 }
 
 #[test]
+fn rejects_effect_operation_parameter_without_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("effect Audit\n", "  record(user) -> String\n", "end\n"),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.effect_operation_parameter_type"
+                && diagnostic.message == "effect operation parameter is missing a type annotation"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 2 && span.start.column == 10)
+        }),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn rejects_effect_declaration_without_operations() {
+    let source = SourceFile::new("main.veln", concat!("effect Audit\n", "end\n"));
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.effect_operation_required"
+                && diagnostic.message == "effect declaration requires at least one operation"
+        }),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
 fn lexes_binary_and_hexadecimal_integer_candidates_as_complete_tokens() {
     let source = SourceFile::new("main.veln", "0b00101 0x00Cafe 0b102 0Xff 0x1.2 0b10_01 0x");
 

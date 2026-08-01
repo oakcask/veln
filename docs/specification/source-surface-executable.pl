@@ -95,7 +95,8 @@ grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
-grammar_line(101, "EffectOperation ::= Name \"(\" ParamList? \")\" \"->\" TypeText NL").
+grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
+grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat? SchemaField+ SchemaValidation? \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
@@ -367,11 +368,17 @@ effect_operations_tail --> [].
 effect_operation -->
     ident,
     tok(lparen),
-    params_opt,
+    effect_params_opt,
     tok(rparen),
     tok(arrow),
     type_text_until([nl]),
     nl.
+
+effect_params_opt --> effect_param, effect_params_tail, trailing_comma_opt, !.
+effect_params_opt --> [].
+effect_params_tail --> tok(comma), effect_param, !, effect_params_tail.
+effect_params_tail --> [].
+effect_param --> ident, tok(colon), type_text_until([comma, rparen]).
 
 type_decl -->
     visibility,

@@ -196,6 +196,7 @@ pub struct FunctionDecl {
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
+    pub return_type_span: Option<SourceSpan>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<ContractClause>,
@@ -220,6 +221,7 @@ pub enum Visibility {
 pub struct Param {
     pub name: String,
     pub ty: Option<String>,
+    pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }

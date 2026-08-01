@@ -63,3 +63,14 @@ kind = "type"
 file = "main.veln"
 line = 29
 column = 2
+
+[[diagnostics]]
+id = "effect.unknown"
+severity = "error"
+kind = "effect"
+message = "function type effect `MissingAudit` is not known"
+
+[diagnostics.span]
+file = "main.veln"
+line = 32
+column = 67

@@ -78,33 +78,255 @@ pub(crate) fn check_declared_effect_labels(
     function: &Function,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
+    let mut diagnostics = check_function_type_effect_labels(function, environment);
     let Some(declared_effects) = &function.effects else {
-        return Vec::new();
+        return diagnostics;
     };
     let boundary = declared_effect_boundary(function);
     let node_prefix = function.kind.node_prefix();
 
     if declared_effects.is_empty() {
-        return vec![empty_declared_effect_diagnostic(
+        diagnostics.push(empty_declared_effect_diagnostic(
             function,
             node_prefix,
             boundary,
-        )];
+        ));
+        return diagnostics;
     }
 
-    declared_effects
-        .iter()
-        .enumerate()
-        .filter(|(_, effect)| {
-            !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
-                && environment
-                    .user_effect_by_label(effect, function.module_name.as_deref())
-                    .is_none()
-        })
-        .map(|(index, effect)| {
-            unknown_declared_effect_diagnostic(function, effect, index, node_prefix, boundary)
-        })
-        .collect()
+    diagnostics.extend(
+        declared_effects
+            .iter()
+            .enumerate()
+            .filter(|(_, effect)| {
+                !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
+                    && environment
+                        .user_effect_by_label(effect, function.module_name.as_deref())
+                        .is_none()
+            })
+            .map(|(index, effect)| {
+                unknown_declared_effect_diagnostic(function, effect, index, node_prefix, boundary)
+            }),
+    );
+    diagnostics
+}
+
+fn check_function_type_effect_labels(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for param in &function.params {
+        let (Some(ty), Some(span)) = (&param.ty, &param.ty_span) else {
+            continue;
+        };
+        diagnostics.extend(check_type_effect_labels(
+            ty,
+            span,
+            function,
+            environment,
+            "parameter_type",
+        ));
+    }
+    if let (Some(ty), Some(span)) = (&function.return_type, &function.return_type_span) {
+        diagnostics.extend(check_type_effect_labels(
+            ty,
+            span,
+            function,
+            environment,
+            "return_type",
+        ));
+    }
+    diagnostics
+}
+
+fn check_type_effect_labels(
+    annotation: &str,
+    annotation_span: &SourceSpan,
+    function: &Function,
+    environment: &TypeEnvironment,
+    boundary: &'static str,
+) -> Vec<Diagnostic> {
+    let Ok(ty) = parse_type_annotation(annotation) else {
+        return Vec::new();
+    };
+    let mut diagnostics = Vec::new();
+    collect_unknown_type_effects(
+        &ty,
+        annotation,
+        annotation_span,
+        function,
+        environment,
+        boundary,
+        &mut diagnostics,
+    );
+    diagnostics
+}
+
+fn collect_unknown_type_effects(
+    ty: &Type,
+    annotation: &str,
+    annotation_span: &SourceSpan,
+    function: &Function,
+    environment: &TypeEnvironment,
+    boundary: &'static str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match ty {
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => {
+            for effect in effects {
+                if !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
+                    && environment
+                        .user_effect_by_label(effect, function.module_name.as_deref())
+                        .is_none()
+                {
+                    diagnostics.push(unknown_type_effect_diagnostic(
+                        function,
+                        effect,
+                        annotation,
+                        annotation_span,
+                        boundary,
+                    ));
+                }
+            }
+            for param in params {
+                collect_unknown_type_effects(
+                    param,
+                    annotation,
+                    annotation_span,
+                    function,
+                    environment,
+                    boundary,
+                    diagnostics,
+                );
+            }
+            if let Some(variadic) = variadic {
+                collect_unknown_type_effects(
+                    variadic,
+                    annotation,
+                    annotation_span,
+                    function,
+                    environment,
+                    boundary,
+                    diagnostics,
+                );
+            }
+            collect_unknown_type_effects(
+                return_type,
+                annotation,
+                annotation_span,
+                function,
+                environment,
+                boundary,
+                diagnostics,
+            );
+        }
+        Type::Named { args, .. } => {
+            for arg in args {
+                collect_unknown_type_effects(
+                    arg,
+                    annotation,
+                    annotation_span,
+                    function,
+                    environment,
+                    boundary,
+                    diagnostics,
+                );
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field) in fields {
+                collect_unknown_type_effects(
+                    field,
+                    annotation,
+                    annotation_span,
+                    function,
+                    environment,
+                    boundary,
+                    diagnostics,
+                );
+            }
+        }
+        Type::Unknown => {}
+    }
+}
+
+fn unknown_type_effect_diagnostic(
+    function: &Function,
+    effect: &str,
+    annotation: &str,
+    annotation_span: &SourceSpan,
+    boundary: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "effect.unknown",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("function type effect `{effect}` is not known"),
+        type_effect_span(annotation, annotation_span, effect),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            (
+                "node_id",
+                JsonValue::string(function.node_id.display(function.kind.node_prefix())),
+            ),
+            ("effect", JsonValue::string(effect.to_string())),
+            ("boundary", JsonValue::string(boundary)),
+            (
+                "known_effects",
+                JsonValue::array(KNOWN_EFFECT_LABELS.iter().copied().map(JsonValue::string)),
+            ),
+        ]),
+    )
+}
+
+fn type_effect_span(
+    annotation: &str,
+    annotation_span: &SourceSpan,
+    effect: &str,
+) -> Option<SourceSpan> {
+    let offset = effect_offset_in_effect_clause(annotation, effect)?;
+    let prefix_columns = annotation[..offset].chars().count();
+    let effect_columns = effect.chars().count();
+    Some(SourceSpan {
+        file: annotation_span.file.clone(),
+        start: veln_source::LineCol {
+            line: annotation_span.start.line,
+            column: annotation_span.start.column + prefix_columns,
+            offset: annotation_span.start.offset + offset,
+        },
+        end: veln_source::LineCol {
+            line: annotation_span.start.line,
+            column: annotation_span.start.column + prefix_columns + effect_columns,
+            offset: annotation_span.start.offset + offset + effect.len(),
+        },
+    })
+}
+
+fn effect_offset_in_effect_clause(annotation: &str, effect: &str) -> Option<usize> {
+    let mut search_from = 0;
+    while let Some(relative_effects) = annotation[search_from..].find("effects") {
+        let effects_offset = search_from + relative_effects;
+        let clause = &annotation[effects_offset..];
+        let Some(open_relative) = clause.find('[') else {
+            break;
+        };
+        let open = effects_offset + open_relative;
+        let Some(close_relative) = annotation[open..].find(']') else {
+            break;
+        };
+        let close = open + close_relative;
+        if let Some(relative_effect) = annotation[open + 1..close].find(effect) {
+            return Some(open + 1 + relative_effect);
+        }
+        search_from = close + 1;
+    }
+    None
 }
 
 fn declared_effect_boundary(function: &Function) -> &'static str {

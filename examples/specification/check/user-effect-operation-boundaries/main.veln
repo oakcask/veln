@@ -28,3 +28,7 @@ end
 pub fn wrong_result() -> Int effects [LocalAudit]
 	perform LocalAudit::record("result", 3)
 end
+
+pub fn unknown_function_type_effect(callback: fn() -> () effects [MissingAudit]) -> ()
+	()
+end
