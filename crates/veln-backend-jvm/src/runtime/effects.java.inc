@@ -1941,12 +1941,35 @@
     }
 
     public static Object netWriteChunks(Object stream, Object chunks) {
+        NetStream value = asNetStream(stream);
         ListValue current = asListValue(chunks);
+        long written = 0L;
+        Long failAfter = writeChunksFailAfter();
         while (current.cons) {
+            if (failAfter != null && written >= failAfter.longValue()) {
+                throw streamTransportFailure(
+                    "write", "forced_failure", value, "before_operation",
+                    Boolean.FALSE, Boolean.FALSE, false, "VELN_NET_WRITE_FAIL_AFTER", null
+                );
+            }
             netWriteChunk(stream, current.head);
+            written += 1L;
             current = asListValue(current.tail);
         }
         return UNIT;
+    }
+
+    private static Long writeChunksFailAfter() {
+        String value = System.getenv("VELN_NET_WRITE_FAIL_AFTER");
+        if (value == null) {
+            return null;
+        }
+        try {
+            long count = Long.parseLong(value.trim());
+            return Long.valueOf(count < 0L ? 0L : count);
+        } catch (NumberFormatException error) {
+            return Long.valueOf(0L);
+        }
     }
 
     public static Object streamAdapterDrainActions(Object stream, Object handler) {

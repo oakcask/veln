@@ -1,0 +1,40 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_READ_FAILED = "1"
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
+path = "stderr"
+equals = "transport read failed: forced_failure\n"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.message"
+equals = "transport read failed: forced_failure"
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream\n"

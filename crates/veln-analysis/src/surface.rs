@@ -30,6 +30,7 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
     diagnostics.extend(validate_manifest_dependencies(project));
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
+    rewrite_standard_import_targets(&mut parts.module.uses);
     if !toolchain_std {
         load_embedded_standard_package(&mut diagnostics, &mut parts);
     }
@@ -208,6 +209,16 @@ fn rewrite_import_targets(uses: &mut [UseDecl], package: Option<&str>) {
             use_decl.name = external_module_key(package, &use_decl.name);
         } else if let Some(package) = package {
             use_decl.name = external_module_key(package, &use_decl.name);
+        }
+    }
+}
+
+fn rewrite_standard_import_targets(uses: &mut [UseDecl]) {
+    for use_decl in uses {
+        if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && !use_decl.name.starts_with("std::")
+        {
+            use_decl.name = external_module_key(veln_stdlib::PACKAGE_NAME, &use_decl.name);
         }
     }
 }

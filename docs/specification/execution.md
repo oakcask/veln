@@ -119,6 +119,17 @@ enough.
   Forced production read failure on the multi-chunk routing path stops after
   production accept and before later routing, response writes, stream close,
   or clean listener end.
+  `transport::net::net_stream(stream)` reuses the same host `NetStream`
+  boundary for nominal duplex-stream operations. A handled
+  `DuplexStream::read_chunk()` returns `Some(chunk)` for bytes and `None` for
+  clean end. A handled `DuplexStream::write_chunks(chunks)` writes the source
+  `List<ByteChunk>` in list order. The handler does not listen, connect,
+  accept, close, or shut down the stream, so the caller can close the same
+  stream after the handled expression returns. Host read and write failures
+  through the handler remain runtime transport failures. The loopback,
+  read-failure, and write-failure executable cases under
+  `examples/specification/run/http2-connection-transport-handler-*/` pin
+  those observations.
 
 ## Binary Schemas
 

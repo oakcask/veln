@@ -544,9 +544,10 @@ pub(crate) fn check_declared_effect_labels(
             .iter()
             .enumerate()
             .filter(|(_, effect)| {
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
                 !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
                     && environment
-                        .user_effect_by_label(effect, function.module_name.as_deref())
+                        .user_effect_path(&segments, function.module_name.as_deref())
                         .is_none()
             })
             .map(|(index, effect)| {

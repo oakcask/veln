@@ -1,0 +1,24 @@
+use transport from "std"
+use transport::net from "std"
+
+fn write_to_duplex() -> Result<(), String> effects [transport::DuplexStream]
+	let accepted: ByteChunk = byte_chunk_from_hex("0102")?
+	let failing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	perform transport::DuplexStream::write_chunks(list_cons(accepted, list_cons(failing, list_nil())))
+	Ok(())
+end
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let _ = handle write_to_duplex()? with transport::net::net_stream(stream)
+	stdio::println("unreachable")
+	Ok(())
+end

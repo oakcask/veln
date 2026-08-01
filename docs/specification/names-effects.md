@@ -89,6 +89,14 @@ compiler-known calls.
   handler, drains optional stream reads through a channel-routed
   `StreamInput` boundary, and writes only ordered `SendBytes` chunks through
   `net::write_chunks`; it requires `net` and `concurrency`.
+  The exported `transport` module declares `DuplexStream` with
+  `read_chunk() -> Option<ByteChunk>` and
+  `write_chunks(chunks: List<ByteChunk>) -> ()`. The exported
+  `transport::net::net_stream(stream)` lexical handler handles that effect
+  through one caller-owned `NetStream`, removes the duplex-stream effect from
+  the handled expression, and adds only the existing `net` effect. The checked
+  `http2-connection-transport-handler-effects` case fixes this static
+  replacement boundary.
   `stream_adapter_accept_loop(listener, handler)` accepts an owned
   `NetListener` and the same pure handler shape, repeatedly accepts streams
   until clean listener end, delegates each accepted stream to
