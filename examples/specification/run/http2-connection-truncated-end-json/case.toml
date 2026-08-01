@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "505249,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000060400000000000005000080000000080600,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000008060000000000010203,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000101000000000182"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "preface incomplete-input connection-preface http2.protocol.partial_preface offset 0 pending 3 expected 24 kind 0 stream 0 preview 3\nframe-header incomplete-input frame http2.protocol.incomplete_frame offset 39 pending 5 expected 9 kind 0 stream 0 preview 5\nframe-payload incomplete-input frame http2.protocol.incomplete_frame offset 39 pending 12 expected 17 kind 0 stream 0 preview 12\ninitial-settings incomplete-input initial-peer-settings http2.protocol.incomplete_initial_peer_settings offset 24 pending 0 expected 9 kind 4 stream 0 preview 0\nheader-block incomplete-input pending-header-block http2.protocol.incomplete_header_block offset 49 pending 0 expected 0 kind 1 stream 1 preview 0\n"
+
+[[json_assert]]
+path = "error"
+equals = null

@@ -122,7 +122,11 @@ pub type CoreReceiveConnectionState = http2::core::receive_connection::CoreRecei
 
 pub type CoreReceiveConnectionDecision = http2::core::receive_connection::CoreReceiveConnectionDecision
 
+pub type CoreReceiveConnectionEofDecision = http2::core::receive_connection::CoreReceiveConnectionEofDecision
+
 pub type CoreReceiveConnectionFailure = http2::core::receive_connection::CoreReceiveConnectionFailure
+
+pub type CoreReceiveConnectionEofFailure = http2::core::receive_connection::CoreReceiveConnectionEofFailure
 
 pub type CoreConnectionShutdownDecision = http2::core::receive_shutdown::CoreConnectionShutdownDecision
 
@@ -858,6 +862,10 @@ pub fn receive_connection_chunk(state: CoreReceiveConnectionState, chunk: ByteCh
 	http2::core::receive_connection::receive_chunk(state, chunk)
 end
 
+pub fn finalize_receive_connection_eof(state: CoreReceiveConnectionState) -> Result<CoreReceiveConnectionEofDecision, String>
+	http2::core::receive_connection::finalize_eof(state)
+end
+
 pub fn apply_goaway_receive_shutdown(state: CoreConnectionState, offset: Int, payload: ByteChunk, preview: ByteChunk) -> CoreConnectionShutdownDecision
 	http2::core::receive_shutdown::apply_goaway(state, offset, payload, preview)
 end
@@ -1392,6 +1400,54 @@ end
 
 pub fn receive_connection_failure_preview(failure: CoreReceiveConnectionFailure) -> ByteChunk
 	http2::core::receive_connection::failure_preview(failure)
+end
+
+pub fn receive_connection_eof_status(decision: CoreReceiveConnectionEofDecision) -> String
+	http2::core::receive_connection::eof_decision_status(decision)
+end
+
+pub fn receive_connection_eof_state(decision: CoreReceiveConnectionEofDecision) -> Result<CoreConnectionState, String>
+	http2::core::receive_connection::eof_decision_state(decision)
+end
+
+pub fn receive_connection_eof_failure(decision: CoreReceiveConnectionEofDecision) -> Result<CoreReceiveConnectionEofFailure, String>
+	http2::core::receive_connection::eof_decision_failure(decision)
+end
+
+pub fn receive_connection_eof_failure_source(failure: CoreReceiveConnectionEofFailure) -> String
+	http2::core::receive_connection::eof_failure_source(failure)
+end
+
+pub fn receive_connection_eof_failure_id(failure: CoreReceiveConnectionEofFailure) -> String
+	http2::core::receive_connection::eof_failure_id(failure)
+end
+
+pub fn receive_connection_eof_failure_offset(failure: CoreReceiveConnectionEofFailure) -> Int
+	http2::core::receive_connection::eof_failure_offset(failure)
+end
+
+pub fn receive_connection_eof_failure_pending_count(failure: CoreReceiveConnectionEofFailure) -> Int
+	http2::core::receive_connection::eof_failure_pending_count(failure)
+end
+
+pub fn receive_connection_eof_failure_expected_count(failure: CoreReceiveConnectionEofFailure) -> Int
+	http2::core::receive_connection::eof_failure_expected_count(failure)
+end
+
+pub fn receive_connection_eof_failure_frame_kind(failure: CoreReceiveConnectionEofFailure) -> Int
+	http2::core::receive_connection::eof_failure_frame_kind(failure)
+end
+
+pub fn receive_connection_eof_failure_stream_id(failure: CoreReceiveConnectionEofFailure) -> Int
+	http2::core::receive_connection::eof_failure_stream_id(failure)
+end
+
+pub fn receive_connection_eof_failure_reason(failure: CoreReceiveConnectionEofFailure) -> String
+	http2::core::receive_connection::eof_failure_reason(failure)
+end
+
+pub fn receive_connection_eof_failure_preview(failure: CoreReceiveConnectionEofFailure) -> ByteChunk
+	http2::core::receive_connection::eof_failure_preview(failure)
 end
 
 pub fn apply_stream_window_update_flow_control(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, preview: ByteChunk) -> CoreStreamWindowUpdateFlowControlDecision

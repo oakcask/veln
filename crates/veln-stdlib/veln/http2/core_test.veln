@@ -428,6 +428,10 @@ fn require_receive_connection_failure(result: Result<CoreReceiveConnectionDecisi
 	http2::core::receive_connection_failure(result?)
 end
 
+fn require_receive_connection_eof_failure(result: Result<CoreReceiveConnectionEofDecision, String>) -> Result<CoreReceiveConnectionEofFailure, String>
+	http2::core::receive_connection_eof_failure(result?)
+end
+
 fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChunk, String>
 	match http2::core::output_buffer_chunk_at(output, index)
 		Some(chunk) => Ok(chunk)
@@ -2584,5 +2588,29 @@ test receive_connection_boundary_applies_priority_and_rejects_initial_gate_atomi
 		Ok(())
 	else
 		Err("HTTP/2 receive connection boundary did not apply PRIORITY or preserve initial-gate failure state")
+	end
+end
+
+test receive_connection_eof_finalization_accepts_clean_end_and_classifies_pending_inputs() -> Result<(), String>
+	let preface_transition = require_preface_transition(http2::core::accept_connection_preface(http2::core::empty_connection_preface(0), byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")?))?
+	let preface = http2::core::connection_preface_state(preface_transition)
+	let clean_connection = http2::core::connection_state_with_preface(http2::core::server_connection_state(39)?, preface)
+	let clean_state = http2::core::receive_connection_state_after_initial_settings(clean_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let clean_eof = http2::core::finalize_receive_connection_eof(clean_state)?
+	let partial_preface = require_receive_connection_eof_failure(http2::core::finalize_receive_connection_eof(http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())))?
+	let frame_header_connection = http2::core::connection_state_with_preface(http2::core::server_connection_state(39)?, preface)
+	let frame_header_state = http2::core::receive_connection_state_after_initial_settings(frame_header_connection, byte_chunk_from_hex("0000080600")?, http2::core::empty_output_buffer())
+	let partial_frame = require_receive_connection_eof_failure(http2::core::finalize_receive_connection_eof(frame_header_state))?
+	let initial_gate_connection = http2::core::connection_state_with_preface(http2::core::server_connection_state(24)?, preface)
+	let initial_gate_state = http2::core::receive_connection_state(initial_gate_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let initial_gate = require_receive_connection_eof_failure(http2::core::finalize_receive_connection_eof(initial_gate_state))?
+	let header_block_base = http2::core::connection_state_with_preface(http2::core::server_connection_state(31)?, preface)
+	let header_block_connection = http2::core::receive_frame_state(require_receive_frame_decision(http2::core::apply_receive_frame(header_block_base, byte_chunk_from_hex("00000101000000000182")?))?)?
+	let header_block_state = http2::core::receive_connection_state_after_initial_settings(header_block_connection, byte_chunk([]), http2::core::empty_output_buffer())
+	let header_block = require_receive_connection_eof_failure(http2::core::finalize_receive_connection_eof(header_block_state))?
+	if http2::core::receive_connection_eof_status(clean_eof) == "accepted" and http2::core::connection_state_next_offset(http2::core::receive_connection_eof_state(clean_eof)?) == 39 and http2::core::receive_connection_eof_failure_source(partial_preface) == "connection-preface" and http2::core::receive_connection_eof_failure_id(partial_preface) == "http2.protocol.partial_preface" and http2::core::receive_connection_eof_failure_source(partial_frame) == "frame" and http2::core::receive_connection_eof_failure_pending_count(partial_frame) == 5 and http2::core::receive_connection_eof_failure_expected_count(partial_frame) == 9 and http2::core::receive_connection_eof_failure_source(initial_gate) == "initial-peer-settings" and http2::core::receive_connection_eof_failure_id(initial_gate) == "http2.protocol.incomplete_initial_peer_settings" and http2::core::receive_connection_eof_failure_source(header_block) == "pending-header-block" and http2::core::receive_connection_eof_failure_stream_id(header_block) == 1
+		Ok(())
+	else
+		Err("HTTP/2 receive connection EOF finalization did not accept clean end or classify pending inputs")
 	end
 end

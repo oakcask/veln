@@ -188,6 +188,9 @@ duplex-stream effect. A public function that wraps that body with the
 `net_stream` handler must declare `net` and does not retain the handled
 duplex-stream effect. The static boundary is checked by
 `examples/specification/check/http2-connection-transport-handler-effects/`.
+`http2::connection::drive_server` exposes only
+`std::transport::DuplexStream`; handling it with `net_stream` therefore replaces
+that nominal effect with `net` and does not expose HTTP/2-internal effects.
 
 ## Compiler-Known Descriptor Table
 
