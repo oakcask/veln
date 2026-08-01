@@ -4,6 +4,7 @@ use http2::core::connection_preface
 use http2::core::connection_state
 use http2::core::initial_peer_settings
 use http2::core::output_buffer
+use http2::core::pending_header_block
 use http2::core::ping
 use http2::core::receive_frame
 use http2::core::settings_ack
@@ -17,10 +18,22 @@ pub type CoreReceiveConnectionDecision
 	CoreReceiveConnectionRejected(CoreReceiveConnectionFailure)
 end
 
+pub type CoreReceiveConnectionEofDecision
+	CoreReceiveConnectionEofAccepted(CoreConnectionState)
+	CoreReceiveConnectionEofRejected(CoreReceiveConnectionEofFailure)
+end
+
 pub type CoreReceiveConnectionFailure
 	CoreReceiveConnectionPrefaceFailure(ConnectionPrefaceFailure)
 	CoreReceiveConnectionInitialSettingsFailure(InitialPeerSettingsFailure)
 	CoreReceiveConnectionFrameFailure(CoreReceiveFrameFailure)
+end
+
+pub type CoreReceiveConnectionEofFailure
+	CoreReceiveConnectionEofPrefaceFailure(ConnectionPrefaceFailure)
+	CoreReceiveConnectionEofInitialSettingsFailure(offset: Int, pending_count: Int, preview: ByteChunk)
+	CoreReceiveConnectionEofFrameFailure(offset: Int, pending_count: Int, expected_count: Int, preview: ByteChunk)
+	CoreReceiveConnectionEofHeaderBlockFailure(HeaderBlockFailure)
 end
 
 pub fn state(connection: CoreConnectionState, input: ByteChunk, output: CoreOutputBuffer) -> CoreReceiveConnectionState
@@ -34,6 +47,50 @@ end
 pub fn receive_chunk(state: CoreReceiveConnectionState, chunk: ByteChunk) -> Result<CoreReceiveConnectionDecision, String>
 	match state
 		CoreReceiveConnectionState(connection, input, output, initial_settings_accepted) => receive_buffered(connection, byte_append(input, chunk), output, initial_settings_accepted)
+	end
+end
+
+pub fn finalize_eof(state: CoreReceiveConnectionState) -> Result<CoreReceiveConnectionEofDecision, String>
+	match state
+		CoreReceiveConnectionState(connection, input, _, initial_settings_accepted) => finalize_connection_eof(connection, input, initial_settings_accepted)
+	end
+end
+
+fn finalize_connection_eof(connection: CoreConnectionState, input: ByteChunk, initial_settings_accepted: Bool) -> Result<CoreReceiveConnectionEofDecision, String>
+	if http2::core::connection_state::endpoint_role(connection) == "server" and not http2::core::connection_preface::state_completed(http2::core::connection_state::preface(connection))
+		match http2::core::connection_preface::close(http2::core::connection_state::preface(connection))
+			Ok(_) => finalize_after_preface_eof(connection, input, initial_settings_accepted)
+			Err(failure) => Ok(CoreReceiveConnectionEofRejected(CoreReceiveConnectionEofPrefaceFailure(failure)))
+		end
+	else
+		finalize_after_preface_eof(connection, input, initial_settings_accepted)
+	end
+end
+
+fn finalize_after_preface_eof(connection: CoreConnectionState, input: ByteChunk, initial_settings_accepted: Bool) -> Result<CoreReceiveConnectionEofDecision, String>
+	let pending_count = byte_count_to_int(byte_chunk_count(input))
+	if pending_count > 0
+		Ok(CoreReceiveConnectionEofRejected(CoreReceiveConnectionEofFrameFailure(http2::core::connection_state::next_offset(connection), pending_count, expected_frame_count(input)?, input)))
+	else if not initial_settings_accepted
+		Ok(CoreReceiveConnectionEofRejected(CoreReceiveConnectionEofInitialSettingsFailure(http2::core::connection_state::next_offset(connection), 0, input)))
+	else
+		finalize_pending_header_block(connection, input)
+	end
+end
+
+fn finalize_pending_header_block(connection: CoreConnectionState, input: ByteChunk) -> Result<CoreReceiveConnectionEofDecision, String>
+	match http2::core::pending_header_block::close(http2::core::connection_state::pending_header_block(connection), http2::core::connection_state::next_offset(connection), byte_count_to_int(byte_chunk_count(input)), input)
+		Ok(_) => Ok(CoreReceiveConnectionEofAccepted(connection))
+		Err(failure) => Ok(CoreReceiveConnectionEofRejected(CoreReceiveConnectionEofHeaderBlockFailure(failure)))
+	end
+end
+
+fn expected_frame_count(input: ByteChunk) -> Result<Int, String>
+	let pending_count = byte_count_to_int(byte_chunk_count(input))
+	if pending_count < 9
+		Ok(9)
+	else
+		Ok(9 + frame_payload_length(input)?)
 	end
 end
 
@@ -334,5 +391,111 @@ pub fn failure_preview(failure: CoreReceiveConnectionFailure) -> ByteChunk
 		CoreReceiveConnectionPrefaceFailure(inner) => http2::core::connection_preface::failure_preview(inner)
 		CoreReceiveConnectionInitialSettingsFailure(inner) => http2::core::initial_peer_settings::failure_preview(inner)
 		CoreReceiveConnectionFrameFailure(inner) => http2::core::receive_frame::failure_preview(inner)
+	end
+end
+
+pub fn eof_decision_status(decision: CoreReceiveConnectionEofDecision) -> String
+	match decision
+		CoreReceiveConnectionEofAccepted(_) => "accepted"
+		CoreReceiveConnectionEofRejected(_) => "rejected"
+	end
+end
+
+pub fn eof_decision_state(decision: CoreReceiveConnectionEofDecision) -> Result<CoreConnectionState, String>
+	match decision
+		CoreReceiveConnectionEofAccepted(state) => Ok(state)
+		CoreReceiveConnectionEofRejected(_) => Err("rejected receive connection EOF decision has no state")
+	end
+end
+
+pub fn eof_decision_failure(decision: CoreReceiveConnectionEofDecision) -> Result<CoreReceiveConnectionEofFailure, String>
+	match decision
+		CoreReceiveConnectionEofAccepted(_) => Err("accepted receive connection EOF decision has no failure")
+		CoreReceiveConnectionEofRejected(failure) => Ok(failure)
+	end
+end
+
+pub fn eof_failure_source(failure: CoreReceiveConnectionEofFailure) -> String
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(_) => "connection-preface"
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => "initial-peer-settings"
+		CoreReceiveConnectionEofFrameFailure(_, _, _, _) => "frame"
+		CoreReceiveConnectionEofHeaderBlockFailure(_) => "pending-header-block"
+	end
+end
+
+pub fn eof_failure_id(failure: CoreReceiveConnectionEofFailure) -> String
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(inner) => if http2::core::connection_preface::failure_kind(inner) == "partial_preface"
+			"http2.protocol.partial_preface"
+		else
+			"http2.protocol.invalid_preface"
+		end
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => "http2.protocol.incomplete_initial_peer_settings"
+		CoreReceiveConnectionEofFrameFailure(_, _, _, _) => "http2.protocol.incomplete_frame"
+		CoreReceiveConnectionEofHeaderBlockFailure(_) => "http2.protocol.incomplete_header_block"
+	end
+end
+
+pub fn eof_failure_offset(failure: CoreReceiveConnectionEofFailure) -> Int
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(inner) => http2::core::connection_preface::failure_offset(inner)
+		CoreReceiveConnectionEofInitialSettingsFailure(offset, _, _) => offset
+		CoreReceiveConnectionEofFrameFailure(offset, _, _, _) => offset
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_offset(inner)
+	end
+end
+
+pub fn eof_failure_pending_count(failure: CoreReceiveConnectionEofFailure) -> Int
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(inner) => http2::core::connection_preface::failure_pending_count(inner)
+		CoreReceiveConnectionEofInitialSettingsFailure(_, pending_count, _) => pending_count
+		CoreReceiveConnectionEofFrameFailure(_, pending_count, _, _) => pending_count
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_pending_count(inner)
+	end
+end
+
+pub fn eof_failure_expected_count(failure: CoreReceiveConnectionEofFailure) -> Int
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(_) => 24
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => 9
+		CoreReceiveConnectionEofFrameFailure(_, _, expected_count, _) => expected_count
+		CoreReceiveConnectionEofHeaderBlockFailure(_) => 0
+	end
+end
+
+pub fn eof_failure_frame_kind(failure: CoreReceiveConnectionEofFailure) -> Int
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(_) => 0
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => 4
+		CoreReceiveConnectionEofFrameFailure(_, _, _, _) => 0
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_started_kind(inner)
+	end
+end
+
+pub fn eof_failure_stream_id(failure: CoreReceiveConnectionEofFailure) -> Int
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(_) => 0
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => 0
+		CoreReceiveConnectionEofFrameFailure(_, _, _, _) => 0
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_expected_stream(inner)
+	end
+end
+
+pub fn eof_failure_reason(failure: CoreReceiveConnectionEofFailure) -> String
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(inner) => http2::core::connection_preface::failure_kind(inner)
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, _) => "rfc9113_initial_peer_frame_requires_non_ack_settings"
+		CoreReceiveConnectionEofFrameFailure(_, _, _, _) => "clean_end_before_complete_frame"
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_rule_provenance(inner)
+	end
+end
+
+pub fn eof_failure_preview(failure: CoreReceiveConnectionEofFailure) -> ByteChunk
+	match failure
+		CoreReceiveConnectionEofPrefaceFailure(inner) => http2::core::connection_preface::failure_preview(inner)
+		CoreReceiveConnectionEofInitialSettingsFailure(_, _, preview) => preview
+		CoreReceiveConnectionEofFrameFailure(_, _, _, preview) => preview
+		CoreReceiveConnectionEofHeaderBlockFailure(inner) => http2::core::pending_header_block::failure_preview(inner)
 	end
 end

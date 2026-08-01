@@ -1,0 +1,70 @@
+use http2::connection from "std"
+use http2::core from "std"
+use transport::net from "std"
+use stdio
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+fn run_server(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
+	handle http2::connection::drive_server(state) with transport::net::net_stream(stream)
+end
+
+fn print_result(label: String, result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(state) => print_success(label, state)
+		Err(failure) => print_failure(label, failure)
+	end
+end
+
+fn print_success(label: String, state: CoreConnectionState) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" accepted ")
+	stdio::println(int_to_string(http2::core::connection_state_next_offset(state)))
+	Ok(())
+end
+
+fn print_failure(label: String, failure: Http2ConnectionFailure) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(http2::connection::connection_failure_kind(failure))
+	stdio::print(" ")
+	stdio::print(http2::connection::connection_failure_source(failure))
+	stdio::print(" ")
+	stdio::print(http2::connection::connection_failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(http2::connection::connection_failure_offset(failure)))
+	stdio::print(" pending ")
+	stdio::print(int_to_string(http2::connection::connection_failure_pending_count(failure)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(http2::connection::connection_failure_expected_count(failure)))
+	stdio::print(" kind ")
+	stdio::print(int_to_string(http2::connection::connection_failure_frame_kind(failure)))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::connection::connection_failure_stream_id(failure)))
+	stdio::print(" preview ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(http2::connection::connection_failure_preview(failure)))))
+	Ok(())
+end
+
+fn run_one(listener: NetListener, label: String) -> Result<(), String> effects [net, stdio]
+	let stream: NetStream = accept_next(listener)?
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let _ = print_result(label, run_server(stream, state))?
+	net::close_stream(stream)
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let _ = run_one(listener, "preface")?
+	let _ = run_one(listener, "frame-header")?
+	let _ = run_one(listener, "frame-payload")?
+	let _ = run_one(listener, "initial-settings")?
+	let _ = run_one(listener, "header-block")?
+	Ok(())
+end

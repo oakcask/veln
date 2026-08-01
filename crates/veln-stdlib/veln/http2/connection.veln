@@ -1,0 +1,228 @@
+use prelude
+use transport
+use http2::core
+
+pub type Http2ConnectionFailure
+	Http2ConnectionProtocolFailure(CoreReceiveConnectionFailure)
+	Http2ConnectionIncompleteInput(CoreReceiveConnectionEofFailure)
+	Http2ConnectionLocalSettingsFailure(LocalSettingsFailure)
+	Http2ConnectionLocalSettingsEncodeFailure(reason: String)
+end
+
+pub fn drive_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
+		Ok(state)
+	else
+		start_server(state)
+	end
+end
+
+fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0)
+		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
+		_ => Err(Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision)))
+	end
+end
+
+fn require_local_settings_decision(result: Result<LocalSettingsSendDecision, String>) -> Result<LocalSettingsSendDecision, Http2ConnectionFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn require_local_settings_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, Http2ConnectionFailure>
+	match http2::core::local_settings_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn state_after_local_settings(state: CoreConnectionState, decision: LocalSettingsSendDecision) -> CoreConnectionState
+	http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_local_settings_policy(state, http2::core::local_settings_send_policy(decision)), http2::core::local_settings_send_ack_state(decision))
+end
+
+fn drive_loop(state: CoreReceiveConnectionState, written_count: Int) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let after_write = write_new_output(state, written_count)?
+	match perform transport::DuplexStream::read_chunk()
+		Some(chunk) => receive_and_continue(after_write.state, chunk, after_write.written_count)
+		None => finish_eof(after_write.state)
+	end
+end
+
+fn receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let decision: CoreReceiveConnectionDecision = require_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
+	match http2::core::receive_connection_status(decision)
+		"accepted" => drive_loop(require_receive_state(decision)?, written_count)
+		_ => Err(Http2ConnectionProtocolFailure(require_receive_failure(decision)?))
+	end
+end
+
+fn require_receive_decision(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionDecision, Http2ConnectionFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn require_receive_state(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, Http2ConnectionFailure>
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn require_receive_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, Http2ConnectionFailure>
+	match http2::core::receive_connection_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure>
+	let decision: CoreReceiveConnectionEofDecision = require_eof_decision(http2::core::finalize_receive_connection_eof(state))?
+	match http2::core::receive_connection_eof_status(decision)
+		"accepted" => Ok(require_eof_state(decision)?)
+		_ => Err(Http2ConnectionIncompleteInput(require_eof_failure(decision)?))
+	end
+end
+
+fn require_eof_decision(result: Result<CoreReceiveConnectionEofDecision, String>) -> Result<CoreReceiveConnectionEofDecision, Http2ConnectionFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn require_eof_state(decision: CoreReceiveConnectionEofDecision) -> Result<CoreConnectionState, Http2ConnectionFailure>
+	match http2::core::receive_connection_eof_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn require_eof_failure(decision: CoreReceiveConnectionEofDecision) -> Result<CoreReceiveConnectionEofFailure, Http2ConnectionFailure>
+	match http2::core::receive_connection_eof_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn write_new_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let output = http2::core::receive_connection_output(state)
+	let total = http2::core::output_buffer_count(output)
+	if written_count == total
+		Ok({state: state, written_count: written_count})
+	else
+		write_output_range(state, output, written_count, total)
+	end
+end
+
+fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	perform transport::DuplexStream::write_chunks(chunks)
+	Ok({state: state, written_count: total})
+end
+
+fn output_chunks_from(output: CoreOutputBuffer, index: Int, total: Int) -> List<ByteChunk>
+	if index == total
+		list_nil()
+	else
+		match http2::core::output_buffer_chunk_at(output, index)
+			Some(chunk) => list_cons(chunk, output_chunks_from(output, index + 1, total))
+			None => list_nil()
+		end
+	end
+end
+
+pub fn connection_failure_kind(failure: Http2ConnectionFailure) -> String
+	match failure
+		Http2ConnectionProtocolFailure(_) => "protocol"
+		Http2ConnectionIncompleteInput(_) => "incomplete-input"
+		Http2ConnectionLocalSettingsFailure(_) => "local-settings"
+		Http2ConnectionLocalSettingsEncodeFailure(_) => "local-settings-encode"
+	end
+end
+
+pub fn connection_failure_source(failure: Http2ConnectionFailure) -> String
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_source(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_source(inner)
+		Http2ConnectionLocalSettingsFailure(_) => "local-settings"
+		Http2ConnectionLocalSettingsEncodeFailure(_) => "local-settings"
+	end
+end
+
+pub fn connection_failure_id(failure: Http2ConnectionFailure) -> String
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_id(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_id(inner)
+		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_id(inner)
+		Http2ConnectionLocalSettingsEncodeFailure(_) => "http2.local_settings.encode_failure"
+	end
+end
+
+pub fn connection_failure_offset(failure: Http2ConnectionFailure) -> Int
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_offset(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_offset(inner)
+		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_offset(inner)
+		Http2ConnectionLocalSettingsEncodeFailure(_) => 0
+	end
+end
+
+pub fn connection_failure_frame_kind(failure: Http2ConnectionFailure) -> Int
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_frame_kind(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_frame_kind(inner)
+		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_frame_kind(inner)
+		Http2ConnectionLocalSettingsEncodeFailure(_) => 4
+	end
+end
+
+pub fn connection_failure_stream_id(failure: Http2ConnectionFailure) -> Int
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_stream_id(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_stream_id(inner)
+		Http2ConnectionLocalSettingsFailure(_) => 0
+		Http2ConnectionLocalSettingsEncodeFailure(_) => 0
+	end
+end
+
+pub fn connection_failure_reason(failure: Http2ConnectionFailure) -> String
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_reason(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_reason(inner)
+		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_rule_provenance(inner)
+		Http2ConnectionLocalSettingsEncodeFailure(reason) => reason
+	end
+end
+
+pub fn connection_failure_pending_count(failure: Http2ConnectionFailure) -> Int
+	match failure
+		Http2ConnectionProtocolFailure(_) => 0
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_pending_count(inner)
+		Http2ConnectionLocalSettingsFailure(_) => 0
+		Http2ConnectionLocalSettingsEncodeFailure(_) => 0
+	end
+end
+
+pub fn connection_failure_expected_count(failure: Http2ConnectionFailure) -> Int
+	match failure
+		Http2ConnectionProtocolFailure(_) => 0
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_expected_count(inner)
+		Http2ConnectionLocalSettingsFailure(_) => 0
+		Http2ConnectionLocalSettingsEncodeFailure(_) => 0
+	end
+end
+
+pub fn connection_failure_preview(failure: Http2ConnectionFailure) -> ByteChunk
+	match failure
+		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_preview(inner)
+		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_preview(inner)
+		Http2ConnectionLocalSettingsFailure(inner) => byte_view_to_chunk(http2::core::local_settings_failure_preview(inner))
+		Http2ConnectionLocalSettingsEncodeFailure(_) => byte_chunk([])
+	end
+end

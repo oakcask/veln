@@ -1,0 +1,32 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "505249;202a20485454502f322e300d0a0d0a534d0d0a0d0a;000006040000000000000500008000;000000040100000000,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000000040100000000"
+VELN_NET_PRODUCTION_CLIENT_WRITES = "client-writes.hex"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "split offset 48\ncomplete offset 48\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[file_assert]]
+path = "client-writes.hex"
+equals = "000000040000000000000000040100000000\n000000040000000000000000040100000000"

@@ -1,0 +1,32 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000;00000004010000000000000706000000000001020304050607"
+VELN_NET_PRODUCTION_CLIENT_WRITES = "client-writes.hex"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "protocol payload-length http2.protocol.invalid_payload_length offset 48 kind 6 stream 0 preview 9\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[file_assert]]
+path = "client-writes.hex"
+equals = "000000040000000000000000040100000000"

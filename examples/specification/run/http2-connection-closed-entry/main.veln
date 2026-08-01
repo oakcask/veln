@@ -1,0 +1,39 @@
+use http2::connection from "std"
+use http2::core from "std"
+use transport::net from "std"
+use stdio
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+fn print_result(result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(state) => print_success(state)
+		Err(failure) => print_failure(failure)
+	end
+end
+
+fn print_success(state: CoreConnectionState) -> Result<(), String> effects [stdio]
+	stdio::println(http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)))
+	Ok(())
+end
+
+fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects [stdio]
+	stdio::println(http2::connection::connection_failure_id(failure))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let open: CoreConnectionState = http2::core::server_connection_state(0)?
+	let closed: CoreConnectionState = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
+	let result = handle http2::connection::drive_server(closed) with transport::net::net_stream(stream)
+	let _ = print_result(result)?
+	net::close_stream(stream)
+	Ok(())
+end

@@ -48,6 +48,7 @@ mod tests {
                 "http2/hpack.veln",
                 "http2/hpack/diagnostic.veln",
                 "http2/core.veln",
+                "http2/connection.veln",
             ]
         );
     }

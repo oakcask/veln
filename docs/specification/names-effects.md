@@ -97,6 +97,11 @@ compiler-known calls.
   the handled expression, and adds only the existing `net` effect. The checked
   `http2-connection-transport-handler-effects` case fixes this static
   replacement boundary.
+  `http2::connection::drive_server` exposes only
+  `transport::DuplexStream`; handling it with `transport::net::net_stream`
+  therefore replaces only that nominal effect with `net` while preserving
+  caller ownership of listen, accept, close, deadline, cancellation, and task
+  behavior outside the HTTP/2 driver.
   `stream_adapter_accept_loop(listener, handler)` accepts an owned
   `NetListener` and the same pure handler shape, repeatedly accepts streams
   until clean listener end, delegates each accepted stream to

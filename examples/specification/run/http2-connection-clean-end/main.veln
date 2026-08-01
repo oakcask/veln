@@ -1,0 +1,51 @@
+use http2::connection from "std"
+use http2::core from "std"
+use transport::net from "std"
+use stdio
+
+fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
+	match net::accept_or_end(listener)
+		Some(stream) => Ok(stream)
+		None => Err("missing stream")
+	end
+end
+
+fn run_server(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
+	handle http2::connection::drive_server(state) with transport::net::net_stream(stream)
+end
+
+fn print_success(state: CoreConnectionState) -> () effects [stdio]
+	let ack_state = http2::core::connection_state_settings_ack(state)
+	stdio::print("accepted offset ")
+	stdio::print(int_to_string(http2::core::connection_state_next_offset(state)))
+	stdio::print(" outstanding ")
+	stdio::print(http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(ack_state)))
+	stdio::print(" pending ")
+	stdio::println(http2::core::pending_settings_ack_label(http2::core::settings_ack_pending_peer_ack(ack_state)))
+end
+
+fn print_result(result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(state) => print_success_result(state)
+		Err(failure) => print_failure_result(failure)
+	end
+end
+
+fn print_success_result(state: CoreConnectionState) -> Result<(), String> effects [stdio]
+	print_success(state)
+	Ok(())
+end
+
+fn print_failure_result(failure: Http2ConnectionFailure) -> Result<(), String> effects [stdio]
+	stdio::println(http2::connection::connection_failure_id(failure))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = accept_next(listener)?
+	let state: CoreConnectionState = http2::core::server_connection_state(0)?
+	let _ = print_result(run_server(stream, state))?
+	net::close_stream(stream)
+	Ok(())
+end

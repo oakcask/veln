@@ -10,6 +10,7 @@ use http2::diagnostic from "std"
 use http2::hpack from "std"
 use http2::hpack::diagnostic from "std"
 use http2::core from "std"
+use http2::connection from "std"
 ```
 
 The public routes are:
@@ -39,6 +40,8 @@ The public routes are:
   accepted send bytes, and an immutable aggregate connection state that
   composes those migrated components with the public HPACK dynamic table and
   an immutable stream collection.
+- `http2::connection`: the `drive_server` duplex-stream connection driver and
+  typed protocol-owned connection failures for one caller-owned stream.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -214,6 +217,43 @@ The focused
 [`http2-core-receive-connection-boundary`](../../examples/specification/run/http2-core-receive-connection-boundary/)
 case records the public decision, state, failure, and emitted-byte
 projections.
+
+`http2::core::finalize_receive_connection_eof(...)` finalizes a chunked
+receive state after clean transport end. It accepts only when the connection
+preface is complete, the initial peer SETTINGS gate has accepted a complete
+SETTINGS frame, no partial frame bytes remain, and no pending header block is
+active. Accepted EOF returns the immutable aggregate connection state.
+Rejected EOF returns a typed incomplete-input failure that identifies the
+pending source: connection preface, initial peer SETTINGS, frame bytes, or
+pending header block. The failure exposes offset, pending count, expected
+count when applicable, frame kind, stream id, reason, and preview facts.
+
+`http2::connection::drive_server(state)` drives one server-side HTTP/2
+connection through `transport::DuplexStream`. If the supplied core lifecycle is
+closed, the driver returns that state without reading, writing, sending local
+SETTINGS, or requesting a protocol transition. Otherwise the driver first
+sends the initial empty server SETTINGS through the existing local SETTINGS
+send transition, commits the returned core state, and writes those bytes
+before reading peer input.
+
+For each `Some(chunk)` read, the driver delegates to
+`http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
+returned receive state and write each newly accepted output chunk exactly once
+in output-buffer order. Rejected transitions return
+`Http2ConnectionProtocolFailure` with the focused core failure facts and do
+not write output from the rejected transition; bytes from earlier accepted
+driver iterations remain committed. On clean end, the driver delegates to
+`finalize_receive_connection_eof(...)` and returns either the accepted final
+core state or `Http2ConnectionIncompleteInput`.
+
+The executable connection-driver evidence lives under
+`examples/specification/run/http2-connection-server-split-preface/`,
+`examples/specification/run/http2-connection-settings-ack/`,
+`examples/specification/run/http2-connection-partial-frame/`,
+`examples/specification/run/http2-connection-clean-end/`,
+`examples/specification/run/http2-connection-truncated-end-json/`,
+`examples/specification/run/http2-connection-protocol-failure-json/`, and
+`examples/specification/run/http2-connection-closed-entry/`.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

@@ -17,8 +17,8 @@ current language behavior unless the matching page under
 ### First Experiment
 
 - [HTTP/2 Duplex Stream Connection Driver](http2-duplex-stream-connection-driver.md):
-  drive one HTTP/2 client or server connection through the implemented
-  abstract duplex-stream effect and `NetStream` handler.
+  add the remaining client connection driver through the implemented abstract
+  duplex-stream effect and `NetStream` handler.
 
 The connection-driver proposal depends on the implemented lexical-handler
 record under `../reference/implemented-proposals/`.
