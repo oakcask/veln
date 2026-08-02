@@ -6,12 +6,15 @@ use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 
-use crate::diagnostics::{has_error, print_human, tool_info};
+use crate::diagnostics::{
+    has_error, print_human, tool_info, write_harness_source_diagnostic_artifact,
+};
 
 pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
     let diagnostics = checked_project_diagnostics(project, DoctestMode::Include);
+    write_harness_source_diagnostic_artifact(&diagnostics)?;
     let has_errors = has_error(&diagnostics);
     let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
 

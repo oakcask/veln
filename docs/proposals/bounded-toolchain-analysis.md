@@ -1,11 +1,14 @@
+---
+review-when: The standard-library analysis growth evidence, benchmark scope, or implementation status changes.
+---
+
 # Bounded Toolchain Analysis
 
 Status: proposed
 
 ## Summary
 
-Reduce repeated whole-project analysis in CLI integration cases and keep
-standard-library analysis growth bounded as imported module graphs grow.
+Keep standard-library analysis growth bounded as imported module graphs grow.
 
 This proposal changes toolchain implementation and test infrastructure. It
 does not change Veln source semantics, diagnostics, command output, or the JVM
@@ -30,11 +33,10 @@ Controlled local measurements isolated the cost to project analysis:
 These values are diagnostic evidence, not portable performance guarantees.
 The measurements used a prebuilt debug toolchain and one workload at a time.
 
-Each specification case currently performs an independent source-error guard
-before it invokes the CLI. Both operations analyze the copied project. A large
-standard-library import therefore pays the project-analysis cost at least
-twice. Parallel nextest workers amplify the elapsed duration when several
-analysis-heavy cases compete for the same processors.
+The CLI integration harness no longer performs an independent source-error
+guard analysis for normal `check`, `run`, and `test` cases. The implemented
+policy is specified in
+[../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 
 The analysis pipeline also constructs a type environment for the merged
 application and standard-library surface. Type and effect inference performs
@@ -43,9 +45,6 @@ library makes this behavior visible because its production sources contain a
 large module graph and many functions.
 
 ## Proposed Outcome
-
-The toolchain must preserve all command-visible results while avoiding an
-independent second whole-project analysis for a single toolchain case.
 
 Analysis work must scale with the declarations and dependency relationships
 that can affect the result. Adding unrelated, fully annotated modules must not
@@ -60,32 +59,14 @@ time part of the Veln language semantics.
 | Requirement | Observable condition | Planned primary evidence |
 | --- | --- | --- |
 | CLI compatibility | Existing toolchain cases retain their exit status, stdout, stderr, JSON values, diagnostics, and generated files | Existing `veln-cli` toolchain suite |
-| Source-error protection | A specification example with an unexpected source error still fails before a runtime result can be accepted as valid evidence | Harness regression case with an injected source error |
-| One project-analysis payment | A normal `check`, `run`, or `test` toolchain case does not perform a separate whole-project analysis solely for the source-error guard | Harness unit test with an analysis invocation counter |
 | Project isolation | Analysis reused for one copied project is not reused after source text, manifest data, command inputs, or dependency identity changes | Cache invalidation and concurrent-project unit tests |
 | Determinism | Repeated and concurrent analysis returns diagnostics in the same stable order and does not share mutable project state | Repeated and concurrent analyzer tests |
 | Bounded growth | Doubling an unrelated fully annotated module set does not produce superlinear repeated whole-module inference work | Generated high-cardinality analysis benchmark |
 | Representative improvement | HTTP/2 core and connection workloads become materially faster without weakening their assertions | Controlled before-and-after benchmark described below |
 
 The existing toolchain suite remains authoritative for command behavior. The
-new counter tests and benchmark are authoritative only for analysis reuse and
+new cache and benchmark tests are authoritative only for analysis reuse and
 performance properties.
-
-## Source-Error Guard Contract
-
-The harness must continue to reject unexpected source diagnostics in
-specification examples. The harness may obtain that evidence from the command
-analysis result, a shared analysis result, or another equivalent checked
-artifact.
-
-The harness must not launch an independent whole-project analysis when the
-same case invocation already produces authoritative source diagnostics. This
-internal constraint is required because the duplicated analysis is a measured
-source of the regression.
-
-If a command intentionally expects source errors, its existing manifest
-expectations remain authoritative. If a command expects a runtime failure, a
-source error must not satisfy that runtime expectation.
 
 ## Analysis Reuse Contract
 
@@ -144,7 +125,7 @@ dedicated benchmark runner exists.
 ## Implementation Guidance
 
 This section is not normative except where the contracts above require
-isolation or prohibit duplicate whole-project analysis.
+analysis-state isolation.
 
 The implementation should first measure parsing, type-environment
 construction, semantic checks, reachable lowering, JVM generation, and
@@ -152,8 +133,6 @@ process execution separately. It should optimize the measured dominant stage.
 
 Likely implementation options include:
 
-- preserve source diagnostics from the real command analysis for harness
-  validation;
 - precompute immutable standard-library declarations and signatures;
 - reuse standard-library analysis within a process;
 - infer only declarations with omitted information;
@@ -193,9 +172,7 @@ The benchmark command does not exist until this proposal is implemented.
 
 This proposal is complete only when the functional acceptance cases pass, the
 structural regression tests run in CI, and the controlled benchmark meets all
-comparison thresholds. Completion must also update
-`../reference/toolchain-test-harness.md` with the implemented source-error
-guard and analysis-reuse policy.
+comparison thresholds.
 
 After completion, move this document to
 `../reference/implemented-proposals/` and remove it from the proposal catalog.

@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::{self, Write};
 
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, JsonValue, Severity, ToolInfo};
@@ -45,6 +46,16 @@ pub(crate) fn print_human_stderr(envelope: &DiagnosticEnvelope) -> Result<(), St
         }
     }
     Ok(())
+}
+
+pub(crate) fn write_harness_source_diagnostic_artifact(
+    diagnostics: &[Diagnostic],
+) -> Result<(), String> {
+    let Some(path) = std::env::var_os("VELN_HARNESS_SOURCE_DIAGNOSTICS") else {
+        return Ok(());
+    };
+    let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics.to_vec());
+    fs::write(path, envelope.to_json()).map_err(|error| error.to_string())
 }
 
 pub(crate) fn tool_info() -> ToolInfo {
