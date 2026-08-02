@@ -22,7 +22,10 @@ use veln_test::{
 };
 
 use crate::commands::test_scheduler::{SchedulerError, run_ordered_bounded};
-use crate::diagnostics::{has_error, print_human_stderr, tool_info};
+use crate::diagnostics::{
+    harness_source_diagnostic_artifact_requested, has_error, print_human_stderr, tool_info,
+    write_harness_source_diagnostic_artifact,
+};
 use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
 
 pub(crate) fn test(
@@ -34,8 +37,12 @@ pub(crate) fn test(
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, &targets);
     let selection_plan = selection_plan(&root, &targets, explicit, &target_expansion)?;
-    let project = Project::discover(root, &selection_plan.analysis_targets)
-        .map_err(|error| error.to_string())?;
+    let analysis_targets = if harness_source_diagnostic_artifact_requested() {
+        &[]
+    } else {
+        selection_plan.analysis_targets.as_slice()
+    };
+    let project = Project::discover(root, analysis_targets).map_err(|error| error.to_string())?;
     let mut analysis = analyze_project(project, DoctestMode::Include);
     let test_files = selected_test_files(
         &analysis.project,
@@ -46,6 +53,7 @@ pub(crate) fn test(
     attach_doctest_expectations(&mut cases, &analysis.doctest_expectations);
     let mut suite_errors = Vec::new();
     let diagnostics = analysis.semantic_diagnostics();
+    write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
     let diagnostics_have_errors = has_error(&diagnostics);
 
     if cases.is_empty() && !diagnostics_have_errors {

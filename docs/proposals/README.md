@@ -28,9 +28,9 @@ also states it.
 
 ### Toolchain Performance
 
-- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): eliminate
-  duplicate project analysis in CLI integration cases and bound analysis
-  growth for large standard-library module graphs.
+- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): finish bounding
+  analysis growth for large standard-library module graphs after the completed
+  CLI harness source-error artifact slice.
 
 ### Toolchain Quality
 

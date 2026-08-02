@@ -1,3 +1,7 @@
+---
+review-when: The CLI integration harness assertion model or source-error guard evidence changes.
+---
+
 # Toolchain Test Harness
 
 This page specifies the implemented CLI integration test harness. It is a
@@ -99,6 +103,58 @@ mechanics are not Veln command behavior.
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the
 behavior under test.
+
+## Source-Error Guard
+
+Specification examples reject unexpected source diagnostics unless the manifest
+sets `source_errors = "expected"` or the command expectation intentionally
+checks a source diagnostic. The failure message includes the diagnostic
+locations and identifiers needed to clean the example or mark the source error
+as intentional.
+
+For normal `check`, `run`, and `test` cases, the harness does not run an
+independent whole-project analysis before the CLI invocation. It asks the real
+command process to write a harness-owned source diagnostic artifact for the
+copied project and run. The artifact is internal test evidence; it does not
+change stdout, stderr, exit status, JSON output, generated files, or command
+semantics.
+
+The artifact contains checked diagnostics for the copied project root, not only
+for the command-selected source inputs. This preserves the source-error guard
+for explicit-input `run` and `test` cases that otherwise analyze only a
+selected file before execution. Each repeated invocation writes a distinct
+artifact path, so one run or copied project cannot satisfy another run's
+guard.
+
+Cases with `source_errors = "expected"` keep the independent guard because some
+examples intentionally contain source errors outside the command-selected
+slice. `doc`, `fmt`, `lsp`, and `repair` also keep the independent guard until
+those commands expose equivalent checked evidence to the harness.
+
+## Analysis Cost Evidence
+
+The duplicate source-error analysis removed from normal `check`, `run`, and
+`test` cases was the harness-owned `checked_project_diagnostics` call before
+the CLI invocation. The real command now produces the checked diagnostic
+artifact that the guard reads. Harness boundary tests verify that a clean
+copied project does not satisfy a later dirty copied project, and that a
+repeated invocation reads the artifact generated for that invocation after the
+copied project changes.
+
+Controlled measurements used the same prebuilt debug toolchain for the direct
+CLI invocation and the harness case. Each value below is the median of five
+measured runs. The previous measurements recorded the small schema direct run
+at 0.43 seconds and the HTTP/2 core toolchain case at 13.56 seconds.
+
+After the artifact guard change, representative debug-toolchain observations
+were:
+
+| Workload | Direct CLI | Harness case | Ratio |
+| --- | ---: | ---: | ---: |
+| Binary schema decode step | 0.40 seconds | 0.47 seconds | 1.17 |
+| HTTP/2 protocol core closed JSON | 4.22 seconds | 4.32 seconds | 1.02 |
+
+These observations are local review evidence, not CI failure thresholds.
 
 ## Boundaries
 

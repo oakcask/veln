@@ -15,6 +15,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
+const SOURCE_DIAGNOSTIC_ARTIFACT_ENV: &str = "VELN_HARNESS_SOURCE_DIAGNOSTICS";
 
 include!(concat!(env!("OUT_DIR"), "/toolchain_cases.rs"));
 
@@ -23,6 +24,13 @@ fn toolchain_case_path(relative: &str) -> PathBuf {
 }
 
 fn run_case(case_dir: &Path) {
+    run_case_with_after_invocation(case_dir, |_, _| {});
+}
+
+fn run_case_with_after_invocation(
+    case_dir: &Path,
+    mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
+) {
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
@@ -42,7 +50,9 @@ fn run_case(case_dir: &Path) {
         return;
     }
 
-    manifest.assert_no_unexpected_example_source_errors(case_dir, &project.root);
+    if manifest.needs_pre_command_source_error_guard(case_dir) {
+        manifest.assert_no_unexpected_example_source_errors(case_dir, &project.root);
+    }
     manifest.validate_fixture_schema_references(&project.root);
 
     for run_index in 0..manifest.invocation.repeat {
@@ -50,18 +60,27 @@ fn run_case(case_dir: &Path) {
             case_dir,
             run_number: run_index + 1,
         };
+        let artifact_path = manifest
+            .needs_command_source_error_guard(case_dir)
+            .then(|| project.source_diagnostic_artifact_path(run_index));
         let output = CapturedOutput::read(
             &context,
-            project.veln(
+            project.veln_with_artifact(
                 &manifest.invocation.command,
                 &manifest.invocation.env,
                 manifest.invocation.stdin.as_deref(),
+                artifact_path.as_deref(),
             ),
         );
+        if let Some(artifact_path) = artifact_path.as_deref() {
+            let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
+            manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
+        }
         manifest.expectations.assert_matches(&context, &output);
         manifest
             .expectations
             .assert_files_match(&context, &project.root);
+        after_invocation(&context, &project.root);
     }
 }
 
@@ -103,7 +122,18 @@ impl TestProject {
         copy_fixture_dir(case_dir, case_dir, &self.root);
     }
 
-    fn veln(&self, args: &[String], env: &[(String, String)], stdin: Option<&str>) -> Output {
+    fn source_diagnostic_artifact_path(&self, run_index: usize) -> PathBuf {
+        self.root
+            .join(format!(".veln-source-diagnostics-{}.json", run_index + 1))
+    }
+
+    fn veln_with_artifact(
+        &self,
+        args: &[String],
+        env: &[(String, String)],
+        stdin: Option<&str>,
+        artifact_path: Option<&Path>,
+    ) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
         command.args(args);
@@ -114,6 +144,9 @@ impl TestProject {
         }
         for (name, value) in env {
             command.env(name, value);
+        }
+        if let Some(path) = artifact_path {
+            command.env(SOURCE_DIAGNOSTIC_ARTIFACT_ENV, path);
         }
         if stdin.is_some() {
             command.stdin(Stdio::piped());
@@ -426,6 +459,39 @@ impl CaseManifest {
         }
     }
 
+    fn assert_no_unexpected_command_source_errors(
+        &self,
+        context: &CaseRunContext<'_>,
+        evidence: &CommandSourceDiagnosticEvidence,
+    ) {
+        if evidence.error_count == 0 {
+            return;
+        }
+        panic!(
+            "{}: remove unexpected source error diagnostics, or set `source_errors = \"expected\"` in case.toml when this example exists to exercise them; clean examples prevent unrelated editor errors.\n{}",
+            context.label(),
+            evidence.message
+        );
+    }
+
+    fn needs_pre_command_source_error_guard(&self, case_dir: &Path) -> bool {
+        is_specification_example(case_dir)
+            && self.needs_independent_source_error_guard()
+            && !self.needs_command_source_error_guard(case_dir)
+            && !(self.command_explicitly_expects_source_errors()
+                && self.source_errors == SourceErrorExpectation::Forbidden)
+    }
+
+    fn needs_command_source_error_guard(&self, case_dir: &Path) -> bool {
+        is_specification_example(case_dir)
+            && self.source_errors == SourceErrorExpectation::Forbidden
+            && !self.command_explicitly_expects_source_errors()
+            && matches!(
+                self.invocation.command.first().map(String::as_str),
+                Some("check" | "run" | "test")
+            )
+    }
+
     fn needs_independent_source_error_guard(&self) -> bool {
         matches!(
             self.invocation.command.first().map(String::as_str),
@@ -439,6 +505,14 @@ impl CaseManifest {
                 self.invocation.command.first().map(String::as_str),
                 Some("check" | "doc" | "fmt" | "repair")
             )
+            || self.invocation.command.first().map(String::as_str) == Some("run")
+                && self.expectations.exit != 0
+                && self
+                    .expectations
+                    .stderr
+                    .contains
+                    .iter()
+                    .any(|fragment| fragment.contains("runnable entry retains user-defined effect"))
     }
 
     fn validate_fixture_schema_references(&self, project_root: &Path) {
@@ -494,6 +568,85 @@ fn source_error_evidence(errors: &[Diagnostic]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+struct CommandSourceDiagnosticEvidence {
+    error_count: usize,
+    message: String,
+}
+
+impl CommandSourceDiagnosticEvidence {
+    fn read(context: &CaseRunContext<'_>, path: &Path) -> Self {
+        let text = fs::read_to_string(path).unwrap_or_else(|error| {
+            panic!(
+                "{}: command did not write source diagnostic artifact `{}`: {error}",
+                context.label(),
+                path.display()
+            )
+        });
+        let json = parse_json(&text).unwrap_or_else(|error| {
+            panic!(
+                "{}: source diagnostic artifact JSON parse failed: {error}\n{}",
+                context.label(),
+                text
+            )
+        });
+        let diagnostics = json
+            .object_field("diagnostics")
+            .and_then(JsonValue::as_array)
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}: source diagnostic artifact is missing diagnostics array",
+                    context.label()
+                )
+            });
+        let errors = diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic
+                    .object_field("severity")
+                    .and_then(JsonValue::as_str)
+                    == Some("error")
+            })
+            .collect::<Vec<_>>();
+        Self {
+            error_count: errors.len(),
+            message: command_source_error_evidence(&errors),
+        }
+    }
+}
+
+fn command_source_error_evidence(errors: &[&JsonValue]) -> String {
+    errors
+        .iter()
+        .map(|diagnostic| {
+            let location = diagnostic
+                .object_field("span")
+                .and_then(command_span_evidence)
+                .unwrap_or_else(|| "<unknown>".to_string());
+            let id = diagnostic
+                .object_field("id")
+                .and_then(JsonValue::as_str)
+                .unwrap_or("<unknown>");
+            let message = diagnostic
+                .object_field("message")
+                .and_then(JsonValue::as_str)
+                .unwrap_or("<missing message>");
+            format!("{location}: error[{id}]: {message}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn command_span_evidence(span: &JsonValue) -> Option<String> {
+    if matches!(span, JsonValue::Null) {
+        return None;
+    }
+    let file = span.object_field("file")?.as_str()?;
+    let start = span.object_field("start")?;
+    let line = start.object_field("line")?.as_i64()?;
+    let column = start.object_field("column")?.as_i64()?;
+    Some(format!("{file}:{line}:{column}"))
 }
 
 impl CaseExpectations {
@@ -2535,6 +2688,350 @@ exit = 0
     assert_eq!(manifest.source_errors, SourceErrorExpectation::Expected);
 
     fs::remove_dir_all(root).expect("guard root should be removed");
+}
+
+#[test]
+fn normal_check_run_and_test_cases_use_command_source_diagnostic_artifacts() {
+    for command in ["check", "run", "test"] {
+        let manifest = parse_manifest(
+            Path::new("case.toml"),
+            &format!(
+                r#"
+command = ["{command}", "main.veln"]
+exit = 0
+"#
+            ),
+        );
+
+        assert!(manifest.needs_command_source_error_guard(Path::new(
+            "examples/specification/run/artifact-guard"
+        )));
+        assert!(!manifest.needs_pre_command_source_error_guard(Path::new(
+            "examples/specification/run/artifact-guard"
+        )));
+    }
+}
+
+#[test]
+fn declared_and_intended_source_error_cases_keep_independent_guard() {
+    let expected_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 0
+"#,
+    );
+    assert!(
+        !expected_manifest.needs_command_source_error_guard(Path::new(
+            "examples/specification/run/declared-source-error"
+        ))
+    );
+    assert!(
+        expected_manifest.needs_pre_command_source_error_guard(Path::new(
+            "examples/specification/run/declared-source-error"
+        ))
+    );
+
+    let intended_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+exit = 1
+"#,
+    );
+    assert!(
+        !intended_manifest.needs_command_source_error_guard(Path::new(
+            "examples/specification/check/intended-source-error"
+        ))
+    );
+    assert!(
+        !intended_manifest.needs_pre_command_source_error_guard(Path::new(
+            "examples/specification/check/intended-source-error"
+        ))
+    );
+
+    let run_static_manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stderr]
+contains = ["runnable entry retains user-defined effect `main::Audit`"]
+"#,
+    );
+    assert!(
+        !run_static_manifest.needs_command_source_error_guard(Path::new(
+            "examples/specification/run/intended-static-gate"
+        ))
+    );
+    assert!(
+        !run_static_manifest.needs_pre_command_source_error_guard(Path::new(
+            "examples/specification/run/intended-static-gate"
+        ))
+    );
+}
+
+#[test]
+fn command_source_error_artifacts_are_read_per_run() {
+    let root = test_temp_root("source-artifact-runs");
+    let first = root.join("first.json");
+    let second = root.join("second.json");
+    fs::write(
+        &first,
+        r#"{"diagnostics":[{"id":"type.mismatch","severity":"error","message":"first project","span":{"file":"main.veln","start":{"line":1,"column":2},"end":{"line":1,"column":3}}}]}"#,
+    )
+    .expect("first artifact should be written");
+    fs::write(
+        &second,
+        r#"{"diagnostics":[{"id":"parse.expected_item","severity":"error","message":"second project","span":{"file":"other.veln","start":{"line":4,"column":5},"end":{"line":4,"column":6}}}]}"#,
+    )
+    .expect("second artifact should be written");
+
+    let first_context = CaseRunContext {
+        case_dir: Path::new("examples/specification/run/artifact-guard"),
+        run_number: 1,
+    };
+    let second_context = CaseRunContext {
+        case_dir: Path::new("examples/specification/run/artifact-guard"),
+        run_number: 2,
+    };
+    let first_evidence = CommandSourceDiagnosticEvidence::read(&first_context, &first);
+    let second_evidence = CommandSourceDiagnosticEvidence::read(&second_context, &second);
+
+    assert_eq!(first_evidence.error_count, 1);
+    assert!(first_evidence.message.contains("main.veln:1:2"));
+    assert!(first_evidence.message.contains("first project"));
+    assert_eq!(second_evidence.error_count, 1);
+    assert!(second_evidence.message.contains("other.veln:4:5"));
+    assert!(second_evidence.message.contains("second project"));
+
+    fs::remove_dir_all(root).expect("artifact root should be removed");
+}
+
+#[test]
+fn command_source_error_guard_rejects_unexpected_command_diagnostics() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["test", "--json", "main.veln"]
+exit = 1
+"#,
+    );
+    let evidence = CommandSourceDiagnosticEvidence {
+        error_count: 1,
+        message: "main.veln:1:1: error[type.mismatch]: wrong type".to_string(),
+    };
+    let context = CaseRunContext {
+        case_dir: Path::new("examples/specification/test/static-gate"),
+        run_number: 1,
+    };
+
+    let panic = std::panic::catch_unwind(|| {
+        manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
+    })
+    .expect_err("unexpected source error should fail command guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("error[type.mismatch]"));
+}
+
+#[test]
+fn command_artifact_guard_rejects_unselected_check_source_errors() {
+    let root = test_temp_root("artifact-unselected-check");
+    let case_dir = root.join("examples/specification/check/artifact-unselected-check");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+exit = 0
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("selected source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("unselected source error should fail command artifact guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_does_not_reuse_between_copied_projects() {
+    let root = test_temp_root("artifact-copied-projects");
+    let clean_case_dir = root.join("examples/specification/check/artifact-clean-project");
+    let dirty_case_dir = root.join("examples/specification/check/artifact-dirty-project");
+    fs::create_dir_all(&clean_case_dir).expect("clean case directory should be created");
+    fs::create_dir_all(&dirty_case_dir).expect("dirty case directory should be created");
+    for case_dir in [&clean_case_dir, &dirty_case_dir] {
+        fs::write(
+            case_dir.join("case.toml"),
+            r#"
+command = ["check", "main.veln"]
+exit = 0
+
+[stdout]
+contains = ["ok"]
+"#,
+        )
+        .expect("case manifest should be written");
+        fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+            .expect("selected source should be written");
+    }
+    fs::write(
+        dirty_case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    run_case(&clean_case_dir);
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&dirty_case_dir);
+    })
+    .expect_err("dirty copied project should not reuse a clean project's artifact");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn repeated_command_artifact_guard_uses_each_invocation_artifact() {
+    let root = test_temp_root("artifact-repeat-run-case");
+    let case_dir = root.join("examples/specification/check/artifact-repeat-run-case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+contains = ["ok"]
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("selected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_after_invocation(&case_dir, |context, project_root| {
+            if context.run_number == 1 {
+                fs::write(
+                    project_root.join("unselected.veln"),
+                    "fn broken() -> Int\n\t\"wrong\"\nend\n",
+                )
+                .expect("second-run source error should be injected");
+            }
+        });
+    })
+    .expect_err("second invocation should read its own command artifact");
+    let message = panic_message(panic);
+    assert!(message.contains("run 2"));
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_rejects_unselected_run_source_errors() {
+    if !jdk_is_available() {
+        eprintln!("skipping command artifact run guard test: requires a real JDK");
+        return;
+    }
+
+    let root = test_temp_root("artifact-unselected-run");
+    let case_dir = root.join("examples/specification/run/artifact-unselected-run");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(
+        case_dir.join("main.veln"),
+        "pub fn main() -> ()\n\t()\nend\n",
+    )
+    .expect("selected source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("unselected source error should fail command artifact guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_keeps_runtime_failure_distinct_from_source_errors() {
+    if !jdk_is_available() {
+        eprintln!("skipping command artifact runtime guard test: requires a real JDK");
+        return;
+    }
+
+    let root = test_temp_root("artifact-runtime-source");
+    let case_dir = root.join("examples/specification/test/artifact-runtime-source");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(
+        case_dir.join("main_test.veln"),
+        "test rejects() -> ()\n\trequire false\n\t()\nend\n",
+    )
+    .expect("selected test source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("source error should not be accepted as the runtime failure");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]
@@ -4665,6 +5162,13 @@ impl JsonValue {
     fn as_str(&self) -> Option<&str> {
         match self {
             Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    fn as_i64(&self) -> Option<i64> {
+        match self {
+            Self::Number(value) => Some(*value),
             _ => None,
         }
     }
