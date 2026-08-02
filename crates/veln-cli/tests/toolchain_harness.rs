@@ -3437,6 +3437,35 @@ fn result_value_parser_exposes_runtime_value_diagnostic_shape() {
 }
 
 #[test]
+fn veln_value_parser_preserves_constructor_field_kinds() {
+    let parsed = parse_veln_value(
+        "RuntimeByteDiagnostic(ByteOffset(4), Cons(RuntimeDiagnosticFieldPathSegment(schema, Packet), Nil), RuntimeByteReasonFacts(invalid byte), RuntimeBytePreview(ff, 1, 3, true))",
+    )
+    .expect("runtime byte diagnostic should parse");
+
+    assert_eq!(
+        json_path(&parsed, "byte_offset.value"),
+        Some(&JsonValue::Number(4))
+    );
+    assert_eq!(
+        json_path(&parsed, "field_path.0.name"),
+        Some(&JsonValue::String("Packet".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "facts.reason"),
+        Some(&JsonValue::String("invalid byte".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "preview.encoding"),
+        Some(&JsonValue::String("hex".to_string()))
+    );
+    assert_eq!(
+        json_path(&parsed, "preview.truncated"),
+        Some(&JsonValue::Bool(true))
+    );
+}
+
+#[test]
 fn result_value_parser_exposes_hpack_fixture_runtime_diagnostics() {
     let fixture = parse_result_value(
         "RuntimeDiagnostic(hpack.fixture.malformed_raw_string_value, HPACK fixture malformed raw string value at byte offset 9, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(9, 5, 8, fixture HPACK raw string value, hpack_fixture, ByteChunk([Byte(8), Byte(3), Byte(50), Byte(31), Byte(48)]))))",
@@ -4331,6 +4360,419 @@ fn parse_result_value(rendered_value: &str) -> Result<JsonValue, String> {
     ))
 }
 
+#[derive(Clone, Copy)]
+enum VelnFieldKind {
+    List,
+    Text,
+    Value,
+}
+
+type VelnConstructorField = (&'static str, VelnFieldKind);
+type VelnConstructorSchema = (&'static str, &'static [VelnConstructorField]);
+
+use VelnFieldKind::{List, Text, Value};
+
+const VELN_CONSTRUCTOR_SCHEMAS: &[VelnConstructorSchema] = &[
+    ("Err", &[("value", Value)]),
+    (
+        "RuntimeDiagnostic",
+        &[("id", Text), ("message", Text), ("detail", Value)],
+    ),
+    (
+        "RuntimeByteDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("field_path", List),
+            ("facts", Value),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeValueDiagnostic",
+        &[("field_path", List), ("reason", Text)],
+    ),
+    ("RuntimeHttp2Diagnostic", &[("detail", Value)]),
+    ("RuntimeHttp2HpackDiagnostic", &[("detail", Value)]),
+    (
+        "RuntimeHpackFixtureDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_block_size", Value),
+            ("observed_first_byte", Value),
+            ("expected_fixture", Text),
+            ("codec_module", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHpackFixtureDynamicIndexDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_block_size", Value),
+            ("observed_first_byte", Value),
+            ("requested_dynamic_index", Value),
+            ("dynamic_table_entry_count", Value),
+            ("expected_fixture", Text),
+            ("codec_module", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHpackFixtureDynamicNameDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_block_size", Value),
+            ("observed_first_byte", Value),
+            ("requested_dynamic_index", Value),
+            ("dynamic_table_entry_count", Value),
+            ("expected_fixture", Text),
+            ("codec_module", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHpackFixtureTableSizeUpdateDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_block_size", Value),
+            ("observed_first_byte", Value),
+            ("observed_header_table_size", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("active_state", Text),
+            ("expected_fixture", Text),
+            ("codec_module", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("pending_count", Value),
+            ("expected_count", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("expected_byte", Value),
+            ("actual_byte", Value),
+            ("matched_prefix_count", Value),
+            ("expected_count", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("pending_count", Value),
+            ("active_continuation", Text),
+            ("expected_stream_id", Value),
+            ("started_frame_kind", Value),
+            ("started_byte_offset", Value),
+            ("accumulated_header_block_bytes", Value),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("actual_frame_kind", Value),
+            ("actual_stream_id", Value),
+            ("expected_stream_id", Value),
+            ("started_frame_kind", Value),
+            ("started_byte_offset", Value),
+            ("active_continuation", Text),
+            ("accumulated_header_block_bytes", Value),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("actual_frame_kind", Value),
+            ("stream_id", Value),
+            ("expected_frame_kind", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("required_stream_id_domain", Text),
+            ("endpoint_role", Text),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("previous_peer_stream_id", Value),
+            ("endpoint_role", Text),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_payload_length", Value),
+            ("allowed_max_frame_size", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("receive_limit_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_list_size", Value),
+            ("allowed_header_list_size", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("receive_limit_provenance", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitSettingsValueDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("setting_identifier", Value),
+            ("setting_name", Text),
+            ("observed_value", Value),
+            ("accepted_min_value", Value),
+            ("accepted_max_value", Value),
+            ("peer_limit_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("observed_payload_length", Value),
+            ("expected_payload_length", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("pad_length", Value),
+            ("remaining_payload_length", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_payload_length", Value),
+            ("allowed_window_credit", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("expected_content_length", Value),
+            ("observed_body_length", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("observed_header_table_size", Value),
+            ("allowed_header_table_size", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("receive_limit_provenance", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("attempted_concurrent_stream_count", Value),
+            ("allowed_concurrent_stream_count", Value),
+            ("endpoint_role", Text),
+            ("active_state", Text),
+            ("receive_limit_provenance", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("failed_header_fact", Text),
+            ("header_name", Text),
+            ("decoded_header_names", Text),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("frame_kind", Value),
+            ("stream_id", Value),
+            ("failed_header_fact", Text),
+            ("header_name", Text),
+            ("decoded_header_names", Text),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("observed_window_increment", Value),
+            ("accepted_min_window_increment", Value),
+            ("accepted_max_window_increment", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("actual_frame_kind", Value),
+            ("actual_flags", Value),
+            ("stream_id", Value),
+            ("endpoint_role", Text),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("setting_identifier", Value),
+            ("setting_name", Text),
+            ("endpoint_role", Text),
+            ("frame_kind", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("dependency_stream_id", Value),
+            ("active_state", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
+        &[
+            ("byte_offset", Value),
+            ("stream_id", Value),
+            ("last_stream_id", Value),
+            ("shutdown_state", Text),
+            ("endpoint_role", Text),
+            ("rule_provenance", Text),
+            ("preview", Value),
+        ],
+    ),
+    (
+        "RuntimeDiagnosticFieldPathSegment",
+        &[("kind", Text), ("name", Text)],
+    ),
+    (
+        "RuntimeByteCountFacts",
+        &[
+            ("expected_count", Value),
+            ("available_count", Value),
+            ("readiness", Text),
+        ],
+    ),
+    (
+        "RuntimeByteRangeFacts",
+        &[("requested_count", Value), ("available_count", Value)],
+    ),
+    (
+        "RuntimeByteFixedValueFacts",
+        &[("expected_value", Value), ("actual_value", Value)],
+    ),
+    ("RuntimeByteReasonFacts", &[("reason", Text)]),
+];
+
 fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
     let text = text.trim();
     if text == "Nil" {
@@ -4343,768 +4785,86 @@ fn parse_veln_value(text: &str) -> Result<JsonValue, String> {
         return Ok(parse_veln_atom(text));
     };
 
-    match name {
-        "Err" => {
-            let args = expect_arity(name, args, 1)?;
-            Ok(result_value_object(
-                "Err",
-                vec![("value", parse_veln_value(args[0])?)],
-            ))
-        }
-        "RuntimeDiagnostic" => {
-            let args = expect_arity(name, args, 3)?;
-            Ok(result_value_object(
-                "RuntimeDiagnostic",
-                vec![
-                    ("id", JsonValue::String(args[0].trim().to_string())),
-                    ("message", JsonValue::String(args[1].trim().to_string())),
-                    ("detail", parse_veln_value(args[2])?),
-                ],
-            ))
-        }
-        "RuntimeByteDiagnostic" => {
-            let args = expect_arity(name, args, 4)?;
-            Ok(result_value_object(
-                "RuntimeByteDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("field_path", parse_veln_list(args[1])?),
-                    ("facts", parse_veln_value(args[2])?),
-                    ("preview", parse_veln_value(args[3])?),
-                ],
-            ))
-        }
-        "RuntimeValueDiagnostic" => {
-            let args = expect_arity(name, args, 2)?;
-            Ok(result_value_object(
-                "RuntimeValueDiagnostic",
-                vec![
-                    ("field_path", parse_veln_list(args[0])?),
-                    ("reason", JsonValue::String(args[1].trim().to_string())),
-                ],
-            ))
-        }
-        "RuntimeHttp2Diagnostic" | "RuntimeHttp2HpackDiagnostic" => {
-            let args = expect_arity(name, args, 1)?;
-            Ok(result_value_object(
-                name,
-                vec![("detail", parse_veln_value(args[0])?)],
-            ))
-        }
-        "RuntimeHpackFixtureDiagnostic" => {
-            let args = expect_arity(name, args, 6)?;
-            Ok(result_value_object(
-                "RuntimeHpackFixtureDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_block_size", parse_veln_value(args[1])?),
-                    ("observed_first_byte", parse_veln_value(args[2])?),
-                    (
-                        "expected_fixture",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "codec_module",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[5])?),
-                ],
-            ))
-        }
-        "RuntimeHpackFixtureDynamicIndexDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHpackFixtureDynamicIndexDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_block_size", parse_veln_value(args[1])?),
-                    ("observed_first_byte", parse_veln_value(args[2])?),
-                    ("requested_dynamic_index", parse_veln_value(args[3])?),
-                    ("dynamic_table_entry_count", parse_veln_value(args[4])?),
-                    (
-                        "expected_fixture",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "codec_module",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHpackFixtureDynamicNameDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHpackFixtureDynamicNameDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_block_size", parse_veln_value(args[1])?),
-                    ("observed_first_byte", parse_veln_value(args[2])?),
-                    ("requested_dynamic_index", parse_veln_value(args[3])?),
-                    ("dynamic_table_entry_count", parse_veln_value(args[4])?),
-                    (
-                        "expected_fixture",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "codec_module",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHpackFixtureTableSizeUpdateDiagnostic" => {
-            let args = expect_arity(name, args, 10)?;
-            Ok(result_value_object(
-                "RuntimeHpackFixtureTableSizeUpdateDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_block_size", parse_veln_value(args[1])?),
-                    ("observed_first_byte", parse_veln_value(args[2])?),
-                    ("observed_header_table_size", parse_veln_value(args[3])?),
-                    ("frame_kind", parse_veln_value(args[4])?),
-                    ("stream_id", parse_veln_value(args[5])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    (
-                        "expected_fixture",
-                        JsonValue::String(args[7].trim().to_string()),
-                    ),
-                    (
-                        "codec_module",
-                        JsonValue::String(args[8].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[9])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolPartialPrefaceDiagnostic" => {
-            let args = expect_arity(name, args, 6)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("pending_count", parse_veln_value(args[1])?),
-                    ("expected_count", parse_veln_value(args[2])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[5])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("expected_byte", parse_veln_value(args[1])?),
-                    ("actual_byte", parse_veln_value(args[2])?),
-                    ("matched_prefix_count", parse_veln_value(args[3])?),
-                    ("expected_count", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolClosedWithPendingDiagnostic" => {
-            let args = expect_arity(name, args, 9)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("pending_count", parse_veln_value(args[1])?),
-                    (
-                        "active_continuation",
-                        JsonValue::String(args[2].trim().to_string()),
-                    ),
-                    ("expected_stream_id", parse_veln_value(args[3])?),
-                    ("started_frame_kind", parse_veln_value(args[4])?),
-                    ("started_byte_offset", parse_veln_value(args[5])?),
-                    ("accumulated_header_block_bytes", parse_veln_value(args[6])?),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[7].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[8])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolContinuationExpectedDiagnostic" => {
-            let args = expect_arity(name, args, 10)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("actual_frame_kind", parse_veln_value(args[1])?),
-                    ("actual_stream_id", parse_veln_value(args[2])?),
-                    ("expected_stream_id", parse_veln_value(args[3])?),
-                    ("started_frame_kind", parse_veln_value(args[4])?),
-                    ("started_byte_offset", parse_veln_value(args[5])?),
-                    (
-                        "active_continuation",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("accumulated_header_block_bytes", parse_veln_value(args[7])?),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[8].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[9])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic" => {
-            let args = expect_arity(name, args, 7)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("actual_frame_kind", parse_veln_value(args[1])?),
-                    ("stream_id", parse_veln_value(args[2])?),
-                    ("expected_frame_kind", parse_veln_value(args[3])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[6])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("frame_kind", parse_veln_value(args[1])?),
-                    ("stream_id", parse_veln_value(args[2])?),
-                    (
-                        "required_stream_id_domain",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic" => {
-            let args = expect_arity(name, args, 7)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    ("previous_peer_stream_id", parse_veln_value(args[2])?),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "active_state",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[6])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitFrameSizeDiagnostic" => {
-            let args = expect_arity(name, args, 7)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_payload_length", parse_veln_value(args[1])?),
-                    ("allowed_max_frame_size", parse_veln_value(args[2])?),
-                    ("frame_kind", parse_veln_value(args[3])?),
-                    ("stream_id", parse_veln_value(args[4])?),
-                    (
-                        "receive_limit_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[6])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_list_size", parse_veln_value(args[1])?),
-                    ("allowed_header_list_size", parse_veln_value(args[2])?),
-                    ("frame_kind", parse_veln_value(args[3])?),
-                    ("stream_id", parse_veln_value(args[4])?),
-                    (
-                        "receive_limit_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitSettingsValueDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitSettingsValueDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("setting_identifier", parse_veln_value(args[1])?),
-                    (
-                        "setting_name",
-                        JsonValue::String(args[2].trim().to_string()),
-                    ),
-                    ("observed_value", parse_veln_value(args[3])?),
-                    ("accepted_min_value", parse_veln_value(args[4])?),
-                    ("accepted_max_value", parse_veln_value(args[5])?),
-                    (
-                        "peer_limit_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("frame_kind", parse_veln_value(args[1])?),
-                    ("stream_id", parse_veln_value(args[2])?),
-                    ("observed_payload_length", parse_veln_value(args[3])?),
-                    ("expected_payload_length", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic" => {
-            let args = expect_arity(name, args, 7)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    ("pad_length", parse_veln_value(args[2])?),
-                    ("remaining_payload_length", parse_veln_value(args[3])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[6])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_payload_length", parse_veln_value(args[1])?),
-                    ("allowed_window_credit", parse_veln_value(args[2])?),
-                    ("frame_kind", parse_veln_value(args[3])?),
-                    ("stream_id", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("frame_kind", parse_veln_value(args[1])?),
-                    ("stream_id", parse_veln_value(args[2])?),
-                    ("expected_content_length", parse_veln_value(args[3])?),
-                    ("observed_body_length", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("observed_header_table_size", parse_veln_value(args[1])?),
-                    ("allowed_header_table_size", parse_veln_value(args[2])?),
-                    ("frame_kind", parse_veln_value(args[3])?),
-                    ("stream_id", parse_veln_value(args[4])?),
-                    (
-                        "receive_limit_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic" => {
-            let args = expect_arity(name, args, 9)?;
-            Ok(result_value_object(
-                "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    (
-                        "attempted_concurrent_stream_count",
-                        parse_veln_value(args[2])?,
-                    ),
-                    (
-                        "allowed_concurrent_stream_count",
-                        parse_veln_value(args[3])?,
-                    ),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "receive_limit_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[7].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[8])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic"
-        | "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic" => {
-            let args = expect_arity(name, args, 9)?;
-            Ok(result_value_object(
-                name,
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("frame_kind", parse_veln_value(args[1])?),
-                    ("stream_id", parse_veln_value(args[2])?),
-                    (
-                        "failed_header_fact",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    ("header_name", JsonValue::String(args[4].trim().to_string())),
-                    (
-                        "decoded_header_names",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "active_state",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[7].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[8])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    ("observed_window_increment", parse_veln_value(args[2])?),
-                    ("accepted_min_window_increment", parse_veln_value(args[3])?),
-                    ("accepted_max_window_increment", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic" => {
-            let args = expect_arity(name, args, 4)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[1].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[2].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[3])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("actual_frame_kind", parse_veln_value(args[1])?),
-                    ("actual_flags", parse_veln_value(args[2])?),
-                    ("stream_id", parse_veln_value(args[3])?),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic" => {
-            let args = expect_arity(name, args, 8)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("setting_identifier", parse_veln_value(args[1])?),
-                    (
-                        "setting_name",
-                        JsonValue::String(args[2].trim().to_string()),
-                    ),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    ("frame_kind", parse_veln_value(args[4])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[6].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[7])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolPriorityDependencyDiagnostic" => {
-            let args = expect_arity(name, args, 6)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolPriorityDependencyDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    ("dependency_stream_id", parse_veln_value(args[2])?),
-                    (
-                        "active_state",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[5])?),
-                ],
-            ))
-        }
-        "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic" => {
-            let args = expect_arity(name, args, 7)?;
-            Ok(result_value_object(
-                "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic",
-                vec![
-                    ("byte_offset", parse_veln_value(args[0])?),
-                    ("stream_id", parse_veln_value(args[1])?),
-                    ("last_stream_id", parse_veln_value(args[2])?),
-                    (
-                        "shutdown_state",
-                        JsonValue::String(args[3].trim().to_string()),
-                    ),
-                    (
-                        "endpoint_role",
-                        JsonValue::String(args[4].trim().to_string()),
-                    ),
-                    (
-                        "rule_provenance",
-                        JsonValue::String(args[5].trim().to_string()),
-                    ),
-                    ("preview", parse_veln_value(args[6])?),
-                ],
-            ))
-        }
-        "RuntimeDiagnosticFieldPathSegment" => {
-            let args = expect_arity(name, args, 2)?;
-            Ok(result_value_object(
-                "RuntimeDiagnosticFieldPathSegment",
-                vec![
-                    ("kind", JsonValue::String(args[0].trim().to_string())),
-                    ("name", JsonValue::String(args[1].trim().to_string())),
-                ],
-            ))
-        }
-        "RuntimeByteCountFacts" => {
-            let args = expect_arity(name, args, 3)?;
-            Ok(result_value_object(
-                "RuntimeByteCountFacts",
-                vec![
-                    ("expected_count", parse_veln_value(args[0])?),
-                    ("available_count", parse_veln_value(args[1])?),
-                    ("readiness", JsonValue::String(args[2].trim().to_string())),
-                ],
-            ))
-        }
-        "RuntimeByteRangeFacts" => {
-            let args = expect_arity(name, args, 2)?;
-            Ok(result_value_object(
-                "RuntimeByteRangeFacts",
-                vec![
-                    ("requested_count", parse_veln_value(args[0])?),
-                    ("available_count", parse_veln_value(args[1])?),
-                ],
-            ))
-        }
-        "RuntimeByteFixedValueFacts" => {
-            let args = expect_arity(name, args, 2)?;
-            Ok(result_value_object(
-                "RuntimeByteFixedValueFacts",
-                vec![
-                    ("expected_value", parse_veln_value(args[0])?),
-                    ("actual_value", parse_veln_value(args[1])?),
-                ],
-            ))
-        }
-        "RuntimeByteReasonFacts" => {
-            let args = expect_arity(name, args, 1)?;
-            Ok(result_value_object(
-                "RuntimeByteReasonFacts",
-                vec![("reason", JsonValue::String(args[0].trim().to_string()))],
-            ))
-        }
-        "RuntimeBytePreview" => {
-            let args = expect_arity(name, args, 4)?;
-            Ok(result_value_object(
-                "RuntimeBytePreview",
-                vec![
-                    ("encoding", JsonValue::String("hex".to_string())),
-                    ("data", JsonValue::String(args[0].trim().to_string())),
-                    ("preview_byte_count", parse_veln_value(args[1])?),
-                    ("total_byte_count", parse_veln_value(args[2])?),
-                    ("truncated", parse_veln_value(args[3])?),
-                ],
-            ))
-        }
-        "ByteChunk" => {
-            let args = expect_arity(name, args, 1)?;
-            Ok(result_value_object(
-                "ByteChunk",
-                vec![("bytes", parse_veln_bracketed_list(args[0])?)],
-            ))
-        }
-        "Byte" | "ByteOffset" | "ByteCount" => {
-            let args = expect_arity(name, args, 1)?;
-            Ok(result_value_object(
-                name,
-                vec![("value", parse_veln_nonnegative_integer(name, args[0])?)],
-            ))
-        }
-        "Cons" => Ok(JsonValue::Array(parse_veln_list_items(text)?)),
-        _ => Ok(result_value_object(
-            name,
-            vec![(
-                "fields",
-                JsonValue::Array(
-                    args.into_iter()
-                        .map(parse_veln_value)
-                        .collect::<Result<Vec<_>, _>>()?,
-                ),
-            )],
-        )),
+    if let Some(schema) = VELN_CONSTRUCTOR_SCHEMAS
+        .iter()
+        .find(|(constructor, _)| *constructor == name)
+    {
+        return parse_veln_constructor(name, args, schema.1);
     }
+
+    match name {
+        "RuntimeBytePreview" => parse_runtime_byte_preview(name, args),
+        "ByteChunk" => parse_byte_chunk(name, args),
+        "Byte" | "ByteOffset" | "ByteCount" => parse_byte_measure(name, args),
+        "Cons" => Ok(JsonValue::Array(parse_veln_list_items(text)?)),
+        _ => parse_unknown_veln_constructor(name, args),
+    }
+}
+
+fn parse_veln_constructor(
+    name: &str,
+    args: Vec<&str>,
+    fields: &[VelnConstructorField],
+) -> Result<JsonValue, String> {
+    let args = expect_arity(name, args, fields.len())?;
+    let fields = fields
+        .iter()
+        .zip(args)
+        .map(|((field, kind), value)| Ok((*field, parse_veln_field(*kind, value)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(result_value_object(name, fields))
+}
+
+fn parse_veln_field(kind: VelnFieldKind, text: &str) -> Result<JsonValue, String> {
+    match kind {
+        List => parse_veln_list(text),
+        Text => Ok(JsonValue::String(text.trim().to_string())),
+        Value => parse_veln_value(text),
+    }
+}
+
+fn parse_runtime_byte_preview(name: &str, args: Vec<&str>) -> Result<JsonValue, String> {
+    let args = expect_arity(name, args, 4)?;
+    Ok(result_value_object(
+        name,
+        vec![
+            ("encoding", JsonValue::String("hex".to_string())),
+            ("data", JsonValue::String(args[0].trim().to_string())),
+            ("preview_byte_count", parse_veln_value(args[1])?),
+            ("total_byte_count", parse_veln_value(args[2])?),
+            ("truncated", parse_veln_value(args[3])?),
+        ],
+    ))
+}
+
+fn parse_byte_chunk(name: &str, args: Vec<&str>) -> Result<JsonValue, String> {
+    let args = expect_arity(name, args, 1)?;
+    Ok(result_value_object(
+        name,
+        vec![("bytes", parse_veln_bracketed_list(args[0])?)],
+    ))
+}
+
+fn parse_byte_measure(name: &str, args: Vec<&str>) -> Result<JsonValue, String> {
+    let args = expect_arity(name, args, 1)?;
+    Ok(result_value_object(
+        name,
+        vec![("value", parse_veln_nonnegative_integer(name, args[0])?)],
+    ))
+}
+
+fn parse_unknown_veln_constructor(name: &str, args: Vec<&str>) -> Result<JsonValue, String> {
+    Ok(result_value_object(
+        name,
+        vec![(
+            "fields",
+            JsonValue::Array(
+                args.into_iter()
+                    .map(parse_veln_value)
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+        )],
+    ))
 }
 
 fn parse_veln_list(text: &str) -> Result<JsonValue, String> {
