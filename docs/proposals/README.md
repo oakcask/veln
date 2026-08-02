@@ -20,9 +20,10 @@ current language behavior unless the matching page under
   add explicit deep, one-shot resumptions only after a checked example shows
   that automatic resumption cannot express the required control flow.
 - [Effect-Polymorphic HTTP/2 Services](effect-polymorphic-http2-services.md):
-  add HTTP/2 listener ownership, per-connection tasks, and service APIs that
-  preserve application callback effects. Standard task creation already
-  preserves job effects in the current specification.
+  add the remaining HTTP/2 listener ownership, per-connection task ownership,
+  `serve_tcp` surface, service failure cleanup, and client reuse behavior.
+  Standard task creation and the single-connection application driver already
+  preserve callback effects in the current specification.
 
 Do not select either follow-up before its activation gate is met. The HTTP/2
 application boundary is implemented and does not by itself activate one-shot

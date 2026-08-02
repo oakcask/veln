@@ -6126,6 +6126,7 @@ pub(crate) fn infer_function_body_effects(
                             uses: &module.uses,
                             current_module: function.module_name.as_deref(),
                             bindings: &bindings,
+                            functions,
                             effects_by_name: &effects_by_name,
                             effects_by_module_path: &effects_by_module_path,
                             user_effects,
@@ -6140,6 +6141,7 @@ pub(crate) fn infer_function_body_effects(
                             uses: &module.uses,
                             current_module: function.module_name.as_deref(),
                             bindings: &bindings,
+                            functions,
                             effects_by_name: &effects_by_name,
                             effects_by_module_path: &effects_by_module_path,
                             user_effects,
@@ -6204,6 +6206,7 @@ struct ExprEffectContext<'a> {
     uses: &'a [UseDecl],
     current_module: Option<&'a str>,
     bindings: &'a [Binding],
+    functions: &'a [FunctionSignature],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
     user_effects: &'a [EffectSignature],
@@ -6252,6 +6255,15 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
                 } else if let Some(effects) = prelude_effects(segments) {
                     for effect in effects {
                         push_unique_effect(inferred, effect);
+                    }
+                } else if let Some(signature) = function_signature_path(
+                    segments,
+                    context.uses,
+                    context.functions,
+                    context.current_module,
+                ) {
+                    for effect in instantiate_call_effect_rows(signature, args, context) {
+                        push_unique_effect(inferred, &effect);
                     }
                 } else {
                     for effect in effects_for_callee_path(
@@ -6374,6 +6386,144 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
+}
+
+fn instantiate_call_effect_rows(
+    signature: &FunctionSignature,
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Vec<String> {
+    let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
+    for (param, arg) in signature.params.iter().zip(args) {
+        let Some(actual) = function_type_for_expr(arg, context) else {
+            continue;
+        };
+        collect_effect_row_substitution_from_types(param, &actual, &mut row_substitutions);
+    }
+    instantiate_effect_row_entries(&signature.effects, &row_substitutions)
+}
+
+fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
+    let segments = callee_name_path(expr)?;
+    match segments.as_slice() {
+        [name] => context
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+            .map(|binding| binding.ty.clone())
+            .or_else(|| {
+                function_signature_path(
+                    segments,
+                    context.uses,
+                    context.functions,
+                    context.current_module,
+                )
+                .map(FunctionSignature::ty)
+            }),
+        _ => function_signature_path(
+            segments,
+            context.uses,
+            context.functions,
+            context.current_module,
+        )
+        .map(FunctionSignature::ty),
+    }
+}
+
+fn collect_effect_row_substitution_from_types(
+    expected: &Type,
+    actual: &Type,
+    row_substitutions: &mut Vec<(String, Vec<String>)>,
+) {
+    let (
+        Type::Function {
+            params: expected_params,
+            variadic: expected_variadic,
+            return_type: expected_return,
+            effects: expected_effects,
+        },
+        Type::Function {
+            params: actual_params,
+            variadic: actual_variadic,
+            return_type: actual_return,
+            effects: actual_effects,
+        },
+    ) = (expected, actual)
+    else {
+        return;
+    };
+
+    for effect in expected_effects {
+        let Some(row) = effect.strip_prefix("...") else {
+            continue;
+        };
+        let concrete = actual_effects
+            .iter()
+            .filter(|actual_effect| {
+                !expected_effects
+                    .iter()
+                    .any(|expected_effect| expected_effect == *actual_effect)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        merge_effect_row_substitution(row_substitutions, row, concrete);
+    }
+
+    for (expected_param, actual_param) in expected_params.iter().zip(actual_params) {
+        collect_effect_row_substitution_from_types(expected_param, actual_param, row_substitutions);
+    }
+    if let (Some(expected), Some(actual)) =
+        (expected_variadic.as_deref(), actual_variadic.as_deref())
+    {
+        collect_effect_row_substitution_from_types(expected, actual, row_substitutions);
+    }
+    collect_effect_row_substitution_from_types(expected_return, actual_return, row_substitutions);
+}
+
+fn merge_effect_row_substitution(
+    row_substitutions: &mut Vec<(String, Vec<String>)>,
+    row: &str,
+    effects: Vec<String>,
+) {
+    if let Some((_, existing)) = row_substitutions
+        .iter_mut()
+        .find(|(existing_row, _)| existing_row == row)
+    {
+        for effect in effects {
+            push_unique_effect(existing, &effect);
+        }
+        return;
+    }
+    let mut unique = Vec::new();
+    for effect in effects {
+        push_unique_effect(&mut unique, &effect);
+    }
+    row_substitutions.push((row.to_string(), unique));
+}
+
+fn instantiate_effect_row_entries(
+    effects: &[String],
+    row_substitutions: &[(String, Vec<String>)],
+) -> Vec<String> {
+    let mut instantiated = Vec::new();
+    for effect in effects {
+        if let Some(row) = effect.strip_prefix("...") {
+            if let Some((_, substitution)) = row_substitutions
+                .iter()
+                .find(|(candidate, _)| candidate == row)
+            {
+                for substituted in substitution {
+                    push_unique_effect(&mut instantiated, substituted);
+                }
+            } else {
+                push_unique_effect(&mut instantiated, effect);
+            }
+        } else {
+            push_unique_effect(&mut instantiated, effect);
+        }
+    }
+    instantiated
 }
 
 fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {

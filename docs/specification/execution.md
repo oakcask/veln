@@ -141,12 +141,16 @@ enough.
   initial write ordering, TCP loopback handler boundary, and client
   closed-entry no-effect boundary.
 - `http2::connection::drive_server_application` uses the same caller-owned
-  `transport::DuplexStream` boundary as `drive_server`, but drains one
-  immutable request event into a pure callback and commits validated response
-  actions through the existing core send transitions. Typed application
-  failures distinguish callback failure, unsupported request shape or count,
-  invalid action sequence, and rejected core action. Host transport failures
-  remain abrupt runtime failures.
+  `transport::DuplexStream` boundary as `drive_server`, but preserves the
+  effect row of the application callback. A pure callback requires only
+  `transport::DuplexStream`; an effectful callback requires that effect plus
+  the callback row. A `transport::net::net_stream` handler replaces only
+  `transport::DuplexStream` with `net`. The driver drains one immutable
+  request event into the callback and commits validated response actions
+  through the existing core send transitions. Typed application failures
+  distinguish callback failure, unsupported request shape or count, invalid
+  action sequence, and rejected core action. Host transport failures remain
+  abrupt runtime failures.
 
 ## Binary Schemas
 

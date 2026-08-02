@@ -144,6 +144,57 @@ fn concrete_handler_replacement_preserves_row_effects() {
 }
 
 #[test]
+fn private_helper_instantiates_effect_row_before_public_caller() {
+    let module = module(concat!(
+        "effect Transport\n",
+        "\tread() -> Int\n",
+        "end\n",
+        "\n",
+        "fn provide() -> Int\n",
+        "\t1\n",
+        "end\n",
+        "\n",
+        "handler transport() handles Transport effects [net]\n",
+        "\tread = provide\n",
+        "end\n",
+        "\n",
+        "fn pure_callback() -> Int\n",
+        "\t1\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> Int effects [db]\n",
+        "\t2\n",
+        "end\n",
+        "\n",
+        "fn connection<effect E>(callback: fn() -> Int effects [...E]) -> Int effects [Transport, ...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn pure_helper() -> Int effects [net]\n",
+        "\thandle connection(pure_callback) with transport()\n",
+        "end\n",
+        "\n",
+        "fn db_helper() -> Int effects [net]\n",
+        "\thandle connection(db_callback) with transport()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> Int effects [net]\n",
+        "\tpure_helper() + db_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+    assert!(!diagnostics[0].message.contains("...E"), "{diagnostics:#?}");
+}
+
+#[test]
 fn invalid_row_syntax_is_rejected() {
     let module = module(concat!(
         "fn unbound() -> Int effects [...E]\n",

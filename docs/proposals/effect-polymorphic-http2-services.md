@@ -55,6 +55,13 @@ the current task boundary for pure jobs, effectful jobs, and a context job
 whose lexical transport handler replaces `transport::DuplexStream` with `net`
 while preserving an application `db` effect.
 
+The current HTTP/2 application driver also preserves callback effects through
+the real single-connection boundary. The checked
+`../../examples/specification/check/http2-service-transport-effect-replacement/`
+case fixes `drive_server_application<effect E>` with pure callbacks,
+effectful callbacks, TCP duplex-stream replacement, and missing public callback
+effects.
+
 The remaining service work uses the implemented effect-row and task
 boundaries to preserve callback effects through proposed HTTP/2 service
 surfaces:
@@ -93,10 +100,9 @@ The following table is authoritative for the service effect boundaries:
 
 | Boundary | Callback or job effects | Required expression effects |
 | --- | --- | --- |
-| Abstract connection with pure callback | `[]` | `[transport::DuplexStream]` |
-| Abstract connection with database callback | `[db]` | `[transport::DuplexStream, db]` |
-| TCP handler around database connection job | `[transport::DuplexStream, db]` | `[net, db]` |
+| Service connection with database callback | `[db]` | `[transport::DuplexStream, db]` |
 | TCP service with pure callback | `[]` | `[net, concurrency]` |
+| TCP service with database callback | `[db]` | `[net, concurrency, db]` |
 
 ## Service Ownership
 
@@ -144,7 +150,6 @@ control.
 
 | Case | Required observation | Planned evidence |
 | --- | --- | --- |
-| TCP handler replacement | Handling `DuplexStream` replaces only that effect with `net` | `check/http2-service-transport-effect-replacement` |
 | Two connections | Independent tasks invoke the same callback and preserve per-connection output order | `run/http2-service-two-connections` |
 | Callback failure | The failed stream emits no later response bytes and every owned stream closes once | `run/http2-service-callback-failure` |
 | Non-transport join failure | Later tasks are cancelled and joined; retained streams close once | `run/http2-service-join-failure-json` |
