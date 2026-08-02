@@ -43,9 +43,9 @@ failure. Source cleanup after that failure is not required. A separate
 value-returning transport or scoped-cleanup proposal is required before a
 service can guarantee that service-owned cleanup continues in source.
 
-[One-Shot Resumable Effect Handlers](../../proposals/one-shot-resumable-effect-handlers.md) is
-not a dependency unless a checked service case meets its separate activation
-gate.
+[One-Shot Resumable Effect Handlers](../source-decisions/records/result-one-shot-resumable-handler-boundary.md)
+was rejected because no checked service case requires handler-controlled
+suspension or continuation disposition.
 
 ## Effect-Preserving Boundaries
 
@@ -139,8 +139,7 @@ is `../../../examples/specification/check/http2-client-service-effect-row/`.
   failure unless a separate implemented boundary guarantees it.
 - Do not promise unbounded production load or performance thresholds in
   functional executable cases.
-- Do not require explicit resumptions unless their separate activation gate is
-  met.
+- Do not require explicit resumptions for this service boundary.
 
 ## Completion Boundary
 

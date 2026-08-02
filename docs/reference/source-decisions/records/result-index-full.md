@@ -30,6 +30,7 @@ smallest category page.
 - [Method Call Boundary](result-method-call-boundary.md)
 - [Minimum Type System for Holes](result-minimum-type-system-for-holes.md)
 - [Named Hole Syntax](result-named-hole-syntax.md)
+- [One-Shot Resumable Handler Boundary](result-one-shot-resumable-handler-boundary.md)
 - [Pipeline Style](result-pipeline-style.md)
 - [Postcondition Result Binding](result-postcondition-result-binding.md)
 - [Public Function Type Boundaries](result-public-function-type-boundaries.md)

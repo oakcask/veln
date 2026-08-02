@@ -2,9 +2,10 @@
 
 Status: routing
 
-This directory contains only planned or incomplete work. Proposal text is not
-current language behavior unless the matching page under
-`../specification/` also states it.
+The catalog in this directory contains only planned or incomplete work. Short
+closed routes may remain for stable links. Proposal text is not current
+language behavior unless the matching page under `../specification/` also
+states it.
 
 ## Read First
 
@@ -14,15 +15,13 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-### Follow-Ups After Evidence
+No proposal is currently selectable.
+
+## Closed Routes
 
 - [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
-  add explicit deep, one-shot resumptions only after a checked example shows
-  that automatic resumption cannot express the required control flow.
-
-Do not select this follow-up before its activation gate is met. The HTTP/2
-application boundary is implemented and does not by itself activate one-shot
-resumable handlers.
+  rejected because no checked example requires handler-controlled suspension
+  or continuation disposition. The page routes to the durable source decision.
 
 ## Selection Rule
 

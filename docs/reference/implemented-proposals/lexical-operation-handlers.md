@@ -72,9 +72,11 @@ The source grammar and accepted surface fixture are checked by
 `../../specification/source-surface-executable.pl` and
 `../../specification/source-surface-fixtures/accepted/handler-declaration.veln`.
 
-## Follow-Ups
+## Boundary Decision
 
-General resumable handlers remain separate planned work under
-`../../proposals/one-shot-resumable-effect-handlers.md`. HTTP/2 connection
-driver work may use lexical handlers but does not change the handler
-semantics recorded here.
+The project rejected explicit one-shot resumptions because no checked example
+requires handler-controlled suspension or continuation disposition. The durable
+decision and reconsideration gate are recorded in
+[One-Shot Resumable Handler Boundary](../source-decisions/records/result-one-shot-resumable-handler-boundary.md).
+HTTP/2 connection driver work may use lexical handlers but does not change the
+handler semantics recorded here.

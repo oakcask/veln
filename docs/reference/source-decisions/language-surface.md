@@ -52,6 +52,7 @@ or compatibility context.
 - [Effect Access Modes](records/result-effect-access-modes.md)
 - [Effect Declaration Boundary](records/result-effect-declaration-boundary.md)
 - [First-Slice Prelude Helpers](records/result-first-slice-prelude-helpers.md)
+- [One-Shot Resumable Handler Boundary](records/result-one-shot-resumable-handler-boundary.md)
 - [Scoping and Name Resolution](records/result-scoping-and-name-resolution.md)
 
 ## Skip Unless Needed

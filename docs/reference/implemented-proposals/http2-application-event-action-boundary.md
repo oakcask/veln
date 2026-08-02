@@ -186,9 +186,12 @@ The acceptance evidence has passed and the implemented behavior is promoted:
 - [Effect-Polymorphic HTTP/2 Services](effect-polymorphic-http2-services.md)
   records that its application-boundary activation gate is met.
 
-This proposal does not activate one-shot resumable handlers. The callback
-returns an ordinary result and action list, and automatic continuation remains
-sufficient.
+This proposal did not justify one-shot resumable handlers. The callback returns
+an ordinary result and action list, and automatic continuation remains
+sufficient. The later
+[source decision](../source-decisions/records/result-one-shot-resumable-handler-boundary.md)
+rejects explicit resumptions without a checked example that meets its
+reconsideration gate.
 
 ## Non-Goals
 
