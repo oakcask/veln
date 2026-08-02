@@ -1,0 +1,36 @@
+command = ["metrics", "--check", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "check.mode"
+equals = "check"
+
+[[json_assert]]
+path = "check.result"
+equals = "pass"
+
+[[json_assert]]
+path = "check.enabled_policies.0"
+equals = "deny_cycles"
+
+[[json_assert]]
+path = "summary.project_module_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.cycle_count"
+equals = 0
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"

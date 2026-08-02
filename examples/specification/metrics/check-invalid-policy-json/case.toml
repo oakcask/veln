@@ -1,0 +1,22 @@
+command = ["metrics", "--check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "metrics.policy.invalid_value"
+severity = "error"
+kind = "module"
+message = "invalid metrics policy value `yes` for `deny_cycles`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 2
+
+[[json_assert]]
+path = "status"
+equals = "error"

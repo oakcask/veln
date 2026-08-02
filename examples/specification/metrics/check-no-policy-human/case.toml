@@ -1,0 +1,8 @@
+command = ["metrics", "--check"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[metrics.policy.no_enabled]: metrics check requires at least one enabled policy"]

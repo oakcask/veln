@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use veln_analysis::{derive_source_module_path, load_surface_module};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo};
-use veln_project::{Project, discover_source_paths};
+use veln_project::{Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{
     BinaryOp, BodyLine, Expr, ExprKind, FunctionDecl, FunctionKind, SyntaxItem, parse,
@@ -21,6 +21,31 @@ pub struct MetricsReport {
     pub cycles: Vec<DependencyCycle>,
     pub abc_subjects: Vec<AbcSubjectMetric>,
     pub summary: MetricsSummary,
+}
+
+#[derive(Clone, Debug)]
+pub struct MetricsCheckReport {
+    pub report: MetricsReport,
+    pub policy: MetricsPolicy,
+    pub violations: Vec<MetricsPolicyViolation>,
+}
+
+impl MetricsCheckReport {
+    pub fn has_violations(&self) -> bool {
+        !self.violations.is_empty()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MetricsPolicy {
+    pub deny_cycles: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MetricsPolicyViolation {
+    pub policy: String,
+    pub cycle_members: Vec<String>,
+    pub path: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -118,6 +143,36 @@ pub fn analyze_project_metrics(
             "source discovery failed: {error}"
         ))]
     })?;
+    analyze_project_metrics_from_project(root, inputs, full_project)
+}
+
+pub fn check_project_metrics(
+    root: PathBuf,
+    inputs: &[PathBuf],
+) -> Result<MetricsCheckReport, Vec<Diagnostic>> {
+    let full_project = Project::discover(root.clone(), &[]).map_err(|error| {
+        vec![metrics_io_diagnostic(format!(
+            "source discovery failed: {error}"
+        ))]
+    })?;
+    let policy = read_metrics_policy(full_project.manifest.as_ref())?;
+    if !policy.deny_cycles {
+        return Err(vec![metrics_policy_diagnostic(
+            "metrics.policy.no_enabled",
+            "metrics check requires at least one enabled policy".to_string(),
+            None,
+            JsonValue::object([("policy", JsonValue::string("none"))]),
+        )]);
+    }
+    let report = analyze_project_metrics_from_project(root, inputs, full_project)?;
+    Ok(evaluate_metrics_check(report, policy))
+}
+
+fn analyze_project_metrics_from_project(
+    root: PathBuf,
+    inputs: &[PathBuf],
+    full_project: Project,
+) -> Result<MetricsReport, Vec<Diagnostic>> {
     let project = project_owned_sources(full_project);
     let source_diagnostics = source_graph_diagnostics(&project);
     if has_error(&source_diagnostics) {
@@ -144,6 +199,80 @@ pub fn analyze_project_metrics(
         },
         &selected_paths,
     ))
+}
+
+fn read_metrics_policy(
+    manifest: Option<&ProjectManifest>,
+) -> Result<MetricsPolicy, Vec<Diagnostic>> {
+    let mut policy = MetricsPolicy { deny_cycles: false };
+    let Some(tool) = manifest
+        .into_iter()
+        .flat_map(|manifest| &manifest.tools)
+        .find(|tool| tool.name == "metrics")
+    else {
+        return Ok(policy);
+    };
+
+    let mut diagnostics = Vec::new();
+    for field in &tool.fields {
+        match field.key.as_str() {
+            "deny_cycles" => match field.value.as_str() {
+                "true" => policy.deny_cycles = true,
+                "false" => policy.deny_cycles = false,
+                value => diagnostics.push(metrics_policy_diagnostic(
+                    "metrics.policy.invalid_value",
+                    format!("invalid metrics policy value `{value}` for `deny_cycles`"),
+                    Some(field.value_span.clone()),
+                    JsonValue::object([
+                        ("field", JsonValue::string("deny_cycles")),
+                        (
+                            "allowed",
+                            JsonValue::array([
+                                JsonValue::string("true"),
+                                JsonValue::string("false"),
+                            ]),
+                        ),
+                    ]),
+                )),
+            },
+            _ => diagnostics.push(metrics_policy_diagnostic(
+                "metrics.policy.unsupported_field",
+                format!("unsupported metrics policy field `{}`", field.key),
+                Some(field.key_span.clone()),
+                JsonValue::object([
+                    ("field", JsonValue::string(field.key.clone())),
+                    ("tool", JsonValue::string("metrics")),
+                ]),
+            )),
+        }
+    }
+
+    if diagnostics.is_empty() {
+        Ok(policy)
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn evaluate_metrics_check(report: MetricsReport, policy: MetricsPolicy) -> MetricsCheckReport {
+    let violations = if policy.deny_cycles {
+        report
+            .cycles
+            .iter()
+            .map(|cycle| MetricsPolicyViolation {
+                policy: "deny_cycles".to_string(),
+                cycle_members: cycle.members.clone(),
+                path: cycle.path.clone(),
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    MetricsCheckReport {
+        report,
+        policy,
+        violations,
+    }
 }
 
 fn source_graph_diagnostics(project: &Project) -> Vec<Diagnostic> {
@@ -778,8 +907,57 @@ pub fn render_human(report: &MetricsReport) -> String {
     out
 }
 
+pub fn render_check_human(check: &MetricsCheckReport) -> String {
+    let mut out = String::new();
+    out.push_str("Veln dependency metrics (check)\n");
+    out.push_str("policy checks: deny_cycles\n");
+    if check.violations.is_empty() {
+        out.push_str("policy result: pass\n\n");
+    } else {
+        out.push_str("policy result: fail\n\n");
+        out.push_str("Policy violations\n");
+        for violation in &check.violations {
+            out.push_str(&format!(
+                "  {}: dependency cycle path: {}\n",
+                violation.policy,
+                violation.path.join(" -> ")
+            ));
+            out.push_str(&format!(
+                "    members: {}; review module ownership and dependency direction\n",
+                violation.cycle_members.join(", ")
+            ));
+        }
+        out.push('\n');
+    }
+    out.push_str(&render_human(&check.report));
+    out
+}
+
 pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
-    JsonValue::object([
+    JsonValue::object(metrics_report_json_entries(report, tool, "ok", None))
+}
+
+pub fn report_check_to_json(check: &MetricsCheckReport, tool: ToolInfo) -> JsonValue {
+    let status = if check.violations.is_empty() {
+        "ok"
+    } else {
+        "policy_violation"
+    };
+    JsonValue::object(metrics_report_json_entries(
+        &check.report,
+        tool,
+        status,
+        Some(check_to_json(check)),
+    ))
+}
+
+fn metrics_report_json_entries(
+    report: &MetricsReport,
+    tool: ToolInfo,
+    status: &str,
+    check: Option<JsonValue>,
+) -> Vec<(&'static str, JsonValue)> {
+    let mut entries = vec![
         ("schema_version", JsonValue::string(JSON_SCHEMA_VERSION)),
         (
             "tool",
@@ -789,7 +967,7 @@ pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
             ]),
         ),
         ("command", JsonValue::string("metrics")),
-        ("status", JsonValue::string("ok")),
+        ("status", JsonValue::string(status)),
         (
             "project",
             JsonValue::object([
@@ -823,6 +1001,65 @@ pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
             JsonValue::array(report.abc_subjects.iter().map(abc_subject_to_json)),
         ),
         ("summary", summary_to_json(&report.summary)),
+    ];
+    if let Some(check) = check {
+        entries.push(("check", check));
+    }
+    entries
+}
+
+fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
+    JsonValue::object([
+        ("mode", JsonValue::string("check")),
+        (
+            "enabled_policies",
+            JsonValue::array(
+                check
+                    .policy
+                    .deny_cycles
+                    .then(|| JsonValue::string("deny_cycles")),
+            ),
+        ),
+        (
+            "result",
+            JsonValue::string(if check.violations.is_empty() {
+                "pass"
+            } else {
+                "fail"
+            }),
+        ),
+        (
+            "violations",
+            JsonValue::array(check.violations.iter().map(policy_violation_to_json)),
+        ),
+    ])
+}
+
+fn policy_violation_to_json(violation: &MetricsPolicyViolation) -> JsonValue {
+    JsonValue::object([
+        ("policy", JsonValue::string(violation.policy.clone())),
+        (
+            "cycle_members",
+            JsonValue::array(
+                violation
+                    .cycle_members
+                    .iter()
+                    .map(|member| JsonValue::string(member.clone())),
+            ),
+        ),
+        (
+            "path",
+            JsonValue::array(
+                violation
+                    .path
+                    .iter()
+                    .map(|member| JsonValue::string(member.clone())),
+            ),
+        ),
+        (
+            "guidance",
+            JsonValue::string("review module ownership and dependency direction"),
+        ),
     ])
 }
 
@@ -976,9 +1213,27 @@ fn metrics_io_diagnostic(message: String) -> Diagnostic {
     }
 }
 
+fn metrics_policy_diagnostic(
+    id: &str,
+    message: String,
+    span: Option<SourceSpan>,
+    details: JsonValue,
+) -> Diagnostic {
+    Diagnostic {
+        id: id.to_string(),
+        severity: Severity::Error,
+        kind: veln_diagnostics::DiagnosticKind::Module,
+        message,
+        span,
+        details,
+        related: Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use veln_project::{ManifestLib, ManifestPackage, ManifestTool};
 
     #[test]
     fn counts_internal_edges_external_imports_and_self_cycles() {
@@ -1197,6 +1452,125 @@ mod tests {
     }
 
     #[test]
+    fn reads_metrics_cycle_policy_from_manifest_table() {
+        let cases = [
+            ("omitted", None, Ok(false)),
+            ("false", Some("false"), Ok(false)),
+            ("true", Some("true"), Ok(true)),
+            ("invalid", Some("yes"), Err("metrics.policy.invalid_value")),
+        ];
+
+        for (name, value, expected) in cases {
+            let manifest = value.map(|value| metrics_manifest(&[("deny_cycles", value)]));
+            let actual = read_metrics_policy(manifest.as_ref());
+            match expected {
+                Ok(deny_cycles) => {
+                    assert_eq!(actual.expect(name).deny_cycles, deny_cycles, "{name}");
+                }
+                Err(id) => {
+                    let diagnostics = actual.expect_err(name);
+                    assert_eq!(diagnostics[0].id, id, "{name}");
+                    assert_eq!(
+                        diagnostics[0].span.as_ref().unwrap().file.as_str(),
+                        "veln.toml"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rejects_unsupported_metrics_policy_fields() {
+        let manifest = metrics_manifest(&[("deny_cycles", "true"), ("max_findings", "5")]);
+        let diagnostics = read_metrics_policy(Some(&manifest)).expect_err("unsupported field");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "metrics.policy.unsupported_field");
+        assert_eq!(
+            diagnostics[0].span.as_ref().unwrap().file.as_str(),
+            "veln.toml"
+        );
+    }
+
+    #[test]
+    fn evaluates_cycle_policy_table_and_preserves_report_data() {
+        let cases = [
+            (
+                "acyclic pass",
+                "fn value() -> ()\n  ()\nend\n",
+                0,
+                false,
+                "\"status\":\"ok\"",
+            ),
+            (
+                "cycle violation",
+                "use app\nfn value() -> ()\n  ()\nend\n",
+                1,
+                true,
+                "\"status\":\"policy_violation\"",
+            ),
+        ];
+
+        for (name, util_source, expected_cycles, expected_violation, expected_status) in cases {
+            let project = Project {
+                root: ".".into(),
+                manifest: None,
+                files: vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", util_source),
+                ],
+            };
+            let selected = ["app.veln".to_string(), "util.veln".to_string()]
+                .into_iter()
+                .collect();
+            let graph = DependencyGraph::from_project(&project).expect(name);
+            let report = graph.report(
+                &project,
+                ProjectIdentity {
+                    root: ".".to_string(),
+                    selected_paths: vec!["app.veln".to_string(), "util.veln".to_string()],
+                },
+                &selected,
+            );
+
+            let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+            assert_eq!(check.has_violations(), expected_violation, "{name}");
+            assert_eq!(check.report.summary.cycle_count, expected_cycles, "{name}");
+            assert_eq!(check.report.modules.len(), 2, "{name}");
+            assert!(
+                report_check_to_json(&check, ToolInfo::new("veln", "0.1.0"))
+                    .to_json()
+                    .contains(expected_status),
+                "{name}"
+            );
+
+            if expected_violation {
+                assert_eq!(check.violations[0].policy, "deny_cycles", "{name}");
+                assert_eq!(
+                    check.violations[0].path.first().map(String::as_str),
+                    Some("app"),
+                    "{name}"
+                );
+                assert_eq!(
+                    check.violations[0].path.last().map(String::as_str),
+                    Some("app"),
+                    "{name}"
+                );
+                assert!(
+                    render_check_human(&check).contains("review module ownership"),
+                    "{name}"
+                );
+            } else {
+                assert!(
+                    render_check_human(&check).contains("policy result: pass"),
+                    "{name}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn orders_abc_subjects_deterministically() {
         let project = Project {
             root: ".".into(),
@@ -1237,5 +1611,48 @@ mod tests {
             })
             .expect("function");
         abc_vector(&function)
+    }
+
+    fn metrics_manifest(fields: &[(&str, &str)]) -> ProjectManifest {
+        let mut text = String::from("[tool.metrics]\n");
+        for (key, value) in fields {
+            text.push_str(&format!("{key} = \"{value}\"\n"));
+        }
+        let source = SourceFile::new("veln.toml", &text);
+        let mut offset = "[tool.metrics]\n".len();
+        let fields = fields
+            .iter()
+            .map(|(key, value)| {
+                let key_start = offset;
+                let value_start = offset + key.len() + " = \"".len();
+                offset += key.len() + " = \"".len() + value.len() + "\"\n".len();
+                veln_project::ManifestField {
+                    key: (*key).to_string(),
+                    value: (*value).to_string(),
+                    key_span: source.span(veln_source::TextRange::new(
+                        key_start,
+                        key_start + key.len(),
+                    )),
+                    value_span: source.span(veln_source::TextRange::new(
+                        value_start,
+                        value_start + value.len(),
+                    )),
+                }
+            })
+            .collect();
+
+        ProjectManifest {
+            path: source.path().clone(),
+            package: ManifestPackage::default(),
+            lib: ManifestLib {
+                exports: Vec::new(),
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: vec![ManifestTool {
+                name: "metrics".to_string(),
+                fields,
+            }],
+        }
     }
 }

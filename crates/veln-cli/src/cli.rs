@@ -15,6 +15,7 @@ pub(crate) enum Command {
     },
     Metrics {
         json: bool,
+        check: bool,
         inputs: Vec<PathBuf>,
     },
     Run {
@@ -120,6 +121,7 @@ fn metrics_command() -> ClapCommand {
     ClapCommand::new("metrics")
         .about("Report source dependency metrics")
         .arg(json_arg())
+        .arg(check_arg())
         .arg(path_args(
             "inputs",
             "Source files or directories to report",
@@ -278,6 +280,13 @@ fn json_arg() -> Arg {
         .action(ArgAction::SetTrue)
 }
 
+fn check_arg() -> Arg {
+    Arg::new("check")
+        .long("check")
+        .help("Fail when enabled metrics policy is violated")
+        .action(ArgAction::SetTrue)
+}
+
 fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
     if args.is_empty() {
         return Ok(Some(Command::Help {
@@ -352,6 +361,7 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
         },
         Some(("metrics", matches)) => Command::Metrics {
             json: matches.get_flag("json"),
+            check: matches.get_flag("check"),
             inputs: path_values(matches, "inputs"),
         },
         Some(("run", matches)) => run_from_matches(matches),
@@ -487,7 +497,7 @@ fn reject_unknown_fmt_flags<'a>(args: impl Iterator<Item = &'a String>) -> Resul
 fn reject_unknown_metrics_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     for arg in args {
         match arg.as_str() {
-            "--json" | "--help" | "-h" => {}
+            "--json" | "--check" | "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown metrics flag `{flag}`")),
             _ => {}
         }
@@ -653,9 +663,8 @@ fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
     }
 
     match path[0].as_str() {
-        "check" | "fmt" | "run" | "test" | "repair" | "explain" | "package" | "lsp" | "help" => {
-            Ok(())
-        }
+        "check" | "doc" | "fmt" | "metrics" | "run" | "test" | "repair" | "explain" | "package"
+        | "lsp" | "help" => Ok(()),
         command => Err(format!("unknown command `{command}`")),
     }
 }
@@ -769,6 +778,35 @@ mod tests {
         };
 
         assert_eq!(error, "unknown doc flag `--json`");
+    }
+
+    #[test]
+    fn metrics_parser_accepts_json_check_and_input_paths() {
+        let command =
+            parse(&["metrics", "--check", "--json", "src"]).expect("metrics command should parse");
+
+        let Command::Metrics {
+            json,
+            check,
+            inputs,
+        } = command
+        else {
+            panic!("expected metrics command");
+        };
+
+        assert!(json);
+        assert!(check);
+        assert_eq!(inputs, [PathBuf::from("src")]);
+    }
+
+    #[test]
+    fn metrics_parser_reports_unknown_flags() {
+        let error = match parse(&["metrics", "--baseline", "metrics.json"]) {
+            Ok(_) => panic!("unknown metrics flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown metrics flag `--baseline`");
     }
 
     #[test]

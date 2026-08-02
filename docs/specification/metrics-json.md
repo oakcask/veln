@@ -4,15 +4,30 @@ review-when: The metrics command JSON schema or executable metrics cases change.
 
 # Metrics JSON
 
-`veln metrics --json` emits schema version `veln-metrics-json/v0`.
+`veln metrics --json` and `veln metrics --check --json` emit schema version
+`veln-metrics-json/v0`.
 
-The command is report-only in this slice. A completed analysis returns
-`status: "ok"` and exits successfully even when dependency cycles or large ABC
-values exist.
+Without `--check`, the command is report-only. A completed advisory analysis
+returns `status: "ok"` and exits successfully even when dependency cycles or
+large ABC values exist.
 Discovery, manifest loading, parsing, module identity, import resolution, or
 metric analysis errors fail without a clean metrics report. Type, effect, and
 contract errors are not reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
+
+With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
+policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
+enforceable policy enabled and fail as a command configuration error without a
+clean check report. Any `[tool.metrics]` field other than `deny_cycles`, or a
+`deny_cycles` value other than `"true"` or `"false"`, is a manifest command
+error at the field span.
+
+A successful check keeps the complete metrics report and adds `check.mode:
+"check"`, `check.enabled_policies`, `check.result: "pass"`, and an empty
+`check.violations` array. A cycle violation exits non-zero with
+`status: "policy_violation"` and keeps the complete report. Each violation
+names `policy: "deny_cycles"`, the cycle members, a concrete closed path, and
+guidance to review module ownership and dependency direction.
 
 The JSON document contains:
 
@@ -66,10 +81,17 @@ not contribute. `contracts_included` is `false` for every ABC subject.
 
 Executable evidence:
 
-- The metrics `dependency-report` case checks advisory human output, graph
-  counts, external dependency counts, and cycle paths.
+- The metrics `dependency-report` and `dependency-report-json` cases check
+  advisory human and JSON output, graph counts, external dependency counts,
+  and cycle paths.
 - The metrics `path-selection` case checks JSON shape, selected subjects,
   containing graph counts, dependency edges, and cycle membership.
+- The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`
+  cases check enabled dependency-cycle policy success and violation output.
+- The metrics `check-no-policy-human`, `check-no-policy-json`,
+  `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
+  configuration and manifest policy failures that do not return a clean check
+  report.
 - The metrics `abc-constructs` case checks counted ABC constructs, annotation
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds

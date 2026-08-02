@@ -1,0 +1,22 @@
+command = ["metrics", "--check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "metrics.policy.unsupported_field"
+severity = "error"
+kind = "module"
+message = "unsupported metrics policy field `max_findings`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 3
+
+[[json_assert]]
+path = "status"
+equals = "error"

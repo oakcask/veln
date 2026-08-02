@@ -8,14 +8,15 @@ Status: proposed
 
 ## Summary
 
-Extend the implemented report-only `veln metrics` dependency graph and
-advisory ABC size command with enforcement policy, baselines, and exact
-whole-body similarity groups.
+Extend the implemented `veln metrics` dependency graph, dependency-cycle
+policy check, and advisory ABC size command with baselines, dependency
+pressure policy, and exact whole-body similarity groups.
 
 The command separates measurement from enforcement. The current implementation
-reports advisory module dependency metrics and advisory ABC size metrics.
-Remaining work must add reviewed enforcement and additional advisory signals
-without turning maintainability metrics into language errors.
+reports advisory module dependency metrics and advisory ABC size metrics. It
+can also enforce `deny_cycles = "true"` during `veln metrics --check`.
+Remaining work must add baselines and additional advisory or enforceable
+signals without turning maintainability metrics into language errors.
 
 ## Motivation
 
@@ -57,7 +58,7 @@ The remaining proposal keeps differentiated policy maturity:
 
 | Signal | First-slice role | Reason |
 | --- | --- | --- |
-| Dependency cycles | Advisory and enforceable | A cycle is a concrete bidirectional ownership constraint, and this repository has used the signal to remove real cycles before enabling a gate |
+| Dependency cycles | Advisory and enforceable without baselines | A cycle is a concrete bidirectional ownership constraint, and this repository has used the signal to remove real cycles before enabling a gate |
 | ABC size | Advisory | ABC measures syntactic size rather than maintainability or comprehension difficulty directly |
 | Fan-in | Advisory | High fan-in can identify a stable and intentionally reused module as well as a large change-impact surface |
 | Fan-out | Advisory | High fan-out can identify coordination cost, but no Veln-specific blocking threshold has acceptance evidence |
@@ -66,13 +67,13 @@ The remaining proposal keeps differentiated policy maturity:
 
 ## Command Surface
 
-The implemented report-only command forms are specified in
+The implemented advisory and dependency-cycle check command forms are specified in
 [commands.md](../specification/commands.md) and
 [metrics-json.md](../specification/metrics-json.md).
 The remaining proposed command forms are:
 
 ```text
-veln metrics --check [--json] [--baseline PATH] [path ...]
+veln metrics --check --baseline PATH [path ...]
 veln metrics --write-baseline PATH [path ...]
 ```
 
@@ -85,13 +86,12 @@ graph nodes so a consumer does not mistake them for hand-maintained modules.
 
 | Invocation | Policy behavior | Successful exit condition |
 | --- | --- | --- |
-| `veln metrics --check` without a baseline | Apply enabled first-slice policy | Analysis completed, at least one policy is enabled, and no enabled policy was violated |
 | `veln metrics --check --baseline PATH` | Apply enabled policy and cycle regression rules | Analysis completed, at least one policy is enabled, and no policy regression was found |
 | `veln metrics --write-baseline PATH` | Write the complete current report as a baseline | Analysis completed and the baseline was written atomically |
 
-The first slice has one enforceable policy: `deny_cycles`. A check with no
-enforceable policy enabled is a configuration error. Advisory thresholds must
-not silently become merge gates through `--check`.
+The implemented first slice has one enforceable policy: `deny_cycles`. A check
+with no enforceable policy enabled is a configuration error. Advisory
+thresholds must not silently become merge gates through `--check`.
 
 `--baseline` is valid only with `--check`. `--write-baseline` conflicts with
 `--check`, `--json`, and an existing target file unless an explicit replacement
@@ -101,20 +101,26 @@ from silently accepting its own regression.
 ## Project Policy
 
 The command reads string-valued fields from `[tool.metrics]` in `veln.toml`.
-The first slice recognizes these fields:
+The implemented slice recognizes only `deny_cycles`:
 
 ```toml
 [tool.metrics]
 deny_cycles = "true"
+```
+
+`deny_cycles` is optional and defaults to `false`. Unknown fields and invalid
+values are command errors with a span on the manifest field.
+
+Future slices may add these string-valued fields:
+
+```toml
+[tool.metrics]
 similarity_min_tokens = "60"
 max_findings = "50"
 ```
 
-Every field is optional. `similarity_min_tokens` defaults to `60`,
-`max_findings` defaults to `50`, and `deny_cycles` defaults to `false`.
-`similarity_min_tokens` and `max_findings` must be positive integers.
-Unknown fields and invalid values are command errors with a span on the
-manifest field.
+`similarity_min_tokens` would default to `60`, and `max_findings` would default
+to `50`. Both fields must be positive integers when implemented.
 
 `similarity_min_tokens` controls an experimental advisory signal. It does not
 become an enforcement threshold in the first slice. `max_findings` limits
@@ -335,8 +341,6 @@ Planned executable cases follow the placement rules in
 | Similarity edit | Two duplicate bodies are changed together to another equal token sequence | The new instance is advisory and does not fail a baseline check |
 | Similarity result bound | Many declarations contain the same body and many unrelated bodies | Each declaration appears at most once, total reported regions do not exceed eligible declarations, and instances do not exceed half the eligible declarations |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
-| Check without policy | `--check` runs with `deny_cycles` omitted or false | The command reports that no enforceable policy is enabled and fails without a clean check result |
-| Absolute cycle check | A cycle exists with `deny_cycles` enabled and no baseline | Check mode fails and reports a closed path |
 | Cycle baseline regression | A baseline cycle stays equal, loses an edge, and gains an edge in separate runs | Equal and improved reports pass; the worsened report fails |
 | Stale baseline | A baseline subject is deleted | The command reports the stale entry without failing solely for staleness |
 | Unsupported metric model | Baseline and current reports use different metric-model versions | Comparison fails without treating advisory records as allowances |
