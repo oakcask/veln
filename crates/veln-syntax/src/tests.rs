@@ -101,6 +101,42 @@ fn parses_and_formats_nominal_effect_operations() {
 }
 
 #[test]
+fn parses_and_formats_effect_row_binder_and_tail() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn apply<effect E>(callback: fn(Int) -> Int effects [stdio, ...E]) -> Int effects [stdio, ...E]\n",
+            "  callback(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(
+        function
+            .effect_binder
+            .as_ref()
+            .map(|binder| binder.name.as_str()),
+        Some("E")
+    );
+    assert_eq!(
+        function.effects.as_ref().unwrap(),
+        &vec!["stdio".to_string(), "...E".to_string()]
+    );
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub fn apply<effect E>(callback: fn(Int) -> Int effects [stdio, ...E]) -> Int effects [stdio, ...E]\n",
+            "\tcallback(1)\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_and_formats_lexical_handler_declarations_and_expressions() {
     let source = SourceFile::new(
         "main.veln",

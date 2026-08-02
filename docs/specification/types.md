@@ -45,8 +45,9 @@ full type reference.
   constrain named private callback parameters at that argument position,
   including when the helper is reached through a visible public function
   alias. This includes fixed parameter types, the variadic element type of a
-  concrete variadic function type, and ordinary effect-set compatibility for
-  concrete effectful function types. Incompatible callback returns or effects
+  concrete variadic function type, ordinary effect-set compatibility for
+  concrete effectful function types, and bound final effect-row tails such as
+  `effects [...E]`. Incompatible callback returns or effects
   report `type.mismatch` at the helper call argument; helper callback
   parameters without one concrete function type do not constrain the private
   callback signature.

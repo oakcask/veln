@@ -839,8 +839,12 @@ impl<'a> FunctionChecker<'a> {
         let declared_effects = raw_declared_effects
             .iter()
             .map(|effect| {
+                if effect.starts_with("...") {
+                    return effect.clone();
+                }
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
                 self.environment
-                    .user_effect_by_label(effect, self.function.module_name.as_deref())
+                    .user_effect_path(&segments, self.function.module_name.as_deref())
                     .map(|effect| effect.qualified_name.clone())
                     .unwrap_or_else(|| effect.clone())
             })
@@ -1916,7 +1920,10 @@ impl<'a> FunctionChecker<'a> {
             Some(args.len()),
         )?;
 
-        for effect in &origin.effects {
+        let instantiated_effects =
+            self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
+
+        for effect in &instantiate_effects(&origin.effects, &instantiated_effects) {
             self.inferred_effects.push(EffectUse {
                 effect: effect.clone(),
                 node_id: expr.node_id,
@@ -1925,7 +1932,6 @@ impl<'a> FunctionChecker<'a> {
                 symbol: origin.symbol.clone(),
             });
         }
-        self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
         Some(return_type)
     }
 
@@ -1954,7 +1960,8 @@ impl<'a> FunctionChecker<'a> {
         params: &[Type],
         variadic: Option<&Type>,
         origin: &CallOrigin,
-    ) {
+    ) -> Vec<(String, Vec<String>)> {
+        let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
         for (index, arg) in args.iter().enumerate() {
             let param_type = params.get(index).or(variadic);
             let Some(param_type) = param_type else {
@@ -1969,8 +1976,10 @@ impl<'a> FunctionChecker<'a> {
                 origin_message: "Callee parameter type declared here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
+            collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
             self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
         }
+        row_substitutions
     }
 
     pub(super) fn infer_prelude_call(
@@ -3839,6 +3848,107 @@ impl<'a> FunctionChecker<'a> {
             self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
             ContractValidation::Valid
         )
+    }
+}
+
+fn collect_effect_row_substitution(
+    expected: &Type,
+    actual: &Type,
+    row_substitutions: &mut Vec<(String, Vec<String>)>,
+) {
+    let (
+        Type::Function {
+            params: expected_params,
+            variadic: expected_variadic,
+            return_type: expected_return,
+            effects: expected_effects,
+        },
+        Type::Function {
+            params: actual_params,
+            variadic: actual_variadic,
+            return_type: actual_return,
+            effects: actual_effects,
+        },
+    ) = (expected, actual)
+    else {
+        return;
+    };
+
+    for effect in expected_effects {
+        let Some(row) = effect.strip_prefix("...") else {
+            continue;
+        };
+        let concrete = actual_effects
+            .iter()
+            .filter(|actual_effect| {
+                !expected_effects
+                    .iter()
+                    .any(|expected_effect| expected_effect == *actual_effect)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        merge_effect_row_substitution(row_substitutions, row, concrete);
+    }
+
+    for (expected_param, actual_param) in expected_params.iter().zip(actual_params) {
+        collect_effect_row_substitution(expected_param, actual_param, row_substitutions);
+    }
+    if let (Some(expected), Some(actual)) =
+        (expected_variadic.as_deref(), actual_variadic.as_deref())
+    {
+        collect_effect_row_substitution(expected, actual, row_substitutions);
+    }
+    collect_effect_row_substitution(expected_return, actual_return, row_substitutions);
+}
+
+fn merge_effect_row_substitution(
+    row_substitutions: &mut Vec<(String, Vec<String>)>,
+    row: &str,
+    effects: Vec<String>,
+) {
+    if let Some((_, existing)) = row_substitutions
+        .iter_mut()
+        .find(|(existing_row, _)| existing_row == row)
+    {
+        for effect in effects {
+            push_unique_effect(existing, effect);
+        }
+        return;
+    }
+    let mut unique = Vec::new();
+    for effect in effects {
+        push_unique_effect(&mut unique, effect);
+    }
+    row_substitutions.push((row.to_string(), unique));
+}
+
+fn instantiate_effects(
+    effects: &[String],
+    row_substitutions: &[(String, Vec<String>)],
+) -> Vec<String> {
+    let mut instantiated = Vec::new();
+    for effect in effects {
+        if let Some(row) = effect.strip_prefix("...") {
+            if let Some((_, substitution)) = row_substitutions
+                .iter()
+                .find(|(candidate, _)| candidate == row)
+            {
+                for substituted in substitution {
+                    push_unique_effect(&mut instantiated, substituted.clone());
+                }
+            } else {
+                push_unique_effect(&mut instantiated, effect.clone());
+            }
+        } else {
+            push_unique_effect(&mut instantiated, effect.clone());
+        }
+    }
+    instantiated
+}
+
+fn push_unique_effect(effects: &mut Vec<String>, effect: String) {
+    if !effects.contains(&effect) {
+        effects.push(effect);
     }
 }
 

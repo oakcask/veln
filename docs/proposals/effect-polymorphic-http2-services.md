@@ -141,12 +141,24 @@ This table extends the current adapter-owned fail-fast task and stream cleanup
 shape. It does not redefine HTTP/2 stream state, frame ordering, or flow
 control.
 
-## Acceptance Model
+## Implemented Effect-Row Foundation
+
+Current language behavior includes one effect-row binder on user-defined
+function declarations, final `...E` tails in declaration and nested function
+type effect sets, row substitution from concrete callback arguments,
+duplicate-free effect union, row-aware function type compatibility, public
+diagnostics that name concrete instantiated effects, checked-core and typed-IR
+preservation, and nominal lexical handler replacement. The source grammar,
+effect diagnostics, and primary executable evidence are in
+`../specification/source-surface.md`, `../specification/names-effects.md`,
+`../specification/types.md`,
+`../../examples/specification/check/effect-row-syntax-diagnostics/`, and
+`../../examples/specification/check/http2-service-effect-row/`.
+
+## Remaining Acceptance Model
 
 | Case | Required observation | Planned evidence |
 | --- | --- | --- |
-| Effect-row identity | A pure callback adds no effect beyond the service effects | `check/http2-service-effect-row` |
-| Effect-row preservation | A callback with `db` or `stdio` makes the instantiated service boundary expose that effect | `check/http2-service-effect-row` |
 | Task effect preservation | Spawning a connection job exposes `concurrency`, `net`, and its callback effects without retaining `DuplexStream` | `check/http2-service-task-effect-row` |
 | TCP handler replacement | Handling `DuplexStream` replaces only that effect with `net` | `check/http2-service-transport-effect-replacement` |
 | Two connections | Independent tasks invoke the same callback and preserve per-connection output order | `run/http2-service-two-connections` |
@@ -158,9 +170,8 @@ control.
 | Client reuse boundary | Reuse occurs only while public core projections report an eligible open connection | `run/http2-client-service-reuse-boundary` |
 
 The relative paths are planned directories below `examples/specification/`.
-The effect-row cases must also have focused semantic tests for parsing,
-inference, substitution, assignment compatibility, diagnostics, checked-core,
-typed-IR preservation, and the effect-preserving standard task signatures.
+The remaining effect-row work is limited to the effect-preserving standard
+task signatures and service APIs.
 
 ## Non-Goals
 

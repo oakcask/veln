@@ -1,0 +1,3 @@
+fn missing_row_name<effect E>() -> Int effects [..., stdio]
+	1
+end

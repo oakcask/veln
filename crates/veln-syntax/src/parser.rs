@@ -6,11 +6,11 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
-    EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind, HandlerDecl,
-    HandlerProviderDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause, SchemaDecl,
-    SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem,
-    SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
+    EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
+    HandlerDecl, HandlerProviderDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern, PatternField,
+    PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
+    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
     TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
@@ -113,6 +113,7 @@ struct Parser<'a> {
 struct FunctionHeader {
     visibility: Visibility,
     name: Option<String>,
+    effect_binder: Option<EffectBinder>,
     params: Vec<Param>,
 }
 
@@ -1137,6 +1138,7 @@ impl<'a> Parser<'a> {
             kind,
             visibility: header.visibility,
             name: header.name,
+            effect_binder: header.effect_binder,
             params: header.params,
             return_binding: return_decl.binding,
             return_type: return_decl.ty,
@@ -1177,14 +1179,49 @@ impl<'a> Parser<'a> {
         } else {
             self.expect_ident(Self::function_context(kind), "declaration name")
         };
+        let effect_binder = self.parse_effect_binder(kind);
         self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
         self.expect(TokenKind::RParen, Self::parameter_context(kind), vec![")"]);
         FunctionHeader {
             visibility,
             name,
+            effect_binder,
             params,
         }
+    }
+
+    fn parse_effect_binder(&mut self, kind: FunctionKind) -> Option<EffectBinder> {
+        if !self.at(TokenKind::Less) {
+            return None;
+        }
+        let start = self.bump().range;
+        if !self.at(TokenKind::Effect) {
+            self.error_current(
+                "parse.effect_binder",
+                "function effect binder must use `<effect E>`",
+                Self::function_context(kind),
+                vec!["effect"],
+                RecoveryStrategy::SynchronizeToAnchor,
+                Some("("),
+            );
+            while !self.at(TokenKind::LParen)
+                && !self.at(TokenKind::Newline)
+                && !self.at(TokenKind::Eof)
+            {
+                self.bump();
+            }
+            return None;
+        }
+        self.bump();
+        let name = self.expect_ident(Self::function_context(kind), "effect row variable");
+        let end = self
+            .expect(TokenKind::Greater, Self::function_context(kind), vec![">"])
+            .range;
+        Some(EffectBinder {
+            name: name.unwrap_or_default(),
+            span: self.source.span(start.cover(end)),
+        })
     }
 
     fn parse_function_return_and_effects(&mut self, kind: FunctionKind) -> FunctionReturn {
@@ -1368,10 +1405,17 @@ impl<'a> Parser<'a> {
         let mut effects = Vec::new();
         while !self.at(TokenKind::RBracket) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let effect = self.parse_name_path_segments("effect_declaration", "effect name");
-            if !effect.is_empty() {
-                let end = self.previous().map_or(start, |token| token.range);
-                effects.push((effect.join("::"), self.source.span(start.cover(end))));
+            if self.eat_variadic_marker() {
+                if let Some(row) = self.expect_ident("effect_declaration", "effect row variable") {
+                    let end = self.previous().map_or(start, |token| token.range);
+                    effects.push((format!("...{row}"), self.source.span(start.cover(end))));
+                }
+            } else {
+                let effect = self.parse_name_path_segments("effect_declaration", "effect name");
+                if !effect.is_empty() {
+                    let end = self.previous().map_or(start, |token| token.range);
+                    effects.push((effect.join("::"), self.source.span(start.cover(end))));
+                }
             }
             if self.eat(TokenKind::Comma).is_none() {
                 break;

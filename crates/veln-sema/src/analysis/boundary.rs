@@ -539,11 +539,21 @@ pub(crate) fn check_declared_effect_labels(
         return diagnostics;
     }
 
+    diagnostics.extend(check_effect_row_entries(
+        function,
+        declared_effects,
+        function.effect_spans.as_deref(),
+        boundary,
+    ));
+
     diagnostics.extend(
         declared_effects
             .iter()
             .enumerate()
             .filter(|(_, effect)| {
+                if effect_row_name(effect).is_some() {
+                    return false;
+                }
                 let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
                 !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
                     && environment
@@ -555,6 +565,88 @@ pub(crate) fn check_declared_effect_labels(
             }),
     );
     diagnostics
+}
+
+fn check_effect_row_entries(
+    function: &Function,
+    effects: &[String],
+    spans: Option<&[SourceSpan]>,
+    boundary: &'static str,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut row_seen = false;
+    for (index, effect) in effects.iter().enumerate() {
+        let Some(row) = effect_row_name(effect) else {
+            continue;
+        };
+        let span = spans.and_then(|spans| spans.get(index)).cloned();
+        if row_seen {
+            diagnostics.push(effect_row_diagnostic(
+                function,
+                "effect.row_multiple",
+                "effect set has more than one row tail".to_string(),
+                row,
+                span.clone(),
+                boundary,
+            ));
+        }
+        if index + 1 != effects.len() {
+            diagnostics.push(effect_row_diagnostic(
+                function,
+                "effect.row_non_final",
+                "effect row tail must be the final effect".to_string(),
+                row,
+                span.clone(),
+                boundary,
+            ));
+        }
+        if function
+            .effect_binder
+            .as_ref()
+            .is_none_or(|binder| binder.name != row)
+        {
+            diagnostics.push(effect_row_diagnostic(
+                function,
+                "effect.row_unbound",
+                format!("effect row variable `{row}` is not bound"),
+                row,
+                span,
+                boundary,
+            ));
+        }
+        row_seen = true;
+    }
+    diagnostics
+}
+
+fn effect_row_name(effect: &str) -> Option<&str> {
+    effect.strip_prefix("...")
+}
+
+fn effect_row_diagnostic(
+    function: &Function,
+    id: &'static str,
+    message: String,
+    row: &str,
+    span: Option<SourceSpan>,
+    boundary: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Effect,
+        message,
+        span.or_else(|| Some(function.span.clone())),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            (
+                "node_id",
+                JsonValue::string(function.node_id.display(function.kind.node_prefix())),
+            ),
+            ("row", JsonValue::string(row.to_string())),
+            ("boundary", JsonValue::string(boundary)),
+        ]),
+    )
 }
 
 fn check_function_type_effect_labels(
@@ -593,10 +685,16 @@ fn check_type_effect_labels(
     environment: &TypeEnvironment,
     boundary: &'static str,
 ) -> Vec<Diagnostic> {
-    let Ok(ty) = parse_type_annotation(annotation) else {
-        return Vec::new();
-    };
     let mut diagnostics = Vec::new();
+    diagnostics.extend(check_annotation_effect_rows(
+        annotation,
+        annotation_span,
+        function,
+        boundary,
+    ));
+    let Ok(ty) = parse_type_annotation(annotation) else {
+        return diagnostics;
+    };
     collect_unknown_type_effects(
         &ty,
         annotation,
@@ -606,6 +704,74 @@ fn check_type_effect_labels(
         boundary,
         &mut diagnostics,
     );
+    diagnostics
+}
+
+fn check_annotation_effect_rows(
+    annotation: &str,
+    annotation_span: &SourceSpan,
+    function: &Function,
+    boundary: &'static str,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut search_from = 0;
+    while let Some(relative_effects) = annotation[search_from..].find("effects") {
+        let effects_offset = search_from + relative_effects;
+        let Some(open_relative) = annotation[effects_offset..].find('[') else {
+            break;
+        };
+        let open = effects_offset + open_relative;
+        let Some(close_relative) = annotation[open..].find(']') else {
+            break;
+        };
+        let close = open + close_relative;
+        let entries = annotation[open + 1..close]
+            .split(',')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        let mut row_seen = false;
+        for (index, entry) in entries.iter().enumerate() {
+            let Some(row) = entry.strip_prefix("...") else {
+                continue;
+            };
+            if row_seen {
+                diagnostics.push(effect_row_diagnostic(
+                    function,
+                    "effect.row_multiple",
+                    "effect set has more than one row tail".to_string(),
+                    row,
+                    type_effect_span(annotation, annotation_span, entry),
+                    boundary,
+                ));
+            }
+            if index + 1 != entries.len() {
+                diagnostics.push(effect_row_diagnostic(
+                    function,
+                    "effect.row_non_final",
+                    "effect row tail must be the final effect".to_string(),
+                    row,
+                    type_effect_span(annotation, annotation_span, entry),
+                    boundary,
+                ));
+            }
+            if function
+                .effect_binder
+                .as_ref()
+                .is_none_or(|binder| binder.name != row)
+            {
+                diagnostics.push(effect_row_diagnostic(
+                    function,
+                    "effect.row_unbound",
+                    format!("effect row variable `{row}` is not bound"),
+                    row,
+                    type_effect_span(annotation, annotation_span, entry),
+                    boundary,
+                ));
+            }
+            row_seen = true;
+        }
+        search_from = close + 1;
+    }
     diagnostics
 }
 
@@ -626,6 +792,9 @@ fn collect_unknown_type_effects(
             effects,
         } => {
             for effect in effects {
+                if effect_row_name(effect).is_some() {
+                    continue;
+                }
                 if !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
                     && environment
                         .user_effect_by_label(effect, function.module_name.as_deref())

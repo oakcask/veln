@@ -539,6 +539,11 @@ fn format_function_signature(function: &FunctionDecl) -> String {
         signature.push_str("fn ");
     }
     signature.push_str(function.name.as_deref().unwrap_or("<missing>"));
+    if let Some(binder) = &function.effect_binder {
+        signature.push_str("<effect ");
+        signature.push_str(&binder.name);
+        signature.push('>');
+    }
     signature.push('(');
     for (index, param) in function.params.iter().enumerate() {
         if index > 0 {
@@ -805,7 +810,27 @@ fn type_end_line(type_decl: &TypeDecl) -> usize {
 }
 
 pub fn canonical_type_text(text: &str) -> String {
-    canonicalize_type_segment(text)
+    canonicalize_commas(&canonicalize_type_segment(text))
+}
+
+fn canonicalize_commas(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        out.push(ch);
+        if ch == ',' {
+            while chars.peek().is_some_and(|next| next.is_whitespace()) {
+                chars.next();
+            }
+            if chars
+                .peek()
+                .is_some_and(|next| !matches!(next, ')' | ']' | '}' | '>'))
+            {
+                out.push(' ');
+            }
+        }
+    }
+    out
 }
 
 fn canonical_schema_field_type_text(text: &str, binary_schema: bool) -> String {

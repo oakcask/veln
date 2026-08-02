@@ -421,7 +421,11 @@ not assignment-compatible with each other. Two variadic function types are
 compatible only when the fixed parameters and variadic element types are
 assignable. The actual callable's effects must all be present in the expected
 function type's effect list, so a pure callable can satisfy an effectful
-function type but a `stdio` callable cannot satisfy a pure function type.
+function type but a `stdio` callable cannot satisfy a pure function type. If
+the expected function type contains a bound final effect row tail such as
+`effects [stdio, ...E]`, the row tail accepts the actual callable effects not
+already named by the concrete entries. The call boundary substitutes those
+effects for `E` when it computes the enclosing call's concrete effect set.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

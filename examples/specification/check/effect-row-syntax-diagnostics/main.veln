@@ -1,0 +1,23 @@
+fn unbound_declared() -> Int effects [...E]
+	1
+end
+
+fn non_final_declared<effect E>() -> Int effects [...E, stdio]
+	1
+end
+
+fn multiple_declared<effect E>() -> Int effects [...E, ...E]
+	1
+end
+
+fn unbound_nested(callback: fn() -> Int effects [...E]) -> Int
+	1
+end
+
+fn non_final_nested<effect E>(callback: fn() -> Int effects [...E, stdio]) -> Int
+	1
+end
+
+fn multiple_nested<effect E>(callback: fn() -> Int effects [...E, ...E]) -> Int
+	1
+end
