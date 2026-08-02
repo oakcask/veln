@@ -1,3 +1,7 @@
+---
+review-when: An implementation-boundary decision record is added, moved, reclassified, or no longer answers its routed task.
+---
+
 # Implementation Boundary Decisions
 
 Read these records only when runtime, AST, architecture, mutability, or
@@ -34,6 +38,10 @@ compatibility boundaries need rationale.
 - [Prelude Complexity Guarantees](records/result-prelude-complexity-guarantees.md)
 - [Runtime Value Freeze Boundary](records/result-runtime-value-freeze-boundary.md)
 - [Transitive Effect Diagnostics](records/result-transitive-effect-diagnostics.md)
+
+## Toolchain Dependencies
+
+- [Internal SHA-256 Backend](records/result-internal-sha256-backend.md)
 
 ## Skip Unless Needed
 

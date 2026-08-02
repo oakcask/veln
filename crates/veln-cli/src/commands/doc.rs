@@ -2,6 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_analysis::parse_diagnostic_to_envelope;
 use veln_analysis::{
     derive_source_module_path, load_surface_module, validate_manifest_dependencies,
     validate_manifest_exports,
@@ -16,7 +17,7 @@ use veln_syntax::{
     canonical_type_text, parse,
 };
 
-use crate::diagnostics::{parse_diagnostic_to_envelope, print_human_stderr, tool_info};
+use crate::diagnostics::{print_human_stderr, tool_info};
 
 pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;

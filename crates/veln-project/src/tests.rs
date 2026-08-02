@@ -643,6 +643,10 @@ fn source_tree_checksum_tracks_source_paths_and_ignores_build_output() {
     let base_checksum = source_tree_checksum(base.root()).expect("checksum should be computed");
     assert_eq!(
         base_checksum,
+        "sha256:81e221c7a6f074a573407b55dea539c99b52f19ce3ae35ff9d550e824054e7a5"
+    );
+    assert_eq!(
+        base_checksum,
         source_tree_checksum(same_without_build_output.root()).expect("checksum should match")
     );
     assert_ne!(

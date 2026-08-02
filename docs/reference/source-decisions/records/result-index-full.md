@@ -1,3 +1,7 @@
+---
+review-when: A source-decision record is added, moved, reclassified, or removed from the exhaustive index.
+---
+
 # Source Decision Record Full Index
 
 Use this page only when auditing all implemented source-decision records,
@@ -64,6 +68,7 @@ smallest category page.
 - [First Implementation Architecture](result-first-implementation-architecture.md)
 - [First Implementation Runtime Targets](result-first-implementation-runtime-targets.md)
 - [Hole Runtime Boundary](result-hole-runtime-boundary.md)
+- [Internal SHA-256 Backend](result-internal-sha256-backend.md)
 - [Module Metadata Location](result-module-metadata-location.md)
 - [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)

@@ -6,13 +6,13 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
-use veln_analysis::{DoctestMode, checked_project_diagnostics};
+use veln_analysis::{DoctestMode, checked_project_diagnostics, parse_diagnostic_to_envelope};
 use veln_ast::{SurfaceModule, lower_surface_ast};
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_project::Project;
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::{ParseDiagnostic, parse};
+use veln_syntax::parse;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -352,72 +352,6 @@ fn severity_code(severity: Severity) -> u8 {
     }
 }
 
-fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
-    let kind = if diagnostic.parser_context == "contract_predicate" {
-        DiagnosticKind::Contract
-    } else {
-        DiagnosticKind::Parse
-    };
-    Diagnostic::new(
-        diagnostic.id,
-        Severity::Error,
-        kind,
-        diagnostic.message.clone(),
-        diagnostic.span.clone(),
-        JsonValue::object([
-            ("phase", JsonValue::string("parse")),
-            ("node_id", JsonValue::Null),
-            (
-                "parser_context",
-                JsonValue::string(diagnostic.parser_context),
-            ),
-            (
-                "unexpected",
-                JsonValue::object([
-                    (
-                        "kind",
-                        JsonValue::string(diagnostic.unexpected.kind.clone()),
-                    ),
-                    (
-                        "text",
-                        JsonValue::string(diagnostic.unexpected.text.clone()),
-                    ),
-                ]),
-            ),
-            (
-                "expected",
-                JsonValue::array(
-                    diagnostic
-                        .expected
-                        .iter()
-                        .map(|expected| JsonValue::string(*expected)),
-                ),
-            ),
-            (
-                "recovery",
-                JsonValue::object([
-                    (
-                        "strategy",
-                        JsonValue::string(diagnostic.recovery.strategy.as_str()),
-                    ),
-                    (
-                        "anchor",
-                        diagnostic
-                            .recovery
-                            .anchor
-                            .as_ref()
-                            .map_or(JsonValue::Null, |anchor| JsonValue::string(anchor.clone())),
-                    ),
-                    (
-                        "dropped_token_count",
-                        JsonValue::Number(diagnostic.recovery.dropped_token_count as i64),
-                    ),
-                ]),
-            ),
-        ]),
-    )
-}
-
 fn diagnostics_by_path(diagnostics: Vec<Diagnostic>) -> BTreeMap<String, Vec<Diagnostic>> {
     let mut by_path = BTreeMap::<String, Vec<Diagnostic>>::new();
     for diagnostic in diagnostics {
@@ -707,6 +641,7 @@ fn percent_decode(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use veln_diagnostics::{DiagnosticKind, JsonValue};
 
     #[test]
     fn legend_exposes_standard_types_and_custom_modifiers() {
@@ -1060,6 +995,40 @@ mod tests {
         assert!(responses[0].contains(r#""source":"veln""#));
         assert!(responses[0].contains(r#""severity":1"#));
         assert!(responses[0].contains(r#""code":"parse."#));
+    }
+
+    #[test]
+    fn lsp_diagnostic_wire_fields_are_stable() {
+        let diagnostic = Diagnostic::new(
+            "parse.expected_item",
+            Severity::Error,
+            DiagnosticKind::Parse,
+            "expected a function or test declaration",
+            Some(SourceSpan {
+                file: veln_source::SourcePath::new("main.veln"),
+                start: veln_source::LineCol {
+                    line: 2,
+                    column: 3,
+                    offset: 4,
+                },
+                end: veln_source::LineCol {
+                    line: 2,
+                    column: 5,
+                    offset: 6,
+                },
+            }),
+            JsonValue::Null,
+        );
+
+        assert_eq!(
+            lsp_diagnostic_json(&diagnostic),
+            concat!(
+                "{\"range\":{\"start\":{\"line\":1,\"character\":2},",
+                "\"end\":{\"line\":1,\"character\":4}},\"severity\":1,",
+                "\"code\":\"parse.expected_item\",\"source\":\"veln\",",
+                "\"message\":\"expected a function or test declaration\"}"
+            )
+        );
     }
 
     #[test]
