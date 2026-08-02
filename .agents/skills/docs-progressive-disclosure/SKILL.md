@@ -22,6 +22,42 @@ Keep documentation discoverable without forcing agents to read long historical o
 6. When a normally important file grows long, keep the original expected path as a short index and move the full body to a clearly named sibling such as `*-full.md` or `*-plan.md`.
 7. Update relative links after moves and verify that Markdown links resolve.
 8. If planned behavior, phase scope, diagnostics gates, or quality rationale change, keep the relevant docs aligned with the code change.
+9. Add or update one `review-when:` field in the YAML frontmatter of every
+   Markdown document that the change adds or modifies under `docs/`.
+
+## Review Triggers
+
+Put YAML frontmatter at the start of the document. Add one single-line
+`review-when:` field. Name an observable project-state change that would make a
+maintainer recheck the document. Quote the value when YAML punctuation could
+make it ambiguous. Do not use calendar schedules or vague values such as
+`periodically`, `regularly`, `as needed`, `when necessary`, `always`, or `TBD`.
+
+```markdown
+---
+review-when: The documented command output or its executable evidence changes.
+---
+
+# Command Output
+```
+
+Choose the trigger from the document's purpose:
+
+- Specification: review when the documented behavior, public contract, or
+  authoritative executable evidence changes.
+- Proposal: review when its acceptance evidence, scope, dependencies, or
+  implementation status changes.
+- Reference or decision record: review when its authority, replacement,
+  supporting evidence, or the decision boundary changes.
+- Routing page: review when a routed document is added, moved, reclassified,
+  or no longer answers the routed task.
+- Historical record: review when the record is superseded, its links or
+  evidence become invalid, or current documentation starts relying on it as an
+  authority.
+
+Use the narrowest sufficient trigger. State multiple related conditions in the
+same field when any one of them requires review. Do not add a second
+`review-when:` field.
 
 ## Placement Rules
 
@@ -89,3 +125,5 @@ Do not split when:
 - Check line counts with `wc -l` for changed index and detail files.
 - Search for stale links with `rg`.
 - Run a Markdown link existence check when files were moved.
+- Run `node workflow-scripts/check-doc-review-triggers.mjs` with the changed
+  Markdown paths. CI applies the same check to added and modified documents.
