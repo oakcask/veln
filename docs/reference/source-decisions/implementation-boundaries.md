@@ -35,6 +35,10 @@ compatibility boundaries need rationale.
 - [Runtime Value Freeze Boundary](records/result-runtime-value-freeze-boundary.md)
 - [Transitive Effect Diagnostics](records/result-transitive-effect-diagnostics.md)
 
+## Toolchain Dependencies
+
+- [Internal SHA-256 Backend](records/result-internal-sha256-backend.md)
+
 ## Skip Unless Needed
 
 Use [../../specification/execution.md](../../specification/execution.md),

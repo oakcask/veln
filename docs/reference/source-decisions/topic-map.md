@@ -45,6 +45,8 @@ implemented behavior.
   [implementation-boundaries.md#architecture-and-ast](implementation-boundaries.md#architecture-and-ast).
 - Runtime, compatibility, transitive effects, and value freezing:
   [implementation-boundaries.md#runtime-boundaries](implementation-boundaries.md#runtime-boundaries).
+- Toolchain dependency selection and internal hashing:
+  [implementation-boundaries.md#toolchain-dependencies](implementation-boundaries.md#toolchain-dependencies).
 - Documentation placement, comparison, repair, and severity policy:
   [README.md#process-rationale](README.md#process-rationale).
 
