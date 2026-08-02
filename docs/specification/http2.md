@@ -42,10 +42,12 @@ The public routes are:
   an immutable stream collection.
 - `http2::connection`: the `drive_server`, `drive_client`, and
   `drive_server_application` duplex-stream connection drivers,
-  `serve_connection` and `serve_tcp` server service boundaries, typed
-  protocol-owned connection failures, immutable application response actions,
-  typed application-boundary failures for one caller-owned stream, and typed
-  service failures for server-owned listeners, tasks, and streams.
+  `serve_connection` and `serve_tcp` server service boundaries,
+  `request_endpoint_sequence` client service boundary, typed protocol-owned
+  connection failures, immutable application response actions, typed
+  application-boundary failures for one caller-owned stream, immutable client
+  request and response observations, and typed service failures for
+  service-owned listeners, client streams, tasks, and streams.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -360,12 +362,51 @@ transport failures raised inside a spawned connection task, remain runtime
 failures rather than `Http2ServiceJoinFailure` values. Later source cleanup
 after an abrupt runtime transport failure is not specified.
 
+`http2::connection::Http2ClientRequest` is the immutable public client request
+value. The implemented request shape is
+`Http2ClientBodylessRequest(headers)`, created by
+`client_bodyless_request(headers)`. It carries only a validated HPACK header
+list for one bodyless request and exposes no `NetStream`, handler context, or
+mutable core state.
+
+`http2::connection::Http2ClientResponse` is the immutable public client
+response observation for one final response. Projection helpers expose the
+stream id, whether the retained connection was reused for the request, the
+connection lifecycle label, the active stream count, and the peer stream
+capacity that the service uses for the next reuse decision.
+
+`http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
+owns each connected `NetStream` and each spawned request task for a finite
+request list to one endpoint. A request task receives the stream, immutable
+core state, reuse flag, and request value as explicit task context, then
+installs `transport::net::net_stream` inside that task. The application
+handler receives only `Http2ClientResponse` values. It does not receive
+transport handles, handler context, or mutable core state.
+
+After a successful request, the service may retain the connection for the next
+request only when `client_connection_reusable(state)` is true. That projection
+is true only for an open connection whose active stream count is less than the
+peer stream capacity reported by `http2::core`. Draining and closed
+connections are not reusable. An open connection with exhausted peer stream
+capacity is not reusable. When the retained connection is not reusable, the
+service closes that stream once before connecting a new stream for the next
+request.
+
+On the first ordinary request-send, protocol, callback, or join failure,
+`request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
+completed request count and closes the retained stream once. Abrupt runtime
+transport failures remain runtime failures, and later source cleanup after
+that failure is not specified. A pure response handler leaves only `net` and
+`concurrency` on the service expression. A handler with callback effects adds
+that callback row to the same expression.
+
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)
 checks public application action values, distinguishable application failure
 variants, unsupported request failures, second-request rejection, complete
 action-list validation, request stream-id
-validation, and rejected later core-action failures. Executable
+validation, rejected later core-action failures, and the public client reuse
+decision. Executable
 application-driver evidence lives under
 `examples/specification/check/http2-connection-application-boundary-effects/`,
 `examples/specification/run/http2-connection-application-one-request/`,
@@ -375,6 +416,11 @@ application-driver evidence lives under
 `examples/specification/run/http2-connection-application-invalid-actions-json/`,
 and
 `examples/specification/run/http2-connection-application-rejected-action-json/`.
+Client service executable evidence lives under
+`examples/specification/check/http2-client-service-effect-row/` and
+`examples/specification/run/http2-client-service-reuse-boundary/`, with
+ordinary callback-failure cleanup pinned by
+`examples/specification/run/http2-client-service-callback-failure/`.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

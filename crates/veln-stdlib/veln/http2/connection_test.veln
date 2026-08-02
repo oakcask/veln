@@ -101,6 +101,18 @@ test application_driver_effect_boundary_handles_closed_state_without_callback() 
 	end
 end
 
+test client_reuse_decision_uses_public_lifecycle_and_capacity() -> Result<(), String>
+	let open = http2::core::client_connection_state(0)?
+	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
+	let draining = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_draining(0, 0))
+	let zero_capacity = http2::core::connection_state_with_peer_settings(open, http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(open), 11, byte_chunk_from_hex("000300000000")?)?)
+	if http2::connection::client_connection_reusable(open) and not http2::connection::client_connection_reusable(closed) and not http2::connection::client_connection_reusable(draining) and not http2::connection::client_connection_reusable(zero_capacity)
+		Ok(())
+	else
+		Err("HTTP/2 client reuse decision did not respect lifecycle and peer stream capacity")
+	end
+end
+
 test application_driver_rejects_body_bearing_request_without_callback() -> Result<(), String>
 	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with fixed_duplex(application_body_request_chunk()?)
 	match result

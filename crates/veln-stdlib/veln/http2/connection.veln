@@ -32,6 +32,33 @@ pub type Http2ServiceFailure
 	pub Http2ServiceJoinFailure(accepted: Int, reason: String)
 end
 
+pub type Http2ClientRequest
+	pub Http2ClientBodylessRequest(headers: HeaderList)
+end
+
+pub type Http2ClientResponse
+	pub Http2ClientFinalResponse(stream_id: Int, reused: Bool, connection_lifecycle: String, active_stream_count: Int, peer_stream_capacity: Int)
+end
+
+pub type Http2ClientServiceFailure
+	pub Http2ClientServiceStateFailure(reason: String)
+	pub Http2ClientServiceRequestFailure(completed: Int, failure: CoreOutboundHeadersFailure)
+	pub Http2ClientServiceRequestEncodeFailure(completed: Int, reason: String)
+	pub Http2ClientServiceConnectionFailure(completed: Int, failure: Http2ConnectionFailure)
+	pub Http2ClientServiceCallbackFailure(completed: Int, reason: String)
+	pub Http2ClientServiceJoinFailure(completed: Int, reason: String)
+	pub Http2ClientServiceIncompleteResponse(completed: Int, stream_id: Int, lifecycle: String)
+end
+
+type Http2ClientTaskResult
+	Http2ClientTaskResult(response: Http2ClientResponse, state: CoreConnectionState)
+end
+
+type Http2ClientRetainedConnection
+	NoRetainedClientConnection
+	RetainedClientConnection(stream: NetStream, state: CoreConnectionState)
+end
+
 pub fn drive_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 		Ok(state)
@@ -68,6 +95,105 @@ pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEv
 	let result = service_accept_next(listener, 1, handler)
 	net::close_listener(listener)
 	result
+end
+
+pub fn client_bodyless_request(headers: HeaderList) -> Http2ClientRequest
+	Http2ClientBodylessRequest(headers)
+end
+
+pub fn request_endpoint_sequence<effect E>(endpoint: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	client_request_next(endpoint, requests, NoRetainedClientConnection, 0, handler)
+end
+
+pub fn client_connection_reusable(state: CoreConnectionState) -> Bool
+	http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open" and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) < http2::core::peer_settings_active_max_concurrent_streams(http2::core::connection_state_peer_settings(state))
+end
+
+pub fn client_response_stream_id(response: Http2ClientResponse) -> Int
+	match response
+		Http2ClientFinalResponse(stream_id, _, _, _, _) => stream_id
+	end
+end
+
+pub fn client_response_reused_connection(response: Http2ClientResponse) -> Bool
+	match response
+		Http2ClientFinalResponse(_, reused, _, _, _) => reused
+	end
+end
+
+pub fn client_response_connection_lifecycle(response: Http2ClientResponse) -> String
+	match response
+		Http2ClientFinalResponse(_, _, lifecycle, _, _) => lifecycle
+	end
+end
+
+pub fn client_response_active_stream_count(response: Http2ClientResponse) -> Int
+	match response
+		Http2ClientFinalResponse(_, _, _, active_stream_count, _) => active_stream_count
+	end
+end
+
+pub fn client_response_peer_stream_capacity(response: Http2ClientResponse) -> Int
+	match response
+		Http2ClientFinalResponse(_, _, _, _, peer_stream_capacity) => peer_stream_capacity
+	end
+end
+
+pub fn client_service_failure_kind(failure: Http2ClientServiceFailure) -> String
+	match failure
+		Http2ClientServiceStateFailure(_) => "state"
+		Http2ClientServiceRequestFailure(_, _) => "request"
+		Http2ClientServiceRequestEncodeFailure(_, _) => "request-encode"
+		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_kind(inner)
+		Http2ClientServiceCallbackFailure(_, _) => "callback"
+		Http2ClientServiceJoinFailure(_, _) => "join"
+		Http2ClientServiceIncompleteResponse(_, _, _) => "incomplete-response"
+	end
+end
+
+pub fn client_service_failure_id(failure: Http2ClientServiceFailure) -> String
+	match failure
+		Http2ClientServiceStateFailure(_) => "http2.client_service.state_failure"
+		Http2ClientServiceRequestFailure(_, inner) => http2::core::outbound_headers_failure_id(inner)
+		Http2ClientServiceRequestEncodeFailure(_, _) => "http2.client_service.request_encode_failure"
+		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_id(inner)
+		Http2ClientServiceCallbackFailure(_, _) => "http2.client_service.callback_failure"
+		Http2ClientServiceJoinFailure(_, _) => "http2.client_service.join_failure"
+		Http2ClientServiceIncompleteResponse(_, _, _) => "http2.client_service.incomplete_response"
+	end
+end
+
+pub fn client_service_failure_reason(failure: Http2ClientServiceFailure) -> String
+	match failure
+		Http2ClientServiceStateFailure(reason) => reason
+		Http2ClientServiceRequestFailure(_, inner) => http2::core::outbound_headers_failure_rule_provenance(inner)
+		Http2ClientServiceRequestEncodeFailure(_, reason) => reason
+		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_reason(inner)
+		Http2ClientServiceCallbackFailure(_, reason) => reason
+		Http2ClientServiceJoinFailure(_, reason) => reason
+		Http2ClientServiceIncompleteResponse(_, _, lifecycle) => lifecycle
+	end
+end
+
+pub fn client_service_failure_completed(failure: Http2ClientServiceFailure) -> Int
+	match failure
+		Http2ClientServiceStateFailure(_) => 0
+		Http2ClientServiceRequestFailure(completed, _) => completed
+		Http2ClientServiceRequestEncodeFailure(completed, _) => completed
+		Http2ClientServiceConnectionFailure(completed, _) => completed
+		Http2ClientServiceCallbackFailure(completed, _) => completed
+		Http2ClientServiceJoinFailure(completed, _) => completed
+		Http2ClientServiceIncompleteResponse(completed, _, _) => completed
+	end
+end
+
+pub fn client_service_failure_stream_id(failure: Http2ClientServiceFailure) -> Int
+	match failure
+		Http2ClientServiceRequestFailure(_, inner) => http2::core::outbound_headers_failure_stream_id(inner)
+		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_stream_id(inner)
+		Http2ClientServiceIncompleteResponse(_, stream_id, _) => stream_id
+		_ => 0
+	end
 end
 
 fn service_initial_state() -> Result<CoreConnectionState, Http2ServiceFailure>
@@ -119,6 +245,96 @@ fn service_fail_close(stream: NetStream, failure: Http2ServiceFailure) -> Result
 	Err(failure)
 end
 
+fn client_request_next<effect E>(endpoint: String, requests: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	match requests
+		Nil => client_close_retained(retained)
+		Cons(request, tail) => client_dispatch_request(endpoint, request, tail, retained, completed, handler)
+	end
+end
+
+fn client_dispatch_request<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	match retained
+		NoRetainedClientConnection => client_connect_and_run(endpoint, request, tail, completed, handler)
+		RetainedClientConnection(stream, state) => if client_connection_reusable(state)
+			client_run_one(endpoint, stream, state, true, request, tail, completed, handler)
+		else
+			client_replace_connection(endpoint, stream, request, tail, completed, handler)
+		end
+	end
+end
+
+fn client_connect_and_run<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	let stream: NetStream = net::connect(endpoint)
+	let state = client_service_initial_state()?
+	client_run_one(endpoint, stream, state, false, request, tail, completed, handler)
+end
+
+fn client_replace_connection<effect E>(endpoint: String, stream: NetStream, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	net::close_stream(stream)
+	client_connect_and_run(endpoint, request, tail, completed, handler)
+end
+
+fn client_service_initial_state() -> Result<CoreConnectionState, Http2ClientServiceFailure>
+	match http2::core::client_connection_state(0)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ClientServiceStateFailure(reason))
+	end
+end
+
+fn client_run_one<effect E>(endpoint: String, stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	let worker = client_spawn_request(stream, state, reused, request)
+	match task::join(worker)
+		Ok(Ok(result)) => client_handle_response(endpoint, stream, result, tail, completed, handler)
+		Ok(Err(failure)) => client_fail_close(stream, client_connection_task_failure(completed, failure))
+		Err(_) => client_fail_close(stream, Http2ClientServiceJoinFailure(completed, "failed"))
+	end
+end
+
+fn client_handle_response<effect E>(endpoint: String, stream: NetStream, result: Http2ClientTaskResult, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+	match result
+		Http2ClientTaskResult(response, state) => match handler(response)
+			Ok(_) => client_request_next(endpoint, tail, RetainedClientConnection(stream, state), completed + 1, handler)
+			Err(reason) => client_fail_close(stream, Http2ClientServiceCallbackFailure(completed, reason))
+		end
+	end
+end
+
+fn client_close_retained(retained: Http2ClientRetainedConnection) -> Result<(), Http2ClientServiceFailure> effects [net]
+	match retained
+		NoRetainedClientConnection => Ok(())
+		RetainedClientConnection(stream, _) => client_close_stream_ok(stream)
+	end
+end
+
+fn client_close_stream_ok(stream: NetStream) -> Result<(), Http2ClientServiceFailure> effects [net]
+	net::close_stream(stream)
+	Ok(())
+end
+
+fn client_fail_close(stream: NetStream, failure: Http2ClientServiceFailure) -> Result<(), Http2ClientServiceFailure> effects [net]
+	net::close_stream(stream)
+	Err(failure)
+end
+
+fn client_connection_task_failure(completed: Int, failure: Http2ClientServiceFailure) -> Http2ClientServiceFailure
+	match failure
+		Http2ClientServiceRequestFailure(_, inner) => Http2ClientServiceRequestFailure(completed, inner)
+		Http2ClientServiceRequestEncodeFailure(_, reason) => Http2ClientServiceRequestEncodeFailure(completed, reason)
+		Http2ClientServiceConnectionFailure(_, inner) => Http2ClientServiceConnectionFailure(completed, inner)
+		Http2ClientServiceIncompleteResponse(_, stream_id, lifecycle) => Http2ClientServiceIncompleteResponse(completed, stream_id, lifecycle)
+		_ => failure
+	end
+end
+
+fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest) -> Task<Result<Http2ClientTaskResult, Http2ClientServiceFailure>> effects [net, concurrency]
+	let context = { stream: stream, state: state, reused: reused, request: request }
+	task::spawn_with<Result<Http2ClientTaskResult, Http2ClientServiceFailure>, { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }>(client_request_task, context)
+end
+
+fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net]
+	handle client_request_body(context.state, context.reused, context.request) with transport::net::net_stream(context.stream)
+end
+
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
@@ -155,6 +371,151 @@ fn client_preface_bytes() -> Result<ByteChunk, Http2ConnectionFailure>
 		Ok(chunk) => Ok(chunk)
 		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
 	end
+end
+
+fn client_request_body(state: CoreConnectionState, reused: Bool, request: Http2ClientRequest) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	if reused
+		client_start_request(http2::core::receive_connection_state_after_initial_settings(state, byte_chunk([]), http2::core::empty_output_buffer()), reused, request)
+	else
+		client_start_fresh_request(state, request)
+	end
+end
+
+fn client_start_fresh_request(state: CoreConnectionState, request: Http2ClientRequest) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let decision = client_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "client", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => client_start_request(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), client_initial_output_for_service(decision)?), false, request)
+		"rejected" => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsFailure(client_local_settings_failure(decision)?)))
+		_ => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision))))
+	end
+end
+
+fn client_initial_output_for_service(decision: LocalSettingsSendDecision) -> Result<CoreOutputBuffer, Http2ClientServiceFailure>
+	match client_initial_output(decision)
+		Ok(output) => Ok(output)
+		Err(failure) => Err(Http2ClientServiceConnectionFailure(0, failure))
+	end
+end
+
+fn client_local_settings_decision(result: Result<LocalSettingsSendDecision, String>) -> Result<LocalSettingsSendDecision, Http2ClientServiceFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn client_local_settings_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, Http2ClientServiceFailure>
+	match http2::core::local_settings_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn client_start_request(state: CoreReceiveConnectionState, reused: Bool, request: Http2ClientRequest) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	match request
+		Http2ClientBodylessRequest(headers) => client_send_request_headers(state, reused, next_client_request_stream_id(http2::core::receive_connection_connection(state)), headers)
+	end
+end
+
+fn next_client_request_stream_id(state: CoreConnectionState) -> Int
+	http2::core::stream_collection_count(http2::core::connection_state_streams(state)) * 2 + 1
+end
+
+fn client_send_request_headers(state: CoreReceiveConnectionState, reused: Bool, stream_id: Int, headers: HeaderList) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let connection = http2::core::receive_connection_connection(state)
+	let decision = http2::core::send_request_headers(connection, http2::core::connection_state_next_offset(connection), stream_id, headers, true)
+	match http2::core::headers_send_status(decision)
+		"accepted" => client_drive_response(receive_state_with_connection_and_output(state, client_headers_send_state(decision)?, http2::core::output_buffer_append_headers(http2::core::receive_connection_output(state), decision)), 0, stream_id, reused)
+		"rejected" => Err(Http2ClientServiceRequestFailure(0, client_headers_send_failure(decision)?))
+		_ => Err(Http2ClientServiceRequestEncodeFailure(0, http2::core::headers_send_encode_reason(decision)))
+	end
+end
+
+fn client_headers_send_state(decision: CoreHeadersSendDecision) -> Result<CoreConnectionState, Http2ClientServiceFailure>
+	match http2::core::headers_send_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ClientServiceRequestEncodeFailure(0, reason))
+	end
+end
+
+fn client_headers_send_failure(decision: CoreHeadersSendDecision) -> Result<CoreOutboundHeadersFailure, Http2ClientServiceFailure>
+	match http2::core::headers_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ClientServiceRequestEncodeFailure(0, reason))
+	end
+end
+
+fn client_drive_response(state: CoreReceiveConnectionState, written_count: Int, stream_id: Int, reused: Bool) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let after_write = client_write_new_output(state, written_count)?
+	if client_stream_is_final(http2::core::receive_connection_connection(after_write.state), stream_id)
+		Ok(Http2ClientTaskResult(client_response_from(http2::core::receive_connection_connection(after_write.state), stream_id, reused), http2::core::receive_connection_connection(after_write.state)))
+	else
+		match perform transport::DuplexStream::read_chunk()
+			Some(chunk) => client_receive_and_continue(after_write.state, chunk, after_write.written_count, stream_id, reused)
+			None => Err(Http2ClientServiceIncompleteResponse(0, stream_id, client_stream_lifecycle_label(http2::core::receive_connection_connection(after_write.state), stream_id)))
+		end
+	end
+end
+
+fn client_receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int, stream_id: Int, reused: Bool) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let decision = client_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
+	match http2::core::receive_connection_status(decision)
+		"accepted" => client_drive_response(client_receive_state(decision)?, written_count, stream_id, reused)
+		_ => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionProtocolFailure(client_receive_failure(decision)?)))
+	end
+end
+
+fn client_receive_decision(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionDecision, Http2ClientServiceFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn client_receive_state(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, Http2ClientServiceFailure>
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn client_receive_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, Http2ClientServiceFailure>
+	match http2::core::receive_connection_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn client_write_new_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let output = http2::core::receive_connection_output(state)
+	let total = http2::core::output_buffer_count(output)
+	if written_count == total
+		Ok({ state: state, written_count: written_count })
+	else
+		client_write_output_range(state, output, written_count, total)
+	end
+end
+
+fn client_write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
+	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	perform transport::DuplexStream::write_chunks(chunks)
+	Ok({ state: state, written_count: total })
+end
+
+fn client_stream_is_final(state: CoreConnectionState, stream_id: Int) -> Bool
+	let label = client_stream_lifecycle_label(state, stream_id)
+	label == "closed" or label == "reset"
+end
+
+fn client_stream_lifecycle_label(state: CoreConnectionState, stream_id: Int) -> String
+	match http2::core::stream_collection_find(http2::core::connection_state_streams(state), stream_id)
+		Some(entry) => http2::core::stream_lifecycle_label(http2::core::stream_entry_lifecycle(entry))
+		None => "missing"
+	end
+end
+
+fn client_response_from(state: CoreConnectionState, stream_id: Int, reused: Bool) -> Http2ClientResponse
+	Http2ClientFinalResponse(stream_id, reused, http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)), http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)), http2::core::peer_settings_active_max_concurrent_streams(http2::core::connection_state_peer_settings(state)))
 end
 
 fn require_local_settings_decision(result: Result<LocalSettingsSendDecision, String>) -> Result<LocalSettingsSendDecision, Http2ConnectionFailure>

@@ -183,7 +183,7 @@ The acceptance evidence has passed and the implemented behavior is promoted:
 - application values and driver behavior are specified in the HTTP/2,
   effects, execution, JSON-output, and example routes;
 - this proposal record lives under implemented proposal records; and
-- [Effect-Polymorphic HTTP/2 Services](../../proposals/effect-polymorphic-http2-services.md)
+- [Effect-Polymorphic HTTP/2 Services](effect-polymorphic-http2-services.md)
   records that its application-boundary activation gate is met.
 
 This proposal does not activate one-shot resumable handlers. The callback

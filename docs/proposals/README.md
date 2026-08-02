@@ -19,12 +19,8 @@ current language behavior unless the matching page under
 - [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
   add explicit deep, one-shot resumptions only after a checked example shows
   that automatic resumption cannot express the required control flow.
-- [Effect-Polymorphic HTTP/2 Services](effect-polymorphic-http2-services.md):
-  add the remaining HTTP/2 client reuse behavior. Standard task creation, the
-  single-connection application driver, and the server service surfaces already
-  preserve callback effects in the current specification.
 
-Do not select either follow-up before its activation gate is met. The HTTP/2
+Do not select this follow-up before its activation gate is met. The HTTP/2
 application boundary is implemented and does not by itself activate one-shot
 resumable handlers.
 

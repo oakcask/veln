@@ -171,6 +171,23 @@ enough.
   `http2-service-join-failure-json/`,
   `http2-service-protocol-failure-json/`, and
   `http2-service-transport-failure-json/` pin the public service boundary.
+- `http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
+  owns each connected client `NetStream` and each spawned request task for a
+  finite request list. The task receives explicit stream and core-state
+  context, installs `transport::net::net_stream` inside the task, sends one
+  bodyless request, reads one final response, and returns the immutable core
+  state for the next reuse decision. The service reuses the retained
+  connection only while public `http2::core` projections report an open
+  connection with available peer stream capacity. Otherwise it closes the old
+  stream once and connects a new stream before writing the next request. On
+  ordinary request, protocol, callback, or join failure, it returns the first
+  `Http2ClientServiceFailure` and closes the retained stream once. Runtime
+  transport failures remain abrupt runtime failures. The focused
+  `examples/specification/run/http2-client-service-reuse-boundary/` case pins
+  response observations, request write ordering, connection count, close
+  lifecycle, active stream count, and peer capacity projections. The focused
+  `examples/specification/run/http2-client-service-callback-failure/` case
+  pins ordinary callback-failure cleanup.
 
 ## Binary Schemas
 

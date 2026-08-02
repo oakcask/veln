@@ -1,0 +1,57 @@
+use http2::connection from "std"
+use http2::core from "std"
+use http2::hpack from "std"
+use stdio
+
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn request_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::empty_header_list()))))
+end
+
+fn requests() -> Result<List<Http2ClientRequest>, String>
+	let request = http2::connection::client_bodyless_request(request_headers()?)
+	Ok(list_cons(request, list_cons(request, list_cons(request, list_nil()))))
+end
+
+fn observe(response: Http2ClientResponse) -> Result<(), String> effects [stdio]
+	stdio::print("response stream ")
+	stdio::print(int_to_string(http2::connection::client_response_stream_id(response)))
+	stdio::print(" reused ")
+	stdio::print(if http2::connection::client_response_reused_connection(response) "true" else "false" end)
+	stdio::print(" lifecycle ")
+	stdio::print(http2::connection::client_response_connection_lifecycle(response))
+	stdio::print(" active ")
+	stdio::print(int_to_string(http2::connection::client_response_active_stream_count(response)))
+	stdio::print(" capacity ")
+	stdio::println(int_to_string(http2::connection::client_response_peer_stream_capacity(response)))
+	Ok(())
+end
+
+fn print_result(result: Result<(), Http2ClientServiceFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => print_ok()
+		Err(failure) => print_failure(failure)
+	end
+end
+
+fn print_ok() -> Result<(), String> effects [stdio]
+	stdio::println("service ok")
+	Ok(())
+end
+
+fn print_failure(failure: Http2ClientServiceFailure) -> Result<(), String> effects [stdio]
+	stdio::print("service failure ")
+	stdio::print(http2::connection::client_service_failure_kind(failure))
+	stdio::print(" ")
+	stdio::print(http2::connection::client_service_failure_id(failure))
+	stdio::print(" completed ")
+	stdio::println(int_to_string(http2::connection::client_service_failure_completed(failure)))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	print_result(http2::connection::request_endpoint_sequence("127.0.0.1:0", requests()?, observe))
+end

@@ -77,6 +77,11 @@ behavior.
   `../../examples/specification/run/http2-service-protocol-failure-json/`,
   and
   `../../examples/specification/run/http2-service-transport-failure-json/`.
+- HTTP/2 client service boundary behavior:
+  `../../examples/specification/check/http2-client-service-effect-row/`,
+  `../../examples/specification/run/http2-client-service-reuse-boundary/`,
+  and
+  `../../examples/specification/run/http2-client-service-callback-failure/`.
 - Fixture-backed listener endpoint text, accepted-stream endpoint text, read,
   stream close, and listener close:
   `../../examples/specification/run/transport-socket-listener-address/`.
