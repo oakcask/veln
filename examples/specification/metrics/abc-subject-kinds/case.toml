@@ -1,0 +1,44 @@
+command = ["metrics", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.abc_subject_count"
+equals = 3
+
+[[json_assert]]
+path = "abc_subjects.0.identity"
+equals = "app.veln::function_body"
+
+[[json_assert]]
+path = "abc_subjects.0.kind"
+equals = "function"
+
+[[json_assert]]
+path = "abc_subjects.0.abc.assignments"
+equals = 1
+
+[[json_assert]]
+path = "abc_subjects.0.abc.branches"
+equals = 2
+
+[[json_assert]]
+path = "abc_subjects.1.identity"
+equals = "app.veln::test_body"
+
+[[json_assert]]
+path = "abc_subjects.1.kind"
+equals = "test"
+
+[[json_assert]]
+path = "abc_subjects.1.abc.assignments"
+equals = 1
+
+[[json_assert]]
+path = "abc_subjects.1.abc.branches"
+equals = 2

@@ -1,0 +1,53 @@
+effect Ask
+	value() -> Int
+end
+
+schema Packet
+	format binary
+
+	value: UInt8
+end
+
+fn provide(context: Int) -> Int
+	context
+end
+
+handler ask(context: Int) handles Ask
+	value = provide
+end
+
+fn compute() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+fn done(value: Int) -> Int
+	value
+end
+
+fn backup() -> Bool
+	false
+end
+
+fn all_counted(flag: Int) -> Result<Int, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("01")?
+	let view_value: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(1)?)?
+	let decoded: DecodeStep<{value: Int}> = decode Packet from view_value at byte_offset(0)?
+	let encoded = encode Packet from {value: flag}
+	let handled = handle compute() with ask(41)
+	if handled == 42 and flag == 1
+		match decoded
+			Decoded(_, _) => Ok(done(flag))
+			_ => Ok(done(handled))
+		end
+	else if backup() or false
+		Ok(done(flag))
+	else
+		Ok(done(handled))
+	end
+end
+
+fn annotation_and_contract_only(value: Int) -> result: Int
+	require value >= 0
+	ensure result >= 0
+	value
+end

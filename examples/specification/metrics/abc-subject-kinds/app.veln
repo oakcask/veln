@@ -1,0 +1,17 @@
+## > fn generated_same_body() -> Result<(), String>
+## >   let observed = value()
+## >   Ok(())
+## > end
+fn value() -> Int
+	1
+end
+
+fn function_body() -> Result<(), String>
+	let observed = value()
+	Ok(())
+end
+
+test test_body() -> Result<(), String>
+	let observed = value()
+	Ok(())
+end

@@ -8,14 +8,14 @@ Status: proposed
 
 ## Summary
 
-Extend the implemented report-only `veln metrics` dependency graph command with
-function ABC size vectors, enforcement policy, baselines, and exact whole-body
-similarity groups.
+Extend the implemented report-only `veln metrics` dependency graph and
+advisory ABC size command with enforcement policy, baselines, and exact
+whole-body similarity groups.
 
 The command separates measurement from enforcement. The current implementation
-reports advisory module dependency metrics only. Remaining work must add
-reviewed enforcement and additional advisory signals without turning
-maintainability metrics into language errors.
+reports advisory module dependency metrics and advisory ABC size metrics.
+Remaining work must add reviewed enforcement and additional advisory signals
+without turning maintainability metrics into language errors.
 
 ## Motivation
 
@@ -78,7 +78,7 @@ veln metrics --write-baseline PATH [path ...]
 
 Generated project modules remain graph nodes because project-owned source can
 depend on them. Generated and doctest-derived declarations are excluded from
-future ABC and similarity subjects. JSON must continue to identify generated
+ABC and future similarity subjects. JSON must continue to identify generated
 graph nodes so a consumer does not mistake them for hand-maintained modules.
 
 ## Modes And Exit Status
@@ -129,7 +129,7 @@ name the reviewed file they intend to enforce.
 
 ## Metric Model
 
-### Function ABC Size
+### Implemented Function ABC Size
 
 For each eligible Veln function and test, the command reports the vector
 `(A, B, C)` and its magnitude `sqrt(A^2 + B^2 + C^2)`. The magnitude is rounded
@@ -304,15 +304,14 @@ mechanically.
 
 ## Remaining JSON Output
 
-The implemented dependency graph JSON document is specified in
+The implemented dependency graph and ABC JSON document is specified in
 [metrics-json.md](../specification/metrics-json.md). Remaining JSON work
-extends that document with enforcement, baseline, ABC, and similarity fields.
+extends that document with enforcement, baseline, and similarity fields.
 
 The document contains:
 
 - effective configuration, enforceable policy capabilities, and baseline
   identity;
-- per-function ABC vectors, magnitude, subject kind, span, and coverage flags;
 - experimental whole-body similarity instances with token count, fingerprint,
   and declaration regions;
 - policy violations and a summary by metric kind.
@@ -328,8 +327,6 @@ Planned executable cases follow the placement rules in
 
 | Case | Input distinction | Required observation |
 | --- | --- | --- |
-| ABC constructs | One function uses every counted construct and one changes only annotations or contracts | The vector follows the mapping table, the annotation-only change does not alter it, and output calls it ABC size |
-| ABC subject kinds | Equivalent function and test bodies are analyzed; a generated declaration has the same body | Function and test results carry distinct subject kinds; the generated declaration is excluded |
 | Graph counts | Modules contain repeated internal imports beyond the implemented fixture coverage | Internal edges are deduplicated and external or implicit imports do not change fan-in or fan-out |
 | Dependency pressure | Modules have high fan-in only, high fan-out only, and both beyond the implemented fixture coverage | Pressure equals the product, output retains both counts, and none is a policy violation |
 | Dependency cycle | Three modules form a cycle and one acyclic module imports a member beyond the implemented fixture coverage | One maximal cycle and a valid closed path are reported; the acyclic caller only changes fan-in |
@@ -429,8 +426,8 @@ bash scripts/agent-run cargo run --locked -p veln-cli -- metrics --json path/to/
 bash scripts/benchmark-veln-metrics compare SMALL MEDIUM LARGE
 ```
 
-The metrics crate, executable cases, and benchmark command do not exist until
-this proposal is implemented.
+The metrics crate and ABC executable cases exist. The benchmark command does
+not exist until the bounded similarity proposal slice is implemented.
 
 ## Completion Boundary
 

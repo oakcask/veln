@@ -1,0 +1,48 @@
+command = ["metrics", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.abc_subject_count"
+equals = 6
+
+[[json_assert]]
+path = "abc_subjects.0.name"
+equals = "all_counted"
+
+[[json_assert]]
+path = "abc_subjects.0.abc.assignments"
+equals = 5
+
+[[json_assert]]
+path = "abc_subjects.0.abc.branches"
+equals = 18
+
+[[json_assert]]
+path = "abc_subjects.0.abc.conditionals"
+equals = 12
+
+[[json_assert]]
+path = "abc_subjects.0.contracts_included"
+equals = false
+
+[[json_assert]]
+path = "abc_subjects.5.name"
+equals = "annotation_and_contract_only"
+
+[[json_assert]]
+path = "abc_subjects.5.abc.assignments"
+equals = 0
+
+[[json_assert]]
+path = "abc_subjects.5.abc.branches"
+equals = 0
+
+[[json_assert]]
+path = "abc_subjects.5.abc.conditionals"
+equals = 0
