@@ -279,9 +279,9 @@ impl<'a> Parser<'a> {
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
-                items.push(SyntaxItem::Function(
+                items.push(SyntaxItem::Function(Box::new(
                     self.parse_function_like(FunctionKind::Function),
-                ));
+                )));
             } else if self.at(TokenKind::Type) {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Schema) {
@@ -293,9 +293,9 @@ impl<'a> Parser<'a> {
             } else if self.at(TokenKind::Codec) {
                 self.parse_removed_codec_decl();
             } else if self.at(TokenKind::Test) {
-                items.push(SyntaxItem::Function(
+                items.push(SyntaxItem::Function(Box::new(
                     self.parse_function_like(FunctionKind::Test),
-                ));
+                )));
             } else {
                 self.error_current(
                     "parse.expected_item",

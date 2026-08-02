@@ -39,7 +39,7 @@ pub struct UsePackage {
 
 #[derive(Clone, Debug)]
 pub enum SyntaxItem {
-    Function(FunctionDecl),
+    Function(Box<FunctionDecl>),
     Effect(EffectDecl),
     Handler(HandlerDecl),
     Type(TypeDecl),
