@@ -1,0 +1,36 @@
+use http2::connection from "std"
+use http2::core from "std"
+use stdio
+
+fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	let _ = http2::core::application_event_stream_id(event)
+	Err("callback rejected request")
+end
+
+fn print_result(result: Result<(), Http2ServiceFailure>) -> Result<(), String> effects [stdio]
+	match result
+		Ok(_) => print_ok()
+		Err(failure) => print_failure(failure)
+	end
+end
+
+fn print_ok() -> Result<(), String> effects [stdio]
+	stdio::println("ok")
+	Ok(())
+end
+
+fn print_failure(failure: Http2ServiceFailure) -> Result<(), String> effects [stdio]
+	stdio::print(http2::connection::service_failure_kind(failure))
+	stdio::print(" ")
+	stdio::print(http2::connection::service_failure_id(failure))
+	stdio::print(" accepted ")
+	stdio::print(int_to_string(http2::connection::service_failure_accepted(failure)))
+	stdio::print(" reason ")
+	stdio::println(http2::connection::service_failure_reason(failure))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	print_result(http2::connection::serve_tcp(listener, handler))
+end

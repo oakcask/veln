@@ -24,18 +24,38 @@ pub fn pure_driver_requires_transport(state: CoreConnectionState) -> Result<Core
 	http2::connection::drive_server_application(state, pure_handler)
 end
 
+pub fn pure_service_requires_transport() -> Result<(), Http2ServiceFailure>
+	http2::connection::serve_connection(pure_handler)
+end
+
 pub fn db_driver_requires_transport_and_db(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
 	http2::connection::drive_server_application(state, db_handler)
+end
+
+pub fn db_service_requires_transport_and_db() -> Result<(), Http2ServiceFailure>
+	http2::connection::serve_connection(db_handler)
 end
 
 pub fn tcp_driver_requires_db(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net]
 	handle http2::connection::drive_server_application(state, db_handler) with transport::net::net_stream(stream)
 end
 
+pub fn tcp_service_requires_db(stream: NetStream) -> Result<(), Http2ServiceFailure> effects [net]
+	handle http2::connection::serve_connection(db_handler) with transport::net::net_stream(stream)
+end
+
 pub fn declared_db_driver(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [transport::DuplexStream, db]
 	http2::connection::drive_server_application(state, db_handler)
 end
 
+pub fn declared_db_service() -> Result<(), Http2ServiceFailure> effects [transport::DuplexStream, db]
+	http2::connection::serve_connection(db_handler)
+end
+
 pub fn declared_tcp_driver(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net, db]
 	handle http2::connection::drive_server_application(state, db_handler) with transport::net::net_stream(stream)
+end
+
+pub fn declared_tcp_service(stream: NetStream) -> Result<(), Http2ServiceFailure> effects [net, db]
+	handle http2::connection::serve_connection(db_handler) with transport::net::net_stream(stream)
 end
