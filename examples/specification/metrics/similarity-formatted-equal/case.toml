@@ -1,0 +1,40 @@
+command = ["metrics", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.similarity_fingerprint_count"
+equals = 3
+
+[[json_assert]]
+path = "summary.similarity_instance_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.similarity_region_count"
+equals = 2
+
+[[json_assert]]
+path = "similarities.0.experimental"
+equals = true
+
+[[json_assert]]
+path = "similarities.0.token_count"
+equals = 10
+
+[[json_assert]]
+path = "similarities.0.declarations.0.identity"
+equals = "app.veln::first"
+
+[[json_assert]]
+path = "similarities.0.declarations.1.identity"
+equals = "app.veln::second"
+
+[[json_assert]]
+path = "similarities.0.declarations.2.identity"
+missing = true

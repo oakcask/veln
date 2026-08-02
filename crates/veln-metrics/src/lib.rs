@@ -6,14 +6,16 @@ use std::path::PathBuf;
 use veln_analysis::{derive_source_module_path, load_surface_module};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo, parse_json_value};
 use veln_project::{Project, ProjectManifest, discover_source_paths};
-use veln_source::{SourceFile, SourceSpan};
+use veln_source::{SourceFile, SourceSpan, TextRange};
 use veln_syntax::{
-    BinaryOp, BodyLine, Expr, ExprKind, FunctionDecl, FunctionKind, SyntaxItem, parse,
+    BinaryOp, BodyLine, Expr, ExprKind, FunctionDecl, FunctionKind, SyntaxItem, Token, TokenKind,
+    lex, parse,
 };
 
 pub const JSON_SCHEMA_VERSION: &str = "veln-metrics-json/v0";
 pub const BASELINE_SCHEMA_VERSION: &str = "veln-metrics-baseline/v0";
 pub const METRIC_MODEL_VERSION: &str = "veln-metrics-model/v0";
+pub const DEFAULT_SIMILARITY_MIN_TOKENS: usize = 60;
 
 #[derive(Clone, Debug)]
 pub struct MetricsReport {
@@ -22,6 +24,7 @@ pub struct MetricsReport {
     pub edges: Vec<DependencyEdge>,
     pub cycles: Vec<DependencyCycle>,
     pub abc_subjects: Vec<AbcSubjectMetric>,
+    pub similarities: Vec<SimilarityInstanceMetric>,
     pub summary: MetricsSummary,
 }
 
@@ -42,6 +45,12 @@ impl MetricsCheckReport {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MetricsPolicy {
     pub deny_cycles: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MetricsConfig {
+    pub policy: MetricsPolicy,
+    pub similarity_min_tokens: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -125,6 +134,26 @@ pub struct AbcSubjectMetric {
     pub span: SourceSpan,
 }
 
+#[derive(Clone, Debug)]
+pub struct SimilarityInstanceMetric {
+    pub identity: String,
+    pub fingerprint: String,
+    pub token_count: usize,
+    pub experimental: bool,
+    pub declarations: Vec<SimilarityDeclarationMetric>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SimilarityDeclarationMetric {
+    pub identity: String,
+    pub path: String,
+    pub name: String,
+    pub kind: AbcSubjectKind,
+    pub generated: bool,
+    pub span: SourceSpan,
+    pub body_span: SourceSpan,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AbcSubjectKind {
     Function,
@@ -165,6 +194,9 @@ pub struct MetricsSummary {
     pub external_dependency_count: usize,
     pub abc_subject_count: usize,
     pub abc_contract_subject_count: usize,
+    pub similarity_fingerprint_count: usize,
+    pub similarity_instance_count: usize,
+    pub similarity_region_count: usize,
 }
 
 pub fn analyze_project_metrics(
@@ -176,7 +208,8 @@ pub fn analyze_project_metrics(
             "source discovery failed: {error}"
         ))]
     })?;
-    analyze_project_metrics_from_project(root, inputs, full_project)
+    let config = read_metrics_config(full_project.manifest.as_ref())?;
+    analyze_project_metrics_from_project(root, inputs, full_project, config)
 }
 
 pub fn check_project_metrics(
@@ -188,7 +221,8 @@ pub fn check_project_metrics(
             "source discovery failed: {error}"
         ))]
     })?;
-    let policy = read_metrics_policy(full_project.manifest.as_ref())?;
+    let config = read_metrics_config(full_project.manifest.as_ref())?;
+    let policy = config.policy;
     if !policy.deny_cycles {
         return Err(vec![metrics_policy_diagnostic(
             "metrics.policy.no_enabled",
@@ -197,7 +231,7 @@ pub fn check_project_metrics(
             JsonValue::object([("policy", JsonValue::string("none"))]),
         )]);
     }
-    let report = analyze_project_metrics_from_project(root, inputs, full_project)?;
+    let report = analyze_project_metrics_from_project(root, inputs, full_project, config)?;
     Ok(evaluate_metrics_check(report, policy))
 }
 
@@ -212,7 +246,8 @@ pub fn check_project_metrics_with_baseline(
             "source discovery failed: {error}"
         ))]
     })?;
-    let policy = read_metrics_policy(full_project.manifest.as_ref())?;
+    let config = read_metrics_config(full_project.manifest.as_ref())?;
+    let policy = config.policy;
     if !policy.deny_cycles {
         return Err(vec![metrics_policy_diagnostic(
             "metrics.policy.no_enabled",
@@ -221,7 +256,7 @@ pub fn check_project_metrics_with_baseline(
             JsonValue::object([("policy", JsonValue::string("none"))]),
         )]);
     }
-    let report = analyze_project_metrics_from_project(root, inputs, full_project)?;
+    let report = analyze_project_metrics_from_project(root, inputs, full_project, config)?;
     Ok(evaluate_metrics_check_with_baseline(
         report,
         policy,
@@ -234,6 +269,7 @@ fn analyze_project_metrics_from_project(
     root: PathBuf,
     inputs: &[PathBuf],
     full_project: Project,
+    config: MetricsConfig,
 ) -> Result<MetricsReport, Vec<Diagnostic>> {
     let project = project_owned_sources(full_project);
     let source_diagnostics = source_graph_diagnostics(&project);
@@ -260,27 +296,31 @@ fn analyze_project_metrics_from_project(
             selected_paths: selected_paths.iter().cloned().collect(),
         },
         &selected_paths,
+        config,
     ))
 }
 
-fn read_metrics_policy(
+fn read_metrics_config(
     manifest: Option<&ProjectManifest>,
-) -> Result<MetricsPolicy, Vec<Diagnostic>> {
-    let mut policy = MetricsPolicy { deny_cycles: false };
+) -> Result<MetricsConfig, Vec<Diagnostic>> {
+    let mut config = MetricsConfig {
+        policy: MetricsPolicy { deny_cycles: false },
+        similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
+    };
     let Some(tool) = manifest
         .into_iter()
         .flat_map(|manifest| &manifest.tools)
         .find(|tool| tool.name == "metrics")
     else {
-        return Ok(policy);
+        return Ok(config);
     };
 
     let mut diagnostics = Vec::new();
     for field in &tool.fields {
         match field.key.as_str() {
             "deny_cycles" => match field.value.as_str() {
-                "true" => policy.deny_cycles = true,
-                "false" => policy.deny_cycles = false,
+                "true" => config.policy.deny_cycles = true,
+                "false" => config.policy.deny_cycles = false,
                 value => diagnostics.push(metrics_policy_diagnostic(
                     "metrics.policy.invalid_value",
                     format!("invalid metrics policy value `{value}` for `deny_cycles`"),
@@ -297,6 +337,21 @@ fn read_metrics_policy(
                     ]),
                 )),
             },
+            "similarity_min_tokens" => match field.value.parse::<usize>() {
+                Ok(value) if value > 0 => config.similarity_min_tokens = value,
+                _ => diagnostics.push(metrics_policy_diagnostic(
+                    "metrics.policy.invalid_value",
+                    format!(
+                        "invalid metrics policy value `{}` for `similarity_min_tokens`",
+                        field.value
+                    ),
+                    Some(field.value_span.clone()),
+                    JsonValue::object([
+                        ("field", JsonValue::string("similarity_min_tokens")),
+                        ("allowed", JsonValue::string("positive integer string")),
+                    ]),
+                )),
+            },
             _ => diagnostics.push(metrics_policy_diagnostic(
                 "metrics.policy.unsupported_field",
                 format!("unsupported metrics policy field `{}`", field.key),
@@ -310,10 +365,17 @@ fn read_metrics_policy(
     }
 
     if diagnostics.is_empty() {
-        Ok(policy)
+        Ok(config)
     } else {
         Err(diagnostics)
     }
+}
+
+#[cfg(test)]
+fn read_metrics_policy(
+    manifest: Option<&ProjectManifest>,
+) -> Result<MetricsPolicy, Vec<Diagnostic>> {
+    read_metrics_config(manifest).map(|config| config.policy)
 }
 
 fn evaluate_metrics_check(report: MetricsReport, policy: MetricsPolicy) -> MetricsCheckReport {
@@ -598,6 +660,7 @@ impl DependencyGraph {
         source_project: &Project,
         project: ProjectIdentity,
         selected_paths: &BTreeSet<String>,
+        config: MetricsConfig,
     ) -> MetricsReport {
         let selected_modules = self
             .nodes
@@ -636,6 +699,12 @@ impl DependencyGraph {
             .sum();
         let abc_subjects = abc_subjects(source_project, selected_paths);
         let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
+        let (similarities, similarity_fingerprint_count) =
+            similarity_instances(source_project, selected_paths, config.similarity_min_tokens);
+        let similarity_region_count = similarities
+            .iter()
+            .map(|instance| instance.declarations.len())
+            .sum();
         let summary = MetricsSummary {
             selected_module_count: modules.len(),
             project_module_count: self.nodes.len(),
@@ -644,6 +713,9 @@ impl DependencyGraph {
             external_dependency_count,
             abc_subject_count: abc_subjects.len(),
             abc_contract_subject_count,
+            similarity_fingerprint_count,
+            similarity_instance_count: similarities.len(),
+            similarity_region_count,
         };
         MetricsReport {
             project,
@@ -651,6 +723,7 @@ impl DependencyGraph {
             edges,
             cycles,
             abc_subjects,
+            similarities,
             summary,
         }
     }
@@ -736,6 +809,231 @@ impl DependencyGraph {
         path.pop();
         false
     }
+}
+
+#[derive(Clone, Debug)]
+struct SimilarityCandidate {
+    declaration: SimilarityDeclarationMetric,
+    tokens: Vec<NormalizedToken>,
+    fingerprint: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct NormalizedToken {
+    kind: TokenKind,
+    text: String,
+}
+
+fn similarity_instances(
+    project: &Project,
+    selected_paths: &BTreeSet<String>,
+    min_tokens: usize,
+) -> (Vec<SimilarityInstanceMetric>, usize) {
+    let candidates = similarity_candidates(project, selected_paths)
+        .into_iter()
+        .filter(|candidate| candidate.tokens.len() >= min_tokens)
+        .collect::<Vec<_>>();
+    let fingerprint_count = candidates.len();
+    (
+        similarity_instances_from_candidates(candidates),
+        fingerprint_count,
+    )
+}
+
+fn similarity_instances_from_candidates(
+    candidates: Vec<SimilarityCandidate>,
+) -> Vec<SimilarityInstanceMetric> {
+    let mut by_fingerprint = BTreeMap::<String, Vec<SimilarityCandidate>>::new();
+    for candidate in candidates {
+        by_fingerprint
+            .entry(candidate.fingerprint.clone())
+            .or_default()
+            .push(candidate);
+    }
+
+    let mut instances = Vec::new();
+    for candidates in by_fingerprint.into_values() {
+        let mut by_tokens = Vec::<Vec<SimilarityCandidate>>::new();
+        for candidate in candidates {
+            if let Some(group) = by_tokens.iter_mut().find(|group| {
+                group
+                    .first()
+                    .is_some_and(|first| first.tokens == candidate.tokens)
+            }) {
+                group.push(candidate);
+            } else {
+                by_tokens.push(vec![candidate]);
+            }
+        }
+        for mut group in by_tokens {
+            if group.len() < 2 {
+                continue;
+            }
+            group.sort_by(compare_similarity_candidates);
+            let fingerprint = group[0].fingerprint.clone();
+            let token_count = group[0].tokens.len();
+            let declarations = group
+                .into_iter()
+                .map(|candidate| candidate.declaration)
+                .collect::<Vec<_>>();
+            instances.push(SimilarityInstanceMetric {
+                identity: format!("similarity:{fingerprint}"),
+                fingerprint,
+                token_count,
+                experimental: true,
+                declarations,
+            });
+        }
+    }
+    instances.sort_by(compare_similarity_instances);
+    instances
+}
+
+fn similarity_candidates(
+    project: &Project,
+    selected_paths: &BTreeSet<String>,
+) -> Vec<SimilarityCandidate> {
+    let mut candidates = Vec::new();
+    for source in &project.files {
+        let path = source.path().as_str().to_string();
+        if !selected_paths.contains(&path) || is_generated_or_doctest_path(&path) {
+            continue;
+        }
+        let parsed = parse(source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        let lexed = lex(source);
+        for item in parsed.tree.items {
+            let SyntaxItem::Function(function) = item else {
+                continue;
+            };
+            let Some(body_range) = function_body_range(&function) else {
+                continue;
+            };
+            let tokens = normalized_body_tokens(&lexed.tokens, body_range);
+            if tokens.is_empty() {
+                continue;
+            }
+            let declaration = similarity_declaration(source, &path, &function, body_range);
+            let fingerprint = similarity_fingerprint(&tokens);
+            candidates.push(SimilarityCandidate {
+                declaration,
+                tokens,
+                fingerprint,
+            });
+        }
+    }
+    candidates
+}
+
+fn function_body_range(function: &FunctionDecl) -> Option<TextRange> {
+    function
+        .body
+        .iter()
+        .map(body_line_range)
+        .reduce(TextRange::cover)
+}
+
+fn body_line_range(line: &BodyLine) -> TextRange {
+    let span = match line {
+        BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } => span,
+    };
+    TextRange::new(span.start.offset, span.end.offset)
+}
+
+fn normalized_body_tokens(tokens: &[Token], range: TextRange) -> Vec<NormalizedToken> {
+    tokens
+        .iter()
+        .filter(|token| token.range.start >= range.start && token.range.end <= range.end)
+        .filter(|token| {
+            !matches!(
+                token.kind,
+                TokenKind::Whitespace | TokenKind::Comment | TokenKind::Newline | TokenKind::Eof
+            )
+        })
+        .map(|token| NormalizedToken {
+            kind: token.kind,
+            text: token.text.clone(),
+        })
+        .collect()
+}
+
+fn similarity_declaration(
+    source: &SourceFile,
+    path: &str,
+    function: &FunctionDecl,
+    body_range: TextRange,
+) -> SimilarityDeclarationMetric {
+    let kind = match function.kind {
+        FunctionKind::Function => AbcSubjectKind::Function,
+        FunctionKind::Test => AbcSubjectKind::Test,
+    };
+    let name = function
+        .name
+        .clone()
+        .unwrap_or_else(|| "<anonymous>".to_string());
+    SimilarityDeclarationMetric {
+        identity: format!("{path}::{name}"),
+        path: path.to_string(),
+        name,
+        kind,
+        generated: false,
+        span: source.span(TextRange::new(
+            function.span.start.offset,
+            function.span.end.offset,
+        )),
+        body_span: source.span(body_range),
+    }
+}
+
+fn similarity_fingerprint(tokens: &[NormalizedToken]) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for token in tokens {
+        hash = fnv1a(hash, &[token.kind as u8]);
+        hash = fnv1a(hash, &[0]);
+        hash = fnv1a(hash, token.text.as_bytes());
+        hash = fnv1a(hash, &[0xff]);
+    }
+    format!("{hash:016x}")
+}
+
+fn fnv1a(mut hash: u64, bytes: &[u8]) -> u64 {
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+fn compare_similarity_candidates(
+    left: &SimilarityCandidate,
+    right: &SimilarityCandidate,
+) -> std::cmp::Ordering {
+    compare_similarity_declarations(&left.declaration, &right.declaration)
+}
+
+fn compare_similarity_declarations(
+    left: &SimilarityDeclarationMetric,
+    right: &SimilarityDeclarationMetric,
+) -> std::cmp::Ordering {
+    left.path
+        .cmp(&right.path)
+        .then_with(|| left.span.start.offset.cmp(&right.span.start.offset))
+        .then_with(|| left.kind.as_str().cmp(right.kind.as_str()))
+}
+
+fn compare_similarity_instances(
+    left: &SimilarityInstanceMetric,
+    right: &SimilarityInstanceMetric,
+) -> std::cmp::Ordering {
+    right
+        .token_count
+        .cmp(&left.token_count)
+        .then_with(|| {
+            compare_similarity_declarations(&left.declarations[0], &right.declarations[0])
+        })
+        .then_with(|| left.fingerprint.cmp(&right.fingerprint))
 }
 
 fn abc_subjects(project: &Project, selected_paths: &BTreeSet<String>) -> Vec<AbcSubjectMetric> {
@@ -1014,14 +1312,17 @@ pub fn render_human(report: &MetricsReport) -> String {
     let mut out = String::new();
     out.push_str("Veln dependency metrics (advisory)\n");
     out.push_str(&format!(
-        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}\n\n",
+        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}, similarity fingerprints: {}, similarity instances: {}, similarity regions: {}\n\n",
         report.summary.project_module_count,
         report.summary.selected_module_count,
         report.summary.internal_edge_count,
         report.summary.cycle_count,
         report.summary.external_dependency_count,
         report.summary.abc_subject_count,
-        report.summary.abc_contract_subject_count
+        report.summary.abc_contract_subject_count,
+        report.summary.similarity_fingerprint_count,
+        report.summary.similarity_instance_count,
+        report.summary.similarity_region_count
     ));
     out.push_str("Modules\n");
     if report.modules.is_empty() {
@@ -1067,6 +1368,21 @@ pub fn render_human(report: &MetricsReport) -> String {
                 subject.vector.conditionals,
                 subject.contracts_included
             ));
+        }
+    }
+    out.push_str("\nWhole-body similarity (experimental)\n");
+    if report.similarities.is_empty() {
+        out.push_str("  none\n");
+    } else {
+        for instance in &report.similarities {
+            let primary = &instance.declarations[0];
+            out.push_str(&format!(
+                "  {} token_count={} fingerprint={} primary={}\n",
+                instance.identity, instance.token_count, instance.fingerprint, primary.identity
+            ));
+            for declaration in instance.declarations.iter().skip(1) {
+                out.push_str(&format!("    related: {}\n", declaration.identity));
+            }
         }
     }
     out
@@ -1198,6 +1514,10 @@ fn metrics_report_json_entries(
         (
             "abc_subjects",
             JsonValue::array(report.abc_subjects.iter().map(abc_subject_to_json)),
+        ),
+        (
+            "similarities",
+            JsonValue::array(report.similarities.iter().map(similarity_to_json)),
         ),
         ("summary", summary_to_json(&report.summary)),
     ];
@@ -1381,6 +1701,42 @@ fn abc_subject_to_json(subject: &AbcSubjectMetric) -> JsonValue {
     ])
 }
 
+fn similarity_to_json(instance: &SimilarityInstanceMetric) -> JsonValue {
+    JsonValue::object([
+        ("identity", JsonValue::string(instance.identity.clone())),
+        (
+            "fingerprint",
+            JsonValue::string(instance.fingerprint.clone()),
+        ),
+        (
+            "token_count",
+            JsonValue::Number(instance.token_count as i64),
+        ),
+        ("experimental", JsonValue::Bool(instance.experimental)),
+        (
+            "declarations",
+            JsonValue::array(
+                instance
+                    .declarations
+                    .iter()
+                    .map(similarity_declaration_to_json),
+            ),
+        ),
+    ])
+}
+
+fn similarity_declaration_to_json(declaration: &SimilarityDeclarationMetric) -> JsonValue {
+    JsonValue::object([
+        ("identity", JsonValue::string(declaration.identity.clone())),
+        ("path", JsonValue::string(declaration.path.clone())),
+        ("name", JsonValue::string(declaration.name.clone())),
+        ("kind", JsonValue::string(declaration.kind.as_str())),
+        ("generated", JsonValue::Bool(declaration.generated)),
+        ("span", span_to_json(&declaration.span)),
+        ("body_span", span_to_json(&declaration.body_span)),
+    ])
+}
+
 fn summary_to_json(summary: &MetricsSummary) -> JsonValue {
     JsonValue::object([
         (
@@ -1407,6 +1763,18 @@ fn summary_to_json(summary: &MetricsSummary) -> JsonValue {
         (
             "abc_contract_subject_count",
             JsonValue::Number(summary.abc_contract_subject_count as i64),
+        ),
+        (
+            "similarity_fingerprint_count",
+            JsonValue::Number(summary.similarity_fingerprint_count as i64),
+        ),
+        (
+            "similarity_instance_count",
+            JsonValue::Number(summary.similarity_instance_count as i64),
+        ),
+        (
+            "similarity_region_count",
+            JsonValue::Number(summary.similarity_region_count as i64),
         ),
     ])
 }
@@ -1606,6 +1974,7 @@ mod tests {
                 selected_paths: Vec::new(),
             },
             &selected,
+            default_metrics_config(),
         );
 
         assert_eq!(report.summary.internal_edge_count, 3);
@@ -1788,6 +2157,7 @@ mod tests {
                 selected_paths: vec!["app.veln".to_string()],
             },
             &selected,
+            default_metrics_config(),
         );
         let human = render_human(&report);
 
@@ -1874,6 +2244,7 @@ mod tests {
                     selected_paths: vec!["app.veln".to_string(), "util.veln".to_string()],
                 },
                 &selected,
+                default_metrics_config(),
             );
 
             let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
@@ -1968,6 +2339,7 @@ mod tests {
                     selected_paths: selected.iter().cloned().collect(),
                 },
                 &selected,
+                default_metrics_config(),
             );
 
             let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
@@ -2157,6 +2529,114 @@ mod tests {
         );
     }
 
+    #[test]
+    fn normalizes_whitespace_comments_and_formatting_but_preserves_identifiers_and_literals() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn first() -> Int\n  # ignored\n  let value = add(1, 2)\n  value\nend\n\nfn second() -> Int\n  let value=add(\n    1,\n    2\n  )\n  value\nend\n\nfn renamed() -> Int\n  let other = add(1, 2)\n  other\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let (instances, fingerprint_count) = similarity_instances(&project, &selected, 8);
+
+        assert_eq!(fingerprint_count, 3);
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].declarations.len(), 2);
+        assert_eq!(instances[0].token_count, 10);
+        assert_eq!(instances[0].declarations[0].identity, "app.veln::first");
+        assert_eq!(instances[0].declarations[1].identity, "app.veln::second");
+    }
+
+    #[test]
+    fn groups_only_complete_bodies_at_the_minimum_token_boundary() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn left() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn right() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn partial() -> Int\n  let value = add(1, 2)\n  value + 1\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+
+        assert_eq!(similarity_instances(&project, &selected, 10).0.len(), 1);
+        assert_eq!(similarity_instances(&project, &selected, 11).0.len(), 0);
+    }
+
+    #[test]
+    fn verifies_tokens_after_fingerprint_matches() {
+        let candidates = vec![
+            similarity_candidate(
+                "a.veln",
+                "first",
+                "same",
+                vec![("Let", "let"), ("Ident", "a")],
+            ),
+            similarity_candidate(
+                "b.veln",
+                "second",
+                "same",
+                vec![("Let", "let"), ("Ident", "b")],
+            ),
+            similarity_candidate(
+                "c.veln",
+                "third",
+                "same",
+                vec![("Let", "let"), ("Ident", "a")],
+            ),
+        ];
+        let instances = similarity_instances_from_candidates(candidates);
+
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].declarations.len(), 2);
+        assert_eq!(instances[0].declarations[0].identity, "a.veln::first");
+        assert_eq!(instances[0].declarations[1].identity, "c.veln::third");
+    }
+
+    #[test]
+    fn orders_similarity_instances_and_respects_structural_bounds() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "z.veln",
+                    "fn zed() -> Int\n  let value = add(1, 2)\n  value\nend\n",
+                ),
+                SourceFile::new(
+                    "a.veln",
+                    "fn alpha() -> Int\n  let value = add(1, 2)\n  value\nend\n\nfn beta() -> Int\n  let other = add(3, 4)\n  let next = add(other, 5)\n  next\nend\n",
+                ),
+                SourceFile::new(
+                    "b.veln",
+                    "fn gamma() -> Int\n  let other = add(3, 4)\n  let next = add(other, 5)\n  next\nend\n",
+                ),
+            ],
+        };
+        let selected = [
+            "a.veln".to_string(),
+            "b.veln".to_string(),
+            "z.veln".to_string(),
+        ]
+        .into_iter()
+        .collect();
+        let (instances, fingerprint_count) = similarity_instances(&project, &selected, 8);
+        let region_count = instances
+            .iter()
+            .map(|instance| instance.declarations.len())
+            .sum::<usize>();
+
+        assert_eq!(fingerprint_count, 4);
+        assert_eq!(instances.len(), 2);
+        assert_eq!(instances[0].declarations[0].identity, "a.veln::beta");
+        assert_eq!(instances[1].declarations[0].identity, "a.veln::alpha");
+        assert!(region_count <= fingerprint_count);
+        assert!(instances.len() <= fingerprint_count / 2);
+    }
+
     fn first_function_vector(source: &str) -> AbcVector {
         let source = SourceFile::new("case.veln", source);
         let parsed = parse(&source);
@@ -2171,6 +2651,45 @@ mod tests {
             })
             .expect("function");
         abc_vector(&function)
+    }
+
+    fn default_metrics_config() -> MetricsConfig {
+        MetricsConfig {
+            policy: MetricsPolicy { deny_cycles: false },
+            similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
+        }
+    }
+
+    fn similarity_candidate(
+        path: &str,
+        name: &str,
+        fingerprint: &str,
+        tokens: Vec<(&str, &str)>,
+    ) -> SimilarityCandidate {
+        let source = SourceFile::new(path, "");
+        SimilarityCandidate {
+            declaration: SimilarityDeclarationMetric {
+                identity: format!("{path}::{name}"),
+                path: path.to_string(),
+                name: name.to_string(),
+                kind: AbcSubjectKind::Function,
+                generated: false,
+                span: source.span(TextRange::new(0, 0)),
+                body_span: source.span(TextRange::new(0, 0)),
+            },
+            tokens: tokens
+                .into_iter()
+                .map(|(kind, text)| NormalizedToken {
+                    kind: match kind {
+                        "Let" => TokenKind::Let,
+                        "Ident" => TokenKind::Ident,
+                        _ => TokenKind::Invalid,
+                    },
+                    text: text.to_string(),
+                })
+                .collect(),
+            fingerprint: fingerprint.to_string(),
+        }
     }
 
     fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
@@ -2226,6 +2745,7 @@ mod tests {
                 selected_paths: selected.iter().cloned().collect(),
             },
             &selected,
+            default_metrics_config(),
         )
     }
 

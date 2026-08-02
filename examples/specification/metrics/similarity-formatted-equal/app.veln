@@ -1,0 +1,22 @@
+fn add(left: Int, right: Int) -> Int
+  left + right
+end
+
+fn first() -> Int
+  # comments and layout do not affect similarity
+  let value = add(1, 2)
+  value
+end
+
+fn second() -> Int
+  let value=add(
+    1,
+    2
+  )
+  value
+end
+
+fn renamed() -> Int
+  let other = add(1, 2)
+  other
+end
