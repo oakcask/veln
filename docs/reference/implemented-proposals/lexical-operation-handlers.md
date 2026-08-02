@@ -65,7 +65,7 @@ The executable specification covers the externally visible behavior:
 | `run/lexical-handler-context-evaluation` | Context arguments evaluate once before the handled body. |
 | `run/lexical-handler-early-return-cleanup` | An inner handler is removed when `?` returns early from the function that installed it. |
 | `run/lexical-handler-unhandled-entry` | Runnable entry boundaries reject retained user-defined effects. |
-| `check/lexical-handler-task-boundary` | Spawned jobs do not inherit an installed handler. |
+| `check/lexical-handler-task-boundary` | A lexical handler around a task creation expression can discharge the task call's exposed job effect row. |
 | `test/lexical-handler-success` | `veln test` runs a test whose retained operation effect is fully handled. |
 
 The source grammar and accepted surface fixture are checked by

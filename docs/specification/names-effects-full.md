@@ -174,13 +174,13 @@ context argument effects, body effects with the handled nominal effect removed,
 and the handler declaration effects. Handler context arguments are evaluated
 left to right before the body. Handling is deep for calls made during the body,
 and nested handlers for the same operation shadow outer handlers until the
-nested body finishes. Handler state is lexical to the current task; task
-spawns require their callback effect boundary explicitly and do not inherit
-the active handler stack. A runnable entry still rejects any user-defined
-effect that remains after lexical handling. The checked behavior is specified
-by the lexical-handler and handler-operation cases under
-`examples/specification/`, including the early-return cleanup and
-public handler effect-declaration cases and the `veln test` success case.
+nested body finishes. Handler state is lexical to the current task. Task
+creation expressions expose their job effect rows at the call expression, so a
+lexical handler around the task creation expression can discharge a handled
+nominal job effect before the runnable entry boundary is checked. The checked
+behavior is specified by the lexical-handler and handler-operation cases under
+`examples/specification/`, including the task-boundary, early-return cleanup,
+public handler effect-declaration, and `veln test` success cases.
 
 The exported standard `transport` module declares this public nominal effect:
 
