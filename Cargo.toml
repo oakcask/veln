@@ -11,6 +11,7 @@ members = [
     "crates/veln-ir",
     "crates/veln-literals",
     "crates/veln-lsp",
+    "crates/veln-metrics",
     "crates/veln-project",
     "crates/veln-sema",
     "crates/veln-source",
@@ -38,6 +39,7 @@ veln-editor = { path = "crates/veln-editor" }
 veln-ir = { path = "crates/veln-ir" }
 veln-literals = { path = "crates/veln-literals" }
 veln-lsp = { path = "crates/veln-lsp" }
+veln-metrics = { path = "crates/veln-metrics" }
 veln-project = { path = "crates/veln-project" }
 veln-sema = { path = "crates/veln-sema" }
 veln-source = { path = "crates/veln-source" }

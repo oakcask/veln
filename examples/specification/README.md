@@ -15,7 +15,7 @@ against the built `veln` binary.
   observable through source, diagnostics, command output, JSON, formatter
   output, generated docs, runtime output, LSP JSON-RPC, tests, or repair output.
 - Keep case names grouped by command surface: `check`, `doc`, `fmt`,
-  `explain`, `lsp`, `run`, `test`, `repair`, and `package`.
+  `explain`, `lsp`, `metrics`, `run`, `test`, `repair`, and `package`.
 - Put expected observable behavior in `case.toml`; keep `.veln` files readable
   as examples of the language feature.
 
@@ -26,6 +26,7 @@ against the built `veln` binary.
 - `fmt/`: deterministic source formatting and whole-invocation write gates.
 - `explain/`: diagnostic catalog lookup and command-line errors.
 - `lsp/`: editor JSON-RPC behavior exposed by the CLI.
+- `metrics/`: advisory source dependency metrics exposed by the CLI.
 - `run/`: executable entry points, runtime behavior, and runtime failures.
 - `test/`: discovered tests, doctests, captured stdio, and test JSON behavior.
 - `repair/`: advisory repair preview and repair JSON behavior.

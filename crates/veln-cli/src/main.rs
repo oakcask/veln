@@ -24,6 +24,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         Command::Check { json, inputs } => commands::check::check(json, inputs),
         Command::Doc { inputs } => commands::doc::doc(inputs),
         Command::Fmt { inputs } => commands::fmt::fmt(inputs),
+        Command::Metrics { json, inputs } => commands::metrics::metrics(json, inputs),
         Command::Run {
             json,
             entry,

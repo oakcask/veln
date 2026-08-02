@@ -35,9 +35,9 @@ also states it.
 ### Toolchain Quality
 
 - [Built-In Code Metrics](built-in-code-metrics.md): report and optionally
-  enforce Veln-aware dependency-cycle policy while keeping ABC size,
-  dependency pressure, and exact whole-body similarity advisory until they
-  have project acceptance evidence.
+  enforce ABC size, dependency-cycle policy, dependency pressure, and exact
+  whole-body similarity beyond the implemented report-only dependency graph
+  slice.
 
 ## Selection Rule
 

@@ -1,0 +1,6 @@
+use util
+use exported from "example/pkg"
+
+fn main() -> ()
+  ()
+end

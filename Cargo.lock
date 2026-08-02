@@ -269,6 +269,7 @@ dependencies = [
  "veln-diagnostics",
  "veln-ir",
  "veln-lsp",
+ "veln-metrics",
  "veln-project",
  "veln-sema",
  "veln-source",
@@ -333,6 +334,18 @@ dependencies = [
  "veln-project",
  "veln-sema",
  "veln-source",
+ "veln-syntax",
+]
+
+[[package]]
+name = "veln-metrics"
+version = "0.1.0"
+dependencies = [
+ "veln-analysis",
+ "veln-diagnostics",
+ "veln-project",
+ "veln-source",
+ "veln-stdlib",
  "veln-syntax",
 ]
 

@@ -1,0 +1,16 @@
+[package]
+name = "veln-metrics"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-analysis.workspace = true
+veln-diagnostics.workspace = true
+veln-project.workspace = true
+veln-source.workspace = true
+veln-stdlib.workspace = true
+veln-syntax.workspace = true
+
+[lints]
+workspace = true
