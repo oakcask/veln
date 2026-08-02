@@ -25,6 +25,7 @@ export function validateDocsLinks(docsRoot) {
 
   for (const file of markdownFiles) {
     const text = fs.readFileSync(file, "utf8");
+    errors.push(...validateProposalPageStatus({ docsRoot, file, text }));
     const links = localMarkdownLinks(stripMarkdownCode(text));
     for (const link of links) {
       const error = validateLocalLink({ docsRoot, fromFile: file, link });
@@ -47,6 +48,39 @@ export function validateDocsLinks(docsRoot) {
     errors,
     valid: errors.length === 0,
   };
+}
+
+function validateProposalPageStatus({ docsRoot, file, text }) {
+  const relativeFrom = path.relative(docsRoot, file);
+  if (
+    path.dirname(relativeFrom) !== "proposals" ||
+    path.basename(relativeFrom) === "README.md"
+  ) {
+    return [];
+  }
+
+  const matches = [
+    ...stripMarkdownCode(text).matchAll(/^Status:\s*(.*?)\s*$/gim),
+  ];
+  if (matches.length === 0) {
+    return [
+      `${relativeFrom}: add exactly one Status: proposed line; docs/proposals contains only active proposal pages`,
+    ];
+  }
+  if (matches.length > 1) {
+    return [
+      `${relativeFrom}:${lineNumberAt(text, matches[1].index)}: keep exactly one Status: proposed line so the proposal lifecycle is unambiguous`,
+    ];
+  }
+
+  const status = matches[0][1].trim().toLowerCase();
+  if (status !== "proposed") {
+    return [
+      `${relativeFrom}:${lineNumberAt(text, matches[0].index)}: move or remove this Status: ${status} page; docs/proposals contains only active proposals with Status: proposed`,
+    ];
+  }
+
+  return [];
 }
 
 function validateLocalLink({ docsRoot, fromFile, link }) {

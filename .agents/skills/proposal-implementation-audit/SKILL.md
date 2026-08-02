@@ -50,10 +50,13 @@ grammar.
 9. For fully completed proposals, move the historical record to
    `docs/reference/implemented-proposals/` and update that directory's
    `README.md`. Remove it from the proposals catalog.
-10. For partially completed proposals, keep only the unimplemented remainder in
+10. For rejected, superseded, or otherwise closed proposals, remove the page
+    from `docs/proposals/` and its catalog. Preserve useful rationale in the
+    matching `docs/reference/` area instead of keeping a closed proposal route.
+11. For partially completed proposals, keep only the unimplemented remainder in
    `docs/proposals/`; rewrite the page and catalog entry so they clearly name
    the remaining planned work.
-11. Before finishing, search for stale proposal-only wording around the changed
+12. Before finishing, search for stale proposal-only wording around the changed
    feature and make sure current-behavior claims point to `docs/specification/`
    or checked examples instead of proposal text.
 
@@ -91,6 +94,8 @@ grammar.
 - `docs/proposals/README.md` no longer lists completed work as planned.
 - Completed proposal records live under
   `docs/reference/implemented-proposals/`, not under `docs/proposals/`.
+- Rejected, superseded, and otherwise closed proposal pages do not remain under
+  `docs/proposals/`.
 - Any proposal text left behind describes only unimplemented follow-up work.
 - Repeated slices are not left in a form that implies automatic continuation,
   such as adding the next numbered helper, route count, arity, primitive width,

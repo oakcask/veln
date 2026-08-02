@@ -2,10 +2,10 @@
 
 Status: routing
 
-The catalog in this directory contains only planned or incomplete work. Short
-closed routes may remain for stable links. Proposal text is not current
-language behavior unless the matching page under `../specification/` also
-states it.
+The catalog in this directory contains only planned or incomplete work. Every
+proposal page in this directory has `Status: proposed`. Proposal text is not
+current language behavior unless the matching page under `../specification/`
+also states it.
 
 ## Read First
 
@@ -15,17 +15,18 @@ states it.
 
 ## Catalog
 
+### Language Testing
+
+- [Companion Test Modules](companion-test-modules.md): add `.test.veln`
+  companion modules with non-transitive access to one target module's private
+  declarations while retaining `_test.veln` as the integration-test
+  convention.
+
 ### Toolchain Performance
 
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): eliminate
   duplicate project analysis in CLI integration cases and bound analysis
   growth for large standard-library module graphs.
-
-## Closed Routes
-
-- [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
-  rejected because no checked example requires handler-controlled suspension
-  or continuation disposition. The page routes to the durable source decision.
 
 ## Selection Rule
 
@@ -56,3 +57,6 @@ Promote observable behavior to executable evidence under
 `../../examples/specification/` first when practical, then update the smallest
 matching specification page. Move completed proposal history to
 `../reference/implemented-proposals/` and remove it from this catalog.
+Remove rejected, superseded, and otherwise closed proposals from this
+directory. Preserve durable rationale under `../reference/` when it remains
+useful.

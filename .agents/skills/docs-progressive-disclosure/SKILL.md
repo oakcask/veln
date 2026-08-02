@@ -35,7 +35,9 @@ Keep documentation discoverable without forcing agents to read long historical o
   history.
 - Use `docs/reference/implemented-proposals/` for completed proposal history
   and completion evidence, not current behavior.
-- Use `docs/proposals/` for proposed targets that are not fully implemented.
+- Use `docs/proposals/` only for `Status: proposed` targets that are not fully
+  implemented. Remove or relocate rejected, superseded, implemented, and
+  otherwise closed proposal pages.
 - Keep implementation gaps, verification evidence, and correction lists in the
   matching proposal or reference page.
 - When prose and executable evidence disagree, update the implementation,
