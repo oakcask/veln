@@ -1,3 +1,7 @@
+---
+review-when: A proposal is added, moved, reclassified, completed, or removed.
+---
+
 # Proposals
 
 Status: routing
@@ -27,6 +31,13 @@ also states it.
 - [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): eliminate
   duplicate project analysis in CLI integration cases and bound analysis
   growth for large standard-library module graphs.
+
+### Toolchain Quality
+
+- [Built-In Code Metrics](built-in-code-metrics.md): report and optionally
+  enforce Veln-aware dependency-cycle policy while keeping ABC size,
+  dependency pressure, and exact whole-body similarity advisory until they
+  have project acceptance evidence.
 
 ## Selection Rule
 
