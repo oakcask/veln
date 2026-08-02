@@ -1,3 +1,7 @@
+---
+review-when: A proposal is added, moved, reclassified, completed, or removed.
+---
+
 # Proposals
 
 Status: routing
@@ -31,8 +35,9 @@ also states it.
 ### Toolchain Quality
 
 - [Built-In Code Metrics](built-in-code-metrics.md): report and optionally
-  enforce Veln-aware function ABC, module dependency, and exact code-similarity
-  signals, with reviewed baselines for existing findings.
+  enforce Veln-aware dependency-cycle policy while keeping ABC size,
+  dependency pressure, and exact whole-body similarity advisory until they
+  have project acceptance evidence.
 
 ## Selection Rule
 
