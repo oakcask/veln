@@ -15,7 +15,11 @@ states it.
 
 ## Catalog
 
-No proposal is currently selectable.
+### Toolchain Performance
+
+- [Bounded Toolchain Analysis](bounded-toolchain-analysis.md): eliminate
+  duplicate project analysis in CLI integration cases and bound analysis
+  growth for large standard-library module graphs.
 
 ## Closed Routes
 
