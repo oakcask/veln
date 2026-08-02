@@ -28,6 +28,12 @@ also states it.
   duplicate project analysis in CLI integration cases and bound analysis
   growth for large standard-library module graphs.
 
+### Toolchain Quality
+
+- [Built-In Code Metrics](built-in-code-metrics.md): report and optionally
+  enforce Veln-aware function ABC, module dependency, and exact code-similarity
+  signals, with reviewed baselines for existing findings.
+
 ## Selection Rule
 
 Before implementing a proposal slice, compare it with the matching
