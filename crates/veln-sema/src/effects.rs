@@ -57,6 +57,21 @@ pub(crate) fn concurrency_effects(segments: &[String]) -> Option<&'static [&'sta
     Some(symbol.effects)
 }
 
+pub(crate) fn concurrency_call_effects(
+    segments: &[String],
+    handle_type: Option<&Type>,
+) -> Option<Vec<String>> {
+    let symbol = qualified_symbol(segments)?;
+    if !symbol.effects.contains(&"concurrency") {
+        return None;
+    }
+    let mut effects = effect_strings(symbol);
+    if task_creation_call(segments) {
+        append_function_effects(&mut effects, handle_type.and_then(Type::function_effects));
+    }
+    Some(effects)
+}
+
 pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
     if symbol.effects.is_empty()
@@ -337,7 +352,7 @@ fn task_spawn_signature(
             params: Vec::new(),
             variadic: None,
             return_type: Box::new(item.clone()),
-            effects: vec!["concurrency".to_string()],
+            effects: function_effects(handle_type),
         }],
         Type::named("Task", vec![item]),
     ))
@@ -373,7 +388,7 @@ fn task_spawn_with_signature(
                 params: vec![arg.clone()],
                 variadic: None,
                 return_type: Box::new(item.clone()),
-                effects: vec!["concurrency".to_string()],
+                effects: function_effects(handle_type),
             },
             arg,
         ],
@@ -430,6 +445,11 @@ fn function_return_type(ty: &Type) -> Option<&Type> {
 fn function_params(ty: &Type) -> Option<&[Type]> {
     let (params, _) = ty.function_parts()?;
     Some(params)
+}
+
+fn function_effects(ty: Option<&Type>) -> Vec<String> {
+    ty.and_then(Type::function_effects)
+        .map_or_else(Vec::new, <[String]>::to_vec)
 }
 
 fn named_type_argument<'a>(ty: &'a Type, expected_name: &str) -> Option<&'a Type> {
@@ -633,7 +653,7 @@ fn core_task_spawn_signature(
             params: Vec::new(),
             variadic: None,
             return_type: Box::new(item.clone()),
-            effects: vec!["concurrency".to_string()],
+            effects: core_function_effects(handle_type),
         }],
         CoreType::named("Task", vec![item]),
     ))
@@ -669,7 +689,7 @@ fn core_task_spawn_with_signature(
                 params: vec![arg.clone()],
                 variadic: None,
                 return_type: Box::new(item.clone()),
-                effects: vec!["concurrency".to_string()],
+                effects: core_function_effects(handle_type),
             },
             arg,
         ],
@@ -686,6 +706,13 @@ fn core_task_join_signature(handle_type: Option<&CoreType>) -> Option<(Vec<CoreT
         vec![CoreType::named("Task", vec![item.clone()])],
         adt::core_result_type(item, CoreType::named("JoinError", Vec::new())),
     ))
+}
+
+fn core_function_effects(ty: Option<&CoreType>) -> Vec<String> {
+    match ty {
+        Some(CoreType::Function { effects, .. }) => effects.clone(),
+        _ => Vec::new(),
+    }
 }
 
 fn core_receiver_item_type(handle_type: Option<&CoreType>) -> Option<CoreType> {
@@ -713,6 +740,21 @@ fn core_select_receiver_item_type(name: &str, handle_type: Option<&CoreType>) ->
 
 pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
     qualified_symbol(segments).is_some_and(|symbol| symbol.effects.contains(&"concurrency"))
+}
+
+fn task_creation_call(segments: &[String]) -> bool {
+    matches!(segments, [module, name] if module == "task" && matches!(name.as_str(), "spawn" | "spawn_with"))
+}
+
+fn append_function_effects(effects: &mut Vec<String>, function_effects: Option<&[String]>) {
+    let Some(function_effects) = function_effects else {
+        return;
+    };
+    for effect in function_effects {
+        if !effects.iter().any(|existing| existing == effect) {
+            effects.push(effect.clone());
+        }
+    }
 }
 
 pub(crate) fn is_stdio_call(segments: &[String]) -> bool {

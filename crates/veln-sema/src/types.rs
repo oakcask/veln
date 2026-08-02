@@ -6240,8 +6240,9 @@ fn collect_expr_effects(expr: &Expr, context: &ExprEffectContext<'_>, inferred: 
             if let Some(segments) = callee_name_path(callee) {
                 if is_stdio_call(segments) {
                     push_unique_effect(inferred, "stdio");
-                } else if let Some(effects) = concurrency_effects(segments) {
-                    for effect in effects {
+                } else if let Some(effects) = concurrency_effects_for_call(segments, args, context)
+                {
+                    for effect in &effects {
                         push_unique_effect(inferred, effect);
                     }
                 } else if let Some(effects) = standard_library_effects(segments) {
@@ -6381,6 +6382,34 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
         ExprKind::TypeApply { callee, .. } => callee_name_path(callee),
         _ => None,
     }
+}
+
+fn concurrency_effects_for_call(
+    segments: &[String],
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let mut effects = concurrency_effects(segments)?
+        .iter()
+        .map(|effect| (*effect).to_string())
+        .collect::<Vec<_>>();
+    if matches!(segments, [module, name] if module == "task" && matches!(name.as_str(), "spawn" | "spawn_with"))
+        && let Some(job_effects) = args.first().and_then(callee_name_path).map(|segments| {
+            effects_for_callee_path(
+                segments,
+                context.uses,
+                context.current_module,
+                context.bindings,
+                context.effects_by_name,
+                context.effects_by_module_path,
+            )
+        })
+    {
+        for effect in job_effects {
+            push_unique_effect(&mut effects, effect);
+        }
+    }
+    Some(effects)
 }
 
 fn effects_for_callee_path<'a>(

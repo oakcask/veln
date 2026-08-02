@@ -1,0 +1,40 @@
+use transport from "std"
+use transport::net from "std"
+
+fn pure_job() -> Int
+	1
+end
+
+fn db_job() -> Int effects [db]
+	2
+end
+
+fn application_callback() -> Int effects [db]
+	3
+end
+
+fn read_request() -> Option<ByteChunk> effects [transport::DuplexStream]
+	perform transport::DuplexStream::read_chunk()
+end
+
+fn connection_body() -> Int effects [transport::DuplexStream, db]
+	let _ = read_request()
+	application_callback()
+end
+
+fn connection_job(context: {stream: NetStream}) -> Int effects [net, db]
+	handle connection_body() with transport::net::net_stream(context.stream)
+end
+
+pub fn pure_spawn_missing_concurrency() -> Task<Int>
+	task::spawn(pure_job)
+end
+
+pub fn db_spawn_missing_db() -> Task<Int> effects [concurrency]
+	task::spawn(db_job)
+end
+
+pub fn connection_task_missing_net_and_db(stream: NetStream) -> Task<Int> effects [concurrency]
+	let context = {stream: stream}
+	task::spawn_with<Int, {stream: NetStream}>(connection_job, context)
+end
