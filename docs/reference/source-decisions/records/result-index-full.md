@@ -1,3 +1,7 @@
+---
+review-when: A source-decision record is added, moved, reclassified, or removed from the exhaustive index.
+---
+
 # Source Decision Record Full Index
 
 Use this page only when auditing all implemented source-decision records,

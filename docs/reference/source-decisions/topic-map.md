@@ -1,3 +1,7 @@
+---
+review-when: A source-decision category or its routing page is added, moved, reclassified, or removed.
+---
+
 # Source Decision Topic Map
 
 Use this map only after the current language specification names a boundary but

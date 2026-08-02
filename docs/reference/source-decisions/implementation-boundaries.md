@@ -1,3 +1,7 @@
+---
+review-when: An implementation-boundary decision record is added, moved, reclassified, or no longer answers its routed task.
+---
+
 # Implementation Boundary Decisions
 
 Read these records only when runtime, AST, architecture, mutability, or
