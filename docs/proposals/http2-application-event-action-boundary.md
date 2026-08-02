@@ -4,11 +4,13 @@ Status: proposed
 
 ## Summary
 
-Add one server-side connection-driver boundary that passes immutable HTTP/2
-request events to a pure application callback and applies the callback's
-immutable response actions through the existing protocol core. This slice
-identifies the values required by the effect-polymorphic service proposal
-without adding effect rows, listener ownership, or task ownership.
+Add one server-side connection-driver boundary that drains immutable HTTP/2
+request events from the protocol core, passes them to a pure application
+callback, and applies the callback's immutable response actions through the
+existing protocol core. The core request-header event and pure drain boundary
+are implemented and specified in `../specification/http2.md`; the remaining
+proposal work is the driver, response-action values, and application failure
+boundary.
 
 ## Dependencies
 
@@ -22,9 +24,9 @@ Current HTTP/2 behavior remains specified by
 handler behavior remains specified by
 [`names-effects.md`](../specification/names-effects.md).
 
-## Bounded First Slice
+## Bounded Driver Slice
 
-The first slice accepts one server-side request whose completed HEADERS block
+The remaining bounded slice accepts one server-side request whose completed HEADERS block
 also ends the request stream. The request has no DATA or trailer fields. The
 callback may produce one response as an ordered HEADERS action followed by an
 optional DATA action.
@@ -69,25 +71,13 @@ fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 The callback is pure in this slice. Effect-polymorphic callbacks remain owned
 by the separate service proposal.
 
-## Pure Core Boundary
+## Implemented Pure Core Boundary
 
-An accepted connection receive transition must retain every application event
-produced by complete frames in that transition. A pure drain operation returns
-the retained events in receive order together with a next receive state that
-does not retain those events. Draining the next state again returns no events.
-
-This boundary prevents one transport read that contains multiple complete
-frames from losing an earlier event when the receive loop processes a later
-frame. An incomplete request HEADERS block produces no request-header event.
-The final CONTINUATION frame produces one request-header event when it
-completes that block and the decoded request passes validation and its stream
-transition. Response headers, trailers, and frames unrelated to a pending
-request-header block produce no request-header event in this slice.
-
-The event drain must not expose or mutate the caller's core state. The final
-standard-library types may extend the existing receive state or use a separate
-pure transition value. The observable event order and exactly-once drain
-behavior are authoritative; the internal storage shape is not.
+The pure core receive-state event drain is current behavior. Its authoritative
+specification and executable evidence are in `../specification/http2.md` and
+`../../examples/specification/run/http2-core-application-event-drain/`.
+Remaining proposal sections depend on that implemented boundary instead of
+redefining its current behavior here.
 
 ## Driver Boundary
 

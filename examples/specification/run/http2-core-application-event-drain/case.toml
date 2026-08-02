@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "ordered transition header-block\nordered count 2\nordered stream 1 end false headers 3 names :method,:scheme,:path\nordered stream 3 end true headers 3 names :method,:scheme,:path\nordered-again count 0\ncontinuation-pending count 0\ncontinuation-complete count 1\ncontinuation-complete stream 1 end false headers 3 names :method,:scheme,:path\n"
+
+[[json_assert]]
+path = "error"
+equals = null

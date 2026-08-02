@@ -17,8 +17,8 @@ current language behavior unless the matching page under
 ### Next Selectable Slice
 
 - [HTTP/2 Application Event And Action Boundary](http2-application-event-action-boundary.md):
-  identify immutable request and response-action values with one checked
-  server-driver request and response before effect-polymorphic service work.
+  add the server-driver callback, response-action values, and application
+  failure boundary that use the implemented core request-event drain.
 
 ### Follow-Ups After Evidence
 

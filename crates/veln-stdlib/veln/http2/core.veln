@@ -118,9 +118,13 @@ pub type CoreReceiveFrameDecision = http2::core::receive_frame::CoreReceiveFrame
 
 pub type CoreReceiveFrameFailure = http2::core::receive_frame::CoreReceiveFrameFailure
 
+pub type Http2ApplicationEvent = http2::core::receive_frame::Http2ApplicationEvent
+
 pub type CoreReceiveConnectionState = http2::core::receive_connection::CoreReceiveConnectionState
 
 pub type CoreReceiveConnectionDecision = http2::core::receive_connection::CoreReceiveConnectionDecision
+
+pub type CoreApplicationEventDrain = http2::core::receive_connection::CoreApplicationEventDrain
 
 pub type CoreReceiveConnectionEofDecision = http2::core::receive_connection::CoreReceiveConnectionEofDecision
 
@@ -870,6 +874,10 @@ pub fn finalize_receive_connection_eof(state: CoreReceiveConnectionState) -> Res
 	http2::core::receive_connection::finalize_eof(state)
 end
 
+pub fn drain_application_events(state: CoreReceiveConnectionState) -> CoreApplicationEventDrain
+	http2::core::receive_connection::drain_application_events(state)
+end
+
 pub fn apply_goaway_receive_shutdown(state: CoreConnectionState, offset: Int, payload: ByteChunk, preview: ByteChunk) -> CoreConnectionShutdownDecision
 	http2::core::receive_shutdown::apply_goaway(state, offset, payload, preview)
 end
@@ -1286,6 +1294,10 @@ pub fn receive_frame_applied_transition(decision: CoreReceiveFrameDecision) -> S
 	http2::core::receive_frame::decision_applied_transition(decision)
 end
 
+pub fn receive_frame_application_event(decision: CoreReceiveFrameDecision) -> Option<Http2ApplicationEvent>
+	http2::core::receive_frame::decision_application_event(decision)
+end
+
 pub fn receive_frame_failure_source(failure: CoreReceiveFrameFailure) -> String
 	http2::core::receive_frame::failure_source(failure)
 end
@@ -1376,6 +1388,30 @@ end
 
 pub fn receive_connection_initial_settings_accepted(state: CoreReceiveConnectionState) -> Bool
 	http2::core::receive_connection::state_initial_settings_accepted(state)
+end
+
+pub fn receive_connection_application_events(state: CoreReceiveConnectionState) -> List<Http2ApplicationEvent>
+	http2::core::receive_connection::state_application_events(state)
+end
+
+pub fn application_event_drain_events(drain: CoreApplicationEventDrain) -> List<Http2ApplicationEvent>
+	http2::core::receive_connection::application_event_drain_events(drain)
+end
+
+pub fn application_event_drain_state(drain: CoreApplicationEventDrain) -> CoreReceiveConnectionState
+	http2::core::receive_connection::application_event_drain_state(drain)
+end
+
+pub fn application_event_stream_id(event: Http2ApplicationEvent) -> Int
+	http2::core::receive_frame::application_event_stream_id(event)
+end
+
+pub fn application_event_headers(event: Http2ApplicationEvent) -> HeaderList
+	http2::core::receive_frame::application_event_headers(event)
+end
+
+pub fn application_event_end_stream(event: Http2ApplicationEvent) -> Bool
+	http2::core::receive_frame::application_event_end_stream(event)
 end
 
 pub fn receive_connection_failure_source(failure: CoreReceiveConnectionFailure) -> String
