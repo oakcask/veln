@@ -341,6 +341,7 @@ impl DependencyGraph {
             .map(|module| module.external_dependency_count)
             .sum();
         let abc_subjects = abc_subjects(source_project, selected_paths);
+        let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
         let summary = MetricsSummary {
             selected_module_count: modules.len(),
             project_module_count: self.nodes.len(),
@@ -348,7 +349,7 @@ impl DependencyGraph {
             cycle_count: cycles.len(),
             external_dependency_count,
             abc_subject_count: abc_subjects.len(),
-            abc_contract_subject_count: 0,
+            abc_contract_subject_count,
         };
         MetricsReport {
             project,
@@ -450,6 +451,9 @@ fn abc_subjects(project: &Project, selected_paths: &BTreeSet<String>) -> Vec<Abc
         if !selected_paths.contains(&path) {
             continue;
         }
+        if is_generated_or_doctest_path(&path) {
+            continue;
+        }
         let parsed = parse(source);
         if !parsed.diagnostics.is_empty() {
             continue;
@@ -489,6 +493,35 @@ fn abc_subject(source: &SourceFile, path: &str, function: &FunctionDecl) -> AbcS
             function.span.end.offset,
         )),
     }
+}
+
+fn is_generated_or_doctest_path(path: &str) -> bool {
+    path.contains("#doctest-") || path.split('/').any(|segment| segment == "target")
+}
+
+fn abc_contract_subject_count(project: &Project, selected_paths: &BTreeSet<String>) -> usize {
+    let mut count = 0;
+    for source in &project.files {
+        let path = source.path().as_str().to_string();
+        if !selected_paths.contains(&path) || is_generated_or_doctest_path(&path) {
+            continue;
+        }
+        let parsed = parse(source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        count += parsed
+            .tree
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function),
+                _ => None,
+            })
+            .filter(|function| !function.contracts.is_empty())
+            .count();
+    }
+    count
 }
 
 fn abc_vector(function: &FunctionDecl) -> AbcVector {
@@ -687,12 +720,14 @@ pub fn render_human(report: &MetricsReport) -> String {
     let mut out = String::new();
     out.push_str("Veln dependency metrics (advisory)\n");
     out.push_str(&format!(
-        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}\n\n",
+        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}\n\n",
         report.summary.project_module_count,
         report.summary.selected_module_count,
         report.summary.internal_edge_count,
         report.summary.cycle_count,
-        report.summary.external_dependency_count
+        report.summary.external_dependency_count,
+        report.summary.abc_subject_count,
+        report.summary.abc_contract_subject_count
     ));
     out.push_str("Modules\n");
     if report.modules.is_empty() {
@@ -1015,6 +1050,15 @@ mod tests {
                 },
             ),
             (
+                "handler application",
+                "fn subject() -> Int effects [Ask]\n  handle perform Ask::value() with ask(1)\nend\n\neffect Ask\n  value() -> Int\nend\n\nhandler ask(context: Int) handles Ask\n  value = provide\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 2,
+                    conditionals: 0,
+                },
+            ),
+            (
                 "schema decode and try",
                 "fn subject() -> DecodeStep<{value: Int}>\n  decode Packet from view()? at offset()?\nend\n",
                 AbcVector {
@@ -1073,7 +1117,7 @@ mod tests {
             manifest: None,
             files: vec![SourceFile::new(
                 "app.veln",
-                "fn same(value: Int) -> Result<Int, String> ensures result >= 0\n  value\nend\n\ntest same() -> Result<Int, String> requires perform Console::read() == 1\n  let value: Int = compute()?\n  value\nend\n",
+                "fn same(value: Int) -> Result<Int, String>\n  ensure value >= 0\n  value\nend\n\ntest same() -> Result<Int, String>\n  require perform Console::read() == 1\n  let value: Int = compute()?\n  value\nend\n",
             )],
         };
         let selected = ["app.veln".to_string()].into_iter().collect();
@@ -1094,6 +1138,62 @@ mod tests {
         assert_eq!(subjects[1].vector, AbcVector::default());
         assert_eq!(subjects[0].identity, "app.veln::same");
         assert_eq!(subjects[1].identity, "app.veln::same");
+        assert_eq!(abc_contract_subject_count(&project, &selected), 2);
+    }
+
+    #[test]
+    fn excludes_generated_and_doctest_derived_abc_subjects() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "fn source() -> Int\n  call()\nend\n"),
+                SourceFile::new(
+                    "target/generated.veln",
+                    "fn generated() -> Int\n  call()\nend\n",
+                ),
+                SourceFile::new(
+                    "app.veln#doctest-1_test.veln",
+                    "test doctest_1() -> Int\n  call()\nend\n",
+                ),
+            ],
+        };
+        let selected = [
+            "app.veln".to_string(),
+            "target/generated.veln".to_string(),
+            "app.veln#doctest-1_test.veln".to_string(),
+        ]
+        .into_iter()
+        .collect();
+        let subjects = abc_subjects(&project, &selected);
+
+        assert_eq!(subjects.len(), 1);
+        assert_eq!(subjects[0].identity, "app.veln::source");
+    }
+
+    #[test]
+    fn render_human_reports_abc_summary_counts() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn plain() -> Int\n  call()\nend\n\nfn guarded(value: Int) -> Int\n  ensure value >= 0\n  value\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: vec!["app.veln".to_string()],
+            },
+            &selected,
+        );
+        let human = render_human(&report);
+
+        assert!(human.contains("ABC subjects: 2, ABC contract subjects: 1"));
     }
 
     #[test]
