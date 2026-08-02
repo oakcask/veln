@@ -15,6 +15,11 @@
 * When adding, moving, or reclassifying documentation, use
   `$docs-progressive-disclosure` to keep documentation routes short and status
   boundaries consistent.
+* Every added or changed Markdown document under `docs/` must contain one
+  `review-when:` field in its YAML frontmatter. The field must name a concrete
+  project-state change that requires the document to be checked again. Use
+  `$docs-progressive-disclosure` to choose a trigger that matches the
+  document's authority and purpose.
 * When creating or substantially revising any document that specifies
   behavior, including proposals, design notes, and reference material, use
   `$verifiable-specification-writing`.
