@@ -1,0 +1,3 @@
+[tool.metrics]
+deny_cycles = "true"
+max_findings = "5"

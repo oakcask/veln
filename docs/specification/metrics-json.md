@@ -87,9 +87,10 @@ Executable evidence:
   containing graph counts, dependency edges, and cycle membership.
 - The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`
   cases check enabled dependency-cycle policy success and violation output.
-- The metrics `check-no-policy-human`, `check-no-policy-json`, and
-  `check-invalid-policy-json` cases check configuration and manifest policy
-  failures that do not return a clean check report.
+- The metrics `check-no-policy-human`, `check-no-policy-json`,
+  `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
+  configuration and manifest policy failures that do not return a clean check
+  report.
 - The metrics `abc-constructs` case checks counted ABC constructs, annotation
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds
