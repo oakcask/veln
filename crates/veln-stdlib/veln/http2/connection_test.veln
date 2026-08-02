@@ -1,0 +1,162 @@
+use prelude
+use transport
+use http2::connection
+use http2::core
+use http2::hpack
+
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn response_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "204")?, http2::hpack::empty_header_list()))
+end
+
+fn response_headers_with_length(length: String) -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "200")?, http2::hpack::prepend_header_field(ascii_header("content-length", length)?, http2::hpack::empty_header_list())))
+end
+
+fn application_request_chunk() -> Result<ByteChunk, String>
+	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784")
+end
+
+fn application_body_request_chunk() -> Result<ByteChunk, String>
+	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784")
+end
+
+fn application_two_request_chunk() -> Result<ByteChunk, String>
+	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784000003010500000003828785")
+end
+
+fn fixed_read_chunk(chunk: ByteChunk) -> Option<ByteChunk>
+	Some(chunk)
+end
+
+fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> ()
+	let _ = chunk
+	let _ = chunks
+	()
+end
+
+handler fixed_duplex(chunk: ByteChunk) handles transport::DuplexStream
+	read_chunk = fixed_read_chunk
+	write_chunks = discard_write_chunks
+end
+
+fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	let _ = http2::core::application_event_stream_id(event)
+	Err("callback should not run")
+end
+
+fn bodyless_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+end
+
+fn invalid_action_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	Ok(list_cons(Http2ApplicationAction::Http2SendResponseData(http2::core::application_event_stream_id(event), byte_chunk_from_hex("0a")?, true), list_nil()))
+end
+
+fn mismatched_stream_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event) + 2, response_headers()?, true), list_nil()))
+end
+
+fn rejected_data_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+	let stream_id = http2::core::application_event_stream_id(event)
+	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(stream_id, response_headers_with_length("5")?, false), list_cons(Http2ApplicationAction::Http2SendResponseData(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
+end
+
+test application_action_values_are_public_and_immutable() -> Result<(), String>
+	let headers = Http2ApplicationAction::Http2SendResponseHeaders(1, response_headers()?, true)
+	let data = Http2ApplicationAction::Http2SendResponseData(1, byte_chunk_from_hex("0a0b")?, true)
+	if http2::connection::application_action_kind(headers) == "headers" and http2::connection::application_action_stream_id(headers) == 1 and http2::connection::application_action_end_stream(headers) and http2::connection::application_action_kind(data) == "data" and http2::connection::application_action_stream_id(data) == 1 and http2::connection::application_action_end_stream(data)
+		Ok(())
+	else
+		Err("HTTP/2 application action values did not expose stable immutable response fields")
+	end
+end
+
+test application_failure_variants_remain_distinguishable() -> Result<(), String>
+	let callback = Http2ApplicationBoundaryFailure::Http2ApplicationCallbackFailure("boom")
+	let unsupported_shape = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestShape(1, "body")
+	let unsupported_count = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestCount(3)
+	let invalid = Http2ApplicationBoundaryFailure::Http2ApplicationInvalidActionSequence("bad", 2, 5, 1)
+	if http2::connection::application_failure_kind(callback) == "callback" and http2::connection::application_failure_reason(callback) == "boom" and http2::connection::application_failure_kind(unsupported_shape) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(unsupported_shape) == 1 and http2::connection::application_failure_kind(unsupported_count) == "unsupported-request-count" and http2::connection::application_failure_stream_id(unsupported_count) == 3 and http2::connection::application_failure_kind(invalid) == "invalid-action-sequence" and http2::connection::application_failure_action_index(invalid) == 2 and http2::connection::application_failure_stream_id(invalid) == 5
+		Ok(())
+	else
+		Err("HTTP/2 application failure variants were not distinguishable")
+	end
+end
+
+test application_driver_effect_boundary_handles_closed_state_without_callback() -> Result<(), String>
+	let open = http2::core::server_connection_state(0)?
+	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
+	let result = handle http2::connection::drive_server_application(closed, fail_if_called_handler) with fixed_duplex(byte_chunk([]))
+	match result
+		Ok(state) => if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not preserve closed state")
+		end
+		Err(failure) => Err(http2::connection::application_failure_reason(failure))
+	end
+end
+
+test application_driver_rejects_body_bearing_request_without_callback() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with fixed_duplex(application_body_request_chunk()?)
+	match result
+		Ok(_) => Err("HTTP/2 application driver accepted an unsupported body-bearing request")
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "request headers do not end the request stream"
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not distinguish unsupported request shape")
+		end
+	end
+end
+
+test application_driver_rejects_second_request_without_second_callback() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, bodyless_handler) with fixed_duplex(application_two_request_chunk()?)
+	match result
+		Ok(_) => Err("HTTP/2 application driver accepted a second request")
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-count" and http2::connection::application_failure_stream_id(failure) == 3
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not distinguish unsupported request count")
+		end
+	end
+end
+
+test application_driver_validates_complete_action_list_before_writing() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, invalid_action_handler) with fixed_duplex(application_request_chunk()?)
+	match result
+		Ok(_) => Err("HTTP/2 application driver accepted DATA before HEADERS")
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "DATA cannot appear before response HEADERS"
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not reject the intrinsic action sequence before writes")
+		end
+	end
+end
+
+test application_driver_requires_response_actions_for_request_stream() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, mismatched_stream_handler) with fixed_duplex(application_request_chunk()?)
+	match result
+		Ok(_) => Err("HTTP/2 application driver accepted a mismatched response stream id")
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 3
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not require the request stream id")
+		end
+	end
+end
+
+test application_driver_distinguishes_rejected_later_core_action() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, rejected_data_handler) with fixed_duplex(application_request_chunk()?)
+	match result
+		Ok(_) => Err("HTTP/2 application driver accepted a DATA action rejected by core")
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "rejected-data-action" and http2::connection::application_failure_id(failure) == "http2.protocol.content_length_mismatch" and http2::connection::application_failure_stream_id(failure) == 1
+			Ok(())
+		else
+			Err("HTTP/2 application driver did not preserve the later rejected core action failure")
+		end
+	end
+end

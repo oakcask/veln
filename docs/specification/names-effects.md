@@ -98,11 +98,14 @@ compiler-known calls.
   `http2-connection-transport-handler-effects` case fixes this static
   replacement boundary.
   `http2::connection::drive_server` and
-  `http2::connection::drive_client` expose only `transport::DuplexStream`;
-  handling either driver with `transport::net::net_stream` therefore replaces
-  only that nominal effect with `net` while preserving caller ownership of
-  listen, accept, close, deadline, cancellation, and task behavior outside the
-  HTTP/2 driver.
+  `http2::connection::drive_client` expose only `transport::DuplexStream`.
+  `http2::connection::drive_server_application` exposes the same single
+  duplex-stream effect while its application callback is pure. Handling any
+  of these drivers with `transport::net::net_stream` therefore replaces only
+  that nominal effect with `net` while preserving caller ownership of listen,
+  accept, close, deadline, cancellation, and task behavior outside the HTTP/2
+  driver. The checked `http2-connection-application-boundary-effects` case
+  fixes the application-driver effect boundary.
   `stream_adapter_accept_loop(listener, handler)` accepts an owned
   `NetListener` and the same pure handler shape, repeatedly accepts streams
   until clean listener end, delegates each accepted stream to

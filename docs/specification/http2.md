@@ -40,9 +40,10 @@ The public routes are:
   accepted send bytes, and an immutable aggregate connection state that
   composes those migrated components with the public HPACK dynamic table and
   an immutable stream collection.
-- `http2::connection`: the `drive_server` and `drive_client` duplex-stream
-  connection drivers and typed protocol-owned connection failures for one
-  caller-owned stream.
+- `http2::connection`: the `drive_server`, `drive_client`, and
+  `drive_server_application` duplex-stream connection drivers, typed
+  protocol-owned connection failures, immutable application response actions,
+  and typed application-boundary failures for one caller-owned stream.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -285,6 +286,58 @@ The executable connection-driver evidence lives under
 `examples/specification/run/http2-connection-closed-entry/`,
 `examples/specification/run/http2-connection-client-initial-output/`, and
 `examples/specification/run/http2-connection-tcp-loopback-client/`.
+
+`http2::connection::Http2ApplicationAction` is the public immutable response
+action value for the server application boundary. It has
+`Http2SendResponseHeaders(stream_id, headers, end_stream)` and
+`Http2SendResponseData(stream_id, data, end_stream)` constructors. These
+values carry only response data: request stream id, HPACK header list,
+payload bytes, and END_STREAM state. They do not carry transport handles,
+mutable host state, or HTTP/2 core state.
+
+`http2::connection::drive_server_application(state, handler)` drives the same
+server-side duplex-stream transport as `drive_server` and does not change the
+existing server or client driver contracts. The handler is pure and has shape
+`fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>`.
+The driver drains core application events exactly once. In this bounded slice
+it accepts at most one request whose completed HEADERS also set END_STREAM.
+It invokes the callback exactly once for that request. A body-bearing request
+and a second request return distinct application-boundary failures and are
+not classified as core protocol failures.
+
+Before writing response bytes, `drive_server_application` validates the
+complete callback action list against the bounded response grammar. The list
+must be either one final HEADERS action for the request stream id, or one
+non-final HEADERS action followed by one final DATA action for the same
+stream id. Empty lists, DATA before HEADERS, mismatched stream ids, missing
+final DATA, non-final DATA, and actions after the final action are invalid
+application action sequences.
+
+Accepted response actions are applied in list order through
+`http2::core::send_response_headers(...)` and
+`http2::core::send_data(...)`. Each accepted core action is committed through
+the duplex stream before the next core action is attempted. If a later core
+action is rejected, earlier committed writes remain visible and the rejected
+action and later actions write no bytes. Callback failures write no response
+action bytes. Clean EOF and incomplete EOF preserve the same accepted and
+incomplete-input behavior as the connection driver. Abrupt runtime transport
+failures remain runtime failures rather than typed application failures.
+
+The focused
+[`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)
+checks public application action values, distinguishable application failure
+variants, the handled driver effect boundary, unsupported request failures,
+second-request rejection, complete action-list validation, request stream-id
+validation, and rejected later core-action failures. Executable
+application-driver evidence lives under
+`examples/specification/check/http2-connection-application-boundary-effects/`,
+`examples/specification/run/http2-connection-application-one-request/`,
+`examples/specification/run/http2-connection-application-callback-failure-json/`,
+`examples/specification/run/http2-connection-application-unsupported-request-json/`,
+`examples/specification/run/http2-connection-application-second-request-json/`,
+`examples/specification/run/http2-connection-application-invalid-actions-json/`,
+and
+`examples/specification/run/http2-connection-application-rejected-action-json/`.
 
 `http2::core::apply_goaway_receive_shutdown(state, offset, payload, preview)`
 applies a validated inbound GOAWAY payload to the aggregate connection

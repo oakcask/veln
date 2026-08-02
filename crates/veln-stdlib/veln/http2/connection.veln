@@ -9,6 +9,22 @@ pub type Http2ConnectionFailure
 	Http2ConnectionLocalSettingsEncodeFailure(reason: String)
 end
 
+pub type Http2ApplicationAction
+	pub Http2SendResponseHeaders(stream_id: Int, headers: HeaderList, end_stream: Bool)
+	pub Http2SendResponseData(stream_id: Int, data: ByteChunk, end_stream: Bool)
+end
+
+pub type Http2ApplicationBoundaryFailure
+	pub Http2ApplicationConnectionFailure(Http2ConnectionFailure)
+	pub Http2ApplicationCallbackFailure(reason: String)
+	pub Http2ApplicationUnsupportedRequestShape(stream_id: Int, reason: String)
+	pub Http2ApplicationUnsupportedRequestCount(stream_id: Int)
+	pub Http2ApplicationInvalidActionSequence(reason: String, action_index: Int, stream_id: Int, expected_stream_id: Int)
+	pub Http2ApplicationRejectedHeadersAction(CoreOutboundHeadersFailure)
+	pub Http2ApplicationRejectedDataAction(CoreOutboundDataFlowFailure)
+	pub Http2ApplicationCoreActionEncodeFailure(action_kind: String, stream_id: Int, reason: String)
+end
+
 pub fn drive_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 		Ok(state)
@@ -25,12 +41,29 @@ pub fn drive_client(state: CoreConnectionState) -> Result<CoreConnectionState, H
 	end
 end
 
+pub fn drive_server_application(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
+		Ok(state)
+	else
+		start_server_application(state, handler)
+	end
+end
+
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let decision: LocalSettingsSendDecision = require_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0)
 		"rejected" => Err(Http2ConnectionLocalSettingsFailure(require_local_settings_failure(decision)?))
 		_ => Err(Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision)))
+	end
+end
+
+fn start_server_application(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let decision: LocalSettingsSendDecision = application_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
+	match http2::core::local_settings_send_status(decision)
+		"accepted" => application_drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0, false, handler)
+		"rejected" => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsFailure(application_local_settings_failure(decision)?)))
+		_ => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(http2::core::local_settings_send_encode_reason(decision))))
 	end
 end
 
@@ -72,11 +105,33 @@ fn state_after_local_settings(state: CoreConnectionState, decision: LocalSetting
 	http2::core::connection_state_with_settings_ack(http2::core::connection_state_with_local_settings_policy(state, http2::core::local_settings_send_policy(decision)), http2::core::local_settings_send_ack_state(decision))
 end
 
+fn application_local_settings_decision(result: Result<LocalSettingsSendDecision, String>) -> Result<LocalSettingsSendDecision, Http2ApplicationBoundaryFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
+fn application_local_settings_failure(decision: LocalSettingsSendDecision) -> Result<LocalSettingsFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::local_settings_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
 fn drive_loop(state: CoreReceiveConnectionState, written_count: Int) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let after_write = write_new_output(state, written_count)?
 	match perform transport::DuplexStream::read_chunk()
 		Some(chunk) => receive_and_continue(after_write.state, chunk, after_write.written_count)
 		None => finish_eof(after_write.state)
+	end
+end
+
+fn application_drive_loop(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let after_write = write_new_application_output(state, written_count)?
+	match perform transport::DuplexStream::read_chunk()
+		Some(chunk) => application_receive_and_continue(after_write.state, chunk, after_write.written_count, handled_request, handler)
+		None => application_finish_eof(after_write.state)
 	end
 end
 
@@ -88,10 +143,66 @@ fn receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, wri
 	end
 end
 
+fn application_receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let decision: CoreReceiveConnectionDecision = application_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
+	match http2::core::receive_connection_status(decision)
+		"accepted" => application_handle_events(application_receive_state(decision)?, written_count, handled_request, handler)
+		_ => Err(Http2ApplicationConnectionFailure(Http2ConnectionProtocolFailure(application_receive_failure(decision)?)))
+	end
+end
+
+fn application_handle_events(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let drain = http2::core::drain_application_events(state)
+	let events = http2::core::application_event_drain_events(drain)
+	let drained_state = http2::core::application_event_drain_state(drain)
+	application_handle_event_list(drained_state, events, written_count, handled_request, handler)
+end
+
+fn application_handle_event_list(state: CoreReceiveConnectionState, events: List<Http2ApplicationEvent>, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	match events
+		Nil => application_drive_loop(state, written_count, handled_request, handler)
+		Cons(event, tail) => if handled_request
+			Err(Http2ApplicationUnsupportedRequestCount(http2::core::application_event_stream_id(event)))
+		else
+			application_handle_first_event(state, event, tail, written_count, handler)
+		end
+	end
+end
+
+fn application_handle_first_event(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let stream_id = http2::core::application_event_stream_id(event)
+	if not http2::core::application_event_end_stream(event)
+		Err(Http2ApplicationUnsupportedRequestShape(stream_id, "request headers do not end the request stream"))
+	else
+		application_invoke_handler(state, event, tail, written_count, stream_id, handler)
+	end
+end
+
+fn application_invoke_handler(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, stream_id: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let actions = application_callback_actions(handler(event))?
+	let checked = validate_application_actions(actions, stream_id)?
+	let applied = apply_application_actions(state, checked, written_count)?
+	application_handle_event_list(applied.state, tail, applied.written_count, true, handler)
+end
+
+fn application_callback_actions(result: Result<List<Http2ApplicationAction>, String>) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match result
+		Ok(actions) => Ok(actions)
+		Err(reason) => Err(Http2ApplicationCallbackFailure(reason))
+	end
+end
+
 fn require_receive_decision(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionDecision, Http2ConnectionFailure>
 	match result
 		Ok(decision) => Ok(decision)
 		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn application_receive_decision(result: Result<CoreReceiveConnectionDecision, String>) -> Result<CoreReceiveConnectionDecision, Http2ApplicationBoundaryFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
 	end
 end
 
@@ -102,10 +213,24 @@ fn require_receive_state(decision: CoreReceiveConnectionDecision) -> Result<Core
 	end
 end
 
+fn application_receive_state(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::receive_connection_state_from_decision(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
 fn require_receive_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, Http2ConnectionFailure>
 	match http2::core::receive_connection_failure(decision)
 		Ok(failure) => Ok(failure)
 		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn application_receive_failure(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::receive_connection_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
 	end
 end
 
@@ -117,10 +242,25 @@ fn finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, 
 	end
 end
 
+fn application_finish_eof(state: CoreReceiveConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	let decision: CoreReceiveConnectionEofDecision = application_eof_decision(http2::core::finalize_receive_connection_eof(state))?
+	match http2::core::receive_connection_eof_status(decision)
+		"accepted" => Ok(application_eof_state(decision)?)
+		_ => Err(Http2ApplicationConnectionFailure(Http2ConnectionIncompleteInput(application_eof_failure(decision)?)))
+	end
+end
+
 fn require_eof_decision(result: Result<CoreReceiveConnectionEofDecision, String>) -> Result<CoreReceiveConnectionEofDecision, Http2ConnectionFailure>
 	match result
 		Ok(decision) => Ok(decision)
 		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn application_eof_decision(result: Result<CoreReceiveConnectionEofDecision, String>) -> Result<CoreReceiveConnectionEofDecision, Http2ApplicationBoundaryFailure>
+	match result
+		Ok(decision) => Ok(decision)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
 	end
 end
 
@@ -131,10 +271,24 @@ fn require_eof_state(decision: CoreReceiveConnectionEofDecision) -> Result<CoreC
 	end
 end
 
+fn application_eof_state(decision: CoreReceiveConnectionEofDecision) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::receive_connection_eof_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
+	end
+end
+
 fn require_eof_failure(decision: CoreReceiveConnectionEofDecision) -> Result<CoreReceiveConnectionEofFailure, Http2ConnectionFailure>
 	match http2::core::receive_connection_eof_failure(decision)
 		Ok(failure) => Ok(failure)
 		Err(reason) => Err(Http2ConnectionLocalSettingsEncodeFailure(reason))
+	end
+end
+
+fn application_eof_failure(decision: CoreReceiveConnectionEofDecision) -> Result<CoreReceiveConnectionEofFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::receive_connection_eof_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationConnectionFailure(Http2ConnectionLocalSettingsEncodeFailure(reason)))
 	end
 end
 
@@ -148,7 +302,23 @@ fn write_new_output(state: CoreReceiveConnectionState, written_count: Int) -> Re
 	end
 end
 
+fn write_new_application_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let output = http2::core::receive_connection_output(state)
+	let total = http2::core::output_buffer_count(output)
+	if written_count == total
+		Ok({state: state, written_count: written_count})
+	else
+		write_application_output_range(state, output, written_count, total)
+	end
+end
+
 fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
+	perform transport::DuplexStream::write_chunks(chunks)
+	Ok({state: state, written_count: total})
+end
+
+fn write_application_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
 	Ok({state: state, written_count: total})
@@ -162,6 +332,211 @@ fn output_chunks_from(output: CoreOutputBuffer, index: Int, total: Int) -> List<
 			Some(chunk) => list_cons(chunk, output_chunks_from(output, index + 1, total))
 			None => list_nil()
 		end
+	end
+end
+
+fn validate_application_actions(actions: List<Http2ApplicationAction>, stream_id: Int) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match actions
+		Nil => Err(Http2ApplicationInvalidActionSequence("response action list must start with HEADERS", 0, 0, stream_id))
+		Cons(first, tail) => validate_first_application_action(first, tail, stream_id)
+	end
+end
+
+fn validate_first_application_action(first: Http2ApplicationAction, tail: List<Http2ApplicationAction>, stream_id: Int) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match first
+		Http2SendResponseHeaders(first_stream_id, _, end_stream) => if first_stream_id != stream_id
+			Err(Http2ApplicationInvalidActionSequence("response action stream id must match request stream id", 0, first_stream_id, stream_id))
+		else if end_stream
+			validate_bodyless_response_tail(first, tail, stream_id)
+		else
+			validate_response_data_tail(first, tail, stream_id)
+		end
+		Http2SendResponseData(first_stream_id, _, _) => Err(Http2ApplicationInvalidActionSequence("DATA cannot appear before response HEADERS", 0, first_stream_id, stream_id))
+	end
+end
+
+fn validate_bodyless_response_tail(first: Http2ApplicationAction, tail: List<Http2ApplicationAction>, stream_id: Int) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match tail
+		Nil => Ok(Cons(first, Nil))
+		Cons(extra, _) => Err(Http2ApplicationInvalidActionSequence("response action appears after final action", 1, application_action_stream_id(extra), stream_id))
+	end
+end
+
+fn validate_response_data_tail(first: Http2ApplicationAction, tail: List<Http2ApplicationAction>, stream_id: Int) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match tail
+		Nil => Err(Http2ApplicationInvalidActionSequence("response DATA must follow non-final HEADERS", 1, 0, stream_id))
+		Cons(second, remaining) => match second
+			Http2SendResponseHeaders(second_stream_id, _, _) => Err(Http2ApplicationInvalidActionSequence("second response action must be final DATA", 1, second_stream_id, stream_id))
+			Http2SendResponseData(second_stream_id, _, end_stream) => if second_stream_id != stream_id
+				Err(Http2ApplicationInvalidActionSequence("response action stream id must match request stream id", 1, second_stream_id, stream_id))
+			else if not end_stream
+				Err(Http2ApplicationInvalidActionSequence("DATA response action must end the response stream", 1, second_stream_id, stream_id))
+			else
+				validate_final_data_tail(first, second, remaining, stream_id)
+			end
+		end
+	end
+end
+
+fn validate_final_data_tail(first: Http2ApplicationAction, second: Http2ApplicationAction, remaining: List<Http2ApplicationAction>, stream_id: Int) -> Result<List<Http2ApplicationAction>, Http2ApplicationBoundaryFailure>
+	match remaining
+		Nil => Ok(Cons(first, Cons(second, Nil)))
+		Cons(extra, _) => Err(Http2ApplicationInvalidActionSequence("response action appears after final action", 2, application_action_stream_id(extra), stream_id))
+	end
+end
+
+fn apply_application_actions(state: CoreReceiveConnectionState, actions: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	match actions
+		Nil => Ok({state: state, written_count: written_count})
+		Cons(action, tail) => apply_application_action(state, action, tail, written_count)
+	end
+end
+
+fn apply_application_action(state: CoreReceiveConnectionState, action: Http2ApplicationAction, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	match action
+		Http2SendResponseHeaders(stream_id, headers, end_stream) => apply_application_headers(state, stream_id, headers, end_stream, tail, written_count)
+		Http2SendResponseData(stream_id, data, end_stream) => apply_application_data(state, stream_id, data, end_stream, tail, written_count)
+	end
+end
+
+fn apply_application_headers(state: CoreReceiveConnectionState, stream_id: Int, headers: HeaderList, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let connection = http2::core::receive_connection_connection(state)
+	let decision = http2::core::send_response_headers(connection, http2::core::connection_state_next_offset(connection), stream_id, headers, end_stream)
+	match http2::core::headers_send_status(decision)
+		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, application_headers_send_state(decision, stream_id)?, http2::core::output_buffer_append_headers(http2::core::receive_connection_output(state), decision)), tail, written_count)
+		"rejected" => Err(Http2ApplicationRejectedHeadersAction(application_headers_send_failure(decision, stream_id)?))
+		_ => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, http2::core::headers_send_encode_reason(decision)))
+	end
+end
+
+fn apply_application_data(state: CoreReceiveConnectionState, stream_id: Int, data: ByteChunk, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let connection = http2::core::receive_connection_connection(state)
+	let decision = http2::core::send_data(connection, http2::core::connection_state_next_offset(connection), stream_id, data, end_stream)
+	match http2::core::data_send_status(decision)
+		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, application_data_send_state(decision, stream_id)?, http2::core::output_buffer_append_data(http2::core::receive_connection_output(state), decision)), tail, written_count)
+		"rejected" => Err(Http2ApplicationRejectedDataAction(application_data_send_failure(decision, stream_id)?))
+		_ => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, http2::core::data_send_encode_reason(decision)))
+	end
+end
+
+fn application_headers_send_state(decision: CoreHeadersSendDecision, stream_id: Int) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::headers_send_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, reason))
+	end
+end
+
+fn application_headers_send_failure(decision: CoreHeadersSendDecision, stream_id: Int) -> Result<CoreOutboundHeadersFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::headers_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, reason))
+	end
+end
+
+fn application_data_send_state(decision: CoreDataSendDecision, stream_id: Int) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::data_send_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, reason))
+	end
+end
+
+fn application_data_send_failure(decision: CoreDataSendDecision, stream_id: Int) -> Result<CoreOutboundDataFlowFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::data_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, reason))
+	end
+end
+
+fn continue_after_committed_action(state: CoreReceiveConnectionState, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+	let after_write = write_new_application_output(state, written_count)?
+	apply_application_actions(after_write.state, tail, after_write.written_count)
+end
+
+fn receive_state_with_connection_and_output(state: CoreReceiveConnectionState, connection: CoreConnectionState, output: CoreOutputBuffer) -> CoreReceiveConnectionState
+	if http2::core::receive_connection_initial_settings_accepted(state)
+		http2::core::receive_connection_state_after_initial_settings(connection, http2::core::receive_connection_input(state), output)
+	else
+		http2::core::receive_connection_state(connection, http2::core::receive_connection_input(state), output)
+	end
+end
+
+pub fn application_action_kind(action: Http2ApplicationAction) -> String
+	match action
+		Http2SendResponseHeaders(_, _, _) => "headers"
+		Http2SendResponseData(_, _, _) => "data"
+	end
+end
+
+pub fn application_action_stream_id(action: Http2ApplicationAction) -> Int
+	match action
+		Http2SendResponseHeaders(stream_id, _, _) => stream_id
+		Http2SendResponseData(stream_id, _, _) => stream_id
+	end
+end
+
+pub fn application_action_end_stream(action: Http2ApplicationAction) -> Bool
+	match action
+		Http2SendResponseHeaders(_, _, end_stream) => end_stream
+		Http2SendResponseData(_, _, end_stream) => end_stream
+	end
+end
+
+pub fn application_failure_kind(failure: Http2ApplicationBoundaryFailure) -> String
+	match failure
+		Http2ApplicationConnectionFailure(_) => "connection"
+		Http2ApplicationCallbackFailure(_) => "callback"
+		Http2ApplicationUnsupportedRequestShape(_, _) => "unsupported-request-shape"
+		Http2ApplicationUnsupportedRequestCount(_) => "unsupported-request-count"
+		Http2ApplicationInvalidActionSequence(_, _, _, _) => "invalid-action-sequence"
+		Http2ApplicationRejectedHeadersAction(_) => "rejected-headers-action"
+		Http2ApplicationRejectedDataAction(_) => "rejected-data-action"
+		Http2ApplicationCoreActionEncodeFailure(_, _, _) => "core-action-encode"
+	end
+end
+
+pub fn application_failure_reason(failure: Http2ApplicationBoundaryFailure) -> String
+	match failure
+		Http2ApplicationConnectionFailure(inner) => connection_failure_reason(inner)
+		Http2ApplicationCallbackFailure(reason) => reason
+		Http2ApplicationUnsupportedRequestShape(_, reason) => reason
+		Http2ApplicationUnsupportedRequestCount(_) => "only one request is supported"
+		Http2ApplicationInvalidActionSequence(reason, _, _, _) => reason
+		Http2ApplicationRejectedHeadersAction(inner) => http2::core::outbound_headers_failure_rule_provenance(inner)
+		Http2ApplicationRejectedDataAction(inner) => http2::core::outbound_data_flow_failure_rule_provenance(inner)
+		Http2ApplicationCoreActionEncodeFailure(_, _, reason) => reason
+	end
+end
+
+pub fn application_failure_id(failure: Http2ApplicationBoundaryFailure) -> String
+	match failure
+		Http2ApplicationConnectionFailure(inner) => connection_failure_id(inner)
+		Http2ApplicationCallbackFailure(_) => "http2.application.callback_failure"
+		Http2ApplicationUnsupportedRequestShape(_, _) => "http2.application.unsupported_request_shape"
+		Http2ApplicationUnsupportedRequestCount(_) => "http2.application.unsupported_request_count"
+		Http2ApplicationInvalidActionSequence(_, _, _, _) => "http2.application.invalid_action_sequence"
+		Http2ApplicationRejectedHeadersAction(inner) => http2::core::outbound_headers_failure_id(inner)
+		Http2ApplicationRejectedDataAction(inner) => http2::core::outbound_data_flow_failure_id(inner)
+		Http2ApplicationCoreActionEncodeFailure(_, _, _) => "http2.application.core_action_encode_failure"
+	end
+end
+
+pub fn application_failure_stream_id(failure: Http2ApplicationBoundaryFailure) -> Int
+	match failure
+		Http2ApplicationConnectionFailure(inner) => connection_failure_stream_id(inner)
+		Http2ApplicationCallbackFailure(_) => 0
+		Http2ApplicationUnsupportedRequestShape(stream_id, _) => stream_id
+		Http2ApplicationUnsupportedRequestCount(stream_id) => stream_id
+		Http2ApplicationInvalidActionSequence(_, _, stream_id, _) => stream_id
+		Http2ApplicationRejectedHeadersAction(inner) => http2::core::outbound_headers_failure_stream_id(inner)
+		Http2ApplicationRejectedDataAction(inner) => http2::core::outbound_data_flow_failure_stream_id(inner)
+		Http2ApplicationCoreActionEncodeFailure(_, stream_id, _) => stream_id
+	end
+end
+
+pub fn application_failure_action_index(failure: Http2ApplicationBoundaryFailure) -> Int
+	match failure
+		Http2ApplicationInvalidActionSequence(_, action_index, _, _) => action_index
+		_ => -1
 	end
 end
 

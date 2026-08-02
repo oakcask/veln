@@ -21,6 +21,10 @@ details.
   Runtime result failures that carry source-visible diagnostic payload values,
   including `RuntimeDiagnostic(..., RuntimeByteDiagnostic(...))`, are specified
   there.
+  HTTP/2 application-boundary cases that distinguish callback, unsupported
+  request, invalid action, and rejected core-action outcomes reuse the same
+  run envelope; their source-visible observations are routed from
+  [http2.md](http2.md).
 - `test --json`: [test-json.md](test-json.md) for selection, case, summary,
   failure, and error records.
 - `repair --json`: [repair-json.md](repair-json.md) for preview, apply,

@@ -314,6 +314,13 @@ pub fn headers_send_bytes(decision: CoreHeadersSendDecision) -> ByteChunk
 	end
 end
 
+pub fn headers_send_encode_reason(decision: CoreHeadersSendDecision) -> String
+	match decision
+		CoreHeadersSendEncodeFailed(_, reason) => reason
+		_ => "none"
+	end
+end
+
 pub fn push_promise_send_status(decision: CorePushPromiseSendDecision) -> String
 	match decision
 		CorePushPromiseSendAccepted(_, _, _, _, _) => "accepted"

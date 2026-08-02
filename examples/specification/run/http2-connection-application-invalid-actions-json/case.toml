@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "invalid-action-sequence http2.application.invalid_action_sequence index 0 DATA cannot appear before response HEADERS\n"
+
+[[json_assert]]
+path = "error"
+equals = null
