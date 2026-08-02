@@ -1,3 +1,5 @@
+mod schema_encode;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
@@ -150,8 +152,6 @@ pub(crate) struct CodecCallSignature {
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
 }
-
-type SchemaEncodeFields = (Vec<(String, Type)>, Vec<String>);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CodecCallBoundary {
@@ -4361,7 +4361,8 @@ fn schema_encode_function_signature_for_schema(
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
     }
-    let (fields, exact_width_field_names) = schema_encode_schema_fields(module, schema)?;
+    let (fields, exact_width_field_names) =
+        schema_encode::schema_encode_schema_fields(module, schema)?;
     let value_fields =
         schema_encode_value_fields(module, schema, &fields, &exact_width_field_names)?;
     let byte_chunk = Type::named("ByteChunk", Vec::new());
@@ -4377,134 +4378,6 @@ fn schema_encode_function_signature_for_schema(
         effects: Vec::new(),
         node_id: schema.node_id,
         span: schema.span.clone(),
-    })
-}
-
-fn schema_encode_schema_fields(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-) -> Option<SchemaEncodeFields> {
-    let mut fields = Vec::new();
-    let mut exact_width_field_names = Vec::new();
-    let mut visible_field_types = BTreeMap::new();
-    for (index, field) in schema.fields.iter().enumerate() {
-        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            supported_encode_reserved_bits(&schema.fields, index, reserved)?;
-            continue;
-        }
-        if exact_width_schema_primitive(&field.ty).is_some() {
-            exact_width_field_names.push(field.name.clone());
-            fields.push((field.name.clone(), Type::int()));
-            visible_field_types.insert(field.name.clone(), Type::int());
-            continue;
-        }
-        if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            if schema_length_expression_references(&repeat.count_field)?
-                .into_iter()
-                .any(|reference| {
-                    schema_field_reference_type(&visible_field_types, reference)
-                        != Some(&Type::int())
-                })
-            {
-                return None;
-            }
-            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
-                && schema_length_expression_references(length_field)?
-                    .into_iter()
-                    .any(|reference| {
-                        schema_field_reference_type(&visible_field_types, reference)
-                            != Some(&Type::int())
-                    })
-            {
-                return None;
-            }
-            if let SchemaRepeatPayload::ReservedBits { .. } = &repeat.payload {
-                continue;
-            }
-            let element_ty = schema_repeat_payload_type(module, schema, &repeat, &mut Vec::new())?;
-            let field_ty = Type::named("List", vec![element_ty]);
-            fields.push((field.name.clone(), field_ty.clone()));
-            visible_field_types.insert(field.name.clone(), field_ty);
-            continue;
-        }
-        if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
-            if length_expr.references().into_iter().any(|reference| {
-                schema_field_reference_type(&visible_field_types, reference) != Some(&Type::int())
-            }) {
-                return None;
-            }
-            fields.push((field.name.clone(), Type::named("ByteView", Vec::new())));
-            visible_field_types.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
-            continue;
-        }
-        if let Some(nested) = schema_field_target(module, schema, &field.ty)
-            && nested.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
-        {
-            let field_ty = schema_encode_value_type(module, nested)?;
-            fields.push((field.name.clone(), field_ty.clone()));
-            visible_field_types.insert(field.name.clone(), field_ty);
-            continue;
-        }
-        if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
-            fields.push((field.name.clone(), record_ty.clone()));
-            visible_field_types.insert(field.name.clone(), record_ty);
-            continue;
-        }
-        let dispatch = closed_dispatch_schema_primitive(&field.ty)
-            .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-        let recursive_dispatch_payload =
-            recursive_dispatch_encode_payload_field(module, schema, field, &dispatch);
-        if schema_field_reference_type(&visible_field_types, &dispatch.tag_field)
-            != Some(&Type::int())
-            || dispatch.length_field.as_ref().is_some_and(|length_field| {
-                schema_field_reference_type(&visible_field_types, length_field)
-                    != Some(&Type::int())
-            })
-            || (dispatch.length_field.is_some()
-                && !dispatch.preserves_unknown
-                && !recursive_dispatch_payload)
-        {
-            return None;
-        }
-        let mut payload_types = dispatch
-            .cases
-            .iter()
-            .map(|case| schema_encode_dispatch_case_type(module, schema, field, &dispatch, case))
-            .collect::<Option<Vec<_>>>()?;
-        let payload_ty = payload_types.pop()?;
-        if !recursive_dispatch_payload && payload_types.iter().any(|ty| ty != &payload_ty) {
-            return None;
-        }
-        if dispatch.preserves_unknown {
-            let field_ty = Type::named("SchemaDispatchPayload", vec![payload_ty]);
-            fields.push((field.name.clone(), field_ty.clone()));
-            visible_field_types.insert(field.name.clone(), field_ty);
-        } else {
-            fields.push((field.name.clone(), payload_ty.clone()));
-            visible_field_types.insert(field.name.clone(), payload_ty);
-        }
-    }
-    Some((fields, exact_width_field_names))
-}
-
-fn recursive_dispatch_encode_payload_field(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    field: &SchemaField,
-    dispatch: &SchemaDispatchSpec,
-) -> bool {
-    dispatch.cases.iter().any(|case| {
-        matches!(
-            &case.payload,
-            SchemaDispatchCasePayload::Schema { schema_name }
-                if recursive_dispatch_payload_case_is_eligible(
-                    module,
-                    schema,
-                    field,
-                    dispatch,
-                    schema_name,
-                )
-        )
     })
 }
 
