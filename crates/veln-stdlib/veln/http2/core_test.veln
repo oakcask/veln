@@ -439,6 +439,43 @@ fn require_output_chunk(output: CoreOutputBuffer, index: Int) -> Result<ByteChun
 	end
 end
 
+fn event_count(events: List<Http2ApplicationEvent>) -> Int
+	match events
+		Nil => 0
+		Cons(_, tail) => 1 + event_count(tail)
+	end
+end
+
+fn event_at(events: List<Http2ApplicationEvent>, index: Int) -> Option<Http2ApplicationEvent>
+	match events
+		Nil => None
+		Cons(head, tail) => if index == 0
+			Some(head)
+		else
+			event_at(tail, index - 1)
+		end
+	end
+end
+
+fn require_event(events: List<Http2ApplicationEvent>, index: Int) -> Result<Http2ApplicationEvent, String>
+	match event_at(events, index)
+		Some(event) => Ok(event)
+		None => Err("missing HTTP/2 application event")
+	end
+end
+
+fn header_value_matches(headers: HeaderList, index: Int, expected_name: String, expected_value: ByteChunk) -> Result<Bool, String>
+	match http2::hpack::header_list_at(headers, index)
+		Some(header) => Ok(http2::hpack::header_field_name(header) == expected_name and chunks_equal(http2::hpack::header_field_value(header), expected_value)?)
+		None => Ok(false)
+	end
+end
+
+fn request_event_matches(event: Http2ApplicationEvent, expected_stream_id: Int, expected_end_stream: Bool, expected_path_hex: String) -> Result<Bool, String>
+	let headers = http2::core::application_event_headers(event)
+	Ok(http2::core::application_event_stream_id(event) == expected_stream_id and http2::core::application_event_end_stream(event) == expected_end_stream and http2::hpack::header_list_count(headers) == 3 and header_value_matches(headers, 0, ":method", byte_chunk_from_hex("474554")?)? and header_value_matches(headers, 1, ":scheme", byte_chunk_from_hex("6874747073")?)? and header_value_matches(headers, 2, ":path", byte_chunk_from_hex(expected_path_hex)?)?)
+end
+
 test connection_state_starts_with_composed_server_defaults() -> Result<(), String>
 	let state = http2::core::server_connection_state(24)?
 	if http2::core::connection_state_endpoint_role(state) == "server" and http2::core::connection_state_next_offset(state) == 24 and http2::core::connection_preface_starting_offset(http2::core::connection_state_preface(state)) == 24 and not http2::core::connection_preface_state_is_complete(http2::core::connection_state_preface(state)) and http2::core::initial_peer_settings_endpoint_role(http2::core::connection_state_initial_peer_settings(state)) == "server" and not http2::core::pending_header_block_is_active(http2::core::connection_state_pending_header_block(state)) and http2::core::connection_state_hpack_table_capacity(state) == 4096 and http2::core::connection_state_hpack_table_size(state) == 0 and http2::core::connection_state_hpack_table_entry_count(state) == 0 and http2::core::peer_settings_active_max_frame_size(http2::core::connection_state_peer_settings(state)) == 16384 and http2::core::outstanding_settings_label(http2::core::settings_ack_outstanding(http2::core::connection_state_settings_ack(state))) == "none" and http2::core::peer_stream_admission_highest_stream_id(http2::core::connection_state_peer_stream_admission(state)) == 0 and http2::core::stream_collection_count(http2::core::connection_state_streams(state)) == 0 and http2::core::stream_collection_active_count(http2::core::connection_state_streams(state)) == 0 and http2::core::connection_window_credit_value(http2::core::connection_state_receive_credit(state)) == 65535 and not http2::core::local_settings_policy_has_enable_push(http2::core::connection_state_local_settings_policy(state)) and http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "open"
@@ -2494,6 +2531,65 @@ test receive_connection_boundary_applies_push_promise_without_output_side_effect
 		Ok(())
 	else
 		Err("HTTP/2 receive connection boundary did not apply PUSH_PROMISE through the aggregate receive dispatcher")
+	end
+end
+
+test receive_connection_application_events_drain_complete_request_headers() -> Result<(), String>
+	let initial = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let chunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784")?
+	let decision = http2::core::receive_connection_chunk(initial, chunk)?
+	let after_headers = http2::core::receive_connection_state_from_decision(decision)?
+	let first_drain = http2::core::drain_application_events(after_headers)
+	let first_events = http2::core::application_event_drain_events(first_drain)
+	let drained_state = http2::core::application_event_drain_state(first_drain)
+	let second_drain = http2::core::drain_application_events(drained_state)
+	if http2::core::receive_connection_status(decision) == "accepted" and http2::core::receive_connection_applied_transition(decision) == "header-block" and event_count(first_events) == 1 and request_event_matches(require_event(first_events, 0)?, 1, false, "2f")? and event_count(http2::core::application_event_drain_events(second_drain)) == 0 and event_count(http2::core::receive_connection_application_events(after_headers)) == 1 and byte_count_to_int(byte_chunk_count(http2::core::receive_connection_input(drained_state))) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive connection did not drain one complete request-header application event exactly once")
+	end
+end
+
+test receive_connection_application_events_preserve_same_chunk_order() -> Result<(), String>
+	let initial = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let chunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784000003010500000003828785")?
+	let state = require_receive_connection_state(http2::core::receive_connection_chunk(initial, chunk))?
+	let events = http2::core::application_event_drain_events(http2::core::drain_application_events(state))
+	if event_count(events) == 2 and request_event_matches(require_event(events, 0)?, 1, false, "2f")? and request_event_matches(require_event(events, 1)?, 3, true, "2f696e6465782e68746d6c")?
+		Ok(())
+	else
+		Err("HTTP/2 receive connection did not preserve same-chunk request event order")
+	end
+end
+
+test receive_connection_application_events_wait_for_continuation_completion() -> Result<(), String>
+	let initial = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let first_chunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000101000000000182")?
+	let pending = require_receive_connection_state(http2::core::receive_connection_chunk(initial, first_chunk))?
+	let pending_events = http2::core::application_event_drain_events(http2::core::drain_application_events(pending))
+	let completed = require_receive_connection_state(http2::core::receive_connection_chunk(pending, byte_chunk_from_hex("0000020904000000018784")?))?
+	let completed_events = http2::core::application_event_drain_events(http2::core::drain_application_events(completed))
+	if event_count(pending_events) == 0 and event_count(completed_events) == 1 and request_event_matches(require_event(completed_events, 0)?, 1, false, "2f")?
+		Ok(())
+	else
+		Err("HTTP/2 receive connection emitted request events before or after the wrong header-block boundary")
+	end
+end
+
+test receive_connection_application_events_skip_invalid_and_unrelated_frames() -> Result<(), String>
+	let initial = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let invalid = http2::core::receive_connection_chunk(initial, byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000401040000000182828784")?)?
+	let response_entry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_open_lifecycle(), 10, 20, -1, 0))?
+	let response_connection = http2::core::connection_state_with_streams(http2::core::client_connection_state(31)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), response_entry))
+	let response_state = require_receive_connection_state(http2::core::receive_connection_chunk(http2::core::receive_connection_state_after_initial_settings(response_connection, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("00000101040000000188")?))?
+	let trailer_entry = require_stream_entry(http2::core::stream_entry(1, http2::core::stream_half_closed_local_lifecycle(), 10, 20, -1, 0))?
+	let trailer_connection = http2::core::connection_state_with_streams(http2::core::client_connection_state(31)?, http2::core::stream_collection_add_or_replace(http2::core::empty_stream_collection(), trailer_entry))
+	let trailer_state = require_receive_connection_state(http2::core::receive_connection_chunk(http2::core::receive_connection_state_after_initial_settings(trailer_connection, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("000005010400000001400178017a")?))?
+	let ping_state = require_receive_connection_state(http2::core::receive_connection_chunk(http2::core::receive_connection_state_after_initial_settings(http2::core::client_connection_state(31)?, byte_chunk([]), http2::core::empty_output_buffer()), byte_chunk_from_hex("0000080600000000000102030405060708")?))?
+	if http2::core::receive_connection_status(invalid) == "rejected" and event_count(http2::core::receive_connection_application_events(initial)) == 0 and event_count(http2::core::application_event_drain_events(http2::core::drain_application_events(response_state))) == 0 and event_count(http2::core::application_event_drain_events(http2::core::drain_application_events(trailer_state))) == 0 and event_count(http2::core::application_event_drain_events(http2::core::drain_application_events(ping_state))) == 0
+		Ok(())
+	else
+		Err("HTTP/2 receive connection emitted request events for invalid or unrelated frames")
 	end
 end
 

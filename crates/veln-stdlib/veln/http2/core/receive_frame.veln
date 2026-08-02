@@ -16,8 +16,12 @@ use http2::core::receive_shutdown
 use http2::core::window_update_flow_control
 
 pub type CoreReceiveFrameDecision
-	CoreReceiveFrameAccepted(CoreConnectionState, frame_kind: Int, stream_id: Int, payload_length: Int, applied_transition: String)
+	CoreReceiveFrameAccepted(CoreConnectionState, frame_kind: Int, stream_id: Int, payload_length: Int, applied_transition: String, application_event: Option<Http2ApplicationEvent>)
 	CoreReceiveFrameRejected(CoreReceiveFrameFailure)
+end
+
+pub type Http2ApplicationEvent
+	Http2RequestHeaders(stream_id: Int, headers: HeaderList, end_stream: Bool)
 end
 
 pub type CoreReceiveFrameFailure
@@ -90,14 +94,14 @@ fn apply_admitted(state: CoreConnectionState, offset: Int, length: Int, kind: In
 	match kind
 		0 => apply_data_frame(state, offset, length, flags, stream_id, payload, header, frame_bytes)
 		1 => apply_headers_frame(state, offset, length, flags, stream_id, payload, header)
-		2 => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(state, offset + 9 + length), 2, stream_id, length, "priority"))
+		2 => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(state, offset + 9 + length), 2, stream_id, length, "priority", None))
 		3 => apply_rst_stream_frame(state, offset, stream_id, payload, header)
 		4 => apply_settings_frame(state, offset, length, flags, payload, header)
 		5 => apply_push_promise_frame(state, offset, length, flags, stream_id, payload, header)
 		7 => apply_goaway_frame(state, offset, length, payload, header)
 		8 => apply_window_update_frame(state, offset, stream_id, payload, header)
 		9 => apply_continuation_frame(state, offset, length, flags, stream_id, payload, header)
-		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::complete_drain(state), offset + 9 + length), kind, stream_id, length, "none"))
+		_ => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::complete_drain(state), offset + 9 + length), kind, stream_id, length, "none", None))
 	end
 end
 
@@ -130,7 +134,7 @@ fn apply_header_transition(state: CoreConnectionState, offset: Int, length: Int,
 	if http2::core::pending_header_block::transition_completed(transition)
 		complete_header_block(pending_state, offset, length, kind, stream_id, transition, header)
 	else
-		Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(pending_state, offset + 9 + length), kind, stream_id, length, "header-block-pending"))
+		Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(pending_state, offset + 9 + length), kind, stream_id, length, "header-block-pending", None))
 	end
 end
 
@@ -144,6 +148,7 @@ end
 
 fn validate_completed_headers(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, decoded: HeaderBlockDecodeTransition, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let headers = http2::hpack::header_block_headers(decoded)
+	let request_headers = completed_headers_are_request(state, stream_id, headers, transition)
 	let validation = if http2::core::pending_header_block::transition_is_trailer(transition) or existing_stream_without_pseudo(state, stream_id, headers)
 		http2::core::header_list_validation::validate_trailers(headers, trailer_active_state(state, stream_id, headers))
 	else if header_list_has_name(headers, ":status")
@@ -152,25 +157,25 @@ fn validate_completed_headers(state: CoreConnectionState, offset: Int, length: I
 		http2::core::header_list_validation::validate_request(headers, http2::core::peer_settings_state::enable_connect_protocol_value(http2::core::connection_state::peer_settings(state)))
 	end
 	match validation
-		Ok(content_length) => apply_completed_header_state(state, offset, length, kind, stream_id, transition, decoded, content_length, header)
+		Ok(content_length) => apply_completed_header_state(state, offset, length, kind, stream_id, transition, decoded, content_length, header, request_event(stream_id, headers, http2::core::pending_header_block::transition_end_stream(transition), request_headers))
 		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameHeaderListValidationFailure(offset, kind, stream_id, failure, http2::core::pending_header_block::transition_header_block(transition))))
 	end
 end
 
-fn apply_completed_header_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, decoded: HeaderBlockDecodeTransition, content_length: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+fn apply_completed_header_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, decoded: HeaderBlockDecodeTransition, content_length: Int, header: ByteChunk, event: Option<Http2ApplicationEvent>) -> Result<CoreReceiveFrameDecision, String>
 	let hpack_state = http2::core::connection_state::with_hpack_table(state, http2::hpack::header_block_table(decoded))
 	if http2::core::pending_header_block::transition_promised_stream_id(transition) > 0
 		apply_completed_push_promise_state(hpack_state, offset, length, kind, stream_id, transition, content_length, header)
 	else
-		apply_completed_headers_state(hpack_state, offset, length, kind, stream_id, transition, content_length, header)
+		apply_completed_headers_state(hpack_state, offset, length, kind, stream_id, transition, content_length, header, event)
 	end
 end
 
-fn apply_completed_headers_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, content_length: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
+fn apply_completed_headers_state(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, transition: HeaderBlockTransition, content_length: Int, header: ByteChunk, event: Option<Http2ApplicationEvent>) -> Result<CoreReceiveFrameDecision, String>
 	let ensured = ensure_stream_for_headers(state, stream_id, content_length)?
 	let lifecycle = http2::core::stream_transition::apply_remote_end_stream(ensured, offset, kind, stream_id, http2::core::pending_header_block::transition_end_stream(transition), header)
 	match http2::core::stream_transition::decision_status(lifecycle)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(lifecycle)?, offset + 9 + length), kind, stream_id, length, "header-block"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(lifecycle)?, offset + 9 + length), kind, stream_id, length, "header-block", event))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(lifecycle)?)))
 	end
 end
@@ -186,7 +191,7 @@ end
 fn add_reserved_promised_stream(state: CoreConnectionState, offset: Int, length: Int, kind: Int, stream_id: Int, promised_stream_id: Int, content_length: Int) -> Result<CoreReceiveFrameDecision, String>
 	let initial_credit = http2::core::peer_settings_state::active_initial_window_size(http2::core::connection_state::peer_settings(state))
 	match http2::core::stream_state::entry(promised_stream_id, http2::core::stream_state::reserved_by_peer_lifecycle(), initial_credit, initial_credit, content_length, 0)
-		Ok(entry) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry)), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id)), offset + 9 + length), kind, stream_id, length, "push-promise"))
+		Ok(entry) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_peer_settings(http2::core::connection_state::with_streams(state, http2::core::stream_state::add_or_replace(http2::core::connection_state::streams(state), entry)), http2::core::peer_settings_state::with_highest_peer_created_stream_id(http2::core::connection_state::peer_settings(state), promised_stream_id)), offset + 9 + length), kind, stream_id, length, "push-promise", None))
 		Err(_) => Ok(CoreReceiveFrameRejected(CoreReceiveFramePayloadReadFailure(offset, 5, stream_id, "promised stream default flow-control credit is invalid", byte_chunk([]))))
 	end
 end
@@ -201,7 +206,7 @@ end
 
 fn apply_settings_ack_frame(state: CoreConnectionState, offset: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	match http2::core::settings_ack::accept_peer_ack(http2::core::connection_state::settings_ack(state), offset, chunk_view(header)?)
-		Ok(next_ack) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(state, next_ack), offset + 9), 4, 0, 0, "settings-ack"))
+		Ok(next_ack) => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(state, next_ack), offset + 9), 4, 0, 0, "settings-ack", None))
 		Err(failure) => Ok(CoreReceiveFrameRejected(CoreReceiveFrameSettingsAckFailure(failure)))
 	end
 end
@@ -220,13 +225,13 @@ fn apply_valid_peer_settings_frame(state: CoreConnectionState, offset: Int, leng
 	let next_peer_settings = http2::core::peer_settings_state::apply_payload(http2::core::connection_state::peer_settings(state), offset + 9, payload)?
 	let next_ack = http2::core::settings_ack::after_peer_frame(http2::core::connection_state::settings_ack(state), 4, 0, length)
 	let next_state = http2::core::connection_state::with_next_offset(http2::core::connection_state::with_settings_ack(http2::core::connection_state::with_peer_settings(state, next_peer_settings), next_ack), offset + 9 + length)
-	Ok(CoreReceiveFrameAccepted(next_state, 4, 0, length, "settings"))
+	Ok(CoreReceiveFrameAccepted(next_state, 4, 0, length, "settings", None))
 end
 
 fn apply_goaway_frame(state: CoreConnectionState, offset: Int, length: Int, payload: ByteChunk, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let decision = http2::core::receive_shutdown::apply_goaway(state, offset, payload, header)
 	match http2::core::receive_shutdown::decision_status(decision)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::decision_state(decision)?, offset + 9 + length), 7, 0, length, "goaway"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::receive_shutdown::decision_state(decision)?, offset + 9 + length), 7, 0, length, "goaway", None))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionShutdownFailure(http2::core::receive_shutdown::decision_failure(decision)?)))
 	end
 end
@@ -251,7 +256,7 @@ end
 fn apply_remote_end_stream_after_data(state: CoreConnectionState, offset: Int, length: Int, flags: Int, stream_id: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let decision = http2::core::stream_transition::apply_remote_end_stream(state, offset, 0, stream_id, end_stream_set(flags), header)
 	match http2::core::stream_transition::decision_status(decision)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 9 + length), 0, stream_id, length, "data"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 9 + length), 0, stream_id, length, "data", None))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(decision)?)))
 	end
 end
@@ -265,7 +270,7 @@ end
 
 fn apply_rst_stream_decision(decision: CoreStreamLifecycleTransitionDecision, offset: Int, stream_id: Int) -> Result<CoreReceiveFrameDecision, String>
 	match http2::core::stream_transition::decision_status(decision)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 13), 3, stream_id, 4, "rst-stream"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::stream_transition::decision_state(decision)?, offset + 13), 3, stream_id, 4, "rst-stream", None))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamLifecycleFailure(http2::core::stream_transition::decision_failure(decision)?)))
 	end
 end
@@ -283,7 +288,7 @@ end
 fn apply_stream_window_update(state: CoreConnectionState, offset: Int, stream_id: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let decision = http2::core::window_update_flow_control::apply_stream_window_update(state, offset, stream_id, increment, header)
 	match http2::core::window_update_flow_control::decision_status(decision)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::decision_state(decision)?, offset + 13), 8, stream_id, 4, "stream-window-update"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::decision_state(decision)?, offset + 13), 8, stream_id, 4, "stream-window-update", None))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameStreamWindowUpdateFailure(http2::core::window_update_flow_control::decision_failure(decision)?)))
 	end
 end
@@ -291,7 +296,7 @@ end
 fn apply_connection_window_update(state: CoreConnectionState, offset: Int, increment: Int, header: ByteChunk) -> Result<CoreReceiveFrameDecision, String>
 	let decision = http2::core::window_update_flow_control::apply_connection_window_update(state, offset, increment, header)
 	match http2::core::window_update_flow_control::connection_decision_status(decision)
-		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::connection_decision_state(decision)?, offset + 13), 8, 0, 4, "connection-window-update"))
+		"accepted" => Ok(CoreReceiveFrameAccepted(http2::core::connection_state::with_next_offset(http2::core::window_update_flow_control::connection_decision_state(decision)?, offset + 13), 8, 0, 4, "connection-window-update", None))
 		_ => Ok(CoreReceiveFrameRejected(CoreReceiveFrameConnectionWindowUpdateFailure(http2::core::window_update_flow_control::connection_decision_failure(decision)?)))
 	end
 end
@@ -448,6 +453,18 @@ fn trailer_active_state(state: CoreConnectionState, stream_id: Int, headers: Hea
 	end
 end
 
+fn completed_headers_are_request(state: CoreConnectionState, stream_id: Int, headers: HeaderList, transition: HeaderBlockTransition) -> Bool
+	not http2::core::pending_header_block::transition_is_trailer(transition) and not existing_stream_without_pseudo(state, stream_id, headers) and not header_list_has_name(headers, ":status")
+end
+
+fn request_event(stream_id: Int, headers: HeaderList, end_stream: Bool, is_request: Bool) -> Option<Http2ApplicationEvent>
+	if is_request
+		Some(Http2RequestHeaders(stream_id, headers, end_stream))
+	else
+		None
+	end
+end
+
 fn header_list_has_pseudo(headers: HeaderList) -> Bool
 	header_list_has_name(headers, ":method") or header_list_has_name(headers, ":scheme") or header_list_has_name(headers, ":path") or header_list_has_name(headers, ":authority") or header_list_has_name(headers, ":status") or header_list_has_name(headers, ":protocol")
 end
@@ -536,50 +553,75 @@ end
 
 pub fn decision_status(decision: CoreReceiveFrameDecision) -> String
 	match decision
-		CoreReceiveFrameAccepted(_, _, _, _, _) => "accepted"
+		CoreReceiveFrameAccepted(_, _, _, _, _, _) => "accepted"
 		CoreReceiveFrameRejected(_) => "rejected"
 	end
 end
 
 pub fn decision_state(decision: CoreReceiveFrameDecision) -> Result<CoreConnectionState, String>
 	match decision
-		CoreReceiveFrameAccepted(state, _, _, _, _) => Ok(state)
+		CoreReceiveFrameAccepted(state, _, _, _, _, _) => Ok(state)
 		CoreReceiveFrameRejected(_) => Err("rejected receive frame decision has no state")
 	end
 end
 
 pub fn decision_failure(decision: CoreReceiveFrameDecision) -> Result<CoreReceiveFrameFailure, String>
 	match decision
-		CoreReceiveFrameAccepted(_, _, _, _, _) => Err("accepted receive frame decision has no failure")
+		CoreReceiveFrameAccepted(_, _, _, _, _, _) => Err("accepted receive frame decision has no failure")
 		CoreReceiveFrameRejected(failure) => Ok(failure)
 	end
 end
 
 pub fn decision_frame_kind(decision: CoreReceiveFrameDecision) -> Int
 	match decision
-		CoreReceiveFrameAccepted(_, kind, _, _, _) => kind
+		CoreReceiveFrameAccepted(_, kind, _, _, _, _) => kind
 		CoreReceiveFrameRejected(_) => 0
 	end
 end
 
 pub fn decision_stream_id(decision: CoreReceiveFrameDecision) -> Int
 	match decision
-		CoreReceiveFrameAccepted(_, _, stream_id, _, _) => stream_id
+		CoreReceiveFrameAccepted(_, _, stream_id, _, _, _) => stream_id
 		CoreReceiveFrameRejected(_) => 0
 	end
 end
 
 pub fn decision_payload_length(decision: CoreReceiveFrameDecision) -> Int
 	match decision
-		CoreReceiveFrameAccepted(_, _, _, length, _) => length
+		CoreReceiveFrameAccepted(_, _, _, length, _, _) => length
 		CoreReceiveFrameRejected(_) => 0
 	end
 end
 
 pub fn decision_applied_transition(decision: CoreReceiveFrameDecision) -> String
 	match decision
-		CoreReceiveFrameAccepted(_, _, _, _, applied_transition) => applied_transition
+		CoreReceiveFrameAccepted(_, _, _, _, applied_transition, _) => applied_transition
 		CoreReceiveFrameRejected(_) => "rejected"
+	end
+end
+
+pub fn decision_application_event(decision: CoreReceiveFrameDecision) -> Option<Http2ApplicationEvent>
+	match decision
+		CoreReceiveFrameAccepted(_, _, _, _, _, event) => event
+		CoreReceiveFrameRejected(_) => None
+	end
+end
+
+pub fn application_event_stream_id(event: Http2ApplicationEvent) -> Int
+	match event
+		Http2RequestHeaders(stream_id, _, _) => stream_id
+	end
+end
+
+pub fn application_event_headers(event: Http2ApplicationEvent) -> HeaderList
+	match event
+		Http2RequestHeaders(_, headers, _) => headers
+	end
+end
+
+pub fn application_event_end_stream(event: Http2ApplicationEvent) -> Bool
+	match event
+		Http2RequestHeaders(_, _, end_stream) => end_stream
 	end
 end
 

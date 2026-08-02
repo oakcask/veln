@@ -1,0 +1,100 @@
+use http2::core from "std"
+use http2::hpack from "std"
+use stdio
+
+fn require_state(decision: CoreReceiveConnectionDecision) -> Result<CoreReceiveConnectionState, String>
+	http2::core::receive_connection_state_from_decision(decision)
+end
+
+fn event_count(events: List<Http2ApplicationEvent>) -> Int
+	match events
+		Nil => 0
+		Cons(_, tail) => 1 + event_count(tail)
+	end
+end
+
+fn event_at(events: List<Http2ApplicationEvent>, index: Int) -> Option<Http2ApplicationEvent>
+	match events
+		Nil => None
+		Cons(head, tail) => if index == 0
+			Some(head)
+		else
+			event_at(tail, index - 1)
+		end
+	end
+end
+
+fn require_event(events: List<Http2ApplicationEvent>, index: Int) -> Result<Http2ApplicationEvent, String>
+	match event_at(events, index)
+		Some(event) => Ok(event)
+		None => Err("missing HTTP/2 application event")
+	end
+end
+
+fn header_name(headers: HeaderList, index: Int) -> String
+	match http2::hpack::header_list_at(headers, index)
+		Some(header) => http2::hpack::header_field_name(header)
+		None => "missing"
+	end
+end
+
+fn bool_label(value: Bool) -> String
+	if value
+		"true"
+	else
+		"false"
+	end
+end
+
+fn print_event(label: String, event: Http2ApplicationEvent) -> Result<(), String> effects [stdio]
+	let headers: HeaderList = http2::core::application_event_headers(event)
+	stdio::print(label)
+	stdio::print(" stream ")
+	stdio::print(int_to_string(http2::core::application_event_stream_id(event)))
+	stdio::print(" end ")
+	stdio::print(bool_label(http2::core::application_event_end_stream(event)))
+	stdio::print(" headers ")
+	stdio::print(int_to_string(http2::hpack::header_list_count(headers)))
+	stdio::print(" names ")
+	stdio::print(header_name(headers, 0))
+	stdio::print(",")
+	stdio::print(header_name(headers, 1))
+	stdio::print(",")
+	stdio::println(header_name(headers, 2))
+	Ok(())
+end
+
+fn print_drain(label: String, drain: CoreApplicationEventDrain) -> Result<CoreReceiveConnectionState, String> effects [stdio]
+	let events = http2::core::application_event_drain_events(drain)
+	stdio::print(label)
+	stdio::print(" count ")
+	stdio::println(int_to_string(event_count(events)))
+	let _ = print_optional_event(label, events, 0)?
+	let _ = print_optional_event(label, events, 1)?
+	Ok(http2::core::application_event_drain_state(drain))
+end
+
+fn print_optional_event(label: String, events: List<Http2ApplicationEvent>, index: Int) -> Result<(), String> effects [stdio]
+	match event_at(events, index)
+		Some(event) => print_event(label, event)
+		None => Ok(())
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let initial = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let ordered_chunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010400000001828784000003010500000003828785")?
+	let ordered_decision = http2::core::receive_connection_chunk(initial, ordered_chunk)?
+	let ordered = require_state(ordered_decision)?
+	stdio::print("ordered transition ")
+	stdio::println(http2::core::receive_connection_applied_transition(ordered_decision))
+	let drained = print_drain("ordered", http2::core::drain_application_events(ordered))?
+	let _ = print_drain("ordered-again", http2::core::drain_application_events(drained))?
+	let continuation_start = http2::core::receive_connection_state(http2::core::server_connection_state(0)?, byte_chunk([]), http2::core::empty_output_buffer())
+	let pending_chunk = byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a00000604000000000000050000800000000101000000000182")?
+	let pending = require_state(http2::core::receive_connection_chunk(continuation_start, pending_chunk)?)?
+	let pending_drained = print_drain("continuation-pending", http2::core::drain_application_events(pending))?
+	let completed = require_state(http2::core::receive_connection_chunk(pending_drained, byte_chunk_from_hex("0000020904000000018784")?)?)?
+	let _ = print_drain("continuation-complete", http2::core::drain_application_events(completed))?
+	Ok(())
+end

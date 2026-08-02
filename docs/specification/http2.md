@@ -185,12 +185,13 @@ stream lifecycle, or the input aggregate.
 
 `http2::core::receive_connection_state(...)` creates an immutable chunked
 receive state from caller-owned aggregate connection, buffered input, and
-output-buffer state. `receive_connection_chunk(...)` appends the supplied input
-chunk, consumes the server connection preface when required, buffers partial
-frame bytes, enforces the initial peer SETTINGS gate before the first accepted
-frame, then applies each complete buffered frame in receive order through
-`apply_receive_frame(...)` until the buffer is empty, only a partial frame
-remains, or a rejection occurs.
+output-buffer state. The receive state also retains immutable application
+events produced by accepted complete request-header blocks.
+`receive_connection_chunk(...)` appends the supplied input chunk, consumes the
+server connection preface when required, buffers partial frame bytes, enforces
+the initial peer SETTINGS gate before the first accepted frame, then applies
+each complete buffered frame in receive order through `apply_receive_frame(...)`
+until the buffer is empty, only a partial frame remains, or a rejection occurs.
 Accepted non-ACK peer SETTINGS frames with a recorded pending ACK append an
 outbound SETTINGS ACK through the output buffer in receive order and clear
 only the pending peer-ACK state.
@@ -199,6 +200,20 @@ output, while received PING ACKs append no bytes. Accepted PRIORITY frames
 advance the aggregate offset and preserve stream and output state. Accepted
 PUSH_PROMISE frames reserve the promised stream through the aggregate receive
 dispatcher without appending output bytes or mutating caller-owned output.
+When a complete request HEADERS block is accepted, decoded, validated as a
+request header list, and committed through the stream transition, the receive
+state retains one `Http2RequestHeaders(stream_id, headers, end_stream)` event.
+A request HEADERS block without `END_STREAM` still produces the event.
+Incomplete HEADERS blocks retain no event until the final CONTINUATION
+completes the block and the core accepts it. Response headers, trailers,
+PUSH_PROMISE, DATA, PING, and other unrelated frames retain no request-header
+event. Rejected HPACK, header-list, and stream-transition decisions return the
+existing focused core failure and do not expose an event from the rejected
+block.
+`http2::core::drain_application_events(state)` returns the retained events in
+receive order with a next receive state that retains none of those returned
+events. Draining that next state again returns an empty event list. The input
+state remains usable as an immutable value.
 Rejections from the preface gate, initial SETTINGS gate, frame decode, or frame
 dispatcher, including after an earlier complete frame in the same input chunk
 has advanced HPACK, continuation, DATA flow-control and content-length, or
@@ -211,13 +226,18 @@ The adjacent
 preface plus initial SETTINGS composition, partial PING buffering, complete
 frames followed by a partial suffix, SETTINGS ACK and PING ACK byte ordering
 across split and same-chunk receive, PRIORITY offset application,
-PUSH_PROMISE reservation without output side effects, initial-gate rejection
-context, later-frame rejection after locally advanced receive state, and
-input/output preservation on rejection.
+PUSH_PROMISE reservation without output side effects, request-header
+application event retention and drain behavior, initial-gate rejection context,
+later-frame rejection after locally advanced receive state, and input/output
+preservation on rejection.
 The focused
 [`http2-core-receive-connection-boundary`](../../examples/specification/run/http2-core-receive-connection-boundary/)
 case records the public decision, state, failure, and emitted-byte
 projections.
+The focused
+[`http2-core-application-event-drain`](../../examples/specification/run/http2-core-application-event-drain/)
+case records same-chunk event order, exactly-once drain, and CONTINUATION
+completion through the public receive and drain surfaces.
 
 `http2::core::finalize_receive_connection_eof(...)` finalizes a chunked
 receive state after clean transport end. It accepts only when the connection
