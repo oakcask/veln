@@ -396,6 +396,74 @@ fn task_calls_require_concurrency_effect() {
 }
 
 #[test]
+fn task_spawn_preserves_job_effects_at_public_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn load() -> String effects [db]\n",
+            "  \"row\"\n",
+            "end\n",
+            "pub fn main() -> Task<String> effects [concurrency]\n",
+            "  task::spawn(load)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"db\""));
+    assert!(details.contains("\"inferred_effects\":[\"concurrency\",\"db\"]"));
+    assert!(details.contains("\"symbol\":\"task::spawn\""));
+}
+
+#[test]
+fn task_spawn_with_preserves_context_job_effects_at_public_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn serve(context: {payload: String}) -> String effects [net, db]\n",
+            "  context.payload\n",
+            "end\n",
+            "pub fn main(payload: String) -> Task<String> effects [concurrency]\n",
+            "  let context = {payload: payload}\n",
+            "  task::spawn_with(serve, context)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `net`"
+    );
+    let net_details = diagnostics[0].details.to_json();
+    assert!(net_details.contains("\"inferred_effects\":[\"concurrency\",\"net\",\"db\"]"));
+    assert!(net_details.contains("\"symbol\":\"task::spawn_with\""));
+    assert_eq!(diagnostics[1].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[1].message,
+        "public function uses undeclared effect `db`"
+    );
+    let db_details = diagnostics[1].details.to_json();
+    assert!(db_details.contains("\"inferred_effects\":[\"concurrency\",\"net\",\"db\"]"));
+    assert!(db_details.contains("\"symbol\":\"task::spawn_with\""));
+}
+
+#[test]
 fn fs_calls_require_fs_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
@@ -2013,10 +2081,10 @@ fn task_spawn_with_preserves_argument_and_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn produce(input: String) -> String effects [concurrency]\n",
+            "fn produce(input: String) -> String effects [net, db]\n",
             "  input\n",
             "end\n",
-            "pub fn main(input: String) -> Result<String, JoinError> effects [concurrency]\n",
+            "pub fn main(input: String) -> Result<String, JoinError> effects [concurrency, net, db]\n",
             "  let task = task::spawn_with(produce, input)\n",
             "  task::join(task)\n",
             "end\n",
@@ -2073,10 +2141,10 @@ fn task_spawn_with_preserves_explicit_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn produce(input: String) -> String effects [concurrency]\n",
+            "fn produce(input: String) -> String effects [db]\n",
             "  input\n",
             "end\n",
-            "pub fn main(input: String) -> Result<String, JoinError> effects [concurrency]\n",
+            "pub fn main(input: String) -> Result<String, JoinError> effects [concurrency, db]\n",
             "  let task = task::spawn_with<String>(produce, input)\n",
             "  task::join(task)\n",
             "end\n",
@@ -2109,10 +2177,10 @@ fn task_spawn_with_explicit_context_type_overrides_handler_argument() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn route(context: {payload: String, marker: Int}) -> String effects [concurrency]\n",
+            "fn route(context: {payload: String, marker: Int}) -> String effects [net, db]\n",
             "  context.payload\n",
             "end\n",
-            "pub fn main(payload: String, marker: Int) -> Result<String, JoinError> effects [concurrency]\n",
+            "pub fn main(payload: String, marker: Int) -> Result<String, JoinError> effects [concurrency, net, db]\n",
             "  let context = {payload: payload, marker: marker}\n",
             "  let task = task::spawn_with<String, {payload: String, marker: Int}>(route, context)\n",
             "  task::join(task)\n",

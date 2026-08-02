@@ -1,13 +1,12 @@
 command = ["check", "--json", "main.veln"]
-exit = 1
+exit = 0
 
 [stdout]
 format = "json"
-contains = ["fn() -> Int effects [concurrency]", "fn() -> Int effects [main::Ask]"]
 
 [stderr]
 format = "empty"
 
 [[json_assert]]
 path = "status"
-equals = "error"
+equals = "ok"

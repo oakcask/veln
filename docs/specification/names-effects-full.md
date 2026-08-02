@@ -174,13 +174,13 @@ context argument effects, body effects with the handled nominal effect removed,
 and the handler declaration effects. Handler context arguments are evaluated
 left to right before the body. Handling is deep for calls made during the body,
 and nested handlers for the same operation shadow outer handlers until the
-nested body finishes. Handler state is lexical to the current task; task
-spawns require their callback effect boundary explicitly and do not inherit
-the active handler stack. A runnable entry still rejects any user-defined
-effect that remains after lexical handling. The checked behavior is specified
-by the lexical-handler and handler-operation cases under
-`examples/specification/`, including the early-return cleanup and
-public handler effect-declaration cases and the `veln test` success case.
+nested body finishes. Handler state is lexical to the current task. Task
+creation expressions expose their job effect rows at the call expression, so a
+lexical handler around the task creation expression can discharge a handled
+nominal job effect before the runnable entry boundary is checked. The checked
+behavior is specified by the lexical-handler and handler-operation cases under
+`examples/specification/`, including the task-boundary, early-return cleanup,
+public handler effect-declaration, and `veln test` success cases.
 
 The exported standard `transport` module declares this public nominal effect:
 
@@ -764,25 +764,32 @@ returns `()`.
 The checker also recognizes these task-operation call targets:
 
 ```veln
-task::spawn(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
-task::spawn<T>(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
-task::spawn_with(job: fn(C) -> T effects [concurrency], context: C) -> Task<T> effects [concurrency]
-task::spawn_with<T>(job: fn(C) -> T effects [concurrency], context: C) -> Task<T> effects [concurrency]
-task::spawn_with<T, C>(job: fn(C) -> T effects [concurrency], context: C) -> Task<T> effects [concurrency]
+task::spawn<T, effect E>(job: fn() -> T effects [...E]) -> Task<T> effects [concurrency, ...E]
+task::spawn_with<T, C, effect E>(job: fn(C) -> T effects [...E], context: C) -> Task<T> effects [concurrency, ...E]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
 
 `task::spawn` starts a zero-argument callable in a concurrent task and returns
 its task handle. `task::spawn_with` starts a one-argument callable with one
-ordinary source context value. The optional first explicit type argument fixes
-the task item type, and the optional second explicit type argument fixes the
-context parameter type for `task::spawn_with<T, C>(job, context)`. The context
-value may be an anonymous record or any existing named type accepted by the
-handler. Numbered multi-argument task spawn calls are not standard task
-operations; callers carry multiple values through one context argument.
-Arguments are frozen before crossing into the task, and the result value is
-frozen before it crosses back through the task handle.
+ordinary source context value. A pure job substitutes the empty effect set for
+`E`, so the task creation expression infers only `concurrency`. An effectful
+job substitutes its concrete effect set for `E`, so the task creation
+expression infers `concurrency` plus each job effect once. A job that handles
+`transport::DuplexStream` with `transport::net::net_stream(stream)` substitutes
+the handled expression's remaining effects plus `net`; the task creation
+expression does not retain `transport::DuplexStream` after handler
+replacement. The checked `http2-service-task-effect-row` case fixes the pure
+zero-argument, effectful zero-argument, and context-job boundaries.
+
+The optional first explicit type argument fixes the task item type, and the
+optional second explicit type argument fixes the context parameter type for
+`task::spawn_with<T, C>(job, context)`. The context value may be an anonymous
+record or any existing named type accepted by the handler. Numbered
+multi-argument task spawn calls are not standard task operations; callers
+carry multiple values through one context argument. Arguments are frozen
+before crossing into the task, and the result value is frozen before it
+crosses back through the task handle.
 `task::join` waits for completion and returns `Ok(value)` when the task returns
 normally, or `Err(JoinError)` when the task is interrupted, cancelled, or fails
 at runtime. `task::cancel` requests cancellation by interrupting the task and

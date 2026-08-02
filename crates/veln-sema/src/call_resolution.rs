@@ -2,9 +2,9 @@ use veln_ast::{Expr, ExprKind};
 use veln_core::{CoreCallTarget, CoreType};
 
 use crate::effects::{
-    concurrency_origin, concurrency_signature, core_concurrency_signature,
-    core_standard_library_signature, standard_library_origin, standard_library_signature,
-    stdio_signature,
+    concurrency_call_effects, concurrency_origin, concurrency_signature,
+    core_concurrency_signature, core_standard_library_signature, standard_library_origin,
+    standard_library_signature, stdio_signature,
 };
 use crate::prelude::{
     core_prelude_signature, prelude_signature, qualified_core_prelude_builtin_signature,
@@ -151,11 +151,12 @@ fn type_effect_call_signature(
     if let Some(origin) = concurrency_origin(segments, callee) {
         let (params, return_type) =
             concurrency_signature(segments, expected, handle_type, None, None)?;
+        let effects = concurrency_call_effects(segments, handle_type)?;
         return Some(TypeCallSignature {
             params,
             variadic: None,
             return_type,
-            origin,
+            origin: CallOrigin { effects, ..origin },
         });
     }
     if let Some(origin) = standard_library_origin(segments, callee) {
@@ -194,11 +195,12 @@ fn type_applied_call_signature(
         explicit_item.as_ref(),
         explicit_context.as_ref(),
     )?;
+    let effects = concurrency_call_effects(segments, handle_type)?;
     Some(TypeCallSignature {
         params,
         variadic: None,
         return_type,
-        origin,
+        origin: CallOrigin { effects, ..origin },
     })
 }
 

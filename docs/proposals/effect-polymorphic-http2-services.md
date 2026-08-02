@@ -8,6 +8,8 @@ Add high-level HTTP/2 server and client service boundaries after the
 single-connection duplex-stream driver is implemented. The service APIs own
 listener or connection tasks while preserving the effects of application
 callbacks instead of fixing those callbacks to one concrete effect set.
+Standard task creation already preserves job effects; this proposal now covers
+only the remaining HTTP/2 service surfaces and ownership behavior.
 
 ## Activation Gate
 
@@ -44,8 +46,18 @@ typed-IR preservation, and executable evidence are specified by
 `../../examples/specification/check/effect-row-syntax-diagnostics/`, and
 `../../examples/specification/check/http2-service-effect-row/`.
 
-The remaining service work uses that implemented syntax to preserve callback
-effects through proposed HTTP/2 service and task boundaries:
+The current specification also includes effect-preserving task creation:
+`task::spawn<T, effect E>(job: fn() -> T effects [...E])` and
+`task::spawn_with<T, C, effect E>(job: fn(C) -> T effects [...E], context: C)`
+infer `concurrency` plus the concrete job effects. The checked
+`../../examples/specification/check/http2-service-task-effect-row/` case fixes
+the current task boundary for pure jobs, effectful jobs, and a context job
+whose lexical transport handler replaces `transport::DuplexStream` with `net`
+while preserving an application `db` effect.
+
+The remaining service work uses the implemented effect-row and task
+boundaries to preserve callback effects through proposed HTTP/2 service
+surfaces:
 
 ```veln
 fn(Request) -> Result<Response, String> effects [...E]
@@ -71,20 +83,11 @@ passing the callback through the service API. Handling
 `transport::DuplexStream` removes only that nominal effect and must not remove
 effects supplied by the callback row.
 
-The standard task creation functions must preserve the effects of their job
-functions. Their effect-row shapes are:
-
-```veln
-task::spawn<T, effect E>(job: fn() -> T effects [...E]) -> Task<T> effects [concurrency, ...E]
-task::spawn_with<T, C, effect E>(job: fn(C) -> T effects [...E], context: C) -> Task<T> effects [concurrency, ...E]
-```
-
-These signatures replace the fixed job-effect boundary only after effect rows
-are implemented. A pure job substitutes the empty set for `E`. A connection
-job that installs the TCP handler substitutes `net` together with the
-application callback effects. The spawn expression therefore exposes
-`concurrency`, `net`, and those callback effects. Installed lexical handlers
-still do not cross the task boundary.
+When a proposed service creates a connection task, the connection job installs
+the TCP handler inside the task. The job substitutes `net` together with the
+application callback effects into the current task boundary. The spawn
+expression therefore exposes `concurrency`, `net`, and those callback effects.
+Installed lexical handlers still do not cross the task boundary.
 
 The following table is authoritative for the service effect boundaries:
 
@@ -93,7 +96,6 @@ The following table is authoritative for the service effect boundaries:
 | Abstract connection with pure callback | `[]` | `[transport::DuplexStream]` |
 | Abstract connection with database callback | `[db]` | `[transport::DuplexStream, db]` |
 | TCP handler around database connection job | `[transport::DuplexStream, db]` | `[net, db]` |
-| Spawn of handled database connection job | `[net, db]` | `[net, concurrency, db]` |
 | TCP service with pure callback | `[]` | `[net, concurrency]` |
 
 ## Service Ownership
@@ -142,7 +144,6 @@ control.
 
 | Case | Required observation | Planned evidence |
 | --- | --- | --- |
-| Task effect preservation | Spawning a connection job exposes `concurrency`, `net`, and its callback effects without retaining `DuplexStream` | `check/http2-service-task-effect-row` |
 | TCP handler replacement | Handling `DuplexStream` replaces only that effect with `net` | `check/http2-service-transport-effect-replacement` |
 | Two connections | Independent tasks invoke the same callback and preserve per-connection output order | `run/http2-service-two-connections` |
 | Callback failure | The failed stream emits no later response bytes and every owned stream closes once | `run/http2-service-callback-failure` |
@@ -153,8 +154,7 @@ control.
 | Client reuse boundary | Reuse occurs only while public core projections report an eligible open connection | `run/http2-client-service-reuse-boundary` |
 
 The relative paths are planned directories below `examples/specification/`.
-The remaining effect-row work is limited to the effect-preserving standard
-task signatures and service APIs.
+The remaining effect-row work is limited to the proposed HTTP/2 service APIs.
 
 ## Non-Goals
 
@@ -174,8 +174,7 @@ task signatures and service APIs.
 
 ## Completion Boundary
 
-This proposal is complete when the effect-row grammar and substitution rules
-are checked, task creation preserves job effects, one server and one client
-service boundary preserve callback effects, the service state rows have
-executable evidence, and the implemented behavior is promoted to the type,
-effect, execution, HTTP/2, and example specification routes.
+This proposal is complete when one server and one client service boundary
+preserve callback effects, the service state rows have executable evidence,
+and the implemented behavior is promoted to the type, effect, execution,
+HTTP/2, and example specification routes.

@@ -12,6 +12,9 @@ compiler-known calls.
   nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
+  Task creation preserves the concrete effect set of its job callable; the
+  checked `http2-service-task-effect-row` case fixes the current task
+  effect-row boundary.
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested
   HTTP/2 and HPACK diagnostic detail types:
   [Prelude Helpers](names-effects-full.md#prelude-helpers).
