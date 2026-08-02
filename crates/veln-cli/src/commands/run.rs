@@ -324,226 +324,11 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
         ));
     }
 
-    let mut diagnostic = match id.as_str() {
-        "codec.incomplete_input" => {
-            let expected_count = json_number(byte_entries, "expected_count")?;
-            let available_count = json_number(byte_entries, "available_count")?;
-            let readiness = json_string(byte_entries, "readiness")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("missing byte at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "pending readiness is `{readiness}` because input is closed."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
-            )));
-            diagnostic
-        }
-        "codec.byte_range_out_of_bounds" => {
-            let requested_count = json_number(byte_entries, "requested_count")?;
-            let available_count = json_number(byte_entries, "available_count")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("byte range out of bounds at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Byte range requested {requested_count} byte(s); {available_count} byte(s) were available from the offset."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.fixed_field_mismatch" => {
-            let expected_value = json_number(byte_entries, "expected_value")?;
-            let actual_value = json_number(byte_entries, "actual_value")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("fixed field mismatch at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Fixed field expected value {expected_value}; actual value was {actual_value}."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.truncated_field" => {
-            let expected_count = json_number(byte_entries, "expected_count")?;
-            let available_count = json_number(byte_entries, "available_count")?;
-            let readiness = json_string(byte_entries, "readiness")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("truncated schema field at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "pending readiness is `{readiness}` because input is closed."
-            )));
-            diagnostic.related.push(note_json(format!(
-                "Schema field expected {expected_count} byte(s); {available_count} byte(s) were available."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.length_out_of_bounds" => {
-            let expected_count = json_number(byte_entries, "expected_count")?;
-            let available_count = json_number(byte_entries, "available_count")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("payload length out of bounds at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Payload length expected {expected_count} byte(s); {available_count} byte(s) were available."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.integer_out_of_range" => {
-            let byte_width = json_number(byte_entries, "byte_width")?;
-            let min_value = json_number(byte_entries, "min_value")?;
-            let max_value = json_number(byte_entries, "max_value")?;
-            let actual_value = json_number_display(byte_entries, "actual_value")
-                .or_else(|| json_string(byte_entries, "actual_value_text"))?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("schema integer out of range at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "{byte_width}-byte schema integer expected value between {min_value} and {max_value}; actual value was {actual_value}."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.reserved_bits_mismatch" => {
-            let bit_width = json_number(byte_entries, "bit_width")?;
-            let expected_value = json_number(byte_entries, "expected_value")?;
-            let actual_value = json_number(byte_entries, "actual_value")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("reserved bits mismatch at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "ReservedBits({bit_width}, {expected_value}) expected value {expected_value}; actual value was {actual_value}."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.validation_failed" => {
-            let predicate = json_string(byte_entries, "predicate")?;
-            let decoded_values = json_string(byte_entries, "decoded_values").or_else(|| {
-                let length = json_number(byte_entries, "length")?;
-                let padding_length = json_number(byte_entries, "padding_length")?;
-                Some(format!("length={length}, padding_length={padding_length}"))
-            })?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("schema validation failed at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            if let Some(field_value) = json_number(byte_entries, "field_value") {
-                diagnostic.related.push(note_json(format!(
-                    "Predicate `{predicate}` failed for field value {field_value}."
-                )));
-            } else {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Schema predicate `{predicate}` failed.")));
-            }
-            diagnostic
-                .related
-                .push(note_json(format!("Decoded values: {decoded_values}.")));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.length_division_by_zero" => {
-            let length_expression = json_string(byte_entries, "length_expression")?;
-            let divisor_operand = json_string(byte_entries, "divisor_operand")?;
-            let operator = json_string(byte_entries, "operator")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("schema length division by zero at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Length expression `{length_expression}` evaluated `{operator}` with divisor operand `{divisor_operand}` equal to 0."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.length_multiple_mismatch" => {
-            let observed_count = json_number(byte_entries, "observed_count")?;
-            let required_multiple = json_number(byte_entries, "required_multiple")?;
-            let multiple_operand = json_string(byte_entries, "multiple_operand")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("payload length multiple mismatch at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Payload count {observed_count} must be a multiple of `{multiple_operand}` value {required_multiple}."
-            )));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        "schema.dispatch_unknown_tag" => {
-            let tag_field = json_string(byte_entries, "tag_field")?;
-            let decoded_tag_value = json_number(byte_entries, "decoded_tag_value")?;
-            let expected_tags = json_string(byte_entries, "expected_tags")?;
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                format!("unknown dispatch tag at byte offset {byte_offset}"),
-                None,
-                byte_diagnostic.clone(),
-            );
-            diagnostic.related.push(note_json(format!(
-                "Dispatch tag field `{tag_field}` decoded value {decoded_tag_value}."
-            )));
-            diagnostic
-                .related
-                .push(note_json(format!("Expected tag values: {expected_tags}.")));
-            push_byte_preview_note(&mut diagnostic, byte_entries);
-            diagnostic
-        }
-        _ => return None,
-    };
+    let mut diagnostic = codec_byte_diagnostic(byte_diagnostic, byte_entries, &id, byte_offset)
+        .or_else(|| schema_field_diagnostic(byte_diagnostic, byte_entries, &id, byte_offset))
+        .or_else(|| {
+            schema_constraint_diagnostic(byte_diagnostic, byte_entries, &id, byte_offset)
+        })?;
     if let Some(field_path) = field_path_text(byte_entries) {
         diagnostic
             .related
@@ -556,6 +341,329 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             .push(note_json(format!("Field path: {field_path}.")));
     }
     Some(diagnostic)
+}
+
+fn codec_byte_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    match id {
+        "codec.incomplete_input" => incomplete_input_diagnostic(details, entries, id, byte_offset),
+        "codec.byte_range_out_of_bounds" => {
+            byte_range_out_of_bounds_diagnostic(details, entries, id, byte_offset)
+        }
+        _ => None,
+    }
+}
+
+fn schema_field_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    match id {
+        "schema.fixed_field_mismatch" => {
+            fixed_field_mismatch_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.truncated_field" => truncated_field_diagnostic(details, entries, id, byte_offset),
+        "schema.length_out_of_bounds" => {
+            length_out_of_bounds_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.integer_out_of_range" => {
+            integer_out_of_range_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.reserved_bits_mismatch" => {
+            reserved_bits_mismatch_diagnostic(details, entries, id, byte_offset)
+        }
+        _ => None,
+    }
+}
+
+fn schema_constraint_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    match id {
+        "schema.validation_failed" => {
+            validation_failed_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.length_division_by_zero" => {
+            length_division_by_zero_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.length_multiple_mismatch" => {
+            length_multiple_mismatch_diagnostic(details, entries, id, byte_offset)
+        }
+        "schema.dispatch_unknown_tag" => {
+            dispatch_unknown_tag_diagnostic(details, entries, id, byte_offset)
+        }
+        _ => None,
+    }
+}
+
+fn incomplete_input_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let expected_count = json_number(entries, "expected_count")?;
+    let available_count = json_number(entries, "available_count")?;
+    let readiness = json_string(entries, "readiness")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("missing byte at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "pending readiness is `{readiness}` because input is closed."
+    )));
+    diagnostic.related.push(note_json(format!(
+        "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
+    )));
+    Some(diagnostic)
+}
+
+fn byte_range_out_of_bounds_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let requested_count = json_number(entries, "requested_count")?;
+    let available_count = json_number(entries, "available_count")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("byte range out of bounds at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Byte range requested {requested_count} byte(s); {available_count} byte(s) were available from the offset."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn fixed_field_mismatch_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let expected_value = json_number(entries, "expected_value")?;
+    let actual_value = json_number(entries, "actual_value")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("fixed field mismatch at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Fixed field expected value {expected_value}; actual value was {actual_value}."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn truncated_field_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let expected_count = json_number(entries, "expected_count")?;
+    let available_count = json_number(entries, "available_count")?;
+    let readiness = json_string(entries, "readiness")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("truncated schema field at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "pending readiness is `{readiness}` because input is closed."
+    )));
+    diagnostic.related.push(note_json(format!(
+        "Schema field expected {expected_count} byte(s); {available_count} byte(s) were available."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn length_out_of_bounds_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let expected_count = json_number(entries, "expected_count")?;
+    let available_count = json_number(entries, "available_count")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("payload length out of bounds at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Payload length expected {expected_count} byte(s); {available_count} byte(s) were available."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn integer_out_of_range_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let byte_width = json_number(entries, "byte_width")?;
+    let min_value = json_number(entries, "min_value")?;
+    let max_value = json_number(entries, "max_value")?;
+    let actual_value = json_number_display(entries, "actual_value")
+        .or_else(|| json_string(entries, "actual_value_text"))?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("schema integer out of range at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "{byte_width}-byte schema integer expected value between {min_value} and {max_value}; actual value was {actual_value}."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn reserved_bits_mismatch_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let bit_width = json_number(entries, "bit_width")?;
+    let expected_value = json_number(entries, "expected_value")?;
+    let actual_value = json_number(entries, "actual_value")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("reserved bits mismatch at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "ReservedBits({bit_width}, {expected_value}) expected value {expected_value}; actual value was {actual_value}."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn validation_failed_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let predicate = json_string(entries, "predicate")?;
+    let decoded_values = json_string(entries, "decoded_values").or_else(|| {
+        let length = json_number(entries, "length")?;
+        let padding_length = json_number(entries, "padding_length")?;
+        Some(format!("length={length}, padding_length={padding_length}"))
+    })?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("schema validation failed at byte offset {byte_offset}"),
+        details,
+    );
+    if let Some(field_value) = json_number(entries, "field_value") {
+        diagnostic.related.push(note_json(format!(
+            "Predicate `{predicate}` failed for field value {field_value}."
+        )));
+    } else {
+        diagnostic
+            .related
+            .push(note_json(format!("Schema predicate `{predicate}` failed.")));
+    }
+    diagnostic
+        .related
+        .push(note_json(format!("Decoded values: {decoded_values}.")));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn length_division_by_zero_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let length_expression = json_string(entries, "length_expression")?;
+    let divisor_operand = json_string(entries, "divisor_operand")?;
+    let operator = json_string(entries, "operator")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("schema length division by zero at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Length expression `{length_expression}` evaluated `{operator}` with divisor operand `{divisor_operand}` equal to 0."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn length_multiple_mismatch_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let observed_count = json_number(entries, "observed_count")?;
+    let required_multiple = json_number(entries, "required_multiple")?;
+    let multiple_operand = json_string(entries, "multiple_operand")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("payload length multiple mismatch at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Payload count {observed_count} must be a multiple of `{multiple_operand}` value {required_multiple}."
+    )));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn dispatch_unknown_tag_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Option<Diagnostic> {
+    let tag_field = json_string(entries, "tag_field")?;
+    let decoded_tag_value = json_number(entries, "decoded_tag_value")?;
+    let expected_tags = json_string(entries, "expected_tags")?;
+    let mut diagnostic = runtime_byte_diagnostic(
+        id,
+        format!("unknown dispatch tag at byte offset {byte_offset}"),
+        details,
+    );
+    diagnostic.related.push(note_json(format!(
+        "Dispatch tag field `{tag_field}` decoded value {decoded_tag_value}."
+    )));
+    diagnostic
+        .related
+        .push(note_json(format!("Expected tag values: {expected_tags}.")));
+    push_byte_preview_note(&mut diagnostic, entries);
+    Some(diagnostic)
+}
+
+fn runtime_byte_diagnostic(id: &str, message: String, details: &JsonValue) -> Diagnostic {
+    Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        message,
+        None,
+        details.clone(),
+    )
 }
 
 fn is_decode_error_result_failure(failure: &TestFailure) -> bool {
