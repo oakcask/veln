@@ -1571,6 +1571,70 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_cycle_policy_only_for_selected_cycle_subjects() {
+        let cases = [
+            (
+                "unselected cycle is advisory only",
+                vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                    SourceFile::new("entry.veln", "fn entry() -> ()\n  ()\nend\n"),
+                ],
+                vec!["entry.veln"],
+                0,
+                false,
+            ),
+            (
+                "selected mutual cycle fails",
+                vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                    SourceFile::new("entry.veln", "fn entry() -> ()\n  ()\nend\n"),
+                ],
+                vec!["app.veln"],
+                1,
+                true,
+            ),
+            (
+                "selected self cycle fails",
+                vec![SourceFile::new(
+                    "self.veln",
+                    "use self\nfn value() -> ()\n  ()\nend\n",
+                )],
+                vec!["self.veln"],
+                1,
+                true,
+            ),
+        ];
+
+        for (name, files, selected, expected_cycles, expected_violation) in cases {
+            let project = Project {
+                root: ".".into(),
+                manifest: None,
+                files,
+            };
+            let selected = selected
+                .into_iter()
+                .map(str::to_string)
+                .collect::<BTreeSet<_>>();
+            let graph = DependencyGraph::from_project(&project).expect(name);
+            let report = graph.report(
+                &project,
+                ProjectIdentity {
+                    root: ".".to_string(),
+                    selected_paths: selected.iter().cloned().collect(),
+                },
+                &selected,
+            );
+
+            let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+            assert_eq!(check.report.summary.cycle_count, expected_cycles, "{name}");
+            assert_eq!(check.has_violations(), expected_violation, "{name}");
+        }
+    }
+
+    #[test]
     fn orders_abc_subjects_deterministically() {
         let project = Project {
             root: ".".into(),
