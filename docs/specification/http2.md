@@ -297,8 +297,14 @@ mutable host state, or HTTP/2 core state.
 
 `http2::connection::drive_server_application(state, handler)` drives the same
 server-side duplex-stream transport as `drive_server` and does not change the
-existing server or client driver contracts. The handler is pure and has shape
-`fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>`.
+existing server or client driver contracts. The handler has shape
+`fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+effects [...E]`, and the driver has the public effect boundary
+`[std::transport::DuplexStream, ...E]`. A pure callback therefore leaves only
+the duplex-stream effect on the driver expression. An effectful callback adds
+its row to the driver expression. Handling the driver with
+`transport::net::net_stream` replaces only the duplex-stream effect with
+`net`; callback effects remain declared by the caller.
 The driver drains core application events exactly once. In this bounded slice
 it accepts at most one request whose completed HEADERS also set END_STREAM.
 It invokes the callback exactly once for that request. A body-bearing request
@@ -326,8 +332,8 @@ failures remain runtime failures rather than typed application failures.
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)
 checks public application action values, distinguishable application failure
-variants, the handled driver effect boundary, unsupported request failures,
-second-request rejection, complete action-list validation, request stream-id
+variants, unsupported request failures, second-request rejection, complete
+action-list validation, request stream-id
 validation, and rejected later core-action failures. Executable
 application-driver evidence lives under
 `examples/specification/check/http2-connection-application-boundary-effects/`,

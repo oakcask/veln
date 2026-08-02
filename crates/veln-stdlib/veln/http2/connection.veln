@@ -41,7 +41,7 @@ pub fn drive_client(state: CoreConnectionState) -> Result<CoreConnectionState, H
 	end
 end
 
-pub fn drive_server_application(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+pub fn drive_server_application<effect E>(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 		Ok(state)
 	else
@@ -58,7 +58,7 @@ fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2
 	end
 end
 
-fn start_server_application(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn start_server_application<effect E>(state: CoreConnectionState, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let decision: LocalSettingsSendDecision = application_local_settings_decision(http2::core::send_local_settings_batch(list_nil(), "server", http2::core::connection_state_local_settings_policy(state), http2::core::connection_state_settings_ack(state)))?
 	match http2::core::local_settings_send_status(decision)
 		"accepted" => application_drive_loop(http2::core::receive_connection_state(state_after_local_settings(state, decision), byte_chunk([]), http2::core::output_buffer_append_local_settings(http2::core::empty_output_buffer(), decision)), 0, false, handler)
@@ -127,7 +127,7 @@ fn drive_loop(state: CoreReceiveConnectionState, written_count: Int) -> Result<C
 	end
 end
 
-fn application_drive_loop(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_drive_loop<effect E>(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let after_write = write_new_application_output(state, written_count)?
 	match perform transport::DuplexStream::read_chunk()
 		Some(chunk) => application_receive_and_continue(after_write.state, chunk, after_write.written_count, handled_request, handler)
@@ -143,7 +143,7 @@ fn receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, wri
 	end
 end
 
-fn application_receive_and_continue(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_receive_and_continue<effect E>(state: CoreReceiveConnectionState, chunk: ByteChunk, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let decision: CoreReceiveConnectionDecision = application_receive_decision(http2::core::receive_connection_chunk(state, chunk))?
 	match http2::core::receive_connection_status(decision)
 		"accepted" => application_handle_events(application_receive_state(decision)?, written_count, handled_request, handler)
@@ -151,14 +151,14 @@ fn application_receive_and_continue(state: CoreReceiveConnectionState, chunk: By
 	end
 end
 
-fn application_handle_events(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_handle_events<effect E>(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let drain = http2::core::drain_application_events(state)
 	let events = http2::core::application_event_drain_events(drain)
 	let drained_state = http2::core::application_event_drain_state(drain)
 	application_handle_event_list(drained_state, events, written_count, handled_request, handler)
 end
 
-fn application_handle_event_list(state: CoreReceiveConnectionState, events: List<Http2ApplicationEvent>, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_handle_event_list<effect E>(state: CoreReceiveConnectionState, events: List<Http2ApplicationEvent>, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	match events
 		Nil => application_drive_loop(state, written_count, handled_request, handler)
 		Cons(event, tail) => if handled_request
@@ -169,7 +169,7 @@ fn application_handle_event_list(state: CoreReceiveConnectionState, events: List
 	end
 end
 
-fn application_handle_first_event(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_handle_first_event<effect E>(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let stream_id = http2::core::application_event_stream_id(event)
 	if not http2::core::application_event_end_stream(event)
 		Err(Http2ApplicationUnsupportedRequestShape(stream_id, "request headers do not end the request stream"))
@@ -178,7 +178,7 @@ fn application_handle_first_event(state: CoreReceiveConnectionState, event: Http
 	end
 end
 
-fn application_invoke_handler(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, stream_id: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn application_invoke_handler<effect E>(state: CoreReceiveConnectionState, event: Http2ApplicationEvent, tail: List<Http2ApplicationEvent>, written_count: Int, stream_id: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let actions = application_callback_actions(handler(event))?
 	let checked = validate_application_actions(actions, stream_id)?
 	let applied = apply_application_actions(state, checked, written_count)?
@@ -292,36 +292,36 @@ fn application_eof_failure(decision: CoreReceiveConnectionEofDecision) -> Result
 	end
 end
 
-fn write_new_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+fn write_new_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let output = http2::core::receive_connection_output(state)
 	let total = http2::core::output_buffer_count(output)
 	if written_count == total
-		Ok({state: state, written_count: written_count})
+		Ok({ state: state, written_count: written_count })
 	else
 		write_output_range(state, output, written_count, total)
 	end
 end
 
-fn write_new_application_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn write_new_application_output(state: CoreReceiveConnectionState, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let output = http2::core::receive_connection_output(state)
 	let total = http2::core::output_buffer_count(output)
 	if written_count == total
-		Ok({state: state, written_count: written_count})
+		Ok({ state: state, written_count: written_count })
 	else
 		write_application_output_range(state, output, written_count, total)
 	end
 end
 
-fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ConnectionFailure> effects [std::transport::DuplexStream]
+fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
-	Ok({state: state, written_count: total})
+	Ok({ state: state, written_count: total })
 end
 
-fn write_application_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn write_application_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let chunks: List<ByteChunk> = output_chunks_from(output, written_count, total)
 	perform transport::DuplexStream::write_chunks(chunks)
-	Ok({state: state, written_count: total})
+	Ok({ state: state, written_count: total })
 end
 
 fn output_chunks_from(output: CoreOutputBuffer, index: Int, total: Int) -> List<ByteChunk>
@@ -385,21 +385,21 @@ fn validate_final_data_tail(first: Http2ApplicationAction, second: Http2Applicat
 	end
 end
 
-fn apply_application_actions(state: CoreReceiveConnectionState, actions: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn apply_application_actions(state: CoreReceiveConnectionState, actions: List<Http2ApplicationAction>, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	match actions
-		Nil => Ok({state: state, written_count: written_count})
+		Nil => Ok({ state: state, written_count: written_count })
 		Cons(action, tail) => apply_application_action(state, action, tail, written_count)
 	end
 end
 
-fn apply_application_action(state: CoreReceiveConnectionState, action: Http2ApplicationAction, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn apply_application_action(state: CoreReceiveConnectionState, action: Http2ApplicationAction, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	match action
 		Http2SendResponseHeaders(stream_id, headers, end_stream) => apply_application_headers(state, stream_id, headers, end_stream, tail, written_count)
 		Http2SendResponseData(stream_id, data, end_stream) => apply_application_data(state, stream_id, data, end_stream, tail, written_count)
 	end
 end
 
-fn apply_application_headers(state: CoreReceiveConnectionState, stream_id: Int, headers: HeaderList, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn apply_application_headers(state: CoreReceiveConnectionState, stream_id: Int, headers: HeaderList, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let connection = http2::core::receive_connection_connection(state)
 	let decision = http2::core::send_response_headers(connection, http2::core::connection_state_next_offset(connection), stream_id, headers, end_stream)
 	match http2::core::headers_send_status(decision)
@@ -409,7 +409,7 @@ fn apply_application_headers(state: CoreReceiveConnectionState, stream_id: Int, 
 	end
 end
 
-fn apply_application_data(state: CoreReceiveConnectionState, stream_id: Int, data: ByteChunk, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn apply_application_data(state: CoreReceiveConnectionState, stream_id: Int, data: ByteChunk, end_stream: Bool, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let connection = http2::core::receive_connection_connection(state)
 	let decision = http2::core::send_data(connection, http2::core::connection_state_next_offset(connection), stream_id, data, end_stream)
 	match http2::core::data_send_status(decision)
@@ -447,7 +447,7 @@ fn application_data_send_failure(decision: CoreDataSendDecision, stream_id: Int)
 	end
 end
 
-fn continue_after_committed_action(state: CoreReceiveConnectionState, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{state: CoreReceiveConnectionState, written_count: Int}, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
+fn continue_after_committed_action(state: CoreReceiveConnectionState, tail: List<Http2ApplicationAction>, written_count: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let after_write = write_new_application_output(state, written_count)?
 	apply_application_actions(after_write.state, tail, after_write.written_count)
 end

@@ -205,6 +205,16 @@ duplex-stream effect. The static boundary is checked by
 only `std::transport::DuplexStream`; handling either driver with `net_stream`
 therefore replaces that nominal effect with `net` and does not expose
 HTTP/2-internal effects.
+`http2::connection::drive_server_application<effect E>` exposes
+`std::transport::DuplexStream` plus the effect row of its application
+callback. The callback type is
+`fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
+effects [...E]`, and the driver requires
+`[std::transport::DuplexStream, ...E]`. Handling that driver with
+`transport::net::net_stream` removes only the duplex-stream effect and leaves
+callback effects such as `db` on the handled expression. The static boundary
+is checked by
+`examples/specification/check/http2-service-transport-effect-replacement/`.
 
 ## Compiler-Known Descriptor Table
 
