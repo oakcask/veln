@@ -11,3 +11,32 @@ bash ../../../scripts/agent-run \
   --locked \
   -p veln-cli \
   -- test
+
+net_events="$(mktemp)"
+expected_net_events="$(mktemp)"
+VELN_NET_RUNTIME=production-loopback \
+VELN_NET_PRODUCTION_READS_HEX=00000004000000000000000101050000000189 \
+VELN_NET_EVENTS="$net_events" \
+bash ../../../scripts/agent-run \
+  cargo run \
+  --manifest-path ../../../Cargo.toml \
+  --locked \
+  -p veln-cli \
+  -- test \
+  --jobs 1 \
+  http2/connection_test.veln
+
+printf '%s\n' \
+  'connect-production 127.0.0.1:0 production-stream' \
+  'write-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])' \
+  'write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])' \
+  'write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])' \
+  'read-production production-stream 00000004000000000000000101050000000189' \
+  'close-production production-stream' \
+  > "$expected_net_events"
+
+if ! cmp -s "$expected_net_events" "$net_events"; then
+  echo "unexpected HTTP/2 client callback-failure cleanup events" >&2
+  diff -u "$expected_net_events" "$net_events" >&2 || true
+  exit 1
+fi

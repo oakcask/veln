@@ -123,6 +123,14 @@ compiler-known calls.
   handler-inheritance boundaries. Handling any connection driver with
   `net_stream` preserves caller ownership of listen, accept, close, deadline,
   cancellation, and task behavior outside the HTTP/2 driver.
+  `http2::connection::request_endpoint_sequence<effect E>` accepts a finite
+  request list and a response callback with type
+  `fn(Http2ClientResponse) -> Result<(), String> effects [...E]`. Its public
+  effect boundary is `[net, concurrency, ...E]`. A pure client response
+  callback therefore requires only `net` and `concurrency`; callback effects
+  such as `db` remain required. The checked
+  `http2-client-service-effect-row` case fixes the pure and effectful client
+  callback boundaries.
   `stream_adapter_accept_loop(listener, handler)` accepts an owned
   `NetListener` and the same pure handler shape, repeatedly accepts streams
   until clean listener end, delegates each accepted stream to

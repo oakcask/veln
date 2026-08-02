@@ -83,6 +83,8 @@ under `../../specification/` and its executable example routes.
   [http2-duplex-stream-connection-driver.md](http2-duplex-stream-connection-driver.md).
 - HTTP/2 application event and action boundary:
   [http2-application-event-action-boundary.md](http2-application-event-action-boundary.md).
+- Effect-polymorphic HTTP/2 services:
+  [effect-polymorphic-http2-services.md](effect-polymorphic-http2-services.md).
 - Canonical type argument delimiters:
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 - Remove legacy type delimiters:

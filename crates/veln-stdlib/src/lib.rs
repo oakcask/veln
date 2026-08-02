@@ -90,6 +90,55 @@ mod tests {
         assert!(!package.exports.contains(&"diagnostic.veln"));
     }
 
+    #[test]
+    fn http2_client_service_ordinary_failures_close_retained_stream() {
+        let connection = stdlib_source("http2/connection.veln");
+        assert!(connection.contains(
+            "Ok(Err(failure)) => client_fail_close(stream, client_connection_task_failure(completed, failure))"
+        ));
+        assert!(connection
+            .contains("Err(_) => client_fail_close(stream, Http2ClientServiceJoinFailure(completed, \"failed\"))"));
+        assert!(connection
+            .contains("Err(reason) => client_fail_close(stream, Http2ClientServiceCallbackFailure(completed, reason))"));
+
+        let cleanup = function_body(connection, "client_fail_close");
+        let close_offset = cleanup
+            .find("net::close_stream(stream)")
+            .expect("client failure cleanup should close the retained stream");
+        let failure_offset = cleanup
+            .find("Err(failure)")
+            .expect("client failure cleanup should return the original failure");
+        assert!(
+            close_offset < failure_offset,
+            "client failure cleanup should close before returning the ordinary failure"
+        );
+    }
+
+    fn stdlib_source(path: &str) -> &'static str {
+        package_bundle()
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap_or_else(|| panic!("standard library source `{path}` should be bundled"))
+            .text
+    }
+
+    fn function_body<'a>(source: &'a str, name: &str) -> &'a str {
+        let signature = format!("fn {name}");
+        let start = source
+            .find(&signature)
+            .unwrap_or_else(|| panic!("function `{name}` should exist"));
+        let body_start = source[start..]
+            .find('\n')
+            .map(|offset| start + offset + 1)
+            .expect("function signature should end with a newline");
+        let body_end = source[body_start..]
+            .find("\nend")
+            .map(|offset| body_start + offset)
+            .expect("function should end with `end`");
+        &source[body_start..body_end]
+    }
+
     fn collect_distribution_sources(root: &Path, relative: &Path, paths: &mut Vec<String>) {
         let directory = root.join(relative);
         for entry in fs::read_dir(directory).expect("standard package directory should be readable")

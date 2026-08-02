@@ -16,6 +16,14 @@ fn response_headers_with_length(length: String) -> Result<HeaderList, String>
 	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "200")?, http2::hpack::prepend_header_field(ascii_header("content-length", length)?, http2::hpack::empty_header_list())))
 end
 
+fn client_request_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":method", "GET")?, http2::hpack::prepend_header_field(ascii_header(":scheme", "https")?, http2::hpack::prepend_header_field(ascii_header(":path", "/")?, http2::hpack::empty_header_list()))))
+end
+
+fn client_one_request() -> Result<List<Http2ClientRequest>, String>
+	Ok(list_cons(http2::connection::client_bodyless_request(client_request_headers()?), list_nil()))
+end
+
 fn application_request_chunk() -> Result<ByteChunk, String>
 	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784")
 end
@@ -50,6 +58,11 @@ end
 
 fn bodyless_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
+end
+
+fn reject_client_response(response: Http2ClientResponse) -> Result<(), String>
+	let _ = http2::connection::client_response_stream_id(response)
+	Err("callback rejected response")
 end
 
 fn invalid_action_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
@@ -98,6 +111,40 @@ test application_driver_effect_boundary_handles_closed_state_without_callback() 
 			Err("HTTP/2 application driver did not preserve closed state")
 		end
 		Err(failure) => Err(http2::connection::application_failure_reason(failure))
+	end
+end
+
+test client_reuse_decision_uses_public_lifecycle_and_capacity() -> Result<(), String>
+	let open = http2::core::client_connection_state(0)?
+	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
+	let draining = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_draining(0, 0))
+	let zero_capacity = http2::core::connection_state_with_peer_settings(open, http2::core::apply_peer_settings_payload(http2::core::connection_state_peer_settings(open), 11, byte_chunk_from_hex("000300000000")?)?)
+	if http2::connection::client_connection_reusable(open) and not http2::connection::client_connection_reusable(closed) and not http2::connection::client_connection_reusable(draining) and not http2::connection::client_connection_reusable(zero_capacity)
+		Ok(())
+	else
+		Err("HTTP/2 client reuse decision did not respect lifecycle and peer stream capacity")
+	end
+end
+
+test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [process, net, concurrency]
+	match process::env("VELN_NET_RUNTIME")
+		None => Ok(())
+		Some(_) => client_service_callback_failure_cleanup_result()
+	end
+end
+
+fn client_service_callback_failure_cleanup_result() -> Result<(), String> effects [net, concurrency]
+	match http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, reject_client_response)
+		Ok(_) => Err("HTTP/2 client service did not return the callback failure")
+		Err(failure) => client_service_callback_failure_matches_ordinary_path(failure)
+	end
+end
+
+fn client_service_callback_failure_matches_ordinary_path(failure: Http2ClientServiceFailure) -> Result<(), String>
+	if http2::connection::client_service_failure_kind(failure) == "callback" and http2::connection::client_service_failure_id(failure) == "http2.client_service.callback_failure" and http2::connection::client_service_failure_completed(failure) == 0 and http2::connection::client_service_failure_reason(failure) == "callback rejected response"
+		Ok(())
+	else
+		Err("HTTP/2 client service did not preserve the callback failure before cleanup")
 	end
 end
 
