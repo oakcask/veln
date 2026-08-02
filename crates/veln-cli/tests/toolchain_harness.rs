@@ -80,6 +80,7 @@ fn run_case_with_after_invocation(
         manifest
             .expectations
             .assert_files_match(&context, &project.root);
+        assert_no_metrics_baseline_temp_file(&context, &project.root);
         after_invocation(&context, &project.root);
     }
 }
@@ -95,6 +96,29 @@ fn case_name(case_dir: &Path) -> String {
         .rev()
         .collect::<Vec<_>>()
         .join("-")
+}
+
+fn assert_no_metrics_baseline_temp_file(context: &CaseRunContext<'_>, project_root: &Path) {
+    for entry in fs::read_dir(project_root).unwrap_or_else(|error| {
+        panic!(
+            "{}: failed to inspect project directory for temporary baseline files: {error}",
+            context.label()
+        )
+    }) {
+        let entry = entry.unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to inspect project directory entry for temporary baseline files: {error}",
+                context.label()
+            )
+        });
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        assert!(
+            !name.starts_with(".metrics.baseline.json.tmp-"),
+            "{}: temporary metrics baseline file was left behind: {name}",
+            context.label()
+        );
+    }
 }
 
 struct TestProject {

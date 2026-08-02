@@ -2000,10 +2000,34 @@ mod tests {
                 false,
             ),
             (
+                "cycle with same members that loses only a cyclic edge is allowed",
+                vec![
+                    ("app", "util"),
+                    ("app", "core"),
+                    ("util", "core"),
+                    ("core", "app"),
+                ],
+                vec![vec!["app", "core", "util"]],
+                vec![("app", "util"), ("util", "core"), ("core", "app")],
+                false,
+            ),
+            (
                 "cycle that adds an edge fails",
                 vec![("app", "util"), ("util", "app")],
                 vec![vec!["app", "util"]],
                 vec![("app", "util"), ("util", "core"), ("core", "app")],
+                true,
+            ),
+            (
+                "cycle with same members that adds only a cyclic edge fails",
+                vec![("app", "util"), ("util", "core"), ("core", "app")],
+                vec![vec!["app", "core", "util"]],
+                vec![
+                    ("app", "util"),
+                    ("util", "core"),
+                    ("core", "app"),
+                    ("core", "util"),
+                ],
                 true,
             ),
             (
