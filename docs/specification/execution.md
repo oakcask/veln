@@ -164,7 +164,8 @@ enough.
   task join failure, it returns the first `Http2ServiceFailure`, closes the
   failed stream once, closes the listener once, and does not accept or write a
   later connection response. Abrupt runtime transport failures stay runtime
-  failures. After such a failure, source cleanup is not specified.
+  failures even when the failure occurs inside a spawned connection task.
+  After such a failure, source cleanup is not specified.
   `examples/specification/run/http2-service-two-connections/`,
   `http2-service-callback-failure/`,
   `http2-service-join-failure-json/`,

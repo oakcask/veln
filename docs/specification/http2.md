@@ -355,8 +355,10 @@ service accepts the next stream only after the current task succeeds. On clean
 listener end, `serve_tcp` closes the listener once. On the first ordinary
 callback, protocol, or join failure, it preserves that first failure, closes
 the failed stream once, closes the listener once, and does not accept or write
-a later connection response. Abrupt runtime transport failures remain runtime
-failures; later source cleanup after that failure is not specified.
+a later connection response. Abrupt runtime transport failures, including
+transport failures raised inside a spawned connection task, remain runtime
+failures rather than `Http2ServiceJoinFailure` values. Later source cleanup
+after an abrupt runtime transport failure is not specified.
 
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)

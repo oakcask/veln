@@ -780,6 +780,10 @@
             Thread.currentThread().interrupt();
             return err("interrupted");
         } catch (java.util.concurrent.ExecutionException failed) {
+            Throwable cause = failed.getCause();
+            if (cause instanceof RuntimeFailure) {
+                throw (RuntimeFailure) cause;
+            }
             return err("failed");
         } catch (java.util.concurrent.CancellationException cancelled) {
             return err("cancelled");
