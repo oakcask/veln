@@ -1,0 +1,2 @@
+[tool.metrics]
+deny_cycles = "yes"

@@ -1,0 +1,22 @@
+command = ["metrics", "--check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "metrics.policy.no_enabled"
+severity = "error"
+kind = "module"
+message = "metrics check requires at least one enabled policy"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "check"
+missing = true
