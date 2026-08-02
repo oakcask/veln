@@ -16,6 +16,8 @@ pub(crate) enum Command {
     Metrics {
         json: bool,
         check: bool,
+        baseline: Option<PathBuf>,
+        write_baseline: Option<PathBuf>,
         inputs: Vec<PathBuf>,
     },
     Run {
@@ -122,6 +124,8 @@ fn metrics_command() -> ClapCommand {
         .about("Report source dependency metrics")
         .arg(json_arg())
         .arg(check_arg())
+        .arg(baseline_arg())
+        .arg(write_baseline_arg())
         .arg(path_args(
             "inputs",
             "Source files or directories to report",
@@ -287,6 +291,28 @@ fn check_arg() -> Arg {
         .action(ArgAction::SetTrue)
 }
 
+fn baseline_arg() -> Arg {
+    Arg::new("baseline")
+        .long("baseline")
+        .help("Compare enabled metrics policy against a reviewed baseline")
+        .value_name("PATH")
+        .num_args(1)
+        .value_parser(clap::value_parser!(PathBuf))
+        .requires("check")
+        .conflicts_with("write_baseline")
+}
+
+fn write_baseline_arg() -> Arg {
+    Arg::new("write_baseline")
+        .long("write-baseline")
+        .help("Write the current metrics report as a baseline")
+        .value_name("PATH")
+        .num_args(1)
+        .value_parser(clap::value_parser!(PathBuf))
+        .conflicts_with("check")
+        .conflicts_with("json")
+}
+
 fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
     if args.is_empty() {
         return Ok(Some(Command::Help {
@@ -362,6 +388,8 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
         Some(("metrics", matches)) => Command::Metrics {
             json: matches.get_flag("json"),
             check: matches.get_flag("check"),
+            baseline: matches.get_one::<PathBuf>("baseline").cloned(),
+            write_baseline: matches.get_one::<PathBuf>("write_baseline").cloned(),
             inputs: path_values(matches, "inputs"),
         },
         Some(("run", matches)) => run_from_matches(matches),
@@ -495,9 +523,19 @@ fn reject_unknown_fmt_flags<'a>(args: impl Iterator<Item = &'a String>) -> Resul
 }
 
 fn reject_unknown_metrics_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
-    for arg in args {
+    let mut args = args.peekable();
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--json" | "--check" | "--help" | "-h" => {}
+            "--baseline" | "--write-baseline" => {
+                let Some(value) = args.next() else {
+                    return Err(format!("metrics flag `{arg}` requires a value"));
+                };
+                if value.starts_with('-') {
+                    return Err(format!("metrics flag `{arg}` requires a value"));
+                }
+            }
+            flag if flag.starts_with("--baseline=") || flag.starts_with("--write-baseline=") => {}
             flag if flag.starts_with('-') => return Err(format!("unknown metrics flag `{flag}`")),
             _ => {}
         }
@@ -788,6 +826,8 @@ mod tests {
         let Command::Metrics {
             json,
             check,
+            baseline,
+            write_baseline,
             inputs,
         } = command
         else {
@@ -796,17 +836,58 @@ mod tests {
 
         assert!(json);
         assert!(check);
+        assert_eq!(baseline, None);
+        assert_eq!(write_baseline, None);
+        assert_eq!(inputs, [PathBuf::from("src")]);
+    }
+
+    #[test]
+    fn metrics_parser_accepts_baseline_modes() {
+        let check = parse(&["metrics", "--check", "--baseline", "metrics.json", "src"])
+            .expect("baseline check command should parse");
+        let Command::Metrics {
+            json,
+            check,
+            baseline,
+            write_baseline,
+            inputs,
+        } = check
+        else {
+            panic!("expected metrics command");
+        };
+        assert!(!json);
+        assert!(check);
+        assert_eq!(baseline, Some(PathBuf::from("metrics.json")));
+        assert_eq!(write_baseline, None);
+        assert_eq!(inputs, [PathBuf::from("src")]);
+
+        let write = parse(&["metrics", "--write-baseline", "metrics.json", "src"])
+            .expect("write-baseline command should parse");
+        let Command::Metrics {
+            json,
+            check,
+            baseline,
+            write_baseline,
+            inputs,
+        } = write
+        else {
+            panic!("expected metrics command");
+        };
+        assert!(!json);
+        assert!(!check);
+        assert_eq!(baseline, None);
+        assert_eq!(write_baseline, Some(PathBuf::from("metrics.json")));
         assert_eq!(inputs, [PathBuf::from("src")]);
     }
 
     #[test]
     fn metrics_parser_reports_unknown_flags() {
-        let error = match parse(&["metrics", "--baseline", "metrics.json"]) {
+        let error = match parse(&["metrics", "--strict"]) {
             Ok(_) => panic!("unknown metrics flag should fail"),
             Err(error) => error,
         };
 
-        assert_eq!(error, "unknown metrics flag `--baseline`");
+        assert_eq!(error, "unknown metrics flag `--strict`");
     }
 
     #[test]

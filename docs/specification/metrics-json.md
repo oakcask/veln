@@ -5,7 +5,9 @@ review-when: The metrics command JSON schema or executable metrics cases change.
 # Metrics JSON
 
 `veln metrics --json` and `veln metrics --check --json` emit schema version
-`veln-metrics-json/v0`.
+`veln-metrics-json/v0`. `veln metrics --write-baseline PATH` writes baseline
+schema version `veln-metrics-baseline/v0` with metric model
+`veln-metrics-model/v0`.
 
 Without `--check`, the command is report-only. A completed advisory analysis
 returns `status: "ok"` and exits successfully even when dependency cycles or
@@ -28,6 +30,24 @@ A successful check keeps the complete metrics report and adds `check.mode:
 `status: "policy_violation"` and keeps the complete report. Each violation
 names `policy: "deny_cycles"`, the cycle members, a concrete closed path, and
 guidance to review module ownership and dependency direction.
+
+`--baseline PATH` is valid only with `--check`. With a baseline, `deny_cycles`
+allows a current dependency cycle only when its members and cyclic edges are
+subsets of one baseline cycle. Unchanged cycles and cycles that lost members
+or cyclic edges pass. New cycles, new self-cycles, renamed-module cycles, and
+cycles that added members or cyclic edges fail. A deleted baseline subject is
+reported as stale but does not by itself fail the check. Unsupported baseline
+schema or metric-model values are command errors.
+
+When a check uses a baseline, the `check.baseline` object contains `path`,
+`schema_version`, `metric_model`, and `stale_subjects`. The path is the
+command-line baseline path normalized with `/` separators.
+
+`--write-baseline PATH` writes the complete current report fields described
+below, replacing only the top-level `schema_version` with
+`veln-metrics-baseline/v0` and adding top-level `metric_model` with value
+`veln-metrics-model/v0`. It writes project-relative paths and does not write
+absolute paths or source text. It refuses to overwrite an existing path.
 
 The JSON document contains:
 
@@ -92,6 +112,18 @@ Executable evidence:
   `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
   configuration and manifest policy failures that do not return a clean check
   report.
+- The metrics `baseline-write` and `baseline-existing-file` cases check
+  baseline generation, baseline file shape, and overwrite refusal.
+- The metrics `baseline-check-pass-json`,
+  `baseline-check-regression-json`, `baseline-stale-human`, and
+  `baseline-unsupported-schema-json`, and
+  `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
+  allowances, regressions, stale subject reporting, and unsupported version
+  comparison errors.
+- The `metrics_baseline_check_preserves_report_fields` CLI integration test
+  checks that a baseline check preserves the advisory ABC subjects, graph
+  measurements, ordering, and ordinary report fields from the matching
+  no-baseline JSON report.
 - The metrics `abc-constructs` case checks counted ABC constructs, annotation
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds

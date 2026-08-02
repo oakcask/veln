@@ -1,0 +1,8 @@
+command = ["metrics", "--write-baseline", "metrics.baseline.json", "--json"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["--write-baseline <PATH>", "--json"]

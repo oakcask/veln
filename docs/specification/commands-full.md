@@ -1,3 +1,7 @@
+---
+review-when: The documented command behavior or executable command evidence changes.
+---
+
 # Commands Full
 
 Read [commands.md](commands.md) first unless you need command-specific
@@ -10,6 +14,7 @@ behavior, gates, or output boundaries.
 - [`veln check`](#veln-check)
 - [`veln fmt`](#veln-fmt)
 - [`veln doc`](#veln-doc)
+- [`veln metrics`](#veln-metrics)
 - [`veln run`](#veln-run)
 - [`veln test`](#veln-test)
 - [`veln repair`](#veln-repair)
@@ -195,6 +200,40 @@ including nested module paths such as `use app::nested`, and a public schema or
 public schema alias. The generated Markdown renders a resolved schema reference
 as code text. Missing, private, and wrong-kind schema references are name
 diagnostics reported at the referenced name span.
+
+<a id="veln-metrics"></a>
+
+## `veln metrics [--json] [--check] [--baseline PATH] [--write-baseline PATH] [path ...]`
+
+`veln metrics` reports advisory module dependency metrics and ABC size metrics
+for project-owned Veln source. It follows the shared command analysis route
+for source discovery and parse-clean module loading. Without `--check`, the
+command exits successfully when analysis completes, even if dependency cycles
+or large ABC values are present.
+
+`--json` emits the metrics JSON report specified in [metrics-json.md](metrics-json.md).
+`--check` applies enabled metrics policy from `[tool.metrics]`. The current
+enforceable policy is `deny_cycles = "true"`. A check with no enabled policy
+is a command error.
+
+`--write-baseline PATH` writes the current complete metrics report as
+baseline schema `veln-metrics-baseline/v0` with metric model
+`veln-metrics-model/v0`. The baseline records project-relative paths and does
+not record absolute paths or source text. The command writes through a
+temporary file in the target directory and refuses to overwrite an existing
+target. `--write-baseline` conflicts with `--check` and `--json`.
+
+`--baseline PATH` is valid only with `--check`. The baseline is loaded
+explicitly from the command line; the command does not load a manifest
+baseline implicitly. Unsupported baseline schema or metric model values are
+comparison errors. A baseline subject that no longer exists in the current
+report is reported as stale but does not by itself fail the check.
+
+When `deny_cycles = "true"` is checked with a baseline, a current cycle is
+allowed only when its member set and cyclic edge set are subsets of one
+baseline cycle. This allows unchanged cycles and cycles that lost members or
+cyclic edges. New cycles, self-cycles without a matching baseline allowance,
+renamed-module cycles, and cycles with added members or cyclic edges fail.
 
 <a id="veln-run"></a>
 

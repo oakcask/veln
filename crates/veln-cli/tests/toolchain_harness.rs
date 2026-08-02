@@ -80,7 +80,99 @@ fn run_case_with_after_invocation(
         manifest
             .expectations
             .assert_files_match(&context, &project.root);
+        assert_no_metrics_baseline_temp_file(&context, &project.root);
         after_invocation(&context, &project.root);
+    }
+}
+
+#[test]
+fn metrics_baseline_check_preserves_report_fields() {
+    let project = TestProject::new(
+        "metrics-baseline-check-preserves-report-fields".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("veln.toml"),
+        "[tool.metrics]\ndeny_cycles = \"true\"\n",
+    )
+    .expect("manifest should be written");
+    fs::write(
+        project.root.join("app.veln"),
+        "use util\nfn main() -> Int\n  value()\nend\n",
+    )
+    .expect("app source should be written");
+    fs::write(
+        project.root.join("util.veln"),
+        "use app\nfn value() -> Int\n  1\nend\n",
+    )
+    .expect("util source should be written");
+
+    let write_output = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--write-baseline".to_string(),
+            "metrics.baseline.json".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    assert!(
+        write_output.status.success(),
+        "baseline write failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&write_output.stdout),
+        String::from_utf8_lossy(&write_output.stderr)
+    );
+
+    let report_output = project.veln_with_artifact(
+        &["metrics".to_string(), "--json".to_string()],
+        &[],
+        None,
+        None,
+    );
+    let check_output = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--check".to_string(),
+            "--baseline".to_string(),
+            "metrics.baseline.json".to_string(),
+            "--json".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    assert!(
+        report_output.status.success(),
+        "report failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&report_output.stdout),
+        String::from_utf8_lossy(&report_output.stderr)
+    );
+    assert!(
+        check_output.status.success(),
+        "baseline check failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&check_output.stdout),
+        String::from_utf8_lossy(&check_output.stderr)
+    );
+
+    let report = parse_json(std::str::from_utf8(&report_output.stdout).expect("report JSON"))
+        .expect("report should parse");
+    let check = parse_json(std::str::from_utf8(&check_output.stdout).expect("check JSON"))
+        .expect("check report should parse");
+
+    for field in [
+        "project",
+        "modules",
+        "edges",
+        "cycles",
+        "abc_subjects",
+        "summary",
+    ] {
+        assert_eq!(
+            json_path(&check, field),
+            json_path(&report, field),
+            "baseline check changed `{field}` report field"
+        );
     }
 }
 
@@ -95,6 +187,29 @@ fn case_name(case_dir: &Path) -> String {
         .rev()
         .collect::<Vec<_>>()
         .join("-")
+}
+
+fn assert_no_metrics_baseline_temp_file(context: &CaseRunContext<'_>, project_root: &Path) {
+    for entry in fs::read_dir(project_root).unwrap_or_else(|error| {
+        panic!(
+            "{}: failed to inspect project directory for temporary baseline files: {error}",
+            context.label()
+        )
+    }) {
+        let entry = entry.unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to inspect project directory entry for temporary baseline files: {error}",
+                context.label()
+            )
+        });
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        assert!(
+            !name.starts_with(".metrics.baseline.json.tmp-"),
+            "{}: temporary metrics baseline file was left behind: {name}",
+            context.label()
+        );
+    }
 }
 
 struct TestProject {
@@ -1879,11 +1994,25 @@ fn run_command_source_inputs(args: &[String]) -> Vec<PathBuf> {
 
 fn source_inputs_after_flags(args: &[String]) -> Vec<PathBuf> {
     let mut inputs = Vec::new();
-    for arg in args {
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
         if arg == "--" {
             break;
         }
         if arg == "--json" {
+            continue;
+        }
+        if matches!(
+            arg.as_str(),
+            "--baseline" | "--write-baseline" | "--jobs" | "-j"
+        ) {
+            let _ = args.next();
+            continue;
+        }
+        if arg.starts_with("--baseline=")
+            || arg.starts_with("--write-baseline=")
+            || arg.starts_with("--jobs=")
+        {
             continue;
         }
         inputs.push(PathBuf::from(arg));

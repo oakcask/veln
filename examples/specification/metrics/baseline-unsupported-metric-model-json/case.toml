@@ -1,0 +1,18 @@
+command = ["metrics", "--check", "--baseline", "metrics.baseline.json", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "metrics.baseline.unsupported_metric_model"
+severity = "error"
+kind = "module"
+message = "unsupported metrics baseline metric model `veln-metrics-model/v999`"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected"
+equals = "veln-metrics-model/v0"

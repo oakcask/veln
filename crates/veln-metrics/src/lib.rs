@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use veln_analysis::{derive_source_module_path, load_surface_module};
-use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo};
+use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo, parse_json_value};
 use veln_project::{Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{
@@ -12,6 +12,8 @@ use veln_syntax::{
 };
 
 pub const JSON_SCHEMA_VERSION: &str = "veln-metrics-json/v0";
+pub const BASELINE_SCHEMA_VERSION: &str = "veln-metrics-baseline/v0";
+pub const METRIC_MODEL_VERSION: &str = "veln-metrics-model/v0";
 
 #[derive(Clone, Debug)]
 pub struct MetricsReport {
@@ -28,6 +30,7 @@ pub struct MetricsCheckReport {
     pub report: MetricsReport,
     pub policy: MetricsPolicy,
     pub violations: Vec<MetricsPolicyViolation>,
+    pub baseline: Option<BaselineComparison>,
 }
 
 impl MetricsCheckReport {
@@ -46,6 +49,36 @@ pub struct MetricsPolicyViolation {
     pub policy: String,
     pub cycle_members: Vec<String>,
     pub path: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BaselineComparison {
+    pub path: String,
+    pub stale_subjects: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct MetricsBaseline {
+    pub modules: Vec<BaselineModule>,
+    pub edges: Vec<BaselineEdge>,
+    pub cycles: Vec<BaselineCycle>,
+}
+
+#[derive(Clone, Debug)]
+pub struct BaselineModule {
+    pub module: String,
+    pub path: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BaselineEdge {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct BaselineCycle {
+    pub members: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -168,6 +201,35 @@ pub fn check_project_metrics(
     Ok(evaluate_metrics_check(report, policy))
 }
 
+pub fn check_project_metrics_with_baseline(
+    root: PathBuf,
+    inputs: &[PathBuf],
+    baseline: MetricsBaseline,
+    baseline_path: String,
+) -> Result<MetricsCheckReport, Vec<Diagnostic>> {
+    let full_project = Project::discover(root.clone(), &[]).map_err(|error| {
+        vec![metrics_io_diagnostic(format!(
+            "source discovery failed: {error}"
+        ))]
+    })?;
+    let policy = read_metrics_policy(full_project.manifest.as_ref())?;
+    if !policy.deny_cycles {
+        return Err(vec![metrics_policy_diagnostic(
+            "metrics.policy.no_enabled",
+            "metrics check requires at least one enabled policy".to_string(),
+            None,
+            JsonValue::object([("policy", JsonValue::string("none"))]),
+        )]);
+    }
+    let report = analyze_project_metrics_from_project(root, inputs, full_project)?;
+    Ok(evaluate_metrics_check_with_baseline(
+        report,
+        policy,
+        baseline,
+        baseline_path,
+    ))
+}
+
 fn analyze_project_metrics_from_project(
     root: PathBuf,
     inputs: &[PathBuf],
@@ -272,6 +334,109 @@ fn evaluate_metrics_check(report: MetricsReport, policy: MetricsPolicy) -> Metri
         report,
         policy,
         violations,
+        baseline: None,
+    }
+}
+
+fn evaluate_metrics_check_with_baseline(
+    report: MetricsReport,
+    policy: MetricsPolicy,
+    baseline: MetricsBaseline,
+    baseline_path: String,
+) -> MetricsCheckReport {
+    let violations = if policy.deny_cycles {
+        report
+            .cycles
+            .iter()
+            .filter(|cycle| !baseline_allows_cycle(&report, cycle, &baseline))
+            .map(|cycle| MetricsPolicyViolation {
+                policy: "deny_cycles".to_string(),
+                cycle_members: cycle.members.clone(),
+                path: cycle.path.clone(),
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let current_subjects = report
+        .modules
+        .iter()
+        .map(|module| module.module.as_str())
+        .collect::<BTreeSet<_>>();
+    let stale_subjects = baseline
+        .modules
+        .iter()
+        .filter(|module| !current_subjects.contains(module.module.as_str()))
+        .map(|module| module.module.clone())
+        .collect();
+    MetricsCheckReport {
+        report,
+        policy,
+        violations,
+        baseline: Some(BaselineComparison {
+            path: baseline_path,
+            stale_subjects,
+        }),
+    }
+}
+
+fn baseline_allows_cycle(
+    report: &MetricsReport,
+    cycle: &DependencyCycle,
+    baseline: &MetricsBaseline,
+) -> bool {
+    let current_members = cycle.members.iter().cloned().collect::<BTreeSet<_>>();
+    let current_edges = cyclic_edges(&report.edges, &current_members);
+    baseline.cycles.iter().any(|baseline_cycle| {
+        let baseline_members = baseline_cycle
+            .members
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        current_members.is_subset(&baseline_members)
+            && current_edges.is_subset(&cyclic_edges(&baseline.edges, &baseline_members))
+    })
+}
+
+fn cyclic_edges<Edge>(edges: &[Edge], members: &BTreeSet<String>) -> BTreeSet<BaselineEdge>
+where
+    Edge: DependencyEdgeLike,
+{
+    edges
+        .iter()
+        .filter_map(|edge| {
+            let source = edge.source();
+            let target = edge.target();
+            (members.contains(source) && members.contains(target)).then(|| BaselineEdge {
+                source: source.to_string(),
+                target: target.to_string(),
+            })
+        })
+        .collect()
+}
+
+trait DependencyEdgeLike {
+    fn source(&self) -> &str;
+    fn target(&self) -> &str;
+}
+
+impl DependencyEdgeLike for DependencyEdge {
+    fn source(&self) -> &str {
+        &self.source
+    }
+
+    fn target(&self) -> &str {
+        &self.target
+    }
+}
+
+impl DependencyEdgeLike for BaselineEdge {
+    fn source(&self) -> &str {
+        &self.source
+    }
+
+    fn target(&self) -> &str {
+        &self.target
     }
 }
 
@@ -911,6 +1076,17 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
     let mut out = String::new();
     out.push_str("Veln dependency metrics (check)\n");
     out.push_str("policy checks: deny_cycles\n");
+    if let Some(baseline) = &check.baseline {
+        out.push_str(&format!("baseline: {}\n", baseline.path));
+        if baseline.stale_subjects.is_empty() {
+            out.push_str("baseline stale subjects: none\n");
+        } else {
+            out.push_str(&format!(
+                "baseline stale subjects: {}\n",
+                baseline.stale_subjects.join(", ")
+            ));
+        }
+    }
     if check.violations.is_empty() {
         out.push_str("policy result: pass\n\n");
     } else {
@@ -935,6 +1111,29 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
 
 pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
     JsonValue::object(metrics_report_json_entries(report, tool, "ok", None))
+}
+
+pub fn baseline_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
+    let mut entries = metrics_report_json_entries(report, tool, "ok", None);
+    replace_json_entry(
+        &mut entries,
+        "schema_version",
+        JsonValue::string(BASELINE_SCHEMA_VERSION),
+    );
+    entries.insert(1, ("metric_model", JsonValue::string(METRIC_MODEL_VERSION)));
+    JsonValue::object(entries)
+}
+
+pub fn baseline_from_json(source: &str) -> Result<MetricsBaseline, Vec<Diagnostic>> {
+    let value = parse_json_value(source).map_err(|error| {
+        vec![metrics_policy_diagnostic(
+            "metrics.baseline.invalid_json",
+            format!("metrics baseline is not valid JSON: {error}"),
+            None,
+            JsonValue::object([("phase", JsonValue::string("baseline"))]),
+        )]
+    })?;
+    parse_baseline_value(&value)
 }
 
 pub fn report_check_to_json(check: &MetricsCheckReport, tool: ToolInfo) -> JsonValue {
@@ -1009,7 +1208,7 @@ fn metrics_report_json_entries(
 }
 
 fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
-    JsonValue::object([
+    let mut entries = vec![
         ("mode", JsonValue::string("check")),
         (
             "enabled_policies",
@@ -1031,6 +1230,39 @@ fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
         (
             "violations",
             JsonValue::array(check.violations.iter().map(policy_violation_to_json)),
+        ),
+    ];
+    if let Some(baseline) = &check.baseline {
+        entries.push(("baseline", baseline_comparison_to_json(baseline)));
+    }
+    JsonValue::object(entries)
+}
+
+fn replace_json_entry(
+    entries: &mut Vec<(&'static str, JsonValue)>,
+    key: &'static str,
+    value: JsonValue,
+) {
+    if let Some((_, existing)) = entries.iter_mut().find(|(entry_key, _)| *entry_key == key) {
+        *existing = value;
+    } else {
+        entries.push((key, value));
+    }
+}
+
+fn baseline_comparison_to_json(baseline: &BaselineComparison) -> JsonValue {
+    JsonValue::object([
+        ("path", JsonValue::string(baseline.path.clone())),
+        ("schema_version", JsonValue::string(BASELINE_SCHEMA_VERSION)),
+        ("metric_model", JsonValue::string(METRIC_MODEL_VERSION)),
+        (
+            "stale_subjects",
+            JsonValue::array(
+                baseline
+                    .stale_subjects
+                    .iter()
+                    .map(|subject| JsonValue::string(subject.clone())),
+            ),
         ),
     ])
 }
@@ -1177,6 +1409,117 @@ fn summary_to_json(summary: &MetricsSummary) -> JsonValue {
             JsonValue::Number(summary.abc_contract_subject_count as i64),
         ),
     ])
+}
+
+fn parse_baseline_value(value: &JsonValue) -> Result<MetricsBaseline, Vec<Diagnostic>> {
+    let schema_version = json_string_field(value, "schema_version");
+    if schema_version != Some(BASELINE_SCHEMA_VERSION) {
+        return Err(vec![metrics_policy_diagnostic(
+            "metrics.baseline.unsupported_schema",
+            format!(
+                "unsupported metrics baseline schema `{}`",
+                schema_version.unwrap_or("<missing>")
+            ),
+            None,
+            JsonValue::object([
+                (
+                    "expected",
+                    JsonValue::string(BASELINE_SCHEMA_VERSION.to_string()),
+                ),
+                (
+                    "actual",
+                    schema_version.map_or(JsonValue::Null, JsonValue::string),
+                ),
+            ]),
+        )]);
+    }
+    let metric_model = json_string_field(value, "metric_model");
+    if metric_model != Some(METRIC_MODEL_VERSION) {
+        return Err(vec![metrics_policy_diagnostic(
+            "metrics.baseline.unsupported_metric_model",
+            format!(
+                "unsupported metrics baseline metric model `{}`",
+                metric_model.unwrap_or("<missing>")
+            ),
+            None,
+            JsonValue::object([
+                ("expected", JsonValue::string(METRIC_MODEL_VERSION)),
+                (
+                    "actual",
+                    metric_model.map_or(JsonValue::Null, JsonValue::string),
+                ),
+            ]),
+        )]);
+    }
+
+    Ok(MetricsBaseline {
+        modules: json_array_field(value, "modules")
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(parse_baseline_module)
+            .collect(),
+        edges: json_array_field(value, "edges")
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(parse_baseline_edge)
+            .collect(),
+        cycles: json_array_field(value, "cycles")
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(parse_baseline_cycle)
+            .collect(),
+    })
+}
+
+fn parse_baseline_module(value: &JsonValue) -> Option<BaselineModule> {
+    Some(BaselineModule {
+        module: json_string_field(value, "module")?.to_string(),
+        path: json_string_field(value, "path")?.to_string(),
+    })
+}
+
+fn parse_baseline_edge(value: &JsonValue) -> Option<BaselineEdge> {
+    Some(BaselineEdge {
+        source: json_string_field(value, "source")?.to_string(),
+        target: json_string_field(value, "target")?.to_string(),
+    })
+}
+
+fn parse_baseline_cycle(value: &JsonValue) -> Option<BaselineCycle> {
+    Some(BaselineCycle {
+        members: json_array_field(value, "members")?
+            .iter()
+            .filter_map(json_string)
+            .map(str::to_string)
+            .collect(),
+    })
+}
+
+fn json_string_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
+    json_object_field(value, key).and_then(json_string)
+}
+
+fn json_array_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a [JsonValue]> {
+    match json_object_field(value, key)? {
+        JsonValue::Array(values) => Some(values),
+        _ => None,
+    }
+}
+
+fn json_object_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
+    let JsonValue::Object(entries) = value else {
+        return None;
+    };
+    entries
+        .iter()
+        .find_map(|(field, value)| (field == key).then_some(value))
+}
+
+fn json_string(value: &JsonValue) -> Option<&str> {
+    match value {
+        JsonValue::String(value) => Some(value),
+        _ => None,
+    }
 }
 
 fn span_to_json(span: &SourceSpan) -> JsonValue {
@@ -1571,6 +1914,223 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_cycle_policy_only_for_selected_cycle_subjects() {
+        let cases = [
+            (
+                "unselected cycle is advisory only",
+                vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                    SourceFile::new("entry.veln", "fn entry() -> ()\n  ()\nend\n"),
+                ],
+                vec!["entry.veln"],
+                0,
+                false,
+            ),
+            (
+                "selected mutual cycle fails",
+                vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                    SourceFile::new("entry.veln", "fn entry() -> ()\n  ()\nend\n"),
+                ],
+                vec!["app.veln"],
+                1,
+                true,
+            ),
+            (
+                "selected self cycle fails",
+                vec![SourceFile::new(
+                    "self.veln",
+                    "use self\nfn value() -> ()\n  ()\nend\n",
+                )],
+                vec!["self.veln"],
+                1,
+                true,
+            ),
+        ];
+
+        for (name, files, selected, expected_cycles, expected_violation) in cases {
+            let project = Project {
+                root: ".".into(),
+                manifest: None,
+                files,
+            };
+            let selected = selected
+                .into_iter()
+                .map(str::to_string)
+                .collect::<BTreeSet<_>>();
+            let graph = DependencyGraph::from_project(&project).expect(name);
+            let report = graph.report(
+                &project,
+                ProjectIdentity {
+                    root: ".".to_string(),
+                    selected_paths: selected.iter().cloned().collect(),
+                },
+                &selected,
+            );
+
+            let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+            assert_eq!(check.report.summary.cycle_count, expected_cycles, "{name}");
+            assert_eq!(check.has_violations(), expected_violation, "{name}");
+        }
+    }
+
+    #[test]
+    fn evaluates_cycle_policy_against_baseline_regressions() {
+        let cases = [
+            (
+                "unchanged cycle is allowed",
+                vec![("app", "util"), ("util", "app")],
+                vec![vec!["app", "util"]],
+                vec![("app", "util"), ("util", "app")],
+                false,
+            ),
+            (
+                "cycle that loses an edge is allowed",
+                vec![
+                    ("app", "util"),
+                    ("util", "app"),
+                    ("util", "core"),
+                    ("core", "app"),
+                ],
+                vec![vec!["app", "core", "util"]],
+                vec![("app", "util"), ("util", "app")],
+                false,
+            ),
+            (
+                "cycle with same members that loses only a cyclic edge is allowed",
+                vec![
+                    ("app", "util"),
+                    ("app", "core"),
+                    ("util", "core"),
+                    ("core", "app"),
+                ],
+                vec![vec!["app", "core", "util"]],
+                vec![("app", "util"), ("util", "core"), ("core", "app")],
+                false,
+            ),
+            (
+                "cycle that adds an edge fails",
+                vec![("app", "util"), ("util", "app")],
+                vec![vec!["app", "util"]],
+                vec![("app", "util"), ("util", "core"), ("core", "app")],
+                true,
+            ),
+            (
+                "cycle with same members that adds only a cyclic edge fails",
+                vec![("app", "util"), ("util", "core"), ("core", "app")],
+                vec![vec!["app", "core", "util"]],
+                vec![
+                    ("app", "util"),
+                    ("util", "core"),
+                    ("core", "app"),
+                    ("core", "util"),
+                ],
+                true,
+            ),
+            (
+                "renamed cycle fails",
+                vec![("app", "util"), ("util", "app")],
+                vec![vec!["app", "util"]],
+                vec![("renamed", "util"), ("util", "renamed")],
+                true,
+            ),
+            (
+                "new self cycle fails",
+                vec![("app", "util"), ("util", "app")],
+                vec![vec!["app", "util"]],
+                vec![("selfish", "selfish")],
+                true,
+            ),
+        ];
+
+        for (name, baseline_edges, baseline_cycles, current_edges, expected_violation) in cases {
+            let report = report_from_edges(&current_edges);
+            let baseline = baseline_from_edges(&baseline_edges, &baseline_cycles);
+            let check = evaluate_metrics_check_with_baseline(
+                report,
+                MetricsPolicy { deny_cycles: true },
+                baseline,
+                "metrics.baseline.json".to_string(),
+            );
+
+            assert_eq!(check.has_violations(), expected_violation, "{name}");
+        }
+    }
+
+    #[test]
+    fn reports_stale_baseline_subjects_without_failing() {
+        let report = report_from_edges(&[("app", "util"), ("util", "app")]);
+        let baseline = MetricsBaseline {
+            modules: vec![
+                BaselineModule {
+                    module: "app".to_string(),
+                    path: "app.veln".to_string(),
+                },
+                BaselineModule {
+                    module: "util".to_string(),
+                    path: "util.veln".to_string(),
+                },
+                BaselineModule {
+                    module: "deleted".to_string(),
+                    path: "deleted.veln".to_string(),
+                },
+            ],
+            edges: vec![
+                BaselineEdge {
+                    source: "app".to_string(),
+                    target: "util".to_string(),
+                },
+                BaselineEdge {
+                    source: "util".to_string(),
+                    target: "app".to_string(),
+                },
+            ],
+            cycles: vec![BaselineCycle {
+                members: vec!["app".to_string(), "util".to_string()],
+            }],
+        };
+
+        let check = evaluate_metrics_check_with_baseline(
+            report,
+            MetricsPolicy { deny_cycles: true },
+            baseline,
+            "metrics.baseline.json".to_string(),
+        );
+
+        assert!(!check.has_violations());
+        assert_eq!(
+            check.baseline.unwrap().stale_subjects,
+            vec!["deleted".to_string()]
+        );
+    }
+
+    #[test]
+    fn parses_baseline_schema_and_metric_model_versions() {
+        let report = report_from_edges(&[("app", "util"), ("util", "app")]);
+        let json = baseline_to_json(&report, ToolInfo::new("veln", "0.1.0")).to_json();
+        let baseline = baseline_from_json(&json).expect("baseline should parse");
+
+        assert_eq!(baseline.modules.len(), 2);
+        assert_eq!(baseline.cycles.len(), 1);
+
+        let unsupported_schema =
+            json.replace(BASELINE_SCHEMA_VERSION, "veln-metrics-baseline/v999");
+        assert_eq!(
+            baseline_from_json(&unsupported_schema).unwrap_err()[0].id,
+            "metrics.baseline.unsupported_schema"
+        );
+
+        let unsupported_model = json.replace(METRIC_MODEL_VERSION, "veln-metrics-model/v999");
+        assert_eq!(
+            baseline_from_json(&unsupported_model).unwrap_err()[0].id,
+            "metrics.baseline.unsupported_metric_model"
+        );
+    }
+
+    #[test]
     fn orders_abc_subjects_deterministically() {
         let project = Project {
             root: ".".into(),
@@ -1611,6 +2171,99 @@ mod tests {
             })
             .expect("function");
         abc_vector(&function)
+    }
+
+    fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
+        let mut modules = edges
+            .iter()
+            .flat_map(|(source, target)| [*source, *target])
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(|module| ModuleMetric {
+                module: module.to_string(),
+                path: format!("{module}.veln"),
+                generated: false,
+                fan_in: 0,
+                fan_out: 0,
+                dependency_pressure: 0,
+                external_dependency_count: 0,
+                span: SourceFile::new(format!("{module}.veln"), "")
+                    .span(veln_source::TextRange::new(0, 0)),
+            })
+            .collect::<Vec<_>>();
+        modules.sort_by(compare_module_metrics);
+        let edges = edges
+            .iter()
+            .map(|(source, target)| DependencyEdge {
+                source: (*source).to_string(),
+                target: (*target).to_string(),
+                span: SourceFile::new(format!("{source}.veln"), "")
+                    .span(veln_source::TextRange::new(0, 0)),
+            })
+            .collect::<Vec<_>>();
+        let graph_project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: modules
+                .iter()
+                .map(|module| {
+                    SourceFile::new(
+                        module.path.as_str(),
+                        source_for_module(&module.module, &edges),
+                    )
+                })
+                .collect(),
+        };
+        let graph = DependencyGraph::from_project(&graph_project).expect("graph");
+        let selected = modules
+            .iter()
+            .map(|module| module.path.clone())
+            .collect::<BTreeSet<_>>();
+        graph.report(
+            &graph_project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: selected.iter().cloned().collect(),
+            },
+            &selected,
+        )
+    }
+
+    fn source_for_module(module: &str, edges: &[DependencyEdge]) -> String {
+        let mut source = String::new();
+        for edge in edges.iter().filter(|edge| edge.source == module) {
+            source.push_str(&format!("use {}\n", edge.target));
+        }
+        source.push_str(&format!("fn {}_value() -> ()\n  ()\nend\n", module));
+        source
+    }
+
+    fn baseline_from_edges(edges: &[(&str, &str)], cycles: &[Vec<&str>]) -> MetricsBaseline {
+        MetricsBaseline {
+            modules: edges
+                .iter()
+                .flat_map(|(source, target)| [*source, *target])
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(|module| BaselineModule {
+                    module: module.to_string(),
+                    path: format!("{module}.veln"),
+                })
+                .collect(),
+            edges: edges
+                .iter()
+                .map(|(source, target)| BaselineEdge {
+                    source: (*source).to_string(),
+                    target: (*target).to_string(),
+                })
+                .collect(),
+            cycles: cycles
+                .iter()
+                .map(|members| BaselineCycle {
+                    members: members.iter().map(|member| (*member).to_string()).collect(),
+                })
+                .collect(),
+        }
     }
 
     fn metrics_manifest(fields: &[(&str, &str)]) -> ProjectManifest {

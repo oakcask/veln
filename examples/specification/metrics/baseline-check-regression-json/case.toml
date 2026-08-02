@@ -1,0 +1,28 @@
+command = ["metrics", "--check", "--baseline", "metrics.baseline.json", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "policy_violation"
+
+[[json_assert]]
+path = "check.result"
+equals = "fail"
+
+[[json_assert]]
+path = "check.violations.0.policy"
+equals = "deny_cycles"
+
+[[json_assert]]
+path = "check.violations.0.path.0"
+equals = "app"
+
+[[json_assert]]
+path = "check.baseline.stale_subjects.0"
+missing = true
