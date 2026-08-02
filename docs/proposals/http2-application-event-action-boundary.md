@@ -41,15 +41,29 @@ proposal by adding another fixed body size, chunk count, action count, or
 request count. A later streaming boundary must use incremental application
 events or an explicit bounded-body policy.
 
-## Application Values
+## Implemented Core Event Value
 
-The proposed source-visible values are:
+The core request event is current source-visible behavior:
 
 ```veln
 pub type Http2ApplicationEvent
 	Http2RequestHeaders(stream_id: Int, headers: HeaderList, end_stream: Bool)
 end
+```
 
+The authoritative source declaration, specification, and executable evidence
+are in the standard library, `../specification/http2.md`, and
+`../../examples/specification/run/http2-core-application-event-drain/`.
+The event must not contain `NetStream`, `CoreConnectionState`,
+`CoreReceiveConnectionState`, or mutable host state. The core emits
+`Http2RequestHeaders` only after HPACK decoding, request-header validation,
+and the associated stream transition succeed.
+
+## Proposed Application Values
+
+The proposed response-action value is:
+
+```veln
 pub type Http2ApplicationAction
 	Http2SendResponseHeaders(stream_id: Int, headers: HeaderList, end_stream: Bool)
 	Http2SendResponseData(stream_id: Int, data: ByteChunk, end_stream: Bool)
@@ -57,10 +71,9 @@ end
 ```
 
 The executable source grammar and checked standard-library declarations are
-authoritative for final names. The values must not contain `NetStream`,
-`CoreConnectionState`, `CoreReceiveConnectionState`, or mutable host state.
-The core emits `Http2RequestHeaders` only after HPACK decoding, request-header
-validation, and the associated stream transition succeed.
+authoritative for final action names. The response-action value must not
+contain `NetStream`, `CoreConnectionState`, `CoreReceiveConnectionState`, or
+mutable host state.
 
 The callback shape is:
 
@@ -73,11 +86,9 @@ by the separate service proposal.
 
 ## Implemented Pure Core Boundary
 
-The pure core receive-state event drain is current behavior. Its authoritative
-specification and executable evidence are in `../specification/http2.md` and
-`../../examples/specification/run/http2-core-application-event-drain/`.
-Remaining proposal sections depend on that implemented boundary instead of
-redefining its current behavior here.
+The pure core receive-state event drain is current behavior. Remaining
+proposal sections depend on that implemented boundary instead of redefining
+its current behavior here.
 
 ## Driver Boundary
 
@@ -139,14 +150,22 @@ The driver applies accepted actions through
 `http2::core::send_data(...)`. It does not duplicate HPACK, stream lifecycle,
 frame splitting, content-length, or flow-control rules.
 
-## Acceptance Model
+## Implemented Core Evidence
+
+The current core event-drain boundary is already covered by focused
+standard-library tests and
+`../../examples/specification/run/http2-core-application-event-drain/`. That
+evidence records receive-order retention for multiple complete frames in one
+chunk, exactly-once drain behavior, deferred emission for incomplete HEADERS
+until final CONTINUATION completion, and the public event value boundary.
+
+## Remaining Acceptance Model
 
 | Case | Required observation | Planned evidence |
 | --- | --- | --- |
 | Pure boundary | The application driver exposes only `transport::DuplexStream`; its callback has no effects | `check/http2-connection-application-boundary-effects` |
 | One request and response | One accepted headers-only request invokes the callback once and writes accepted response HEADERS and DATA bytes in order | `run/http2-connection-application-one-request` |
-| Event drain | Multiple complete frames in one transport chunk preserve their request events in receive order; a second drain returns no events | Focused HTTP/2 core test and `run/http2-core-application-event-drain` |
-| Continued request headers | A final CONTINUATION completes a valid request-header block, emits one event, and invokes the callback once | Focused HTTP/2 core test and `run/http2-connection-application-continuation-request` |
+| Continued request headers | A final CONTINUATION completes a valid request-header block through the implemented core event boundary and invokes the callback once | `run/http2-connection-application-continuation-request` |
 | Clean EOF | Clean EOF before a request returns the accepted core state without a callback; clean EOF after one response returns its accepted core state without another callback | `run/http2-connection-application-clean-end` |
 | Incomplete EOF | EOF with a partial frame or pending header block returns the existing incomplete-input connection failure and preserves earlier committed writes | `run/http2-connection-application-incomplete-end-json` |
 | Callback failure | Callback failure writes no response bytes and remains distinct from protocol failure | `run/http2-connection-application-callback-failure-json` |
@@ -154,12 +173,12 @@ frame splitting, content-length, or flow-control rules.
 | Second request | A second request produces the typed unsupported-request-count outcome without a second callback invocation | `run/http2-connection-application-second-request-json` |
 | Invalid action order | DATA before HEADERS is rejected before any response write | `run/http2-connection-application-invalid-actions-json` |
 | Rejected later action | Earlier accepted bytes remain committed; the rejected and later actions write no bytes | `run/http2-connection-application-rejected-action-json` |
-| Value isolation | Public application event and action types expose no transport handle or core state | Focused standard-library API and semantic tests |
+| Value isolation | The public application action type exposes no transport handle or core state | Focused standard-library API and semantic tests |
 
-The relative paths are planned directories below `examples/specification/`.
-The run cases must use the real `http2::connection` and `http2::core` public
-surfaces. A fixture-local replacement core or send-state model does not meet
-the acceptance model.
+The relative paths in the table are planned directories below
+`examples/specification/`. The run cases must use the real `http2::connection`
+and `http2::core` public surfaces. A fixture-local replacement core or
+send-state model does not meet the acceptance model.
 
 ## Activation Handoff
 
