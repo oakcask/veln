@@ -105,7 +105,7 @@ fn service_run_one<effect E>(stream: NetStream, worker: Task<Result<CoreConnecti
 	match task::join(worker)
 		Ok(Ok(_)) => service_close_then_continue(stream, listener, accepted, handler)
 		Ok(Err(failure)) => service_fail_close(stream, Http2ServiceApplicationFailure(accepted, failure))
-		Err(reason) => service_fail_close(stream, Http2ServiceJoinFailure(accepted, reason))
+		Err(_) => service_fail_close(stream, Http2ServiceJoinFailure(accepted, "failed"))
 	end
 end
 
