@@ -19,10 +19,11 @@ This proposal depends on:
 
 The application-boundary activation gate is met by
 `Http2ApplicationEvent`, `Http2ApplicationAction`, and
-`drive_server_application`. This service proposal must use those implemented
-values or explicitly adapt them before adding effect rows. The values support
-one request and one response without exposing `NetStream` or mutable core
-state.
+`drive_server_application`, with typed failures represented by
+`Http2ApplicationBoundaryFailure`. This service proposal must use those
+implemented values or explicitly adapt them before adding effect rows. The
+values support one request and one response without exposing `NetStream` or
+mutable core state.
 
 This proposal selects the current abrupt runtime boundary for transport
 failure. Source cleanup after that failure is not required. A separate

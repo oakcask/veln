@@ -403,8 +403,8 @@ fn apply_application_headers(state: CoreReceiveConnectionState, stream_id: Int, 
 	let connection = http2::core::receive_connection_connection(state)
 	let decision = http2::core::send_response_headers(connection, http2::core::connection_state_next_offset(connection), stream_id, headers, end_stream)
 	match http2::core::headers_send_status(decision)
-		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, http2::core::headers_send_state(decision)?, http2::core::output_buffer_append_headers(http2::core::receive_connection_output(state), decision)), tail, written_count)
-		"rejected" => Err(Http2ApplicationRejectedHeadersAction(http2::core::headers_send_failure(decision)?))
+		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, application_headers_send_state(decision, stream_id)?, http2::core::output_buffer_append_headers(http2::core::receive_connection_output(state), decision)), tail, written_count)
+		"rejected" => Err(Http2ApplicationRejectedHeadersAction(application_headers_send_failure(decision, stream_id)?))
 		_ => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, http2::core::headers_send_encode_reason(decision)))
 	end
 end
@@ -413,9 +413,37 @@ fn apply_application_data(state: CoreReceiveConnectionState, stream_id: Int, dat
 	let connection = http2::core::receive_connection_connection(state)
 	let decision = http2::core::send_data(connection, http2::core::connection_state_next_offset(connection), stream_id, data, end_stream)
 	match http2::core::data_send_status(decision)
-		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, http2::core::data_send_state(decision)?, http2::core::output_buffer_append_data(http2::core::receive_connection_output(state), decision)), tail, written_count)
-		"rejected" => Err(Http2ApplicationRejectedDataAction(http2::core::data_send_failure(decision)?))
+		"accepted" => continue_after_committed_action(receive_state_with_connection_and_output(state, application_data_send_state(decision, stream_id)?, http2::core::output_buffer_append_data(http2::core::receive_connection_output(state), decision)), tail, written_count)
+		"rejected" => Err(Http2ApplicationRejectedDataAction(application_data_send_failure(decision, stream_id)?))
 		_ => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, http2::core::data_send_encode_reason(decision)))
+	end
+end
+
+fn application_headers_send_state(decision: CoreHeadersSendDecision, stream_id: Int) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::headers_send_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, reason))
+	end
+end
+
+fn application_headers_send_failure(decision: CoreHeadersSendDecision, stream_id: Int) -> Result<CoreOutboundHeadersFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::headers_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("headers", stream_id, reason))
+	end
+end
+
+fn application_data_send_state(decision: CoreDataSendDecision, stream_id: Int) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
+	match http2::core::data_send_state(decision)
+		Ok(state) => Ok(state)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, reason))
+	end
+end
+
+fn application_data_send_failure(decision: CoreDataSendDecision, stream_id: Int) -> Result<CoreOutboundDataFlowFailure, Http2ApplicationBoundaryFailure>
+	match http2::core::data_send_failure(decision)
+		Ok(failure) => Ok(failure)
+		Err(reason) => Err(Http2ApplicationCoreActionEncodeFailure("data", stream_id, reason))
 	end
 end
 

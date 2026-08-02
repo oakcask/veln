@@ -7,10 +7,9 @@ Status: implemented
 Add one server-side connection-driver boundary that drains immutable HTTP/2
 request events from the protocol core, passes them to a pure application
 callback, and applies the callback's immutable response actions through the
-existing protocol core. The core request-header event and pure drain boundary
-are implemented and specified in `../../specification/http2.md`; the remaining
-proposal work is the driver, response-action values, and application failure
-boundary.
+existing protocol core. The core request-header event, pure drain boundary,
+driver, response-action values, and application failure boundary are
+implemented and specified in `../../specification/http2.md`.
 
 ## Dependencies
 
@@ -24,12 +23,12 @@ Current HTTP/2 behavior remains specified by
 handler behavior remains specified by
 [`names-effects.md`](../../specification/names-effects.md).
 
-## Bounded Driver Slice
+## Implemented Driver Slice
 
-The remaining bounded slice accepts one server-side request whose completed HEADERS block
-also ends the request stream. The request has no DATA or trailer fields. The
-callback may produce one response as an ordered HEADERS action followed by an
-optional DATA action.
+The implemented bounded slice accepts one server-side request whose completed
+HEADERS block also ends the request stream. The request has no DATA or trailer
+fields. The callback may produce one response as an ordered HEADERS action
+followed by an optional DATA action.
 
 The driver rejects a request whose completed HEADERS do not end the stream at
 the application boundary with a typed unsupported-request failure. The core
@@ -92,21 +91,21 @@ its current behavior here.
 
 ## Driver Boundary
 
-Add a server entry point with this source-visible shape:
+The server entry point has this source-visible shape:
 
 ```veln
 pub fn drive_server_application(
 	state: CoreConnectionState,
 	handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>,
-) -> Result<CoreConnectionState, Http2ApplicationConnectionFailure> effects [transport::DuplexStream]
+) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [transport::DuplexStream]
 	# Standard-library body omitted.
 end
 ```
 
 The final formatter-approved layout is authoritative. The new failure type
-must distinguish the existing connection failures, callback failure,
-unsupported request shape, invalid response action sequence, and rejected
-core action.
+distinguishes the existing connection failures, callback failure,
+unsupported request shape, unsupported request count, invalid response action
+sequence, rejected core action, and core action encode failure.
 
 The existing `drive_server` and `drive_client` signatures and behavior do not
 change.

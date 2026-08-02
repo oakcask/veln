@@ -325,8 +325,11 @@ failures remain runtime failures rather than typed application failures.
 
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)
-checks public application action values and distinguishable application
-failure variants. Executable application-driver evidence lives under
+checks public application action values, distinguishable application failure
+variants, the handled driver effect boundary, unsupported request failures,
+second-request rejection, complete action-list validation, request stream-id
+validation, and rejected later core-action failures. Executable
+application-driver evidence lives under
 `examples/specification/check/http2-connection-application-boundary-effects/`,
 `examples/specification/run/http2-connection-application-one-request/`,
 `examples/specification/run/http2-connection-application-callback-failure-json/`,
