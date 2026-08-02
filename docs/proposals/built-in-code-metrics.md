@@ -341,8 +341,6 @@ Planned executable cases follow the placement rules in
 | Similarity edit | Two duplicate bodies are changed together to another equal token sequence | The new instance is advisory and does not fail a baseline check |
 | Similarity result bound | Many declarations contain the same body and many unrelated bodies | Each declaration appears at most once, total reported regions do not exceed eligible declarations, and instances do not exceed half the eligible declarations |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
-| Check without policy | `--check` runs with `deny_cycles` omitted or false | The command reports that no enforceable policy is enabled and fails without a clean check result |
-| Absolute cycle check | A cycle exists with `deny_cycles` enabled and no baseline | Check mode fails and reports a closed path |
 | Cycle baseline regression | A baseline cycle stays equal, loses an edge, and gains an edge in separate runs | Equal and improved reports pass; the worsened report fails |
 | Stale baseline | A baseline subject is deleted | The command reports the stale entry without failing solely for staleness |
 | Unsupported metric model | Baseline and current reports use different metric-model versions | Comparison fails without treating advisory records as allowances |

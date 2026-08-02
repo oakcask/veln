@@ -38,7 +38,8 @@ smallest specification page to read. Start with the short page; open the matchin
   running, and testing: [commands.md](commands.md).
 - Choosing the command-specific machine-readable output page:
   [json-output.md](json-output.md).
-- Advisory source dependency metrics and metrics JSON:
+- Advisory source dependency metrics, dependency-cycle policy checks, and
+  metrics JSON:
   [commands.md](commands.md), then [metrics-json.md](metrics-json.md).
 - Human diagnostics that need related notes or structured output coverage, and
   diagnostic JSON envelope, spans, related notes, and stable details:

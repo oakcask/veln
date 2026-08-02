@@ -81,8 +81,9 @@ not contribute. `contracts_included` is `false` for every ABC subject.
 
 Executable evidence:
 
-- The metrics `dependency-report` case checks advisory human output, graph
-  counts, external dependency counts, and cycle paths.
+- The metrics `dependency-report` and `dependency-report-json` cases check
+  advisory human and JSON output, graph counts, external dependency counts,
+  and cycle paths.
 - The metrics `path-selection` case checks JSON shape, selected subjects,
   containing graph counts, dependency edges, and cycle membership.
 - The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`

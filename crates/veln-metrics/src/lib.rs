@@ -1493,48 +1493,81 @@ mod tests {
     }
 
     #[test]
-    fn check_policy_preserves_report_and_projects_cycle_violations() {
-        let project = Project {
-            root: ".".into(),
-            manifest: None,
-            files: vec![
-                SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
-                SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
-            ],
-        };
-        let selected = ["app.veln".to_string(), "util.veln".to_string()]
-            .into_iter()
-            .collect();
-        let graph = DependencyGraph::from_project(&project).expect("graph");
-        let report = graph.report(
-            &project,
-            ProjectIdentity {
-                root: ".".to_string(),
-                selected_paths: vec!["app.veln".to_string(), "util.veln".to_string()],
-            },
-            &selected,
-        );
+    fn evaluates_cycle_policy_table_and_preserves_report_data() {
+        let cases = [
+            (
+                "acyclic pass",
+                "fn value() -> ()\n  ()\nend\n",
+                0,
+                false,
+                "\"status\":\"ok\"",
+            ),
+            (
+                "cycle violation",
+                "use app\nfn value() -> ()\n  ()\nend\n",
+                1,
+                true,
+                "\"status\":\"policy_violation\"",
+            ),
+        ];
 
-        let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+        for (name, util_source, expected_cycles, expected_violation, expected_status) in cases {
+            let project = Project {
+                root: ".".into(),
+                manifest: None,
+                files: vec![
+                    SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                    SourceFile::new("util.veln", util_source),
+                ],
+            };
+            let selected = ["app.veln".to_string(), "util.veln".to_string()]
+                .into_iter()
+                .collect();
+            let graph = DependencyGraph::from_project(&project).expect(name);
+            let report = graph.report(
+                &project,
+                ProjectIdentity {
+                    root: ".".to_string(),
+                    selected_paths: vec!["app.veln".to_string(), "util.veln".to_string()],
+                },
+                &selected,
+            );
 
-        assert!(check.has_violations());
-        assert_eq!(check.report.summary.cycle_count, 1);
-        assert_eq!(check.report.modules.len(), 2);
-        assert_eq!(check.violations[0].policy, "deny_cycles");
-        assert_eq!(
-            check.violations[0].path.first().map(String::as_str),
-            Some("app")
-        );
-        assert_eq!(
-            check.violations[0].path.last().map(String::as_str),
-            Some("app")
-        );
-        assert!(render_check_human(&check).contains("review module ownership"));
-        assert!(
-            report_check_to_json(&check, ToolInfo::new("veln", "0.1.0"))
-                .to_json()
-                .contains("\"status\":\"policy_violation\"")
-        );
+            let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
+
+            assert_eq!(check.has_violations(), expected_violation, "{name}");
+            assert_eq!(check.report.summary.cycle_count, expected_cycles, "{name}");
+            assert_eq!(check.report.modules.len(), 2, "{name}");
+            assert!(
+                report_check_to_json(&check, ToolInfo::new("veln", "0.1.0"))
+                    .to_json()
+                    .contains(expected_status),
+                "{name}"
+            );
+
+            if expected_violation {
+                assert_eq!(check.violations[0].policy, "deny_cycles", "{name}");
+                assert_eq!(
+                    check.violations[0].path.first().map(String::as_str),
+                    Some("app"),
+                    "{name}"
+                );
+                assert_eq!(
+                    check.violations[0].path.last().map(String::as_str),
+                    Some("app"),
+                    "{name}"
+                );
+                assert!(
+                    render_check_human(&check).contains("review module ownership"),
+                    "{name}"
+                );
+            } else {
+                assert!(
+                    render_check_human(&check).contains("policy result: pass"),
+                    "{name}"
+                );
+            }
+        }
     }
 
     #[test]
