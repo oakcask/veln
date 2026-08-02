@@ -34,10 +34,18 @@ service can guarantee that service-owned cleanup continues in source.
 not a dependency unless a checked service case meets its separate activation
 gate.
 
-## Effect Rows
+## Effect-Preserving Boundaries
 
-Add one effect-row variable to function declarations and function types. The
-proposed notation uses `...E` as the final entry of an effect set:
+The effect-row language foundation is implemented and current. The
+source grammar, effect diagnostics, assignment compatibility, checked-core and
+typed-IR preservation, and executable evidence are specified by
+`../specification/source-surface.md`, `../specification/names-effects.md`,
+`../specification/types.md`,
+`../../examples/specification/check/effect-row-syntax-diagnostics/`, and
+`../../examples/specification/check/http2-service-effect-row/`.
+
+The remaining service work uses that implemented syntax to preserve callback
+effects through proposed HTTP/2 service and task boundaries:
 
 ```veln
 fn(Request) -> Result<Response, String> effects [...E]
@@ -58,21 +66,10 @@ pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Request) -> Result
 end
 ```
 
-The `effect` binder distinguishes an effect-row variable from an ordinary type
-parameter. The executable type grammar is authoritative once implemented. It
-must reject an unbound row variable, more than one row tail, or a row tail
-outside the final effect-set position.
-
-Effect-row behavior is set based:
-
-- Instantiation substitutes one duplicate-free effect set for `E`.
-- Concrete effects written beside `...E` are unioned with the substitution.
-- A caller cannot erase an application effect by passing the callback through
-  the service API.
-- Handling `transport::DuplexStream` removes only that nominal effect. It does
-  not remove effects substituted for `E`.
-- Public diagnostics render the concrete instantiated effects when they are
-  known at the call boundary.
+At these service boundaries, a caller must not erase an application effect by
+passing the callback through the service API. Handling
+`transport::DuplexStream` removes only that nominal effect and must not remove
+effects supplied by the callback row.
 
 The standard task creation functions must preserve the effects of their job
 functions. Their effect-row shapes are:
@@ -140,20 +137,6 @@ The service must not propagate an installed handler implicitly through
 This table extends the current adapter-owned fail-fast task and stream cleanup
 shape. It does not redefine HTTP/2 stream state, frame ordering, or flow
 control.
-
-## Implemented Effect-Row Foundation
-
-Current language behavior includes one effect-row binder on user-defined
-function declarations, final `...E` tails in declaration and nested function
-type effect sets, row substitution from concrete callback arguments,
-duplicate-free effect union, row-aware function type compatibility, public
-diagnostics that name concrete instantiated effects, checked-core and typed-IR
-preservation, and nominal lexical handler replacement. The source grammar,
-effect diagnostics, and primary executable evidence are in
-`../specification/source-surface.md`, `../specification/names-effects.md`,
-`../specification/types.md`,
-`../../examples/specification/check/effect-row-syntax-diagnostics/`, and
-`../../examples/specification/check/http2-service-effect-row/`.
 
 ## Remaining Acceptance Model
 
