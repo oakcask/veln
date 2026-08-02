@@ -724,6 +724,10 @@ fn canonical_declared_effects(
 ) -> Vec<String> {
     let mut canonical = Vec::new();
     for effect in declared {
+        if effect.starts_with("...") {
+            push_unique_effect(&mut canonical, &effect);
+            continue;
+        }
         let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
         let label =
             canonical_user_effect_label(&segments, uses, current_module, effects).unwrap_or(effect);

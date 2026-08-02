@@ -1,0 +1,50 @@
+use transport from "std"
+use transport::net from "std"
+
+fn pure_callback() -> Int
+	1
+end
+
+fn db_callback() -> Int effects [db]
+	2
+end
+
+fn stdio_callback() -> Int effects [stdio]
+	3
+end
+
+fn connection_boundary<effect E>(callback: fn() -> Int effects [...E]) -> Int effects [transport::DuplexStream, ...E]
+	callback()
+end
+
+fn stdio_boundary<effect E>(callback: fn() -> Int effects [...E]) -> Int effects [stdio, ...E]
+	callback()
+end
+
+fn callback_parameter<effect E>(callback: fn() -> Int effects [...E]) -> Int effects [...E]
+	callback()
+end
+
+pub fn pure_substitution_missing_transport() -> Int
+	connection_boundary(pure_callback)
+end
+
+pub fn db_substitution_missing_db() -> Int effects [transport::DuplexStream]
+	connection_boundary(db_callback)
+end
+
+pub fn duplicate_stdio_appears_once() -> Int
+	stdio_boundary(stdio_callback)
+end
+
+pub fn compatible_pure_callback() -> Int
+	callback_parameter(pure_callback)
+end
+
+pub fn compatible_effectful_callback() -> Int effects [stdio]
+	callback_parameter(stdio_callback)
+end
+
+pub fn handled_transport_preserves_row(stream: NetStream) -> Int effects [net]
+	handle connection_boundary(db_callback) with transport::net::net_stream(stream)
+end

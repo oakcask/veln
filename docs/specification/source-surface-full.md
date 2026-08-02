@@ -62,7 +62,7 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
+Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
@@ -87,6 +87,7 @@ ByteViewMultiplePredicate ::= "payload_count" "multiple" "of" (Name | IntLiteral
 SchemaValidation ::= "validate" ContractPredicate NL
 PublicAlias   ::= "pub" ("fn" | "type" | "schema") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
+EffectBinder  ::= "<" "effect" Name ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
@@ -97,7 +98,8 @@ VariadicMarker ::= "..."
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
-EffectList    ::= MemberPath ("," MemberPath)* ","?
+EffectList    ::= EffectEntry ("," EffectEntry)* ","?
+EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL

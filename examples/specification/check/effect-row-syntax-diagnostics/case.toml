@@ -1,0 +1,50 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"effect.row_unbound\"", "\"id\":\"effect.row_non_final\"", "\"id\":\"effect.row_multiple\"", "effect row variable `E` is not bound", "effect row tail must be the final effect", "effect set has more than one row tail"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 10
+
+[[diagnostics]]
+id = "effect.row_unbound"
+severity = "error"
+kind = "effect"
+message = "effect row variable `E` is not bound"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 39
+
+[[diagnostics]]
+id = "effect.row_non_final"
+severity = "error"
+kind = "effect"
+message = "effect row tail must be the final effect"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 51
+
+[[diagnostics]]
+id = "effect.row_multiple"
+severity = "error"
+kind = "effect"
+message = "effect set has more than one row tail"
+
+[diagnostics.span]
+file = "main.veln"
+line = 9
+column = 56

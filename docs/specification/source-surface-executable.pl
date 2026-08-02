@@ -89,7 +89,7 @@ grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
-grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
+grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
@@ -114,6 +114,7 @@ grammar_line(107, "ByteViewMultiplePredicate ::= \"payload_count\" \"multiple\" 
 grammar_line(107, "SchemaValidation ::= \"validate\" ContractPredicate NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
+grammar_line(112, "EffectBinder  ::= \"<\" \"effect\" Name \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
@@ -124,7 +125,8 @@ grammar_line(165, "VariadicMarker ::= \"...\"").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
 grammar_line(180, "ResultBinding ::= Name \":\"").
 grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
-grammar_line(200, "EffectList    ::= MemberPath (\",\" MemberPath)* \",\"?").
+grammar_line(200, "EffectList    ::= EffectEntry (\",\" EffectEntry)* \",\"?").
+grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
 grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
@@ -336,6 +338,7 @@ function_decl -->
     visibility,
     tok(fn),
     ident,
+    effect_binder_opt,
     tok(lparen),
     params_opt,
     tok(rparen),
@@ -346,6 +349,9 @@ function_decl -->
     body,
     tok(end),
     newline_opt.
+
+effect_binder_opt --> tok(less), tok(effect), ident, tok(greater), !.
+effect_binder_opt --> [].
 
 test_decl -->
     tok(test),
@@ -528,10 +534,13 @@ result_binding_opt --> [].
 effects_opt --> effects_clause, !.
 effects_opt --> [].
 effects_clause --> tok(effects), tok(lbracket), effects_names_opt, tok(rbracket).
-effects_names_opt --> member_path, effects_names_tail, trailing_comma_opt, !.
+effects_names_opt --> effect_entry, effects_names_tail, trailing_comma_opt, !.
 effects_names_opt --> [].
-effects_names_tail --> tok(comma), member_path, !, effects_names_tail.
+effects_names_tail --> tok(comma), effect_entry, !, effects_names_tail.
 effects_names_tail --> [].
+effect_entry --> row_tail, !.
+effect_entry --> member_path.
+row_tail --> tok(dot), tok(dot), tok(dot), ident.
 
 contracts --> contract, !, contracts.
 contracts --> [].

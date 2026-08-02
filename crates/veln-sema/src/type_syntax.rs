@@ -99,12 +99,24 @@ impl<'a> TypeParser<'a> {
             self.expect('[')?;
             let mut effects = Vec::new();
             while !self.at_end() && !self.at(']') {
-                let Some(effect) = self.parse_ident() else {
-                    return Err("expected effect name".to_string());
-                };
+                let effect = self.parse_effect_entry()?;
+                if effect.starts_with("...")
+                    && effects
+                        .iter()
+                        .any(|entry: &String| entry.starts_with("..."))
+                {
+                    return Err("function type effect set has more than one row tail".to_string());
+                }
                 effects.push(effect);
                 self.skip_ws();
-                if !self.eat(',') {
+                let has_more = self.eat(',');
+                if effects.last().is_some_and(|entry| entry.starts_with("..."))
+                    && has_more
+                    && !self.at(']')
+                {
+                    return Err("effect row tail must be the final effect".to_string());
+                }
+                if !has_more {
                     break;
                 }
             }
@@ -119,6 +131,18 @@ impl<'a> TypeParser<'a> {
             return_type: Box::new(return_type),
             effects,
         })
+    }
+
+    fn parse_effect_entry(&mut self) -> Result<String, String> {
+        self.skip_ws();
+        if self.eat_str("...") {
+            let Some(row) = self.parse_ident() else {
+                return Err("expected effect row variable".to_string());
+            };
+            return Ok(format!("...{row}"));
+        }
+        self.parse_ident()
+            .ok_or_else(|| "expected effect name".to_string())
     }
 
     fn parse_function_param_type_list(&mut self) -> Result<(Vec<Type>, Option<Type>), String> {

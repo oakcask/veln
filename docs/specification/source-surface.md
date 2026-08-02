@@ -7,7 +7,7 @@ is not enough.
 ## Read First
 
 - Source path derived local module identity, local and external package
-  imports, functions, tests, source ADT type declarations, schema
+  imports, functions with optional `<effect E>` row binders, tests, source ADT type declarations, schema
   declarations, nominal effect operation declarations, lexical handler
   declarations, public member aliases, canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
@@ -15,7 +15,7 @@ is not enough.
   [source-surface-full.md](source-surface-full.md).
 - Expression forms, constructors, records, dictionaries, vecs, matches,
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
-  calls, `perform` operation expressions, `handle ... with ...`
+  calls, function type effect rows with final `...E` tails, `perform` operation expressions, `handle ... with ...`
   expressions, standard channel calls,
   zero-argument task spawns, one-context `task::spawn_with` calls, and
   method-call diagnostics:

@@ -115,6 +115,19 @@ unknown effect label. The checker currently infers `stdio`, `fs`,
 other labels are reserved coarse-grained public boundary labels for source
 compatibility.
 
+One user-defined function declaration may bind one effect row with
+`<effect E>`. The bound row may appear as the final `...E` entry in that
+function's declared effect set and in nested function type effect sets inside
+the function signature. An unbound row tail, more than one row tail in one
+effect set, or a row tail before a later effect entry is rejected. When a
+row-polymorphic function is called with a callback argument, the callback's
+duplicate-free concrete effect set is substituted for `E` and unioned with the
+concrete effects written beside `...E`. Public boundary diagnostics for the
+call use the concrete instantiated effects. The checked
+`effect-row-syntax-diagnostics` and `http2-service-effect-row` specification
+cases fix the syntax failures, empty substitution, non-empty substitution,
+duplicate removal, callback compatibility, and concrete handler replacement.
+
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one
 result type. The effect name is owned by its module. Same-module declarations

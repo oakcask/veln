@@ -8,8 +8,8 @@ compiler-known calls.
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
   [names-effects-full.md](names-effects-full.md#name-resolution).
-- Declaration effect spelling, host effect labels, nominal operation effects,
-  lexical handlers, and effect inference:
+- Declaration effect spelling, effect-row substitution, host effect labels,
+  nominal operation effects, lexical handlers, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested

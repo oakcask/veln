@@ -595,9 +595,12 @@ fn core_type_is_assignable(expected: &CoreType, actual: &CoreType) -> bool {
                     _ => false,
                 }
                 && core_type_is_assignable(expected_return, actual_return)
-                && actual_effects
+                && (expected_effects
                     .iter()
-                    .all(|effect| expected_effects.iter().any(|expected| expected == effect))
+                    .any(|effect| effect.starts_with("..."))
+                    || actual_effects
+                        .iter()
+                        .all(|effect| expected_effects.iter().any(|expected| expected == effect)))
         }
         _ => false,
     }

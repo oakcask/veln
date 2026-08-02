@@ -458,6 +458,13 @@ impl AstBuilder {
                 SyntaxVisibility::Private => Visibility::Private,
             },
             name: function.name.clone(),
+            effect_binder: function
+                .effect_binder
+                .as_ref()
+                .map(|binder| crate::EffectBinder {
+                    name: binder.name.clone(),
+                    span: binder.span.clone(),
+                }),
             params: function
                 .params
                 .iter()
