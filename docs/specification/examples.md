@@ -58,6 +58,15 @@ behavior.
   `../../examples/specification/run/http2-connection-client-initial-output/`,
   and
   `../../examples/specification/run/http2-connection-tcp-loopback-client/`.
+- HTTP/2 server application boundary behavior:
+  `../../examples/specification/check/http2-connection-application-boundary-effects/`,
+  `../../examples/specification/run/http2-connection-application-one-request/`,
+  `../../examples/specification/run/http2-connection-application-callback-failure-json/`,
+  `../../examples/specification/run/http2-connection-application-unsupported-request-json/`,
+  `../../examples/specification/run/http2-connection-application-second-request-json/`,
+  `../../examples/specification/run/http2-connection-application-invalid-actions-json/`,
+  and
+  `../../examples/specification/run/http2-connection-application-rejected-action-json/`.
 - Fixture-backed listener endpoint text, accepted-stream endpoint text, read,
   stream close, and listener close:
   `../../examples/specification/run/transport-socket-listener-address/`.

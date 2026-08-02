@@ -1134,6 +1134,10 @@ pub fn headers_send_bytes(decision: CoreHeadersSendDecision) -> ByteChunk
 	http2::core::outbound_headers::headers_send_bytes(decision)
 end
 
+pub fn headers_send_encode_reason(decision: CoreHeadersSendDecision) -> String
+	http2::core::outbound_headers::headers_send_encode_reason(decision)
+end
+
 pub fn send_push_promise(state: CoreConnectionState, offset: Int, stream_id: Int, promised_stream_id: Int, headers: HeaderList) -> CorePushPromiseSendDecision
 	http2::core::outbound_headers::send_push_promise(state, offset, stream_id, promised_stream_id, headers)
 end

@@ -15,14 +15,14 @@ This proposal depends on:
 
 - [Lexical Operation Handlers](../reference/implemented-proposals/lexical-operation-handlers.md), and
 - [HTTP/2 Duplex Stream Connection Driver](../reference/implemented-proposals/http2-duplex-stream-connection-driver.md), and
-- [HTTP/2 Application Event And Action Boundary](http2-application-event-action-boundary.md).
+- [HTTP/2 Application Event And Action Boundary](../reference/implemented-proposals/http2-application-event-action-boundary.md).
 
-The application-boundary proposal is the next selectable slice. This service
-proposal may start only after that slice identifies, implements, and checks
-the application request and action values that cross the pure protocol
-boundary. Revise this proposal to use or deliberately adapt those implemented
-values before adding effect rows. The values must support one request and one
-response without exposing `NetStream` or mutable core state.
+The application-boundary activation gate is met by
+`Http2ApplicationEvent`, `Http2ApplicationAction`, and
+`drive_server_application`. This service proposal must use those implemented
+values or explicitly adapt them before adding effect rows. The values support
+one request and one response without exposing `NetStream` or mutable core
+state.
 
 This proposal selects the current abrupt runtime boundary for transport
 failure. Source cleanup after that failure is not required. A separate

@@ -1,0 +1,33 @@
+use prelude
+use http2::connection
+use http2::hpack
+
+fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
+	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
+end
+
+fn response_headers() -> Result<HeaderList, String>
+	Ok(http2::hpack::prepend_header_field(ascii_header(":status", "204")?, http2::hpack::empty_header_list()))
+end
+
+test application_action_values_are_public_and_immutable() -> Result<(), String>
+	let headers = Http2ApplicationAction::Http2SendResponseHeaders(1, response_headers()?, true)
+	let data = Http2ApplicationAction::Http2SendResponseData(1, byte_chunk_from_hex("0a0b")?, true)
+	if http2::connection::application_action_kind(headers) == "headers" and http2::connection::application_action_stream_id(headers) == 1 and http2::connection::application_action_end_stream(headers) and http2::connection::application_action_kind(data) == "data" and http2::connection::application_action_stream_id(data) == 1 and http2::connection::application_action_end_stream(data)
+		Ok(())
+	else
+		Err("HTTP/2 application action values did not expose stable immutable response fields")
+	end
+end
+
+test application_failure_variants_remain_distinguishable() -> Result<(), String>
+	let callback = Http2ApplicationBoundaryFailure::Http2ApplicationCallbackFailure("boom")
+	let unsupported_shape = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestShape(1, "body")
+	let unsupported_count = Http2ApplicationBoundaryFailure::Http2ApplicationUnsupportedRequestCount(3)
+	let invalid = Http2ApplicationBoundaryFailure::Http2ApplicationInvalidActionSequence("bad", 2, 5, 1)
+	if http2::connection::application_failure_kind(callback) == "callback" and http2::connection::application_failure_reason(callback) == "boom" and http2::connection::application_failure_kind(unsupported_shape) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(unsupported_shape) == 1 and http2::connection::application_failure_kind(unsupported_count) == "unsupported-request-count" and http2::connection::application_failure_stream_id(unsupported_count) == 3 and http2::connection::application_failure_kind(invalid) == "invalid-action-sequence" and http2::connection::application_failure_action_index(invalid) == 2 and http2::connection::application_failure_stream_id(invalid) == 5
+		Ok(())
+	else
+		Err("HTTP/2 application failure variants were not distinguishable")
+	end
+end

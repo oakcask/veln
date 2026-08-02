@@ -14,12 +14,6 @@ current language behavior unless the matching page under
 
 ## Catalog
 
-### Next Selectable Slice
-
-- [HTTP/2 Application Event And Action Boundary](http2-application-event-action-boundary.md):
-  add the server-driver callback, response-action values, and application
-  failure boundary that use the implemented core request-event drain.
-
 ### Follow-Ups After Evidence
 
 - [One-Shot Resumable Effect Handlers](one-shot-resumable-effect-handlers.md):
@@ -30,8 +24,8 @@ current language behavior unless the matching page under
   whose effects are preserved by the service API.
 
 Do not select either follow-up before its activation gate is met. The HTTP/2
-application boundary is the next selectable slice for the service gate. It
-does not by itself activate one-shot resumable handlers.
+application boundary is implemented and does not by itself activate one-shot
+resumable handlers.
 
 ## Selection Rule
 
