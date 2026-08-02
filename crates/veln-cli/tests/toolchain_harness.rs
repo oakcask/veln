@@ -24,6 +24,13 @@ fn toolchain_case_path(relative: &str) -> PathBuf {
 }
 
 fn run_case(case_dir: &Path) {
+    run_case_with_after_invocation(case_dir, |_, _| {});
+}
+
+fn run_case_with_after_invocation(
+    case_dir: &Path,
+    mut after_invocation: impl FnMut(&CaseRunContext<'_>, &Path),
+) {
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
@@ -73,6 +80,7 @@ fn run_case(case_dir: &Path) {
         manifest
             .expectations
             .assert_files_match(&context, &project.root);
+        after_invocation(&context, &project.root);
     }
 }
 
@@ -2855,6 +2863,88 @@ exit = 0
     })
     .expect_err("unselected source error should fail command artifact guard");
     let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_does_not_reuse_between_copied_projects() {
+    let root = test_temp_root("artifact-copied-projects");
+    let clean_case_dir = root.join("examples/specification/check/artifact-clean-project");
+    let dirty_case_dir = root.join("examples/specification/check/artifact-dirty-project");
+    fs::create_dir_all(&clean_case_dir).expect("clean case directory should be created");
+    fs::create_dir_all(&dirty_case_dir).expect("dirty case directory should be created");
+    for case_dir in [&clean_case_dir, &dirty_case_dir] {
+        fs::write(
+            case_dir.join("case.toml"),
+            r#"
+command = ["check", "main.veln"]
+exit = 0
+
+[stdout]
+contains = ["ok"]
+"#,
+        )
+        .expect("case manifest should be written");
+        fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+            .expect("selected source should be written");
+    }
+    fs::write(
+        dirty_case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    run_case(&clean_case_dir);
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&dirty_case_dir);
+    })
+    .expect_err("dirty copied project should not reuse a clean project's artifact");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn repeated_command_artifact_guard_uses_each_invocation_artifact() {
+    let root = test_temp_root("artifact-repeat-run-case");
+    let case_dir = root.join("examples/specification/check/artifact-repeat-run-case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+contains = ["ok"]
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("selected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case_with_after_invocation(&case_dir, |context, project_root| {
+            if context.run_number == 1 {
+                fs::write(
+                    project_root.join("unselected.veln"),
+                    "fn broken() -> Int\n\t\"wrong\"\nend\n",
+                )
+                .expect("second-run source error should be injected");
+            }
+        });
+    })
+    .expect_err("second invocation should read its own command artifact");
+    let message = panic_message(panic);
+    assert!(message.contains("run 2"));
     assert!(message.contains("remove unexpected source error diagnostics"));
     assert!(message.contains("unselected.veln"));
     assert!(message.contains("error[type.mismatch]"));

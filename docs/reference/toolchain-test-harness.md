@@ -136,7 +136,10 @@ those commands expose equivalent checked evidence to the harness.
 The duplicate source-error analysis removed from normal `check`, `run`, and
 `test` cases was the harness-owned `checked_project_diagnostics` call before
 the CLI invocation. The real command now produces the checked diagnostic
-artifact that the guard reads.
+artifact that the guard reads. Harness boundary tests verify that a clean
+copied project does not satisfy a later dirty copied project, and that a
+repeated invocation reads the artifact generated for that invocation after the
+copied project changes.
 
 Controlled measurements used the same prebuilt debug toolchain for the direct
 CLI invocation and the harness case. Each value below is the median of five
