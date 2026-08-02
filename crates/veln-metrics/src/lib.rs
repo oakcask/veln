@@ -7,7 +7,9 @@ use veln_analysis::{derive_source_module_path, load_surface_module};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo};
 use veln_project::{Project, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan};
-use veln_syntax::parse;
+use veln_syntax::{
+    BinaryOp, BodyLine, Expr, ExprKind, FunctionDecl, FunctionKind, SyntaxItem, parse,
+};
 
 pub const JSON_SCHEMA_VERSION: &str = "veln-metrics-json/v0";
 
@@ -17,6 +19,7 @@ pub struct MetricsReport {
     pub modules: Vec<ModuleMetric>,
     pub edges: Vec<DependencyEdge>,
     pub cycles: Vec<DependencyCycle>,
+    pub abc_subjects: Vec<AbcSubjectMetric>,
     pub summary: MetricsSummary,
 }
 
@@ -52,12 +55,58 @@ pub struct DependencyCycle {
 }
 
 #[derive(Clone, Debug)]
+pub struct AbcSubjectMetric {
+    pub identity: String,
+    pub path: String,
+    pub name: String,
+    pub kind: AbcSubjectKind,
+    pub vector: AbcVector,
+    pub magnitude: f64,
+    pub contracts_included: bool,
+    pub generated: bool,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AbcSubjectKind {
+    Function,
+    Test,
+}
+
+impl AbcSubjectKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Function => "function",
+            Self::Test => "test",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AbcVector {
+    pub assignments: usize,
+    pub branches: usize,
+    pub conditionals: usize,
+}
+
+impl AbcVector {
+    fn magnitude(self) -> f64 {
+        ((self.assignments * self.assignments
+            + self.branches * self.branches
+            + self.conditionals * self.conditionals) as f64)
+            .sqrt()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct MetricsSummary {
     pub selected_module_count: usize,
     pub project_module_count: usize,
     pub internal_edge_count: usize,
     pub cycle_count: usize,
     pub external_dependency_count: usize,
+    pub abc_subject_count: usize,
+    pub abc_contract_subject_count: usize,
 }
 
 pub fn analyze_project_metrics(
@@ -88,6 +137,7 @@ pub fn analyze_project_metrics(
     let selected_paths = selected_paths.into_iter().collect::<BTreeSet<_>>();
     let graph = DependencyGraph::from_project(&project)?;
     Ok(graph.report(
+        &project,
         ProjectIdentity {
             root: ".".to_string(),
             selected_paths: selected_paths.iter().cloned().collect(),
@@ -249,7 +299,12 @@ impl DependencyGraph {
         })
     }
 
-    fn report(self, project: ProjectIdentity, selected_paths: &BTreeSet<String>) -> MetricsReport {
+    fn report(
+        self,
+        source_project: &Project,
+        project: ProjectIdentity,
+        selected_paths: &BTreeSet<String>,
+    ) -> MetricsReport {
         let selected_modules = self
             .nodes
             .iter()
@@ -285,18 +340,23 @@ impl DependencyGraph {
             .iter()
             .map(|module| module.external_dependency_count)
             .sum();
+        let abc_subjects = abc_subjects(source_project, selected_paths);
+        let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
         let summary = MetricsSummary {
             selected_module_count: modules.len(),
             project_module_count: self.nodes.len(),
             internal_edge_count: self.edges.len(),
             cycle_count: cycles.len(),
             external_dependency_count,
+            abc_subject_count: abc_subjects.len(),
+            abc_contract_subject_count,
         };
         MetricsReport {
             project,
             modules,
             edges,
             cycles,
+            abc_subjects,
             summary,
         }
     }
@@ -384,6 +444,205 @@ impl DependencyGraph {
     }
 }
 
+fn abc_subjects(project: &Project, selected_paths: &BTreeSet<String>) -> Vec<AbcSubjectMetric> {
+    let mut subjects = Vec::new();
+    for source in &project.files {
+        let path = source.path().as_str().to_string();
+        if !selected_paths.contains(&path) {
+            continue;
+        }
+        if is_generated_or_doctest_path(&path) {
+            continue;
+        }
+        let parsed = parse(source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        for item in parsed.tree.items {
+            let SyntaxItem::Function(function) = item else {
+                continue;
+            };
+            subjects.push(abc_subject(source, &path, &function));
+        }
+    }
+    subjects.sort_by(compare_abc_subjects);
+    subjects
+}
+
+fn abc_subject(source: &SourceFile, path: &str, function: &FunctionDecl) -> AbcSubjectMetric {
+    let vector = abc_vector(function);
+    let kind = match function.kind {
+        FunctionKind::Function => AbcSubjectKind::Function,
+        FunctionKind::Test => AbcSubjectKind::Test,
+    };
+    let name = function
+        .name
+        .clone()
+        .unwrap_or_else(|| "<anonymous>".to_string());
+    AbcSubjectMetric {
+        identity: format!("{path}::{name}"),
+        path: path.to_string(),
+        name,
+        kind,
+        vector,
+        magnitude: vector.magnitude(),
+        contracts_included: false,
+        generated: false,
+        span: source.span(veln_source::TextRange::new(
+            function.span.start.offset,
+            function.span.end.offset,
+        )),
+    }
+}
+
+fn is_generated_or_doctest_path(path: &str) -> bool {
+    path.contains("#doctest-") || path.split('/').any(|segment| segment == "target")
+}
+
+fn abc_contract_subject_count(project: &Project, selected_paths: &BTreeSet<String>) -> usize {
+    let mut count = 0;
+    for source in &project.files {
+        let path = source.path().as_str().to_string();
+        if !selected_paths.contains(&path) || is_generated_or_doctest_path(&path) {
+            continue;
+        }
+        let parsed = parse(source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        count += parsed
+            .tree
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function),
+                _ => None,
+            })
+            .filter(|function| !function.contracts.is_empty())
+            .count();
+    }
+    count
+}
+
+fn abc_vector(function: &FunctionDecl) -> AbcVector {
+    let mut vector = AbcVector::default();
+    for line in &function.body {
+        match line {
+            BodyLine::Let { expr, .. } => {
+                vector.assignments += 1;
+                count_expr(expr, &mut vector);
+            }
+            BodyLine::Expr { expr, .. } => count_expr(expr, &mut vector),
+        }
+    }
+    vector
+}
+
+fn count_expr(expr: &Expr, vector: &mut AbcVector) {
+    match &expr.kind {
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+        ExprKind::TypeApply { callee, .. } => count_expr(callee, vector),
+        ExprKind::Call { callee, args } => {
+            vector.branches += 1;
+            count_expr(callee, vector);
+            for arg in args {
+                count_expr(arg, vector);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            vector.branches += 1;
+            for arg in args {
+                count_expr(arg, vector);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            vector.branches += 1;
+            count_expr(body, vector);
+            for arg in args {
+                count_expr(arg, vector);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. } => {
+            vector.branches += 1;
+            count_expr(input, vector);
+            count_expr(base, vector);
+        }
+        ExprKind::SchemaEncode { value, .. } => {
+            vector.branches += 1;
+            count_expr(value, vector);
+        }
+        ExprKind::FieldAccess { base, .. } | ExprKind::Try(base) => {
+            if matches!(expr.kind, ExprKind::Try(_)) {
+                vector.conditionals += 1;
+            }
+            count_expr(base, vector);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                count_expr(&field.expr, vector);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                count_expr(&entry.key, vector);
+                count_expr(&entry.value, vector);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                count_expr(item, vector);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            vector.conditionals += 1 + arms.len();
+            count_expr(scrutinee, vector);
+            for arm in arms {
+                count_expr(&arm.expr, vector);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            vector.conditionals += 1 + else_if_branches.len();
+            count_expr(condition, vector);
+            count_expr(then_branch, vector);
+            for branch in else_if_branches {
+                count_expr(&branch.condition, vector);
+                count_expr(&branch.expr, vector);
+            }
+            count_expr(else_branch, vector);
+        }
+        ExprKind::Prefix { expr, .. } => count_expr(expr, vector),
+        ExprKind::Binary { op, left, right } => {
+            if matches!(op, BinaryOp::And | BinaryOp::Or) {
+                vector.conditionals += 1;
+            }
+            count_expr(left, vector);
+            count_expr(right, vector);
+        }
+    }
+}
+
+fn compare_abc_subjects(left: &AbcSubjectMetric, right: &AbcSubjectMetric) -> std::cmp::Ordering {
+    right
+        .magnitude
+        .partial_cmp(&left.magnitude)
+        .unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| left.path.cmp(&right.path))
+        .then_with(|| left.span.start.offset.cmp(&right.span.start.offset))
+        .then_with(|| left.kind.as_str().cmp(right.kind.as_str()))
+}
+
 fn compare_module_metrics(left: &ModuleMetric, right: &ModuleMetric) -> std::cmp::Ordering {
     right
         .dependency_pressure
@@ -461,12 +720,14 @@ pub fn render_human(report: &MetricsReport) -> String {
     let mut out = String::new();
     out.push_str("Veln dependency metrics (advisory)\n");
     out.push_str(&format!(
-        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}\n\n",
+        "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}\n\n",
         report.summary.project_module_count,
         report.summary.selected_module_count,
         report.summary.internal_edge_count,
         report.summary.cycle_count,
-        report.summary.external_dependency_count
+        report.summary.external_dependency_count,
+        report.summary.abc_subject_count,
+        report.summary.abc_contract_subject_count
     ));
     out.push_str("Modules\n");
     if report.modules.is_empty() {
@@ -493,6 +754,24 @@ pub fn render_human(report: &MetricsReport) -> String {
                 "  {} | path: {}\n",
                 cycle.members.join(", "),
                 cycle.path.join(" -> ")
+            ));
+        }
+    }
+    out.push_str("\nABC size\n");
+    if report.abc_subjects.is_empty() {
+        out.push_str("  no function or test subjects selected\n");
+    } else {
+        for subject in &report.abc_subjects {
+            out.push_str(&format!(
+                "  {} ({}) {} ABC size={:.1} vector=({}, {}, {}) contracts_included={}\n",
+                subject.identity,
+                subject.path,
+                subject.kind.as_str(),
+                subject.magnitude,
+                subject.vector.assignments,
+                subject.vector.branches,
+                subject.vector.conditionals,
+                subject.contracts_included
             ));
         }
     }
@@ -538,6 +817,10 @@ pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
         (
             "cycles",
             JsonValue::array(report.cycles.iter().map(cycle_to_json)),
+        ),
+        (
+            "abc_subjects",
+            JsonValue::array(report.abc_subjects.iter().map(abc_subject_to_json)),
         ),
         ("summary", summary_to_json(&report.summary)),
     ])
@@ -593,6 +876,42 @@ fn cycle_to_json(cycle: &DependencyCycle) -> JsonValue {
     ])
 }
 
+fn abc_subject_to_json(subject: &AbcSubjectMetric) -> JsonValue {
+    JsonValue::object([
+        ("identity", JsonValue::string(subject.identity.clone())),
+        ("path", JsonValue::string(subject.path.clone())),
+        ("name", JsonValue::string(subject.name.clone())),
+        ("kind", JsonValue::string(subject.kind.as_str())),
+        ("generated", JsonValue::Bool(subject.generated)),
+        (
+            "contracts_included",
+            JsonValue::Bool(subject.contracts_included),
+        ),
+        (
+            "abc",
+            JsonValue::object([
+                (
+                    "assignments",
+                    JsonValue::Number(subject.vector.assignments as i64),
+                ),
+                (
+                    "branches",
+                    JsonValue::Number(subject.vector.branches as i64),
+                ),
+                (
+                    "conditionals",
+                    JsonValue::Number(subject.vector.conditionals as i64),
+                ),
+                (
+                    "magnitude",
+                    JsonValue::string(format!("{:.15}", subject.magnitude)),
+                ),
+            ]),
+        ),
+        ("span", span_to_json(&subject.span)),
+    ])
+}
+
 fn summary_to_json(summary: &MetricsSummary) -> JsonValue {
     JsonValue::object([
         (
@@ -611,6 +930,14 @@ fn summary_to_json(summary: &MetricsSummary) -> JsonValue {
         (
             "external_dependency_count",
             JsonValue::Number(summary.external_dependency_count as i64),
+        ),
+        (
+            "abc_subject_count",
+            JsonValue::Number(summary.abc_subject_count as i64),
+        ),
+        (
+            "abc_contract_subject_count",
+            JsonValue::Number(summary.abc_contract_subject_count as i64),
         ),
     ])
 }
@@ -675,6 +1002,7 @@ mod tests {
             .into_iter()
             .collect();
         let report = graph.report(
+            &project,
             ProjectIdentity {
                 root: ".".to_string(),
                 selected_paths: Vec::new(),
@@ -689,5 +1017,225 @@ mod tests {
         assert_eq!(report.cycles[0].path.last().unwrap(), "app");
         assert_eq!(report.modules[0].module, "util");
         assert_eq!(report.modules[0].dependency_pressure, 4);
+    }
+
+    #[test]
+    fn counts_abc_constructs_from_function_bodies() {
+        let cases = [
+            (
+                "let binding",
+                "fn subject() -> Int\n  let value = 1\n  value\nend\n",
+                AbcVector {
+                    assignments: 1,
+                    branches: 0,
+                    conditionals: 0,
+                },
+            ),
+            (
+                "call",
+                "fn subject() -> Int\n  add(1, 2)\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 1,
+                    conditionals: 0,
+                },
+            ),
+            (
+                "perform",
+                "fn subject() -> Int effects [Console]\n  perform Console::read()\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 1,
+                    conditionals: 0,
+                },
+            ),
+            (
+                "handler application",
+                "fn subject() -> Int effects [Ask]\n  handle perform Ask::value() with ask(1)\nend\n\neffect Ask\n  value() -> Int\nend\n\nhandler ask(context: Int) handles Ask\n  value = provide\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 2,
+                    conditionals: 0,
+                },
+            ),
+            (
+                "schema decode and try",
+                "fn subject() -> DecodeStep<{value: Int}>\n  decode Packet from view()? at offset()?\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 3,
+                    conditionals: 2,
+                },
+            ),
+            (
+                "schema encode",
+                "fn subject() -> ByteChunk\n  encode Packet from {value: make_value()}\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 2,
+                    conditionals: 0,
+                },
+            ),
+            (
+                "if else-if and short circuit",
+                "fn subject() -> Int\n  if left() and right()\n    1\n  else if fallback() or other()\n    2\n  else\n    3\n  end\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 4,
+                    conditionals: 4,
+                },
+            ),
+            (
+                "match arms",
+                "fn subject() -> Int\n  match value()\n    0 => one()\n    _ => two()\n  end\nend\n",
+                AbcVector {
+                    assignments: 0,
+                    branches: 3,
+                    conditionals: 3,
+                },
+            ),
+            (
+                "nested expressions",
+                "fn subject() -> Int\n  let value = outer(if ready()\n    inner(1)\n  else\n    inner(2)\n  end)\n  value?\nend\n",
+                AbcVector {
+                    assignments: 1,
+                    branches: 4,
+                    conditionals: 2,
+                },
+            ),
+        ];
+
+        for (name, source, expected) in cases {
+            assert_eq!(first_function_vector(source), expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn excludes_annotations_contracts_and_preserves_subject_kind_identity() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn same(value: Int) -> Result<Int, String>\n  ensure value >= 0\n  value\nend\n\ntest same() -> Result<Int, String>\n  require perform Console::read() == 1\n  let value: Int = compute()?\n  value\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let subjects = abc_subjects(&project, &selected);
+
+        assert_eq!(subjects.len(), 2);
+        assert_eq!(subjects[0].kind, AbcSubjectKind::Test);
+        assert_eq!(
+            subjects[0].vector,
+            AbcVector {
+                assignments: 1,
+                branches: 1,
+                conditionals: 1,
+            }
+        );
+        assert!(!subjects[0].contracts_included);
+        assert_eq!(subjects[1].kind, AbcSubjectKind::Function);
+        assert_eq!(subjects[1].vector, AbcVector::default());
+        assert_eq!(subjects[0].identity, "app.veln::same");
+        assert_eq!(subjects[1].identity, "app.veln::same");
+        assert_eq!(abc_contract_subject_count(&project, &selected), 2);
+    }
+
+    #[test]
+    fn excludes_generated_and_doctest_derived_abc_subjects() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "fn source() -> Int\n  call()\nend\n"),
+                SourceFile::new(
+                    "target/generated.veln",
+                    "fn generated() -> Int\n  call()\nend\n",
+                ),
+                SourceFile::new(
+                    "app.veln#doctest-1_test.veln",
+                    "test doctest_1() -> Int\n  call()\nend\n",
+                ),
+            ],
+        };
+        let selected = [
+            "app.veln".to_string(),
+            "target/generated.veln".to_string(),
+            "app.veln#doctest-1_test.veln".to_string(),
+        ]
+        .into_iter()
+        .collect();
+        let subjects = abc_subjects(&project, &selected);
+
+        assert_eq!(subjects.len(), 1);
+        assert_eq!(subjects[0].identity, "app.veln::source");
+    }
+
+    #[test]
+    fn render_human_reports_abc_summary_counts() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn plain() -> Int\n  call()\nend\n\nfn guarded(value: Int) -> Int\n  ensure value >= 0\n  value\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: vec!["app.veln".to_string()],
+            },
+            &selected,
+        );
+        let human = render_human(&report);
+
+        assert!(human.contains("ABC subjects: 2, ABC contract subjects: 1"));
+    }
+
+    #[test]
+    fn orders_abc_subjects_deterministically() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("b.veln", "fn small() -> Int\n  call()\nend\n"),
+                SourceFile::new(
+                    "a.veln",
+                    "fn large() -> Int\n  let value = call()\n  if value == 1\n    call()\n  else\n    call()\n  end\nend\n",
+                ),
+            ],
+        };
+        let selected = ["a.veln".to_string(), "b.veln".to_string()]
+            .into_iter()
+            .collect();
+        let subjects = abc_subjects(&project, &selected);
+
+        assert_eq!(
+            subjects
+                .iter()
+                .map(|subject| subject.identity.as_str())
+                .collect::<Vec<_>>(),
+            ["a.veln::large", "b.veln::small"]
+        );
+    }
+
+    fn first_function_vector(source: &str) -> AbcVector {
+        let source = SourceFile::new("case.veln", source);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+        let function = parsed
+            .tree
+            .items
+            .into_iter()
+            .find_map(|item| match item {
+                SyntaxItem::Function(function) => Some(function),
+                _ => None,
+            })
+            .expect("function");
+        abc_vector(&function)
     }
 }

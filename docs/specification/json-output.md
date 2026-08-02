@@ -21,7 +21,8 @@ details.
 - `check --json`: [diagnostics-json.md](diagnostics-json.md) for diagnostic
   envelope, span, related note, and stable details fields.
 - `metrics --json`: [metrics-json.md](metrics-json.md) for module dependency
-  metrics, dependency edges, cycles, project identity, and summary fields.
+  metrics, dependency edges, cycles, ABC size subjects, project identity, and
+  summary fields.
 - `run --json`: [run-json.md](run-json.md) for run records, output events,
   failures, and summary shape.
   Runtime result failures that carry source-visible diagnostic payload values,
