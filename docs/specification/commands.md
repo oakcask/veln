@@ -1,3 +1,7 @@
+---
+review-when: The documented command behavior or executable command evidence changes.
+---
+
 # Commands
 
 This file routes command changes to the implemented CLI behavior without
@@ -31,6 +35,11 @@ requiring the full command reference on the first read.
   hash spelling for standalone and trailing line comments. Use
   [commands-full.md](commands-full.md) only when the route summary is not
   enough.
+- `metrics`: report-only advisory module dependency metrics for project-owned
+  Veln source. It follows `check` source and project discovery for containing
+  graph analysis, accepts `--json`, and exits successfully when analysis
+  completes even when dependency cycles are present. Use
+  [metrics-json.md](metrics-json.md) for machine-readable output.
 - `doc`: generated Markdown documentation from selected source files,
   package/tool manifest metadata, documentation comments, public API
   declarations including public schemas and schema aliases, schema references,

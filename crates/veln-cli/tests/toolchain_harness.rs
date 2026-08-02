@@ -495,7 +495,7 @@ impl CaseManifest {
     fn needs_independent_source_error_guard(&self) -> bool {
         matches!(
             self.invocation.command.first().map(String::as_str),
-            Some("check" | "doc" | "fmt" | "lsp" | "repair" | "run" | "test")
+            Some("check" | "doc" | "fmt" | "lsp" | "metrics" | "repair" | "run" | "test")
         )
     }
 
@@ -1853,7 +1853,7 @@ fn command_source_inputs(command: &[String]) -> Vec<PathBuf> {
     };
     match command_name {
         "run" => run_command_source_inputs(&command[1..]),
-        "check" | "doc" | "fmt" | "test" => source_inputs_after_flags(&command[1..]),
+        "check" | "doc" | "fmt" | "metrics" | "test" => source_inputs_after_flags(&command[1..]),
         _ => Vec::new(),
     }
 }

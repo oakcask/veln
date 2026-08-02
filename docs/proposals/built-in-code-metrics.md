@@ -8,15 +8,14 @@ Status: proposed
 
 ## Summary
 
-Add a language-aware `veln metrics` command for Veln source. The command reports
-function ABC size vectors, internal module dependency cycles, module fan-in and
-fan-out, dependency pressure, and exact whole-body similarity groups.
+Extend the implemented report-only `veln metrics` dependency graph command with
+function ABC size vectors, enforcement policy, baselines, and exact whole-body
+similarity groups.
 
-The command separates measurement from enforcement. A normal invocation is an
-advisory report. The first implementation slice permits `veln metrics --check`
-to reject only new or worsened dependency cycles. ABC, dependency counts,
-dependency pressure, and similarity remain advisory until project evidence
-meets the enforcement graduation criteria in this proposal.
+The command separates measurement from enforcement. The current implementation
+reports advisory module dependency metrics only. Remaining work must add
+reviewed enforcement and additional advisory signals without turning
+maintainability metrics into language errors.
 
 ## Motivation
 
@@ -42,7 +41,7 @@ editors can act on.
 
 ## Decision
 
-Add a dedicated command instead of adding metric warnings to `veln check`.
+Keep the dedicated command instead of adding metric warnings to `veln check`.
 
 `veln check` answers whether source satisfies the language rules. Code metrics
 are maintainability signals whose useful limits vary by project. Keeping the
@@ -54,7 +53,7 @@ The two tools have different syntax and module models. They may share
 presentation conventions, but Veln metrics must operate on Veln syntax and
 project analysis artifacts.
 
-The first slice uses differentiated policy maturity:
+The remaining proposal keeps differentiated policy maturity:
 
 | Signal | First-slice role | Reason |
 | --- | --- | --- |
@@ -67,37 +66,25 @@ The first slice uses differentiated policy maturity:
 
 ## Command Surface
 
-The proposed command forms are:
+The implemented report-only command forms are specified in
+[commands.md](../specification/commands.md) and
+[metrics-json.md](../specification/metrics-json.md).
+The remaining proposed command forms are:
 
 ```text
-veln metrics [--json] [path ...]
 veln metrics --check [--json] [--baseline PATH] [path ...]
 veln metrics --write-baseline PATH [path ...]
 ```
 
-Path discovery follows `veln check`. If no path is provided, the command
-discovers the current project.
-
-A path selection limits which project-owned modules and declarations appear as
-subjects in the report. The command still resolves the complete containing
-project graph when that graph is required to calculate a selected module's
-fan-in, fan-out, pressure, or cycle membership.
-
-Dependency packages and embedded standard-library modules are excluded as
-metric subjects in the first slice. An import from a selected module to a
-dependency package is reported as an external dependency count. It does not
-create an internal graph edge.
-
 Generated project modules remain graph nodes because project-owned source can
 depend on them. Generated and doctest-derived declarations are excluded from
-ABC and similarity subjects. JSON identifies generated graph nodes so a
-consumer does not mistake them for hand-maintained modules.
+future ABC and similarity subjects. JSON must continue to identify generated
+graph nodes so a consumer does not mistake them for hand-maintained modules.
 
 ## Modes And Exit Status
 
 | Invocation | Policy behavior | Successful exit condition |
 | --- | --- | --- |
-| `veln metrics` | Report only | Analysis completed, even when findings exist |
 | `veln metrics --check` without a baseline | Apply enabled first-slice policy | Analysis completed, at least one policy is enabled, and no enabled policy was violated |
 | `veln metrics --check --baseline PATH` | Apply enabled policy and cycle regression rules | Analysis completed, at least one policy is enabled, and no policy regression was found |
 | `veln metrics --write-baseline PATH` | Write the complete current report as a baseline | Analysis completed and the baseline was written atomically |
@@ -105,12 +92,6 @@ consumer does not mistake them for hand-maintained modules.
 The first slice has one enforceable policy: `deny_cycles`. A check with no
 enforceable policy enabled is a configuration error. Advisory thresholds must
 not silently become merge gates through `--check`.
-
-Invalid command arguments use the existing CLI usage-error status. Source
-discovery, parsing, module identity, import resolution, manifest, or metric
-analysis errors make every mode fail. Type, effect, and contract errors do not
-prevent metric analysis and are not metric-command diagnostics. A partial
-metric report must not be presented as a clean result.
 
 `--baseline` is valid only with `--check`. `--write-baseline` conflicts with
 `--check`, `--json`, and an existing target file unless an explicit replacement
@@ -175,7 +156,13 @@ coverage as function expressions. Human and JSON output state that contracts
 are excluded. JSON includes `contracts_included: false` for every affected
 subject.
 
-### Module Dependency Graph
+### Implemented Module Dependency Graph
+
+The report-only module dependency graph is current behavior. Its command and
+JSON contracts are specified by [commands.md](../specification/commands.md)
+and [metrics-json.md](../specification/metrics-json.md). Remaining work must
+not redefine those fields without updating the current specification and
+executable metrics cases.
 
 Each project-owned Veln module identity is a node. Each source-written `use`
 from one project-owned module to another is one directed edge. Duplicate imports
@@ -284,9 +271,10 @@ The evidence set must satisfy all of these conditions:
 The evidence belongs in a review record, not in the current behavior
 specification. A metric that misses any graduation condition remains advisory.
 
-## Human Output
+## Remaining Human Output
 
-Human output starts with a summary and then emits findings in this order:
+Human output for the remaining metrics starts with a summary and then emits
+findings in this order:
 
 1. policy violations;
 2. dependency cycles;
@@ -314,22 +302,17 @@ fan-in, fan-out, and pressure separately. Similarity output labels the signal
 `experimental` and does not instruct the maintainer to deduplicate code
 mechanically.
 
-## JSON Output
+## Remaining JSON Output
 
-`veln metrics --json` emits one JSON document. Executable CLI fixtures and the
-metrics section added to the JSON specification will become authoritative
-during implementation.
+The implemented dependency graph JSON document is specified in
+[metrics-json.md](../specification/metrics-json.md). Remaining JSON work
+extends that document with enforcement, baseline, ABC, and similarity fields.
 
 The document contains:
 
-- `schema`, `metric_model`, `tool`, `status`, and normalized project identity;
-- analysis diagnostics;
 - effective configuration, enforceable policy capabilities, and baseline
   identity;
 - per-function ABC vectors, magnitude, subject kind, span, and coverage flags;
-- per-module internal fan-in, internal fan-out, dependency pressure, external
-  dependency count, generated status, and span;
-- dependency edges and cycles;
 - experimental whole-body similarity instances with token count, fingerprint,
   and declaration regions;
 - policy violations and a summary by metric kind.
@@ -347,22 +330,19 @@ Planned executable cases follow the placement rules in
 | --- | --- | --- |
 | ABC constructs | One function uses every counted construct and one changes only annotations or contracts | The vector follows the mapping table, the annotation-only change does not alter it, and output calls it ABC size |
 | ABC subject kinds | Equivalent function and test bodies are analyzed; a generated declaration has the same body | Function and test results carry distinct subject kinds; the generated declaration is excluded |
-| Graph counts | Modules contain repeated internal imports, an external package import, and an implicit prelude | Internal edges are deduplicated and external or implicit imports do not change fan-in or fan-out |
-| Dependency pressure | Modules have high fan-in only, high fan-out only, and both | Pressure equals the product, output retains both counts, and none is a policy violation |
-| Dependency cycle | Three modules form a cycle and one acyclic module imports a member | One maximal cycle and a valid closed path are reported; the acyclic caller only changes fan-in |
+| Graph counts | Modules contain repeated internal imports beyond the implemented fixture coverage | Internal edges are deduplicated and external or implicit imports do not change fan-in or fan-out |
+| Dependency pressure | Modules have high fan-in only, high fan-out only, and both beyond the implemented fixture coverage | Pressure equals the product, output retains both counts, and none is a policy violation |
+| Dependency cycle | Three modules form a cycle and one acyclic module imports a member beyond the implemented fixture coverage | One maximal cycle and a valid closed path are reported; the acyclic caller only changes fan-in |
 | Exact whole-body similarity | Two formatted-differently bodies have the same tokens; a third changes an identifier | The first pair forms one experimental instance and the third is not included |
 | Partial similarity exclusion | Two declarations share a long subregion but have different complete bodies | No similarity instance is reported |
 | Similarity edit | Two duplicate bodies are changed together to another equal token sequence | The new instance is advisory and does not fail a baseline check |
 | Similarity result bound | Many declarations contain the same body and many unrelated bodies | Each declaration appears at most once, total reported regions do not exceed eligible declarations, and instances do not exceed half the eligible declarations |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
-| Advisory mode | Advisory findings are present and a cycle exists | Report mode exits successfully and labels the findings advisory |
 | Check without policy | `--check` runs with `deny_cycles` omitted or false | The command reports that no enforceable policy is enabled and fails without a clean check result |
 | Absolute cycle check | A cycle exists with `deny_cycles` enabled and no baseline | Check mode fails and reports a closed path |
 | Cycle baseline regression | A baseline cycle stays equal, loses an edge, and gains an edge in separate runs | Equal and improved reports pass; the worsened report fails |
 | Stale baseline | A baseline subject is deleted | The command reports the stale entry without failing solely for staleness |
 | Unsupported metric model | Baseline and current reports use different metric-model versions | Comparison fails without treating advisory records as allowances |
-| Invalid source | One selected module does not parse | The command fails and does not emit a clean metric summary |
-| Invalid types | Selected source parses but has a type error | Metrics are reported without presenting the type error as a metric diagnostic |
 | Baseline write safety | The target already exists | Baseline writing refuses to replace it |
 | Truncated human output | Findings exceed `max_findings` | Policy uses the complete set; human output names the omitted count and the JSON evidence command |
 

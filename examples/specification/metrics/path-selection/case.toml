@@ -1,0 +1,80 @@
+command = ["metrics", "--json", "app.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-metrics-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "metrics"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "project.selected_paths.0"
+equals = "app.veln"
+
+[[json_assert]]
+path = "summary.project_module_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.selected_module_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.internal_edge_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.cycle_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.external_dependency_count"
+equals = 1
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"
+
+[[json_assert]]
+path = "modules.0.fan_in"
+equals = 1
+
+[[json_assert]]
+path = "modules.0.fan_out"
+equals = 1
+
+[[json_assert]]
+path = "modules.0.dependency_pressure"
+equals = 1
+
+[[json_assert]]
+path = "modules.0.external_dependency_count"
+equals = 1
+
+[[json_assert]]
+path = "edges.0.source"
+equals = "app"
+
+[[json_assert]]
+path = "edges.0.target"
+equals = "util"
+
+[[json_assert]]
+path = "cycles.0.path.0"
+equals = "app"
+
+[[json_assert]]
+path = "cycles.0.path.2"
+equals = "app"

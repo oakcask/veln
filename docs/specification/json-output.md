@@ -1,3 +1,7 @@
+---
+review-when: A command JSON schema, output field, or executable JSON evidence changes.
+---
+
 # JSON Output
 
 This file routes machine-readable command output changes to the smallest
@@ -6,9 +10,9 @@ details.
 
 ## Read First
 
-- `check --json`, `run --json`, `test --json`, and `repair --json` keep their
-  command-specific envelopes while reusing the shared command analysis path
-  described by [commands.md](commands.md).
+- `check --json`, `metrics --json`, `run --json`, `test --json`, and
+  `repair --json` keep their command-specific envelopes while reusing the
+  relevant command analysis path described by [commands.md](commands.md).
 - Help output is human command output, not command JSON. Use
   [commands.md](commands.md) for top-level and subcommand help behavior.
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
@@ -16,6 +20,8 @@ details.
   output aligned before checking command-specific behavior.
 - `check --json`: [diagnostics-json.md](diagnostics-json.md) for diagnostic
   envelope, span, related note, and stable details fields.
+- `metrics --json`: [metrics-json.md](metrics-json.md) for module dependency
+  metrics, dependency edges, cycles, project identity, and summary fields.
 - `run --json`: [run-json.md](run-json.md) for run records, output events,
   failures, and summary shape.
   Runtime result failures that carry source-visible diagnostic payload values,

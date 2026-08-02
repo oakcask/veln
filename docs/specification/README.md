@@ -1,3 +1,7 @@
+---
+review-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
+---
+
 # Language Specification
 
 This directory routes the current implemented Veln language specification. It

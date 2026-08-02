@@ -13,6 +13,10 @@ pub(crate) enum Command {
     Fmt {
         inputs: Vec<PathBuf>,
     },
+    Metrics {
+        json: bool,
+        inputs: Vec<PathBuf>,
+    },
     Run {
         json: bool,
         entry: String,
@@ -72,6 +76,7 @@ fn app() -> ClapCommand {
         .subcommand(check_command())
         .subcommand(doc_command())
         .subcommand(fmt_command())
+        .subcommand(metrics_command())
         .subcommand(run_command())
         .subcommand(test_command())
         .subcommand(repair_command())
@@ -107,6 +112,17 @@ fn fmt_command() -> ClapCommand {
         .arg(path_args(
             "inputs",
             "Source files or directories to format",
+            "INPUTS",
+        ))
+}
+
+fn metrics_command() -> ClapCommand {
+    ClapCommand::new("metrics")
+        .about("Report source dependency metrics")
+        .arg(json_arg())
+        .arg(path_args(
+            "inputs",
+            "Source files or directories to report",
             "INPUTS",
         ))
 }
@@ -276,7 +292,7 @@ fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
         "package" if has_help_flag(args.iter().skip(1)) => Ok(Some(Command::Help {
             text: render_help(package_help_path(args)),
         })),
-        "check" | "doc" | "fmt" | "test" | "repair" | "explain" | "lsp"
+        "check" | "doc" | "fmt" | "metrics" | "test" | "repair" | "explain" | "lsp"
             if has_help_flag(args.iter().skip(1)) =>
         {
             Ok(Some(Command::Help {
@@ -308,6 +324,7 @@ fn validate_command_args(args: &[String]) -> Result<(), String> {
         "check" => reject_unknown_check_flags(args.iter().skip(1)),
         "doc" => reject_unknown_doc_flags(args.iter().skip(1)),
         "fmt" => reject_unknown_fmt_flags(args.iter().skip(1)),
+        "metrics" => reject_unknown_metrics_flags(args.iter().skip(1)),
         "run" => {
             reject_unknown_run_flags(args.iter().skip(1))?;
             reject_missing_run_entry(args.iter().skip(1))
@@ -331,6 +348,10 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
             inputs: path_values(matches, "inputs"),
         },
         Some(("fmt", matches)) => Command::Fmt {
+            inputs: path_values(matches, "inputs"),
+        },
+        Some(("metrics", matches)) => Command::Metrics {
+            json: matches.get_flag("json"),
             inputs: path_values(matches, "inputs"),
         },
         Some(("run", matches)) => run_from_matches(matches),
@@ -457,6 +478,17 @@ fn reject_unknown_fmt_flags<'a>(args: impl Iterator<Item = &'a String>) -> Resul
         match arg.as_str() {
             "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown fmt flag `{flag}`")),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn reject_unknown_metrics_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
+        match arg.as_str() {
+            "--json" | "--help" | "-h" => {}
+            flag if flag.starts_with('-') => return Err(format!("unknown metrics flag `{flag}`")),
             _ => {}
         }
     }
