@@ -2,11 +2,11 @@ use super::*;
 use crate::adt::AdtRegistry;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::types::{
-    ByteViewLengthExpr, LowercaseSchemaPrimitiveError, SchemaDispatchCasePayload,
-    SchemaDispatchSpec, SchemaRepeatPayload, binary_schema_anonymous_record_decode_type,
-    byte_view_multiple_constraint, byte_view_schema_primitive, closed_dispatch_schema_primitive,
-    exact_width_schema_primitive, exact_width_schema_primitive_bit_width,
-    extension_dispatch_schema_primitive,
+    ByteViewLengthExpr, LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError,
+    SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    binary_schema_anonymous_record_decode_type, byte_view_multiple_constraint,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
     format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema, lowercase_reserved_bits_schema_primitive,
@@ -1092,360 +1092,46 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 ));
                 continue;
             }
-            if let Some(reason) = schema_composition_reference_blocker(module, schema, field) {
-                diagnostics.push(schema_composition_reference_diagnostic(
-                    schema, field, reason,
-                ));
+            if check_schema_field_composition(module, schema, field, &mut diagnostics) {
                 continue;
             }
-            if !schema_field_uses_existing_grammar_at_boundary(schema, &field.ty)
-                && let Some(target) = schema_field_target(module, schema, &field.ty)
-            {
-                let decode_eligible = schema_decode_value_type(module, target).is_some();
-                let encode_eligible = schema_encode_value_type(module, target).is_some();
-                if !decode_eligible {
-                    diagnostics.push(schema_composition_reference_diagnostic(
-                        schema,
-                        field,
-                        "decode_ineligible_target",
-                    ));
-                }
-                if !encode_eligible {
-                    diagnostics.push(schema_composition_reference_diagnostic(
-                        schema,
-                        field,
-                        "encode_ineligible_target",
-                    ));
-                }
-                if !decode_eligible {
-                    continue;
-                }
-            }
-            if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
-                match (format_name, reserved) {
-                    (Some("binary"), Ok(reserved)) => {
-                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                        let field_index = schema
-                            .fields
-                            .iter()
-                            .position(|schema_field| schema_field.node_id == field.node_id);
-                        if field_index
-                            .and_then(|index| {
-                                supported_encode_reserved_bits(&schema.fields, index, reserved)
-                            })
-                            .is_none()
-                        {
-                            diagnostics.push(reserved_bits_encode_shape_diagnostic(
-                                schema,
-                                field,
-                                field_index,
-                                reserved,
-                            ));
-                        }
-                    }
-                    (Some("binary"), Err(reason)) => {
-                        diagnostics.push(lowercase_schema_primitive_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            reason,
-                        ));
-                    }
-                    (_, Ok(_)) => {
-                        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            "non_binary_format",
-                        ));
-                    }
-                    (_, Err(reason)) => {
-                        diagnostics.push(lowercase_schema_primitive_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            reason,
-                        ));
-                    }
-                }
+            if check_direct_schema_primitive(
+                schema,
+                field,
+                format_name,
+                &mut decoded_fields,
+                &mut diagnostics,
+            ) {
                 continue;
             }
-            if let Some(primitive) = lowercase_schema_primitive(&field.ty) {
-                match (format_name, primitive) {
-                    (Some("binary"), Ok(_primitive)) => {
-                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                        record_decoded_schema_field(
-                            schema,
-                            field,
-                            Type::int(),
-                            &mut decoded_fields,
-                            &mut diagnostics,
-                        );
-                    }
-                    (Some("binary"), Err(reason)) => {
-                        diagnostics.push(lowercase_schema_primitive_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            reason,
-                        ));
-                    }
-                    (_, Ok(_)) => {
-                        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            "non_binary_format",
-                        ));
-                    }
-                    (_, Err(reason)) => {
-                        diagnostics.push(lowercase_schema_primitive_diagnostic(
-                            &field.ty,
-                            Some(schema),
-                            Some(field),
-                            field.node_id.display("schema-field"),
-                            field.span.clone(),
-                            reason,
-                        ));
-                    }
-                }
-                continue;
-            }
-            if let Some(primitive) = exact_width_binary_primitive_name(&field.ty) {
-                if format_name != Some("binary") {
-                    diagnostics.push(exact_width_schema_primitive_diagnostic(
-                        primitive,
-                        Some(schema),
-                        Some(field),
-                        field.node_id.display("schema-field"),
-                        field.span.clone(),
-                        "non_binary_format",
-                    ));
-                } else {
-                    check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                    record_decoded_schema_field(
-                        schema,
-                        field,
-                        Type::int(),
-                        &mut decoded_fields,
-                        &mut diagnostics,
-                    );
-                }
-                continue;
-            }
-            let lowercase_nested_payloads = lowercase_schema_primitive_nested_payloads(&field.ty);
-            if !lowercase_nested_payloads.is_empty() {
-                let mut pushed_diagnostic = false;
-                for (primitive, reason) in lowercase_nested_payloads {
-                    if format_name == Some("binary")
-                        && reason == "dispatch_payload"
-                        && schema_dispatch_payload_accepts_lowercase_primitive(primitive)
-                    {
-                        continue;
-                    }
-                    if format_name == Some("binary")
-                        && reason == "repeat_payload"
-                        && schema_repeat_payload_accepts_lowercase_primitive(primitive)
-                    {
-                        continue;
-                    }
-                    let reason = if format_name == Some("binary") {
-                        reason
-                    } else {
-                        "non_binary_format"
-                    };
-                    diagnostics.push(lowercase_schema_primitive_position_diagnostic(
-                        primitive,
-                        Some(schema),
-                        Some(field),
-                        field.node_id.display("schema-field"),
-                        field.span.clone(),
-                        reason,
-                    ));
-                    pushed_diagnostic = true;
-                }
-                if pushed_diagnostic {
-                    continue;
-                }
-            }
-            if format_name == Some("binary")
-                && let Some(length_expr) = byte_view_schema_primitive(&field.ty)
-            {
-                if check_schema_byte_view_reference(
-                    schema,
-                    field,
-                    &length_expr,
-                    &decoded_fields,
-                    &mut diagnostics,
-                ) && check_schema_byte_view_multiple(
-                    schema,
-                    field,
-                    &decoded_fields,
-                    &mut diagnostics,
-                ) {
-                    decoded_fields.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
-                }
+            if check_nested_lowercase_schema_primitives(
+                schema,
+                field,
+                format_name,
+                &mut diagnostics,
+            ) {
                 continue;
             }
             if format_name == Some("binary")
-                && let Some(repeat) = repeat_schema_primitive(&field.ty)
-            {
-                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                if let Some(field_ty) = check_schema_repeat_field(
+                && check_binary_schema_field(
                     module,
                     schema,
                     field,
-                    &repeat,
-                    &decoded_fields,
-                    &mut diagnostics,
-                ) {
-                    record_decoded_schema_field(
-                        schema,
-                        field,
-                        field_ty,
-                        &mut decoded_fields,
-                        &mut diagnostics,
-                    );
-                }
-                continue;
-            }
-            if format_name == Some("binary")
-                && let Some(payload_schema) = schema_field_target(module, schema, &field.ty)
-                && payload_schema
-                    .format
-                    .as_ref()
-                    .map(|format| format.name.as_str())
-                    == Some("binary")
-                && let Some(field_ty) = schema_decode_value_type(module, payload_schema)
-            {
-                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                record_decoded_schema_field(
-                    schema,
-                    field,
-                    field_ty,
                     &mut decoded_fields,
                     &mut diagnostics,
-                );
-                continue;
-            }
-            if format_name == Some("binary")
-                && let Some(field_ty) = binary_schema_anonymous_record_decode_type(&field.ty)
+                )
             {
-                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                record_decoded_schema_field(
-                    schema,
-                    field,
-                    field_ty,
-                    &mut decoded_fields,
-                    &mut diagnostics,
-                );
-                continue;
-            }
-            if format_name == Some("binary")
-                && let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
-                    .or_else(|| extension_dispatch_schema_primitive(&field.ty))
-            {
-                check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                if let Some(field_ty) = check_schema_dispatch_field(
-                    module,
-                    schema,
-                    field,
-                    &dispatch,
-                    &decoded_fields,
-                    &mut diagnostics,
-                ) {
-                    record_decoded_schema_field(
-                        schema,
-                        field,
-                        field_ty,
-                        &mut decoded_fields,
-                        &mut diagnostics,
-                    );
-                }
-                continue;
-            }
-            if let Some(primitive) = reserved_bits_primitive(&field.ty) {
-                if format_name != Some("binary") {
-                    diagnostics.push(reserved_bits_format_diagnostic(schema, field));
-                    continue;
-                }
-                match primitive {
-                    Err(reason) => {
-                        diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason))
-                    }
-                    Ok(reserved) => {
-                        check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
-                        let field_index = schema
-                            .fields
-                            .iter()
-                            .position(|schema_field| schema_field.node_id == field.node_id);
-                        if field_index
-                            .and_then(|index| {
-                                supported_encode_reserved_bits(&schema.fields, index, reserved)
-                            })
-                            .is_none()
-                        {
-                            diagnostics.push(reserved_bits_encode_shape_diagnostic(
-                                schema,
-                                field,
-                                field_index,
-                                reserved,
-                            ));
-                        }
-                    }
-                }
                 continue;
             }
             if format_name.is_none() {
-                let decode_field_type =
-                    format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty);
-                if let Some(field_ty) = decode_field_type.clone() {
-                    record_decoded_schema_field(
-                        schema,
-                        field,
-                        field_ty,
-                        &mut decoded_fields,
-                        &mut diagnostics,
-                    );
-                } else if schema_payload_name_path(&field.ty).is_some()
-                    && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
-                {
-                    diagnostics.push(schema_composition_reference_diagnostic(
-                        schema,
-                        field,
-                        unresolved_schema_composition_reason(module, schema, &field.ty),
-                    ));
-                } else {
-                    diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
-                }
-                let encode_unsupported = format_neutral_schema_encode_field_type_for_schema(
-                    module, schema, &adts, &field.ty,
-                )
-                .is_none();
-                let direct_source_adt_candidate =
-                    format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
-                if encode_unsupported
-                    && direct_source_adt_candidate
-                    && decode_field_type.is_none()
-                    && (schema_payload_name_path(&field.ty).is_none()
-                        || schema_field_has_ordinary_type_target(module, schema, &field.ty))
-                {
-                    diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
-                        schema.name.as_deref().unwrap_or("<missing>"),
-                        &schema.span,
-                        field,
-                    ));
-                }
+                check_format_neutral_schema_field(
+                    module,
+                    schema,
+                    field,
+                    &adts,
+                    &mut decoded_fields,
+                    &mut diagnostics,
+                );
                 continue;
             }
             check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
@@ -1467,6 +1153,367 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+fn check_schema_field_composition(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    if let Some(reason) = schema_composition_reference_blocker(module, schema, field) {
+        diagnostics.push(schema_composition_reference_diagnostic(
+            schema, field, reason,
+        ));
+        return true;
+    }
+    if schema_field_uses_existing_grammar_at_boundary(schema, &field.ty) {
+        return false;
+    }
+    let Some(target) = schema_field_target(module, schema, &field.ty) else {
+        return false;
+    };
+
+    let decode_eligible = schema_decode_value_type(module, target).is_some();
+    let encode_eligible = schema_encode_value_type(module, target).is_some();
+    if !decode_eligible {
+        diagnostics.push(schema_composition_reference_diagnostic(
+            schema,
+            field,
+            "decode_ineligible_target",
+        ));
+    }
+    if !encode_eligible {
+        diagnostics.push(schema_composition_reference_diagnostic(
+            schema,
+            field,
+            "encode_ineligible_target",
+        ));
+    }
+    !decode_eligible
+}
+
+fn check_direct_schema_primitive(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    if let Some(reserved) = lowercase_reserved_bits_schema_primitive(&field.ty) {
+        check_lowercase_reserved_bits(schema, field, format_name, reserved, diagnostics);
+        return true;
+    }
+    if let Some(primitive) = lowercase_schema_primitive(&field.ty) {
+        check_lowercase_integer_primitive(
+            schema,
+            field,
+            format_name,
+            primitive,
+            decoded_fields,
+            diagnostics,
+        );
+        return true;
+    }
+    if let Some(primitive) = exact_width_binary_primitive_name(&field.ty) {
+        check_exact_width_primitive(
+            schema,
+            field,
+            format_name,
+            primitive,
+            decoded_fields,
+            diagnostics,
+        );
+        return true;
+    }
+    if let Some(primitive) = reserved_bits_primitive(&field.ty) {
+        check_reserved_bits(schema, field, format_name, primitive, diagnostics);
+        return true;
+    }
+    false
+}
+
+fn check_lowercase_reserved_bits(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    reserved: Result<(i64, i64), LowercaseSchemaPrimitiveError>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match (format_name, reserved) {
+        (Some("binary"), Ok(reserved)) => {
+            check_schema_non_byte_view_multiple(schema, field, diagnostics);
+            check_reserved_bits_encode_shape(schema, field, reserved, diagnostics);
+        }
+        (Some("binary"), Err(reason)) | (_, Err(reason)) => {
+            diagnostics.push(lowercase_schema_primitive_diagnostic(
+                &field.ty,
+                Some(schema),
+                Some(field),
+                field.node_id.display("schema-field"),
+                field.span.clone(),
+                reason,
+            ));
+        }
+        (_, Ok(_)) => diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+            &field.ty,
+            Some(schema),
+            Some(field),
+            field.node_id.display("schema-field"),
+            field.span.clone(),
+            "non_binary_format",
+        )),
+    }
+}
+
+fn check_lowercase_integer_primitive(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    primitive: Result<LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError>,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match (format_name, primitive) {
+        (Some("binary"), Ok(_)) => {
+            check_schema_non_byte_view_multiple(schema, field, diagnostics);
+            record_decoded_schema_field(schema, field, Type::int(), decoded_fields, diagnostics);
+        }
+        (Some("binary"), Err(reason)) | (_, Err(reason)) => {
+            diagnostics.push(lowercase_schema_primitive_diagnostic(
+                &field.ty,
+                Some(schema),
+                Some(field),
+                field.node_id.display("schema-field"),
+                field.span.clone(),
+                reason,
+            ));
+        }
+        (_, Ok(_)) => diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+            &field.ty,
+            Some(schema),
+            Some(field),
+            field.node_id.display("schema-field"),
+            field.span.clone(),
+            "non_binary_format",
+        )),
+    }
+}
+
+fn check_exact_width_primitive(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    primitive: &str,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if format_name != Some("binary") {
+        diagnostics.push(exact_width_schema_primitive_diagnostic(
+            primitive,
+            Some(schema),
+            Some(field),
+            field.node_id.display("schema-field"),
+            field.span.clone(),
+            "non_binary_format",
+        ));
+        return;
+    }
+    check_schema_non_byte_view_multiple(schema, field, diagnostics);
+    record_decoded_schema_field(schema, field, Type::int(), decoded_fields, diagnostics);
+}
+
+fn check_reserved_bits(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    primitive: Result<(i64, i64), ReservedBitsArgumentReason>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if format_name != Some("binary") {
+        diagnostics.push(reserved_bits_format_diagnostic(schema, field));
+        return;
+    }
+    match primitive {
+        Err(reason) => diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason)),
+        Ok(reserved) => {
+            check_schema_non_byte_view_multiple(schema, field, diagnostics);
+            check_reserved_bits_encode_shape(schema, field, reserved, diagnostics);
+        }
+    }
+}
+
+fn check_reserved_bits_encode_shape(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reserved: (i64, i64),
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let field_index = schema
+        .fields
+        .iter()
+        .position(|schema_field| schema_field.node_id == field.node_id);
+    if field_index
+        .and_then(|index| supported_encode_reserved_bits(&schema.fields, index, reserved))
+        .is_none()
+    {
+        diagnostics.push(reserved_bits_encode_shape_diagnostic(
+            schema,
+            field,
+            field_index,
+            reserved,
+        ));
+    }
+}
+
+fn check_nested_lowercase_schema_primitives(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let mut pushed_diagnostic = false;
+    for (primitive, reason) in lowercase_schema_primitive_nested_payloads(&field.ty) {
+        let supported_dispatch = reason == "dispatch_payload"
+            && schema_dispatch_payload_accepts_lowercase_primitive(primitive);
+        let supported_repeat = reason == "repeat_payload"
+            && schema_repeat_payload_accepts_lowercase_primitive(primitive);
+        if format_name == Some("binary") && (supported_dispatch || supported_repeat) {
+            continue;
+        }
+        let reason = if format_name == Some("binary") {
+            reason
+        } else {
+            "non_binary_format"
+        };
+        diagnostics.push(lowercase_schema_primitive_position_diagnostic(
+            primitive,
+            Some(schema),
+            Some(field),
+            field.node_id.display("schema-field"),
+            field.span.clone(),
+            reason,
+        ));
+        pushed_diagnostic = true;
+    }
+    pushed_diagnostic
+}
+
+fn check_binary_schema_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+        if check_schema_byte_view_reference(
+            schema,
+            field,
+            &length_expr,
+            decoded_fields,
+            diagnostics,
+        ) && check_schema_byte_view_multiple(schema, field, decoded_fields, diagnostics)
+        {
+            decoded_fields.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
+        }
+        return true;
+    }
+    if let Some(repeat) = repeat_schema_primitive(&field.ty) {
+        check_schema_non_byte_view_multiple(schema, field, diagnostics);
+        if let Some(field_ty) =
+            check_schema_repeat_field(module, schema, field, &repeat, decoded_fields, diagnostics)
+        {
+            record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+        }
+        return true;
+    }
+    if let Some(field_ty) = binary_composed_schema_field_type(module, schema, field) {
+        check_schema_non_byte_view_multiple(schema, field, diagnostics);
+        record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+        return true;
+    }
+    if let Some(field_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
+        check_schema_non_byte_view_multiple(schema, field, diagnostics);
+        record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+        return true;
+    }
+    let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
+        .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+    else {
+        return false;
+    };
+    check_schema_non_byte_view_multiple(schema, field, diagnostics);
+    if let Some(field_ty) = check_schema_dispatch_field(
+        module,
+        schema,
+        field,
+        &dispatch,
+        decoded_fields,
+        diagnostics,
+    ) {
+        record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+    }
+    true
+}
+
+fn binary_composed_schema_field_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+) -> Option<Type> {
+    let payload_schema = schema_field_target(module, schema, &field.ty)?;
+    (payload_schema
+        .format
+        .as_ref()
+        .map(|format| format.name.as_str())
+        == Some("binary"))
+    .then(|| schema_decode_value_type(module, payload_schema))
+    .flatten()
+}
+
+fn check_format_neutral_schema_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    adts: &AdtRegistry,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let decode_field_type =
+        format_neutral_schema_field_type_for_schema(module, schema, adts, &field.ty);
+    if let Some(field_ty) = decode_field_type.clone() {
+        record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+    } else if schema_payload_name_path(&field.ty).is_some()
+        && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
+    {
+        diagnostics.push(schema_composition_reference_diagnostic(
+            schema,
+            field,
+            unresolved_schema_composition_reason(module, schema, &field.ty),
+        ));
+    } else {
+        diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
+    }
+
+    let encode_unsupported =
+        format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty)
+            .is_none();
+    let direct_source_adt_candidate =
+        format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
+    let ordinary_or_non_path = schema_payload_name_path(&field.ty).is_none()
+        || schema_field_has_ordinary_type_target(module, schema, &field.ty);
+    if encode_unsupported
+        && direct_source_adt_candidate
+        && decode_field_type.is_none()
+        && ordinary_or_non_path
+    {
+        diagnostics.push(format_neutral_schema_encode_helper_diagnostic(
+            schema.name.as_deref().unwrap_or("<missing>"),
+            &schema.span,
+            field,
+        ));
+    }
 }
 
 fn schema_composition_duplicate_binding_diagnostic(
