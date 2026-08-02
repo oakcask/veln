@@ -85,6 +85,97 @@ fn run_case_with_after_invocation(
     }
 }
 
+#[test]
+fn metrics_baseline_check_preserves_report_fields() {
+    let project = TestProject::new(
+        "metrics-baseline-check-preserves-report-fields".to_string(),
+        &ToolSetup::default(),
+    );
+    fs::write(
+        project.root.join("veln.toml"),
+        "[tool.metrics]\ndeny_cycles = \"true\"\n",
+    )
+    .expect("manifest should be written");
+    fs::write(
+        project.root.join("app.veln"),
+        "use util\nfn main() -> Int\n  value()\nend\n",
+    )
+    .expect("app source should be written");
+    fs::write(
+        project.root.join("util.veln"),
+        "use app\nfn value() -> Int\n  1\nend\n",
+    )
+    .expect("util source should be written");
+
+    let write_output = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--write-baseline".to_string(),
+            "metrics.baseline.json".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    assert!(
+        write_output.status.success(),
+        "baseline write failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&write_output.stdout),
+        String::from_utf8_lossy(&write_output.stderr)
+    );
+
+    let report_output = project.veln_with_artifact(
+        &["metrics".to_string(), "--json".to_string()],
+        &[],
+        None,
+        None,
+    );
+    let check_output = project.veln_with_artifact(
+        &[
+            "metrics".to_string(),
+            "--check".to_string(),
+            "--baseline".to_string(),
+            "metrics.baseline.json".to_string(),
+            "--json".to_string(),
+        ],
+        &[],
+        None,
+        None,
+    );
+    assert!(
+        report_output.status.success(),
+        "report failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&report_output.stdout),
+        String::from_utf8_lossy(&report_output.stderr)
+    );
+    assert!(
+        check_output.status.success(),
+        "baseline check failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&check_output.stdout),
+        String::from_utf8_lossy(&check_output.stderr)
+    );
+
+    let report = parse_json(std::str::from_utf8(&report_output.stdout).expect("report JSON"))
+        .expect("report should parse");
+    let check = parse_json(std::str::from_utf8(&check_output.stdout).expect("check JSON"))
+        .expect("check report should parse");
+
+    for field in [
+        "project",
+        "modules",
+        "edges",
+        "cycles",
+        "abc_subjects",
+        "summary",
+    ] {
+        assert_eq!(
+            json_path(&check, field),
+            json_path(&report, field),
+            "baseline check changed `{field}` report field"
+        );
+    }
+}
+
 fn case_name(case_dir: &Path) -> String {
     case_dir
         .components()

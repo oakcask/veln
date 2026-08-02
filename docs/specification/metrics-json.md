@@ -120,6 +120,10 @@ Executable evidence:
   `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
   allowances, regressions, stale subject reporting, and unsupported version
   comparison errors.
+- The `metrics_baseline_check_preserves_report_fields` CLI integration test
+  checks that a baseline check preserves the advisory ABC subjects, graph
+  measurements, ordering, and ordinary report fields from the matching
+  no-baseline JSON report.
 - The metrics `abc-constructs` case checks counted ABC constructs, annotation
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds
