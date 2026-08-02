@@ -13,7 +13,8 @@ use veln_project::Project;
 use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
 
 use crate::diagnostics::{
-    has_error, print_human_stderr, tool_info, write_harness_source_diagnostic_artifact,
+    harness_source_diagnostic_artifact_requested, has_error, print_human_stderr, tool_info,
+    write_harness_source_diagnostic_artifact,
 };
 use crate::java::{
     JvmRunResult, create_build_dir, exit_code_from_status, forward_process_output,
@@ -27,7 +28,7 @@ pub(crate) fn run_entry(
     entry_args: Vec<String>,
 ) -> Result<ExitCode, String> {
     let analysis = analyze_run_project(&inputs)?;
-    write_harness_source_diagnostic_artifact(&analysis.source_diagnostics())?;
+    write_harness_source_diagnostic_artifact(&analysis.checked_diagnostics())?;
     if report_source_errors(&analysis)? {
         return Ok(ExitCode::from(1));
     }
@@ -58,8 +59,18 @@ pub(crate) fn run_entry(
 
 fn analyze_run_project(inputs: &[PathBuf]) -> Result<ProjectAnalysis, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
-    let project = Project::discover(root, inputs).map_err(|error| error.to_string())?;
-    Ok(analyze_project(project, DoctestMode::Exclude))
+    let analysis_inputs = if harness_source_diagnostic_artifact_requested() {
+        &[]
+    } else {
+        inputs
+    };
+    let project = Project::discover(root, analysis_inputs).map_err(|error| error.to_string())?;
+    let doctest_mode = if harness_source_diagnostic_artifact_requested() {
+        DoctestMode::Include
+    } else {
+        DoctestMode::Exclude
+    };
+    Ok(analyze_project(project, doctest_mode))
 }
 
 fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
@@ -174,7 +185,6 @@ fn lower_run_entry(
     let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
     let lowered = reachable.lowered;
     if has_error(&lowered.diagnostics) {
-        write_harness_source_diagnostic_artifact(&lowered.diagnostics)?;
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
         return Ok(None);
     }
@@ -184,12 +194,10 @@ fn lower_run_entry(
         entry,
         FunctionKind::Function,
     ) {
-        write_harness_source_diagnostic_artifact(std::slice::from_ref(&diagnostic))?;
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
         return Ok(None);
     }
     let Some(ir) = lowered.ir else {
-        write_harness_source_diagnostic_artifact(&lowered.diagnostics)?;
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);

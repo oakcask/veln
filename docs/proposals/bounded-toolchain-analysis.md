@@ -37,6 +37,8 @@ The CLI integration harness no longer performs an independent source-error
 guard analysis for normal `check`, `run`, and `test` cases. The implemented
 policy is specified in
 [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+The remaining proposal scope starts at analysis-pipeline growth. It does not
+include more source-error guard payment changes for those normal harness cases.
 
 The analysis pipeline also constructs a type environment for the merged
 application and standard-library surface. Type and effect inference performs

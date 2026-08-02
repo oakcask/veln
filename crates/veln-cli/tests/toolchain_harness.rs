@@ -2830,6 +2830,121 @@ exit = 1
 }
 
 #[test]
+fn command_artifact_guard_rejects_unselected_check_source_errors() {
+    let root = test_temp_root("artifact-unselected-check");
+    let case_dir = root.join("examples/specification/check/artifact-unselected-check");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["check", "main.veln"]
+exit = 0
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
+        .expect("selected source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("unselected source error should fail command artifact guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_rejects_unselected_run_source_errors() {
+    if !jdk_is_available() {
+        eprintln!("skipping command artifact run guard test: requires a real JDK");
+        return;
+    }
+
+    let root = test_temp_root("artifact-unselected-run");
+    let case_dir = root.join("examples/specification/run/artifact-unselected-run");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(
+        case_dir.join("main.veln"),
+        "pub fn main() -> ()\n\t()\nend\n",
+    )
+    .expect("selected source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("unselected source error should fail command artifact guard");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
+fn command_artifact_guard_keeps_runtime_failure_distinct_from_source_errors() {
+    if !jdk_is_available() {
+        eprintln!("skipping command artifact runtime guard test: requires a real JDK");
+        return;
+    }
+
+    let root = test_temp_root("artifact-runtime-source");
+    let case_dir = root.join("examples/specification/test/artifact-runtime-source");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(
+        case_dir.join("case.toml"),
+        r#"
+command = ["test", "--json", "main_test.veln"]
+exit = 1
+"#,
+    )
+    .expect("case manifest should be written");
+    fs::write(
+        case_dir.join("main_test.veln"),
+        "test rejects() -> ()\n\trequire false\n\t()\nend\n",
+    )
+    .expect("selected test source should be written");
+    fs::write(
+        case_dir.join("unselected.veln"),
+        "fn broken() -> Int\n\t\"wrong\"\nend\n",
+    )
+    .expect("unselected source should be written");
+
+    let panic = std::panic::catch_unwind(|| {
+        run_case(&case_dir);
+    })
+    .expect_err("source error should not be accepted as the runtime failure");
+    let message = panic_message(panic);
+    assert!(message.contains("remove unexpected source error diagnostics"));
+    assert!(message.contains("unselected.veln"));
+    assert!(message.contains("error[type.mismatch]"));
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
+#[test]
 fn manifest_json_assertions_support_missing_paths() {
     let manifest = parse_manifest(
         Path::new("case.toml"),

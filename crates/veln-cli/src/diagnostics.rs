@@ -58,6 +58,10 @@ pub(crate) fn write_harness_source_diagnostic_artifact(
     fs::write(path, envelope.to_json()).map_err(|error| error.to_string())
 }
 
+pub(crate) fn harness_source_diagnostic_artifact_requested() -> bool {
+    std::env::var_os("VELN_HARNESS_SOURCE_DIAGNOSTICS").is_some()
+}
+
 pub(crate) fn tool_info() -> ToolInfo {
     ToolInfo::new("veln", env!("CARGO_PKG_VERSION"))
 }
