@@ -1,0 +1,28 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_RUNTIME = "production-loopback"
+VELN_NET_PRODUCTION_READS_HEX = "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784,505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784"
+VELN_NET_EVENTS = "net-events.log"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "join http2.service.join_failure accepted 1 reason failed\n"
+
+[[file_assert]]
+path = "net-events.log"
+equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream-1\nwrite-production production-stream-1 ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])\nread-production production-stream-1 505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784\nclose-production production-stream-1\nclose-listener-production 127.0.0.1:0\n"

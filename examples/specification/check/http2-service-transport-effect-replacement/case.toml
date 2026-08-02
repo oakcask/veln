@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `std::transport::DuplexStream`", "public function uses undeclared effect `db`", "\"inferred_effects\":[\"std::transport::DuplexStream\"]", "\"inferred_effects\":[\"std::transport::DuplexStream\",\"db\"]", "\"inferred_effects\":[\"db\",\"net\"]"]
+contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `std::transport::DuplexStream`", "public function uses undeclared effect `db`", "\"symbol\":\"http2::connection::serve_connection\"", "\"inferred_effects\":[\"std::transport::DuplexStream\"]", "\"inferred_effects\":[\"std::transport::DuplexStream\",\"db\"]", "\"inferred_effects\":[\"db\",\"net\"]"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 8
 
 [[diagnostics]]
 id = "effect.missing_public"
@@ -42,11 +42,11 @@ column = 1
 id = "effect.missing_public"
 severity = "error"
 kind = "effect"
-message = "public function uses undeclared effect `db`"
+message = "public function uses undeclared effect `std::transport::DuplexStream`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 27
+line = 31
 column = 1
 
 [[diagnostics]]
@@ -58,4 +58,48 @@ message = "public function uses undeclared effect `db`"
 [diagnostics.span]
 file = "main.veln"
 line = 31
+column = 1
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `std::transport::DuplexStream`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 35
+column = 1
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 35
+column = 1
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 39
+column = 1
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 43
 column = 1

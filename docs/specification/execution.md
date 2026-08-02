@@ -151,6 +151,26 @@ enough.
   distinguish callback failure, unsupported request shape or count, invalid
   action sequence, and rejected core action. Host transport failures remain
   abrupt runtime failures.
+- `http2::connection::serve_connection(handler)` creates a server
+  `CoreConnectionState` and delegates to `drive_server_application` on the
+  caller-owned duplex stream. It preserves the callback effect row and maps
+  typed application-boundary failures into `Http2ServiceFailure`.
+- `http2::connection::serve_tcp(listener, handler)` owns the supplied
+  `NetListener`, each accepted `NetStream`, and each connection task. Each
+  accepted stream is passed to one spawned connection task as explicit
+  context. The service joins that task, closes that stream once, and accepts
+  another stream only after the task succeeds. On clean listener end it closes
+  the listener once. On the first ordinary application boundary failure or
+  task join failure, it returns the first `Http2ServiceFailure`, closes the
+  failed stream once, closes the listener once, and does not accept or write a
+  later connection response. Abrupt runtime transport failures stay runtime
+  failures even when the failure occurs inside a spawned connection task.
+  After such a failure, source cleanup is not specified.
+  `examples/specification/run/http2-service-two-connections/`,
+  `http2-service-callback-failure/`,
+  `http2-service-join-failure-json/`,
+  `http2-service-protocol-failure-json/`, and
+  `http2-service-transport-failure-json/` pin the public service boundary.
 
 ## Binary Schemas
 

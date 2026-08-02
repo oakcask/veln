@@ -41,9 +41,11 @@ The public routes are:
   composes those migrated components with the public HPACK dynamic table and
   an immutable stream collection.
 - `http2::connection`: the `drive_server`, `drive_client`, and
-  `drive_server_application` duplex-stream connection drivers, typed
+  `drive_server_application` duplex-stream connection drivers,
+  `serve_connection` and `serve_tcp` server service boundaries, typed
   protocol-owned connection failures, immutable application response actions,
-  and typed application-boundary failures for one caller-owned stream.
+  typed application-boundary failures for one caller-owned stream, and typed
+  service failures for server-owned listeners, tasks, and streams.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
 package exports.
@@ -328,6 +330,35 @@ action and later actions write no bytes. Callback failures write no response
 action bytes. Clean EOF and incomplete EOF preserve the same accepted and
 incomplete-input behavior as the connection driver. Abrupt runtime transport
 failures remain runtime failures rather than typed application failures.
+
+`http2::connection::Http2ServiceFailure` is the public failure value for the
+server service boundary. It exposes state creation failure, application
+boundary failure with accepted-connection index, and task join failure with
+accepted-connection index. Projection helpers expose service failure kind, id,
+reason, accepted index, and stream id.
+
+`http2::connection::serve_connection(handler)` creates a server connection
+state and drives one caller-owned duplex stream through
+`drive_server_application`. Its public effect boundary is
+`[std::transport::DuplexStream, ...E]` for the callback row.
+
+`http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
+accepted streams, and connection tasks. Each spawned connection task receives
+its `NetStream` as explicit context and installs
+`transport::net::net_stream` inside the task. Lexical handlers installed
+outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
+public effect boundary is `[net, concurrency, ...E]`.
+
+For each accepted stream, `serve_tcp` spawns one connection task with that
+stream as explicit context, joins the task, and closes the stream once. The
+service accepts the next stream only after the current task succeeds. On clean
+listener end, `serve_tcp` closes the listener once. On the first ordinary
+callback, protocol, or join failure, it preserves that first failure, closes
+the failed stream once, closes the listener once, and does not accept or write
+a later connection response. Abrupt runtime transport failures, including
+transport failures raised inside a spawned connection task, remain runtime
+failures rather than `Http2ServiceJoinFailure` values. Later source cleanup
+after an abrupt runtime transport failure is not specified.
 
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)

@@ -111,9 +111,18 @@ compiler-known calls.
   `transport::net::net_stream` replaces only the duplex-stream effect with
   `net`; callback effects such as `db` remain required by the handled
   expression. The checked `http2-service-transport-effect-replacement` case
-  fixes the real application-driver effect boundary. Handling any connection
-  driver with `net_stream` preserves caller ownership of listen, accept, close,
-  deadline, cancellation, and task behavior outside the HTTP/2 driver.
+  fixes the real application-driver and `serve_connection` effect boundary.
+  `http2::connection::serve_connection<effect E>` has the same callback shape
+  and requires `[std::transport::DuplexStream, ...E]`.
+  `http2::connection::serve_tcp<effect E>` accepts an owned `NetListener`,
+  installs `transport::net::net_stream` inside each spawned connection task,
+  and requires `[net, concurrency, ...E]`. A pure TCP service callback
+  therefore requires only `net` and `concurrency`; callback effects such as
+  `db` remain required. The checked `http2-service-task-effect-row` and
+  `http2-service-task-handler-boundary` cases fix the TCP service and task
+  handler-inheritance boundaries. Handling any connection driver with
+  `net_stream` preserves caller ownership of listen, accept, close, deadline,
+  cancellation, and task behavior outside the HTTP/2 driver.
   `stream_adapter_accept_loop(listener, handler)` accepts an owned
   `NetListener` and the same pure handler shape, repeatedly accepts streams
   until clean listener end, delegates each accepted stream to

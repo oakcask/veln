@@ -67,6 +67,16 @@ behavior.
   `../../examples/specification/run/http2-connection-application-invalid-actions-json/`,
   and
   `../../examples/specification/run/http2-connection-application-rejected-action-json/`.
+- HTTP/2 server service boundary behavior:
+  `../../examples/specification/check/http2-service-transport-effect-replacement/`,
+  `../../examples/specification/check/http2-service-task-effect-row/`,
+  `../../examples/specification/check/http2-service-task-handler-boundary/`,
+  `../../examples/specification/run/http2-service-two-connections/`,
+  `../../examples/specification/run/http2-service-callback-failure/`,
+  `../../examples/specification/run/http2-service-join-failure-json/`,
+  `../../examples/specification/run/http2-service-protocol-failure-json/`,
+  and
+  `../../examples/specification/run/http2-service-transport-failure-json/`.
 - Fixture-backed listener endpoint text, accepted-stream endpoint text, read,
   stream close, and listener close:
   `../../examples/specification/run/transport-socket-listener-address/`.
