@@ -26,4 +26,4 @@ equals = "join http2.service.join_failure accepted 1 reason failed\n"
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream-1\naccept-production 127.0.0.1:0 production-stream-2\naccept-end-production 127.0.0.1:0\nclose-listener-production 127.0.0.1:0\nclose-production production-stream-1\nclose-production production-stream-2\n"
+equals = "listen-production 127.0.0.1:0\naccept-production 127.0.0.1:0 production-stream-1\nclose-production production-stream-1\nclose-listener-production 127.0.0.1:0\n"

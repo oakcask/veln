@@ -349,13 +349,14 @@ its `NetStream` as explicit context and installs
 outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
 public effect boundary is `[net, concurrency, ...E]`.
 
-On clean listener end, `serve_tcp` closes the listener once, joins retained
-tasks, and closes each retained stream once. On the first ordinary callback,
-protocol, or join failure, it preserves that first failure, closes the failed
-stream once, cancels and joins later retained tasks, closes later streams once,
-and suppresses service-drain writes for later tasks. Abrupt runtime transport
-failures remain runtime failures; later source cleanup after that failure is
-not specified.
+For each accepted stream, `serve_tcp` spawns one connection task with that
+stream as explicit context, joins the task, and closes the stream once. The
+service accepts the next stream only after the current task succeeds. On clean
+listener end, `serve_tcp` closes the listener once. On the first ordinary
+callback, protocol, or join failure, it preserves that first failure, closes
+the failed stream once, closes the listener once, and does not accept or write
+a later connection response. Abrupt runtime transport failures remain runtime
+failures; later source cleanup after that failure is not specified.
 
 The focused
 [`connection_test.veln`](../../crates/veln-stdlib/veln/http2/connection_test.veln)

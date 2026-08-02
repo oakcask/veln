@@ -32,11 +32,6 @@ pub type Http2ServiceFailure
 	pub Http2ServiceJoinFailure(accepted: Int, reason: String)
 end
 
-type Http2ServicePending
-	Http2ServicePendingConnection(stream: NetStream, task: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, accepted: Int, tail: Http2ServicePending)
-	Http2ServicePendingEnd
-end
-
 pub fn drive_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 		Ok(state)
@@ -70,9 +65,9 @@ pub fn serve_connection<effect E>(handler: fn(Http2ApplicationEvent) -> Result<L
 end
 
 pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	let pending = service_accept_pending(listener, 1, handler)
+	let result = service_accept_next(listener, 1, handler)
 	net::close_listener(listener)
-	service_drain_pending(pending)
+	result
 end
 
 fn service_initial_state() -> Result<CoreConnectionState, Http2ServiceFailure>
@@ -99,47 +94,29 @@ fn service_spawn_connection<effect E>(stream: NetStream, handler: fn(Http2Applic
 	task::spawn_with<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>, { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }>(service_connection_task, context)
 end
 
-fn service_accept_pending<effect E>(listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Http2ServicePending effects [net, concurrency, ...E]
+fn service_accept_next<effect E>(listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
 	match net::accept_or_end(listener)
-		Some(stream) => Http2ServicePendingConnection(stream, service_spawn_connection(stream, handler), accepted, service_accept_pending(listener, accepted + 1, handler))
-		None => Http2ServicePendingEnd
+		Some(stream) => service_run_one(stream, service_spawn_connection(stream, handler), listener, accepted, handler)
+		None => Ok(())
 	end
 end
 
-fn service_drain_pending(pending: Http2ServicePending) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
-	match pending
-		Http2ServicePendingConnection(stream, worker, accepted, tail) => match task::join(worker)
-			Ok(Ok(_)) => service_close_then_continue(stream, tail)
-			Ok(Err(failure)) => service_fail_close_cancel_tail(stream, tail, Http2ServiceApplicationFailure(accepted, failure))
-			Err(reason) => service_fail_close_cancel_tail(stream, tail, Http2ServiceJoinFailure(accepted, reason))
-		end
-		Http2ServicePendingEnd => Ok(())
+fn service_run_one<effect E>(stream: NetStream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
+	match task::join(worker)
+		Ok(Ok(_)) => service_close_then_continue(stream, listener, accepted, handler)
+		Ok(Err(failure)) => service_fail_close(stream, Http2ServiceApplicationFailure(accepted, failure))
+		Err(reason) => service_fail_close(stream, Http2ServiceJoinFailure(accepted, reason))
 	end
 end
 
-fn service_close_then_continue(stream: NetStream, tail: Http2ServicePending) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+fn service_close_then_continue<effect E>(stream: NetStream, listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
 	net::close_stream(stream)
-	service_drain_pending(tail)
+	service_accept_next(listener, accepted + 1, handler)
 end
 
-fn service_fail_close_cancel_tail(stream: NetStream, tail: Http2ServicePending, failure: Http2ServiceFailure) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+fn service_fail_close(stream: NetStream, failure: Http2ServiceFailure) -> Result<(), Http2ServiceFailure> effects [net]
 	net::close_stream(stream)
-	service_cancel_join_close(tail)
 	Err(failure)
-end
-
-fn service_cancel_join_close(pending: Http2ServicePending) -> () effects [net, concurrency]
-	match pending
-		Http2ServicePendingConnection(stream, worker, _, tail) => service_cancel_join_close_one(stream, worker, tail)
-		Http2ServicePendingEnd => ()
-	end
-end
-
-fn service_cancel_join_close_one(stream: NetStream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, tail: Http2ServicePending) -> () effects [net, concurrency]
-	task::cancel(worker)
-	let _ = task::join(worker)
-	net::close_stream(stream)
-	service_cancel_join_close(tail)
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
