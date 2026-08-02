@@ -8,15 +8,16 @@ Status: proposed
 
 ## Summary
 
-Extend the implemented `veln metrics` dependency graph, dependency-cycle
-policy check, and advisory ABC size command with baselines, dependency
-pressure policy, and exact whole-body similarity groups.
+Extend the implemented `veln metrics` dependency graph, baseline-aware
+dependency-cycle policy check, advisory ABC size command, and baseline command
+forms with dependency pressure policy and exact whole-body similarity groups.
 
 The command separates measurement from enforcement. The current implementation
 reports advisory module dependency metrics and advisory ABC size metrics. It
-can also enforce `deny_cycles = "true"` during `veln metrics --check`.
-Remaining work must add baselines and additional advisory or enforceable
-signals without turning maintainability metrics into language errors.
+can also enforce `deny_cycles = "true"` during `veln metrics --check`, with
+an explicit baseline when requested. Remaining work must add additional
+advisory or enforceable signals without turning maintainability metrics into
+language errors.
 
 ## Motivation
 
@@ -58,7 +59,7 @@ The remaining proposal keeps differentiated policy maturity:
 
 | Signal | First-slice role | Reason |
 | --- | --- | --- |
-| Dependency cycles | Advisory and enforceable without baselines | A cycle is a concrete bidirectional ownership constraint, and this repository has used the signal to remove real cycles before enabling a gate |
+| Dependency cycles | Advisory and baseline-aware enforcement | A cycle is a concrete bidirectional ownership constraint, and this repository has used the signal to remove real cycles before enabling a gate |
 | ABC size | Advisory | ABC measures syntactic size rather than maintainability or comprehension difficulty directly |
 | Fan-in | Advisory | High fan-in can identify a stable and intentionally reused module as well as a large change-impact surface |
 | Fan-out | Advisory | High fan-out can identify coordination cost, but no Veln-specific blocking threshold has acceptance evidence |
@@ -67,15 +68,9 @@ The remaining proposal keeps differentiated policy maturity:
 
 ## Command Surface
 
-The implemented advisory and dependency-cycle check command forms are specified in
+The implemented advisory, baseline, and dependency-cycle check command forms are specified in
 [commands.md](../specification/commands.md) and
 [metrics-json.md](../specification/metrics-json.md).
-The remaining proposed command forms are:
-
-```text
-veln metrics --check --baseline PATH [path ...]
-veln metrics --write-baseline PATH [path ...]
-```
 
 Generated project modules remain graph nodes because project-owned source can
 depend on them. Generated and doctest-derived declarations are excluded from
@@ -84,19 +79,10 @@ graph nodes so a consumer does not mistake them for hand-maintained modules.
 
 ## Modes And Exit Status
 
-| Invocation | Policy behavior | Successful exit condition |
-| --- | --- | --- |
-| `veln metrics --check --baseline PATH` | Apply enabled policy and cycle regression rules | Analysis completed, at least one policy is enabled, and no policy regression was found |
-| `veln metrics --write-baseline PATH` | Write the complete current report as a baseline | Analysis completed and the baseline was written atomically |
-
-The implemented first slice has one enforceable policy: `deny_cycles`. A check
-with no enforceable policy enabled is a configuration error. Advisory
-thresholds must not silently become merge gates through `--check`.
-
-`--baseline` is valid only with `--check`. `--write-baseline` conflicts with
-`--check`, `--json`, and an existing target file unless an explicit replacement
-option is added in a later proposal. These conflicts prevent an automated check
-from silently accepting its own regression.
+The current metrics modes and exit status rules are specified in
+[commands.md](../specification/commands.md). Remaining work must not turn
+advisory thresholds into merge gates through `--check` without satisfying the
+enforcement graduation rules below.
 
 ## Project Policy
 
@@ -129,9 +115,9 @@ JSON output, baseline content, policy evaluation, or the summary. Truncated
 human output states how many findings were omitted and identifies `--json` as
 the complete evidence route.
 
-The command-line baseline path overrides a future manifest baseline field. The
-first slice does not load a baseline implicitly. CI and local automation must
-name the reviewed file they intend to enforce.
+The implemented command-line baseline path does not load a manifest baseline
+implicitly. CI and local automation must name the reviewed file they intend to
+enforce.
 
 ## Metric Model
 
@@ -214,40 +200,6 @@ Partial-body, identifier-insensitive, approximate, or semantic clone detection
 is a non-goal for the first slice. These modes require separate precision,
 recall, output-growth, and maintainer-acceptance evidence.
 
-## Baseline And Regression Rules
-
-A baseline is a versioned JSON document produced by the same metric report
-schema. It records metric-model identity, effective configuration,
-project-relative subjects, raw metric values, dependency edges, cycle
-membership, and advisory similarity instances. It does not contain absolute
-paths or source text.
-
-The first slice uses a baseline only for dependency-cycle policy:
-
-| Current graph change | `deny_cycles = "true"` without baseline | `deny_cycles = "true"` with baseline |
-| --- | --- | --- |
-| No cycle | Pass | Pass |
-| Unchanged baseline cycle | Fail | Pass |
-| Baseline cycle loses a member or cyclic edge | Fail if a cycle remains | Pass |
-| Current cycle adds a member or cyclic edge not contained in one baseline cycle | Fail | Fail |
-| New self-cycle | Fail | Fail |
-
-A renamed module does not inherit an unrelated module identity. If a rename
-leaves a cycle under a new identity, the check fails and exposes the current
-closed path. Deleting a subject deletes its baseline allowance. A baseline
-entry that no longer resolves is reported as stale but does not by itself fail
-the check.
-
-ABC, fan-in, fan-out, pressure, and similarity values remain visible in a
-baseline for review and future migration. They do not affect first-slice exit
-status. A later proposal must not reinterpret an existing baseline as an
-allowance for a newly enforceable metric without a schema change and an
-explicit baseline rewrite.
-
-The baseline schema rejects unsupported schema or metric-model versions.
-Comparison is deterministic across operating systems after project-relative
-paths are normalized with `/` separators.
-
 ## Enforcement Graduation
 
 A later proposal may make an advisory metric enforceable only after it provides
@@ -289,13 +241,11 @@ findings in this order:
 5. whole-body similarity instances by descending token count.
 
 Ties use project-relative path, starting byte offset, and finding kind. Output
-states whether the invocation is report-only or checked against cycle policy
-and a baseline.
+states whether the invocation is report-only or checked.
 
 The primary line names the measured fact at its source span. Explanations,
-baseline differences, and other locations use related notes. Similarity
-findings use one primary declaration and related notes for the other
-declarations.
+other locations, and similarity peers use related notes. Similarity findings
+use one primary declaration and related notes for the other declarations.
 
 A cycle violation states the enabled policy, identifies a concrete closed
 path, and tells the maintainer to inspect module ownership and dependency
@@ -312,12 +262,12 @@ mechanically.
 
 The implemented dependency graph and ABC JSON document is specified in
 [metrics-json.md](../specification/metrics-json.md). Remaining JSON work
-extends that document with enforcement, baseline, and similarity fields.
+extends that document with dependency pressure policy and similarity fields.
 
 The document contains:
 
-- effective configuration, enforceable policy capabilities, and baseline
-  identity;
+- effective configuration and enforceable policy capabilities for remaining
+  policy work;
 - experimental whole-body similarity instances with token count, fingerprint,
   and declaration regions;
 - policy violations and a summary by metric kind.
@@ -341,15 +291,11 @@ Planned executable cases follow the placement rules in
 | Similarity edit | Two duplicate bodies are changed together to another equal token sequence | The new instance is advisory and does not fail a baseline check |
 | Similarity result bound | Many declarations contain the same body and many unrelated bodies | Each declaration appears at most once, total reported regions do not exceed eligible declarations, and instances do not exceed half the eligible declarations |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
-| Cycle baseline regression | A baseline cycle stays equal, loses an edge, and gains an edge in separate runs | Equal and improved reports pass; the worsened report fails |
-| Stale baseline | A baseline subject is deleted | The command reports the stale entry without failing solely for staleness |
-| Unsupported metric model | Baseline and current reports use different metric-model versions | Comparison fails without treating advisory records as allowances |
-| Baseline write safety | The target already exists | Baseline writing refuses to replace it |
 | Truncated human output | Findings exceed `max_findings` | Policy uses the complete set; human output names the omitted count and the JSON evidence command |
 
-CLI parsing, human output, JSON shape, exit status, and atomic baseline writes
-must have integration coverage in `veln-cli`. Metric calculation and baseline
-comparison must have table-driven unit coverage in a reusable metrics library.
+CLI parsing, human output, JSON shape, and exit status must have integration
+coverage in `veln-cli`. Metric calculation must have table-driven unit
+coverage in a reusable metrics library.
 
 ## Bounded Analysis Requirement
 

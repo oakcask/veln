@@ -1879,11 +1879,25 @@ fn run_command_source_inputs(args: &[String]) -> Vec<PathBuf> {
 
 fn source_inputs_after_flags(args: &[String]) -> Vec<PathBuf> {
     let mut inputs = Vec::new();
-    for arg in args {
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
         if arg == "--" {
             break;
         }
         if arg == "--json" {
+            continue;
+        }
+        if matches!(
+            arg.as_str(),
+            "--baseline" | "--write-baseline" | "--jobs" | "-j"
+        ) {
+            let _ = args.next();
+            continue;
+        }
+        if arg.starts_with("--baseline=")
+            || arg.starts_with("--write-baseline=")
+            || arg.starts_with("--jobs=")
+        {
             continue;
         }
         inputs.push(PathBuf::from(arg));

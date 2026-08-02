@@ -27,8 +27,10 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         Command::Metrics {
             json,
             check,
+            baseline,
+            write_baseline,
             inputs,
-        } => commands::metrics::metrics(json, check, inputs),
+        } => commands::metrics::metrics(json, check, baseline, write_baseline, inputs),
         Command::Run {
             json,
             entry,

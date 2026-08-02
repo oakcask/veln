@@ -37,12 +37,16 @@ requiring the full command reference on the first read.
   enough.
 - `metrics`: advisory module dependency metrics and ABC size metrics for
   project-owned Veln source. It follows `check` source and project discovery
-  for containing graph analysis and accepts `--json`. Without `--check`, it
-  exits successfully when analysis completes even when dependency cycles or
-  large ABC values are present. With `--check`, `[tool.metrics] deny_cycles =
-  "true"` makes dependency cycles an enforced project policy; no enabled policy
-  or invalid metrics policy configuration is a command error. Use
-  [metrics-json.md](metrics-json.md) for machine-readable output.
+  for containing graph analysis and accepts `--json`. `--write-baseline PATH`
+  writes the current report as a reviewed baseline and refuses to overwrite an
+  existing file. Without `--check`, it exits successfully when analysis
+  completes even when dependency cycles or large ABC values are present. With
+  `--check`, `[tool.metrics] deny_cycles = "true"` makes dependency cycles an
+  enforced project policy. `--baseline PATH` is valid only with `--check` and
+  allows unchanged or reduced dependency cycles while rejecting cycle
+  regressions. No enabled policy or invalid metrics policy configuration is a
+  command error. Use [metrics-json.md](metrics-json.md) for machine-readable
+  output.
 - `doc`: generated Markdown documentation from selected source files,
   package/tool manifest metadata, documentation comments, public API
   declarations including public schemas and schema aliases, schema references,

@@ -1,0 +1,32 @@
+command = ["metrics", "--check", "--baseline", "metrics.baseline.json", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "check.result"
+equals = "pass"
+
+[[json_assert]]
+path = "check.baseline.schema_version"
+equals = "veln-metrics-baseline/v0"
+
+[[json_assert]]
+path = "check.baseline.metric_model"
+equals = "veln-metrics-model/v0"
+
+[[json_assert]]
+path = "check.baseline.stale_subjects.0"
+missing = true
+
+[[json_assert]]
+path = "cycles.0.path.2"
+equals = "app"

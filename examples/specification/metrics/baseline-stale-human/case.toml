@@ -1,0 +1,8 @@
+command = ["metrics", "--check", "--baseline", "metrics.baseline.json"]
+exit = 0
+
+[stdout]
+contains = ["Veln dependency metrics (check)", "baseline: metrics.baseline.json", "baseline stale subjects: deleted", "policy result: pass"]
+
+[stderr]
+format = "empty"

@@ -1,0 +1,8 @@
+command = ["metrics", "--write-baseline", "metrics.baseline.json"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln: metrics baseline already exists: metrics.baseline.json"]
