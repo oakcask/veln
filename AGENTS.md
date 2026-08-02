@@ -4,9 +4,10 @@
   or metadata unless testing date-pattern behavior or preserving an externally
   defined identifier such as a URL.
 * Treat `docs/specification/` as the source of current implemented
-  behavior. Treat `docs/proposals/` as planned or accepted work only; do not
-  cite or edit proposal text as current behavior unless the matching
-  specification page also states it.
+  behavior. Keep only `Status: proposed` proposal pages in `docs/proposals/`;
+  remove or relocate rejected, superseded, implemented, or otherwise closed
+  proposals. Do not cite or edit proposal text as current behavior unless the
+  matching specification page also states it.
 * When implementing or completing proposal work, use
   `$proposal-implementation-audit` to promote implemented behavior into
   `docs/specification/` and `examples/specification/`, and to remove completed

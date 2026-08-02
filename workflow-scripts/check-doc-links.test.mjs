@@ -104,7 +104,10 @@ test("rejects specification links to proposals", () => {
       "[planned section](../proposals/future.md#scope)",
     ].join("\n"),
   );
-  fixture.write("proposals/future.md", ["# Future", "", "## Scope"].join("\n"));
+  fixture.write(
+    "proposals/future.md",
+    ["# Future", "", "Status: proposed", "", "## Scope"].join("\n"),
+  );
 
   const result = validateDocsLinks(fixture.root);
 
@@ -119,9 +122,13 @@ test("allows proposal links to specifications", () => {
   using fixture = tempDocs("doc-links-proposals-specification");
   fixture.write(
     "proposals/future.md",
-    ["# Future", "", "[current behavior](../specification/README.md)"].join(
-      "\n",
-    ),
+    [
+      "# Future",
+      "",
+      "Status: proposed",
+      "",
+      "[current behavior](../specification/README.md)",
+    ].join("\n"),
   );
   fixture.write("specification/README.md", "# Specification\n");
 
@@ -129,6 +136,47 @@ test("allows proposal links to specifications", () => {
 
   assert.deepEqual(result.errors, []);
   assert.equal(result.valid, true);
+});
+
+test("allows only proposed proposal pages", () => {
+  using fixture = tempDocs("doc-links-proposal-status");
+  fixture.write("proposals/README.md", "# Proposals\n\nStatus: routing\n");
+  fixture.write("proposals/active.md", "# Active\n\nStatus: proposed\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
+test("rejects closed proposal pages", () => {
+  using fixture = tempDocs("doc-links-closed-proposal-status");
+  fixture.write("proposals/implemented.md", "# Implemented\n\nStatus: implemented\n");
+  fixture.write("proposals/rejected.md", "# Rejected\n\nStatus: rejected\n");
+  fixture.write("proposals/superseded.md", "# Superseded\n\nStatus: superseded\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "proposals/implemented.md:3: move or remove this Status: implemented page; docs/proposals contains only active proposals with Status: proposed",
+    "proposals/rejected.md:3: move or remove this Status: rejected page; docs/proposals contains only active proposals with Status: proposed",
+    "proposals/superseded.md:3: move or remove this Status: superseded page; docs/proposals contains only active proposals with Status: proposed",
+  ]);
+});
+
+test("rejects missing or duplicate proposal status", () => {
+  using fixture = tempDocs("doc-links-invalid-proposal-status");
+  fixture.write("proposals/duplicate.md", "# Duplicate\n\nStatus: proposed\n\nStatus: proposed\n");
+  fixture.write("proposals/missing.md", "# Missing\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "proposals/duplicate.md:5: keep exactly one Status: proposed line so the proposal lifecycle is unambiguous",
+    "proposals/missing.md: add exactly one Status: proposed line; docs/proposals contains only active proposal pages",
+  ]);
 });
 
 test("allows archival routes from proposals through implemented records", () => {
@@ -218,7 +266,7 @@ test("rejects implemented records listed as remaining proposal routes", () => {
       "- [completed](completed.md)",
     ].join("\n"),
   );
-  fixture.write("proposals/active.md", "# Active\n");
+  fixture.write("proposals/active.md", "# Active\n\nStatus: proposed\n");
   fixture.write(
     "reference/implemented-proposals/completed.md",
     "# Completed\n",

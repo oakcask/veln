@@ -64,8 +64,8 @@ must route to checked evidence when practical.
   specification only.
 - `reference/`: durable rationale, source support, and completed proposal
   records.
-- `proposals/`: planned or accepted targets not fully implemented, plus short
-  stable routes for rejected or closed proposal links.
+- `proposals/`: planned or accepted targets not fully implemented. Proposal
+  pages in this directory have `Status: proposed`.
 
 ## Skip Unless Needed
 
