@@ -50,3 +50,5 @@ end
 fn apply_unannotated(increment) -> ()
   increment()
 end
+
+pub fn advance = increment

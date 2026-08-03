@@ -79,9 +79,10 @@ The implemented private-function language-server identity is specified in
 tests and the routed executable LSP example for companion private-function
 definition, prepare rename, rename edits, source-scope isolation, boundary
 rejection, request-origin filtering, target-source function-value references,
-companion-qualified function-value references, callable shadowing, and
-record-field isolation, match-arm binding isolation, local-binding initializer
-references, and open-document overlays.
+target-source public function-alias targets, companion function-value and
+public-alias rejection, callable shadowing, record-field isolation, match-arm
+binding isolation, local-binding initializer references, and open-document
+overlays.
 Remaining proposal work applies the same exact permission model to other
 declaration kinds that ordinary same-module lookup can select, including
 codecs and aliases.

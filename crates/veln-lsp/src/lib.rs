@@ -657,6 +657,9 @@ impl LspSymbolIndex {
         }
 
         let qualifier = qualifier_for_token(tokens, token_index)?;
+        if !is_call_target_token(tokens, token_index) {
+            return None;
+        }
         self.functions
             .iter()
             .find(|symbol| {
@@ -779,6 +782,7 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_local_binding_name(&tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
+                    || is_function_alias_target_reference(&tokens, *index, name)
                     || is_handler_provider_function_reference(&tokens, *index, name)
                     || is_codec_implementation_function_reference(&tokens, *index, name))
         })
@@ -793,8 +797,10 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
         .iter()
         .enumerate()
         .filter_map(|(index, token)| {
-            (token.text == name && qualified_reference_matches(&tokens, index, &module_segments))
-                .then(|| source.span(token.range))
+            (token.text == name
+                && is_call_target_token(&tokens, index)
+                && qualified_reference_matches(&tokens, index, &module_segments))
+            .then(|| source.span(token.range))
         })
         .collect()
 }
@@ -1229,11 +1235,33 @@ fn is_handler_provider_function_reference(tokens: &[Token], index: usize, name: 
         && inside_handler_declaration(tokens, index)
 }
 
+fn is_function_alias_target_reference(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Equal)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::Fn)
+}
+
 fn is_codec_implementation_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
     tokens[index].text == name
         && previous_non_layout_token(tokens, index)
             .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "with")
         && inside_codec_declaration(tokens, index)
+}
+
+fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
+    next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
+}
+
+fn next_non_whitespace_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    tokens[index + 1..]
+        .iter()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .find(|token| token.kind != TokenKind::Whitespace)
 }
 
 fn inside_handler_declaration(tokens: &[Token], index: usize) -> bool {
@@ -2055,7 +2083,7 @@ mod tests {
         let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
 
         assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 5);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":1,"character":2},"end":{"line":1,"character":11}}"#
@@ -2071,9 +2099,7 @@ mod tests {
             responses[0]
         );
         assert!(
-            responses[0].contains(
-                r#""range":{"start":{"line":4,"character":8},"end":{"line":4,"character":17}}"#
-            ),
+            !responses[0].contains(r#""line":4,"character":8"#),
             "{}",
             responses[0]
         );
@@ -2130,7 +2156,7 @@ mod tests {
         let responses = server.handle_message(&rename_request(&companion_uri, 7, 10, "advance"));
 
         assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":2,"character":3},"end":{"line":2,"character":12}}"#
@@ -2153,9 +2179,7 @@ mod tests {
             responses[0]
         );
         assert!(
-            responses[0].contains(
-                r#""range":{"start":{"line":9,"character":8},"end":{"line":9,"character":17}}"#
-            ),
+            !responses[0].contains(r#""line":9,"character":8"#),
             "{}",
             responses[0]
         );
@@ -2749,6 +2773,87 @@ mod tests {
     }
 
     #[test]
+    fn companion_private_function_rename_includes_target_function_alias_target() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-function-alias-target");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn advance = increment\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "bump"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"bump""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":4,"character":17},"end":{"line":4,"character":26}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_lsp_rejects_companion_function_values_and_aliases() {
+        let mut server = Server::default();
+        let project = TempProject::new("reject-companion-function-values");
+        project.write(
+            "math.veln",
+            "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        project.write(
+            "math.test.veln",
+            concat!(
+                "use math\n",
+                "\n",
+                "pub fn expose = math::increment\n",
+                "\n",
+                "test companion() -> ()\n",
+                "  let mapper: fn(Int) -> Int = math::increment\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let alias_definition = server.handle_message(&definition_request(&companion_uri, 2, 23));
+        let value_prepare = server.handle_message(&prepare_rename_request(&companion_uri, 5, 37));
+        let value_rename = server.handle_message(&rename_request(&companion_uri, 5, 37, "bump"));
+
+        assert!(
+            alias_definition[0].contains(r#""result":null"#),
+            "{}",
+            alias_definition[0]
+        );
+        assert!(
+            value_prepare[0].contains(r#""result":null"#),
+            "{}",
+            value_prepare[0]
+        );
+        assert!(
+            value_rename[0].contains(r#""changes":{}"#),
+            "{}",
+            value_rename[0]
+        );
+    }
+
+    #[test]
     fn companion_private_function_requests_ignore_comment_and_string_origins() {
         let mut server = Server::default();
         let project = TempProject::new("request-origin");
@@ -2886,7 +2991,7 @@ mod tests {
         let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
 
         assert_eq!(responses.len(), 1);
-        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 4);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
         assert!(
             responses[0].contains(
                 r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":7}}"#
@@ -2909,9 +3014,7 @@ mod tests {
             responses[0]
         );
         assert!(
-            responses[0].contains(
-                r#""range":{"start":{"line":4,"character":8},"end":{"line":4,"character":12}}"#
-            ),
+            !responses[0].contains(r#""line":4,"character":8"#),
             "{}",
             responses[0]
         );

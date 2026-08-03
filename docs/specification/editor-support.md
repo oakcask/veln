@@ -127,16 +127,18 @@ the selected function-name range for the same accepted identity.
 
 `textDocument/rename` for that identity returns workspace edits for the target
 function declaration, valid call or function-value references in the target
-source, and valid qualified call or function-value references in the exact
-matching companion. A same-named companion-local declaration, bare companion
-reference, target callable parameter, target local `let` binding, or target
-pattern binding is a different symbol and is not edited inside the binding's
-scope. Record field labels and field accesses that use the same text are not
-function references. In `let name = name`, the initializer reference remains
-part of the production function identity when it resolves before the local
-binding starts. Valid target references after nested blocks, including
-`else if` branches, remain part of the production function identity. Calls
-through another qualifier, comments, and string literals are not edited.
+source, same-module public function-alias targets in the target source, and
+valid qualified call references in the exact matching companion. A same-named
+companion-local declaration, bare companion reference, target callable
+parameter, target local `let` binding, or target pattern binding is a different
+symbol and is not edited inside the binding's scope. Record field labels and
+field accesses that use the same text are not function references. In
+`let name = name`, the initializer reference remains part of the production
+function identity when it resolves before the local binding starts. Valid target
+references after nested blocks, including `else if` branches, remain part of the
+production function identity. Calls through another qualifier, companion
+function-value references, companion public-alias targets, comments, and string
+literals are not edited.
 Definition, prepare-rename, and rename requests whose selected text is inside a
 comment or string literal do not identify the private target function. Wrong
 companions, `_test.veln` integration modules, and references through a target
@@ -147,8 +149,9 @@ diagnostics. Unsaved target or companion text can provide the declaration and
 reference locations used in the response. The routed executable evidence is
 `../../examples/specification/lsp/companion-private-function-identity/`. The
 `veln-lsp` server tests also cover companion private-function definition,
-prepare rename, rename edits, source-scope isolation, function-value
-references, callable shadowing, record field isolation, match-arm binding
+prepare rename, rename edits, source-scope isolation, target function-value
+references, target function-alias targets, companion function-value and alias
+rejection, callable shadowing, record field isolation, match-arm binding
 isolation, local-binding initializer references, rejected boundaries,
 request-origin filtering, and open-document overlays.
 

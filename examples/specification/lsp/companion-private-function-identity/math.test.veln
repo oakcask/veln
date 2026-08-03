@@ -6,7 +6,7 @@ end
 
 test target_private_reference() -> ()
   math::increment()
-  math::increment
+  math::increment()
 end
 
 test local_reference() -> ()
