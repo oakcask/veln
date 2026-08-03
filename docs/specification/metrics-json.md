@@ -58,16 +58,20 @@ The JSON document contains:
 
 - `tool.name`, `tool.version`, `command`, `status`, and `schema_version`;
 - `project.root` and `project.selected_paths`, with normalized relative paths
-  and no absolute paths;
+  and no absolute paths. Metrics-owned project-relative paths use `/`
+  separators in JSON, baseline JSON, and human locations;
 - `modules`, sorted by descending `dependency_pressure`, descending
   `fan_out`, descending `fan_in`, then module identity;
-- `edges`, sorted by source module and target module;
-- `cycles`, with sorted members and at least one concrete closed edge `path`;
+- `edges`, sorted by source module and target module, with canonical edge
+  spans;
+- `cycles`, sorted by first member and member count, with sorted members and
+  at least one concrete closed edge `path`;
 - `abc_subjects`, sorted by descending ABC magnitude, then project-relative
   path, declaration start offset, and subject kind;
 - `similarities`, sorted by descending token count, then primary declaration
   path, primary declaration start offset, primary declaration kind, and
-  fingerprint;
+  fingerprint. Declarations inside each instance are sorted by declaration
+  path, declaration start offset, and declaration kind;
 - `summary`, with selected module, project module, internal edge, cycle,
   external dependency, ABC subject, ABC contract-subject, similarity
   fingerprint, similarity instance, and similarity region counts;
@@ -75,12 +79,14 @@ The JSON document contains:
   and `truncated` for the corresponding human projection.
 
 `human_output.total_findings` counts detailed human-output findings in the
-canonical order: policy violations for checked reports, cycles, module rows,
-ABC subjects, and whole-body similarity instances. `human_output.omitted_findings`
-is the exact number omitted from the corresponding human projection. The
-report arrays remain complete when `human_output.truncated` is `true`.
-Baseline output does not include `human_output`, and baseline content is
-independent of the human-output limit.
+same canonical order used by JSON arrays and human prefixes: policy violations
+for checked reports, cycles, module rows, ABC subjects, and whole-body
+similarity instances. `human_output.omitted_findings` is the exact number
+omitted from the corresponding human projection. Equivalent source discovery
+orders and equivalent `/` or `\` project-relative path spellings produce the
+same ordered report. The report arrays remain complete when
+`human_output.truncated` is `true`. Baseline output does not include
+`human_output`, and baseline content is independent of the human-output limit.
 
 Each module record includes `module`, `path`, `generated`, `fan_in`,
 `fan_out`, `dependency_pressure`, `external_dependency_count`, and `span`.
@@ -190,6 +196,19 @@ Executable evidence:
   check exact whole-body similarity, identifier-sensitive exclusion,
   partial-body exclusion, human output placement and locations, summary
   counts, and advisory baseline behavior under `--check`.
+- The metrics `stable-ordering` and `stable-ordering-human` cases check
+  public CLI ordering for selected paths, modules, edges, cycles, ABC
+  subjects, same-token-count similarity instances, similarity declarations,
+  and the corresponding human prefix. The
+  `metrics_cli_output_is_stable_for_reversed_input_order` CLI integration test
+  checks byte-for-byte stable JSON and human output for reversed input order
+  when the detailed finding set is truncated.
+- The `canonical_path_ordering_survives_source_insertion_order_and_separators`
+  metrics crate test checks graph, ABC, similarity, baseline JSON, human
+  locations, and path-bearing identities across reversed source insertion
+  order and equivalent `/` or `\` project-relative path spellings. The
+  `renders_similarity_fingerprint_tiebreak_order_in_public_outputs` metrics
+  crate test checks the final fingerprint tie-break in JSON and human output.
 - The `generated_similarity_workload_preserves_pipeline_bounds` metrics crate
   test checks the parsed source and report pipeline with unrelated bodies, one
   large equivalence class, many two-declaration equivalence classes, and

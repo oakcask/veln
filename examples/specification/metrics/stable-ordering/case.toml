@@ -1,0 +1,100 @@
+command = ["metrics", "--json", "src/util.veln", "src/app.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "project.selected_paths.0"
+equals = "src/app.veln"
+
+[[json_assert]]
+path = "project.selected_paths.1"
+equals = "src/util.veln"
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "src::app"
+
+[[json_assert]]
+path = "modules.1.module"
+equals = "src::util"
+
+[[json_assert]]
+path = "edges.0.source"
+equals = "src::app"
+
+[[json_assert]]
+path = "edges.0.target"
+equals = "src::util"
+
+[[json_assert]]
+path = "edges.0.span.file"
+equals = "src/app.veln"
+
+[[json_assert]]
+path = "edges.1.source"
+equals = "src::util"
+
+[[json_assert]]
+path = "edges.1.target"
+equals = "src::app"
+
+[[json_assert]]
+path = "edges.1.span.file"
+equals = "src/util.veln"
+
+[[json_assert]]
+path = "cycles.0.members.0"
+equals = "src::app"
+
+[[json_assert]]
+path = "cycles.0.members.1"
+equals = "src::util"
+
+[[json_assert]]
+path = "cycles.0.path.0"
+equals = "src::app"
+
+[[json_assert]]
+path = "cycles.0.path.1"
+equals = "src::util"
+
+[[json_assert]]
+path = "cycles.0.path.2"
+equals = "src::app"
+
+[[json_assert]]
+path = "abc_subjects.0.identity"
+equals = "src/app.veln::duplicate_app"
+
+[[json_assert]]
+path = "abc_subjects.1.identity"
+equals = "src/app.veln::variant_app"
+
+[[json_assert]]
+path = "abc_subjects.2.identity"
+equals = "src/util.veln::duplicate_util"
+
+[[json_assert]]
+path = "similarities.0.declarations.0.identity"
+equals = "src/app.veln::duplicate_app"
+
+[[json_assert]]
+path = "similarities.0.declarations.1.identity"
+equals = "src/util.veln::duplicate_util"
+
+[[json_assert]]
+path = "similarities.1.token_count"
+equals = 19
+
+[[json_assert]]
+path = "similarities.1.declarations.0.identity"
+equals = "src/app.veln::variant_app"
+
+[[json_assert]]
+path = "similarities.1.declarations.1.identity"
+equals = "src/util.veln::variant_util"

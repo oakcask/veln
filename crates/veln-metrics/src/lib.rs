@@ -2866,6 +2866,107 @@ mod tests {
     }
 
     #[test]
+    fn canonical_path_ordering_survives_source_insertion_order_and_separators() {
+        let forward = stable_ordering_project(vec![
+            SourceFile::new("nested\\util.veln", STABLE_UTIL_SOURCE),
+            SourceFile::new("nested/app.veln", STABLE_APP_SOURCE),
+        ]);
+        let reversed = stable_ordering_project(vec![
+            SourceFile::new("nested\\app.veln", STABLE_APP_SOURCE),
+            SourceFile::new("nested/util.veln", STABLE_UTIL_SOURCE),
+        ]);
+        let selected = [
+            "nested/app.veln".to_string(),
+            "nested/util.veln".to_string(),
+        ]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+
+        let forward_report = metrics_report_from_project(&forward, &selected);
+        let reversed_report = metrics_report_from_project(&reversed, &selected);
+        let forward_json = report_to_json(&forward_report, tool_info()).to_json();
+        let reversed_json = report_to_json(&reversed_report, tool_info()).to_json();
+        let forward_human = render_human(&forward_report);
+        let reversed_human = render_human(&reversed_report);
+        let baseline_json = baseline_to_json(&forward_report, tool_info()).to_json();
+
+        assert_eq!(forward_json, reversed_json);
+        assert_eq!(forward_human, reversed_human);
+        assert!(!forward_json.contains('\\'));
+        assert!(!forward_human.contains('\\'));
+        assert!(!baseline_json.contains('\\'));
+        assert_eq!(
+            forward_report.project.selected_paths,
+            ["nested/app.veln", "nested/util.veln"]
+        );
+        assert_eq!(
+            forward_report
+                .modules
+                .iter()
+                .map(|module| module.module.as_str())
+                .collect::<Vec<_>>(),
+            ["nested::app", "nested::util"]
+        );
+        assert_eq!(
+            forward_report
+                .edges
+                .iter()
+                .map(|edge| (edge.source.as_str(), edge.target.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("nested::app", "nested::util"),
+                ("nested::util", "nested::app")
+            ]
+        );
+        assert_eq!(
+            forward_report
+                .abc_subjects
+                .iter()
+                .map(|subject| subject.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::duplicate_app",
+                "nested/app.veln::variant_app",
+                "nested/util.veln::duplicate_util",
+                "nested/util.veln::variant_util",
+                "nested/app.veln::add",
+                "nested/util.veln::add"
+            ]
+        );
+        assert_eq!(forward_report.similarities.len(), 2);
+        assert_eq!(
+            forward_report.similarities[0]
+                .declarations
+                .iter()
+                .map(|declaration| declaration.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::duplicate_app",
+                "nested/util.veln::duplicate_util"
+            ]
+        );
+        assert_eq!(
+            forward_report.similarities[1]
+                .declarations
+                .iter()
+                .map(|declaration| declaration.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::variant_app",
+                "nested/util.veln::variant_util"
+            ]
+        );
+        assert_eq!(
+            forward_report
+                .similarities
+                .iter()
+                .map(|instance| instance.token_count)
+                .collect::<Vec<_>>(),
+            [19, 19]
+        );
+    }
+
+    #[test]
     fn orders_abc_subjects_deterministically() {
         let project = Project {
             root: ".".into(),
@@ -3080,13 +3181,13 @@ mod tests {
                 "c.veln",
                 "pair_c",
                 "pair-two",
-                token_texts(&["t", "w", "o"]),
+                token_texts(&["t", "w", "o", "2"]),
             ),
             similarity_candidate(
                 "d.veln",
                 "pair_d",
                 "pair-two",
-                token_texts(&["t", "w", "o"]),
+                token_texts(&["t", "w", "o", "2"]),
             ),
             similarity_candidate("e.veln", "pair_e", "pair-three", token_texts(&["o", "k"])),
             similarity_candidate("f.veln", "pair_f", "pair-three", token_texts(&["o", "k"])),
@@ -3115,10 +3216,83 @@ mod tests {
                 .collect::<Vec<_>>(),
             [
                 (5, "a.veln::large_a", 4),
+                (4, "c.veln::pair_c", 2),
                 (4, "dir/a.veln::pair_a", 2),
-                (3, "c.veln::pair_c", 2),
                 (2, "e.veln::pair_e", 2)
             ]
+        );
+
+        let mut report = report_from_edges(&[]);
+        report.summary.similarity_fingerprint_count = fingerprint_count;
+        report.summary.similarity_instance_count = instances.len();
+        report.summary.similarity_region_count = region_count;
+        report.similarities = instances;
+
+        let json = report_to_json(&report, tool_info()).to_json();
+        let human = render_human(&report);
+
+        assert_before(
+            &json,
+            "\"identity\":\"c.veln::pair_c\"",
+            "\"identity\":\"dir/a.veln::pair_a\"",
+        );
+        assert_before(
+            &human,
+            "primary=c.veln::pair_c",
+            "primary=dir/a.veln::pair_a",
+        );
+    }
+
+    #[test]
+    fn renders_similarity_fingerprint_tiebreak_order_in_public_outputs() {
+        let instances = similarity_instances_from_candidates(vec![
+            similarity_candidate(
+                "same.veln",
+                "primary",
+                "fingerprint-b",
+                token_texts(&["b", "b"]),
+            ),
+            similarity_candidate(
+                "z.veln",
+                "related_b",
+                "fingerprint-b",
+                token_texts(&["b", "b"]),
+            ),
+            similarity_candidate(
+                "same.veln",
+                "primary",
+                "fingerprint-a",
+                token_texts(&["a", "a"]),
+            ),
+            similarity_candidate(
+                "z.veln",
+                "related_a",
+                "fingerprint-a",
+                token_texts(&["a", "a"]),
+            ),
+        ]);
+        let region_count = instances
+            .iter()
+            .map(|instance| instance.declarations.len())
+            .sum::<usize>();
+        let mut report = report_from_edges(&[]);
+        report.summary.similarity_fingerprint_count = 4;
+        report.summary.similarity_instance_count = instances.len();
+        report.summary.similarity_region_count = region_count;
+        report.similarities = instances;
+
+        let json = report_to_json(&report, tool_info()).to_json();
+        let human = render_human(&report);
+
+        assert_before(
+            &json,
+            "\"fingerprint\":\"fingerprint-a\"",
+            "\"fingerprint\":\"fingerprint-b\"",
+        );
+        assert_before(
+            &human,
+            "fingerprint=fingerprint-a",
+            "fingerprint=fingerprint-b",
         );
     }
 
@@ -3205,6 +3379,36 @@ mod tests {
             similarity_min_tokens: DEFAULT_SIMILARITY_MIN_TOKENS,
             human_output_max_findings: DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS,
         }
+    }
+
+    const STABLE_APP_SOURCE: &str = "use nested::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn variant_app() -> Int\n  let value = add(4, 5)\n  let other = add(value, 6)\n  other\nend\n";
+    const STABLE_UTIL_SOURCE: &str = "use nested::app\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_util() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn variant_util() -> Int\n  let value = add(4, 5)\n  let other = add(value, 6)\n  other\nend\n";
+
+    fn stable_ordering_project(files: Vec<SourceFile>) -> Project {
+        Project {
+            root: ".".into(),
+            manifest: None,
+            files,
+        }
+    }
+
+    fn metrics_report_from_project(
+        project: &Project,
+        selected_paths: &BTreeSet<String>,
+    ) -> MetricsReport {
+        let graph = DependencyGraph::from_project(project).expect("graph");
+        graph.report(
+            project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: selected_paths.iter().cloned().collect(),
+            },
+            selected_paths,
+            MetricsConfig {
+                similarity_min_tokens: 8,
+                ..default_metrics_config()
+            },
+        )
     }
 
     fn similarity_candidate(
