@@ -4,6 +4,26 @@ fn path(module: &str, name: &str) -> Vec<String> {
     vec![module.to_string(), name.to_string()]
 }
 
+fn path_type() -> Type {
+    Type::named("Path", Vec::new())
+}
+
+fn byte_chunk_type() -> Type {
+    Type::named("ByteChunk", Vec::new())
+}
+
+fn net_listener_type() -> Type {
+    Type::named("NetListener", Vec::new())
+}
+
+fn net_stream_type() -> Type {
+    Type::named("NetStream", Vec::new())
+}
+
+fn cancel_owner_type() -> Type {
+    Type::named("CancelOwner", Vec::new())
+}
+
 fn assert_standard_signature(module: &str, name: &str, params: Vec<Type>, return_type: Type) {
     assert_eq!(
         standard_library_signature(&path(module, name)),
@@ -251,5 +271,21 @@ fn time_cancellation_signatures_come_from_standard_descriptors() {
         "wait_until_cancellable_outcome",
         vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
         Type::named("CancellableWaitOutcome", Vec::new()),
+    );
+}
+
+#[test]
+fn standard_type_lowering_preserves_named_types_inside_containers() {
+    let nested = StandardType::Result(
+        &StandardType::Vec(&StandardType::Named("Path")),
+        &StandardType::Named("ProcessError"),
+    );
+
+    assert_eq!(
+        standard_type(&nested),
+        Some(adt::result_type(
+            Type::vec(Type::named("Path", Vec::new())),
+            Type::named("ProcessError", Vec::new()),
+        ))
     );
 }

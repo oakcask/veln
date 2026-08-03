@@ -111,21 +111,7 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
         StandardType::Int => Some(Type::int()),
         StandardType::String => Some(Type::string()),
         StandardType::Unit => Some(Type::unit()),
-        StandardType::Path => Some(path_type()),
-        StandardType::FsError => Some(Type::named("FsError", Vec::new())),
-        StandardType::ProcessError => Some(Type::named("ProcessError", Vec::new())),
-        StandardType::ByteChunk => Some(byte_chunk_type()),
-        StandardType::NetListener => Some(net_listener_type()),
-        StandardType::NetStream => Some(net_stream_type()),
-        StandardType::Deadline => Some(Type::named("Deadline", Vec::new())),
-        StandardType::CancelOwner => Some(cancel_owner_type()),
-        StandardType::CancelToken => Some(cancel_token_type()),
-        StandardType::AcceptOutcome => Some(Type::named("AcceptOutcome", Vec::new())),
-        StandardType::StreamReadOutcome => Some(Type::named("StreamReadOutcome", Vec::new())),
-        StandardType::StreamWriteOutcome => Some(Type::named("StreamWriteOutcome", Vec::new())),
-        StandardType::CancellableWaitOutcome => {
-            Some(Type::named("CancellableWaitOutcome", Vec::new()))
-        }
+        StandardType::Named(name) => Some(Type::named(*name, Vec::new())),
         StandardType::Vec(item) => Some(Type::vec(standard_type(item)?)),
         StandardType::List(item) => Some(adt::list_type(standard_type(item)?)),
         StandardType::Option(value) => Some(adt::option_type(standard_type(value)?)),
@@ -146,28 +132,8 @@ pub(crate) fn core_standard_library_signature(
     ))
 }
 
-fn path_type() -> Type {
-    Type::named("Path", Vec::new())
-}
-
-fn byte_chunk_type() -> Type {
-    Type::named("ByteChunk", Vec::new())
-}
-
-fn net_listener_type() -> Type {
-    Type::named("NetListener", Vec::new())
-}
-
-fn net_stream_type() -> Type {
-    Type::named("NetStream", Vec::new())
-}
-
 fn cancel_token_type() -> Type {
     Type::named("CancelToken", Vec::new())
-}
-
-fn cancel_owner_type() -> Type {
-    Type::named("CancelOwner", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(

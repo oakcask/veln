@@ -27,19 +27,7 @@ pub(crate) enum StandardType {
     Int,
     String,
     Unit,
-    Path,
-    FsError,
-    ProcessError,
-    ByteChunk,
-    NetListener,
-    NetStream,
-    Deadline,
-    CancelOwner,
-    CancelToken,
-    AcceptOutcome,
-    StreamReadOutcome,
-    StreamWriteOutcome,
-    CancellableWaitOutcome,
+    Named(&'static str),
     Vec(&'static StandardType),
     List(&'static StandardType),
     Option(&'static StandardType),
@@ -64,14 +52,14 @@ const PURE_EFFECTS: &[&str] = &[];
 const STRING_TYPE: StandardType = StandardType::String;
 const UNIT_TYPE: StandardType = StandardType::Unit;
 const BOOL_TYPE: StandardType = StandardType::Bool;
-const PATH_TYPE: StandardType = StandardType::Path;
-const FS_ERROR_TYPE: StandardType = StandardType::FsError;
-const PROCESS_ERROR_TYPE: StandardType = StandardType::ProcessError;
-const BYTE_CHUNK_TYPE: StandardType = StandardType::ByteChunk;
-const NET_STREAM_TYPE: StandardType = StandardType::NetStream;
-const ACCEPT_OUTCOME_TYPE: StandardType = StandardType::AcceptOutcome;
-const STREAM_READ_OUTCOME_TYPE: StandardType = StandardType::StreamReadOutcome;
-const STREAM_WRITE_OUTCOME_TYPE: StandardType = StandardType::StreamWriteOutcome;
+const PATH_TYPE: StandardType = StandardType::Named("Path");
+const FS_ERROR_TYPE: StandardType = StandardType::Named("FsError");
+const PROCESS_ERROR_TYPE: StandardType = StandardType::Named("ProcessError");
+const BYTE_CHUNK_TYPE: StandardType = StandardType::Named("ByteChunk");
+const NET_STREAM_TYPE: StandardType = StandardType::Named("NetStream");
+const ACCEPT_OUTCOME_TYPE: StandardType = StandardType::Named("AcceptOutcome");
+const STREAM_READ_OUTCOME_TYPE: StandardType = StandardType::Named("StreamReadOutcome");
+const STREAM_WRITE_OUTCOME_TYPE: StandardType = StandardType::Named("StreamWriteOutcome");
 const RESULT_STRING_FS_ERROR_TYPE: StandardType =
     StandardType::Result(&STRING_TYPE, &FS_ERROR_TYPE);
 const RESULT_UNIT_FS_ERROR_TYPE: StandardType = StandardType::Result(&UNIT_TYPE, &FS_ERROR_TYPE);
@@ -86,58 +74,66 @@ const VEC_STRING_TYPE: StandardType = StandardType::Vec(&STRING_TYPE);
 const OPTION_STRING_TYPE: StandardType = StandardType::Option(&STRING_TYPE);
 const RESULT_PATH_PROCESS_ERROR_TYPE: StandardType =
     StandardType::Result(&PATH_TYPE, &PROCESS_ERROR_TYPE);
-const PARAM_PATH: &[StandardType] = &[StandardType::Path];
-const PARAM_PATH_STRING: &[StandardType] = &[StandardType::Path, StandardType::String];
-const PARAM_BYTE_CHUNK: &[StandardType] = &[StandardType::ByteChunk];
+const PARAM_PATH: &[StandardType] = &[StandardType::Named("Path")];
+const PARAM_PATH_STRING: &[StandardType] = &[StandardType::Named("Path"), StandardType::String];
+const PARAM_BYTE_CHUNK: &[StandardType] = &[StandardType::Named("ByteChunk")];
 const PARAM_STRING: &[StandardType] = &[StandardType::String];
-const PARAM_NET_LISTENER: &[StandardType] = &[StandardType::NetListener];
-const PARAM_NET_LISTENER_DEADLINE: &[StandardType] =
-    &[StandardType::NetListener, StandardType::Deadline];
+const PARAM_NET_LISTENER: &[StandardType] = &[StandardType::Named("NetListener")];
+const PARAM_NET_LISTENER_DEADLINE: &[StandardType] = &[
+    StandardType::Named("NetListener"),
+    StandardType::Named("Deadline"),
+];
 const PARAM_NET_LISTENER_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::NetListener,
-    StandardType::Deadline,
-    StandardType::CancelToken,
+    StandardType::Named("NetListener"),
+    StandardType::Named("Deadline"),
+    StandardType::Named("CancelToken"),
 ];
-const PARAM_NET_STREAM: &[StandardType] = &[StandardType::NetStream];
-const PARAM_NET_STREAM_DEADLINE: &[StandardType] =
-    &[StandardType::NetStream, StandardType::Deadline];
+const PARAM_NET_STREAM: &[StandardType] = &[StandardType::Named("NetStream")];
+const PARAM_NET_STREAM_DEADLINE: &[StandardType] = &[
+    StandardType::Named("NetStream"),
+    StandardType::Named("Deadline"),
+];
 const PARAM_NET_STREAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::NetStream,
-    StandardType::Deadline,
-    StandardType::CancelToken,
+    StandardType::Named("NetStream"),
+    StandardType::Named("Deadline"),
+    StandardType::Named("CancelToken"),
 ];
-const PARAM_NET_STREAM_BYTE_CHUNK: &[StandardType] =
-    &[StandardType::NetStream, StandardType::ByteChunk];
+const PARAM_NET_STREAM_BYTE_CHUNK: &[StandardType] = &[
+    StandardType::Named("NetStream"),
+    StandardType::Named("ByteChunk"),
+];
 const PARAM_NET_STREAM_BYTE_CHUNK_DEADLINE: &[StandardType] = &[
-    StandardType::NetStream,
-    StandardType::ByteChunk,
-    StandardType::Deadline,
+    StandardType::Named("NetStream"),
+    StandardType::Named("ByteChunk"),
+    StandardType::Named("Deadline"),
 ];
 const PARAM_NET_STREAM_BYTE_CHUNK_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::NetStream,
-    StandardType::ByteChunk,
-    StandardType::Deadline,
-    StandardType::CancelToken,
+    StandardType::Named("NetStream"),
+    StandardType::Named("ByteChunk"),
+    StandardType::Named("Deadline"),
+    StandardType::Named("CancelToken"),
 ];
 const PARAM_NET_STREAM_BYTE_CHUNKS: &[StandardType] =
-    &[StandardType::NetStream, LIST_BYTE_CHUNK_TYPE];
+    &[StandardType::Named("NetStream"), LIST_BYTE_CHUNK_TYPE];
 const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE: &[StandardType] = &[
-    StandardType::NetStream,
+    StandardType::Named("NetStream"),
     LIST_BYTE_CHUNK_TYPE,
-    StandardType::Deadline,
+    StandardType::Named("Deadline"),
 ];
 const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::NetStream,
+    StandardType::Named("NetStream"),
     LIST_BYTE_CHUNK_TYPE,
-    StandardType::Deadline,
-    StandardType::CancelToken,
+    StandardType::Named("Deadline"),
+    StandardType::Named("CancelToken"),
 ];
 const PARAM_INT: &[StandardType] = &[StandardType::Int];
-const PARAM_DEADLINE: &[StandardType] = &[StandardType::Deadline];
-const PARAM_CANCEL_OWNER: &[StandardType] = &[StandardType::CancelOwner];
-const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::CancelToken];
-const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] =
-    &[StandardType::Deadline, StandardType::CancelToken];
+const PARAM_DEADLINE: &[StandardType] = &[StandardType::Named("Deadline")];
+const PARAM_CANCEL_OWNER: &[StandardType] = &[StandardType::Named("CancelOwner")];
+const PARAM_CANCEL_TOKEN: &[StandardType] = &[StandardType::Named("CancelToken")];
+const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
+    StandardType::Named("Deadline"),
+    StandardType::Named("CancelToken"),
+];
 #[cfg(test)]
 const STANDARD_PACKAGE_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
@@ -320,7 +316,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.receive_chunk",
         StandardSignature {
             params: &[],
-            return_type: StandardType::ByteChunk,
+            return_type: StandardType::Named("ByteChunk"),
         },
     ),
     runtime_symbol_with_signature(
@@ -340,7 +336,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.listen",
         StandardSignature {
             params: PARAM_STRING,
-            return_type: StandardType::NetListener,
+            return_type: StandardType::Named("NetListener"),
         },
     ),
     runtime_symbol_with_signature(
@@ -350,7 +346,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.connect",
         StandardSignature {
             params: PARAM_STRING,
-            return_type: StandardType::NetStream,
+            return_type: StandardType::Named("NetStream"),
         },
     ),
     runtime_symbol_with_signature(
@@ -360,7 +356,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.accept",
         StandardSignature {
             params: PARAM_NET_LISTENER,
-            return_type: StandardType::NetStream,
+            return_type: StandardType::Named("NetStream"),
         },
     ),
     runtime_symbol_with_signature(
@@ -410,7 +406,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.net.read_chunk",
         StandardSignature {
             params: PARAM_NET_STREAM,
-            return_type: StandardType::ByteChunk,
+            return_type: StandardType::Named("ByteChunk"),
         },
     ),
     runtime_symbol_with_signature(
@@ -660,7 +656,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.deadline_after_ms",
         StandardSignature {
             params: PARAM_INT,
-            return_type: StandardType::Deadline,
+            return_type: StandardType::Named("Deadline"),
         },
     ),
     runtime_symbol_with_signature(
@@ -670,7 +666,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.deadline_at_ms",
         StandardSignature {
             params: PARAM_INT,
-            return_type: StandardType::Deadline,
+            return_type: StandardType::Named("Deadline"),
         },
     ),
     runtime_symbol_with_signature(
@@ -690,7 +686,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.cancel_token",
         StandardSignature {
             params: &[],
-            return_type: StandardType::CancelToken,
+            return_type: StandardType::Named("CancelToken"),
         },
     ),
     runtime_symbol_with_signature(
@@ -700,7 +696,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.cancel_owner",
         StandardSignature {
             params: &[],
-            return_type: StandardType::CancelOwner,
+            return_type: StandardType::Named("CancelOwner"),
         },
     ),
     runtime_symbol_with_signature(
@@ -710,7 +706,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.cancel_token_from",
         StandardSignature {
             params: PARAM_CANCEL_OWNER,
-            return_type: StandardType::CancelToken,
+            return_type: StandardType::Named("CancelToken"),
         },
     ),
     runtime_symbol_with_signature(
@@ -770,7 +766,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         "runtime.time.wait_until_cancellable_outcome",
         StandardSignature {
             params: PARAM_DEADLINE_CANCEL_TOKEN,
-            return_type: StandardType::CancellableWaitOutcome,
+            return_type: StandardType::Named("CancellableWaitOutcome"),
         },
     ),
 ];
