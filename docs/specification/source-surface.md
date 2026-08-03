@@ -86,6 +86,7 @@ The checked source ADT cases are
 `examples/specification/check/companion-private-source-adt-non-transitive/`,
 and `examples/specification/test/companion-private-source-adt-access/`.
 The checked private schema cases are
+`examples/specification/check/companion-private-schema-access/`,
 `examples/specification/check/companion-private-schema-boundaries/`,
 `examples/specification/check/companion-private-schema-wrong-target-context/`,
 `examples/specification/check/companion-private-schema-wrong-target-context-human/`, and
