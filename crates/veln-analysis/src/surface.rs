@@ -1656,6 +1656,14 @@ struct LocalBinding {
     function_shape: Option<FunctionShape>,
 }
 
+struct FunctionCalleeContext<'a> {
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    function_targets: &'a [FunctionTarget],
+    companion_access_targets: &'a HashMap<String, String>,
+    handlers: &'a [veln_ast::HandlerDecl],
+}
+
 fn direct_function_callees(
     function: &Function,
     module: &SurfaceModule,
@@ -1663,8 +1671,13 @@ fn direct_function_callees(
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
-    let current_module = function.module_name.as_deref();
-    let uses = &module.uses;
+    let context = FunctionCalleeContext {
+        current_module: function.module_name.as_deref(),
+        uses: &module.uses,
+        function_targets,
+        companion_access_targets,
+        handlers: &module.handlers,
+    };
     let mut local_bindings = function
         .params
         .iter()
@@ -1676,8 +1689,8 @@ fn direct_function_callees(
     for contract in &function.contracts {
         collect_contract_callees(
             &contract.text,
-            current_module,
-            uses,
+            context.current_module,
+            context.uses,
             function_targets,
             companion_access_targets,
             &mut callees,
@@ -1690,16 +1703,7 @@ fn direct_function_callees(
                 annotation,
                 expr,
             } => {
-                collect_function_callees(
-                    expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    &module.handlers,
-                    &local_bindings,
-                    &mut callees,
-                );
+                collect_function_callees(expr, &context, &local_bindings, &mut callees);
                 collect_pattern_bindings(
                     pattern,
                     annotation.as_deref().and_then(function_type_shape),
@@ -1707,16 +1711,7 @@ fn direct_function_callees(
                 );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(
-                    expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    &module.handlers,
-                    &local_bindings,
-                    &mut callees,
-                );
+                collect_function_callees(expr, &context, &local_bindings, &mut callees);
             }
         }
     }
@@ -1851,88 +1846,42 @@ fn collect_contract_function_value_references(
 
 fn collect_function_callees(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
-    companion_access_targets: &HashMap<String, String>,
-    handlers: &[veln_ast::HandlerDecl],
+    context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let function_targets = context.function_targets;
+    let companion_access_targets = context.companion_access_targets;
+    let handlers = context.handlers;
+
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            collect_function_name_reference(
-                segments,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                local_bindings,
-                None,
-                callees,
-            );
+            collect_function_name_reference(segments, context, local_bindings, None, callees);
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(
-                callee,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(callee, context, local_bindings, callees);
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
                 collect_function_name_reference(
                     segments,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
+                    context,
                     local_bindings,
                     Some(args.len()),
                     callees,
                 );
             } else {
-                collect_function_callees(
-                    callee,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(callee, context, local_bindings, callees);
             }
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::Handle { body, args, .. } => {
@@ -1945,161 +1894,44 @@ fn collect_function_callees(
                 handlers,
                 callees,
             );
-            collect_function_callees(
-                body,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(body, context, local_bindings, callees);
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_function_callees(
-                input,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(input, context, local_bindings, callees);
+            collect_function_callees(base, context, local_bindings, callees);
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_function_callees(
-                value,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(value, context, local_bindings, callees);
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(base, context, local_bindings, callees);
         }
-        ExprKind::Try(inner) => collect_function_callees(
-            inner,
-            current_module,
-            uses,
-            function_targets,
-            companion_access_targets,
-            handlers,
-            local_bindings,
-            callees,
-        ),
+        ExprKind::Try(inner) => collect_function_callees(inner, context, local_bindings, callees),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_function_callees(
-                    &field.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&field.expr, context, local_bindings, callees);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_function_callees(
-                    &entry.key,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
-                collect_function_callees(
-                    &entry.value,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&entry.key, context, local_bindings, callees);
+                collect_function_callees(&entry.value, context, local_bindings, callees);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(
-                    item,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(item, context, local_bindings, callees);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(
-                scrutinee,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(scrutinee, context, local_bindings, callees);
             for arm in arms {
                 let mut arm_bindings = local_bindings.to_vec();
                 collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_function_callees(
-                    &arm.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    &arm_bindings,
-                    callees,
-                );
+                collect_function_callees(&arm.expr, context, &arm_bindings, callees);
             }
         }
         ExprKind::If {
@@ -2108,92 +1940,20 @@ fn collect_function_callees(
             else_if_branches,
             else_branch,
         } => {
-            collect_function_callees(
-                condition,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                then_branch,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(condition, context, local_bindings, callees);
+            collect_function_callees(then_branch, context, local_bindings, callees);
             for branch in else_if_branches {
-                collect_function_callees(
-                    &branch.condition,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
-                collect_function_callees(
-                    &branch.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    companion_access_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&branch.condition, context, local_bindings, callees);
+                collect_function_callees(&branch.expr, context, local_bindings, callees);
             }
-            collect_function_callees(
-                else_branch,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(else_branch, context, local_bindings, callees);
         }
         ExprKind::Prefix { expr, .. } => {
-            collect_function_callees(
-                expr,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(expr, context, local_bindings, callees);
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(
-                left,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                right,
-                current_module,
-                uses,
-                function_targets,
-                companion_access_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(left, context, local_bindings, callees);
+            collect_function_callees(right, context, local_bindings, callees);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -2364,14 +2124,16 @@ fn split_top_level_commas(text: &str) -> Vec<&str> {
 
 fn collect_function_name_reference(
     segments: &[String],
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
-    companion_access_targets: &HashMap<String, String>,
+    context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
     arg_count: Option<usize>,
     callees: &mut Vec<ReachableFunction>,
 ) {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let function_targets = context.function_targets;
+    let companion_access_targets = context.companion_access_targets;
+
     if let [name] = segments
         && let Some(binding) = local_bindings
             .iter()

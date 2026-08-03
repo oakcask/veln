@@ -70,9 +70,8 @@ end
 ```
 
 The implemented function slice is specified in
-`../specification/source-surface.md` and checked by the
-`../../examples/specification/check/companion-private-function-*` and
-`../../examples/specification/test/companion-private-function-access/` cases.
+`../specification/source-surface.md`, which routes to the checked companion
+private-function examples.
 Remaining proposal work applies the same exact permission model to other
 declaration kinds that ordinary same-module lookup can select, including
 types, constructors, schemas, codecs, aliases, effects, and handlers.
