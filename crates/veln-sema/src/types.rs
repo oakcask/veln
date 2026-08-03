@@ -3714,74 +3714,128 @@ fn schema_decode_record_fields_inner_after_push(
     let mut decoded_fields = BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
-        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            supported_encode_reserved_bits(&schema.fields, index, reserved)?;
+        let decoded = schema_decode_binary_record_field(
+            module,
+            schema,
+            &decoded_fields,
+            index,
+            field,
+            stack,
+        )?;
+        let SchemaDecodedRecordField::Visible { ty, width } = decoded else {
             continue;
-        }
-        let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            (width, Type::int())
-        } else if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
-            if length_expr.references().into_iter().any(|reference| {
-                schema_field_reference_type(&decoded_fields, reference) != Some(&Type::int())
-            }) {
-                return None;
-            }
-            (0, Type::named("ByteView", Vec::new()))
-        } else if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            if schema_length_expression_references(&repeat.count_field)?
-                .into_iter()
-                .any(|reference| {
-                    schema_field_reference_type(&decoded_fields, reference) != Some(&Type::int())
-                })
-            {
-                return None;
-            }
-            if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload
-                && schema_length_expression_references(length_field)?
-                    .into_iter()
-                    .any(|reference| {
-                        schema_field_reference_type(&decoded_fields, reference)
-                            != Some(&Type::int())
-                    })
-            {
-                return None;
-            }
-            if let SchemaRepeatPayload::ReservedBits { .. } = &repeat.payload {
-                continue;
-            }
-            let element_ty = schema_repeat_payload_type(module, schema, &repeat, stack)?;
-            (0, Type::named("List", vec![element_ty]))
-        } else if let Some(nested) = schema_field_target(module, schema, &field.ty)
-            && nested.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
-        {
-            (0, schema_decode_value_type_inner(module, nested, stack)?)
-        } else if let Some(record_ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
-            (0, record_ty)
-        } else {
-            let dispatch = closed_dispatch_schema_primitive(&field.ty)
-                .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-            if schema_field_reference_type(&decoded_fields, &dispatch.tag_field)
-                != Some(&Type::int())
-                || dispatch.length_field.as_ref().is_some_and(|length_field| {
-                    schema_field_reference_type(&decoded_fields, length_field) != Some(&Type::int())
-                })
-            {
-                return None;
-            }
-            let payload_types = schema_dispatch_case_types(module, schema, &dispatch, stack)?;
-            let payload_ty =
-                schema_dispatch_payload_type(module, schema, field, &dispatch, &payload_types)?;
-            let field_ty = if dispatch.preserves_unknown {
-                Type::named("SchemaDispatchPayload", vec![payload_ty])
-            } else {
-                payload_ty
-            };
-            (0, field_ty)
         };
         decoded_fields.insert(field.name.clone(), ty.clone());
         fields.push((field.name.clone(), ty, width));
     }
     Some(fields)
+}
+
+enum SchemaDecodedRecordField {
+    Omitted,
+    Visible { ty: Type, width: u8 },
+}
+
+fn schema_decode_binary_record_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &BTreeMap<String, Type>,
+    index: usize,
+    field: &SchemaField,
+    stack: &mut Vec<String>,
+) -> Option<SchemaDecodedRecordField> {
+    if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+        supported_encode_reserved_bits(&schema.fields, index, reserved)?;
+        return Some(SchemaDecodedRecordField::Omitted);
+    }
+    if let Some(width) = exact_width_schema_primitive(&field.ty) {
+        return Some(SchemaDecodedRecordField::Visible {
+            ty: Type::int(),
+            width,
+        });
+    }
+    if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+        return schema_references_are_decoded_ints(decoded_fields, length_expr.references())
+            .then_some(SchemaDecodedRecordField::Visible {
+                ty: Type::named("ByteView", Vec::new()),
+                width: 0,
+            });
+    }
+    if let Some(repeat) = repeat_schema_primitive(&field.ty) {
+        return schema_decode_repeat_record_field(module, schema, decoded_fields, &repeat, stack);
+    }
+    if let Some(nested) = schema_field_target(module, schema, &field.ty)
+        && nested.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
+    {
+        return Some(SchemaDecodedRecordField::Visible {
+            ty: schema_decode_value_type_inner(module, nested, stack)?,
+            width: 0,
+        });
+    }
+    if let Some(ty) = binary_schema_anonymous_record_decode_type(&field.ty) {
+        return Some(SchemaDecodedRecordField::Visible { ty, width: 0 });
+    }
+    schema_decode_dispatch_record_field(module, schema, decoded_fields, field, stack)
+}
+
+fn schema_decode_repeat_record_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &BTreeMap<String, Type>,
+    repeat: &SchemaRepeatSpec,
+    stack: &mut Vec<String>,
+) -> Option<SchemaDecodedRecordField> {
+    let count_references = schema_length_expression_references(&repeat.count_field)?;
+    if !schema_references_are_decoded_ints(decoded_fields, count_references) {
+        return None;
+    }
+    if let SchemaRepeatPayload::ByteView { length_field } = &repeat.payload {
+        let length_references = schema_length_expression_references(length_field)?;
+        if !schema_references_are_decoded_ints(decoded_fields, length_references) {
+            return None;
+        }
+    }
+    if let SchemaRepeatPayload::ReservedBits { .. } = repeat.payload {
+        return Some(SchemaDecodedRecordField::Omitted);
+    }
+    let element_ty = schema_repeat_payload_type(module, schema, repeat, stack)?;
+    Some(SchemaDecodedRecordField::Visible {
+        ty: Type::named("List", vec![element_ty]),
+        width: 0,
+    })
+}
+
+fn schema_decode_dispatch_record_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &BTreeMap<String, Type>,
+    field: &SchemaField,
+    stack: &mut Vec<String>,
+) -> Option<SchemaDecodedRecordField> {
+    let dispatch = closed_dispatch_schema_primitive(&field.ty)
+        .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+    let references =
+        std::iter::once(dispatch.tag_field.as_str()).chain(dispatch.length_field.as_deref());
+    if !schema_references_are_decoded_ints(decoded_fields, references) {
+        return None;
+    }
+    let payload_types = schema_dispatch_case_types(module, schema, &dispatch, stack)?;
+    let payload_ty = schema_dispatch_payload_type(module, schema, &dispatch, &payload_types)?;
+    let ty = if dispatch.preserves_unknown {
+        Type::named("SchemaDispatchPayload", vec![payload_ty])
+    } else {
+        payload_ty
+    };
+    Some(SchemaDecodedRecordField::Visible { ty, width: 0 })
+}
+
+fn schema_references_are_decoded_ints<'a>(
+    decoded_fields: &BTreeMap<String, Type>,
+    references: impl IntoIterator<Item = &'a str>,
+) -> bool {
+    references.into_iter().all(|reference| {
+        schema_field_reference_type(decoded_fields, reference) == Some(&Type::int())
+    })
 }
 
 fn schema_dispatch_case_types(
@@ -3803,7 +3857,6 @@ fn schema_dispatch_case_types(
 fn schema_dispatch_payload_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
-    _field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
     payload_types: &[(i64, Type)],
 ) -> Option<Type> {
