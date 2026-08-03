@@ -129,13 +129,15 @@ the selected function-name range for the same accepted identity.
 function declaration, valid call or function-value references in the target
 source, and valid qualified call or function-value references in the exact
 matching companion. A same-named companion-local declaration, bare companion
-reference, or target source reference shadowed by a callable parameter is a
-different symbol and is not edited. Calls through another qualifier, comments,
-and string literals are not edited. Definition, prepare-rename, and rename
-requests whose selected text is inside a comment or string literal do not
-identify the private target function. Wrong companions, `_test.veln`
-integration modules, and references through a target dependency do not receive
-private-function definition or rename results.
+reference, target callable parameter, target local `let` binding, or target
+pattern binding is a different symbol and is not edited inside the binding's
+scope. Valid target references after nested blocks, including `else if`
+branches, remain part of the production function identity. Calls through
+another qualifier, comments, and string literals are not edited. Definition,
+prepare-rename, and rename requests whose selected text is inside a comment or
+string literal do not identify the private target function. Wrong companions,
+`_test.veln` integration modules, and references through a target dependency do
+not receive private-function definition or rename results.
 
 Definition and rename use the same open-document overlays as workspace
 diagnostics. Unsaved target or companion text can provide the declaration and
