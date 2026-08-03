@@ -163,7 +163,8 @@ checked behavior is specified by
 When a `.test.veln` companion writes an explicit `use` for its exact target,
 the same qualified target path can name a private target nominal effect in
 `perform`, declaration effect lists, function type annotation effect lists,
-and companion-local handler `handles` clauses. The permission is exact and
+companion-local handler `handles` clauses, and declared handler effect lists.
+The permission is exact and
 non-transitive. Bare names, missing imports, wrong-target companions,
 `_test.veln` integration modules, and external packages do not receive this
 private effect access. The checked cases are routed from

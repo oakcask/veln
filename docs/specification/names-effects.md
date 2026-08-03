@@ -28,7 +28,8 @@ compiler-known calls.
 - A `.test.veln` companion with an explicit target import may name private
   target nominal effects through qualified target paths in `perform`,
   declaration effect lists, function type annotation effect lists, and
-  companion-local handler `handles` clauses. The checked
+  companion-local handler `handles` clauses and declared handler effect
+  lists. The checked
   `companion-private-effect-*` cases fix the exact-target and isolation
   boundaries.
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested

@@ -60,7 +60,8 @@ explicit target `use` and uses a qualified target path. A test companion may
 also refer to a private nominal effect from its exact target in
 `perform X::Effect::operation(...)`, declaration `effects [X::Effect]` lists,
 function type annotation effect lists, and companion-local
-`handler ... handles X::Effect` declarations. These permissions are not
+`handler ... handles X::Effect` declarations and
+`handler ... effects [X::Effect]` lists. These permissions are not
 transitive through modules imported by the target, and they do not add bare
 target-name lookup. The checked function cases are
 `examples/specification/check/companion-private-function-access/`,
@@ -102,6 +103,7 @@ The checked private effect cases are
 `examples/specification/check/companion-private-effect-missing-import/`,
 `examples/specification/check/companion-private-effect-wrong-target-json/`,
 `examples/specification/check/companion-private-effect-wrong-target-human/`,
+`examples/specification/check/companion-private-effect-handler-effects-wrong-target/`,
 `examples/specification/check/companion-private-effect-non-transitive/`, and
 `examples/specification/check/companion-private-effect-integration-boundary/`.
 

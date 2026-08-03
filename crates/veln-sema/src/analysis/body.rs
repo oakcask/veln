@@ -10,7 +10,8 @@ use super::*;
 use crate::effects::prelude_effect_origin;
 use crate::standard_symbols::qualified_symbol;
 use crate::types::{
-    FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution, lowercase_schema_primitive,
+    FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
+    lowercase_schema_primitive,
 };
 
 pub(crate) fn check_function_body(

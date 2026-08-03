@@ -105,7 +105,10 @@ diagnostic exposes `details.companion_path`,
 checked by
 `examples/specification/check/companion-private-effect-wrong-target-json/`
 and
-`examples/specification/check/companion-private-effect-wrong-target-human/`.
+`examples/specification/check/companion-private-effect-wrong-target-human/`;
+declared handler effect list coverage also checks
+`details.boundary = "handler_declaration_effects"` in
+`examples/specification/check/companion-private-effect-handler-effects-wrong-target/`.
 Companion public declaration diagnostics use
 `module.companion_public_declaration`. The diagnostic exposes
 `details.companion_path` and a stable `details.reason` that identifies the

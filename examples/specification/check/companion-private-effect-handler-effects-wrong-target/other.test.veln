@@ -1,0 +1,10 @@
+use other
+use math
+
+handler local() handles other::Local effects [math::Ask]
+	value = provide
+end
+
+fn provide() -> Int
+	1
+end
