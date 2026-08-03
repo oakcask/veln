@@ -1,0 +1,3 @@
+[tool.metrics]
+deny_cycles = "true"
+similarity_min_tokens = "8"

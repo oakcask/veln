@@ -20,8 +20,11 @@ syntax-and-module-graph report.
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
 enforceable policy enabled and fail as a command configuration error without a
-clean check report. Any `[tool.metrics]` field other than `deny_cycles`, or a
-`deny_cycles` value other than `"true"` or `"false"`, is a manifest command
+clean check report. `[tool.metrics] similarity_min_tokens = "N"` sets the
+minimum normalized token count for experimental whole-body similarity. It
+defaults to `"60"` and must be a positive integer string. Any other
+`[tool.metrics]` field, a `deny_cycles` value other than `"true"` or
+`"false"`, or an invalid `similarity_min_tokens` value is a manifest command
 error at the field span.
 
 A successful check keeps the complete metrics report and adds `check.mode:
@@ -60,8 +63,12 @@ The JSON document contains:
 - `cycles`, with sorted members and at least one concrete closed edge `path`;
 - `abc_subjects`, sorted by descending ABC magnitude, then project-relative
   path, declaration start offset, and subject kind;
+- `similarities`, sorted by descending token count, then primary declaration
+  path, primary declaration start offset, primary declaration kind, and
+  fingerprint;
 - `summary`, with selected module, project module, internal edge, cycle,
-  external dependency, ABC subject, and ABC contract-subject counts.
+  external dependency, ABC subject, ABC contract-subject, similarity
+  fingerprint, similarity instance, and similarity region counts.
 
 Each module record includes `module`, `path`, `generated`, `fan_in`,
 `fan_out`, `dependency_pressure`, `external_dependency_count`, and `span`.
@@ -99,6 +106,24 @@ Nested expressions contribute to the containing declaration. Declaration
 signatures, result bindings, type and effect annotations, and contract text do
 not contribute. `contracts_included` is `false` for every ABC subject.
 
+Each similarity record describes one experimental exact whole-body similarity
+instance among selected project-owned source function or test declarations. It
+includes `identity`, `fingerprint`, `token_count`, `experimental`, and
+`declarations`. `experimental` is `true`. `identity` is
+`similarity:` followed by the normalized-token fingerprint. Each declaration
+record includes `identity`, `path`, `name`, `kind`, `generated`, `span`, and
+`body_span`. `kind` is `function` or `test`.
+
+Similarity compares complete declaration bodies after removing comments,
+documentation text, whitespace, and formatting-only newlines. Identifier
+spelling and literal token text remain significant. A similarity instance is
+reported only when two or more declarations have equal complete normalized
+body token sequences and the sequence contains at least the effective
+`similarity_min_tokens` count. Partial-body matches are not reported.
+Generated and doctest-derived declarations are excluded. Similarity is
+advisory: it never creates a `--check` policy violation, and baseline checks do
+not fail when a duplicate pair changes together.
+
 Executable evidence:
 
 - The metrics `dependency-report` and `dependency-report-json` cases check
@@ -128,3 +153,8 @@ Executable evidence:
   and contract exclusion, and ABC summary fields.
 - The metrics `abc-subject-kinds` case checks function and test subject kinds
   and excludes doctest-like documentation text from ABC subjects.
+- The metrics `similarity-formatted-equal`, `similarity-partial-body`,
+  `similarity-human-output`, and `check-similarity-baseline-advisory` cases
+  check exact whole-body similarity, identifier-sensitive exclusion,
+  partial-body exclusion, human output placement and locations, summary
+  counts, and advisory baseline behavior under `--check`.

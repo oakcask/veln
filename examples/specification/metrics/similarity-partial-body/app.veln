@@ -1,0 +1,13 @@
+fn add(left: Int, right: Int) -> Int
+  left + right
+end
+
+fn left() -> Int
+  let value = add(1, 2)
+  value
+end
+
+fn right() -> Int
+  let value = add(1, 2)
+  value + 1
+end

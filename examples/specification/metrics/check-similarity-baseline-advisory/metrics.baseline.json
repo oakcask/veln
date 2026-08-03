@@ -1,0 +1,21 @@
+{
+  "schema_version": "veln-metrics-baseline/v0",
+  "metric_model": "veln-metrics-model/v0",
+  "modules": [
+    {
+      "module": "app",
+      "path": "app.veln"
+    }
+  ],
+  "edges": [],
+  "cycles": [],
+  "similarities": [
+    {
+      "identity": "similarity:old",
+      "fingerprint": "old",
+      "token_count": 10,
+      "experimental": true,
+      "declarations": []
+    }
+  ]
+}

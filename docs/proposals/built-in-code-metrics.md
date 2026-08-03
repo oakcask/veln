@@ -9,15 +9,17 @@ Status: proposed
 ## Summary
 
 Extend the implemented `veln metrics` dependency graph, baseline-aware
-dependency-cycle policy check, advisory ABC size command, and baseline command
-forms with dependency pressure policy and exact whole-body similarity groups.
+dependency-cycle policy check, advisory ABC size command, baseline command
+forms, and exact whole-body similarity groups with dependency pressure policy
+and enforcement-graduation evidence.
 
 The command separates measurement from enforcement. The current implementation
 reports advisory module dependency metrics and advisory ABC size metrics. It
-can also enforce `deny_cycles = "true"` during `veln metrics --check`, with
-an explicit baseline when requested. Remaining work must add additional
-advisory or enforceable signals without turning maintainability metrics into
-language errors.
+also reports experimental exact whole-body similarity groups and can enforce
+`deny_cycles = "true"` during `veln metrics --check`, with an explicit
+baseline when requested. Remaining work must add additional advisory or
+enforceable signals without turning maintainability metrics into language
+errors.
 
 ## Motivation
 
@@ -74,8 +76,8 @@ The implemented advisory, baseline, and dependency-cycle check command forms are
 
 Generated project modules remain graph nodes because project-owned source can
 depend on them. Generated and doctest-derived declarations are excluded from
-ABC and future similarity subjects. JSON must continue to identify generated
-graph nodes so a consumer does not mistake them for hand-maintained modules.
+ABC and similarity subjects. JSON must continue to identify generated graph
+nodes so a consumer does not mistake them for hand-maintained modules.
 
 ## Modes And Exit Status
 
@@ -87,26 +89,27 @@ enforcement graduation rules below.
 ## Project Policy
 
 The command reads string-valued fields from `[tool.metrics]` in `veln.toml`.
-The implemented slice recognizes only `deny_cycles`:
+The implemented slices recognize `deny_cycles` and `similarity_min_tokens`:
 
 ```toml
 [tool.metrics]
 deny_cycles = "true"
+similarity_min_tokens = "60"
 ```
 
-`deny_cycles` is optional and defaults to `false`. Unknown fields and invalid
-values are command errors with a span on the manifest field.
+`deny_cycles` is optional and defaults to `false`. `similarity_min_tokens`
+defaults to `60` and must be a positive integer string. Unknown fields and
+invalid values are command errors with a span on the manifest field.
 
-Future slices may add these string-valued fields:
+Future slices may add this string-valued field:
 
 ```toml
 [tool.metrics]
-similarity_min_tokens = "60"
 max_findings = "50"
 ```
 
-`similarity_min_tokens` would default to `60`, and `max_findings` would default
-to `50`. Both fields must be positive integers when implemented.
+`max_findings` would default to `50` and must be a positive integer when
+implemented.
 
 `similarity_min_tokens` controls an experimental advisory signal. It does not
 become an enforcement threshold in the first slice. `max_findings` limits
@@ -186,10 +189,9 @@ contain at least `similarity_min_tokens` tokens. Each declaration appears in at
 most one instance. The command does not compare arbitrary subregions and does
 not report repeated regions within one declaration.
 
-An instance identity contains the normalized token sequence and the sorted
-canonical declaration identities. It excludes byte offsets and formatting.
-Moving an unchanged declaration within its source file does not change the
-instance identity.
+An instance identity is `similarity:` followed by the normalized-token
+fingerprint. It excludes byte offsets and formatting. Moving an unchanged
+declaration within its source file does not change the instance fingerprint.
 
 Similarity is report-only in the first slice. A changed token sequence creates
 a new advisory instance instead of a policy regression. This rule prevents a
@@ -229,9 +231,9 @@ The evidence set must satisfy all of these conditions:
 The evidence belongs in a review record, not in the current behavior
 specification. A metric that misses any graduation condition remains advisory.
 
-## Remaining Human Output
+## Human Output
 
-Human output for the remaining metrics starts with a summary and then emits
+Human output for metrics starts with a summary and then emits
 findings in this order:
 
 1. policy violations;
@@ -245,7 +247,8 @@ states whether the invocation is report-only or checked.
 
 The primary line names the measured fact at its source span. Explanations,
 other locations, and similarity peers use related notes. Similarity findings
-use one primary declaration and related notes for the other declarations.
+use one primary declaration location and related notes for the other
+declaration locations.
 
 A cycle violation states the enabled policy, identifies a concrete closed
 path, and tells the maintainer to inspect module ownership and dependency
@@ -258,16 +261,16 @@ fan-in, fan-out, and pressure separately. Similarity output labels the signal
 `experimental` and does not instruct the maintainer to deduplicate code
 mechanically.
 
-## Remaining JSON Output
+## JSON Output
 
-The implemented dependency graph and ABC JSON document is specified in
+The implemented dependency graph, ABC, cycle policy, baseline, and exact
+whole-body similarity JSON document is specified in
 [metrics-json.md](../specification/metrics-json.md). Remaining JSON work
-extends that document with dependency pressure policy and similarity fields.
+extends that document with future policy fields and human-output truncation
+metadata.
 
-The document contains:
+The current document contains:
 
-- effective configuration and enforceable policy capabilities for remaining
-  policy work;
 - experimental whole-body similarity instances with token count, fingerprint,
   and declaration regions;
 - policy violations and a summary by metric kind.
@@ -286,12 +289,13 @@ Planned executable cases follow the placement rules in
 | Graph counts | Modules contain repeated internal imports beyond the implemented fixture coverage | Internal edges are deduplicated and external or implicit imports do not change fan-in or fan-out |
 | Dependency pressure | Modules have high fan-in only, high fan-out only, and both beyond the implemented fixture coverage | Pressure equals the product, output retains both counts, and none is a policy violation |
 | Dependency cycle | Three modules form a cycle and one acyclic module imports a member beyond the implemented fixture coverage | One maximal cycle and a valid closed path are reported; the acyclic caller only changes fan-in |
-| Exact whole-body similarity | Two formatted-differently bodies have the same tokens; a third changes an identifier | The first pair forms one experimental instance and the third is not included |
-| Partial similarity exclusion | Two declarations share a long subregion but have different complete bodies | No similarity instance is reported |
-| Similarity edit | Two duplicate bodies are changed together to another equal token sequence | The new instance is advisory and does not fail a baseline check |
-| Similarity result bound | Many declarations contain the same body and many unrelated bodies | Each declaration appears at most once, total reported regions do not exceed eligible declarations, and instances do not exceed half the eligible declarations |
 | Stable ordering | Discovery order and path separator representation vary | Normalized JSON findings and fingerprints are identical |
 | Truncated human output | Findings exceed `max_findings` | Policy uses the complete set; human output names the omitted count and the JSON evidence command |
+
+Implemented executable cases cover exact whole-body similarity, partial-body
+exclusion, human output placement and locations, coordinated duplicate edits
+under a baseline check, fingerprint collision protection, stable ordering, and
+structural result bounds.
 
 CLI parsing, human output, JSON shape, and exit status must have integration
 coverage in `veln-cli`. Metric calculation must have table-driven unit
@@ -373,11 +377,10 @@ Implementation must make these repository-relative checks available:
 bash scripts/agent-test -p veln-metrics
 bash scripts/agent-test -p veln-cli --test toolchain_harness
 bash scripts/agent-run cargo run --locked -p veln-cli -- metrics --json path/to/project
-bash scripts/benchmark-veln-metrics compare SMALL MEDIUM LARGE
 ```
 
-The metrics crate and ABC executable cases exist. The benchmark command does
-not exist until the bounded similarity proposal slice is implemented.
+The metrics crate, ABC executable cases, and exact whole-body similarity
+executable cases exist. The benchmark command does not exist.
 
 ## Completion Boundary
 

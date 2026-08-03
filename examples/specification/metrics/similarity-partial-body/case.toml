@@ -1,0 +1,24 @@
+command = ["metrics", "--json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "summary.similarity_fingerprint_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.similarity_instance_count"
+equals = 0
+
+[[json_assert]]
+path = "summary.similarity_region_count"
+equals = 0
+
+[[json_assert]]
+path = "similarities.0.identity"
+missing = true
