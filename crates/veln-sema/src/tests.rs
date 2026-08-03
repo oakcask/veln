@@ -23,5 +23,6 @@ mod satisfy_literal_bound_repairs;
 mod satisfy_negated_require_repairs;
 mod satisfy_require_implication_repairs;
 mod satisfy_tautology_repairs;
+mod schema_decode_field_classification;
 mod standard_library_effects;
 mod typechecking_and_match_exhaustiveness;
