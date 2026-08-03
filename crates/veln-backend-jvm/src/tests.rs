@@ -2001,12 +2001,38 @@ fn jvm_runtime_decodes_compact_hex_fixtures_when_java_is_available() {
 
 #[test]
 fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
-    if Command::new("java").arg("-version").output().is_err()
-        || Command::new("javac").arg("-version").output().is_err()
-    {
+    let Some(trace) = run_result_diagnostic_trace_harness_when_java_is_available() else {
         return;
+    };
+
+    assert_result_value_diagnostics(&trace);
+    assert_decode_and_length_diagnostics(&trace);
+    assert_payload_and_padding_diagnostics(&trace);
+    assert_integer_sequence_and_version_diagnostics(&trace);
+    assert_tag_and_magic_diagnostics(&trace);
+    assert_feature_and_trailing_input_diagnostics(&trace);
+    assert_invalid_input_diagnostics(&trace);
+    assert_incomplete_input_diagnostics(&trace);
+}
+
+fn run_result_diagnostic_trace_harness_when_java_is_available() -> Option<String> {
+    if !java_and_javac_are_available() {
+        return None;
     }
 
+    let root = write_result_diagnostic_trace_harness();
+    compile_result_diagnostic_trace_harness(&root);
+    let trace = execute_result_diagnostic_trace_harness(&root);
+    let _ = fs::remove_dir_all(root);
+    Some(trace)
+}
+
+fn java_and_javac_are_available() -> bool {
+    Command::new("java").arg("-version").output().is_ok()
+        && Command::new("javac").arg("-version").output().is_ok()
+}
+
+fn write_result_diagnostic_trace_harness() -> std::path::PathBuf {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
     let root = temp_dir("runtime-result-diagnostic-trace");
@@ -2016,37 +2042,43 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         RUNTIME_RESULT_DIAGNOSTIC_TRACE_HARNESS,
     )
     .expect("Java harness should be written");
+    root
+}
 
-    let javac = Command::new("javac")
+fn compile_result_diagnostic_trace_harness(root: &std::path::Path) {
+    let output = Command::new("javac")
         .arg("RuntimeResultDiagnosticTraceHarness.java")
-        .current_dir(&root)
+        .current_dir(root)
         .output()
         .expect("javac should run");
-    assert!(
-        javac.status.success(),
-        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
-        javac.status.code(),
-        String::from_utf8_lossy(&javac.stdout),
-        String::from_utf8_lossy(&javac.stderr)
-    );
+    assert_process_succeeded("javac", &output);
+}
 
+fn execute_result_diagnostic_trace_harness(root: &std::path::Path) -> String {
     let trace_path = root.join("result-errors.tsv");
     let output = Command::new("java")
         .arg("-cp")
-        .arg(&root)
+        .arg(root)
         .arg("RuntimeResultDiagnosticTraceHarness")
-        .current_dir(&root)
+        .current_dir(root)
         .env("VELN_RESULT_ERRORS", &trace_path)
         .output()
         .expect("java should run");
+    assert_process_succeeded("java", &output);
+    fs::read_to_string(trace_path).expect("result trace should be written")
+}
+
+fn assert_process_succeeded(name: &str, output: &std::process::Output) {
     assert!(
         output.status.success(),
-        "{}",
+        "{name} failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let trace = fs::read_to_string(&trace_path).expect("result trace should be written");
-    let _ = fs::remove_dir_all(&root);
+}
 
+fn assert_result_value_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tvalue_diagnostic\tschema.encode_value_unrepresentable\t"),
         "{trace}"
@@ -2061,6 +2093,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         trace.contains("\treason\tstring\t746f6f206c61726765"),
         "{trace}"
     );
+}
+
+fn assert_decode_and_length_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.decode_failed\t7\t"),
         "{trace}"
@@ -2089,6 +2124,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_length_line.contains("\texpected_length\t"));
     assert!(!plain_length_line.contains("\tactual_length\t"));
+}
+
+fn assert_payload_and_padding_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.payload_length_mismatch\t21\t"),
         "{trace}"
@@ -2144,6 +2182,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_padding_line.contains("\texpected_padding_length\t"));
     assert!(!plain_padding_line.contains("\tactual_padding_length\t"));
+}
+
+fn assert_integer_sequence_and_version_diagnostics(trace: &str) {
     let integer_range_line = trace
         .lines()
         .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.integer_out_of_range\t17\t"))
@@ -2210,6 +2251,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         ),
         "{trace}"
     );
+}
+
+fn assert_tag_and_magic_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.tag_mismatch\t14\t"),
         "{trace}"
@@ -2262,6 +2306,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     );
     assert!(!plain_magic_line.contains("\texpected_magic\t"));
     assert!(!plain_magic_line.contains("\tactual_magic\t"));
+}
+
+fn assert_feature_and_trailing_input_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.unsupported_feature\t27\t"),
         "{trace}"
@@ -2313,6 +2360,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     assert!(!malformed_trailing_input_line.contains("\tconsumed_count\t"));
     assert!(!malformed_trailing_input_line.contains("\tavailable_count\t"));
     assert!(!malformed_trailing_input_line.contains("\tremaining_count\t"));
+}
+
+fn assert_invalid_input_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.invalid_input\t42\t"),
         "{trace}"
@@ -2324,10 +2374,13 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
     assert!(trace.contains("\tlocal_byte_offset\tnumber\t5"), "{trace}");
     assert!(trace.contains("\texpected_count\tnumber\t4"), "{trace}");
     assert!(trace.contains("\tavailable_count\tnumber\t3"), "{trace}");
-    assert!(
-        trace.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t11\t"),
-        "{trace}"
-    );
+    let plain_consumed_count_line = trace
+        .lines()
+        .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t11\t"))
+        .expect("plain consumed count diagnostic should be recorded");
+    assert!(!plain_consumed_count_line.contains("\tavailable_count\t"));
+    assert!(!plain_consumed_count_line.contains("\tactual_consumed_count\t"));
+    assert!(!plain_consumed_count_line.contains("\treason\t"));
     let oversized_consumed_line = trace
         .lines()
         .find(|line| line.contains("\tbyte_diagnostic_v2\tcodec.consumed_count_invalid\t21\t"))
@@ -2356,6 +2409,9 @@ fn jvm_runtime_records_result_diagnostics_from_values_when_java_is_available() {
         negative_consumed_line.contains("\tactual_consumed_count\tnumber\t-1"),
         "{negative_consumed_line}"
     );
+}
+
+fn assert_incomplete_input_diagnostics(trace: &str) {
     assert!(
         trace.contains("\tbyte_diagnostic_v2\tcodec.incomplete_input\t5\t"),
         "{trace}"
