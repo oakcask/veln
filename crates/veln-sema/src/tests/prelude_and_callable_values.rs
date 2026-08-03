@@ -3301,15 +3301,35 @@ fn companion_private_target_schema_access_preserves_boundaries() {
 
         let lowered = lower_checked_surface_module(&module);
 
-        assert!(
-            lowered
-                .diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.id == "schema.decode_expression"
-                    && diagnostic.message == expected_message),
-            "{:#?}",
-            lowered.diagnostics
-        );
+        let diagnostic = lowered
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.id == "schema.decode_expression"
+                    && diagnostic.message == expected_message
+            })
+            .unwrap_or_else(|| panic!("{:#?}", lowered.diagnostics));
+        if matches!(companion_path, "other.test.veln" | "math.test.veln")
+            && expected_message.contains(" is private")
+        {
+            let details = diagnostic.details.to_json();
+            let expected_target = if companion_path == "other.test.veln" {
+                "other"
+            } else {
+                "math"
+            };
+            assert!(
+                details.contains(&format!(
+                    "\"companion_target_module\":\"{expected_target}\""
+                )),
+                "{details}"
+            );
+            assert!(diagnostic.related.iter().any(|related| {
+                let related = related.to_json();
+                related.contains("\"kind\":\"companion_target\"")
+                    && related.contains(&format!("`{expected_target}`"))
+            }));
+        }
     }
 }
 

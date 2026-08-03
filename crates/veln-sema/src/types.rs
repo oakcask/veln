@@ -534,6 +534,16 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn companion_schema_access_target(
+        &self,
+        current_module: Option<&str>,
+    ) -> Option<&str> {
+        let current_module = current_module?;
+        self.companion_schema_access_targets
+            .get(current_module)
+            .map(String::as_str)
+    }
+
     fn wrong_schema_reference_kind(
         &self,
         schema_path: &[String],

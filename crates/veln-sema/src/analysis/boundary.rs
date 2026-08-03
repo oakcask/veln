@@ -1138,6 +1138,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
             check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
             if schema_payload_name_path(&field.ty).is_some() {
                 diagnostics.push(schema_composition_reference_diagnostic(
+                    module,
                     schema,
                     field,
                     unresolved_schema_composition_reason(module, schema, &field.ty),
@@ -1164,7 +1165,7 @@ fn check_schema_field_composition(
 ) -> bool {
     if let Some(reason) = schema_composition_reference_blocker(module, schema, field) {
         diagnostics.push(schema_composition_reference_diagnostic(
-            schema, field, reason,
+            module, schema, field, reason,
         ));
         return true;
     }
@@ -1179,6 +1180,7 @@ fn check_schema_field_composition(
     let encode_eligible = schema_encode_value_type(module, target).is_some();
     if !decode_eligible {
         diagnostics.push(schema_composition_reference_diagnostic(
+            module,
             schema,
             field,
             "decode_ineligible_target",
@@ -1186,6 +1188,7 @@ fn check_schema_field_composition(
     }
     if !encode_eligible {
         diagnostics.push(schema_composition_reference_diagnostic(
+            module,
             schema,
             field,
             "encode_ineligible_target",
@@ -1489,6 +1492,7 @@ fn check_format_neutral_schema_field(
         && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
     {
         diagnostics.push(schema_composition_reference_diagnostic(
+            module,
             schema,
             field,
             unresolved_schema_composition_reason(module, schema, &field.ty),
@@ -1651,6 +1655,7 @@ fn schema_composition_reaches(
 }
 
 fn schema_composition_reference_diagnostic(
+    module: &SurfaceModule,
     schema: &SchemaDecl,
     field: &SchemaField,
     reason: &'static str,
@@ -1666,7 +1671,29 @@ fn schema_composition_reference_diagnostic(
         "encode_ineligible_target" => "does not expose an eligible encode boundary",
         _ => "does not resolve to a visible schema or supported binary field family",
     };
-    Diagnostic::new(
+    let companion_target = if reason == "private_schema" {
+        companion_schema_access_target(module, schema)
+    } else {
+        None
+    };
+    let mut details = vec![
+        ("phase", JsonValue::string("schema")),
+        (
+            "node_id",
+            JsonValue::string(field.node_id.display("schema-field")),
+        ),
+        ("schema", JsonValue::string(schema_name)),
+        ("binding", JsonValue::string(field.name.clone())),
+        ("target", JsonValue::string(field.ty.clone())),
+        ("reason", JsonValue::string(reason)),
+    ];
+    if let Some(target_module) = companion_target.as_deref() {
+        if let Some(current_module) = schema.module_name.as_deref() {
+            details.push(("companion_module", JsonValue::string(current_module)));
+        }
+        details.push(("companion_target_module", JsonValue::string(target_module)));
+    }
+    let mut diagnostic = Diagnostic::new(
         "schema.composition_reference",
         Severity::Error,
         DiagnosticKind::Type,
@@ -1675,18 +1702,21 @@ fn schema_composition_reference_diagnostic(
             field.name, field.ty
         ),
         Some(field.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("schema")),
+        JsonValue::object(details),
+    );
+    if let Some(target_module) = companion_target {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("companion_target")),
             (
-                "node_id",
-                JsonValue::string(field.node_id.display("schema-field")),
+                "message",
+                JsonValue::string(format!(
+                    "This test companion may access private schemas only from target module `{target_module}`."
+                )),
             ),
-            ("schema", JsonValue::string(schema_name)),
-            ("binding", JsonValue::string(field.name.clone())),
-            ("target", JsonValue::string(field.ty.clone())),
-            ("reason", JsonValue::string(reason)),
-        ]),
-    )
+            ("target_module", JsonValue::string(target_module)),
+        ]));
+    }
+    diagnostic
 }
 
 fn format_neutral_schema_helper_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
@@ -2433,6 +2463,13 @@ fn companion_private_schema_access_allowed(
                 .get(current_module)
                 .is_some_and(|allowed| allowed == use_decl.name.as_str())
         })
+}
+
+fn companion_schema_access_target(module: &SurfaceModule, schema: &SchemaDecl) -> Option<String> {
+    let current_module = schema.module_name.as_deref()?;
+    companion_access_targets(module)
+        .get(current_module)
+        .cloned()
 }
 
 fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
