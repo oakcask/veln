@@ -1,0 +1,3 @@
+pub fn visible() -> Int
+	support::public_helper(1)
+end

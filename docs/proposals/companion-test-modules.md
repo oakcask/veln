@@ -150,11 +150,7 @@ replace it. Each row describes an externally observable result.
 | Case | Sources and operation | Expected result | Planned primary evidence |
 | --- | --- | --- | --- |
 | Private type access | Target defines a private type and constructor used by its companion | Type and constructor resolve under ordinary same-module typing rules | Executable `test` specification case |
-| Missing `use` | Companion writes `math::increment` without `use math` | Name diagnostic identifies the unavailable module path | Human and JSON `check` cases |
 | Bare target name for non-function private declarations | Companion names a private target declaration without a local or public imported declaration | Unresolved-name diagnostic; target-private lookup is not implicit | Human and JSON `check` cases |
-| Local shadow name | Companion defines local `increment` and target also defines private `increment` | Bare `increment` selects the local declaration; `math::increment` selects the target | Semantic analyzer unit test |
-| Import isolation toward companion | Target imports `support`; companion does not | Bare and qualified `support` access is unavailable until the companion writes its own import | Human and JSON `check` cases |
-| Import isolation toward target | Companion imports a name used but not imported by the target | Target analysis remains unchanged and reports the same result with or without the companion | Semantic analyzer regression test |
 | Established non-function private inference | Production sources determine an omitted private target declaration boundary before companion checking | Companion observes only the production-established boundary | Semantic analyzer and executable `test` cases |
 | Companion does not complete non-function inference | A private target declaration is underconstrained by production sources and constrained only by a companion use | The production inference diagnostic remains | Human and JSON `check` cases |
 | Companion does not change non-function effects | A companion use reaches effectful private target behavior outside the implemented function-call slice | Target effect inference is unchanged; the companion test must declare the resulting effect | Semantic analyzer and executable `test` cases |

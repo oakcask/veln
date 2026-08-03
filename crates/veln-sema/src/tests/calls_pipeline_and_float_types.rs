@@ -914,6 +914,217 @@ fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
 }
 
 #[test]
+fn integration_test_module_cannot_resolve_qualified_private_function_imports() {
+    let integration_source = SourceFile::new(
+        "math_test.veln",
+        concat!(
+            "mod math_test\n",
+            "use math\n",
+            "test increment_test() -> Int\n",
+            "  math::increment(1)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn increment(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+    );
+    let integration = lower_surface_ast(&parse(&integration_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: integration.module,
+        uses: integration.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: integration
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `math::increment`"
+    }));
+}
+
+#[test]
+fn matching_companion_private_function_access_is_not_transitive() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use support\n",
+            "test private_dependency_test() -> Int\n",
+            "  support::private_helper(1)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "use support\n",
+            "pub fn visible() -> Int\n",
+            "  support::public_helper(1)\n",
+            "end\n",
+        ),
+    );
+    let support_source = SourceFile::new(
+        "support.veln",
+        concat!(
+            "mod support\n",
+            "fn private_helper(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "pub fn public_helper(value: Int) -> Int\n",
+            "  private_helper(value)\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let support = lower_surface_ast(&parse(&support_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses.into_iter().chain(target.uses).collect(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .chain(support.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `support::private_helper`"
+    }));
+}
+
+#[test]
+fn companion_call_does_not_complete_target_private_inference() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "test identity_test() -> ()\n",
+            "  let observed: Int = math::identity(1)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!("mod math\n", "fn identity(value)\n", "  value\n", "end\n",),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `value` has no inferred type"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private function has no inferred return type"
+    }));
+}
+
+#[test]
+fn companion_observes_established_private_signature_and_effects() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "test emit_test() -> ()\n",
+            "  math::emit(\"ready\")\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn emit(value) effects [stdio]\n",
+            "  stdio::println(value)\n",
+            "end\n",
+            "pub fn production() -> () effects [stdio]\n",
+            "  emit(\"production\")\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "effect.missing_test"
+            && diagnostic.message == "test declaration uses undeclared effect `stdio`"
+    }));
+    assert!(
+        !diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.id == "type.private_inference_incomplete" })
+    );
+}
+
+#[test]
 fn public_function_alias_reexports_imported_target() {
     let app_source = SourceFile::new(
         "app.veln",

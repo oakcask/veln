@@ -1,0 +1,7 @@
+use math
+use support
+
+test companion_import_does_not_reach_target() -> ()
+	let observed: Int = math::visible()
+	()
+end

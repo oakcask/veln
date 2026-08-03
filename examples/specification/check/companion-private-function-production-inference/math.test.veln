@@ -1,0 +1,6 @@
+use math
+
+test companion_call_does_not_complete_target_private_inference() -> ()
+	let observed: Int = math::identity(1)
+	()
+end

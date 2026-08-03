@@ -1,0 +1,13 @@
+command = ["check", "--json", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "private parameter `value` has no inferred type", "private function has no inferred return type"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
