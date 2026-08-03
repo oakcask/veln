@@ -3,7 +3,7 @@ use crate::adt::AdtRegistry;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::types::{
     ByteViewLengthExpr, LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError,
-    SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
     binary_schema_anonymous_record_decode_type, byte_view_multiple_constraint,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, extension_dispatch_schema_primitive,
@@ -2586,19 +2586,59 @@ fn check_schema_dispatch_field(
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Type> {
-    let mut valid = true;
-    if !check_schema_dispatch_reference(
+    let mut valid =
+        check_schema_dispatch_references(schema, field, dispatch, decoded_fields, diagnostics);
+    let payload_types =
+        collect_schema_dispatch_payload_types(module, schema, field, dispatch, diagnostics);
+    valid &= !payload_types.mixed && !payload_types.resolution_failed;
+
+    let recursive_dispatch_payload =
+        schema_dispatch_has_recursive_payload(module, schema, field, dispatch);
+    reconcile_schema_dispatch_payload_types(
+        SchemaDispatchFieldContext {
+            module,
+            schema,
+            field,
+            dispatch,
+        },
+        &payload_types,
+        recursive_dispatch_payload,
+        &mut valid,
+        diagnostics,
+    )?;
+
+    if !valid {
+        return None;
+    }
+    let payload_ty = if recursive_dispatch_payload {
+        schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)?
+    } else {
+        payload_types.expected?
+    };
+    if dispatch.preserves_unknown {
+        Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
+    } else {
+        Some(payload_ty)
+    }
+}
+
+fn check_schema_dispatch_references(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let tag_valid = check_schema_dispatch_reference(
         schema,
         field,
         decoded_fields,
         &dispatch.tag_field,
         "tag",
         diagnostics,
-    ) {
-        valid = false;
-    }
-    if let Some(length_field) = &dispatch.length_field
-        && !check_schema_dispatch_reference(
+    );
+    let length_valid = dispatch.length_field.as_ref().is_none_or(|length_field| {
+        check_schema_dispatch_reference(
             schema,
             field,
             decoded_fields,
@@ -2606,132 +2646,235 @@ fn check_schema_dispatch_field(
             "length",
             diagnostics,
         )
-    {
-        valid = false;
-    }
+    });
+    tag_valid && length_valid
+}
 
-    let mut expected_payload_type = None::<Type>;
-    let mut mixed_payload_type = false;
-    let mut payload_resolution_failed = false;
+struct SchemaDispatchPayloadTypes {
+    expected: Option<Type>,
+    mixed: bool,
+    resolution_failed: bool,
+}
+
+#[derive(Clone, Copy)]
+struct SchemaDispatchFieldContext<'a> {
+    module: &'a SurfaceModule,
+    schema: &'a SchemaDecl,
+    field: &'a SchemaField,
+    dispatch: &'a SchemaDispatchSpec,
+}
+
+fn collect_schema_dispatch_payload_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> SchemaDispatchPayloadTypes {
+    let mut result = SchemaDispatchPayloadTypes {
+        expected: None,
+        mixed: false,
+        resolution_failed: false,
+    };
     for case in &dispatch.cases {
-        let payload_ty = match &case.payload {
-            SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
-            SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
-            SchemaDispatchCasePayload::Schema { schema_name } => {
-                if schema.name.as_deref() == Some(schema_name.as_str()) {
-                    if !recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name)
-                    {
-                        let blocker = recursive_dispatch_payload_blocker(
-                            schema,
-                            field,
-                            dispatch,
-                            schema_name,
-                            schema,
-                        );
-                        diagnostics.push(schema_dispatch_payload_diagnostic(
-                            schema,
-                            field,
-                            case.tag,
-                            schema_name,
-                            blocker.reason,
-                            blocker.message,
-                            [(
-                                "recursive_helper_fact",
-                                JsonValue::string(blocker.fact.to_string()),
-                            )],
-                        ));
-                        None
-                    } else {
-                        schema_recursive_dispatch_payload_type(module, schema).or_else(|| {
-                            diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
-                                module,
-                                schema,
-                                field,
-                                case.tag,
-                                schema_name,
-                                schema,
-                                SchemaHelperAvailability {
-                                    decode: false,
-                                    encode: false,
-                                },
-                            ));
-                            None
-                        })
-                    }
-                } else {
-                    resolve_schema_dispatch_payload_schema(
-                        module,
-                        schema,
-                        field,
-                        case.tag,
-                        schema_name,
-                        diagnostics,
-                    )
-                    .and_then(|payload_schema| {
-                        if schema_has_recursive_dispatch_payload(payload_schema)
-                            && !(recursive_dispatch_payload_case_is_eligible(
-                                module,
-                                schema,
-                                field,
-                                dispatch,
-                                schema_name,
-                            ) || recursive_dispatch_decode_only_payload_case_is_eligible(
-                                module,
-                                schema,
-                                dispatch,
-                                schema_name,
-                            ))
-                        {
-                            let blocker = recursive_dispatch_payload_blocker(
-                                schema,
-                                field,
-                                dispatch,
-                                schema_name,
-                                payload_schema,
-                            );
-                            diagnostics.push(schema_dispatch_payload_diagnostic(
-                                schema,
-                                field,
-                                case.tag,
-                                schema_name,
-                                blocker.reason,
-                                blocker.message,
-                                [(
-                                    "recursive_helper_fact",
-                                    JsonValue::string(blocker.fact.to_string()),
-                                )],
-                            ));
-                            return None;
-                        }
-                        schema_dispatch_payload_helper_type(
-                            module,
-                            schema,
-                            field,
-                            case.tag,
-                            schema_name,
-                            payload_schema,
-                            diagnostics,
-                        )
-                    })
-                }
-            }
-        };
-        let Some(payload_ty) = payload_ty else {
-            valid = false;
-            payload_resolution_failed = true;
+        let Some(payload_ty) = resolve_schema_dispatch_case_payload_type(
+            module,
+            schema,
+            field,
+            dispatch,
+            case,
+            diagnostics,
+        ) else {
+            result.resolution_failed = true;
             continue;
         };
-        if let Some(expected) = &expected_payload_type {
-            if expected != &payload_ty {
-                mixed_payload_type = true;
-                valid = false;
-            }
+        if let Some(expected) = &result.expected {
+            result.mixed |= expected != &payload_ty;
         } else {
-            expected_payload_type = Some(payload_ty);
+            result.expected = Some(payload_ty);
         }
     }
+    result
+}
 
-    let recursive_dispatch_payload = dispatch.cases.iter().any(|case| {
+fn resolve_schema_dispatch_case_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    case: &SchemaDispatchCase,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    match &case.payload {
+        SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
+        SchemaDispatchCasePayload::Schema { schema_name } => resolve_schema_dispatch_named_payload(
+            module,
+            schema,
+            field,
+            dispatch,
+            case.tag,
+            schema_name,
+            diagnostics,
+        ),
+    }
+}
+
+fn resolve_schema_dispatch_named_payload(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    tag: i64,
+    schema_name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    if schema.name.as_deref() == Some(schema_name) {
+        return resolve_self_schema_dispatch_payload(
+            module,
+            schema,
+            field,
+            dispatch,
+            tag,
+            schema_name,
+            diagnostics,
+        );
+    }
+    let payload_schema = resolve_schema_dispatch_payload_schema(
+        module,
+        schema,
+        field,
+        tag,
+        schema_name,
+        diagnostics,
+    )?;
+    resolve_external_schema_dispatch_payload(
+        SchemaDispatchFieldContext {
+            module,
+            schema,
+            field,
+            dispatch,
+        },
+        tag,
+        schema_name,
+        payload_schema,
+        diagnostics,
+    )
+}
+
+fn resolve_self_schema_dispatch_payload(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    tag: i64,
+    schema_name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    if !recursive_dispatch_payload_is_eligible(schema, field, dispatch, schema_name) {
+        push_recursive_dispatch_payload_blocker(
+            schema,
+            field,
+            dispatch,
+            tag,
+            schema_name,
+            schema,
+            diagnostics,
+        );
+        return None;
+    }
+    schema_recursive_dispatch_payload_type(module, schema).or_else(|| {
+        diagnostics.push(incompatible_schema_dispatch_payload_diagnostic(
+            module,
+            schema,
+            field,
+            tag,
+            schema_name,
+            schema,
+            SchemaHelperAvailability {
+                decode: false,
+                encode: false,
+            },
+        ));
+        None
+    })
+}
+
+fn resolve_external_schema_dispatch_payload(
+    context: SchemaDispatchFieldContext<'_>,
+    tag: i64,
+    schema_name: &str,
+    payload_schema: &SchemaDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    if schema_has_recursive_dispatch_payload(payload_schema)
+        && !(recursive_dispatch_payload_case_is_eligible(
+            context.module,
+            context.schema,
+            context.field,
+            context.dispatch,
+            schema_name,
+        ) || recursive_dispatch_decode_only_payload_case_is_eligible(
+            context.module,
+            context.schema,
+            context.dispatch,
+            schema_name,
+        ))
+    {
+        push_recursive_dispatch_payload_blocker(
+            context.schema,
+            context.field,
+            context.dispatch,
+            tag,
+            schema_name,
+            payload_schema,
+            diagnostics,
+        );
+        return None;
+    }
+    schema_dispatch_payload_helper_type(
+        context.module,
+        context.schema,
+        context.field,
+        tag,
+        schema_name,
+        payload_schema,
+        diagnostics,
+    )
+}
+
+fn push_recursive_dispatch_payload_blocker(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    tag: i64,
+    schema_name: &str,
+    payload_schema: &SchemaDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let blocker =
+        recursive_dispatch_payload_blocker(schema, field, dispatch, schema_name, payload_schema);
+    diagnostics.push(schema_dispatch_payload_diagnostic(
+        schema,
+        field,
+        tag,
+        schema_name,
+        blocker.reason,
+        blocker.message,
+        [(
+            "recursive_helper_fact",
+            JsonValue::string(blocker.fact.to_string()),
+        )],
+    ));
+}
+
+fn schema_dispatch_has_recursive_payload(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+) -> bool {
+    dispatch.cases.iter().any(|case| {
         matches!(
             &case.payload,
             SchemaDispatchCasePayload::Schema { schema_name }
@@ -2748,61 +2891,72 @@ fn check_schema_dispatch_field(
                         schema_name,
                     )
         )
-    });
-    if mixed_payload_type && recursive_dispatch_payload {
-        valid = !payload_resolution_failed;
-    } else if mixed_payload_type && payload_resolution_failed {
-        valid = false;
-    } else if mixed_payload_type {
-        let expected = expected_payload_type.as_ref()?;
-        if let Some((case, payload_ty)) = dispatch.cases.iter().find_map(|case| {
-            let payload_ty = match &case.payload {
-                SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
-                SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
-                SchemaDispatchCasePayload::Schema { schema_name } => {
-                    if schema.name.as_deref() == Some(schema_name.as_str()) {
-                        schema_recursive_dispatch_payload_type(module, schema)
-                    } else {
-                        schema_dispatch_payload_schema(module, schema, schema_name).and_then(
-                            |payload_schema| schema_decode_value_type(module, payload_schema),
-                        )
-                    }
-                }
-            }?;
-            (&payload_ty != expected).then_some((case, payload_ty))
-        }) {
-            diagnostics.push(schema_dispatch_payload_diagnostic(
-                schema,
-                field,
-                case.tag,
-                schema_dispatch_case_payload_name(&case.payload),
-                "incompatible_payload_type",
-                format!(
-                    "dispatch payload case `{}` decodes as `{}`, but earlier cases decode as `{}`",
-                    case.tag,
-                    payload_ty.render(),
-                    expected.render()
-                ),
-                [
-                    ("expected", JsonValue::string(expected.render())),
-                    ("actual", JsonValue::string(payload_ty.render())),
-                ],
-            ));
-        }
-    }
+    })
+}
 
-    if !valid {
-        return None;
+fn reconcile_schema_dispatch_payload_types(
+    context: SchemaDispatchFieldContext<'_>,
+    payload_types: &SchemaDispatchPayloadTypes,
+    recursive_dispatch_payload: bool,
+    valid: &mut bool,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<()> {
+    if !payload_types.mixed {
+        return Some(());
     }
-    let payload_ty = if recursive_dispatch_payload {
-        schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)?
-    } else {
-        expected_payload_type?
+    if recursive_dispatch_payload {
+        *valid = !payload_types.resolution_failed;
+        return Some(());
+    }
+    if payload_types.resolution_failed {
+        *valid = false;
+        return Some(());
+    }
+    let expected = payload_types.expected.as_ref()?;
+    let Some((case, payload_ty)) = context.dispatch.cases.iter().find_map(|case| {
+        let payload_ty =
+            schema_dispatch_case_known_payload_type(context.module, context.schema, case)?;
+        (&payload_ty != expected).then_some((case, payload_ty))
+    }) else {
+        return Some(());
     };
-    if dispatch.preserves_unknown {
-        Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
-    } else {
-        Some(payload_ty)
+    diagnostics.push(schema_dispatch_payload_diagnostic(
+        context.schema,
+        context.field,
+        case.tag,
+        schema_dispatch_case_payload_name(&case.payload),
+        "incompatible_payload_type",
+        format!(
+            "dispatch payload case `{}` decodes as `{}`, but earlier cases decode as `{}`",
+            case.tag,
+            payload_ty.render(),
+            expected.render()
+        ),
+        [
+            ("expected", JsonValue::string(expected.render())),
+            ("actual", JsonValue::string(payload_ty.render())),
+        ],
+    ));
+    Some(())
+}
+
+fn schema_dispatch_case_known_payload_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    case: &SchemaDispatchCase,
+) -> Option<Type> {
+    match &case.payload {
+        SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::ReservedBits { .. } => Some(Type::unit()),
+        SchemaDispatchCasePayload::Schema { schema_name }
+            if schema.name.as_deref() == Some(schema_name.as_str()) =>
+        {
+            schema_recursive_dispatch_payload_type(module, schema)
+        }
+        SchemaDispatchCasePayload::Schema { schema_name } => {
+            schema_dispatch_payload_schema(module, schema, schema_name)
+                .and_then(|payload_schema| schema_decode_value_type(module, payload_schema))
+        }
     }
 }
 
