@@ -1,0 +1,111 @@
+{
+  "adjacent_size_ratios": [
+    {
+      "from_size": 32,
+      "median_peak_rss_ratio": 1.0292754007153266,
+      "median_user_cpu_ratio": 1.107142857142857,
+      "passes_threshold": true,
+      "source_token_ratio": 2.0,
+      "to_size": 64
+    },
+    {
+      "from_size": 64,
+      "median_peak_rss_ratio": 1.0787644787644788,
+      "median_user_cpu_ratio": 1.1935483870967742,
+      "passes_threshold": true,
+      "source_token_ratio": 2.0,
+      "to_size": 128
+    }
+  ],
+  "build_profile": "debug",
+  "command": "benchmark-metrics-similarity",
+  "measured_runs": 3,
+  "passes_threshold": true,
+  "sizes": [
+    {
+      "declaration_fingerprint_count": 84,
+      "eligible_declaration_count": 84,
+      "median_peak_rss_kb": 30196,
+      "median_user_cpu_seconds": 0.28,
+      "median_wall_time_seconds": 0.29,
+      "reported_region_count": 20,
+      "runs": [
+        {
+          "peak_rss_kb": 30168,
+          "user_cpu_seconds": 0.3,
+          "wall_time_seconds": 0.3
+        },
+        {
+          "peak_rss_kb": 30196,
+          "user_cpu_seconds": 0.28,
+          "wall_time_seconds": 0.29
+        },
+        {
+          "peak_rss_kb": 30252,
+          "user_cpu_seconds": 0.26,
+          "wall_time_seconds": 0.29
+        }
+      ],
+      "similarity_instance_count": 9,
+      "size": 32,
+      "source_token_count": 2016
+    },
+    {
+      "declaration_fingerprint_count": 168,
+      "eligible_declaration_count": 168,
+      "median_peak_rss_kb": 31080,
+      "median_user_cpu_seconds": 0.31,
+      "median_wall_time_seconds": 0.32,
+      "reported_region_count": 40,
+      "runs": [
+        {
+          "peak_rss_kb": 31356,
+          "user_cpu_seconds": 0.31,
+          "wall_time_seconds": 0.32
+        },
+        {
+          "peak_rss_kb": 31080,
+          "user_cpu_seconds": 0.3,
+          "wall_time_seconds": 0.32
+        },
+        {
+          "peak_rss_kb": 31048,
+          "user_cpu_seconds": 0.31,
+          "wall_time_seconds": 0.32
+        }
+      ],
+      "similarity_instance_count": 17,
+      "size": 64,
+      "source_token_count": 4032
+    },
+    {
+      "declaration_fingerprint_count": 336,
+      "eligible_declaration_count": 336,
+      "median_peak_rss_kb": 33528,
+      "median_user_cpu_seconds": 0.37,
+      "median_wall_time_seconds": 0.38,
+      "reported_region_count": 80,
+      "runs": [
+        {
+          "peak_rss_kb": 33640,
+          "user_cpu_seconds": 0.37,
+          "wall_time_seconds": 0.38
+        },
+        {
+          "peak_rss_kb": 33392,
+          "user_cpu_seconds": 0.37,
+          "wall_time_seconds": 0.38
+        },
+        {
+          "peak_rss_kb": 33528,
+          "user_cpu_seconds": 0.38,
+          "wall_time_seconds": 0.4
+        }
+      ],
+      "similarity_instance_count": 33,
+      "size": 128,
+      "source_token_count": 8064
+    }
+  ],
+  "warmups": 1
+}

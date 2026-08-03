@@ -111,7 +111,9 @@ specification. A metric that misses any graduation condition remains advisory.
 Bounded exact whole-body similarity analysis is no longer remaining proposal
 scope. Current JSON behavior, structural bounds, executable evidence, and the
 explicit benchmark command are specified in
-[metrics-json.md](../specification/metrics-json.md).
+[metrics-json.md](../specification/metrics-json.md). The current review
+evidence for the controlled benchmark is
+[metrics-similarity-benchmark.json](../reviews/metrics-similarity-benchmark.json).
 
 ## Acceptance Cases
 
