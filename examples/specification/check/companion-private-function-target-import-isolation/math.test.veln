@@ -1,0 +1,5 @@
+use math
+
+test companion_does_not_inherit_target_imports() -> ()
+	support::public_helper(1)
+end

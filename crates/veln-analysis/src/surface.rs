@@ -1375,7 +1375,15 @@ pub(crate) fn reachable_entry_module_with_cache(
     let function_targets = cache
         .function_targets
         .get_or_init(|| reachable_function_targets(module));
-    let reachable = reachable_functions(module, entry, entry_kind, function_targets, cache);
+    let companion_access_targets = companion_function_access_targets(module);
+    let reachable = reachable_functions(
+        module,
+        entry,
+        entry_kind,
+        function_targets,
+        &companion_access_targets,
+        cache,
+    );
     module_with_reachable_functions(module, &reachable)
 }
 
@@ -1469,6 +1477,7 @@ fn reachable_functions(
     entry: &str,
     entry_kind: FunctionKind,
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     cache: &ReachabilityCache,
 ) -> HashSet<ReachableFunction> {
     let mut reachable = HashSet::<ReachableFunction>::new();
@@ -1494,7 +1503,14 @@ fn reachable_functions(
                             function.module_name.as_ref() == Some(module_name)
                         })
                 })
-                .flat_map(|function| direct_function_callees(function, module, function_targets))
+                .flat_map(|function| {
+                    direct_function_callees(
+                        function,
+                        module,
+                        function_targets,
+                        companion_access_targets,
+                    )
+                })
                 .collect::<Vec<_>>();
             cache
                 .direct_callees
@@ -1586,6 +1602,9 @@ fn function_alias_targets(
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
+            if companion_alias_targets_imported_private_function(alias, target) {
+                return None;
+            }
             Some(FunctionTarget {
                 name,
                 module_name: alias.module_name.clone(),
@@ -1598,6 +1617,15 @@ fn function_alias_targets(
             })
         })
         .collect()
+}
+
+fn companion_alias_targets_imported_private_function(
+    alias: &veln_ast::PublicAlias,
+    target: &FunctionTarget,
+) -> bool {
+    target.visibility != Visibility::Public
+        && alias.module_name != target.target_module_name
+        && classify_companion_source(alias.span.file.as_str()).is_some()
 }
 
 fn target_for_alias_path<'a>(
@@ -1628,14 +1656,28 @@ struct LocalBinding {
     function_shape: Option<FunctionShape>,
 }
 
+struct FunctionCalleeContext<'a> {
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    function_targets: &'a [FunctionTarget],
+    companion_access_targets: &'a HashMap<String, String>,
+    handlers: &'a [veln_ast::HandlerDecl],
+}
+
 fn direct_function_callees(
     function: &Function,
     module: &SurfaceModule,
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
-    let current_module = function.module_name.as_deref();
-    let uses = &module.uses;
+    let context = FunctionCalleeContext {
+        current_module: function.module_name.as_deref(),
+        uses: &module.uses,
+        function_targets,
+        companion_access_targets,
+        handlers: &module.handlers,
+    };
     let mut local_bindings = function
         .params
         .iter()
@@ -1647,9 +1689,10 @@ fn direct_function_callees(
     for contract in &function.contracts {
         collect_contract_callees(
             &contract.text,
-            current_module,
-            uses,
+            context.current_module,
+            context.uses,
             function_targets,
+            companion_access_targets,
             &mut callees,
         );
     }
@@ -1660,15 +1703,7 @@ fn direct_function_callees(
                 annotation,
                 expr,
             } => {
-                collect_function_callees(
-                    expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    &module.handlers,
-                    &local_bindings,
-                    &mut callees,
-                );
+                collect_function_callees(expr, &context, &local_bindings, &mut callees);
                 collect_pattern_bindings(
                     pattern,
                     annotation.as_deref().and_then(function_type_shape),
@@ -1676,15 +1711,7 @@ fn direct_function_callees(
                 );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(
-                    expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    &module.handlers,
-                    &local_bindings,
-                    &mut callees,
-                );
+                collect_function_callees(expr, &context, &local_bindings, &mut callees);
             }
         }
     }
@@ -1696,6 +1723,7 @@ fn collect_contract_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let source = SourceFile::new("<contract>", predicate);
@@ -1727,8 +1755,13 @@ fn collect_contract_callees(
             index += 1;
             continue;
         }
-        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
-        {
+        for callee in resolve_function_reference(
+            &segments,
+            current_module,
+            uses,
+            function_targets,
+            companion_access_targets,
+        ) {
             push_reachable(callees, callee);
         }
         index = next_index + 1;
@@ -1738,6 +1771,7 @@ fn collect_contract_callees(
         current_module,
         uses,
         function_targets,
+        companion_access_targets,
         callees,
     );
 }
@@ -1747,6 +1781,7 @@ fn collect_contract_function_value_references(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let mut index = 0usize;
@@ -1796,8 +1831,14 @@ fn collect_contract_function_value_references(
             index += 1;
             segments
         };
-        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
-        {
+        let public_or_same_module_access = HashMap::new();
+        for callee in resolve_function_reference(
+            &segments,
+            current_module,
+            uses,
+            function_targets,
+            &public_or_same_module_access,
+        ) {
             push_reachable(callees, callee);
         }
     }
@@ -1805,81 +1846,42 @@ fn collect_contract_function_value_references(
 
 fn collect_function_callees(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
-    handlers: &[veln_ast::HandlerDecl],
+    context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let function_targets = context.function_targets;
+    let companion_access_targets = context.companion_access_targets;
+    let handlers = context.handlers;
+
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            collect_function_name_reference(
-                segments,
-                current_module,
-                uses,
-                function_targets,
-                local_bindings,
-                None,
-                callees,
-            );
+            collect_function_name_reference(segments, context, local_bindings, None, callees);
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(
-                callee,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(callee, context, local_bindings, callees);
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
                 collect_function_name_reference(
                     segments,
-                    current_module,
-                    uses,
-                    function_targets,
+                    context,
                     local_bindings,
                     Some(args.len()),
                     callees,
                 );
             } else {
-                collect_function_callees(
-                    callee,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(callee, context, local_bindings, callees);
             }
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::Handle { body, args, .. } => {
@@ -1888,151 +1890,48 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 handlers,
                 callees,
             );
-            collect_function_callees(
-                body,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(body, context, local_bindings, callees);
             for arg in args {
-                collect_function_callees(
-                    arg,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(arg, context, local_bindings, callees);
             }
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            collect_function_callees(
-                input,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(input, context, local_bindings, callees);
+            collect_function_callees(base, context, local_bindings, callees);
         }
         ExprKind::SchemaEncode { value, .. } => {
-            collect_function_callees(
-                value,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(value, context, local_bindings, callees);
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(
-                base,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(base, context, local_bindings, callees);
         }
-        ExprKind::Try(inner) => collect_function_callees(
-            inner,
-            current_module,
-            uses,
-            function_targets,
-            handlers,
-            local_bindings,
-            callees,
-        ),
+        ExprKind::Try(inner) => collect_function_callees(inner, context, local_bindings, callees),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_function_callees(
-                    &field.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&field.expr, context, local_bindings, callees);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_function_callees(
-                    &entry.key,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
-                collect_function_callees(
-                    &entry.value,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&entry.key, context, local_bindings, callees);
+                collect_function_callees(&entry.value, context, local_bindings, callees);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(
-                    item,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(item, context, local_bindings, callees);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(
-                scrutinee,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(scrutinee, context, local_bindings, callees);
             for arm in arms {
                 let mut arm_bindings = local_bindings.to_vec();
                 collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
-                collect_function_callees(
-                    &arm.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    &arm_bindings,
-                    callees,
-                );
+                collect_function_callees(&arm.expr, context, &arm_bindings, callees);
             }
         }
         ExprKind::If {
@@ -2041,84 +1940,20 @@ fn collect_function_callees(
             else_if_branches,
             else_branch,
         } => {
-            collect_function_callees(
-                condition,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                then_branch,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(condition, context, local_bindings, callees);
+            collect_function_callees(then_branch, context, local_bindings, callees);
             for branch in else_if_branches {
-                collect_function_callees(
-                    &branch.condition,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
-                collect_function_callees(
-                    &branch.expr,
-                    current_module,
-                    uses,
-                    function_targets,
-                    handlers,
-                    local_bindings,
-                    callees,
-                );
+                collect_function_callees(&branch.condition, context, local_bindings, callees);
+                collect_function_callees(&branch.expr, context, local_bindings, callees);
             }
-            collect_function_callees(
-                else_branch,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(else_branch, context, local_bindings, callees);
         }
         ExprKind::Prefix { expr, .. } => {
-            collect_function_callees(
-                expr,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(expr, context, local_bindings, callees);
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(
-                left,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
-            collect_function_callees(
-                right,
-                current_module,
-                uses,
-                function_targets,
-                handlers,
-                local_bindings,
-                callees,
-            );
+            collect_function_callees(left, context, local_bindings, callees);
+            collect_function_callees(right, context, local_bindings, callees);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -2173,6 +2008,7 @@ fn collect_opaque_function_value_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     if current_module.is_some_and(|module| module.starts_with("std::")) {
@@ -2182,8 +2018,15 @@ fn collect_opaque_function_value_callees(
     {
         return;
     }
+    let public_or_same_module_access = HashMap::new();
     for target in function_targets.iter().filter(|target| {
-        target.shape == *shape && target_visible_from_current_module(target, current_module, uses)
+        target.shape == *shape
+            && target_visible_from_current_module(
+                target,
+                current_module,
+                uses,
+                &public_or_same_module_access,
+            )
     }) {
         push_reachable(
             callees,
@@ -2200,6 +2043,7 @@ fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
     if current_module.is_none() || target_module == current_module {
@@ -2210,7 +2054,12 @@ fn target_visible_from_current_module(
             use_decl.module_name.as_deref() == current_module
                 && use_decl.origin == veln_ast::UseOrigin::Source
                 && use_decl.name == module_name
-                && imported_target_is_visible(target, use_decl)
+                && imported_target_visible_from_module(
+                    target,
+                    use_decl,
+                    current_module,
+                    companion_access_targets,
+                )
         })
     })
 }
@@ -2275,13 +2124,16 @@ fn split_top_level_commas(text: &str) -> Vec<&str> {
 
 fn collect_function_name_reference(
     segments: &[String],
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_targets: &[FunctionTarget],
+    context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
     arg_count: Option<usize>,
     callees: &mut Vec<ReachableFunction>,
 ) {
+    let current_module = context.current_module;
+    let uses = context.uses;
+    let function_targets = context.function_targets;
+    let companion_access_targets = context.companion_access_targets;
+
     if let [name] = segments
         && let Some(binding) = local_bindings
             .iter()
@@ -2295,12 +2147,26 @@ fn collect_function_name_reference(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
                 callees,
             );
         }
         return;
     }
-    for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
+    let public_or_same_module_access;
+    let access_targets = if arg_count.is_some() {
+        companion_access_targets
+    } else {
+        public_or_same_module_access = HashMap::new();
+        &public_or_same_module_access
+    };
+    for callee in resolve_function_reference(
+        segments,
+        current_module,
+        uses,
+        function_targets,
+        access_targets,
+    ) {
         push_reachable(callees, callee);
     }
 }
@@ -2310,6 +2176,7 @@ fn collect_handler_provider_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
     handlers: &[veln_ast::HandlerDecl],
     callees: &mut Vec<ReachableFunction>,
 ) {
@@ -2340,6 +2207,7 @@ fn collect_handler_provider_callees(
                 current_module,
                 uses,
                 function_targets,
+                companion_access_targets,
             ) {
                 push_reachable(callees, callee);
             }
@@ -2352,6 +2220,7 @@ fn resolve_function_reference(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     match segments {
         [name] => function_targets
@@ -2377,7 +2246,12 @@ fn resolve_function_reference(
                 .filter(|target| {
                     target.name == *name
                         && target.module_name.as_deref() == Some(module_name)
-                        && imported_target_is_visible(target, use_decl)
+                        && imported_target_visible_from_module(
+                            target,
+                            use_decl,
+                            current_module,
+                            companion_access_targets,
+                        )
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
@@ -2407,6 +2281,51 @@ fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bo
         return target.visibility == Visibility::Public;
     }
     use_decl.package.is_none() || target.visibility == Visibility::Public
+}
+
+fn imported_target_visible_from_module(
+    target: &FunctionTarget,
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+    companion_access_targets: &HashMap<String, String>,
+) -> bool {
+    if target.visibility == Visibility::Public {
+        return true;
+    }
+    if target.requires_public_import || use_decl.package.is_some() {
+        return false;
+    }
+    if current_module.is_some_and(|module| module.starts_with("std::"))
+        && target
+            .module_name
+            .as_deref()
+            .is_some_and(|module| module.starts_with("std::"))
+    {
+        return true;
+    }
+    current_module.is_some_and(|current_module| {
+        target.module_name.as_ref().is_some_and(|target_module| {
+            companion_access_targets
+                .get(current_module)
+                .is_some_and(|allowed_target| allowed_target == target_module)
+        })
+    })
+}
+
+fn companion_function_access_targets(module: &SurfaceModule) -> HashMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let companion = classify_companion_source(function.span.file.as_str())?;
+            let companion_module = function.module_name.clone()?;
+            let target_module = companion
+                .target_path
+                .strip_suffix(".veln")?
+                .replace('/', "::");
+            Some((companion_module, target_module))
+        })
+        .collect()
 }
 
 fn bare_target_visible(
@@ -3135,7 +3054,7 @@ mod tests {
                 SourceFile::new(
                     "app/text.veln",
                     concat!(
-                        "fn stringify(value: Int) -> String\n",
+                        "pub fn stringify(value: Int) -> String\n",
                         "  \"ok\"\n",
                         "end\n",
                     ),
@@ -3191,6 +3110,256 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn companion_test_entry_reaches_qualified_private_target_function() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test increment_test() -> Int\n",
+                        "  math::increment(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "increment_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("increment_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_test_entry_does_not_reach_private_target_through_alias() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "pub fn expose = math::increment\n",
+                        "test expose_test() -> Int\n",
+                        "  expose(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "expose_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("expose_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            !functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_test_entry_does_not_reach_private_target_function_value() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test increment_value_test() -> Int\n",
+                        "  let mapper: fn(Int) -> Int = math::increment\n",
+                        "  mapper(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "increment_value_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("increment_value_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            !functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_call_does_not_change_production_private_inference_reachability() {
+        let target = SourceFile::new(
+            "math.veln",
+            concat!(
+                "fn identity(value)\n",
+                "  value\n",
+                "end\n",
+                "pub fn production() -> Int\n",
+                "  identity(_)\n",
+                "end\n",
+            ),
+        );
+        let project_without_companion = Project {
+            root: ".".into(),
+            files: vec![target.clone()],
+            manifest: None,
+        };
+        let project_with_companion = Project {
+            root: ".".into(),
+            files: vec![
+                target,
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test identity_test() -> Int\n",
+                        "  math::identity(1)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+
+        let (without_companion, without_diagnostics) =
+            load_surface_module(&project_without_companion);
+        let (with_companion, with_diagnostics) = load_surface_module(&project_with_companion);
+        assert!(without_diagnostics.is_empty(), "{without_diagnostics:#?}");
+        assert!(with_diagnostics.is_empty(), "{with_diagnostics:#?}");
+
+        let production_without =
+            reachable_entry_module(&without_companion, "production", FunctionKind::Function);
+        let production_with =
+            reachable_entry_module(&with_companion, "production", FunctionKind::Function);
+        let without_functions = production_without
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                    function
+                        .params
+                        .iter()
+                        .map(|param| param.ty.as_deref())
+                        .collect::<Vec<_>>(),
+                    function.return_type.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let with_functions = production_with
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                    function
+                        .params
+                        .iter()
+                        .map(|param| param.ty.as_deref())
+                        .collect::<Vec<_>>(),
+                    function.return_type.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(with_functions, without_functions);
     }
 
     #[test]
@@ -3353,7 +3522,7 @@ mod tests {
                 SourceFile::new(
                     "app/rules.veln",
                     concat!(
-                        "fn positive(value: Int) -> Bool\n",
+                        "pub fn positive(value: Int) -> Bool\n",
                         "  value > 0\n",
                         "end\n",
                     ),
@@ -3402,7 +3571,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/util.veln",
-                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
+                    concat!("pub fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -3506,7 +3675,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/rules.veln",
-                    concat!("fn ready() -> Bool\n", "  true\n", "end\n",),
+                    concat!("pub fn ready() -> Bool\n", "  true\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -3556,7 +3725,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "app/util.veln",
-                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
+                    concat!("pub fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,

@@ -22,10 +22,13 @@ requiring the full command reference on the first read.
   help parsing or output.
 - `check`: source discovery, source path derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
-  validation, path dependency source loading for external imports,
+  validation, exact companion private-function access through qualified target
+  imports, companion observation of established private target effects,
+  path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
-  then
+  [source-surface.md](source-surface.md) for the companion private-function
+  access and isolation cases, then
   [commands-full.md](commands-full.md) for exact command rules.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, schema layout, `match` arm indentation, and canonical
@@ -428,7 +431,13 @@ requiring the full command reference on the first read.
   [source-surface.md](source-surface.md) first for doctest fence metadata,
   [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules. The checked examples
+  command rules. The checked example
+  `../../examples/specification/test/companion-private-function-access/` shows
+  that a selected companion test can execute a private function declared in its
+  exact target. The checked
+  `../../examples/specification/test/companion-private-function-established-effects/`
+  case shows that the companion test must declare established effects from the
+  private target function call. The checked examples
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and
   `../../examples/specification/test/parallel-jobs-auto-json/` show that

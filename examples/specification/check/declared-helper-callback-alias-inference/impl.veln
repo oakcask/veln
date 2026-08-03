@@ -1,11 +1,11 @@
-fn apply_int(value: Int, callback: fn(Int) -> String) -> String
+pub fn apply_int(value: Int, callback: fn(Int) -> String) -> String
 	callback(value)
 end
 
-fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool
+pub fn apply_pair(label: String, value: Int, callback: fn(String, Int) -> Bool) -> Bool
 	callback(label, value)
 end
 
-fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]
+pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]
 	callback("ready")
 end

@@ -13276,7 +13276,7 @@ fn public_alias_effectful_declared_helpers_infer_private_callback_parameters() {
         "impl.veln",
         concat!(
             "mod spec.impl\n",
-            "fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
+            "pub fn apply_effect(callback: fn(String) -> String effects [stdio]) -> String effects [stdio]\n",
             "  callback(\"ready\")\n",
             "end\n",
         ),

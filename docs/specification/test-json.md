@@ -47,6 +47,10 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/companion-explicit-target-selection/`,
   and
   `../../examples/specification/test/companion-explicit-companion-selection/`.
+- Companion private-function execution and established target effect
+  propagation:
+  `../../examples/specification/test/companion-private-function-access/` and
+  `../../examples/specification/test/companion-private-function-established-effects/`.
 - Counts in `summary`: [test-json-full.md](test-json-full.md#summary).
 - Case records, doctests, runtime failures, runtime expectation mismatches,
   expected-output mismatches, and captured stdio events:

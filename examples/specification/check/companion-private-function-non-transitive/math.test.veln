@@ -1,0 +1,5 @@
+use support
+
+test companion_cannot_call_private_dependency_function() -> ()
+	support::private_helper(1)
+end

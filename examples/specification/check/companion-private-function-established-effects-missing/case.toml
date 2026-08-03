@@ -1,0 +1,19 @@
+command = ["check", "--json", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"effect.missing_test\"", "test declaration uses undeclared effect `stdio`", "\"inferred_effects\":[\"stdio\"]"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "effect.missing_test"
+severity = "error"
+kind = "effect"
+message = "test declaration uses undeclared effect `stdio`"

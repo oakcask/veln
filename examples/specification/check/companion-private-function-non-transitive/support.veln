@@ -1,0 +1,7 @@
+fn private_helper(value: Int) -> Int
+	value
+end
+
+pub fn public_helper(value: Int) -> Int
+	private_helper(value)
+end

@@ -1,0 +1,5 @@
+use support
+
+fn call_support(value: Int) -> Int
+	support::public_helper(value)
+end

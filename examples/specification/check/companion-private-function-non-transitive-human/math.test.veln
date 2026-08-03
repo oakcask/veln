@@ -1,0 +1,7 @@
+use math
+use support
+
+test companion_cannot_call_target_dependency_private_function() -> ()
+	let observed: Int = support::private_helper(1)
+	()
+end

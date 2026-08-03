@@ -1,0 +1,5 @@
+use math
+
+test wrong_companion_cannot_call_private_target_function() -> ()
+	math::increment(1)
+end

@@ -1,0 +1,9 @@
+command = ["check", "math.test.veln", "support.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.unresolved]: unresolved call_target `support::private_helper`"]
+
+[stderr]
+format = "empty"

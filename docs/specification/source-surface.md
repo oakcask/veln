@@ -46,6 +46,31 @@ same package. Missing and chained targets are executable diagnostics in
 `examples/specification/check/companion-chained-target-human/`, and the
 matching `test/companion-*-target-*` cases.
 
+A test companion may call a private function declared by its exact target
+module when the companion writes an explicit `use` for that target and calls
+the function through a qualified path. The permission is limited to functions,
+is not transitive through modules imported by the target, and does not add bare
+target-name lookup. The checked cases are
+`examples/specification/check/companion-private-function-access/`,
+`examples/specification/check/companion-private-function-alias-boundary/`,
+`examples/specification/check/companion-private-function-value-boundary/`,
+`examples/specification/check/companion-private-function-wrong-target/`,
+`examples/specification/check/companion-private-function-wrong-target-human/`,
+`examples/specification/check/companion-private-function-integration-boundary/`,
+`examples/specification/check/companion-private-function-non-transitive/`,
+`examples/specification/check/companion-private-function-non-transitive-human/`,
+`examples/specification/check/companion-private-function-bare-name/`,
+`examples/specification/check/companion-private-function-missing-import/`,
+`examples/specification/check/companion-private-function-target-import-isolation/`,
+`examples/specification/check/companion-private-function-companion-import-isolation/`,
+`examples/specification/check/companion-private-function-production-inference/`, and
+`examples/specification/test/companion-private-function-access/`. Established
+private target function effects are exercised by
+`examples/specification/check/companion-private-function-established-effects/`,
+`examples/specification/check/companion-private-function-established-effects-missing/`,
+and
+`examples/specification/test/companion-private-function-established-effects/`.
+
 ## Integer Literals
 
 `Int` literals accept decimal digits, lowercase `0b` plus binary digits, or

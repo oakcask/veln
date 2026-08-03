@@ -1,0 +1,5 @@
+use math
+
+test companion_must_declare_private_target_effect() -> ()
+	math::emit("companion")
+end
