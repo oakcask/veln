@@ -610,10 +610,7 @@ impl LspSymbolIndex {
                 }
             })
             .collect::<Vec<_>>();
-        let functions = files
-            .iter()
-            .flat_map(|file| function_declarations(file))
-            .collect();
+        let functions = files.iter().flat_map(function_declarations).collect();
         Self { files, functions }
     }
 
@@ -796,12 +793,12 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
     tokens
         .iter()
         .enumerate()
-        .filter_map(|(index, token)| {
-            (token.text == name
-                && is_call_target_token(&tokens, index)
-                && qualified_reference_matches(&tokens, index, &module_segments))
-            .then(|| source.span(token.range))
+        .filter(|(index, token)| {
+            token.text == name
+                && is_call_target_token(&tokens, *index)
+                && qualified_reference_matches(&tokens, *index, &module_segments)
         })
+        .map(|(_, token)| source.span(token.range))
         .collect()
 }
 
@@ -887,10 +884,8 @@ fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSe
                 names.insert(token.text.clone());
                 expect_parameter_name = false;
             }
-            token_kind if !is_layout_token_kind(token_kind) => {
-                if depth == 1 {
-                    expect_parameter_name = false;
-                }
+            token_kind if !is_layout_token_kind(token_kind) && depth == 1 => {
+                expect_parameter_name = false;
             }
             _ => {}
         }
