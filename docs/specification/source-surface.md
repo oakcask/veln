@@ -48,9 +48,13 @@ matching `test/companion-*-target-*` cases.
 
 A test companion may call a private function declared by its exact target
 module when the companion writes an explicit `use` for that target and calls
-the function through a qualified path. The permission is limited to functions,
-is not transitive through modules imported by the target, and does not add bare
-target-name lookup. The checked cases are
+the function through a qualified path. A test companion may also use private
+source ADT type names and constructors declared by its exact target when it
+writes the explicit target `use` and refers to them through qualified target
+paths. The source ADT permission applies independently to private source ADT
+types and to private constructors of public source ADTs. These permissions are
+not transitive through modules imported by the target, and they do not add bare
+target-name lookup. The checked function cases are
 `examples/specification/check/companion-private-function-access/`,
 `examples/specification/check/companion-private-function-alias-boundary/`,
 `examples/specification/check/companion-private-function-value-boundary/`,
@@ -70,6 +74,12 @@ private target function effects are exercised by
 `examples/specification/check/companion-private-function-established-effects-missing/`,
 and
 `examples/specification/test/companion-private-function-established-effects/`.
+The checked source ADT cases are
+`examples/specification/check/companion-private-source-adt-access/`,
+`examples/specification/check/companion-private-source-adt-missing-import/`,
+`examples/specification/check/companion-private-source-adt-wrong-target-human/`,
+`examples/specification/check/companion-private-source-adt-non-transitive/`,
+and `examples/specification/test/companion-private-source-adt-access/`.
 
 ## Integer Literals
 

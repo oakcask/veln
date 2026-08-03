@@ -1,0 +1,8 @@
+use math
+
+test companion_constructs_and_matches_private_source_adt() -> ()
+	let secret: math::Secret = math::Secret::Hidden(3)
+	match secret
+		math::Secret::Hidden(_) => ()
+	end
+end

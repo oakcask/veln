@@ -1,0 +1,8 @@
+type Secret
+	Hidden(Int)
+end
+
+pub type Token
+	HiddenToken(Int)
+	pub ShownToken
+end

@@ -200,8 +200,8 @@ impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         let effects = effect_signatures(module);
         let mut handlers = handler_signatures(module, &effects);
-        let mut functions = ordinary_function_signatures(module, &effects);
         let adts = AdtRegistry::from_module(module);
+        let mut functions = ordinary_function_signatures(module, &effects, &adts);
         infer_private_function_body_return_types(module, &mut functions, &adts);
         infer_private_function_call_site_signature_types(module, &mut functions, &adts);
         infer_private_function_body_return_types(module, &mut functions, &adts);
@@ -229,6 +229,14 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+
+    pub(crate) fn canonicalize_type_annotation(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+    ) -> Type {
+        canonicalize_type_effects(ty, &self.uses, current_module, &self.effects, &self.adts)
     }
 
     pub(crate) fn user_effect_by_label(
@@ -658,6 +666,7 @@ impl TypeEnvironment {
 pub(crate) fn ordinary_function_signatures(
     module: &SurfaceModule,
     effects: &[EffectSignature],
+    adts: &AdtRegistry,
 ) -> Vec<FunctionSignature> {
     module
         .functions
@@ -674,6 +683,7 @@ pub(crate) fn ordinary_function_signatures(
                         &module.uses,
                         function.module_name.as_deref(),
                         effects,
+                        adts,
                     )
                 })
                 .collect();
@@ -683,6 +693,7 @@ pub(crate) fn ordinary_function_signatures(
                     &module.uses,
                     function.module_name.as_deref(),
                     effects,
+                    adts,
                 )
             });
             let return_type = canonicalize_type_effects(
@@ -690,6 +701,7 @@ pub(crate) fn ordinary_function_signatures(
                 &module.uses,
                 function.module_name.as_deref(),
                 effects,
+                adts,
             );
             Some(FunctionSignature {
                 target_name: crate::standard_symbols::standard_function_link_name(
@@ -720,13 +732,17 @@ fn canonicalize_type_effects(
     uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
+    adts: &AdtRegistry,
 ) -> Type {
     match ty {
         Type::Named { name, args } => Type::Named {
-            name,
+            name: adts
+                .descriptor_for_type_path(&name, args.len(), current_module, uses)
+                .map(|descriptor| descriptor.type_name.clone())
+                .unwrap_or(name),
             args: args
                 .into_iter()
-                .map(|arg| canonicalize_type_effects(arg, uses, current_module, effects))
+                .map(|arg| canonicalize_type_effects(arg, uses, current_module, effects, adts))
                 .collect(),
         },
         Type::Record(fields) => Type::Record(
@@ -735,7 +751,7 @@ fn canonicalize_type_effects(
                 .map(|(name, ty)| {
                     (
                         name,
-                        canonicalize_type_effects(ty, uses, current_module, effects),
+                        canonicalize_type_effects(ty, uses, current_module, effects, adts),
                     )
                 })
                 .collect(),
@@ -748,16 +764,17 @@ fn canonicalize_type_effects(
         } => Type::Function {
             params: params
                 .into_iter()
-                .map(|param| canonicalize_type_effects(param, uses, current_module, effects))
+                .map(|param| canonicalize_type_effects(param, uses, current_module, effects, adts))
                 .collect(),
             variadic: variadic
-                .map(|ty| canonicalize_type_effects(*ty, uses, current_module, effects))
+                .map(|ty| canonicalize_type_effects(*ty, uses, current_module, effects, adts))
                 .map(Box::new),
             return_type: Box::new(canonicalize_type_effects(
                 *return_type,
                 uses,
                 current_module,
                 effects,
+                adts,
             )),
             effects: canonical_declared_effects(declared, uses, current_module, effects),
         },
