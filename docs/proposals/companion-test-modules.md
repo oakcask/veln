@@ -92,10 +92,11 @@ Bare names in the test companion resolve only in the companion's own scope and
 through ordinary public-import rules. A bare name does not implicitly search
 the target module.
 
-Declarations in a test companion are test-only. A `pub` modifier in a test
-companion is rejected because no production or test source can import the
-companion module. Private target declarations cannot be re-exported or exposed
-through aliases from the companion.
+Declarations in a test companion are test-only. The implemented public
+declaration boundary is specified in `../specification/source-surface.md`.
+Remaining private-access work must preserve that boundary. Private target
+declarations cannot be re-exported or exposed through aliases from the
+companion.
 
 ## Import Isolation
 
@@ -155,7 +156,6 @@ replace it. Each row describes an externally observable result.
 | Non-transitive remaining private access | Target imports `support`; companion attempts to inspect a private remaining declaration from `support` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Wrong companion for remaining private access | `other.test.veln` attempts private remaining declaration access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
 | Integration boundary for remaining private access | `math_test.veln` attempts remaining private declaration access outside the implemented function and source ADT slices | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
-| Public companion declaration | Companion contains `pub fn helper` | Diagnostic rejects `pub` in a test-only companion | Human and JSON `check` cases |
 | Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 
 Planned executable cases should live under `../../examples/specification/`.
@@ -166,7 +166,6 @@ replace command-visible human and JSON coverage.
 
 Remaining companion diagnostics must distinguish these failed facts:
 
-- a companion declaration uses `pub`;
 - a qualified private declaration belongs to a module other than the target;
 - a companion path appears in a package export list.
 

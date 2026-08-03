@@ -32,6 +32,7 @@ pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     diagnostics.extend(validate_companion_sources(project));
+    diagnostics.extend(validate_companion_public_declarations(&parts.module));
     diagnostics.extend(validate_reserved_standard_package(project, toolchain_std));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
     rewrite_standard_import_targets(&mut parts.module.uses);
@@ -753,6 +754,142 @@ fn validate_companion_sources(project: &Project) -> Vec<Diagnostic> {
             }
         })
         .collect()
+}
+
+fn validate_companion_public_declarations(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for function in &module.functions {
+        if function.visibility == Visibility::Public
+            && let Some(companion_path) = companion_path_for_span(&function.span)
+        {
+            diagnostics.push(companion_public_declaration_diagnostic(
+                function.span.clone(),
+                companion_path,
+                "public_function",
+                "function",
+                function.name.as_deref(),
+            ));
+        }
+    }
+    for effect in &module.effects {
+        if effect.visibility == Visibility::Public
+            && let Some(companion_path) = companion_path_for_span(&effect.span)
+        {
+            diagnostics.push(companion_public_declaration_diagnostic(
+                effect.span.clone(),
+                companion_path,
+                "public_effect",
+                "effect",
+                effect.name.as_deref(),
+            ));
+        }
+    }
+    for handler in &module.handlers {
+        if handler.visibility == Visibility::Public
+            && let Some(companion_path) = companion_path_for_span(&handler.span)
+        {
+            diagnostics.push(companion_public_declaration_diagnostic(
+                handler.span.clone(),
+                companion_path,
+                "public_handler",
+                "handler",
+                handler.name.as_deref(),
+            ));
+        }
+    }
+    for ty in &module.types {
+        if ty.visibility == Visibility::Public
+            && let Some(companion_path) = companion_path_for_span(&ty.span)
+        {
+            diagnostics.push(companion_public_declaration_diagnostic(
+                ty.span.clone(),
+                companion_path,
+                "public_type",
+                "type",
+                ty.name.as_deref(),
+            ));
+        }
+        for variant in &ty.variants {
+            if variant.visibility == Visibility::Public
+                && let Some(companion_path) = companion_path_for_span(&variant.span)
+            {
+                diagnostics.push(companion_public_declaration_diagnostic(
+                    variant.span.clone(),
+                    companion_path,
+                    "public_type_variant",
+                    "type variant",
+                    variant.name.as_deref(),
+                ));
+            }
+        }
+    }
+    for schema in &module.schemas {
+        if schema.visibility == Visibility::Public
+            && let Some(companion_path) = companion_path_for_span(&schema.span)
+        {
+            diagnostics.push(companion_public_declaration_diagnostic(
+                schema.span.clone(),
+                companion_path,
+                "public_schema",
+                "schema",
+                schema.name.as_deref(),
+            ));
+        }
+    }
+    for alias in &module.aliases {
+        if let Some(companion_path) = companion_path_for_span(&alias.span) {
+            let (reason, declaration_kind) = match alias.kind {
+                PublicAliasKind::Function => ("public_function_alias", "function alias"),
+                PublicAliasKind::Type => ("public_type_alias", "type alias"),
+                PublicAliasKind::Schema => ("public_schema_alias", "schema alias"),
+            };
+            diagnostics.push(companion_public_declaration_diagnostic(
+                alias.span.clone(),
+                companion_path,
+                reason,
+                declaration_kind,
+                alias.name.as_deref(),
+            ));
+        }
+    }
+    diagnostics
+}
+
+fn companion_path_for_span(span: &SourceSpan) -> Option<&str> {
+    let path = span.file.as_str();
+    classify_companion_source(path).map(|_| path)
+}
+
+fn companion_public_declaration_diagnostic(
+    span: SourceSpan,
+    companion_path: &str,
+    reason: &'static str,
+    declaration_kind: &'static str,
+    declaration_name: Option<&str>,
+) -> Diagnostic {
+    let described_declaration = declaration_name.map_or_else(
+        || format!("public {declaration_kind}"),
+        |name| format!("public {declaration_kind} `{name}`"),
+    );
+    let mut diagnostic = Diagnostic::new(
+        "module.companion_public_declaration",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("test companion `{companion_path}` cannot declare {described_declaration}"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("companion_public_declaration")),
+            ("companion_path", JsonValue::string(companion_path)),
+            ("reason", JsonValue::string(reason)),
+            ("declaration_kind", JsonValue::string(declaration_kind)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Remove `pub`; test companion declarations are not externally visible."),
+    )]));
+    diagnostic
 }
 
 fn missing_companion_target_diagnostic(source: &SourceFile, target_path: &str) -> Diagnostic {
@@ -3168,7 +3305,7 @@ mod tests {
     }
 
     #[test]
-    fn companion_test_entry_does_not_reach_private_target_through_alias() {
+    fn companion_public_alias_cannot_reexport_private_target_function() {
         let project = Project {
             root: ".".into(),
             files: vec![
@@ -3194,7 +3331,18 @@ mod tests {
             manifest: None,
         };
         let (module, diagnostics) = load_surface_module(&project);
-        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "module.companion_public_declaration")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected companion public declaration diagnostic for alias: {diagnostics:#?}"
+                )
+            });
+        assert_eq!(
+            detail_string(diagnostic, "reason"),
+            Some("public_function_alias")
+        );
 
         let reachable = reachable_entry_module(&module, "expose_test", FunctionKind::Test);
         let functions = reachable
@@ -3360,6 +3508,164 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(with_functions, without_functions);
+    }
+
+    #[test]
+    fn companion_public_declarations_report_stable_reasons() {
+        let cases = [
+            (
+                "public_function",
+                concat!("pub fn exposed() -> ()\n", "  ()\n", "end\n"),
+            ),
+            (
+                "public_effect",
+                concat!("pub effect Visible\n", "  call() -> ()\n", "end\n"),
+            ),
+            (
+                "public_handler",
+                concat!(
+                    "effect Ask\n",
+                    "  call() -> ()\n",
+                    "end\n",
+                    "fn provide() -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "pub handler visible() handles Ask\n",
+                    "  call=provide\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "public_type",
+                concat!("pub type Visible\n", "  Case\n", "end\n"),
+            ),
+            (
+                "public_type_variant",
+                concat!("type Local\n", "  pub Visible\n", "end\n"),
+            ),
+            (
+                "public_schema",
+                concat!(
+                    "pub schema Visible\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n",
+                ),
+            ),
+            ("public_function_alias", "pub fn visible = math::target\n"),
+            ("public_type_alias", "pub type Visible = math::Target\n"),
+            ("public_schema_alias", "pub schema Visible = math::Target\n"),
+        ];
+
+        for (reason, companion_text) in cases {
+            let project = Project {
+                root: ".".into(),
+                files: vec![
+                    SourceFile::new("math.test.veln", companion_text),
+                    SourceFile::new("math.veln", "fn target() -> ()\n  ()\nend\n"),
+                ],
+                manifest: None,
+            };
+
+            let (_, diagnostics) = load_surface_module(&project);
+            let diagnostic = diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.id == "module.companion_public_declaration")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "expected companion public declaration diagnostic for {reason}: {diagnostics:#?}"
+                    )
+                });
+
+            assert_eq!(
+                detail_string(diagnostic, "companion_path"),
+                Some("math.test.veln")
+            );
+            assert_eq!(detail_string(diagnostic, "reason"), Some(reason));
+        }
+    }
+
+    #[test]
+    fn companion_private_declarations_remain_valid() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "fn helper() -> ()\n",
+                        "  ()\n",
+                        "end\n",
+                        "effect Ask\n",
+                        "  call() -> ()\n",
+                        "end\n",
+                        "handler local() handles Ask\n",
+                        "  call=helper\n",
+                        "end\n",
+                        "type Local\n",
+                        "  Case\n",
+                        "end\n",
+                        "schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new("math.veln", "fn target() -> ()\n  ()\nend\n"),
+            ],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "module.companion_public_declaration"),
+            "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn ordinary_public_declarations_remain_valid() {
+        let declaration = concat!(
+            "pub fn exposed() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "pub effect Ask\n",
+            "  call() -> ()\n",
+            "end\n",
+            "pub handler visible() handles Ask\n",
+            "  call=exposed\n",
+            "end\n",
+            "pub type Visible\n",
+            "  pub Case\n",
+            "end\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n",
+            "pub fn alias = math::exposed\n",
+            "pub type Alias = math::Visible\n",
+            "pub schema PacketAlias = math::Packet\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new("math.veln", declaration),
+                SourceFile::new("math_test.veln", declaration),
+            ],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "module.companion_public_declaration"),
+            "{diagnostics:#?}"
+        );
     }
 
     #[test]
@@ -4115,5 +4421,23 @@ mod tests {
                 offset: 0,
             },
         }
+    }
+
+    fn detail_string<'a>(
+        diagnostic: &'a veln_diagnostics::Diagnostic,
+        key: &str,
+    ) -> Option<&'a str> {
+        let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+            return None;
+        };
+        entries.iter().find_map(|(entry_key, value)| {
+            if entry_key == key
+                && let veln_diagnostics::JsonValue::String(value) = value
+            {
+                Some(value.as_str())
+            } else {
+                None
+            }
+        })
     }
 }

@@ -97,6 +97,12 @@ and
 `examples/specification/check/companion-private-function-established-effects-missing/`;
 the missing-effect case exposes the inferred private target effect in
 diagnostic details.
+Companion public declaration diagnostics use
+`module.companion_public_declaration`. The diagnostic exposes
+`details.companion_path` and a stable `details.reason` that identifies the
+public declaration form. JSON and human output are checked by
+`examples/specification/check/companion-public-declaration-json/` and
+`examples/specification/check/companion-public-declaration-human/`.
 
 ## Stable Details
 
