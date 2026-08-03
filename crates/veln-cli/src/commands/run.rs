@@ -1721,96 +1721,106 @@ impl<'a> ProtocolDiagnosticContext<'a> {
 
     fn project_frame_payload_rule(&self) -> Option<Diagnostic> {
         match self.id.as_str() {
-            "http2.protocol.invalid_payload_length" => {
-                let frame_kind = self.number("frame_kind")?;
-                let observed_length = self.number("observed_payload_length")?;
-                let expected_length = self.number("expected_payload_length")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid payload length at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); expected {expected_length} byte(s).",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
+            "http2.protocol.invalid_payload_length" => self.project_invalid_payload_length(),
             "http2.protocol.invalid_window_update_increment" => {
-                let frame_kind = self.number("frame_kind")?;
-                let observed_increment = self.number("observed_window_increment")?;
-                let accepted_min = self.number("accepted_min_window_increment")?;
-                let accepted_max = self.number("accepted_max_window_increment")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid WINDOW_UPDATE increment at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} declared WINDOW_UPDATE increment {observed_increment}; accepted range is {accepted_min}..{accepted_max}.",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
+                self.project_invalid_window_update_increment()
             }
-            "http2.protocol.invalid_data_padding" => {
-                let frame_kind = self.number("frame_kind")?;
-                let pad_length = self.number("pad_length")?;
-                let remaining_payload_length = self.number("remaining_payload_length")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "invalid DATA padding at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} declared pad length {pad_length} byte(s); remaining payload length is {remaining_payload_length} byte(s).",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
-            "http2.protocol.content_length_mismatch" => {
-                let frame_kind = self.number("frame_kind")?;
-                let expected_length = self.number("expected_content_length")?;
-                let observed_length = self.number("observed_body_length")?;
-                let active_state = self.string("active_state")?;
-                let rule_provenance = self.string("rule_provenance")?;
-                let frame = self.frame_ref()?;
-                let no_content_status = match active_state.as_str() {
-                    "no-content-response-204" => Some("204"),
-                    "no-content-response-304" => Some("304"),
-                    _ => None,
-                };
-                let mut diagnostic = match no_content_status {
-                    Some(status) if rule_provenance == "rfc9110_no_content_response_body" => {
-                        let mut diagnostic = self.diagnostic(format!(
-                            "response status {status} prohibits nonempty DATA at byte offset {}",
-                            self.byte_offset
-                        ));
-                        diagnostic.related.push(note_json(format!(
-                            "Frame kind {frame_kind} on {} {} contributed {observed_length} DATA application byte(s); response status {status} permits no application content.",
-                            frame.stream_ref, frame.stream_id
-                        )));
-                        diagnostic
-                    }
-                    _ => {
-                        let mut diagnostic = self.diagnostic(format!(
-                            "content-length body length mismatch at byte offset {}",
-                            self.byte_offset
-                        ));
-                        diagnostic.related.push(note_json(format!(
-                            "Frame kind {frame_kind} on {} {} observed {observed_length} DATA application byte(s); accepted content-length is {expected_length} byte(s).",
-                            frame.stream_ref, frame.stream_id
-                        )));
-                        diagnostic
-                    }
-                };
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
+            "http2.protocol.invalid_data_padding" => self.project_invalid_data_padding(),
+            "http2.protocol.content_length_mismatch" => self.project_content_length_mismatch(),
             _ => None,
         }
+    }
+
+    fn project_invalid_payload_length(&self) -> Option<Diagnostic> {
+        let frame_kind = self.number("frame_kind")?;
+        let observed_length = self.number("observed_payload_length")?;
+        let expected_length = self.number("expected_payload_length")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid payload length at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); expected {expected_length} byte(s).",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_invalid_window_update_increment(&self) -> Option<Diagnostic> {
+        let frame_kind = self.number("frame_kind")?;
+        let observed_increment = self.number("observed_window_increment")?;
+        let accepted_min = self.number("accepted_min_window_increment")?;
+        let accepted_max = self.number("accepted_max_window_increment")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid WINDOW_UPDATE increment at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} declared WINDOW_UPDATE increment {observed_increment}; accepted range is {accepted_min}..{accepted_max}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_invalid_data_padding(&self) -> Option<Diagnostic> {
+        let frame_kind = self.number("frame_kind")?;
+        let pad_length = self.number("pad_length")?;
+        let remaining_payload_length = self.number("remaining_payload_length")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "invalid DATA padding at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} declared pad length {pad_length} byte(s); remaining payload length is {remaining_payload_length} byte(s).",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_content_length_mismatch(&self) -> Option<Diagnostic> {
+        let frame_kind = self.number("frame_kind")?;
+        let expected_length = self.number("expected_content_length")?;
+        let observed_length = self.number("observed_body_length")?;
+        let active_state = self.string("active_state")?;
+        let rule_provenance = self.string("rule_provenance")?;
+        let frame = self.frame_ref()?;
+        let no_content_status = match active_state.as_str() {
+            "no-content-response-204" => Some("204"),
+            "no-content-response-304" => Some("304"),
+            _ => None,
+        };
+        let mut diagnostic = match no_content_status {
+            Some(status) if rule_provenance == "rfc9110_no_content_response_body" => {
+                let mut diagnostic = self.diagnostic(format!(
+                    "response status {status} prohibits nonempty DATA at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} contributed {observed_length} DATA application byte(s); response status {status} permits no application content.",
+                    frame.stream_ref, frame.stream_id
+                )));
+                diagnostic
+            }
+            _ => {
+                let mut diagnostic = self.diagnostic(format!(
+                    "content-length body length mismatch at byte offset {}",
+                    self.byte_offset
+                ));
+                diagnostic.related.push(note_json(format!(
+                    "Frame kind {frame_kind} on {} {} observed {observed_length} DATA application byte(s); accepted content-length is {expected_length} byte(s).",
+                    frame.stream_ref, frame.stream_id
+                )));
+                diagnostic
+            }
+        };
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
     }
 
     fn project_settings_ack_rule(&self) -> Option<Diagnostic> {
@@ -7741,6 +7751,67 @@ mod tests {
             diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_content_length_body")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_no_content_response_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.content_length_mismatch"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("expected_content_length", JsonValue::Number(0)),
+            ("observed_body_length", JsonValue::Number(3)),
+            ("byte_preview", byte_preview("aabbcc")),
+            ("active_state", JsonValue::string("no-content-response-204")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9110_no_content_response_body"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 response status 204 prohibits nonempty DATA at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.content_length_mismatch");
+        assert_eq!(
+            diagnostic.message,
+            "response status 204 prohibits nonempty DATA at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("response status 204 permits no application content")
+        );
+        assert!(diagnostic.related[1].to_json().contains("aa bb cc"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("no-content-response-204")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("rfc9110_no_content_response_body")
         );
     }
 
