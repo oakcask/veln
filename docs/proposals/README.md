@@ -35,10 +35,10 @@ also states it.
 ### Toolchain Quality
 
 - [Built-In Code Metrics](built-in-code-metrics.md): add remaining dependency
-  pressure policy, stable-ordering expansion, and graduation evidence beyond
-  the implemented dependency graph, baseline-aware dependency-cycle policy
-  check, advisory ABC size, exact whole-body similarity bounds, controlled
-  similarity benchmark, and human-output truncation slices.
+  pressure policy and graduation evidence beyond the implemented dependency
+  graph, baseline-aware dependency-cycle policy check, advisory ABC size,
+  exact whole-body similarity bounds, controlled similarity benchmark,
+  human-output truncation, and stable-ordering slices.
 
 ## Selection Rule
 

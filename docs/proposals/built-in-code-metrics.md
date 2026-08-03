@@ -26,8 +26,6 @@ The remaining proposal work is limited to:
 
 - dependency-pressure policy evidence and any policy surface that follows from
   that evidence;
-- stable-ordering evidence beyond the executable cases that currently cover
-  the implemented report shape;
 - enforcement-graduation evidence for any advisory metric that becomes a
   blocking policy.
 
@@ -124,8 +122,6 @@ Planned executable cases follow the placement rules in
 | --- | --- | --- |
 | Dependency pressure policy | Modules include high fan-in only, high fan-out only, and high pressure cases with a configured policy threshold | Only the configured pressure violation fails `--check`; human and JSON output name pressure, fan-in, fan-out, and the affected module |
 | Baseline pressure allowance | A reviewed baseline contains an equal or worse pressure value for the same module identity | The check passes for equal or improved pressure and fails when pressure worsens beyond the baseline allowance |
-| Stable ordering expansion | Discovery order and path separator representation vary for graph, ABC, and similarity subjects | JSON findings and human prefix order are identical across equivalent inputs |
-
 CLI parsing, human output, JSON shape, and exit status must have integration
 coverage in `veln-cli`. Metric calculation must have table-driven unit coverage
 in a reusable metrics library.

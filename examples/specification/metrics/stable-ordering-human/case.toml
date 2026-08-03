@@ -1,0 +1,9 @@
+command = ["metrics", "src/util.veln", "src/app.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["Cycles\n  src::app, src::util | path: src::app -> src::util -> src::app\n\nModules\n  src::app (src/app.veln) fan-in=1 fan-out=1 pressure=1 external=0\n  src::util (src/util.veln) fan-in=1 fan-out=1 pressure=1 external=0", "ABC size\n  src/app.veln::duplicate_app (src/app.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false\n  src/util.veln::duplicate_util (src/util.veln) function ABC size=2.8 vector=(2, 2, 0) contracts_included=false", "Whole-body similarity (experimental)\n  Similarity is advisory; it never creates a metrics policy violation.\n  Review repeated bodies manually; the report does not prescribe automatic deduplication.\n  similarity:", "primary=src/app.veln::duplicate_app at src/app.veln:", "related: src/util.veln::duplicate_util at src/util.veln:"]
+
+[stderr]
+format = "empty"
