@@ -3134,7 +3134,7 @@ mod tests {
         let project = Project {
             root: ".".into(),
             manifest: None,
-            files: vec![SourceFile::new("app.veln", &workload.source())],
+            files: vec![SourceFile::new("app.veln", workload.source())],
         };
         let selected = ["app.veln".to_string()].into_iter().collect();
         let graph = DependencyGraph::from_project(&project).expect("graph");
