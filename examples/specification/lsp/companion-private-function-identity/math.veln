@@ -1,0 +1,6 @@
+fn increment() -> ()
+end
+
+pub fn production() -> ()
+  increment()
+end

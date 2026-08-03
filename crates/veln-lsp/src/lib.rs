@@ -425,6 +425,7 @@ fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
     let client_roots = extract_workspace_folder_uris(message)
         .into_iter()
         .filter_map(|uri| uri_to_path(&uri))
+        .filter_map(absolute_workspace_root)
         .collect::<Vec<_>>();
     let mut roots = Vec::new();
     for root in client_roots {
@@ -434,11 +435,22 @@ fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
         && let Some(root) =
             extract_string_field(message, "rootUri").and_then(|uri| uri_to_path(&uri))
     {
+        let Some(root) = absolute_workspace_root(root) else {
+            return roots;
+        };
         roots.extend(resolve_workspace_project_roots(&root));
     }
     roots.sort();
     roots.dedup();
     roots
+}
+
+fn absolute_workspace_root(root: PathBuf) -> Option<PathBuf> {
+    if root.is_absolute() {
+        Some(root)
+    } else {
+        env::current_dir().ok().map(|current| current.join(root))
+    }
 }
 
 fn resolve_workspace_project_roots(root: &Path) -> Vec<PathBuf> {

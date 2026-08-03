@@ -1,0 +1,5 @@
+use math
+
+test wrong_companion_reference() -> ()
+  math::increment()
+end

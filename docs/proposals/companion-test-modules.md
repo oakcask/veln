@@ -76,8 +76,9 @@ checked companion private-function, private source ADT, private schema, private
 effect, and private handler examples.
 The implemented private-function language-server identity is specified in
 `../specification/editor-support.md` and checked by the `veln-lsp` server
-tests for companion private-function definition, prepare rename, rename edits,
-boundary rejection, and open-document overlays.
+tests and the routed executable LSP example for companion private-function
+definition, prepare rename, rename edits, boundary rejection, and open-document
+overlays.
 Remaining proposal work applies the same exact permission model to other
 declaration kinds that ordinary same-module lookup can select, including
 codecs and aliases.

@@ -135,9 +135,10 @@ definition or rename results.
 
 Definition and rename use the same open-document overlays as workspace
 diagnostics. Unsaved target or companion text can provide the declaration and
-reference locations used in the response. The checked evidence is in the
-`veln-lsp` server tests for companion private-function definition, prepare
-rename, rename edits, rejected boundaries, and open-document overlays.
+reference locations used in the response. The routed executable evidence is
+`../../examples/specification/lsp/companion-private-function-identity/`. The
+`veln-lsp` server tests also cover companion private-function definition,
+prepare rename, rename edits, rejected boundaries, and open-document overlays.
 
 ## VSCode Integration
 
