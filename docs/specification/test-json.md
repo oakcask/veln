@@ -47,10 +47,12 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/companion-explicit-target-selection/`,
   and
   `../../examples/specification/test/companion-explicit-companion-selection/`.
-- Companion private-function execution, private source ADT execution, and
-  established target effect propagation:
+- Companion private-function execution, private source ADT execution, private
+  nominal effect operation execution, and established target effect
+  propagation:
   `../../examples/specification/test/companion-private-function-access/`,
-  `../../examples/specification/test/companion-private-source-adt-access/`, and
+  `../../examples/specification/test/companion-private-source-adt-access/`,
+  `../../examples/specification/test/companion-private-effect-operation/`, and
   `../../examples/specification/test/companion-private-function-established-effects/`.
 - Counts in `summary`: [test-json-full.md](test-json-full.md#summary).
 - Case records, doctests, runtime failures, runtime expectation mismatches,
