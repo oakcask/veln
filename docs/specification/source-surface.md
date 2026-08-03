@@ -91,6 +91,13 @@ type, and schema aliases are rejected with
 `codec` and `pub codec` declarations remain rejected by
 `parse.codec_declaration_removed` before companion-specific module validation.
 
+Package manifests must not publish test companions through `[lib].exports`.
+The local checked cases are
+`examples/specification/check/manifest-companion-export-json/` and
+`examples/specification/check/manifest-companion-export-human/`. The dependency
+checked case is
+`examples/specification/check/dependency-companion-export-boundary-json/`.
+
 ## Integer Literals
 
 `Int` literals accept decimal digits, lowercase `0b` plus binary digits, or

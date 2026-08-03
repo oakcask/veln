@@ -130,9 +130,12 @@ changing whether its target passes production analysis.
 
 ## File And Package Boundaries
 
-External packages cannot import a companion source. Package export lists must
-reject companion paths. Distribution and standard-library bundles must exclude
-companion sources in the same way that they exclude other test-only sources.
+The implemented package-publication boundary is specified in
+`../specification/source-surface.md`, `../specification/commands.md`, and
+`../specification/diagnostics-json.md`. Package export lists reject companion
+paths, external packages cannot import a companion source through
+`[lib].exports`, and distribution bundles exclude companion sources in the same
+way that they exclude other test-only sources.
 
 ## Command Behavior
 
@@ -140,7 +143,7 @@ The implemented file and command boundary is specified in
 `../specification/source-surface.md`, `../specification/commands.md`,
 `../specification/test-json.md`, and `../specification/diagnostics-json.md`.
 The remaining command work is limited to surfaces that need private-access,
-package-export, generated-documentation, or language-server behavior.
+generated-documentation, or language-server behavior.
 
 ## Acceptance Cases
 
@@ -166,8 +169,7 @@ replace command-visible human and JSON coverage.
 
 Remaining companion diagnostics must distinguish these failed facts:
 
-- a qualified private declaration belongs to a module other than the target;
-- a companion path appears in a package export list.
+- a qualified private declaration belongs to a module other than the target.
 
 The primary message must state the specific failed fact at the relevant path or
 source span. Related notes may identify the valid companion target. JSON

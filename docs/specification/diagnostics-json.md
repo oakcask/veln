@@ -103,6 +103,14 @@ Companion public declaration diagnostics use
 public declaration form. JSON and human output are checked by
 `examples/specification/check/companion-public-declaration-json/` and
 `examples/specification/check/companion-public-declaration-human/`.
+Manifest export diagnostics reject `.test.veln` companion paths with
+`manifest.invalid_export`, `details.field = "lib.exports"`,
+`details.reason = "test_companion"`, `details.source_path`, and
+`details.companion_path`. JSON and human output are checked by
+`examples/specification/check/manifest-companion-export-json/` and
+`examples/specification/check/manifest-companion-export-human/`; dependency
+publication boundaries are checked by
+`examples/specification/check/dependency-companion-export-boundary-json/`.
 
 ## Stable Details
 

@@ -51,10 +51,14 @@ fn collect_veln_sources(root: &Path, directory: &Path, paths: &mut Vec<String>) 
             .expect("standard library source should be below source root")
             .to_string_lossy()
             .replace('\\', "/");
-        if relative.ends_with(".veln") && !relative.ends_with("_test.veln") {
+        if is_distribution_source(&relative) {
             paths.push(relative);
         }
     }
+}
+
+fn is_distribution_source(path: &str) -> bool {
+    path.ends_with(".veln") && !path.ends_with("_test.veln") && !path.ends_with(".test.veln")
 }
 
 fn manifest_exports(manifest: &str) -> Vec<String> {

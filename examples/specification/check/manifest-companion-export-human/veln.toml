@@ -1,0 +1,7 @@
+[package]
+name = "local-companion-export"
+
+[lib]
+exports = [
+  "math.test.veln",
+]

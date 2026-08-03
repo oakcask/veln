@@ -24,7 +24,8 @@ requiring the full command reference on the first read.
   `.test.veln` companion target inclusion, manifest dependency metadata
   validation, exact companion private-function and private source ADT access
   through qualified target imports, companion observation of established
-  private target effects, path dependency source loading for external imports,
+  private target effects, package export rejection for `.test.veln`
+  companions, path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   [source-surface.md](source-surface.md) for the companion private-function

@@ -1,3 +1,7 @@
+---
+review-when: The documented name resolution, effect behavior, or executable evidence changes.
+---
+
 # Names And Effects
 
 This file specifies implemented name resolution and effect checking.
@@ -845,8 +849,8 @@ them in scope.
 
 `std` is owned by the toolchain. A root package named `std` is accepted only
 when its manifest, exports, and non-test sources exactly match the embedded
-bundle; extra `*_test.veln` files are allowed. Other packages named `std` and
-manifest dependencies on `std` report
+bundle; extra `*_test.veln` and `.test.veln` files are allowed. Other packages
+named `std` and manifest dependencies on `std` report
 `manifest.reserved_standard_package`. Explicit imports from package `std`
 resolve against the embedded export set, but a source-written alias named
 `prelude` remains reserved. The standard package does not participate in
@@ -1369,7 +1373,7 @@ payload-length examples, including `WINDOW_UPDATE`.
 
 The package manifest exports `prelude.veln`; `compiler_support.veln` remains a
 private module. The embedded distribution bundle contains every non-test Veln
-source exactly once and excludes `*_test.veln` files.
+source exactly once and excludes `*_test.veln` and `.test.veln` files.
 
 The generic runtime diagnostic types are implemented by the private
 `std::diagnostic` module. The prelude re-exports `RuntimeDiagnostic`,

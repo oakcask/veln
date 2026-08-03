@@ -1,0 +1,5 @@
+use math__test_companion from "github.com/oakcask/companion-lib"
+
+fn main() -> Int
+  math__test_companion::secret()
+end
