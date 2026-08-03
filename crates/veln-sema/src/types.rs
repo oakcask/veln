@@ -3,9 +3,9 @@ mod schema_encode;
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
-    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, Function,
-    FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl,
-    SchemaField, SurfaceModule, UseDecl, Visibility,
+    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, Expr, ExprKind,
+    Function, FunctionKind, IfBranch, MatchArm, NodeId, Pattern, PatternKind, PublicAliasKind,
+    RecordField, SchemaDecl, SchemaField, SurfaceModule, UseDecl, Visibility,
 };
 use veln_literals::parse_integer_literal;
 use veln_source::SourceSpan;
@@ -193,15 +193,6 @@ type FunctionSignatureMap = BTreeMap<FunctionKey, FunctionSignature>;
 type FunctionReturnMap = BTreeMap<FunctionKey, Type>;
 type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
-
-struct PrivateInferenceExprContext<'a> {
-    expected: Option<&'a Type>,
-    current_module: Option<&'a str>,
-    uses: &'a [UseDecl],
-    bindings: &'a [Binding],
-    returns_by_path: &'a FunctionReturnMap,
-    adts: &'a AdtRegistry,
-}
 
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
@@ -2330,6 +2321,13 @@ fn infer_private_signature_expr_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
+    let context = PrivateSignatureInferContext {
+        current_module,
+        uses,
+        bindings,
+        returns_by_path,
+        adts,
+    };
     match &expr.kind {
         ExprKind::Missing | ExprKind::Hole { .. } | ExprKind::TypeApply { .. } => Type::Unknown,
         ExprKind::StringLiteral(_) => Type::string(),
@@ -2346,232 +2344,44 @@ fn infer_private_signature_expr_type(
             returns_by_path,
             adts,
         ),
-        ExprKind::List(items) => {
-            let expected_item = expected
-                .and_then(Type::vec_part)
-                .cloned()
-                .unwrap_or(Type::Unknown);
-            let mut item_type = expected_item;
-            for item in items {
-                let actual = infer_private_signature_expr_type(
-                    item,
-                    item_type_unknown_as_none(&item_type),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                if item_type == Type::Unknown {
-                    item_type = actual;
-                }
-            }
-            Type::vec(item_type)
+        ExprKind::List(items) => infer_private_list_type(items, expected, &context),
+        ExprKind::Dict(entries) => infer_private_dict_type(entries, expected, &context),
+        ExprKind::Record(fields) => infer_private_record_type(fields, expected, &context),
+        ExprKind::Call { callee, args } => {
+            infer_private_signature_call_type(callee, args, expected, &context)
         }
-        ExprKind::Dict(entries) => {
-            let (mut key_type, mut value_type) = expected
-                .and_then(Type::dict_parts)
-                .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
-                    (key.clone(), value.clone())
-                });
-            for entry in entries {
-                let key_actual = infer_private_signature_expr_type(
-                    &entry.key,
-                    item_type_unknown_as_none(&key_type),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                if key_type == Type::Unknown {
-                    key_type = key_actual;
-                }
-                let value_actual = infer_private_signature_expr_type(
-                    &entry.value,
-                    item_type_unknown_as_none(&value_type),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                if value_type == Type::Unknown {
-                    value_type = value_actual;
-                }
-            }
-            Type::dict(key_type, value_type)
-        }
-        ExprKind::Record(fields) => {
-            if fields.is_empty()
-                && let Some(expected) = expected
-                && expected.dict_parts().is_some()
-            {
-                return expected.clone();
-            }
-            Type::Record(
-                fields
-                    .iter()
-                    .map(|field| {
-                        let field_expected =
-                            expected.and_then(|expected| expected.record_field(&field.name));
-                        (
-                            field.name.clone(),
-                            infer_private_signature_expr_type(
-                                &field.expr,
-                                field_expected,
-                                current_module,
-                                uses,
-                                bindings,
-                                returns_by_path,
-                                adts,
-                            ),
-                        )
-                    })
-                    .collect(),
-            )
-        }
-        ExprKind::Call { callee, args } => infer_private_signature_call_type(
-            callee,
-            args,
-            expected,
-            &PrivateSignatureInferContext {
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            },
-        ),
         ExprKind::Perform { args, .. } => {
             for arg in args {
-                infer_private_signature_expr_type(
-                    arg,
-                    None,
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
+                context.infer(arg, None);
             }
             Type::Unknown
         }
         ExprKind::Handle { body, args, .. } => {
             for arg in args {
-                infer_private_signature_expr_type(
-                    arg,
-                    None,
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
+                context.infer(arg, None);
             }
-            infer_private_signature_expr_type(
-                body,
-                expected,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            )
+            context.infer(body, expected)
         }
         ExprKind::SchemaDecode { input, base, .. } => {
-            infer_private_signature_expr_type(
-                input,
-                Some(&Type::named("ByteView", Vec::new())),
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
-            infer_private_signature_expr_type(
-                base,
-                Some(&Type::named("ByteOffset", Vec::new())),
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
+            context.infer(input, Some(&Type::named("ByteView", Vec::new())));
+            context.infer(base, Some(&Type::named("ByteOffset", Vec::new())));
             Type::Unknown
         }
         ExprKind::SchemaEncode { value, .. } => {
-            infer_private_signature_expr_type(
-                value,
-                None,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
+            context.infer(value, None);
             Type::Unknown
         }
-        ExprKind::FieldAccess { base, field, .. } => infer_private_signature_expr_type(
-            base,
-            None,
-            current_module,
-            uses,
-            bindings,
-            returns_by_path,
-            adts,
-        )
-        .record_field(field)
-        .cloned()
-        .unwrap_or(Type::Unknown),
+        ExprKind::FieldAccess { base, field, .. } => context
+            .infer(base, None)
+            .record_field(field)
+            .cloned()
+            .unwrap_or(Type::Unknown),
         ExprKind::Try(inner) => expected.cloned().unwrap_or_else(|| {
-            let inner_type = infer_private_signature_expr_type(
-                inner,
-                None,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
+            let inner_type = context.infer(inner, None);
             adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
         }),
         ExprKind::Match { scrutinee, arms } => {
-            let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
-                arms,
-                current_module,
-                uses,
-                adts,
-            ) {
-                MatchScrutineePatternInference::Inferred(ty) => Some(ty),
-                MatchScrutineePatternInference::Uninferred
-                | MatchScrutineePatternInference::Ambiguous(_) => None,
-            };
-            infer_private_signature_expr_type(
-                scrutinee,
-                scrutinee_expected.as_ref(),
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
-            let mut result = expected.cloned().unwrap_or(Type::Unknown);
-            for arm in arms {
-                let actual = infer_private_signature_expr_type(
-                    &arm.expr,
-                    item_type_unknown_as_none(&result),
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                if result == Type::Unknown {
-                    result = actual;
-                }
-            }
-            result
+            infer_private_match_type(scrutinee, arms, expected, &context)
         }
         ExprKind::If {
             then_branch,
@@ -2582,100 +2392,169 @@ fn infer_private_signature_expr_type(
             then_branch,
             else_if_branches,
             else_branch,
-            &PrivateInferenceExprContext {
-                expected,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            },
+            expected,
+            &context,
         ),
         ExprKind::Prefix { expr, .. } => {
-            infer_private_signature_expr_type(
-                expr,
-                expected,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            );
+            context.infer(expr, expected);
             Type::Unknown
         }
-        ExprKind::Binary { op, left, right } => match op {
-            veln_ast::BinaryOp::Equal
-            | veln_ast::BinaryOp::NotEqual
-            | veln_ast::BinaryOp::Less
-            | veln_ast::BinaryOp::LessEqual
-            | veln_ast::BinaryOp::Greater
-            | veln_ast::BinaryOp::GreaterEqual
-            | veln_ast::BinaryOp::Or
-            | veln_ast::BinaryOp::And => Type::bool(),
-            veln_ast::BinaryOp::BitwiseOr
-            | veln_ast::BinaryOp::BitwiseXor
-            | veln_ast::BinaryOp::BitwiseAnd
-            | veln_ast::BinaryOp::ShiftLeft
-            | veln_ast::BinaryOp::ShiftRight
-            | veln_ast::BinaryOp::ShiftRightLogical => Type::int(),
-            veln_ast::BinaryOp::Add
-            | veln_ast::BinaryOp::Subtract
-            | veln_ast::BinaryOp::Multiply
-            | veln_ast::BinaryOp::Divide => {
-                let left = infer_private_signature_expr_type(
-                    left,
-                    expected,
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                let right = infer_private_signature_expr_type(
-                    right,
-                    expected,
-                    current_module,
-                    uses,
-                    bindings,
-                    returns_by_path,
-                    adts,
-                );
-                if left == Type::float() || right == Type::float() {
-                    Type::float()
-                } else {
-                    Type::int()
-                }
-            }
-            veln_ast::BinaryOp::PipeGreater => Type::Unknown,
-        },
+        ExprKind::Binary { op, left, right } => {
+            infer_private_binary_type(*op, left, right, expected, &context)
+        }
     }
+}
+
+fn infer_private_list_type(
+    items: &[Expr],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    let mut item_type = expected
+        .and_then(Type::vec_part)
+        .cloned()
+        .unwrap_or(Type::Unknown);
+    for item in items {
+        let actual = context.infer(item, item_type_unknown_as_none(&item_type));
+        if item_type == Type::Unknown {
+            item_type = actual;
+        }
+    }
+    Type::vec(item_type)
+}
+
+fn infer_private_dict_type(
+    entries: &[DictEntry],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    let (mut key_type, mut value_type) = expected
+        .and_then(Type::dict_parts)
+        .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+            (key.clone(), value.clone())
+        });
+    for entry in entries {
+        let key_actual = context.infer(&entry.key, item_type_unknown_as_none(&key_type));
+        if key_type == Type::Unknown {
+            key_type = key_actual;
+        }
+        let value_actual = context.infer(&entry.value, item_type_unknown_as_none(&value_type));
+        if value_type == Type::Unknown {
+            value_type = value_actual;
+        }
+    }
+    Type::dict(key_type, value_type)
+}
+
+fn infer_private_record_type(
+    fields: &[RecordField],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    if fields.is_empty()
+        && let Some(expected) = expected
+        && expected.dict_parts().is_some()
+    {
+        return expected.clone();
+    }
+    Type::Record(
+        fields
+            .iter()
+            .map(|field| {
+                let field_expected =
+                    expected.and_then(|expected| expected.record_field(&field.name));
+                (
+                    field.name.clone(),
+                    context.infer(&field.expr, field_expected),
+                )
+            })
+            .collect(),
+    )
+}
+
+fn infer_private_match_type(
+    scrutinee: &Expr,
+    arms: &[MatchArm],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    let scrutinee_expected = match infer_match_scrutinee_type_from_constructor_patterns(
+        arms,
+        context.current_module,
+        context.uses,
+        context.adts,
+    ) {
+        MatchScrutineePatternInference::Inferred(ty) => Some(ty),
+        MatchScrutineePatternInference::Uninferred
+        | MatchScrutineePatternInference::Ambiguous(_) => None,
+    };
+    context.infer(scrutinee, scrutinee_expected.as_ref());
+    let mut result = expected.cloned().unwrap_or(Type::Unknown);
+    for arm in arms {
+        let actual = context.infer(&arm.expr, item_type_unknown_as_none(&result));
+        if result == Type::Unknown {
+            result = actual;
+        }
+    }
+    result
 }
 
 fn infer_private_if_result_type(
     then_branch: &Expr,
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
-    context: &PrivateInferenceExprContext<'_>,
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
 ) -> Type {
-    let mut result = context.expected.cloned().unwrap_or(Type::Unknown);
+    let mut result = expected.cloned().unwrap_or(Type::Unknown);
     for branch_expr in std::iter::once(then_branch)
         .chain(else_if_branches.iter().map(|branch| &branch.expr))
         .chain(std::iter::once(else_branch))
     {
-        let actual = infer_private_signature_expr_type(
-            branch_expr,
-            item_type_unknown_as_none(&result),
-            context.current_module,
-            context.uses,
-            context.bindings,
-            context.returns_by_path,
-            context.adts,
-        );
+        let actual = context.infer(branch_expr, item_type_unknown_as_none(&result));
         if result == Type::Unknown {
             result = actual;
         }
     }
     result
+}
+
+fn infer_private_binary_type(
+    op: veln_ast::BinaryOp,
+    left: &Expr,
+    right: &Expr,
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+) -> Type {
+    match op {
+        veln_ast::BinaryOp::Equal
+        | veln_ast::BinaryOp::NotEqual
+        | veln_ast::BinaryOp::Less
+        | veln_ast::BinaryOp::LessEqual
+        | veln_ast::BinaryOp::Greater
+        | veln_ast::BinaryOp::GreaterEqual
+        | veln_ast::BinaryOp::Or
+        | veln_ast::BinaryOp::And => Type::bool(),
+        veln_ast::BinaryOp::BitwiseOr
+        | veln_ast::BinaryOp::BitwiseXor
+        | veln_ast::BinaryOp::BitwiseAnd
+        | veln_ast::BinaryOp::ShiftLeft
+        | veln_ast::BinaryOp::ShiftRight
+        | veln_ast::BinaryOp::ShiftRightLogical => Type::int(),
+        veln_ast::BinaryOp::Add
+        | veln_ast::BinaryOp::Subtract
+        | veln_ast::BinaryOp::Multiply
+        | veln_ast::BinaryOp::Divide => {
+            let left = context.infer(left, expected);
+            let right = context.infer(right, expected);
+            if left == Type::float() || right == Type::float() {
+                Type::float()
+            } else {
+                Type::int()
+            }
+        }
+        veln_ast::BinaryOp::PipeGreater => Type::Unknown,
+    }
 }
 
 fn item_type_unknown_as_none(ty: &Type) -> Option<&Type> {
@@ -2884,6 +2763,20 @@ struct PrivateSignatureInferContext<'a> {
     adts: &'a AdtRegistry,
 }
 
+impl PrivateSignatureInferContext<'_> {
+    fn infer(&self, expr: &Expr, expected: Option<&Type>) -> Type {
+        infer_private_signature_expr_type(
+            expr,
+            expected,
+            self.current_module,
+            self.uses,
+            self.bindings,
+            self.returns_by_path,
+            self.adts,
+        )
+    }
+}
+
 fn infer_private_signature_call_type(
     callee: &Expr,
     args: &[Expr],
@@ -2898,17 +2791,7 @@ fn infer_private_signature_call_type(
         {
             let actual_args = args
                 .iter()
-                .map(|arg| {
-                    infer_private_signature_expr_type(
-                        arg,
-                        None,
-                        context.current_module,
-                        context.uses,
-                        context.bindings,
-                        context.returns_by_path,
-                        context.adts,
-                    )
-                })
+                .map(|arg| context.infer(arg, None))
                 .collect::<Vec<_>>();
             if expected
                 .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
@@ -2939,15 +2822,7 @@ fn infer_private_signature_call_type(
             }
             if let Some((params, return_type)) = crate::prelude::prelude_signature(name, expected) {
                 for (arg, param) in args.iter().zip(params.iter()) {
-                    infer_private_signature_expr_type(
-                        arg,
-                        Some(param),
-                        context.current_module,
-                        context.uses,
-                        context.bindings,
-                        context.returns_by_path,
-                        context.adts,
-                    );
+                    context.infer(arg, Some(param));
                 }
                 return return_type;
             }
