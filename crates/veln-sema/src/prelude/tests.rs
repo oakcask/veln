@@ -57,6 +57,121 @@ fn dictionary_prelude_signatures_are_first_order() {
 }
 
 #[test]
+fn dictionary_map_signature_preserves_input_and_result_shapes() {
+    let input = Type::dict(Type::string(), Type::int());
+    let mapped = Type::dict(Type::string(), Type::bool());
+    assert_dictionary_callback_signature(
+        "dict_map",
+        mapped.clone(),
+        input.clone(),
+        vec![
+            input,
+            Type::function(vec![Type::string(), Type::int()], Type::bool(), Vec::new()),
+        ],
+        mapped,
+    );
+}
+
+#[test]
+fn dictionary_filter_with_signature_preserves_context_shape() {
+    let input = Type::dict(Type::string(), Type::int());
+    assert_dictionary_callback_signature(
+        "dict_filter_with",
+        input.clone(),
+        input.clone(),
+        vec![
+            Type::Unknown,
+            input.clone(),
+            Type::function(
+                vec![Type::Unknown, Type::string(), Type::int()],
+                Type::bool(),
+                Vec::new(),
+            ),
+        ],
+        input,
+    );
+}
+
+#[test]
+fn dictionary_fold_signature_preserves_accumulator_shape() {
+    let input = Type::dict(Type::string(), Type::int());
+    assert_dictionary_callback_signature(
+        "dict_fold",
+        Type::string(),
+        input.clone(),
+        vec![
+            input,
+            Type::string(),
+            Type::function(
+                vec![Type::string(), Type::string(), Type::int()],
+                Type::string(),
+                Vec::new(),
+            ),
+        ],
+        Type::string(),
+    );
+}
+
+#[test]
+fn dictionary_try_map_with_signature_preserves_context_and_result_shapes() {
+    let input = Type::dict(Type::string(), Type::int());
+    let mapped = Type::dict(Type::string(), Type::bool());
+    let expected = adt::result_type(mapped, Type::int());
+    assert_dictionary_callback_signature(
+        "dict_try_map_with",
+        expected.clone(),
+        input.clone(),
+        vec![
+            Type::Unknown,
+            input,
+            Type::function(
+                vec![Type::Unknown, Type::string(), Type::int()],
+                adt::result_type(Type::bool(), Type::int()),
+                Vec::new(),
+            ),
+        ],
+        expected,
+    );
+}
+
+fn assert_dictionary_callback_signature(
+    name: &str,
+    expected: Type,
+    input: Type,
+    expected_params: Vec<Type>,
+    expected_return_type: Type,
+) {
+    let (params, return_type) = prelude_signature_with_input(name, Some(&expected), Some(&input))
+        .expect("dictionary callback signature");
+
+    assert_eq!(params, expected_params, "{name}");
+    assert_eq!(return_type, expected_return_type, "{name}");
+}
+
+#[test]
+fn core_dictionary_callback_signatures_preserve_context_and_result_shapes() {
+    let mapped = CoreType::dict(CoreType::string(), CoreType::bool());
+    let expected = CoreType::result(mapped.clone(), CoreType::int());
+    let (_, params, return_type) = core_prelude_signature("dict_try_map_with", Some(&expected))
+        .expect("core dictionary callback signature");
+
+    assert_eq!(
+        params,
+        vec![
+            CoreType::Unknown,
+            CoreType::dict(CoreType::string(), CoreType::Unknown),
+            CoreType::Function {
+                params: vec![CoreType::Unknown, CoreType::string(), CoreType::Unknown],
+                variadic: None,
+                return_type: Box::new(CoreType::result(CoreType::bool(), CoreType::int())),
+                effects: Vec::new(),
+            },
+        ]
+    );
+    assert_eq!(return_type, expected);
+}
+
+#[test]
 fn compiler_adapter_fallback_uses_concrete_callback_parameter() {
     let signatures = source_prelude_callback_signatures_from_text(
         "prelude.veln",
