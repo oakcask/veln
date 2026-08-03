@@ -1,0 +1,8 @@
+use math
+
+pub fn expose = math::increment
+
+test companion_cannot_alias_private_target_function() -> ()
+	let observed: Int = expose(1)
+	()
+end

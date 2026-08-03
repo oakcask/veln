@@ -1,3 +1,7 @@
+---
+review-when: The documented name resolution, effect behavior, or executable names/effects evidence changes.
+---
+
 # Names And Effects
 
 This is the routing page for implemented name resolution, effect checking, and
@@ -15,6 +19,12 @@ compiler-known calls.
   Task creation preserves the concrete effect set of its job callable; the
   checked `http2-service-task-effect-row` case fixes the current task
   effect-row boundary.
+- Companion private-function calls observe the established signature and
+  effects of the exact target function without changing the target's inferred
+  production effects. The checked
+  `companion-private-function-established-effects` and
+  `companion-private-function-established-effects-missing` cases fix the
+  companion declaration boundary.
 - Private `std::diagnostic` ownership, public prelude aliases, and the nested
   HTTP/2 and HPACK diagnostic detail types:
   [Prelude Helpers](names-effects-full.md#prelude-helpers).

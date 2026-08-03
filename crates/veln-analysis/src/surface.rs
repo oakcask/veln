@@ -1602,6 +1602,9 @@ fn function_alias_targets(
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
+            if companion_alias_targets_imported_private_function(alias, target) {
+                return None;
+            }
             Some(FunctionTarget {
                 name,
                 module_name: alias.module_name.clone(),
@@ -1614,6 +1617,15 @@ fn function_alias_targets(
             })
         })
         .collect()
+}
+
+fn companion_alias_targets_imported_private_function(
+    alias: &veln_ast::PublicAlias,
+    target: &FunctionTarget,
+) -> bool {
+    target.visibility != Visibility::Public
+        && alias.module_name != target.target_module_name
+        && classify_companion_source(alias.span.file.as_str()).is_some()
 }
 
 fn target_for_alias_path<'a>(
@@ -3382,6 +3394,145 @@ mod tests {
             functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
             "{functions:#?}"
         );
+    }
+
+    #[test]
+    fn companion_test_entry_does_not_reach_private_target_through_alias() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "pub fn expose = math::increment\n",
+                        "test expose_test() -> Int\n",
+                        "  expose(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "expose_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("expose_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            !functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_call_does_not_change_production_private_inference_reachability() {
+        let target = SourceFile::new(
+            "math.veln",
+            concat!(
+                "fn identity(value)\n",
+                "  value\n",
+                "end\n",
+                "pub fn production() -> Int\n",
+                "  identity(_)\n",
+                "end\n",
+            ),
+        );
+        let project_without_companion = Project {
+            root: ".".into(),
+            files: vec![target.clone()],
+            manifest: None,
+        };
+        let project_with_companion = Project {
+            root: ".".into(),
+            files: vec![
+                target,
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test identity_test() -> Int\n",
+                        "  math::identity(1)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+
+        let (without_companion, without_diagnostics) =
+            load_surface_module(&project_without_companion);
+        let (with_companion, with_diagnostics) = load_surface_module(&project_with_companion);
+        assert!(without_diagnostics.is_empty(), "{without_diagnostics:#?}");
+        assert!(with_diagnostics.is_empty(), "{with_diagnostics:#?}");
+
+        let production_without =
+            reachable_entry_module(&without_companion, "production", FunctionKind::Function);
+        let production_with =
+            reachable_entry_module(&with_companion, "production", FunctionKind::Function);
+        let without_functions = production_without
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                    function
+                        .params
+                        .iter()
+                        .map(|param| param.ty.as_deref())
+                        .collect::<Vec<_>>(),
+                    function.return_type.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let with_functions = production_with
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                    function
+                        .params
+                        .iter()
+                        .map(|param| param.ty.as_deref())
+                        .collect::<Vec<_>>(),
+                    function.return_type.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(with_functions, without_functions);
     }
 
     #[test]

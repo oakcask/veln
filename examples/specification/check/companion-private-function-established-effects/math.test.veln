@@ -1,0 +1,5 @@
+use math
+
+test companion_declares_private_target_effect() -> () effects [stdio]
+	math::emit("companion")
+end

@@ -1,0 +1,7 @@
+fn emit(value) -> () effects [stdio]
+	stdio::println(value)
+end
+
+pub fn production() -> () effects [stdio]
+	emit("production")
+end

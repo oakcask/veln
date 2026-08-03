@@ -6564,9 +6564,13 @@ fn effects_for_bare_callee<'a>(
     {
         return effects;
     }
+    if let Some(current_module) = current_module {
+        return effects_by_function
+            .get(&(Some(current_module.to_string()), name.to_string()))
+            .map_or(&[], Vec::as_slice);
+    }
     effects_by_function
-        .get(&(current_module.map(str::to_string), name.to_string()))
-        .or_else(|| effects_by_function.get(&(None, name.to_string())))
+        .get(&(None, name.to_string()))
         .map_or(&[], Vec::as_slice)
 }
 

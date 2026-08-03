@@ -23,7 +23,8 @@ requiring the full command reference on the first read.
 - `check`: source discovery, source path derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
   validation, exact companion private-function access through qualified target
-  imports, path dependency source loading for external imports,
+  imports, companion observation of established private target effects,
+  path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   [source-surface.md](source-surface.md) for the companion private-function
