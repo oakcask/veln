@@ -577,6 +577,7 @@ struct FunctionScope {
     body_start: usize,
     end: usize,
     params: BTreeSet<String>,
+    result_binding: Option<String>,
     local_bindings: Vec<LocalBinding>,
 }
 
@@ -776,8 +777,10 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_function_declaration_name(&tokens, *index)
                 && !is_parameter_name(&tokens, *index)
                 && !is_local_binding_name(&tokens, *index)
-                && token_scope(&scopes, token.range.start)
-                    .is_some_and(|scope| !scope.shadows(name, token.range.start))
+                && (token_scope(&scopes, token.range.start)
+                    .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
+                    || is_handler_provider_function_reference(&tokens, *index, name)
+                    || is_codec_implementation_function_reference(&tokens, *index, name))
         })
         .map(|(_, token)| source.span(token.range))
         .collect()
@@ -811,11 +814,13 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         };
         let end = function_scope_end(tokens, index + 1).unwrap_or(body_start);
         let params = parameter_names(tokens, index, body_start);
+        let result_binding = result_binding_name(tokens, index, body_start);
         let local_bindings = local_bindings(tokens, body_start, end);
         scopes.push(FunctionScope {
             body_start,
             end,
             params,
+            result_binding,
             local_bindings,
         });
     }
@@ -823,8 +828,13 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
 }
 
 impl FunctionScope {
-    fn shadows(&self, name: &str, offset: usize) -> bool {
+    fn shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
+        let offset = tokens[index].range.start;
         self.params.contains(name)
+            || self
+                .result_binding
+                .as_deref()
+                .is_some_and(|binding| binding == name && is_ensure_reference(tokens, index))
             || self.local_bindings.iter().any(|binding| {
                 binding.name == name && binding.start <= offset && offset < binding.end
             })
@@ -882,6 +892,24 @@ fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSe
     names
 }
 
+fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<String> {
+    let arrow_index = tokens[start..]
+        .iter()
+        .position(|token| token.kind == TokenKind::Arrow)
+        .map(|index| start + index)?;
+    if tokens[arrow_index].range.start >= body_start {
+        return None;
+    }
+    let candidate_index = next_non_layout_index(tokens, arrow_index)?;
+    let candidate = &tokens[candidate_index];
+    if candidate.kind != TokenKind::Ident || !is_identifier(&candidate.text) {
+        return None;
+    }
+    next_non_layout_token(tokens, candidate_index)
+        .is_some_and(|next| next.kind == TokenKind::Colon)
+        .then(|| candidate.text.clone())
+}
+
 fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
@@ -903,6 +931,7 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
         );
     }
     bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
+    bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
 }
 
@@ -985,6 +1014,47 @@ fn match_arm_pattern_binding_names(
                 end: scope_end,
             });
         }
+    }
+    bindings
+}
+
+fn satisfy_candidate_binding_names(
+    tokens: &[Token],
+    body_start: usize,
+    function_end: usize,
+) -> Vec<LocalBinding> {
+    let mut bindings = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if token.range.start < body_start
+            || token.range.start >= function_end
+            || token.kind != TokenKind::Ident
+            || token.text != "satisfy"
+        {
+            continue;
+        }
+        let Some(candidate_index) = next_non_layout_index(tokens, index) else {
+            continue;
+        };
+        let candidate = &tokens[candidate_index];
+        if candidate.kind != TokenKind::Ident || !is_identifier(&candidate.text) {
+            continue;
+        }
+        let Some(arrow_index) = next_non_layout_index(tokens, candidate_index) else {
+            continue;
+        };
+        if tokens[arrow_index].kind != TokenKind::FatArrow {
+            continue;
+        }
+        let end = tokens[arrow_index + 1..]
+            .iter()
+            .find(|token| token.kind == TokenKind::Newline || token.range.start >= function_end)
+            .map(|token| token.range.start)
+            .unwrap_or(function_end);
+        bindings.push(LocalBinding {
+            name: candidate.text.clone(),
+            start: tokens[arrow_index].range.end,
+            end,
+        });
     }
     bindings
 }
@@ -1093,6 +1163,7 @@ fn is_local_binding_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Let)
         || is_let_pattern_binding_name(tokens, index)
         || is_match_arm_pattern_binding_name(tokens, index)
+        || is_satisfy_candidate_binding_name(tokens, index)
 }
 
 fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
@@ -1126,9 +1197,69 @@ fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
         && is_pattern_binding_token(tokens, index)
 }
 
+fn is_satisfy_candidate_binding_name(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "satisfy")
+        && next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::FatArrow)
+}
+
 fn is_field_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index).is_some_and(|previous| previous.kind == TokenKind::Dot)
         || next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
+}
+
+fn is_ensure_reference(tokens: &[Token], index: usize) -> bool {
+    tokens[..index]
+        .iter()
+        .rev()
+        .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+        .any(|token| token.kind == TokenKind::Ensure)
+}
+
+fn is_handler_provider_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Equal)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::Equal)
+        && inside_handler_declaration(tokens, index)
+}
+
+fn is_codec_implementation_function_reference(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Ident && previous.text == "with")
+        && inside_codec_declaration(tokens, index)
+}
+
+fn inside_handler_declaration(tokens: &[Token], index: usize) -> bool {
+    inside_top_level_block(tokens, index, TokenKind::Handler)
+}
+
+fn inside_codec_declaration(tokens: &[Token], index: usize) -> bool {
+    inside_top_level_block(tokens, index, TokenKind::Codec)
+}
+
+fn inside_top_level_block(tokens: &[Token], index: usize, start_kind: TokenKind) -> bool {
+    let mut nested_blocks = 0usize;
+    for token in tokens[..index].iter().rev() {
+        match token.kind {
+            TokenKind::End => nested_blocks += 1,
+            kind if kind == start_kind && nested_blocks == 0 => return true,
+            TokenKind::Fn
+            | TokenKind::Test
+            | TokenKind::If
+            | TokenKind::Match
+            | TokenKind::Handler
+            | TokenKind::Codec => nested_blocks = nested_blocks.saturating_sub(1),
+            _ => {}
+        }
+    }
+    false
 }
 
 fn identifier_token_at(tokens: &[Token], offset: usize) -> Option<(usize, &Token)> {
@@ -1188,9 +1319,14 @@ fn qualified_reference_matches(
 }
 
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
+    next_non_layout_index(tokens, index).map(|index| &tokens[index])
+}
+
+fn next_non_layout_index(tokens: &[Token], index: usize) -> Option<usize> {
     tokens[index + 1..]
         .iter()
-        .find(|token| !is_layout_token(token))
+        .position(|token| !is_layout_token(token))
+        .map(|relative_index| index + 1 + relative_index)
 }
 
 fn previous_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
@@ -2474,6 +2610,139 @@ mod tests {
         );
         assert!(
             !responses[0].contains(r#""line":5,"character":15"#),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_result_binding_contract_scope() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-result-binding-isolation");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> increment: Int\n",
+                "  ensure increment >= value\n",
+                "  increment(value)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            !responses[0].contains(r#""line":0,"character":28"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":1,"character":9"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":2,"character":2},"end":{"line":2,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_skips_satisfy_candidate_scope() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-satisfy-candidate-isolation");
+        project.write(
+            "math.veln",
+            concat!(
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "pub fn choose(fallback: Int) -> Int\n",
+                "  _choice satisfy increment => increment > 0\n",
+                "  increment(fallback)\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            !responses[0].contains(r#""line":5,"character":19"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            !responses[0].contains(r#""line":5,"character":32"#),
+            "{}",
+            responses[0]
+        );
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":6,"character":2},"end":{"line":6,"character":11}}"#
+            ),
+            "{}",
+            responses[0]
+        );
+    }
+
+    #[test]
+    fn companion_private_function_rename_includes_handler_provider_references() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-handler-provider-reference");
+        project.write(
+            "math.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "fn increment(value: Int) -> Int\n",
+                "  value + 1\n",
+                "end\n",
+                "\n",
+                "handler adjust() handles Adjust\n",
+                "  amount = increment\n",
+                "end\n",
+            ),
+        );
+        project.write(
+            "math.test.veln",
+            "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+
+        assert_eq!(responses.len(), 1);
+        assert_eq!(responses[0].matches(r#""newText":"advance""#).count(), 3);
+        assert!(
+            responses[0].contains(
+                r#""range":{"start":{"line":9,"character":11},"end":{"line":9,"character":20}}"#
+            ),
             "{}",
             responses[0]
         );
