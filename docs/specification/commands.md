@@ -445,7 +445,13 @@ requiring the full command reference on the first read.
   private target function call. The checked
   `../../examples/specification/test/companion-private-effect-operation/`
   case shows that a selected companion test can perform and handle a private
-  nominal effect declared in its exact target. The checked examples
+  nominal effect declared in its exact target. The checked
+  `../../examples/specification/test/companion-private-handler-access/`
+  case shows that a selected companion test can execute a private handler
+  declared in its exact target, and
+  `../../examples/specification/test/companion-private-handler-established-effects/`
+  shows that retained private handler effects must be declared by the
+  companion test. The checked examples
   `../../examples/specification/test/parallel-jobs-one-json/`,
   `../../examples/specification/test/parallel-jobs-two-json/`, and
   `../../examples/specification/test/parallel-jobs-auto-json/` show that

@@ -1,0 +1,33 @@
+command = ["check", "--json", "other.test.veln", "other.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["handler.private_companion_target", "companion_target_mismatch"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.details.boundary"
+equals = "handle_expression"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "companion_target_mismatch"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "other.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_target_module"
+equals = "other"
+
+[[json_assert]]
+path = "diagnostics.0.details.handler_module"
+equals = "math"

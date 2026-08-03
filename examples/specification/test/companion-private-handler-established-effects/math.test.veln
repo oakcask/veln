@@ -1,0 +1,10 @@
+use math
+
+test companion_declares_private_target_handler_effect() -> Result<(), String> effects [stdio]
+	let observed = handle math::compute() with math::ask(41)
+	if observed == 42
+		Ok(())
+	else
+		Err("handler returned unexpected value")
+	end
+end

@@ -1,0 +1,15 @@
+effect Ask
+	value() -> Int
+end
+
+fn provide(offset: Int) -> Int
+	offset + 1
+end
+
+handler ask(offset: Int) handles Ask
+	value = provide
+end
+
+pub fn compute() -> Int effects [Ask]
+	perform Ask::value()
+end

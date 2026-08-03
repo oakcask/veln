@@ -1,0 +1,10 @@
+use math
+
+test companion_declares_private_target_handler_effect() -> () effects [stdio]
+	let observed = handle math::compute() with math::ask(41)
+	if observed == 42
+		()
+	else
+		()
+	end
+end

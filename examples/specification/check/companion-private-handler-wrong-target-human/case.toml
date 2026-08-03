@@ -1,0 +1,9 @@
+command = ["check", "other.test.veln", "other.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[handler.private_companion_target]: private handler `math::ask` belongs to `math` instead of companion target `other`"]
+
+[stderr]
+format = "empty"

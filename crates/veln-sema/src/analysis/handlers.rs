@@ -32,7 +32,11 @@ fn check_handler_declaration(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let Some(signature) = handler.name.as_ref().and_then(|name| {
-        environment.handler_path(std::slice::from_ref(name), handler.module_name.as_deref())
+        match environment.handler_path(std::slice::from_ref(name), handler.module_name.as_deref()) {
+            HandlerPathResolution::Found(signature) => Some(signature),
+            HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+            | HandlerPathResolution::Missing => None,
+        }
     }) else {
         return Vec::new();
     };

@@ -1,0 +1,11 @@
+use other
+use math
+
+test wrong_companion_cannot_use_private_target_handler() -> ()
+	let observed = handle other::compute() with math::ask(41)
+	if observed == 1
+		()
+	else
+		()
+	end
+end

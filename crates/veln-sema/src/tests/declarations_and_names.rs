@@ -1,5 +1,5 @@
 use super::*;
-use crate::types::TypeEnvironment;
+use crate::types::{HandlerPathResolution, TypeEnvironment};
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -172,9 +172,11 @@ fn public_handler_requires_and_canonicalizes_declared_provider_effects() {
     let module = lower_surface_ast(&parse(&source).tree);
 
     let environment = TypeEnvironment::from_module(&module);
-    let declared = environment
-        .handler_path(&["declared".to_string()], None)
-        .expect("declared handler should be present");
+    let declared = match environment.handler_path(&["declared".to_string()], None) {
+        HandlerPathResolution::Found(handler) => handler,
+        HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+        | HandlerPathResolution::Missing => panic!("declared handler should be present"),
+    };
     assert_eq!(declared.effects, ["stdio"]);
 
     let diagnostics = analyze_surface_module(&module);
@@ -446,6 +448,145 @@ fn wrong_companion_private_target_effect_reports_target_mismatch() {
     assert!(details.contains("\"companion_path\":\"other.test.veln\""));
     assert!(details.contains("\"companion_target_module\":\"other\""));
     assert!(details.contains("\"effect_module\":\"math\""));
+}
+
+#[test]
+fn matching_companion_handles_with_private_target_handler() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "\n",
+            "test companion_uses_private_target_handler() -> ()\n",
+            "  let observed = handle math::compute() with math::ask(41)\n",
+            "  if observed == 42\n",
+            "    ()\n",
+            "  else\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide(offset: Int) -> Int\n",
+            "  offset + 1\n",
+            "end\n",
+            "\n",
+            "handler ask(offset: Int) handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+            "\n",
+            "pub fn compute() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: target.effects,
+        handlers: target.handlers,
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn wrong_companion_private_target_handler_reports_target_mismatch() {
+    let companion_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use other\n",
+            "use math\n",
+            "\n",
+            "test wrong_companion_uses_private_target_handler() -> ()\n",
+            "  let observed = handle other::compute() with math::ask(41)\n",
+            "  if observed == 1\n",
+            "    ()\n",
+            "  else\n",
+            "    ()\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "\n",
+            "fn provide(offset: Int) -> Int\n",
+            "  offset + 1\n",
+            "end\n",
+            "\n",
+            "handler ask(offset: Int) handles Ask\n",
+            "  value = provide\n",
+            "end\n",
+        ),
+    );
+    let other_source = SourceFile::new(
+        "other.veln",
+        concat!("mod other\n", "pub fn compute() -> Int\n", "  1\n", "end\n",),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let other = lower_surface_ast(&parse(&other_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: target.effects,
+        handlers: target.handlers,
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(other.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "handler.private_companion_target")
+        .unwrap_or_else(|| panic!("expected companion target diagnostic: {diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "private handler `math::ask` belongs to `math` instead of companion target `other`"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"boundary\":\"handle_expression\""));
+    assert!(details.contains("\"reason\":\"companion_target_mismatch\""));
+    assert!(details.contains("\"companion_path\":\"other.test.veln\""));
+    assert!(details.contains("\"companion_target_module\":\"other\""));
+    assert!(details.contains("\"handler_module\":\"math\""));
 }
 
 #[test]

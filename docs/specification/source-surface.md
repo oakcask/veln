@@ -61,9 +61,12 @@ also refer to a private nominal effect from its exact target in
 `perform X::Effect::operation(...)`, declaration `effects [X::Effect]` lists,
 function type annotation effect lists, and companion-local
 `handler ... handles X::Effect` declarations and
-`handler ... effects [X::Effect]` lists. These permissions are not
-transitive through modules imported by the target, and they do not add bare
-target-name lookup. The checked function cases are
+`handler ... effects [X::Effect]` lists. A test companion may also use a
+private handler declared by its exact target in `handle Body with
+X::handler(...)` expressions when the companion writes the explicit target
+`use` and uses a qualified target path. These permissions are not transitive
+through modules imported by the target, and they do not add bare target-name
+lookup. The checked function cases are
 `examples/specification/check/companion-private-function-access/`,
 `examples/specification/check/companion-private-function-alias-boundary/`,
 `examples/specification/check/companion-private-function-value-boundary/`,
@@ -106,6 +109,18 @@ The checked private effect cases are
 `examples/specification/check/companion-private-effect-handler-effects-wrong-target/`,
 `examples/specification/check/companion-private-effect-non-transitive/`, and
 `examples/specification/check/companion-private-effect-integration-boundary/`.
+The checked private handler cases are
+`examples/specification/check/companion-private-handler-access/`,
+`examples/specification/check/companion-private-handler-missing-import/`,
+`examples/specification/check/companion-private-handler-bare-name/`,
+`examples/specification/check/companion-private-handler-integration-boundary/`,
+`examples/specification/check/companion-private-handler-wrong-target-json/`,
+`examples/specification/check/companion-private-handler-wrong-target-human/`,
+`examples/specification/check/companion-private-handler-non-transitive/`,
+`examples/specification/check/companion-private-handler-established-effects/`,
+`examples/specification/check/companion-private-handler-established-effects-missing/`,
+`examples/specification/test/companion-private-handler-access/`, and
+`examples/specification/test/companion-private-handler-established-effects/`.
 
 A test companion must not declare public source surface. `pub` functions,
 effects, handlers, types, public type variants, schemas, and public function,

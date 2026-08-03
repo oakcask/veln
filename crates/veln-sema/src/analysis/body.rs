@@ -1538,24 +1538,42 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let handler = self
+        let handler = match self
             .environment
             .handler_path(handler_path, self.function.module_name.as_deref())
-            .cloned();
-        let Some(handler) = handler else {
-            for arg in args {
-                self.infer_expr(arg, None);
+        {
+            HandlerPathResolution::Found(handler) => handler.clone(),
+            HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                let body_ty = self.infer_expr(body, expected);
+                self.diagnostics
+                    .push(private_companion_handler_target_diagnostic(
+                        expr.node_id.display("expr"),
+                        "handle_expression",
+                        &handler_path.join("::"),
+                        handler,
+                        access,
+                        handler_span.clone(),
+                    ));
+                return body_ty;
             }
-            let body_ty = self.infer_expr(body, expected);
-            self.diagnostics.push(Diagnostic::new(
-                "handler.unknown",
-                Severity::Error,
-                DiagnosticKind::Effect,
-                format!("handler `{}` is not known", handler_path.join("::")),
-                Some(handler_span.clone()),
-                effect_details(expr.node_id.display("expr"), "handle_expression"),
-            ));
-            return body_ty;
+            HandlerPathResolution::Missing => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                let body_ty = self.infer_expr(body, expected);
+                self.diagnostics.push(Diagnostic::new(
+                    "handler.unknown",
+                    Severity::Error,
+                    DiagnosticKind::Effect,
+                    format!("handler `{}` is not known", handler_path.join("::")),
+                    Some(handler_span.clone()),
+                    effect_details(expr.node_id.display("expr"), "handle_expression"),
+                ));
+                return body_ty;
+            }
         };
 
         self.check_call_arguments(

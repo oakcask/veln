@@ -1,0 +1,11 @@
+use math
+use support
+
+test companion_cannot_use_dependency_private_handler() -> () effects [support::Ask]
+	let observed = handle math::compute() with support::ask(41)
+	if observed == 42
+		()
+	else
+		()
+	end
+end

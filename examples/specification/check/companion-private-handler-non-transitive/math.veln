@@ -1,0 +1,5 @@
+use support
+
+pub fn compute() -> Int effects [support::Ask]
+	support::compute()
+end
