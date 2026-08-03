@@ -357,7 +357,9 @@ fn read_metrics_config(
                 )),
             },
             "max_findings" => match field.value.parse::<usize>() {
-                Ok(value) if value > 0 => config.human_output_max_findings = value,
+                Ok(value) if value > 0 && value <= max_json_usize() => {
+                    config.human_output_max_findings = value;
+                }
                 _ => diagnostics.push(metrics_policy_diagnostic(
                     "metrics.policy.invalid_value",
                     format!(
@@ -1725,6 +1727,10 @@ fn usize_to_json_number(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
+fn max_json_usize() -> usize {
+    usize::try_from(i64::MAX).unwrap_or(usize::MAX)
+}
+
 fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
     let mut entries = vec![
         ("mode", JsonValue::string("check")),
@@ -2429,6 +2435,17 @@ mod tests {
                 }
             }
         }
+
+        if usize::BITS > i64::BITS {
+            let manifest = metrics_manifest(&[("max_findings", "9223372036854775808")]);
+            let diagnostics =
+                read_metrics_config(Some(&manifest)).expect_err("above JSON number maximum");
+            assert_eq!(diagnostics[0].id, "metrics.policy.invalid_value");
+            assert_eq!(
+                diagnostics[0].span.as_ref().unwrap().file.as_str(),
+                "veln.toml"
+            );
+        }
     }
 
     #[test]
@@ -2464,6 +2481,43 @@ mod tests {
         assert_before(&human, "Cycles\n", "\nModules\n");
         assert!(human.contains(
             "Detailed findings omitted: 6; use veln metrics --json for complete evidence."
+        ));
+    }
+
+    #[test]
+    fn render_human_keeps_similarity_related_lines_at_truncation_boundary() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![SourceFile::new(
+                "app.veln",
+                "fn first() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn second() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn third() -> Int\n  let value = add(4, 5)\n  value\nend\n\nfn fourth() -> Int\n  let value = add(4, 5)\n  value\nend\n",
+            )],
+        };
+        let selected = ["app.veln".to_string()].into_iter().collect();
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let mut report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: vec!["app.veln".to_string()],
+            },
+            &selected,
+            MetricsConfig {
+                similarity_min_tokens: 8,
+                ..default_metrics_config()
+            },
+        );
+        report.human_output_max_findings = 6;
+
+        let human = render_human(&report);
+
+        assert!(human.contains("primary=app.veln::first"));
+        assert!(human.contains("related: app.veln::second"));
+        assert!(!human.contains("primary=app.veln::third"));
+        assert!(!human.contains("related: app.veln::fourth"));
+        assert!(human.contains(
+            "Detailed findings omitted: 1; use veln metrics --json for complete evidence."
         ));
     }
 

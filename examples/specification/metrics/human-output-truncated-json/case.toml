@@ -28,8 +28,28 @@ path = "cycles.0.path.0"
 equals = "app"
 
 [[json_assert]]
+path = "cycles.0.path.1"
+equals = "util"
+
+[[json_assert]]
 path = "cycles.0.path.2"
 equals = "app"
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"
+
+[[json_assert]]
+path = "modules.1.module"
+equals = "util"
+
+[[json_assert]]
+path = "edges.0.source"
+equals = "app"
+
+[[json_assert]]
+path = "edges.1.source"
+equals = "util"
 
 [[json_assert]]
 path = "abc_subjects.0.identity"
