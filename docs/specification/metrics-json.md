@@ -198,13 +198,17 @@ Executable evidence:
   counts, and advisory baseline behavior under `--check`.
 - The metrics `stable-ordering` and `stable-ordering-human` cases check
   public CLI ordering for selected paths, modules, edges, cycles, ABC
-  subjects, similarity declarations, and the corresponding human prefix. The
+  subjects, same-token-count similarity instances, similarity declarations,
+  and the corresponding human prefix. The
   `metrics_cli_output_is_stable_for_reversed_input_order` CLI integration test
-  checks byte-for-byte stable JSON and human output for reversed input order.
+  checks byte-for-byte stable JSON and human output for reversed input order
+  when the detailed finding set is truncated.
 - The `canonical_path_ordering_survives_source_insertion_order_and_separators`
   metrics crate test checks graph, ABC, similarity, baseline JSON, human
   locations, and path-bearing identities across reversed source insertion
-  order and equivalent `/` or `\` project-relative path spellings.
+  order and equivalent `/` or `\` project-relative path spellings. The
+  `renders_similarity_fingerprint_tiebreak_order_in_public_outputs` metrics
+  crate test checks the final fingerprint tie-break in JSON and human output.
 - The `generated_similarity_workload_preserves_pipeline_bounds` metrics crate
   test checks the parsed source and report pipeline with unrelated bodies, one
   large equivalence class, many two-declaration equivalence classes, and

@@ -73,6 +73,10 @@ equals = "src/app.veln::duplicate_app"
 
 [[json_assert]]
 path = "abc_subjects.1.identity"
+equals = "src/app.veln::variant_app"
+
+[[json_assert]]
+path = "abc_subjects.2.identity"
 equals = "src/util.veln::duplicate_util"
 
 [[json_assert]]
@@ -82,3 +86,15 @@ equals = "src/app.veln::duplicate_app"
 [[json_assert]]
 path = "similarities.0.declarations.1.identity"
 equals = "src/util.veln::duplicate_util"
+
+[[json_assert]]
+path = "similarities.1.token_count"
+equals = 19
+
+[[json_assert]]
+path = "similarities.1.declarations.0.identity"
+equals = "src/app.veln::variant_app"
+
+[[json_assert]]
+path = "similarities.1.declarations.1.identity"
+equals = "src/util.veln::variant_util"

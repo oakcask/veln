@@ -38,7 +38,7 @@ also states it.
   pressure policy and graduation evidence beyond the implemented dependency
   graph, baseline-aware dependency-cycle policy check, advisory ABC size,
   exact whole-body similarity bounds, controlled similarity benchmark,
-  human-output truncation, and stable-ordering slices.
+  and human-output truncation.
 
 ## Selection Rule
 

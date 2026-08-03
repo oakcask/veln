@@ -9,3 +9,9 @@ fn duplicate_app() -> Int
 	let other = add(value, 3)
 	other
 end
+
+fn variant_app() -> Int
+	let value = add(4, 5)
+	let other = add(value, 6)
+	other
+end

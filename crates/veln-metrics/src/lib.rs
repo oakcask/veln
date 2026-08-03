@@ -2926,12 +2926,14 @@ mod tests {
                 .collect::<Vec<_>>(),
             [
                 "nested/app.veln::duplicate_app",
+                "nested/app.veln::variant_app",
                 "nested/util.veln::duplicate_util",
+                "nested/util.veln::variant_util",
                 "nested/app.veln::add",
                 "nested/util.veln::add"
             ]
         );
-        assert_eq!(forward_report.similarities.len(), 1);
+        assert_eq!(forward_report.similarities.len(), 2);
         assert_eq!(
             forward_report.similarities[0]
                 .declarations
@@ -2942,6 +2944,25 @@ mod tests {
                 "nested/app.veln::duplicate_app",
                 "nested/util.veln::duplicate_util"
             ]
+        );
+        assert_eq!(
+            forward_report.similarities[1]
+                .declarations
+                .iter()
+                .map(|declaration| declaration.identity.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "nested/app.veln::variant_app",
+                "nested/util.veln::variant_util"
+            ]
+        );
+        assert_eq!(
+            forward_report
+                .similarities
+                .iter()
+                .map(|instance| instance.token_count)
+                .collect::<Vec<_>>(),
+            [19, 19]
         );
     }
 
@@ -3360,8 +3381,8 @@ mod tests {
         }
     }
 
-    const STABLE_APP_SOURCE: &str = "use nested::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n";
-    const STABLE_UTIL_SOURCE: &str = "use nested::app\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_util() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n";
+    const STABLE_APP_SOURCE: &str = "use nested::util\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_app() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn variant_app() -> Int\n  let value = add(4, 5)\n  let other = add(value, 6)\n  other\nend\n";
+    const STABLE_UTIL_SOURCE: &str = "use nested::app\n\nfn add(left: Int, right: Int) -> Int\n  left + right\nend\n\nfn duplicate_util() -> Int\n  let value = add(1, 2)\n  let other = add(value, 3)\n  other\nend\n\nfn variant_util() -> Int\n  let value = add(4, 5)\n  let other = add(value, 6)\n  other\nend\n";
 
     fn stable_ordering_project(files: Vec<SourceFile>) -> Project {
         Project {
