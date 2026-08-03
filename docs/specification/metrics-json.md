@@ -24,10 +24,10 @@ clean check report. `[tool.metrics] similarity_min_tokens = "N"` sets the
 minimum normalized token count for experimental whole-body similarity. It
 defaults to `"60"` and must be a positive integer string. `[tool.metrics]
 max_findings = "N"` sets the detailed human-output finding limit. It defaults
-to `"50"` and must be a positive integer string. Any other `[tool.metrics]`
-field, a `deny_cycles` value other than `"true"` or `"false"`, an invalid
-`similarity_min_tokens` value, or an invalid `max_findings` value is a
-manifest command error at the field span.
+to `"50"` and must be a positive integer string representable in the metrics
+JSON number domain. Any other `[tool.metrics]` field, a `deny_cycles` value
+other than `"true"` or `"false"`, an invalid `similarity_min_tokens` value, or
+an invalid `max_findings` value is a manifest command error at the field span.
 
 A successful check keeps the complete metrics report and adds `check.mode:
 "check"`, `check.enabled_policies`, `check.result: "pass"`, and an empty

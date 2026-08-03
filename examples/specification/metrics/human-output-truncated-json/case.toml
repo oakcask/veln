@@ -24,6 +24,26 @@ path = "human_output.truncated"
 equals = true
 
 [[json_assert]]
+path = "summary.project_module_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.selected_module_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.internal_edge_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.cycle_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.abc_subject_count"
+equals = 2
+
+[[json_assert]]
 path = "cycles.0.path.0"
 equals = "app"
 
@@ -48,8 +68,16 @@ path = "edges.0.source"
 equals = "app"
 
 [[json_assert]]
+path = "edges.0.target"
+equals = "util"
+
+[[json_assert]]
 path = "edges.1.source"
 equals = "util"
+
+[[json_assert]]
+path = "edges.1.target"
+equals = "app"
 
 [[json_assert]]
 path = "abc_subjects.0.identity"

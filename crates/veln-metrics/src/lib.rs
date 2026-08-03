@@ -2436,7 +2436,7 @@ mod tests {
             }
         }
 
-        if usize::BITS > i64::BITS {
+        if usize::MAX > max_json_usize() {
             let manifest = metrics_manifest(&[("max_findings", "9223372036854775808")]);
             let diagnostics =
                 read_metrics_config(Some(&manifest)).expect_err("above JSON number maximum");
