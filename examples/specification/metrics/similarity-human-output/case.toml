@@ -2,7 +2,7 @@ command = ["metrics"]
 exit = 0
 
 [stdout]
-contains = ["ABC size\n", "\nWhole-body similarity (experimental)\n", "primary=app.veln::first at app.veln:5:1-9:1 body app.veln:6:3-8:1", "related: app.veln::second at app.veln:10:1-14:1 body app.veln:11:3-13:1", "token_count=10", "similarity instances: 1, similarity regions: 2"]
+contains = ["ABC size\n", "\nWhole-body similarity (experimental)\n", "Similarity is advisory; it never creates a metrics policy violation.", "primary=app.veln::first at app.veln:5:1-9:1 body app.veln:6:3-8:1", "related: app.veln::second at app.veln:10:1-14:1 body app.veln:11:3-13:1", "token_count=10", "similarity instances: 1, similarity regions: 2"]
 
 [stderr]
 format = "empty"
