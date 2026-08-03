@@ -12,3 +12,19 @@ end
 fn apply(increment: fn() -> ()) -> ()
   increment()
 end
+
+fn branch(identity: fn() -> ()) -> ()
+  if true
+    let {callback: increment} = {callback: identity}
+    increment()
+  else if false
+    increment()
+  else
+    ()
+  end
+  increment()
+end
+
+fn apply_unannotated(increment) -> ()
+  increment()
+end
