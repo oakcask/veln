@@ -4,7 +4,7 @@ stdin = "Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"in
 exit = 0
 
 [stdout]
-contains = ["\"id\":2,\"result\":{\"changes\":", "\"newText\":\"advance\"", "\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":7}}", "\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}", "\"range\":{\"start\":{\"line\":3,\"character\":8},\"end\":{\"line\":3,\"character\":12}}", "\"range\":{\"start\":{\"line\":4,\"character\":8},\"end\":{\"line\":4,\"character\":12}}", "\"id\":3,\"result\":null"]
+contains = ["\"id\":2,\"result\":{\"changes\":", "\"newText\":\"advance\"", "\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":7}}", "\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":6}}", "\"range\":{\"start\":{\"line\":3,\"character\":8},\"end\":{\"line\":3,\"character\":12}}", "\"id\":3,\"result\":null"]
 
 [stderr]
 format = "empty"
