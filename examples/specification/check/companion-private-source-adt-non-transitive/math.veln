@@ -1,0 +1,5 @@
+use support
+
+pub fn value() -> Int
+	1
+end

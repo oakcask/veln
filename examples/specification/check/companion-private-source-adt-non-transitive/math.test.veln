@@ -1,0 +1,6 @@
+use math
+use support
+
+test companion_cannot_use_dependency_private_source_adt() -> support::Secret
+	support::Secret::Hidden(3)
+end

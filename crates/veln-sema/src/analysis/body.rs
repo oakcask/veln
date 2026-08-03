@@ -1267,6 +1267,10 @@ impl<'a> FunctionChecker<'a> {
                     .return_type
                     .as_deref()
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
+                    .map(|ty| {
+                        self.environment
+                            .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+                    })
                     .unwrap_or(Type::Unknown),
             ));
         }
@@ -1283,7 +1287,9 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<ExpectedType> {
         match parse_type_annotation(annotation) {
             Ok(ty) => Some(ExpectedType {
-                ty,
+                ty: self
+                    .environment
+                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref()),
                 source,
                 origin_node_id,
                 origin_span: Some(origin_span.clone()),
@@ -1306,6 +1312,10 @@ impl<'a> FunctionChecker<'a> {
             .return_type
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
+            .map(|ty| {
+                self.environment
+                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+            })
             .map(|ty| ExpectedType {
                 ty,
                 source: ExpectedTypeSource::DeclaredReturn,
@@ -2950,6 +2960,10 @@ impl<'a> FunctionChecker<'a> {
             .return_type
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
+            .map(|ty| {
+                self.environment
+                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+            })
             .and_then(|return_type| {
                 adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
             });

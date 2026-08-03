@@ -9,9 +9,9 @@ Status: proposed
 ## Summary
 
 Extend the existing `.test.veln` companion source boundary beyond the
-implemented private-function slice so a test companion can inspect remaining
-private declaration kinds from its matching production module without sharing
-that module's declaration or import scope.
+implemented private-function and source ADT slices so a test companion can
+inspect remaining private declaration kinds from its matching production module
+without sharing that module's declaration or import scope.
 
 Keep `module_name_test.veln` as an ordinary module and as the existing
 integration-test convention. This proposal does not deprecate that convention.
@@ -71,16 +71,16 @@ end
 
 The implemented function slice is specified in
 `../specification/source-surface.md`, which routes to the checked companion
-private-function examples.
+private-function and private source ADT examples.
 Remaining proposal work applies the same exact permission model to other
 declaration kinds that ordinary same-module lookup can select, including
-types, constructors, schemas, codecs, aliases, effects, and handlers.
+schemas, codecs, aliases, effects, and handlers.
 
 The permission is exact and non-transitive:
 
-- `X.test.veln` can inspect the implemented private functions from `X.veln`.
-  Remaining declaration kinds follow the same exact-target rule when they are
-  implemented.
+- `X.test.veln` can inspect the implemented private functions and source ADT
+  types and constructors from `X.veln`. Remaining declaration kinds follow the
+  same exact-target rule when they are implemented.
 - `X.test.veln` cannot inspect private declarations from a module imported by
   `X.veln`.
 - A module imported directly by `X.test.veln` exposes only its ordinary public
@@ -148,14 +148,13 @@ replace it. Each row describes an externally observable result.
 
 | Case | Sources and operation | Expected result | Planned primary evidence |
 | --- | --- | --- | --- |
-| Private type access | Target defines a private type and constructor used by its companion | Type and constructor resolve under ordinary same-module typing rules | Executable `test` specification case |
-| Bare target name for non-function private declarations | Companion names a private target declaration without a local or public imported declaration | Unresolved-name diagnostic; target-private lookup is not implicit | Human and JSON `check` cases |
-| Established non-function private inference | Production sources determine an omitted private target declaration boundary before companion checking | Companion observes only the production-established boundary | Semantic analyzer and executable `test` cases |
-| Companion does not complete non-function inference | A private target declaration is underconstrained by production sources and constrained only by a companion use | The production inference diagnostic remains | Human and JSON `check` cases |
-| Companion does not change non-function effects | A companion use reaches effectful private target behavior outside the implemented function-call slice | Target effect inference is unchanged; the companion test must declare the resulting effect | Semantic analyzer and executable `test` cases |
-| Non-transitive non-function access | Target imports `support`; companion attempts to inspect a private non-function declaration from `support` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
-| Wrong companion for non-function access | `other.test.veln` attempts a private non-function access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
-| Integration boundary for non-function access | `math_test.veln` attempts the same private non-function access | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
+| Bare target name for remaining private declarations | Companion names a private target declaration without a local or public imported declaration | Unresolved-name diagnostic; target-private lookup is not implicit | Human and JSON `check` cases |
+| Established remaining private inference | Production sources determine an omitted private target declaration boundary before companion checking | Companion observes only the production-established boundary | Semantic analyzer and executable `test` cases |
+| Companion does not complete remaining private inference | A private target declaration is underconstrained by production sources and constrained only by a companion use | The production inference diagnostic remains | Human and JSON `check` cases |
+| Companion does not change remaining private effects | A companion use reaches effectful private target behavior outside the implemented function-call and source ADT slices | Target effect inference is unchanged; the companion test must declare the resulting effect | Semantic analyzer and executable `test` cases |
+| Non-transitive remaining private access | Target imports `support`; companion attempts to inspect a private remaining declaration from `support` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
+| Wrong companion for remaining private access | `other.test.veln` attempts private remaining declaration access to `math` | Visibility diagnostic rejects the private declaration | Human and JSON `check` cases |
+| Integration boundary for remaining private access | `math_test.veln` attempts remaining private declaration access outside the implemented function and source ADT slices | Visibility diagnostic rejects the private declaration | Executable integration-boundary case |
 | Public companion declaration | Companion contains `pub fn helper` | Diagnostic rejects `pub` in a test-only companion | Human and JSON `check` cases |
 | Tooling identity | Request definition and rename for `math::increment` from the companion | Tooling identifies the declaration in `math.veln` without treating both files as one scope | Language server integration case |
 

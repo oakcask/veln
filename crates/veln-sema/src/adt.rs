@@ -1,5 +1,8 @@
+use std::collections::BTreeMap;
+
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
+use veln_project::classify_companion_source;
 
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
@@ -64,6 +67,7 @@ pub(crate) struct AdtConstructor<'a> {
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
+    companion_access_targets: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,7 +107,10 @@ impl AdtRegistry {
         let aliases = type_alias_descriptors(module, &source_descriptors);
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
-        Self { descriptors }
+        Self {
+            descriptors,
+            companion_access_targets: companion_access_targets(module),
+        }
     }
 
     pub(crate) fn descriptors(&self) -> &[AdtDescriptor] {
@@ -134,6 +141,29 @@ impl AdtRegistry {
             descriptor.type_name == *name
                 && descriptor.module_name.as_deref() == module_name
                 && descriptor.type_parameters.len() == args.len()
+        })
+    }
+
+    pub(crate) fn descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        if !name.contains("::") {
+            return self.descriptors.iter().rev().find(|descriptor| {
+                descriptor.type_name == name
+                    && descriptor.module_name.as_deref() == current_module
+                    && descriptor.type_parameters.len() == args_len
+            });
+        }
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        self.descriptors.iter().rev().find(|descriptor| {
+            descriptor.type_name == *type_name
+                && descriptor.type_parameters.len() == args_len
+                && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         })
     }
 
@@ -202,7 +232,7 @@ impl AdtRegistry {
         let mut matches = Vec::new();
         for candidate in &self.descriptors {
             if !same_descriptor(candidate, descriptor)
-                || !descriptor_visible(candidate, segments, current_module, uses, true)
+                || !self.descriptor_visible(candidate, segments, current_module, uses, true)
             {
                 continue;
             }
@@ -213,7 +243,7 @@ impl AdtRegistry {
                     segments,
                     uses,
                     current_module,
-                ) && variant_visible(candidate, variant, current_module, segments)
+                ) && self.variant_visible(candidate, variant, current_module, uses, segments)
                 {
                     matches.push(AdtConstructor {
                         descriptor: candidate,
@@ -254,7 +284,8 @@ impl AdtRegistry {
     ) -> Vec<AdtConstructor<'_>> {
         let mut matches = Vec::new();
         for descriptor in &self.descriptors {
-            if !descriptor_visible(descriptor, segments, current_module, uses, include_imports) {
+            if !self.descriptor_visible(descriptor, segments, current_module, uses, include_imports)
+            {
                 continue;
             }
             for variant in &descriptor.variants {
@@ -264,7 +295,7 @@ impl AdtRegistry {
                     segments,
                     uses,
                     current_module,
-                ) && variant_visible(descriptor, variant, current_module, segments)
+                ) && self.variant_visible(descriptor, variant, current_module, uses, segments)
                 {
                     matches.push(AdtConstructor {
                         descriptor,
@@ -274,6 +305,103 @@ impl AdtRegistry {
             }
         }
         matches
+    }
+
+    fn descriptor_visible(
+        &self,
+        descriptor: &AdtDescriptor,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        include_imports: bool,
+    ) -> bool {
+        if descriptor.module_name.is_none() {
+            return true;
+        }
+        let same_module = descriptor.module_name.as_deref() == current_module;
+        if same_module {
+            return true;
+        }
+        if !include_imports {
+            return false;
+        }
+        if descriptor.visibility != Visibility::Public {
+            return self.companion_private_access_allowed(
+                descriptor,
+                segments,
+                current_module,
+                uses,
+            );
+        }
+        let Some(first) = segments.first() else {
+            return false;
+        };
+        if let Some(module_name) = uses
+            .iter()
+            .find(|use_decl| {
+                use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
+            })
+            .map(|use_decl| use_decl.name.as_str())
+        {
+            return descriptor.module_name.as_deref() == Some(module_name);
+        }
+        segments.len() <= 2
+            && uses.iter().any(|use_decl| {
+                use_decl.module_name.as_deref() == current_module
+                    && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+            })
+    }
+
+    fn variant_visible(
+        &self,
+        descriptor: &AdtDescriptor,
+        variant: &AdtVariantDescriptor,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        segments: &[String],
+    ) -> bool {
+        if descriptor.module_name.is_none() || descriptor.module_name.as_deref() == current_module {
+            return true;
+        }
+        if self.companion_private_access_allowed(descriptor, segments, current_module, uses) {
+            return true;
+        }
+        if segments.len() > 2 {
+            return variant.visibility == Visibility::Public
+                && descriptor.visibility == Visibility::Public;
+        }
+        variant.visibility == Visibility::Public
+    }
+
+    fn companion_private_access_allowed(
+        &self,
+        descriptor: &AdtDescriptor,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        let Some(current_module) = current_module else {
+            return false;
+        };
+        let Some(target_module) = descriptor.module_name.as_deref() else {
+            return false;
+        };
+        if !self
+            .companion_access_targets
+            .get(current_module)
+            .is_some_and(|allowed| allowed == target_module)
+        {
+            return false;
+        }
+        let Some(first) = segments.first() else {
+            return false;
+        };
+        uses.iter().any(|use_decl| {
+            use_decl.package.is_none()
+                && use_decl.module_name.as_deref() == Some(current_module)
+                && use_decl.alias == *first
+                && use_decl.name == target_module
+        })
     }
 }
 
@@ -2558,58 +2686,6 @@ fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
     }
 }
 
-fn descriptor_visible(
-    descriptor: &AdtDescriptor,
-    segments: &[String],
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    include_imports: bool,
-) -> bool {
-    if descriptor.module_name.is_none() {
-        return true;
-    }
-    let same_module = descriptor.module_name.as_deref() == current_module;
-    if same_module {
-        return true;
-    }
-    if descriptor.visibility != Visibility::Public || !include_imports {
-        return false;
-    }
-    let Some(first) = segments.first() else {
-        return false;
-    };
-    if let Some(module_name) = uses
-        .iter()
-        .find(|use_decl| {
-            use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
-        })
-        .map(|use_decl| use_decl.name.as_str())
-    {
-        return descriptor.module_name.as_deref() == Some(module_name);
-    }
-    segments.len() <= 2
-        && uses.iter().any(|use_decl| {
-            use_decl.module_name.as_deref() == current_module
-                && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
-        })
-}
-
-fn variant_visible(
-    descriptor: &AdtDescriptor,
-    variant: &AdtVariantDescriptor,
-    current_module: Option<&str>,
-    segments: &[String],
-) -> bool {
-    if descriptor.module_name.is_none() || descriptor.module_name.as_deref() == current_module {
-        return true;
-    }
-    if segments.len() > 2 {
-        return variant.visibility == Visibility::Public
-            && descriptor.visibility == Visibility::Public;
-    }
-    variant.visibility == Visibility::Public
-}
-
 fn constructor_matches_visible_path(
     descriptor: &AdtDescriptor,
     variant: &AdtVariantDescriptor,
@@ -2632,6 +2708,22 @@ fn constructor_matches_visible_path(
         }
         _ => false,
     }
+}
+
+fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            let companion = classify_companion_source(function.span.file.as_str())?;
+            let companion_module = function.module_name.clone()?;
+            let target_module = companion
+                .target_path
+                .strip_suffix(".veln")?
+                .replace('/', "::");
+            Some((companion_module, target_module))
+        })
+        .collect()
 }
 
 fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bool {

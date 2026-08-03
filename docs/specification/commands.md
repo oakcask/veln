@@ -22,13 +22,13 @@ requiring the full command reference on the first read.
   help parsing or output.
 - `check`: source discovery, source path derived local module identity,
   `.test.veln` companion target inclusion, manifest dependency metadata
-  validation, exact companion private-function access through qualified target
-  imports, companion observation of established private target effects,
-  path dependency source loading for external imports,
+  validation, exact companion private-function and private source ADT access
+  through qualified target imports, companion observation of established
+  private target effects, path dependency source loading for external imports,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   [source-surface.md](source-surface.md) for the companion private-function
-  access and isolation cases, then
+  and source ADT access and isolation cases, then
   [commands-full.md](commands-full.md) for exact command rules.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, schema layout, `match` arm indentation, and canonical
@@ -434,7 +434,10 @@ requiring the full command reference on the first read.
   command rules. The checked example
   `../../examples/specification/test/companion-private-function-access/` shows
   that a selected companion test can execute a private function declared in its
-  exact target. The checked
+  exact target. The checked example
+  `../../examples/specification/test/companion-private-source-adt-access/`
+  shows that a selected companion test can construct and match a private
+  source ADT declared in its exact target. The checked
   `../../examples/specification/test/companion-private-function-established-effects/`
   case shows that the companion test must declare established effects from the
   private target function call. The checked examples

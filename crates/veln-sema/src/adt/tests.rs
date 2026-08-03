@@ -3,6 +3,7 @@ use super::*;
 fn registry() -> AdtRegistry {
     AdtRegistry {
         descriptors: builtin_descriptors(),
+        companion_access_targets: std::collections::BTreeMap::new(),
     }
 }
 

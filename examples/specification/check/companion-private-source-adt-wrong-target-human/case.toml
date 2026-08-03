@@ -1,0 +1,8 @@
+command = ["check", "other.test.veln", "math.veln"]
+exit = 1
+
+[stdout]
+contains = ["error[name.unresolved]: unresolved call_target `math::Secret::Hidden`"]
+
+[stderr]
+format = "empty"

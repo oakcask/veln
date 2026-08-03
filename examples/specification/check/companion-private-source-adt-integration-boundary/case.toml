@@ -1,0 +1,13 @@
+command = ["check", "--json", "math_test.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.unresolved\"", "unresolved call_target `math::Secret::Hidden`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

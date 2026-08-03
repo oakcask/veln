@@ -1,0 +1,6 @@
+use math
+
+test wrong_companion_cannot_use_private_source_adt() -> ()
+	math::Secret::Hidden(3)
+	()
+end
