@@ -1,0 +1,9 @@
+command = ["check", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[module.companion_public_declaration]: test companion `math.test.veln` cannot declare public function `exposed`", "note: Remove `pub`; test companion declarations are not externally visible."]
+
+[stderr]
+format = "empty"

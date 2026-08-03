@@ -82,6 +82,15 @@ The checked source ADT cases are
 `examples/specification/check/companion-private-source-adt-non-transitive/`,
 and `examples/specification/test/companion-private-source-adt-access/`.
 
+A test companion must not declare public source surface. `pub` functions,
+effects, handlers, types, public type variants, schemas, and public function,
+type, and schema aliases are rejected with
+`module.companion_public_declaration`. The checked diagnostic cases are
+`examples/specification/check/companion-public-declaration-json/` and
+`examples/specification/check/companion-public-declaration-human/`. Top-level
+`codec` and `pub codec` declarations remain rejected by
+`parse.codec_declaration_removed` before companion-specific module validation.
+
 ## Integer Literals
 
 `Int` literals accept decimal digits, lowercase `0b` plus binary digits, or

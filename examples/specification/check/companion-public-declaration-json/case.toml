@@ -1,0 +1,28 @@
+command = ["check", "--json", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.companion_public_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "test companion `math.test.veln` cannot declare public function `exposed`"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "public_function"
