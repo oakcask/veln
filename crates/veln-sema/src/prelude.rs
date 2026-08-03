@@ -1175,6 +1175,14 @@ fn prelude_dict_signature(
     name: &str,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
+    prelude_dict_basic_signature(name, expected)
+        .or_else(|| prelude_dict_callback_signature(name, expected))
+}
+
+fn prelude_dict_basic_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
     let dict_key = prefer_known(&expected.dict_key, &expected.input_dict_key);
     let dict_value = prefer_known(&expected.dict_value, &expected.input_dict_value);
     let option_item = prefer_known(&expected.option_item, &expected.input_dict_value);
@@ -1202,109 +1210,139 @@ fn prelude_dict_signature(
             ],
             Type::dict(dict_key.clone(), dict_value.clone()),
         )),
-        "dict_map" | "dict_map_with" => {
-            let with_context = name == "dict_map_with";
-            let result_dict_key = prefer_known(&expected.input_dict_key, &expected.dict_key);
-            let result_dict_value = expected.dict_value.clone();
-            Some((
-                prelude_callback_params_with_context(
-                    with_context,
-                    Type::dict(result_dict_key.clone(), expected.input_dict_value.clone()),
-                    Type::Function {
-                        params: prelude_callback_args_with_context(
-                            with_context,
-                            vec![result_dict_key.clone(), expected.input_dict_value.clone()],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(result_dict_value.clone()),
-                        effects: Vec::new(),
-                    },
-                ),
-                Type::dict(result_dict_key, result_dict_value),
-            ))
-        }
-        "dict_filter" | "dict_filter_with" => {
-            let with_context = name == "dict_filter_with";
-            let same_dict_key = prefer_known(&expected.input_dict_key, &expected.dict_key);
-            let same_dict_value = prefer_known(&expected.input_dict_value, &expected.dict_value);
-            Some((
-                prelude_callback_params_with_context(
-                    with_context,
-                    Type::dict(same_dict_key.clone(), same_dict_value.clone()),
-                    Type::Function {
-                        params: prelude_callback_args_with_context(
-                            with_context,
-                            vec![same_dict_key.clone(), same_dict_value.clone()],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(Type::bool()),
-                        effects: Vec::new(),
-                    },
-                ),
-                Type::dict(same_dict_key, same_dict_value),
-            ))
-        }
-        "dict_fold" | "dict_fold_with" => {
-            let with_context = name == "dict_fold_with";
-            Some((
-                prelude_fold_params_with_context(
-                    with_context,
-                    Type::dict(
-                        expected.input_dict_key.clone(),
-                        expected.input_dict_value.clone(),
-                    ),
-                    expected.direct.clone(),
-                    Type::Function {
-                        params: prelude_callback_args_with_context(
-                            with_context,
-                            vec![
-                                expected.direct.clone(),
-                                expected.input_dict_key.clone(),
-                                expected.input_dict_value.clone(),
-                            ],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(expected.direct.clone()),
-                        effects: Vec::new(),
-                    },
-                ),
-                expected.direct.clone(),
-            ))
-        }
-        "dict_try_map" | "dict_try_map_with" => {
-            let with_context = name == "dict_try_map_with";
-            let (result_dict_key, result_dict_value) = expected
-                .result_value
-                .dict_parts()
-                .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
-                    (key.clone(), value.clone())
-                });
-            let output_key = prefer_known(&expected.input_dict_key, &result_dict_key);
-            Some((
-                prelude_callback_params_with_context(
-                    with_context,
-                    Type::dict(output_key.clone(), expected.input_dict_value.clone()),
-                    Type::Function {
-                        params: prelude_callback_args_with_context(
-                            with_context,
-                            vec![output_key.clone(), expected.input_dict_value.clone()],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(adt::result_type(
-                            result_dict_value.clone(),
-                            expected.result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ),
-                adt::result_type(
-                    Type::dict(output_key, result_dict_value),
-                    expected.result_error.clone(),
-                ),
-            ))
-        }
         _ => None,
     }
+}
+
+fn prelude_dict_callback_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "dict_map" => Some(prelude_dict_map_signature(false, expected)),
+        "dict_map_with" => Some(prelude_dict_map_signature(true, expected)),
+        "dict_filter" => Some(prelude_dict_filter_signature(false, expected)),
+        "dict_filter_with" => Some(prelude_dict_filter_signature(true, expected)),
+        "dict_fold" => Some(prelude_dict_fold_signature(false, expected)),
+        "dict_fold_with" => Some(prelude_dict_fold_signature(true, expected)),
+        "dict_try_map" => Some(prelude_dict_try_map_signature(false, expected)),
+        "dict_try_map_with" => Some(prelude_dict_try_map_signature(true, expected)),
+        _ => None,
+    }
+}
+
+fn prelude_dict_map_signature(
+    with_context: bool,
+    expected: &ExpectedPreludeParts,
+) -> (Vec<Type>, Type) {
+    let result_key = prefer_known(&expected.input_dict_key, &expected.dict_key);
+    let result_value = expected.dict_value.clone();
+    let callback = Type::Function {
+        params: prelude_callback_args_with_context(
+            with_context,
+            vec![result_key.clone(), expected.input_dict_value.clone()],
+        ),
+        variadic: None,
+        return_type: Box::new(result_value.clone()),
+        effects: Vec::new(),
+    };
+    (
+        prelude_callback_params_with_context(
+            with_context,
+            Type::dict(result_key.clone(), expected.input_dict_value.clone()),
+            callback,
+        ),
+        Type::dict(result_key, result_value),
+    )
+}
+
+fn prelude_dict_filter_signature(
+    with_context: bool,
+    expected: &ExpectedPreludeParts,
+) -> (Vec<Type>, Type) {
+    let key = prefer_known(&expected.input_dict_key, &expected.dict_key);
+    let value = prefer_known(&expected.input_dict_value, &expected.dict_value);
+    let callback = Type::Function {
+        params: prelude_callback_args_with_context(with_context, vec![key.clone(), value.clone()]),
+        variadic: None,
+        return_type: Box::new(Type::bool()),
+        effects: Vec::new(),
+    };
+    (
+        prelude_callback_params_with_context(
+            with_context,
+            Type::dict(key.clone(), value.clone()),
+            callback,
+        ),
+        Type::dict(key, value),
+    )
+}
+
+fn prelude_dict_fold_signature(
+    with_context: bool,
+    expected: &ExpectedPreludeParts,
+) -> (Vec<Type>, Type) {
+    let callback = Type::Function {
+        params: prelude_callback_args_with_context(
+            with_context,
+            vec![
+                expected.direct.clone(),
+                expected.input_dict_key.clone(),
+                expected.input_dict_value.clone(),
+            ],
+        ),
+        variadic: None,
+        return_type: Box::new(expected.direct.clone()),
+        effects: Vec::new(),
+    };
+    (
+        prelude_fold_params_with_context(
+            with_context,
+            Type::dict(
+                expected.input_dict_key.clone(),
+                expected.input_dict_value.clone(),
+            ),
+            expected.direct.clone(),
+            callback,
+        ),
+        expected.direct.clone(),
+    )
+}
+
+fn prelude_dict_try_map_signature(
+    with_context: bool,
+    expected: &ExpectedPreludeParts,
+) -> (Vec<Type>, Type) {
+    let (result_key, result_value) = expected
+        .result_value
+        .dict_parts()
+        .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+            (key.clone(), value.clone())
+        });
+    let output_key = prefer_known(&expected.input_dict_key, &result_key);
+    let callback = Type::Function {
+        params: prelude_callback_args_with_context(
+            with_context,
+            vec![output_key.clone(), expected.input_dict_value.clone()],
+        ),
+        variadic: None,
+        return_type: Box::new(adt::result_type(
+            result_value.clone(),
+            expected.result_error.clone(),
+        )),
+        effects: Vec::new(),
+    };
+    (
+        prelude_callback_params_with_context(
+            with_context,
+            Type::dict(output_key.clone(), expected.input_dict_value.clone()),
+            callback,
+        ),
+        adt::result_type(
+            Type::dict(output_key, result_value),
+            expected.result_error.clone(),
+        ),
+    )
 }
 
 fn prelude_callback_params_with_context(
@@ -1883,6 +1921,14 @@ fn core_prelude_dict_signature(
     name: &str,
     expected: &ExpectedCorePreludeParts,
 ) -> Option<(Vec<CoreType>, CoreType)> {
+    core_prelude_dict_basic_signature(name, expected)
+        .or_else(|| core_prelude_dict_callback_signature(name, expected))
+}
+
+fn core_prelude_dict_basic_signature(
+    name: &str,
+    expected: &ExpectedCorePreludeParts,
+) -> Option<(Vec<CoreType>, CoreType)> {
     let dict_key = &expected.dict_key;
     let dict_value = &expected.dict_value;
     let option_item = &expected.option_item;
@@ -1916,101 +1962,134 @@ fn core_prelude_dict_signature(
             ],
             CoreType::dict(dict_key.clone(), dict_value.clone()),
         )),
-        "dict_map" | "dict_map_with" => {
-            let with_context = name == "dict_map_with";
-            Some((
-                core_prelude_callback_params_with_context(
-                    with_context,
-                    CoreType::dict(dict_key.clone(), CoreType::Unknown),
-                    CoreType::Function {
-                        params: core_prelude_callback_args_with_context(
-                            with_context,
-                            vec![dict_key.clone(), CoreType::Unknown],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(dict_value.clone()),
-                        effects: Vec::new(),
-                    },
-                ),
-                CoreType::dict(dict_key.clone(), dict_value.clone()),
-            ))
-        }
-        "dict_filter" | "dict_filter_with" => {
-            let with_context = name == "dict_filter_with";
-            Some((
-                core_prelude_callback_params_with_context(
-                    with_context,
-                    CoreType::dict(dict_key.clone(), dict_value.clone()),
-                    CoreType::Function {
-                        params: core_prelude_callback_args_with_context(
-                            with_context,
-                            vec![dict_key.clone(), dict_value.clone()],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(CoreType::bool()),
-                        effects: Vec::new(),
-                    },
-                ),
-                CoreType::dict(dict_key.clone(), dict_value.clone()),
-            ))
-        }
-        "dict_fold" | "dict_fold_with" => {
-            let with_context = name == "dict_fold_with";
-            Some((
-                core_prelude_fold_params_with_context(
-                    with_context,
-                    CoreType::dict(CoreType::Unknown, CoreType::Unknown),
-                    expected.direct.clone(),
-                    CoreType::Function {
-                        params: core_prelude_callback_args_with_context(
-                            with_context,
-                            vec![
-                                expected.direct.clone(),
-                                CoreType::Unknown,
-                                CoreType::Unknown,
-                            ],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(expected.direct.clone()),
-                        effects: Vec::new(),
-                    },
-                ),
-                expected.direct.clone(),
-            ))
-        }
-        "dict_try_map" | "dict_try_map_with" => {
-            let with_context = name == "dict_try_map_with";
-            let (result_dict_key, result_dict_value) = expected
-                .result_value
-                .dict_parts()
-                .map_or((CoreType::Unknown, CoreType::Unknown), |(key, value)| {
-                    (key.clone(), value.clone())
-                });
-            Some((
-                core_prelude_callback_params_with_context(
-                    with_context,
-                    CoreType::dict(result_dict_key.clone(), CoreType::Unknown),
-                    CoreType::Function {
-                        params: core_prelude_callback_args_with_context(
-                            with_context,
-                            vec![result_dict_key.clone(), CoreType::Unknown],
-                        ),
-                        variadic: None,
-                        return_type: Box::new(adt::core_result_type(
-                            result_dict_value.clone(),
-                            expected.result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ),
-                adt::core_result_type(
-                    CoreType::dict(result_dict_key, result_dict_value),
-                    expected.result_error.clone(),
-                ),
-            ))
-        }
         _ => None,
     }
+}
+
+fn core_prelude_dict_callback_signature(
+    name: &str,
+    expected: &ExpectedCorePreludeParts,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "dict_map" => Some(core_prelude_dict_map_signature(false, expected)),
+        "dict_map_with" => Some(core_prelude_dict_map_signature(true, expected)),
+        "dict_filter" => Some(core_prelude_dict_filter_signature(false, expected)),
+        "dict_filter_with" => Some(core_prelude_dict_filter_signature(true, expected)),
+        "dict_fold" => Some(core_prelude_dict_fold_signature(false, expected)),
+        "dict_fold_with" => Some(core_prelude_dict_fold_signature(true, expected)),
+        "dict_try_map" => Some(core_prelude_dict_try_map_signature(false, expected)),
+        "dict_try_map_with" => Some(core_prelude_dict_try_map_signature(true, expected)),
+        _ => None,
+    }
+}
+
+fn core_prelude_dict_map_signature(
+    with_context: bool,
+    expected: &ExpectedCorePreludeParts,
+) -> (Vec<CoreType>, CoreType) {
+    let callback = CoreType::Function {
+        params: core_prelude_callback_args_with_context(
+            with_context,
+            vec![expected.dict_key.clone(), CoreType::Unknown],
+        ),
+        variadic: None,
+        return_type: Box::new(expected.dict_value.clone()),
+        effects: Vec::new(),
+    };
+    (
+        core_prelude_callback_params_with_context(
+            with_context,
+            CoreType::dict(expected.dict_key.clone(), CoreType::Unknown),
+            callback,
+        ),
+        CoreType::dict(expected.dict_key.clone(), expected.dict_value.clone()),
+    )
+}
+
+fn core_prelude_dict_filter_signature(
+    with_context: bool,
+    expected: &ExpectedCorePreludeParts,
+) -> (Vec<CoreType>, CoreType) {
+    let callback = CoreType::Function {
+        params: core_prelude_callback_args_with_context(
+            with_context,
+            vec![expected.dict_key.clone(), expected.dict_value.clone()],
+        ),
+        variadic: None,
+        return_type: Box::new(CoreType::bool()),
+        effects: Vec::new(),
+    };
+    (
+        core_prelude_callback_params_with_context(
+            with_context,
+            CoreType::dict(expected.dict_key.clone(), expected.dict_value.clone()),
+            callback,
+        ),
+        CoreType::dict(expected.dict_key.clone(), expected.dict_value.clone()),
+    )
+}
+
+fn core_prelude_dict_fold_signature(
+    with_context: bool,
+    expected: &ExpectedCorePreludeParts,
+) -> (Vec<CoreType>, CoreType) {
+    let callback = CoreType::Function {
+        params: core_prelude_callback_args_with_context(
+            with_context,
+            vec![
+                expected.direct.clone(),
+                CoreType::Unknown,
+                CoreType::Unknown,
+            ],
+        ),
+        variadic: None,
+        return_type: Box::new(expected.direct.clone()),
+        effects: Vec::new(),
+    };
+    (
+        core_prelude_fold_params_with_context(
+            with_context,
+            CoreType::dict(CoreType::Unknown, CoreType::Unknown),
+            expected.direct.clone(),
+            callback,
+        ),
+        expected.direct.clone(),
+    )
+}
+
+fn core_prelude_dict_try_map_signature(
+    with_context: bool,
+    expected: &ExpectedCorePreludeParts,
+) -> (Vec<CoreType>, CoreType) {
+    let (result_key, result_value) = expected
+        .result_value
+        .dict_parts()
+        .map_or((CoreType::Unknown, CoreType::Unknown), |(key, value)| {
+            (key.clone(), value.clone())
+        });
+    let callback = CoreType::Function {
+        params: core_prelude_callback_args_with_context(
+            with_context,
+            vec![result_key.clone(), CoreType::Unknown],
+        ),
+        variadic: None,
+        return_type: Box::new(adt::core_result_type(
+            result_value.clone(),
+            expected.result_error.clone(),
+        )),
+        effects: Vec::new(),
+    };
+    (
+        core_prelude_callback_params_with_context(
+            with_context,
+            CoreType::dict(result_key.clone(), CoreType::Unknown),
+            callback,
+        ),
+        adt::core_result_type(
+            CoreType::dict(result_key, result_value),
+            expected.result_error.clone(),
+        ),
+    )
 }
 
 fn core_prelude_callback_params_with_context(
