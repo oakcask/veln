@@ -53,6 +53,7 @@ is not transitive through modules imported by the target, and does not add bare
 target-name lookup. The checked cases are
 `examples/specification/check/companion-private-function-access/`,
 `examples/specification/check/companion-private-function-alias-boundary/`,
+`examples/specification/check/companion-private-function-value-boundary/`,
 `examples/specification/check/companion-private-function-wrong-target/`,
 `examples/specification/check/companion-private-function-wrong-target-human/`,
 `examples/specification/check/companion-private-function-integration-boundary/`,

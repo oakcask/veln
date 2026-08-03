@@ -867,6 +867,59 @@ fn matching_companion_resolves_qualified_private_function_imports() {
 }
 
 #[test]
+fn matching_companion_cannot_bind_qualified_private_function_values() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "test increment_value_test() -> ()\n",
+            "  let mapper: fn(Int) -> Int = math::increment\n",
+            "  let observed: Int = mapper(1)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn increment(value: Int) -> Int\n",
+            "  value + 1\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `math::increment`"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
     let companion_source = SourceFile::new(
         "other.test.veln",

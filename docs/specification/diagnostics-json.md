@@ -77,6 +77,7 @@ Companion source diagnostics are executable in
 Companion private-function visibility and explicit-import failures reuse
 `name.unresolved`; JSON and human boundaries are checked by
 `examples/specification/check/companion-private-function-alias-boundary/`,
+`examples/specification/check/companion-private-function-value-boundary/`,
 `examples/specification/check/companion-private-function-wrong-target/`,
 `examples/specification/check/companion-private-function-wrong-target-human/`,
 `examples/specification/check/companion-private-function-non-transitive/`,

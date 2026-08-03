@@ -1,0 +1,7 @@
+use math
+
+test companion_cannot_bind_private_target_function_value() -> ()
+	let mapper: fn(Int) -> Int = math::increment
+	let observed: Int = mapper(1)
+	()
+end

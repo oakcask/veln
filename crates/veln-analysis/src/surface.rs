@@ -1786,7 +1786,7 @@ fn collect_contract_function_value_references(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
-    companion_access_targets: &HashMap<String, String>,
+    _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let mut index = 0usize;
@@ -1836,12 +1836,13 @@ fn collect_contract_function_value_references(
             index += 1;
             segments
         };
+        let public_or_same_module_access = HashMap::new();
         for callee in resolve_function_reference(
             &segments,
             current_module,
             uses,
             function_targets,
-            companion_access_targets,
+            &public_or_same_module_access,
         ) {
             push_reachable(callees, callee);
         }
@@ -2247,7 +2248,7 @@ fn collect_opaque_function_value_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
-    companion_access_targets: &HashMap<String, String>,
+    _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     if current_module.is_some_and(|module| module.starts_with("std::")) {
@@ -2257,13 +2258,14 @@ fn collect_opaque_function_value_callees(
     {
         return;
     }
+    let public_or_same_module_access = HashMap::new();
     for target in function_targets.iter().filter(|target| {
         target.shape == *shape
             && target_visible_from_current_module(
                 target,
                 current_module,
                 uses,
-                companion_access_targets,
+                &public_or_same_module_access,
             )
     }) {
         push_reachable(
@@ -2389,12 +2391,19 @@ fn collect_function_name_reference(
         }
         return;
     }
+    let public_or_same_module_access;
+    let access_targets = if arg_count.is_some() {
+        companion_access_targets
+    } else {
+        public_or_same_module_access = HashMap::new();
+        &public_or_same_module_access
+    };
     for callee in resolve_function_reference(
         segments,
         current_module,
         uses,
         function_targets,
-        companion_access_targets,
+        access_targets,
     ) {
         push_reachable(callees, callee);
     }
@@ -3443,6 +3452,62 @@ mod tests {
                 Some("math__test_companion"),
                 FunctionKind::Test,
                 Some("expose_test")
+            )),
+            "{functions:#?}"
+        );
+        assert!(
+            !functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_test_entry_does_not_reach_private_target_function_value() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test increment_value_test() -> Int\n",
+                        "  let mapper: fn(Int) -> Int = math::increment\n",
+                        "  mapper(1)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "fn increment(value: Int) -> Int\n",
+                        "  value + 1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "increment_value_test", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            functions.contains(&(
+                Some("math__test_companion"),
+                FunctionKind::Test,
+                Some("increment_value_test")
             )),
             "{functions:#?}"
         );

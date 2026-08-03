@@ -370,6 +370,23 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
+        self.function_path_with_companion_access(segments, current_module, true)
+    }
+
+    pub(crate) fn function_path_for_value(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        self.function_path_with_companion_access(segments, current_module, false)
+    }
+
+    fn function_path_with_companion_access(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        allow_companion_private_access: bool,
+    ) -> Option<&FunctionSignature> {
         match segments {
             [name] => self.function(name),
             [_, .., name] => {
@@ -382,7 +399,12 @@ impl TypeEnvironment {
                 self.functions.iter().find(|function| {
                     function.name == *name
                         && function.module_name.as_deref() == Some(module_name)
-                        && self.imported_function_is_visible(function, use_decl, current_module)
+                        && self.imported_function_is_visible(
+                            function,
+                            use_decl,
+                            current_module,
+                            allow_companion_private_access,
+                        )
                         && !self.imported_codec_helper_is_hidden(function, use_decl)
                 })
             }
@@ -564,6 +586,7 @@ impl TypeEnvironment {
         function: &FunctionSignature,
         use_decl: &UseDecl,
         current_module: Option<&str>,
+        allow_companion_private_access: bool,
     ) -> bool {
         if function.visibility == Visibility::Public {
             return true;
@@ -578,6 +601,9 @@ impl TypeEnvironment {
                 .is_some_and(|module| module.starts_with("std::"))
         {
             return true;
+        }
+        if !allow_companion_private_access {
+            return false;
         }
         current_module.is_some_and(|current_module| {
             function.module_name.as_ref().is_some_and(|target_module| {
@@ -6286,14 +6312,17 @@ fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Optio
                 )
                 .map(FunctionSignature::ty)
             }),
-        _ => function_signature_path(
-            segments,
-            context.uses,
-            context.functions,
-            context.current_module,
-            context.companion_access_targets,
-        )
-        .map(FunctionSignature::ty),
+        _ => {
+            let public_or_same_module_access = BTreeMap::new();
+            function_signature_path(
+                segments,
+                context.uses,
+                context.functions,
+                context.current_module,
+                &public_or_same_module_access,
+            )
+            .map(FunctionSignature::ty)
+        }
     }
 }
 

@@ -916,7 +916,7 @@ impl<'a> CoreLowerer<'a> {
                 _ => {
                     if let Some(function) = self
                         .environment
-                        .function_path(segments, self.function.module_name.as_deref())
+                        .function_path_for_value(segments, self.function.module_name.as_deref())
                     {
                         self.core_expr(
                             expr,
